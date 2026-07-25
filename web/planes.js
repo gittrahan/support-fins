@@ -40,26 +40,42 @@
  */
 export const MAX_LEAN_DEG = 45;
 
-/** Adjacent faces merge into one patch if their normals agree this closely. */
-export const NORMAL_AGREE_DEG = 12;
+/**
+ * How far a face's normal may swing from its seed's and still join the patch.
+ *
+ * Wide on purpose. At 12 degrees this was the binding constraint on any round
+ * part: a 32-sided cone steps 11.25 degrees per facet, so a patch could never
+ * grow past its immediate neighbour no matter what the distance budget allowed.
+ * The distance band below is the real guard -- every face is measured against
+ * the SEED's plane, so nothing can creep -- and this only has to keep the patch
+ * on surfaces still facing the fin, since a face turned edge-on would be skimmed
+ * by a tine rather than bitten.
+ */
+export const NORMAL_AGREE_DEG = 35;
 
 /**
- * Max deviation from the mean plane, mm.
+ * How far the real surface may stray from the patch's fitted plane, in mm.
  *
- * This is NOT a free parameter, and getting that wrong cost two real defects.
- * The fin is placed relative to the patch's FITTED plane, but it has to clear
- * the actual surface, so the flatness budget is bounded on both sides:
+ * The budget is ASYMMETRIC, because the two directions fail completely
+ * differently and a single number has to be the smaller of them:
  *
- *   - below the standoff (0.2mm), or a patch that bows toward the fin puts the
- *     wall INSIDE the part -- measured at 1.7mm deep with this set to 0.5;
- *   - below the tine bite (0.3mm), or a patch that bows away leaves the tines
- *     hanging in air -- 45 of 78 tines fused nothing, same run.
+ *   - TOWARD the fin, the wall is what gets hurt. Anything bulging past the
+ *     standoff puts the wall inside the part; at 0.5mm this was measured 1.7mm
+ *     deep in a Voron housing. The budget must stay under the standoff, and
+ *     under the obstruction test's own threshold, or a patch blocks its own wall.
+ *   - AWAY from the fin, nothing is hurt except tine length. The surface simply
+ *     recedes and the tine reaches further, which is free until the tine stops
+ *     being a tine: prototype/probe_tines2.py put that limit at 1.5mm of
+ *     unsupported span, beyond which it is a bridge.
  *
- * So it must sit under the smaller of the two, with margin. Curved and stepped
- * faces get rejected here rather than finned badly, which is the right trade:
- * a face this tool declines is a face draw mode can still serve.
+ * Treating them as one number is what limited fins to flat-faced parts. A round
+ * part's facets are 1-2mm tall, so a symmetric tolerance grips exactly one facet
+ * -- on hub_post_foot at 70 degrees the best grip available anywhere on the part
+ * was 0.86mm. Letting the surface recede lets one flat wall span many facets.
  */
-export const FLAT_TOL = 0.15;
+export const FLAT_TOL_IN = 1.20;    // away from the fin; paid for in tine length
+export const GROW_SLACK = 0.35;     // outward slack while growing, before the
+                                    // supporting plane is known (see fitPatch)
 
 export const MIN_PATCH_H = 4.0;     // mm, measured up the face
 export const MIN_PATCH_W = 4.0;     // mm, measured across it
@@ -140,12 +156,14 @@ export function findWallPatches(topo, rot, offset, stats = null) {
         if (taken[g] || !upright[g]) continue;
         const dot = rn[g * 3] * sx + rn[g * 3 + 1] * sy + rn[g * 3 + 2] * sz;
         if (dot < agreeCut) continue;
-        let off = 0;
+        let outward = -Infinity, inward = Infinity;
         for (let i = 0; i < 3; i++) {
           worldVertex(pos, g * 9 + i * 3, rot, offset, v);
-          off = Math.max(off, Math.abs(v[0] * sx + v[1] * sy + v[2] * sz - sd));
+          const dn = v[0] * sx + v[1] * sy + v[2] * sz - sd;
+          if (dn > outward) outward = dn;
+          if (dn < inward) inward = dn;
         }
-        if (off > FLAT_TOL) continue;
+        if (outward > GROW_SLACK || inward < -FLAT_TOL_IN) continue;
         taken[g] = 1;
         faces.push(g);
         total += area[g];
@@ -237,27 +255,29 @@ function fitPatch(topo, g, rn, rot, offset, stats = null) {
   // and put a 40-degree face's tines 13.6mm away from their own wall.
   const tx = -nz * (nx / h), ty = -nz * (ny / h), tz = h;
 
-  // Area-weighted mean plane offset. Note the per-FACE weighting: an earlier
-  // version added `area[f]` once per vertex while also dividing by three, which
-  // silently produced d/3 -- a plane a third of the way to the origin. Nothing
-  // crashed; the patches simply all failed the flatness test and the tool found
-  // one site on a 35,520-face part.
+  // The plane is a SUPPORTING plane -- it touches the outermost point of the
+  // patch and the whole surface lies behind it -- not a mean plane through the
+  // middle. That is what makes one flat wall safe against a curved face: with a
+  // mean plane, the middle of the patch bulges toward the fin (about 1.1mm
+  // across seven facets of a 9mm cone) and the wall is driven into the part.
+  // Behind a supporting plane every deviation is negative by construction, so
+  // the standoff is a floor rather than an average and the only thing left to
+  // bound is how far the surface recedes.
   const v = [0, 0, 0];
-  let dSum = 0, wSum = 0;
+  let d = -Infinity;
   for (const f of g.faces) {
-    let acc = 0;
     for (let i = 0; i < 3; i++) {
       worldVertex(pos, f * 9 + i * 3, rot, offset, v);
-      acc += v[0] * nx + v[1] * ny + v[2] * nz;
+      const dn = v[0] * nx + v[1] * ny + v[2] * nz;
+      if (dn > d) d = dn;
     }
-    dSum += (acc / 3) * area[f];
-    wSum += area[f];
   }
-  const d = dSum / wSum;
 
   // flatness, extent, and the (u, t) projection in one pass
-  const tris = new Float64Array(g.faces.length * 6);
-  let dev = 0;
+  // (u, t, dn) per vertex: the in-plane coordinates plus the SIGNED distance
+  // from the fitted plane, which is what lets each tine size itself later.
+  const tris = new Float64Array(g.faces.length * 9);
+  let devOut = -Infinity, devIn = Infinity;
   let u0 = Infinity, u1 = -Infinity, t0 = Infinity, t1 = -Infinity;
   let z0 = Infinity, z1 = -Infinity;
   for (let k = 0; k < g.faces.length; k++) {
@@ -265,11 +285,13 @@ function fitPatch(topo, g, rn, rot, offset, stats = null) {
     for (let i = 0; i < 3; i++) {
       worldVertex(pos, f * 9 + i * 3, rot, offset, v);
       const dn = v[0] * nx + v[1] * ny + v[2] * nz - d;
-      if (Math.abs(dn) > dev) dev = Math.abs(dn);
+      if (dn > devOut) devOut = dn;
+      if (dn < devIn) devIn = dn;
       const u = v[0] * ux + v[1] * uy;
       const t = v[0] * tx + v[1] * ty + v[2] * tz;
-      tris[k * 6 + i * 2] = u;
-      tris[k * 6 + i * 2 + 1] = t;
+      tris[k * 9 + i * 3] = u;
+      tris[k * 9 + i * 3 + 1] = t;
+      tris[k * 9 + i * 3 + 2] = dn;
       if (u < u0) u0 = u; if (u > u1) u1 = u;
       if (t < t0) t0 = t; if (t > t1) t1 = t;
       if (v[2] < z0) z0 = v[2]; if (v[2] > z1) z1 = v[2];
@@ -280,7 +302,7 @@ function fitPatch(topo, g, rn, rot, offset, stats = null) {
     if (stats) stats[why] = (stats[why] ?? 0) + 1;
     return null;
   };
-  if (dev > FLAT_TOL) return fail('notFlat');
+  if (devIn < -FLAT_TOL_IN) return fail('notFlat');
   if (t1 - t0 < MIN_PATCH_H) return fail('tooShort');
   if (u1 - u0 < MIN_PATCH_W) return fail('tooNarrow');
 
@@ -298,7 +320,7 @@ function fitPatch(topo, g, rn, rot, offset, stats = null) {
     t: { x: tx, y: ty, z: tz },
     h, d, u0, u1, t0, t1, z0, z1,
     lean: Math.abs(Math.asin(nz) * 180 / Math.PI),
-    flatness: dev,
+    flatness: Math.max(devOut, -devIn),
     tris,
   };
 }
@@ -309,24 +331,39 @@ function fitPatch(topo, g, rn, rot, offset, stats = null) {
  * placed in the notch of an L-shaped face would print into thin air.
  */
 export function patchCovers(patch, u, t) {
+  return patchProbe(patch, u, t) !== null;
+}
+
+/**
+ * Where the real surface sits at (u, t), as a signed distance from the patch's
+ * fitted plane -- negative meaning it has receded away from the fin. Returns
+ * null if the patch does not cover that point at all.
+ *
+ * This is what makes a tine self-sizing. The wall is one flat plane, but the
+ * surface it grips is not, so each tine has to know its own local gap rather
+ * than assume the standoff.
+ */
+export function patchProbe(patch, u, t) {
   const tri = patch.tris;
-  for (let i = 0; i < tri.length; i += 6) {
+  for (let i = 0; i < tri.length; i += 9) {
     const ax = tri[i], ay = tri[i + 1];
-    const bx = tri[i + 2], by = tri[i + 3];
-    const cx = tri[i + 4], cy = tri[i + 5];
+    const bx = tri[i + 3], by = tri[i + 4];
+    const cx = tri[i + 6], cy = tri[i + 7];
+
     // Skip slivers. A triangle with no projected area gives d1 = d2 = d3 = 0,
     // which reads as "inside" and makes the whole coverage test pass for every
-    // point -- resurrecting the tine-into-thin-air case this function exists to
-    // prevent. Patches seen edge-on project to exactly this.
-    const cross = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
-    if (Math.abs(cross) < 1e-9) continue;
+    // point -- resurrecting the tine-into-thin-air case this exists to prevent.
+    const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+    if (Math.abs(den) < 1e-9) continue;
 
-    const d1 = (u - bx) * (ay - by) - (ax - bx) * (t - by);
-    const d2 = (u - cx) * (by - cy) - (bx - cx) * (t - cy);
-    const d3 = (u - ax) * (cy - ay) - (cx - ax) * (t - ay);
-    if (!((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0))) return true;
+    const l1 = ((by - cy) * (u - cx) + (cx - bx) * (t - cy)) / den;
+    const l2 = ((cy - ay) * (u - cx) + (ax - cx) * (t - cy)) / den;
+    const l3 = 1 - l1 - l2;
+    if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
+
+    return l1 * tri[i + 2] + l2 * tri[i + 5] + l3 * tri[i + 8];
   }
-  return false;
+  return null;
 }
 
 /** World point at patch-frame coordinates: `w` out of the face, `u` across, `t` up. */

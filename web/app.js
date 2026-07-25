@@ -135,7 +135,15 @@ gizmo.setSize(0.85);
 scene.add(gizmo.getHelper ? gizmo.getHelper() : gizmo);
 gizmo.addEventListener('dragging-changed', (e) => {
   controls.enabled = !e.value;
-  if (!e.value) el('rot-delta').textContent = '';
+  if (!e.value) {
+    el('rot-delta').textContent = '';
+    // Fins are rebuilt when the drag ENDS, not during it. Placement runs the
+    // exact confirmation passes -- containment, clearance, per-tine bite -- and
+    // costs ~100ms on a 43k-face part, which is fine once and unusable at 60fps.
+    // The overhang shading still updates live at 1-6ms, so the diagnosis the
+    // user is steering by never stalls.
+    if (finsVisible) refreshFins();
+  }
 });
 gizmo.addEventListener('objectChange', () => {
   showDelta(gizmo.axis, gizmo.rotationAngle);
@@ -271,7 +279,8 @@ function shade() {
   el('s-time').textContent = analysisTiming;
 
   lastResult = res;
-  if (finsVisible) refreshFins();
+  if (finsVisible && !gizmo.dragging) refreshFins();
+  else if (finsVisible) markFinsStale();
 
   // where the part currently sits, the way a slicer states it
   const [ex, ey, ez] = readableEuler(part.quaternion);
@@ -477,7 +486,16 @@ function refreshFins() {
  * rather than implying the red went away. Overstating this is how a tool loses
  * someone on their first print.
  */
+/** Grey the fins while a drag is in flight, so nothing on screen is a lie. */
+function markFinsStale() {
+  for (const m of [finMesh, padMesh]) if (m) m.material.opacity = 0.25;
+  finMaterial.transparent = padMaterial.transparent = true;
+  el('s-fins').textContent = 'recalculating…';
+}
+
 function updateFinReadout(built, ms) {
+  finMaterial.transparent = padMaterial.transparent = false;
+  finMaterial.opacity = padMaterial.opacity = 1;
   const box = el('s-fins');
   const note = el('s-fin-note');
   if (!built) {

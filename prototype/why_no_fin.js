@@ -10,8 +10,8 @@
  */
 const WEB = '/Users/matthewtrahan/projects/support-fins/web';
 const { buildTopology, analyze } = await import(`${WEB}/overhangs.js`);
-const { findWallPatches, MAX_LEAN_DEG, FLAT_TOL, MIN_PATCH_H, MIN_PATCH_W,
-        MIN_PATCH_AREA } = await import(`${WEB}/planes.js`);
+const { findWallPatches, MAX_LEAN_DEG, FLAT_TOL_IN, MIN_PATCH_H,
+        MIN_PATCH_W, MIN_PATCH_AREA } = await import(`${WEB}/planes.js`);
 const { buildFins, FIN } = await import(`${WEB}/fins.js`);
 
 function readSTL(bytes) {
@@ -43,7 +43,7 @@ console.log(`bed contact ${res.bedArea.toFixed(1)} mm2   overhang regions ${res.
 console.log('PATCH FUNNEL');
 console.log(`  candidate groups grown        ${stats.grown ?? 0}`);
 console.log(`  rejected, area < ${MIN_PATCH_AREA} mm2      ${stats.tooSmall ?? 0}`);
-console.log(`  rejected, bows > ${FLAT_TOL} mm        ${stats.notFlat ?? 0}`);
+console.log(`  rejected, recedes > ${FLAT_TOL_IN}mm       ${stats.notFlat ?? 0}`);
 console.log(`  rejected, < ${MIN_PATCH_H} mm up the face  ${stats.tooShort ?? 0}`);
 console.log(`  rejected, < ${MIN_PATCH_W} mm across       ${stats.tooNarrow ?? 0}`);
 console.log(`  SURVIVING PATCHES             ${patches.length}\n`);

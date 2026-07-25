@@ -26,7 +26,7 @@
  * built in world axes, because a tine must occupy ONE layer, and a box that is
  * flat in a leaning frame is not flat in z.
  */
-import { findWallPatches, patchCovers, patchPoint, tAtZ, zAt } from './planes.js';
+import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js';
 import { BED_EPS } from './overhangs.js';
 import { insidePart } from './inside.js';
 
@@ -42,6 +42,8 @@ export const FIN = {
   th: 1.2,            // wall thickness
   tineBite: 0.3,      // how far a tine sinks into the part
   tineGrip: 0.4,      // how far a tine reaches back into the wall
+  tineSpanMax: 1.5,   // mm of UNSUPPORTED tine; past this it is a bridge, not a
+                      // tine (measured in prototype/probe_tines2.py)
   tineSpacingU: 14,   // mm between tines along the wall
   rowGapMin: 0.8,     // mm; below this the rows stop being separate beads
   denseZone: 6,       // mm of height that gets the dense tine rows
@@ -131,9 +133,9 @@ function chooseSpan(p, topo, rot, offset) {
   // the patch's own profile: intersect each of its triangles with the vertical
   // line at each bin centre, in the patch's (u, t) plane
   const tris = p.tris;
-  for (let i = 0; i < tris.length; i += 6) {
-    const ux = [tris[i], tris[i + 2], tris[i + 4]];
-    const tv = [tris[i + 1], tris[i + 3], tris[i + 5]];
+  for (let i = 0; i < tris.length; i += 9) {
+    const ux = [tris[i], tris[i + 3], tris[i + 6]];
+    const tv = [tris[i + 1], tris[i + 4], tris[i + 7]];
     let lo = Math.min(ux[0], ux[1], ux[2]), hi = Math.max(ux[0], ux[1], ux[2]);
     let b0 = Math.max(0, Math.ceil((lo - p.u0) / BIN - 0.5));
     let b1 = Math.min(nBins - 1, Math.floor((hi - p.u0) / BIN - 0.5));
@@ -319,14 +321,95 @@ function clipHalfSpace(poly, f) {
 }
 
 /**
+ * Does anything cross the volume this fin will occupy?
+ *
+ * chooseSpan already asks this, but against the PATCH's plane -- and buildFin
+ * then re-seats the plane inward onto the window's own high point, which moves
+ * the wall into space the search never examined. Two fins came out 0.005mm from
+ * a neighbouring feature: outside the part, so containment passed, and close
+ * enough to weld solid on the first layer. This re-checks the volume the fin
+ * actually occupies, so it has to run on the final geometry rather than earlier.
+ */
+function wallIsClear(p, u0, u1, zTop, topo, rot, offset) {
+  const { pos, nFaces } = topo;
+  const bands = [
+    { wLo: FIN.gap - 0.05, wHi: FIN.gap + FIN.th + 0.15, zHi: zTop },
+    { wLo: FIN.gap - 0.05, wHi: FIN.gap + FIN.baseMinor + 0.3, zHi: FIN.baseH + 0.2 },
+  ];
+  const uLo = u0 - FIN.basePad, uHi = u1 + FIN.basePad;
+  const tri = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
+
+  for (let f = 0; f < nFaces; f++) {
+    for (let i = 0; i < 3; i++) {
+      const o = f * 9 + i * 3;
+      const x = pos[o], y = pos[o + 1], z = pos[o + 2];
+      const wx = rot[0] * x + rot[3] * y + rot[6] * z + offset.x;
+      const wy = rot[1] * x + rot[4] * y + rot[7] * z + offset.y;
+      const wz = rot[2] * x + rot[5] * y + rot[8] * z + offset.z;
+      tri[i][0] = wx * p.n.x + wy * p.n.y + wz * p.n.z - p.d;
+      tri[i][1] = wx * p.u.x + wy * p.u.y;
+      tri[i][2] = wz;
+    }
+    if (Math.max(tri[0][1], tri[1][1], tri[2][1]) < uLo) continue;
+    if (Math.min(tri[0][1], tri[1][1], tri[2][1]) > uHi) continue;
+    if (Math.max(tri[0][0], tri[1][0], tri[2][0]) < bands[0].wLo) continue;
+    if (Math.min(tri[0][0], tri[1][0], tri[2][0]) > bands[1].wHi) continue;
+
+    for (const band of bands) {
+      const uA = band.zHi > FIN.baseH + 0.3 ? u0 : uLo;   // base overhangs the ends
+      const uB = band.zHi > FIN.baseH + 0.3 ? u1 : uHi;
+      let poly = tri.map((v) => v.slice());
+      poly = clipHalfSpace(poly, (v) => v[0] - band.wLo);
+      poly = clipHalfSpace(poly, (v) => band.wHi - v[0]);
+      poly = clipHalfSpace(poly, (v) => v[2] + 0.1);
+      poly = clipHalfSpace(poly, (v) => band.zHi - v[2]);
+      poly = clipHalfSpace(poly, (v) => v[1] - uA);
+      poly = clipHalfSpace(poly, (v) => uB - v[1]);
+      if (poly.length >= 3) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * Build one fin -- wall, base, tines -- for `patch`, or null if the site cannot
  * carry enough tines to be a combined support.
  */
-function buildFin(p, out, span, topo, rot, offset) {
+function buildFin(p0, out, span, topo, rot, offset) {
   const before = out.length;
   const { u0, u1 } = span;
   const r = FIN.th / 2;
   const wIn = FIN.gap, wOut = FIN.gap + FIN.th;
+
+  // Re-seat the plane on the outermost point INSIDE THIS WINDOW. The patch's own
+  // supporting plane touches its global high point, which is usually somewhere
+  // else on a long curved face, leaving the wall hanging 0.4mm back from the bit
+  // it is actually gripping. Shifting it in makes the standoff mean 0.2mm here
+  // rather than 0.2mm somewhere on the same face.
+  //
+  // The shift is never outward: every sample is <= 0 behind the patch plane, so
+  // the wall still clears the whole window by at least the standoff.
+  // Computed EXACTLY, not sampled. `dev` is linear across each triangle, so its
+  // maximum over the window is attained at a vertex of the triangle clipped to
+  // the window -- clip and take the max. A 13x11 sample grid was tried first and
+  // it missed peaks between samples, seating walls 0.007mm off the part, which
+  // is worse than hanging back: that fuses.
+  const tLo = span.tBot ?? p0.t0, tHi = span.tTop ?? p0.t1;
+  let shift = -Infinity;
+  for (let i = 0; i < p0.tris.length; i += 9) {
+    let poly = [
+      [p0.tris[i], p0.tris[i + 1], p0.tris[i + 2]],
+      [p0.tris[i + 3], p0.tris[i + 4], p0.tris[i + 5]],
+      [p0.tris[i + 6], p0.tris[i + 7], p0.tris[i + 8]],
+    ];
+    poly = clipHalfSpace(poly, (v) => v[0] - u0);
+    poly = clipHalfSpace(poly, (v) => u1 - v[0]);
+    poly = clipHalfSpace(poly, (v) => v[1] - tLo);
+    poly = clipHalfSpace(poly, (v) => tHi - v[1]);
+    for (const v of poly) if (v[2] > shift) shift = v[2];
+  }
+  if (shift === -Infinity) shift = 0;
+  const p = { ...p0, d: p0.d + shift };
 
   // --- wall: section in (t, w), extruded along u. (t, n, u) is right-handed. ---
   // The bottom edge is the z = 0 line. In this frame that line is straight but
@@ -383,6 +466,9 @@ function buildFin(p, out, span, topo, rot, offset) {
     }
   }
 
+  if (!wallIsClear(p, u0, u1, zAt(p, FIN.gap + FIN.th, tTop) + r,
+                   topo, rot, offset)) return null;
+
   extrude(sec, u0, u1, (a, b, t) => patchPoint(p, b, t, a), out);
 
   // --- base: an ellipse on the plate, in world XY, extruded in z ---
@@ -433,15 +519,42 @@ function buildFin(p, out, span, topo, rot, offset) {
   let tines = 0;
   for (const z of rows) {
     const zMid = z + FIN.tineH / 2;
-    // where the part's face sits, measured horizontally along the outward normal
-    const sPart = (p.d - p.n.z * zMid) / p.h;
-    const s0 = sPart - FIN.tineBite / p.h;
-    const s1 = sPart + (FIN.gap + FIN.tineGrip) / p.h;
+    // the wall's outer anchor is fixed; the inner end moves to meet the surface
+    const s1 = (p.d + FIN.gap + FIN.tineGrip - p.n.z * zMid) / p.h;
     for (let i = 0; i < nU; i++) {
       const uv = nU === 1 ? (sA + sB) / 2 : sA + ((sB - sA) * i) / (nU - 1);
-      // A patch's bounding box is not its shape. Without this test a tine in the
-      // notch of an L-shaped face prints into thin air, touching nothing.
-      if (!patchCovers(p, uv, tAtZ(p, 0, zMid))) continue;
+
+      // Each tine measures its own gap. The wall is one flat plane but the
+      // surface it grips is not -- on a round part the face recedes as you move
+      // along the wall, and a fixed-length tine would hang in air a few
+      // millimetres from the middle. This is what lets one flat wall span many
+      // facets of a cone instead of gripping exactly one.
+      //
+      // Also does the coverage test: a patch's bounding box is not its shape,
+      // and a tine in the notch of an L-shaped face would print into thin air.
+      // Probe, then re-probe where the surface actually is. The first guess
+      // uses the t at which the PLANE crosses this height, but the surface sits
+      // `dev` behind the plane, and on a leaning patch that displaces t by up to
+      // a millimetre -- enough to read the offset off the wrong part of a curved
+      // face and leave the tine hanging.
+      let raw = patchProbe(p0, uv, tAtZ(p0, 0, zMid));
+      if (raw === null) continue;
+      const refined = patchProbe(p0, uv, tAtZ(p0, raw, zMid));
+      if (refined !== null) raw = refined;
+      const dev = raw - shift;          // relative to this fin's own plane
+      // past this the tine stops being a bead and becomes a bridge
+      if (FIN.gap - dev > FIN.tineSpanMax) continue;
+
+      const sPart = (p.d + dev - p.n.z * zMid) / p.h;
+      const s0 = sPart - FIN.tineBite / p.h;
+
+      // Confirm the bite rather than trusting the probe. The offset is
+      // interpolated across a triangle, so near an edge it can be off by enough
+      // for the tine to stop short -- and a tine that fuses nothing is a loose
+      // speck rattling around the plate. Cheap: one parity query against the
+      // grid inside.js already built.
+      if (!insidePart(topo, rot, offset,
+                      nhx * s0 + p.u.x * uv, nhy * s0 + p.u.y * uv, zMid)) continue;
       const rect = [[z, s0], [z + FIN.tineH, s0], [z + FIN.tineH, s1], [z, s1]];
       // (z, nh, u) is right-handed: z x nh = u.
       extrude(rect, uv - FIN.tineW / 2, uv + FIN.tineW / 2,

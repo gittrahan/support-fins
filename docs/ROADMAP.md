@@ -190,6 +190,29 @@ the human override both.
   STLs and hands the output to trimesh. This is not a build step and does not change the
   no-node constraint — it is a dev-only check. It immediately caught an area-weighting bug
   that put every plane at d/3, which no amount of looking at the screen would have found.
+- **A flat wall does not need a flat PART, and assuming it did was the single
+  biggest limit on coverage.** Requiring a patch to be flat symmetrically meant a
+  fin could grip exactly one facet of a round surface — on hub_post_foot at 70°
+  the best grip available anywhere on the part was 0.86mm, so nothing could be
+  placed at any angle a human would choose. The budget is asymmetric now: the
+  surface may not bulge TOWARD the fin at all (the plane is a supporting plane,
+  touching the window's outermost point, so every deviation is negative by
+  construction), but it may recede up to 1.2mm, and each tine measures its own
+  gap and reaches further. The limit on receding is the limit on a tine: 1.5mm of
+  unsupported span, which `prototype/probe_tines2.py` established years before it
+  was needed here. One flat wall now spans many facets of a cone.
+- **Cheap search, exact confirmation — applied three times now.** The pattern
+  that keeps working: search with something fast and approximate, then verify the
+  finished geometry exactly and discard what fails. The wall gets a containment
+  test (`inside.js`), the finished fin gets a clearance test against the volume it
+  actually occupies (the plane moves after the search, so the search cannot be
+  trusted about it), and every tine is confirmed to bite before it is emitted.
+  Each of those three caught a real defect that all the cheaper checks passed.
+- **Fins are rebuilt when a drag ENDS, not during it.** The confirmation passes
+  cost ~100ms on a 43k-face part: fine once, unusable at 60fps. Overhang shading
+  still updates live at 1-6ms, so the thing the user is steering by never stalls,
+  and the fins grey out while they are stale rather than showing a stale answer
+  as if it were current.
 - **Serve dev with caching off** (`dev-server.py`). `python3 -m http.server` sends no
   `Cache-Control`, so browsers heuristically cache ES modules; editing a module and
   reloading then silently runs the old code and looks exactly like a logic bug.
