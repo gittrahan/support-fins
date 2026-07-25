@@ -24,9 +24,14 @@
     Open STL<input type="file" id="file" accept=".stl" hidden>
   </label>
   <label class="field">
-    Printer
-    <select id="printer"></select>
+    Build volume
+    <select id="volume"></select>
   </label>
+  <span class="field custom-vol" id="custom-vol" hidden>
+    <input type="number" id="vx" min="20" max="2000" step="1" aria-label="width">×<input
+           type="number" id="vy" min="20" max="2000" step="1" aria-label="depth">×<input
+           type="number" id="vz" min="20" max="2000" step="1" aria-label="height">mm
+  </span>
   <label class="field" title="Surface angle from the plate below which a face needs support.">
     Overhang
     <input type="range" id="thr" min="30" max="70" step="1" value="45">
@@ -41,7 +46,7 @@
     <dt>File</dt>             <dd id="s-name">—</dd>
     <dt>Triangles</dt>        <dd id="s-tris">—</dd>
     <dt>Size</dt>             <dd id="s-bbox">—</dd>
-    <dt>Printer</dt>          <dd id="s-fit">—</dd>
+    <dt>Volume</dt>           <dd id="s-fit">—</dd>
   </dl>
   <hr>
   <dl>

@@ -118,6 +118,18 @@ html, body {
 }
 .field output { color: var(--text); font-variant-numeric: tabular-nums; }
 
+.custom-vol { display: inline-flex; align-items: center; gap: 4px; }
+.custom-vol input {
+  width: 4.2em;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+}
+
 #fps {
   position: fixed;
   right: 14px; bottom: 12px;
