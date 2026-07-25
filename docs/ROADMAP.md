@@ -104,7 +104,7 @@ Each one ends at something you can open in a browser and judge.
 |---|---|---|
 | ~~**M0**~~ ✅ | `index.html` + vendored three.js. Drag-drop an STL, orbit it, build plate + printer box. | ~~A Voron STL loads and spins at 60fps.~~ **Done** — 35,520-tri Voron frame at 60fps, no console errors. |
 | ~~**M1**~~ ✅ | Overhang shading + stats readout. No fins yet. | ~~Red faces match what the Python probe reports on the same file.~~ **Done** — exact match on two models (4,782 faces / 264.6 mm² / 563 raw / 2 regions), threshold slider live at 2–8 ms. |
-| **M2** | Orientation: rotate gizmo, snap-to-face, live readout. | Rotating a part visibly changes the overhang count. |
+| ~~**M2**~~ ✅ | Orientation: rotate gizmo, snap-to-face, live readout. | ~~Rotating a part visibly changes the overhang count.~~ **Done** — standing a Voron plate on edge moves it from 265 mm² of overhang / 3110 mm² bed contact to 1310 / 73, re-analysed in 1–6 ms. |
 | **M3** | Fin placement + STL export, end-to-end. *Gap-only geometry — internal milestone, never shipped.* | Exported STL opens in a slicer with the fin present. |
 | **M4** | **Tines.** Fin stands beside the part on a vertical face, horizontal tines fused in. | A printed test part comes off the plate and the fin snaps clean. |
 | **M5** | Draw mode — place / move / delete fins by hand. | A part auto-mode refuses can be finned manually. |
@@ -133,6 +133,15 @@ the pipeline, M4 makes it correct.
 - **Lighting is a legibility requirement, not decoration.** Overhangs are on the underside,
   so the user looks *up* at the part most of the time. A conventional key-from-above rig
   leaves exactly the faces this tool exists to show sitting in the dark.
+- **Rotation is cheap because welding is rotation-invariant.** Turning a part cannot change
+  which triangles touch, so a rotation re-runs only the linear classify pass (1–6 ms) and
+  never the weld (28–119 ms). That is what lets the readout update live during a drag.
+- **Orientation is applied as a transform, never baked into the geometry.** The mesh stays
+  in its original frame and the analysis takes a rotation matrix, so nothing accumulates
+  float error across a hundred rotations and the original file is always recoverable.
+- **Serve dev with caching off** (`dev-server.py`). `python3 -m http.server` sends no
+  `Cache-Control`, so browsers heuristically cache ES modules; editing a module and
+  reloading then silently runs the old code and looks exactly like a logic bug.
 
 ## Decisions still open
 

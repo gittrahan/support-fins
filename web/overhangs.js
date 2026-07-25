@@ -5,9 +5,13 @@
  * browser and the Python probes report the same numbers on the same file. If one
  * of these values changes, change it in both places.
  *
- * Two-stage by design: buildTopology() does the expensive vertex weld + edge
- * adjacency ONCE per loaded mesh, analyze() re-runs the cheap part every time the
- * threshold slider moves.
+ * Two-stage by design, and the split is what makes rotation cheap:
+ *   buildTopology()  welds vertices and finds face adjacency. Expensive, but BOTH
+ *                    are rotation-invariant -- turning a part cannot change which
+ *                    triangles touch -- so this runs ONCE per loaded file.
+ *   analyze()        applies an orientation, re-seats the part on the plate, and
+ *                    re-classifies. Linear and allocation-free, so it can run on
+ *                    every frame of a gizmo drag.
  */
 
 export const BED_EPS = 0.35;          // mm; a face this close to the plate IS the bottom
@@ -24,6 +28,9 @@ export const DEFAULT_THRESHOLD = 45;  // degrees from the plate
  */
 export const ANGLE_EPS = 1e-4;        // ~0.008 degrees of slack
 
+/** Column-major identity, matching THREE.Matrix3.elements. */
+export const IDENTITY3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+
 /** Quantise to 1e-3 mm so vertices shared between triangles weld together. */
 const key3 = (x, y, z) =>
   `${Math.round(x * 1000)},${Math.round(y * 1000)},${Math.round(z * 1000)}`;
@@ -37,11 +44,10 @@ export function buildTopology(geometry) {
   const pos = geometry.getAttribute('position').array;
   const nFaces = pos.length / 9;
 
-  // float64: nz is compared against a threshold that real parts land exactly on,
-  // and float32 rounding alone is enough to flip a 45-degree chamfer either way.
-  const nz = new Float64Array(nFaces);
+  // float64: normals are compared against a threshold that real parts land
+  // exactly on, and float32 rounding alone can flip a 45-degree chamfer.
+  const nrm = new Float64Array(nFaces * 3);
   const area = new Float64Array(nFaces);
-  const maxZ = new Float32Array(nFaces);
 
   const weld = new Map();
   const vid = new Int32Array(nFaces * 3);
@@ -62,9 +68,12 @@ export function buildTopology(geometry) {
     const pz = ux * vy - uy * vx;
     const len = Math.hypot(px, py, pz);
 
-    nz[f] = len > 1e-12 ? pz / len : 0;
+    if (len > 1e-12) {
+      nrm[f * 3] = px / len;
+      nrm[f * 3 + 1] = py / len;
+      nrm[f * 3 + 2] = pz / len;
+    }
     area[f] = 0.5 * len;
-    maxZ[f] = Math.max(az, bz, cz);
 
     for (let i = 0; i < 3; i++) {
       const k = key3(pos[o + i * 3], pos[o + i * 3 + 1], pos[o + i * 3 + 2]);
@@ -88,34 +97,66 @@ export function buildTopology(geometry) {
   }
 
   return {
-    nFaces, nz, area, maxZ,
+    pos, nFaces, nrm, area,
     adjA: Int32Array.from(adjA),
     adjB: Int32Array.from(adjB),
     vertexCount: weld.size,
     edgeCount: firstFace.size,
+    // scratch, reused across analyze() calls so a gizmo drag allocates nothing
+    _zr: new Float64Array(nFaces * 3),
+    _parent: new Int32Array(nFaces),
+    _over: new Uint8Array(nFaces),
+    _kept: new Uint8Array(nFaces),
+    _onBed: new Uint8Array(nFaces),
   };
 }
 
 /**
- * Flag overhang faces and cluster them into regions.
- * `thresholdDeg` is the surface angle from the plate below which a face needs
- * support -- 45 by default, the same test as the Python probe (n_z < -cos45).
+ * Flag overhang faces and cluster them into regions, for the part held in
+ * orientation `rot`.
+ *
+ * @param rot  9-element COLUMN-major rotation, i.e. THREE.Matrix3.elements, so
+ *             the rotated Z of a point is rot[2]*x + rot[5]*y + rot[8]*z.
+ *
+ * The part is re-seated on the plate as part of the same pass: bounds are taken
+ * in the rotated frame and everything is measured relative to the lowest point,
+ * so "bed contact" means contact after the rotation, not before it.
  */
-export function analyze(topo, thresholdDeg = DEFAULT_THRESHOLD) {
-  const { nFaces, nz, area, maxZ, adjA, adjB } = topo;
+export function analyze(topo, thresholdDeg = DEFAULT_THRESHOLD, rot = IDENTITY3) {
+  const { pos, nFaces, nrm, area, adjA, adjB } = topo;
   const cut = -(Math.cos((thresholdDeg * Math.PI) / 180) + ANGLE_EPS);
 
-  const onBed = new Uint8Array(nFaces);
-  const over = new Uint8Array(nFaces);
-  let bedArea = 0, overArea = 0;
+  const zr = topo._zr;
+  let minX = Infinity, maxX = -Infinity;
+  let minY = Infinity, maxY = -Infinity;
+  let minZ = Infinity, maxZ = -Infinity;
+
+  for (let v = 0, p = 0; v < nFaces * 3; v++, p += 3) {
+    const x = pos[p], y = pos[p + 1], z = pos[p + 2];
+    const xr = rot[0] * x + rot[3] * y + rot[6] * z;
+    const yr = rot[1] * x + rot[4] * y + rot[7] * z;
+    const zz = rot[2] * x + rot[5] * y + rot[8] * z;
+    zr[v] = zz;
+    if (xr < minX) minX = xr; if (xr > maxX) maxX = xr;
+    if (yr < minY) minY = yr; if (yr > maxY) maxY = yr;
+    if (zz < minZ) minZ = zz; if (zz > maxZ) maxZ = zz;
+  }
+
+  const onBed = topo._onBed.fill(0);
+  const over = topo._over.fill(0);
+  let bedArea = 0, overArea = 0, overFaceCount = 0;
 
   for (let f = 0; f < nFaces; f++) {
-    if (maxZ[f] < BED_EPS) { onBed[f] = 1; bedArea += area[f]; continue; }
-    if (nz[f] < cut) { over[f] = 1; overArea += area[f]; }
+    // face height above the plate, after re-seating on the lowest point
+    const h = Math.max(zr[f * 3], zr[f * 3 + 1], zr[f * 3 + 2]) - minZ;
+    if (h < BED_EPS) { onBed[f] = 1; bedArea += area[f]; continue; }
+
+    const nzr = rot[2] * nrm[f * 3] + rot[5] * nrm[f * 3 + 1] + rot[8] * nrm[f * 3 + 2];
+    if (nzr < cut) { over[f] = 1; overArea += area[f]; overFaceCount++; }
   }
 
   // union-find over adjacent overhang faces
-  const parent = new Int32Array(nFaces);
+  const parent = topo._parent;
   for (let f = 0; f < nFaces; f++) parent[f] = f;
   const find = (x) => {
     while (parent[x] !== x) x = parent[x] = parent[parent[x]];
@@ -143,13 +184,15 @@ export function analyze(topo, thresholdDeg = DEFAULT_THRESHOLD) {
     .sort((a, b) => b.area - a.area);
 
   // faces that survived the region-area filter, for shading
-  const kept = new Uint8Array(nFaces);
+  const kept = topo._kept.fill(0);
   for (const g of regions) for (const f of g.faces) kept[f] = 1;
 
   return {
     over, kept, onBed, regions,
     rawRegionCount: raw.length,
-    overArea, bedArea,
-    overFaceCount: over.reduce((s, v) => s + v, 0),
+    overArea, bedArea, overFaceCount,
+    // where the rotated part sits, so the caller can drop it onto the plate
+    offset: { x: -(minX + maxX) / 2, y: -(minY + maxY) / 2, z: -minZ },
+    size: { x: maxX - minX, y: maxY - minY, z: maxZ - minZ },
   };
 }

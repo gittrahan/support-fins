@@ -9,6 +9,7 @@
 import * as THREE from 'three';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -116,8 +117,20 @@ const partMaterial = new THREE.MeshStandardMaterial({
   vertexColors: true, side: THREE.DoubleSide,
 });
 let part = null;
+let partName = '';
 let topology = null;      // welded adjacency, rebuilt only when the mesh changes
 let weldMs = 0;
+
+// The user rotates. Always. Auto-orientation may suggest, never apply -- the
+// spike's strength-optimal pose for one hub was 155mm tall balanced on a needle:
+// geometrically valid, unprintable.
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.setMode('rotate');
+gizmo.setRotationSnap(THREE.MathUtils.degToRad(15));
+gizmo.setSize(0.85);
+scene.add(gizmo.getHelper ? gizmo.getHelper() : gizmo);
+gizmo.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
+gizmo.addEventListener('objectChange', () => shade());
 
 const SHADE = {
   plain: new THREE.Color().setHex(0xb9c2d0, THREE.SRGBColorSpace),
@@ -136,10 +149,14 @@ function setPart(geometry, filename) {
   }
   geometry.computeBoundingBox();
   const bb = geometry.boundingBox;
+  // Centre the geometry on its own origin in ALL THREE axes, so the part rotates
+  // about its middle and the gizmo sits there rather than at its feet. Seating on
+  // the plate is not this transform's job -- analyze() returns the offset for that
+  // after the rotation is known.
   geometry.translate(
     -(bb.min.x + bb.max.x) / 2,
     -(bb.min.y + bb.max.y) / 2,
-    -bb.min.z);
+    -(bb.min.z + bb.max.z) / 2);
   if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
   geometry.computeBoundingBox();
 
@@ -154,23 +171,38 @@ function setPart(geometry, filename) {
   topology = buildTopology(geometry);
   weldMs = performance.now() - tWeld;
 
-  const size = geometry.boundingBox.getSize(new THREE.Vector3());
-  report(filename, geometry, size);
-  shade();
+  partName = filename;
+  part.quaternion.identity();
+  gizmo.attach(part);
+  el('orient').hidden = false;
+
+  const size = shade();
   frame(size);
   return size;
 }
 
 /**
- * Re-run the overhang analysis at the current threshold and paint the result
- * onto the mesh. Cheap enough to call straight from the slider's input event --
- * the expensive weld already happened in setPart().
+ * Re-run the overhang analysis in the part's CURRENT orientation, re-seat it on
+ * the plate, and paint the result. Cheap enough to call on every frame of a
+ * gizmo drag -- the expensive weld already happened in setPart(), and rotation
+ * cannot invalidate it.
  */
+const rotM3 = new THREE.Matrix3();
+const rotM4 = new THREE.Matrix4();
+
 function shade() {
-  if (!part || !topology) return;
+  if (!part || !topology) return new THREE.Vector3();
+  rotM3.setFromMatrix4(rotM4.makeRotationFromQuaternion(part.quaternion));
+
   const t0 = performance.now();
-  const res = analyze(topology, threshold);
+  const res = analyze(topology, threshold, rotM3.elements);
   const ms = performance.now() - t0;
+
+  // drop the rotated part back onto the plate, centred over it
+  part.position.set(res.offset.x, res.offset.y, res.offset.z);
+
+  const size = new THREE.Vector3(res.size.x, res.size.y, res.size.z);
+  report(partName, size);
 
   const colors = part.geometry.getAttribute('color');
   const arr = colors.array;
@@ -194,6 +226,7 @@ function shade() {
   el('s-bed').classList.toggle('warn', res.bedArea < 1);
   el('s-time').textContent =
     `${ms.toFixed(0)} ms · weld ${weldMs.toFixed(0)} ms`;
+  return size;
 }
 
 /** Point the camera at the part, backed off far enough to see all of it. */
@@ -210,10 +243,9 @@ function frame(size) {
 
 // -------------------------------------------------------------------- reports
 
-function report(filename, geometry, size) {
-  const tris = geometry.getAttribute('position').count / 3;
+function report(filename, size) {
   el('s-name').textContent = filename;
-  el('s-tris').textContent = tris.toLocaleString();
+  el('s-tris').textContent = (topology?.nFaces ?? 0).toLocaleString();
   el('s-bbox').textContent =
     `${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)} mm`;
 
@@ -228,6 +260,67 @@ function report(filename, geometry, size) {
 }
 
 // ------------------------------------------------------------------- printers
+
+// ---------------------------------------------------------------- orientation
+
+/** Rotate 90 degrees about a world axis, keeping the part seated. */
+function rotate90(axis) {
+  if (!part) return;
+  const q = new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2);
+  part.quaternion.premultiply(q);   // premultiply = about the WORLD axis
+  shade();
+}
+
+/**
+ * Click a face to lay it flat on the plate. This is the fastest way to reach a
+ * sane orientation -- far quicker than hunting for it on the rings -- and it is
+ * how you actually think about the problem: "put THAT face down".
+ */
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const DOWN = new THREE.Vector3(0, 0, -1);
+const layQuat = new THREE.Quaternion();
+const faceNormal = new THREE.Vector3();
+let pressAt = null;
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  pressAt = { x: e.clientX, y: e.clientY };
+});
+
+renderer.domElement.addEventListener('pointerup', (e) => {
+  const from = pressAt;
+  pressAt = null;
+  if (!from || !part || !topology || gizmo.dragging) return;
+  // a drag is an orbit, not a pick
+  if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
+
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.set(((e.clientX - r.left) / r.width) * 2 - 1,
+              -((e.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const hit = raycaster.intersectObject(part, false)[0];
+  if (!hit || hit.faceIndex == null) return;
+
+  // Use OUR winding-derived normal, not the STL's stored one, for the same
+  // reason the analysis does: exported normals are not trustworthy.
+  const i = hit.faceIndex * 3;
+  faceNormal.set(topology.nrm[i], topology.nrm[i + 1], topology.nrm[i + 2])
+            .applyQuaternion(part.quaternion);
+  layQuat.setFromUnitVectors(faceNormal, DOWN);
+  part.quaternion.premultiply(layQuat);
+  shade();
+});
+
+const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0),
+               z: new THREE.Vector3(0, 0, 1) };
+for (const a of ['x', 'y', 'z']) {
+  el(`rot-${a}`).addEventListener('click', () => rotate90(AXES[a]));
+}
+el('rot-reset').addEventListener('click', () => {
+  if (!part) return;
+  part.quaternion.identity();
+  shade();
+});
 
 let threshold = DEFAULT_THRESHOLD;
 const thrInput = el('thr');
@@ -263,10 +356,7 @@ function applyVolume() {
   try {
     localStorage.setItem(VOLUME_STORE, JSON.stringify(volume));
   } catch { /* private mode; the app still works, it just forgets */ }
-  if (part) {
-    const size = part.geometry.boundingBox.getSize(new THREE.Vector3());
-    report(el('s-name').textContent, part.geometry, size);
-  }
+  if (part) shade();
 }
 
 volumeSelect.addEventListener('change', () => {

@@ -9,6 +9,10 @@
 
 * { box-sizing: border-box; }
 
+/* An author `display` rule outranks the UA stylesheet's [hidden]{display:none},
+   so any flex/grid panel here would ignore its own hidden attribute. */
+[hidden] { display: none !important; }
+
 html, body {
   margin: 0;
   height: 100%;
@@ -129,6 +133,29 @@ html, body {
   font: inherit;
   font-variant-numeric: tabular-nums;
 }
+
+#orient {
+  position: fixed;
+  left: 14px; bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: 15rem;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+#orient .lbl { color: var(--dim); margin-right: 2px; }
+#orient .hint {
+  flex-basis: 100%;
+  margin: 2px 0 0;
+  color: var(--dim);
+  font-size: 12px;
+}
+.btn.sm { padding: 3px 9px; }
 
 #fps {
   position: fixed;
