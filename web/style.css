@@ -1,0 +1,150 @@
+:root {
+  --bg: #14161a;
+  --panel: #1c1f26;
+  --line: #2c313b;
+  --text: #e7e9ee;
+  --dim: #8d95a5;
+  --accent: #4da3ff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--text);
+  font: 13px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+#viewport { position: fixed; inset: 0; }
+#viewport canvas { display: block; }
+
+/* ---------- top bar ---------- */
+
+#topbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  background: linear-gradient(var(--bg), transparent);
+  pointer-events: none;
+}
+#topbar > * { pointer-events: auto; }
+#topbar .spacer { flex: 1; pointer-events: none; }
+
+.brand {
+  font-weight: 650;
+  letter-spacing: .02em;
+  margin-right: 4px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  cursor: pointer;
+  user-select: none;
+}
+.btn:hover { border-color: var(--accent); color: var(--accent); }
+
+.field { color: var(--dim); }
+.field select {
+  margin-left: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  font: inherit;
+}
+
+.badge {
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--dim);
+  font-size: 12px;
+}
+
+/* ---------- stats ---------- */
+
+#stats {
+  position: fixed;
+  top: 52px; left: 14px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+#stats dl {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 3px 16px;
+  margin: 0;
+}
+#stats dt { color: var(--dim); }
+#stats dd { margin: 0; font-variant-numeric: tabular-nums; }
+#stats dd.warn { color: #ffb454; }
+#stats dd.good { color: #6fcf8b; }
+#stats hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 9px 0;
+}
+
+/* legend swatches, keyed to the shading colours in app.js */
+.sw {
+  display: inline-block;
+  width: 8px; height: 8px;
+  margin-right: 6px;
+  border-radius: 2px;
+  vertical-align: baseline;
+}
+.sw-over { background: #ff5a4d; }
+.sw-bed  { background: #3f7fd0; }
+
+.field input[type=range] {
+  width: 92px;
+  margin: 0 6px;
+  vertical-align: middle;
+  accent-color: var(--accent);
+}
+.field output { color: var(--text); font-variant-numeric: tabular-nums; }
+
+#fps {
+  position: fixed;
+  right: 14px; bottom: 12px;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- drop target ---------- */
+
+#drop {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  background: color-mix(in srgb, var(--bg) 72%, transparent);
+  pointer-events: none;
+}
+#drop.hidden { display: none; }
+#drop.armed { background: color-mix(in srgb, var(--accent) 12%, var(--bg) 70%); }
+
+#drop .inner {
+  padding: 34px 44px;
+  border: 2px dashed var(--line);
+  border-radius: 14px;
+  max-width: 30rem;
+}
+#drop.armed .inner { border-color: var(--accent); }
+#drop .big { margin: 0 0 8px; font-size: 20px; font-weight: 600; }
+#drop .small { margin: 0; color: var(--dim); }

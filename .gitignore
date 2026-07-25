@@ -6,3 +6,4 @@ dist/
 *.stl
 !tests/fixtures/*.stl
 out/
+dev-models/

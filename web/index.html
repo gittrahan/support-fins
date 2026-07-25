@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Fins</title>
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{
+  "imports": {
+    "three": "./vendor/three/three.module.js",
+    "three/addons/": "./vendor/three/addons/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="viewport"></div>
+
+<header id="topbar">
+  <span class="brand">Support&nbsp;Fins</span>
+  <label class="btn">
+    Open STL<input type="file" id="file" accept=".stl" hidden>
+  </label>
+  <label class="field">
+    Printer
+    <select id="printer"></select>
+  </label>
+  <label class="field" title="Surface angle from the plate below which a face needs support.">
+    Overhang
+    <input type="range" id="thr" min="30" max="70" step="1" value="45">
+    <output id="thr-val">45°</output>
+  </label>
+  <span class="spacer"></span>
+  <span class="badge" title="No file ever leaves your machine.">runs entirely in your browser</span>
+</header>
+
+<aside id="stats" hidden>
+  <dl>
+    <dt>File</dt>             <dd id="s-name">—</dd>
+    <dt>Triangles</dt>        <dd id="s-tris">—</dd>
+    <dt>Size</dt>             <dd id="s-bbox">—</dd>
+    <dt>Printer</dt>          <dd id="s-fit">—</dd>
+  </dl>
+  <hr>
+  <dl>
+    <dt><i class="sw sw-over"></i>Overhangs</dt> <dd id="s-over">—</dd>
+    <dt>Area</dt>                                <dd id="s-overarea">—</dd>
+    <dt><i class="sw sw-bed"></i>Bed&nbsp;contact</dt> <dd id="s-bed">—</dd>
+    <dt>Analysis</dt>                            <dd id="s-time">—</dd>
+  </dl>
+</aside>
+
+<div id="fps">—</div>
+
+<div id="drop">
+  <div class="inner">
+    <p class="big">Drop an STL</p>
+    <p class="small">or use <strong>Open STL</strong>. Nothing is uploaded — the file is
+      read in this tab and never leaves your machine.</p>
+  </div>
+</div>
+
+<script type="module" src="./app.js"></script>
+</body>
+</html>
