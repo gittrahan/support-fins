@@ -39,6 +39,16 @@
   </label>
   <span class="spacer"></span>
   <button class="btn" id="fins-toggle">Add fins</button>
+  <span class="field fin-opts" id="fin-opts" hidden>
+    <select id="fin-mode" title="How overhang regions get grouped onto fins.">
+      <option value="stabilize">Stabilize — keep it standing</option>
+      <option value="coverage" disabled>Coverage — a fin per overhang (soon)</option>
+      <option value="draw" disabled>Draw — place them yourself (soon)</option>
+    </select>
+    <label class="check" title="A tilted part rests on an edge and peels off without one.">
+      <input type="checkbox" id="bed-pad" checked>bed pad
+    </label>
+  </span>
   <button class="btn" id="export">Export STL</button>
   <span class="badge" title="No file ever leaves your machine.">runs entirely in your browser</span>
 </header>
@@ -56,8 +66,10 @@
     <dt>Area</dt>                                <dd id="s-overarea">—</dd>
     <dt><i class="sw sw-bed"></i>Bed&nbsp;contact</dt> <dd id="s-bed">—</dd>
     <dt><i class="sw sw-fin"></i>Fins</dt>       <dd id="s-fins">—</dd>
+    <dt><i class="sw sw-pad"></i>Bed&nbsp;pad</dt> <dd id="s-pad">—</dd>
     <dt>Analysis</dt>                            <dd id="s-time">—</dd>
   </dl>
+  <p class="note" id="s-fin-note"></p>
 </aside>
 
 <aside id="orient" hidden>

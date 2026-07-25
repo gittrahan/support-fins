@@ -12,6 +12,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
 import { buildFins } from './fins.js';
+import { findWallPatches } from './planes.js';
 import { writeBinarySTL, download } from './stl.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -342,12 +343,38 @@ function report(filename, size) {
 
 let lastResult = null;
 let finsVisible = false;
+let finMode = 'stabilize';
 let finMesh = null;
+let padMesh = null;
 let finTris = [];
+let padTris = [];
 
 const finMaterial = new THREE.MeshStandardMaterial({
   color: 0x59d98e, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide,
 });
+// The pad is not a fin -- it is a modification to how the part meets the plate,
+// and the user has to be able to see at a glance which is which before they
+// commit to an export.
+const padMaterial = new THREE.MeshStandardMaterial({
+  color: 0xe8b64c, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide,
+});
+
+/** Upload a triangle list into the scene, or null if there is nothing to show. */
+function meshFrom(tris, material) {
+  if (!tris.length) return null;
+  const arr = new Float32Array(tris.length * 3);
+  for (let i = 0; i < tris.length; i++) {
+    arr[i * 3] = tris[i][0];
+    arr[i * 3 + 1] = tris[i][1];
+    arr[i * 3 + 2] = tris[i][2];
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, material);
+  scene.add(m);
+  return m;
+}
 
 /**
  * Regenerate the fins for the current orientation. Fins live in PRINT space
@@ -355,43 +382,76 @@ const finMaterial = new THREE.MeshStandardMaterial({
  * to the scene rather than parented to the part.
  */
 function refreshFins() {
-  if (finMesh) { scene.remove(finMesh); finMesh.geometry.dispose(); finMesh = null; }
-  finTris = [];
+  for (const m of [finMesh, padMesh]) {
+    if (m) { scene.remove(m); m.geometry.dispose(); }
+  }
+  finMesh = padMesh = null;
+  finTris = padTris = [];
   if (!finsVisible || !lastResult || !topology) { updateFinReadout(null); return; }
 
   const t0 = performance.now();
-  const built = buildFins(topology, lastResult, rotM3.elements);
+  const built = buildFins(topology, lastResult, rotM3.elements,
+                          { mode: finMode, bedPad: el('bed-pad').checked });
   finTris = built.triangles;
+  padTris = built.padTriangles;
 
-  if (finTris.length) {
-    const arr = new Float32Array(finTris.length * 3);
-    for (let i = 0; i < finTris.length; i++) {
-      arr[i * 3] = finTris[i][0];
-      arr[i * 3 + 1] = finTris[i][1];
-      arr[i * 3 + 2] = finTris[i][2];
-    }
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
-    g.computeVertexNormals();
-    finMesh = new THREE.Mesh(g, finMaterial);
-    scene.add(finMesh);
-  }
+  finMesh = meshFrom(finTris, finMaterial);
+  padMesh = meshFrom(padTris, padMaterial);
   updateFinReadout(built, performance.now() - t0);
 }
 
+/**
+ * Stabilize mode does NOT claim to serve every overhang -- it claims to keep a
+ * tilted part standing. So the readout reports the fins AND what is still red,
+ * rather than implying the red went away. Overstating this is how a tool loses
+ * someone on their first print.
+ */
 function updateFinReadout(built, ms) {
   const box = el('s-fins');
-  if (!built) { box.textContent = '—'; return; }
-  const miss = Object.values(built.skipped).reduce((a, b) => a + b, 0);
-  box.textContent = `${built.placed} placed` + (miss ? ` · ${miss} unserved` : '');
-  box.classList.toggle('warn', built.placed === 0);
+  const note = el('s-fin-note');
+  if (!built) {
+    box.textContent = '—';
+    box.classList.remove('warn');
+    el('s-pad').textContent = '—';
+    note.textContent = '';
+    return;
+  }
+  el('s-pad').textContent = built.pad ? 'added' : 'not needed';
+  const n = built.fins.length;
+  box.textContent = n
+    ? `${n} fin${n === 1 ? '' : 's'} · ${built.tines} tines`
+    : 'none possible';
+  box.classList.toggle('warn', n === 0);
+
+  const bits = [];
+  if (!n) {
+    bits.push(built.patchCount
+      ? 'no flat vertical face is tall enough to stand a fin against'
+      : 'this part has no flat vertical faces — rotate it, or wait for Draw mode');
+  } else {
+    bits.push(built.fins
+      .map((f) => `${f.height.toFixed(0)}mm tall × ${f.length.toFixed(0)}mm`)
+      .join(' · '));
+  }
+  if (built.unserved) {
+    bits.push(`${built.unserved} overhang region${built.unserved === 1 ? '' : 's'} ` +
+              'still unsupported — rotate further, or fin them by hand (M5)');
+  }
+  note.textContent = bits.join('. ') + '.';
   el('s-time').textContent += ` · fins ${ms.toFixed(0)} ms`;
 }
+
+el('fin-mode').addEventListener('change', (e) => {
+  finMode = e.target.value;
+  refreshFins();
+});
+el('bed-pad').addEventListener('change', refreshFins);
 
 el('fins-toggle').addEventListener('click', () => {
   finsVisible = !finsVisible;
   el('fins-toggle').classList.toggle('primary', finsVisible);
   el('fins-toggle').textContent = finsVisible ? 'Fins on' : 'Add fins';
+  el('fin-opts').hidden = !finsVisible;
   refreshFins();
 });
 
@@ -421,6 +481,7 @@ el('export').addEventListener('click', () => {
     }
   }
   for (const t of finTris) tris.push(t);
+  for (const t of padTris) tris.push(t);
 
   const base = partName.replace(/\.stl$/i, '') || 'part';
   download(writeBinarySTL(tris, base), `${base}-fins.stl`);
@@ -674,7 +735,12 @@ requestAnimationFrame(tick);
 
 // debug surface, used to cross-check against the Python probes
 window.__sf = { get part() { return part; }, get topo() { return topology; },
-                analyze, get threshold() { return threshold; } };
+                analyze, get threshold() { return threshold; },
+                get rot() { return rotM3.elements; },
+                get result() { return lastResult; },
+                get finTris() { return finTris; },
+                get padTris() { return padTris; },
+                buildFins, findWallPatches };
 
 const wanted = new URLSearchParams(location.search).get('stl');
 if (wanted) loadURL(wanted).catch((err) => console.error('?stl=', err));

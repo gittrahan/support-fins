@@ -123,6 +123,27 @@ html, body {
 .sw-over { background: #ff5a4d; }
 .sw-bed  { background: #3f7fd0; }
 .sw-fin  { background: #59d98e; }
+.sw-pad  { background: #e8b64c; }
+
+/* What the fins did and did not do. Wraps rather than truncating: every line
+   here is a limitation the user needs before they commit to a print. */
+#stats .note {
+  max-width: 26ch;
+  margin: 8px 0 0;
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+#stats .note:empty { display: none; }
+
+.fin-opts { gap: 8px; }
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--dim);
+  cursor: pointer;
+}
 
 .field input[type=range] {
   width: 92px;
