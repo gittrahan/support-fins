@@ -280,6 +280,13 @@ export function patchCovers(patch, u, t) {
     const ax = tri[i], ay = tri[i + 1];
     const bx = tri[i + 2], by = tri[i + 3];
     const cx = tri[i + 4], cy = tri[i + 5];
+    // Skip slivers. A triangle with no projected area gives d1 = d2 = d3 = 0,
+    // which reads as "inside" and makes the whole coverage test pass for every
+    // point -- resurrecting the tine-into-thin-air case this function exists to
+    // prevent. Patches seen edge-on project to exactly this.
+    const cross = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+    if (Math.abs(cross) < 1e-9) continue;
+
     const d1 = (u - bx) * (ay - by) - (ax - bx) * (t - by);
     const d2 = (u - cx) * (by - cy) - (bx - cx) * (t - cy);
     const d3 = (u - ax) * (cy - ay) - (cx - ax) * (t - ay);

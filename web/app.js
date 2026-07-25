@@ -123,6 +123,7 @@ let part = null;
 let partName = '';
 let topology = null;      // welded adjacency, rebuilt only when the mesh changes
 let weldMs = 0;
+let analysisTiming = '';
 
 // The user rotates. Always. Auto-orientation may suggest, never apply -- the
 // spike's strength-optimal pose for one hub was 155mm tall balanced on a needle:
@@ -261,8 +262,12 @@ function shade() {
   el('s-overarea').textContent = `${res.overArea.toFixed(0)} mm²`;
   el('s-bed').textContent = `${res.bedArea.toFixed(0)} mm²`;
   el('s-bed').classList.toggle('warn', res.bedArea < 1);
-  el('s-time').textContent =
-    `${ms.toFixed(0)} ms · weld ${weldMs.toFixed(0)} ms`;
+  // Kept as a value rather than read back off the element: the fin readout
+  // appends to this line, and the mode / bed-pad / toggle handlers call
+  // refreshFins() WITHOUT going through shade(), so appending in place stacked
+  // up "· fins 3 ms · fins 3 ms · fins 3 ms" with every toggle.
+  analysisTiming = `${ms.toFixed(0)} ms · weld ${weldMs.toFixed(0)} ms`;
+  el('s-time').textContent = analysisTiming;
 
   lastResult = res;
   if (finsVisible) refreshFins();
@@ -438,7 +443,7 @@ function updateFinReadout(built, ms) {
               'still unsupported — rotate further, or fin them by hand (M5)');
   }
   note.textContent = bits.join('. ') + '.';
-  el('s-time').textContent += ` · fins ${ms.toFixed(0)} ms`;
+  el('s-time').textContent = `${analysisTiming} · fins ${ms.toFixed(0)} ms`;
 }
 
 el('fin-mode').addEventListener('change', (e) => {

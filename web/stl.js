@@ -24,7 +24,9 @@ export function writeBinarySTL(tris, name = 'Support Fins') {
   const buf = new ArrayBuffer(HEADER + 4 + count * PER_TRI);
   const view = new DataView(buf);
 
-  const header = `${name} — support-fins`.slice(0, 79);
+  // Plain hyphen, not an em dash: the & 0x7f mask below turns an em dash into
+  // control byte 0x14 rather than dropping it.
+  const header = `${name} - support-fins`.slice(0, 79);
   for (let i = 0; i < header.length; i++) view.setUint8(i, header.charCodeAt(i) & 0x7f);
 
   view.setUint32(HEADER, count, true);
