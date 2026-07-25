@@ -20,7 +20,7 @@
 
 <header id="topbar">
   <span class="brand">Support&nbsp;Fins</span>
-  <label class="btn">
+  <label class="btn primary">
     Open STL<input type="file" id="file" accept=".stl" hidden>
   </label>
   <label class="field">
@@ -63,17 +63,26 @@
   <button class="btn sm" id="rot-y">Y</button>
   <button class="btn sm" id="rot-z">Z</button>
   <button class="btn sm" id="rot-reset">Reset</button>
-  <p class="hint">Click any face to lay it on the plate. Drag the rings to rotate
-    freely — snaps to 15°.</p>
+  <p class="readout"><span id="rot-now">X 0° · Y 0° · Z 0°</span><span id="rot-delta"></span></p>
+  <p class="hint"><strong>Click any face</strong> to lay it flat on the plate. Or drag the
+    rings — snaps to 5°, hold <kbd>Shift</kbd> for free rotation.</p>
 </aside>
 
 <div id="fps">—</div>
 
 <div id="drop">
   <div class="inner">
-    <p class="big">Drop an STL</p>
-    <p class="small">or use <strong>Open STL</strong>. Nothing is uploaded — the file is
-      read in this tab and never leaves your machine.</p>
+    <p class="big">Print it support-free, in any slicer</p>
+    <p class="lede">Turn a part into a stronger printing orientation, and Support Fins
+      adds the breakaway fins that make that orientation printable — baked into the STL
+      itself. It prints the same way for anyone who downloads it, on any machine.</p>
+    <ol class="steps">
+      <li><strong>Open an STL.</strong> Drop it anywhere on this page.</li>
+      <li><strong>Rotate it.</strong> Red marks every surface that needs support.</li>
+      <li><strong>Export.</strong> Fins come baked in — no slicer supports needed.</li>
+    </ol>
+    <p class="small">Nothing is uploaded. The file is read inside this tab and never
+      leaves your machine.</p>
   </div>
 </div>
 

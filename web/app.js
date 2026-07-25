@@ -126,11 +126,43 @@ let weldMs = 0;
 // geometrically valid, unprintable.
 const gizmo = new TransformControls(camera, renderer.domElement);
 gizmo.setMode('rotate');
-gizmo.setRotationSnap(THREE.MathUtils.degToRad(15));
 gizmo.setSize(0.85);
 scene.add(gizmo.getHelper ? gizmo.getHelper() : gizmo);
-gizmo.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
-gizmo.addEventListener('objectChange', () => shade());
+gizmo.addEventListener('dragging-changed', (e) => {
+  controls.enabled = !e.value;
+  if (!e.value) el('rot-delta').textContent = '';
+});
+gizmo.addEventListener('objectChange', () => {
+  showDelta(gizmo.axis, gizmo.rotationAngle);
+  requestShade();
+});
+
+// 5 degrees, not 15: a coarse snap is what makes a drag feel like it is
+// juddering rather than turning. Shift releases it entirely for fine work.
+const SNAP = THREE.MathUtils.degToRad(5);
+gizmo.setRotationSnap(SNAP);
+addEventListener('keydown', (e) => { if (e.key === 'Shift') gizmo.setRotationSnap(null); });
+addEventListener('keyup', (e) => { if (e.key === 'Shift') gizmo.setRotationSnap(SNAP); });
+
+/**
+ * Coalesce re-analysis to one per frame. A high-polling-rate mouse fires
+ * pointermove (and so objectChange) well above 60Hz, so an un-throttled drag
+ * runs the classify pass several times per displayed frame and stutters.
+ */
+let shadeQueued = false;
+function requestShade() {
+  if (shadeQueued) return;
+  shadeQueued = true;
+  requestAnimationFrame(() => { shadeQueued = false; shade(); });
+}
+
+function showDelta(axis, radians) {
+  if (!axis || !radians) return;
+  const label = axis.length > 1 ? 'free' : axis;   // 'XYZE' / 'E' are screen-space
+  const deg = THREE.MathUtils.radToDeg(radians);
+  el('rot-delta').textContent =
+    `${label} ${deg >= 0 ? '+' : ''}${deg.toFixed(deg % 1 ? 1 : 0)}°`;
+}
 
 const SHADE = {
   plain: new THREE.Color().setHex(0xb9c2d0, THREE.SRGBColorSpace),
@@ -161,6 +193,8 @@ function setPart(geometry, filename) {
   geometry.computeBoundingBox();
 
   part = new THREE.Mesh(geometry, partMaterial);
+  part.add(hoverFace);
+  hoverFace.visible = false;
   scene.add(part);
 
   const nFaces = geometry.getAttribute('position').count / 3;
@@ -226,7 +260,45 @@ function shade() {
   el('s-bed').classList.toggle('warn', res.bedArea < 1);
   el('s-time').textContent =
     `${ms.toFixed(0)} ms · weld ${weldMs.toFixed(0)} ms`;
+
+  // where the part currently sits, the way a slicer states it
+  const [ex, ey, ez] = readableEuler(part.quaternion);
+  el('rot-now').textContent = `X ${ex}° · Y ${ey}° · Z ${ez}°`;
   return size;
+}
+
+const wrap180 = (deg) => {
+  const v = ((deg + 180) % 360 + 360) % 360 - 180;
+  if (Object.is(v, -0)) return 0;
+  return v === -180 ? 180 : v;      // half a turn reads better as +180
+};
+
+/**
+ * Euler angles for display, in whichever of the two equivalent solutions reads
+ * better. Every orientation has two XYZ triples, and the one three.js hands back
+ * is often the ugly one: turning a part 90 degrees about Y twice reports
+ * "X -180, Y 0, Z -180" rather than "Y 180". Same rotation, but a user reading it
+ * cannot tell what they did.
+ *
+ * The alternate solution is verified against the original quaternion rather than
+ * trusted, so a convention change in three.js degrades to the plain answer
+ * instead of silently displaying a wrong one.
+ */
+const _e = new THREE.Euler();
+const _q = new THREE.Quaternion();
+
+function readableEuler(q) {
+  _e.setFromQuaternion(q, 'XYZ');
+  const a = [_e.x, _e.y, _e.z].map((r) => wrap180(THREE.MathUtils.radToDeg(r)));
+  const b = [wrap180(a[0] + 180), wrap180(180 - a[1]), wrap180(a[2] + 180)];
+
+  const cost = (v) => Math.abs(v[0]) + Math.abs(v[1]) + Math.abs(v[2]);
+  if (cost(b) < cost(a)) {
+    _e.set(...b.map(THREE.MathUtils.degToRad), 'XYZ');
+    _q.setFromEuler(_e);
+    if (Math.abs(Math.abs(_q.dot(q)) - 1) < 1e-6) return b.map(Math.round);
+  }
+  return a.map(Math.round);
 }
 
 /** Point the camera at the part, backed off far enough to see all of it. */
@@ -264,10 +336,11 @@ function report(filename, size) {
 // ---------------------------------------------------------------- orientation
 
 /** Rotate 90 degrees about a world axis, keeping the part seated. */
-function rotate90(axis) {
+function rotate90(name, axis) {
   if (!part) return;
   const q = new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2);
   part.quaternion.premultiply(q);   // premultiply = about the WORLD axis
+  showDelta(name.toUpperCase(), Math.PI / 2);
   shade();
 }
 
@@ -283,6 +356,57 @@ const layQuat = new THREE.Quaternion();
 const faceNormal = new THREE.Vector3();
 let pressAt = null;
 
+/**
+ * The hovered face, drawn as a single highlighted triangle. Without this,
+ * click-to-lay is invisible: nothing on screen suggests the part is clickable,
+ * so a first-time user never discovers the fastest control in the app.
+ * Parented to the part so it inherits the orientation for free.
+ */
+const hoverGeom = new THREE.BufferGeometry();
+hoverGeom.setAttribute(
+  'position', new THREE.BufferAttribute(new Float32Array(9), 3));
+const hoverFace = new THREE.Mesh(hoverGeom, new THREE.MeshBasicMaterial({
+  color: 0x4da3ff, transparent: true, opacity: 0.6, side: THREE.DoubleSide,
+  depthTest: true, polygonOffset: true,
+  polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+}));
+hoverFace.visible = false;
+hoverFace.renderOrder = 1;
+
+/** Ray the pointer into the part; returns the intersection or null. */
+function pickFace(ev) {
+  if (!part || !topology) return null;
+  const r = renderer.domElement.getBoundingClientRect();
+  pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1,
+              -((ev.clientY - r.top) / r.height) * 2 + 1);
+  raycaster.setFromCamera(pointer, camera);
+  const hit = raycaster.intersectObject(part, false)[0];
+  return hit && hit.faceIndex != null ? hit : null;
+}
+
+renderer.domElement.addEventListener('pointermove', (ev) => {
+  // don't compete with the gizmo: if a handle is hovered or held, it wins
+  if (!part || gizmo.dragging || gizmo.axis || pressAt) {
+    hoverFace.visible = false;
+    return;
+  }
+  const hit = pickFace(ev);
+  hoverFace.visible = !!hit;
+  renderer.domElement.style.cursor = hit ? 'pointer' : '';
+  if (!hit) return;
+
+  const pos = hoverGeom.getAttribute('position');
+  const src = part.geometry.getAttribute('position').array;
+  const o = hit.faceIndex * 9;
+  for (let i = 0; i < 9; i++) pos.array[i] = src[o + i];
+  pos.needsUpdate = true;
+  hoverGeom.computeBoundingSphere();
+});
+
+renderer.domElement.addEventListener('pointerleave', () => {
+  hoverFace.visible = false;
+});
+
 renderer.domElement.addEventListener('pointerdown', (e) => {
   pressAt = { x: e.clientX, y: e.clientY };
 });
@@ -290,16 +414,12 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 renderer.domElement.addEventListener('pointerup', (e) => {
   const from = pressAt;
   pressAt = null;
-  if (!from || !part || !topology || gizmo.dragging) return;
+  if (!from || !part || !topology || gizmo.dragging || gizmo.axis) return;
   // a drag is an orbit, not a pick
   if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
 
-  const r = renderer.domElement.getBoundingClientRect();
-  pointer.set(((e.clientX - r.left) / r.width) * 2 - 1,
-              -((e.clientY - r.top) / r.height) * 2 + 1);
-  raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObject(part, false)[0];
-  if (!hit || hit.faceIndex == null) return;
+  const hit = pickFace(e);
+  if (!hit) return;
 
   // Use OUR winding-derived normal, not the STL's stored one, for the same
   // reason the analysis does: exported normals are not trustworthy.
@@ -314,11 +434,12 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0),
                z: new THREE.Vector3(0, 0, 1) };
 for (const a of ['x', 'y', 'z']) {
-  el(`rot-${a}`).addEventListener('click', () => rotate90(AXES[a]));
+  el(`rot-${a}`).addEventListener('click', () => rotate90(a, AXES[a]));
 }
 el('rot-reset').addEventListener('click', () => {
   if (!part) return;
   part.quaternion.identity();
+  el('rot-delta').textContent = '';
   shade();
 });
 
