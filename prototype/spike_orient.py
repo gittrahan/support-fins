@@ -27,7 +27,7 @@ import sys
 import numpy as np
 import trimesh
 
-from spike_overhangs import OVERHANG_COS, MIN_REGION_AREA, contact_line, region_points
+from spike_overhangs import OVERHANG_CUT, MIN_REGION_AREA, contact_line, region_points
 
 MIN_WALL_H = 4.0          # below this the fin profile degenerates (spike part 2)
 
@@ -46,7 +46,7 @@ def metrics(mesh):
     nz = m.face_normals[:, 2]
     tz = m.triangles[:, :, 2]
     bed_area = float(m.area_faces[tz.max(axis=1) < 0.35].sum())
-    over = (nz < -OVERHANG_COS) & (tz.min(axis=1) >= 0.35)
+    over = (nz < OVERHANG_CUT) & (tz.min(axis=1) >= 0.35)
     idx = np.flatnonzero(over)
     over_area = float(m.area_faces[idx].sum())
 

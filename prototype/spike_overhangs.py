@@ -16,11 +16,22 @@ Per overhang region we report:
           in mm. breakaway_wall spans it with 2 sections, so this is its error.
   SPAN    length of the contact line (a wall shorter than ~foot is not a wall)
 """
+import math
 import sys
 import numpy as np
 import trimesh
 
-OVERHANG_COS = 0.7071          # n_z < -cos(45deg)  => surface < 45deg from the plate
+OVERHANG_DEG = 45.0
+OVERHANG_COS = math.cos(math.radians(OVERHANG_DEG))   # 0.70710678, NOT 0.7071
+
+# A face at EXACTLY the threshold is self-supporting -- 45deg is the canonical
+# designed-in chamfer angle, so real parts have thousands of faces sitting exactly
+# on this boundary and the comparison must not decide them by float noise. The old
+# truncated 0.7071 constant was 7.6e-6 looser than cos(45deg), which silently pulled
+# every 45deg chamfer in: on one Voron part that was 45 extra faces but 318 mm^2 --
+# a 2.1x overstatement of overhang area, and fins on a part that needs none.
+ANGLE_EPS = 1e-4                                      # ~0.008deg of slack
+OVERHANG_CUT = -(OVERHANG_COS + ANGLE_EPS)            # test: n_z < OVERHANG_CUT
 MIN_REGION_AREA = 12.0         # mm^2, ignore slivers
 BED_EPS = 0.35                 # mm, faces this close to the plate are the bottom
 RAYS_PER_REGION = 24
@@ -88,7 +99,7 @@ def analyse(path):
     nz = mesh.face_normals[:, 2]
     tri_z = mesh.triangles[:, :, 2]
     on_bed = tri_z.max(axis=1) < z_bed + BED_EPS
-    over = (nz < -OVERHANG_COS) & (~on_bed)
+    over = (nz < OVERHANG_CUT) & (~on_bed)
     idx = np.flatnonzero(over)
     a_over = float(mesh.area_faces[idx].sum())
     print(f"  overhang faces: {len(idx):,} / {len(mesh.faces):,} "

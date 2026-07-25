@@ -59,8 +59,19 @@ welts.
 
 ## Where we deviate
 
-- **`breakaway_wall()` in the prototype is gap-only, no tines.** That's the failure mode
-  above. Adding tines is build item #1.
+- **`breakaway_wall()` in the prototype is gap-only, no tines — and tines cannot be added
+  to it.** The prototype sweeps its wall *under* the contact line, topping out 0.2 mm
+  below the part, so the only gap it leaves is vertical, and a tine across a vertical gap
+  is the failure mode above. A wall can pass under the contact line *or* rise above it,
+  never both: at the contact height the part touches the wall's plane, so it would have to
+  pinch to zero thickness there.
+
+  So the fin has to stand **beside** the part, off a near-vertical face, and let the
+  **tines carry the load** — which is what "combined" means, and why placement is "on an
+  edge or corner." Measured across the 11-model test set (`prototype/probe_tines*.py`):
+  66% of contact-line stations take a tine ≤ 1.5 mm, and 13/20 overhang regions have a
+  vertical face tall enough to stand a fin against. **That ~65% ceiling is why manual fin
+  placement is a core feature, not a fallback.**
 - **Scale-aware profile.** The prototype's foot/chamfer/tip are fixed, which degenerates
   into a 14 mm splayed sheet when the overhang sits low. Foot width must scale with wall
   height.

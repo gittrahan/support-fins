@@ -13,7 +13,7 @@ import sys
 import numpy as np
 import trimesh
 
-from spike_overhangs import (OVERHANG_COS, MIN_REGION_AREA, BED_EPS,
+from spike_overhangs import (OVERHANG_CUT, MIN_REGION_AREA, BED_EPS,
                              contact_line, straightness, region_points)
 
 TH, FOOT, GAP, TIP, CHAMFER, TIP_H = 1.2, 7.0, 0.2, 0.6, 2.5, 1.5
@@ -65,7 +65,7 @@ def main(src, dst):
 
     nz = mesh.face_normals[:, 2]
     on_bed = mesh.triangles[:, :, 2].max(axis=1) < z_bed + BED_EPS
-    over = (nz < -OVERHANG_COS) & (~on_bed)
+    over = (nz < OVERHANG_CUT) & (~on_bed)
     idx = np.flatnonzero(over)
     adj = mesh.face_adjacency
     keep = over[adj[:, 0]] & over[adj[:, 1]]
