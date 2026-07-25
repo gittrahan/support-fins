@@ -105,7 +105,7 @@ Each one ends at something you can open in a browser and judge.
 | ~~**M0**~~ ✅ | `index.html` + vendored three.js. Drag-drop an STL, orbit it, build plate + printer box. | ~~A Voron STL loads and spins at 60fps.~~ **Done** — 35,520-tri Voron frame at 60fps, no console errors. |
 | ~~**M1**~~ ✅ | Overhang shading + stats readout. No fins yet. | ~~Red faces match what the Python probe reports on the same file.~~ **Done** — exact match on two models (4,782 faces / 264.6 mm² / 563 raw / 2 regions), threshold slider live at 2–8 ms. |
 | ~~**M2**~~ ✅ | Orientation: rotate gizmo, snap-to-face, live readout. | ~~Rotating a part visibly changes the overhang count.~~ **Done** — standing a Voron plate on edge moves it from 265 mm² of overhang / 3110 mm² bed contact to 1310 / 73, re-analysed in 1–6 ms. |
-| **M3** | Fin placement + STL export, end-to-end. *Gap-only geometry — internal milestone, never shipped.* | Exported STL opens in a slicer with the fin present. |
+| ~~**M3**~~ ✅ | Fin placement + STL export, end-to-end. *Gap-only geometry — internal milestone, never shipped.* | ~~Exported STL opens in a slicer with the fin present.~~ **Done** — 13 fins on a tilted Voron frame, exported as 14 closed solids (1 part + 13 fins), all watertight, seated at z=0. Validated with trimesh, **not yet opened in a real slicer.** |
 | **M4** | **Tines.** Fin stands beside the part on a vertical face, horizontal tines fused in. | A printed test part comes off the plate and the fin snaps clean. |
 | **M5** | Draw mode — place / move / delete fins by hand. | A part auto-mode refuses can be finned manually. |
 | **M6** | Strength overlay: load arrow, pull-vs-lever toggle, ranked suggestions. | Toggling pull↔lever changes the recommended orientation. |
@@ -114,6 +114,13 @@ Each one ends at something you can open in a browser and judge.
 **M3 never ships.** A fin with no tines only constrains the part in one direction —
 Slant3D demos a cube falling away from exactly that support mid-print. M3 exists to prove
 the pipeline, M4 makes it correct.
+
+M3 also made the *judgment* problem concrete rather than theoretical. On a Voron frame
+stood on edge, naive placement puts fins under all 13 servable overhang regions and they
+come out **12–103 mm tall on a 116 mm part** — full-height scaffold walls that would waste
+more plastic than the slicer supports they replace. Detection is solved; deciding which
+overhangs actually deserve a fin, and where it stands, is the product. That is M4 (correct
+geometry, beside the part) and M5 (the human overriding it).
 
 ---
 

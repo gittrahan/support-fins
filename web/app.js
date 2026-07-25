@@ -11,6 +11,8 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
+import { buildFins } from './fins.js';
+import { writeBinarySTL, download } from './stl.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
@@ -261,6 +263,9 @@ function shade() {
   el('s-time').textContent =
     `${ms.toFixed(0)} ms · weld ${weldMs.toFixed(0)} ms`;
 
+  lastResult = res;
+  if (finsVisible) refreshFins();
+
   // where the part currently sits, the way a slicer states it
   const [ex, ey, ez] = readableEuler(part.quaternion);
   el('rot-now').textContent = `X ${ex}° · Y ${ey}° · Z ${ez}°`;
@@ -332,6 +337,94 @@ function report(filename, size) {
 }
 
 // ------------------------------------------------------------------- printers
+
+// ----------------------------------------------------------------------- fins
+
+let lastResult = null;
+let finsVisible = false;
+let finMesh = null;
+let finTris = [];
+
+const finMaterial = new THREE.MeshStandardMaterial({
+  color: 0x59d98e, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide,
+});
+
+/**
+ * Regenerate the fins for the current orientation. Fins live in PRINT space
+ * (already rotated and seated), not in the part's local frame, so they are added
+ * to the scene rather than parented to the part.
+ */
+function refreshFins() {
+  if (finMesh) { scene.remove(finMesh); finMesh.geometry.dispose(); finMesh = null; }
+  finTris = [];
+  if (!finsVisible || !lastResult || !topology) { updateFinReadout(null); return; }
+
+  const t0 = performance.now();
+  const built = buildFins(topology, lastResult, rotM3.elements);
+  finTris = built.triangles;
+
+  if (finTris.length) {
+    const arr = new Float32Array(finTris.length * 3);
+    for (let i = 0; i < finTris.length; i++) {
+      arr[i * 3] = finTris[i][0];
+      arr[i * 3 + 1] = finTris[i][1];
+      arr[i * 3 + 2] = finTris[i][2];
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+    g.computeVertexNormals();
+    finMesh = new THREE.Mesh(g, finMaterial);
+    scene.add(finMesh);
+  }
+  updateFinReadout(built, performance.now() - t0);
+}
+
+function updateFinReadout(built, ms) {
+  const box = el('s-fins');
+  if (!built) { box.textContent = '—'; return; }
+  const miss = Object.values(built.skipped).reduce((a, b) => a + b, 0);
+  box.textContent = `${built.placed} placed` + (miss ? ` · ${miss} unserved` : '');
+  box.classList.toggle('warn', built.placed === 0);
+  el('s-time').textContent += ` · fins ${ms.toFixed(0)} ms`;
+}
+
+el('fins-toggle').addEventListener('click', () => {
+  finsVisible = !finsVisible;
+  el('fins-toggle').classList.toggle('primary', finsVisible);
+  el('fins-toggle').textContent = finsVisible ? 'Fins on' : 'Add fins';
+  refreshFins();
+});
+
+/**
+ * Export the part AS ORIENTED, seated on the plate, with the fins as extra
+ * solids in the same file. The whole promise of the tool is that the STL prints
+ * the same way for whoever opens it, so the orientation has to be baked in --
+ * exporting the original frame and hoping the user re-rotates defeats the point.
+ */
+el('export').addEventListener('click', () => {
+  if (!part || !topology || !lastResult) return;
+  const rot = rotM3.elements;
+  const dz = lastResult.offset.z;
+  const dx = lastResult.offset.x, dy = lastResult.offset.y;
+  const { pos, nFaces } = topology;
+
+  const tris = new Array(nFaces * 3);
+  for (let f = 0; f < nFaces; f++) {
+    for (let i = 0; i < 3; i++) {
+      const o = f * 9 + i * 3;
+      const x = pos[o], y = pos[o + 1], z = pos[o + 2];
+      tris[f * 3 + i] = [
+        rot[0] * x + rot[3] * y + rot[6] * z + dx,
+        rot[1] * x + rot[4] * y + rot[7] * z + dy,
+        rot[2] * x + rot[5] * y + rot[8] * z + dz,
+      ];
+    }
+  }
+  for (const t of finTris) tris.push(t);
+
+  const base = partName.replace(/\.stl$/i, '') || 'part';
+  download(writeBinarySTL(tris, base), `${base}-fins.stl`);
+});
 
 // ---------------------------------------------------------------- orientation
 

@@ -122,6 +122,7 @@ html, body {
 }
 .sw-over { background: #ff5a4d; }
 .sw-bed  { background: #3f7fd0; }
+.sw-fin  { background: #59d98e; }
 
 .field input[type=range] {
   width: 92px;
