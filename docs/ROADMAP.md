@@ -73,17 +73,28 @@ a tool earns *"it put junk fins all over my part."* So the grouping step is expo
 mode runs the same geometry engine underneath — the only thing that changes is **which
 overhang regions get bundled onto one fin.**
 
-| mode | groups by | typical output | for |
+| mode | what it builds | needs | for |
 |---|---|---|---|
-| **Stabilize** | servable vertical face — every region that face reaches rides one fin | 2–3 tall fins | a part tilted into a strong orientation that just needs to stay standing. This is the technique `docs/FIN-SPEC.md` measures, and where *"long parts: two fins, opposite sides"* comes from. |
-| **Coverage** | one fin per overhang region | many walls | undersides that must all come out clean, at the cost of more plastic |
-| **Draw** | you | whatever you place | the ~35% of regions auto-placement can never serve |
+| **Stabilize** | a wall BESIDE the part on a flat-ish face, gripping with horizontal tines | a face to grip | a part tilted onto an edge that would topple. This is the technique `docs/FIN-SPEC.md` measures, and where *"long parts: two fins, opposite sides"* comes from. |
+| **Prop** | a wall UNDER each overhang, stopping `gap` below it — no tines | only an underside contact line, so ANY shape | overhangs sitting above the plate on a part that is otherwise seated. |
+| **Draw** | whatever you place | you | the regions auto-placement can never serve |
 
-Shipping order is **Stabilize (M4) → Draw (M5) → Coverage (M6)**. Coverage is a change to
-the grouping step alone once Stabilize exists, so it is sequenced by value, not by cost —
-and it is the mode most likely to be *wrong* for a given part, so it should not be what a
-first-time user meets. Auto modes reach ~65% of regions and must say so out loud about
-the rest.
+**Prop and Stabilize are different supports, not settings of one support**, and
+conflating them cost real coverage. A tine-less wall was rejected early on
+Slant3D's demo of a cube falling away from exactly that support — but that demo
+is a part balanced on an edge with the fin as its ONLY restraint. A wall propping
+an overhang from beneath, on a part that is otherwise sitting down, has no such
+failure mode: gravity holds the part onto the prop. `tools/support/breakaway.py`
+in the video repo does precisely this, contains no tines at all, and produced
+good fins on real printed shelter hubs — the parts this tool then could not
+serve. M3's geometry was never wrong; it was mis-scoped as a failed step toward
+Stabilize rather than recognised as the other mode.
+
+Shipping order is **Stabilize (M4) → Prop (M5) → Draw (M6)**. Prop moved ahead of Draw
+because it is the mode that serves round and organic parts — Stabilize needs a face to
+grip, and a cone has none — and because its geometry already exists and was validated in
+M3 (34/36 regions served, every wall watertight) before being retired for the wrong
+reason. Auto modes must say out loud what they could not reach.
 
 - Per-fin params with spec defaults (`docs/FIN-SPEC.md`): standoff 0.2, tine 0.3 tall ×
   0.4–0.8 wide, 7–8 tines low spreading with height, 1 mm elliptical base, rounded top.
@@ -124,8 +135,8 @@ Each one ends at something you can open in a browser and judge.
 | ~~**M2**~~ ✅ | Orientation: rotate gizmo, snap-to-face, live readout. | ~~Rotating a part visibly changes the overhang count.~~ **Done** — standing a Voron plate on edge moves it from 265 mm² of overhang / 3110 mm² bed contact to 1310 / 73, re-analysed in 1–6 ms. |
 | ~~**M3**~~ ✅ | Fin placement + STL export, end-to-end. *Gap-only geometry — internal milestone, never shipped.* | ~~Exported STL opens in a slicer with the fin present.~~ **Done** — 13 fins on a tilted Voron frame, exported as 14 closed solids (1 part + 13 fins), all watertight, seated at z=0. Validated with trimesh, **not yet opened in a real slicer.** |
 | **M4** | **Tines + Stabilize mode.** Fin stands beside the part on a vertical face, horizontal tines fused in, regions clustered per face. Bed pad included. | A printed test part comes off the plate and the fin snaps clean. |
-| **M5** | Draw mode — place / move / delete fins by hand. | A part auto-mode refuses can be finned manually. |
-| **M6** | Coverage mode + strength overlay: load arrow, pull-vs-lever toggle, ranked suggestions. | Switching Stabilize↔Coverage changes the fin count; toggling pull↔lever changes the recommended orientation. |
+| **M5** | **Prop mode** — a breakaway wall under each overhang, no tines, swept along the contact line (M3's geometry, rescoped). | hub_post_foot and hub_corner get usable supports at the angle a human would print them. |
+| **M6** | Draw mode + strength overlay: load arrow, pull-vs-lever toggle, ranked suggestions. | A part both auto modes refuse can be finned by hand; toggling pull↔lever changes the recommended orientation. |
 | **M7** | 2 mm chamfer + permission checkboxes, limitations panel, sample model, Ko-fi, domain. | A stranger can use it without being told anything. |
 
 **The bed pad moved from M7 into M4**, because M4's done-when depends on it. Nearly every
