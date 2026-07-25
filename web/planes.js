@@ -76,7 +76,7 @@ export const MIN_PATCH_AREA = 25.0; // mm^2
  *          frame, its extent in that frame, and its triangles projected into
  *          (u, t) so tine placement can test coverage.
  */
-export function findWallPatches(topo, rot, offset) {
+export function findWallPatches(topo, rot, offset, stats = null) {
   const { pos, nFaces, nrm, area } = topo;
   const leanCut = Math.sin((MAX_LEAN_DEG * Math.PI) / 180);
   const agreeCut = Math.cos((NORMAL_AGREE_DEG * Math.PI) / 180);
@@ -153,8 +153,12 @@ export function findWallPatches(topo, rot, offset) {
       }
     }
 
-    if (total < MIN_PATCH_AREA) continue;
-    const patch = fitPatch(topo, { faces, area: total }, rn, rot, offset);
+    if (stats) stats.grown = (stats.grown ?? 0) + 1;
+    if (total < MIN_PATCH_AREA) {
+      if (stats) stats.tooSmall = (stats.tooSmall ?? 0) + 1;
+      continue;
+    }
+    const patch = fitPatch(topo, { faces, area: total }, rn, rot, offset, stats);
     if (patch) patches.push(patch);
   }
 
@@ -203,7 +207,7 @@ function worldVertex(pos, o, rot, offset, out) {
  * (n, u, t) is orthonormal and right-handed, which is what lets the extruder in
  * fins.js emit consistent outward winding without a per-solid orientation check.
  */
-function fitPatch(topo, g, rn, rot, offset) {
+function fitPatch(topo, g, rn, rot, offset, stats = null) {
   const { pos, area } = topo;
 
   // area-weighted mean normal: a patch's big faces describe its plane, and a fan
@@ -219,7 +223,10 @@ function fitPatch(topo, g, rn, rot, offset) {
   nx /= nl; ny /= nl; nz /= nl;
 
   const h = Math.hypot(nx, ny);           // horizontal share of the normal
-  if (h < 1e-6) return null;              // a floor or ceiling, not a wall
+  if (h < 1e-6) {                         // a floor or ceiling, not a wall
+    if (stats) stats.notUpright = (stats.notUpright ?? 0) + 1;
+    return null;
+  }
   const ux = -ny / h, uy = nx / h;        // horizontal, across the face
 
   // t = n x u, up the face. Note it is built from n's OWN horizontal direction
@@ -269,9 +276,13 @@ function fitPatch(topo, g, rn, rot, offset) {
     }
   }
 
-  if (dev > FLAT_TOL) return null;
-  if (t1 - t0 < MIN_PATCH_H) return null;
-  if (u1 - u0 < MIN_PATCH_W) return null;
+  const fail = (why) => {
+    if (stats) stats[why] = (stats[why] ?? 0) + 1;
+    return null;
+  };
+  if (dev > FLAT_TOL) return fail('notFlat');
+  if (t1 - t0 < MIN_PATCH_H) return fail('tooShort');
+  if (u1 - u0 < MIN_PATCH_W) return fail('tooNarrow');
 
   // where this site sits, for keeping chosen fins apart in space
   const umid = (u0 + u1) / 2, tmid = (t0 + t1) / 2;

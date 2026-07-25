@@ -136,14 +136,47 @@ html, body {
 }
 #stats .note:empty { display: none; }
 
-.fin-opts { gap: 8px; }
+/* Fin options, anchored under the toggle rather than inside the topbar, so
+   turning fins on never moves another control. */
+#fin-opts {
+  position: fixed;
+  top: 52px; right: 14px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  backdrop-filter: blur(6px);
+}
+#fin-opts .fld {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--dim);
+}
+#fin-opts select {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: inherit;
+}
 .check {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   color: var(--dim);
   cursor: pointer;
 }
+
+/* Nothing in the topbar may wrap onto a second line: these are single controls,
+   and a two-line button makes the bar jump in height as its contents change. */
+#topbar .btn,
+#topbar .badge,
+#topbar .field { white-space: nowrap; }
 
 .field input[type=range] {
   width: 92px;

@@ -383,6 +383,37 @@ function updateFit() {
 let lastResult = null;
 let finsVisible = false;
 let finMode = 'stabilize';
+/**
+ * Why did this part get no fins, in terms the user can act on?
+ *
+ * "No flat vertical face" is technically true and useless: it does not say
+ * whether to rotate the part, accept it, or wait for draw mode. Each stage of
+ * the search discards candidates for a different reason, so name the stage that
+ * actually emptied out.
+ */
+function explainNoFins(b) {
+  const st = b.patchStats ?? {};
+  if (!b.patchCount) {
+    // a cylinder or a mesh of small facets has no flat face wide enough
+    return (st.tooNarrow ?? 0) > (st.notFlat ?? 0)
+      ? 'nothing flat and wide enough to stand a fin against — curved or '
+        + 'finely faceted surfaces have no flat face to grip'
+      : 'no flat upright face on this part in this orientation';
+  }
+  if (!b.rejected.sites) {
+    return st.tooHigh
+      ? `${st.tooHigh} flat face${st.tooHigh === 1 ? '' : 's'} found, but every `
+        + 'one starts too far up the part — a fin would be mostly bare stilt. '
+        + 'Rotate so a flat face runs down to the plate'
+      : 'no usable face in this orientation — try rotating';
+  }
+  if (b.rejected.blocked) {
+    return 'the part is in the way of every wall position on the faces it found '
+         + '— rotate, or place one by hand (M5)';
+  }
+  return 'the workable spots would put the fin inside the part — try rotating';
+}
+
 let finMesh = null;
 let padMesh = null;
 let finTris = [];
@@ -465,9 +496,7 @@ function updateFinReadout(built, ms) {
 
   const bits = [];
   if (!n) {
-    bits.push(built.patchCount
-      ? 'no flat vertical face is tall enough to stand a fin against'
-      : 'this part has no flat vertical faces — rotate it, or wait for Draw mode');
+    bits.push(explainNoFins(built));
   } else {
     bits.push(built.fins
       .map((f) => `${f.height.toFixed(0)}mm tall × ${f.length.toFixed(0)}mm`)

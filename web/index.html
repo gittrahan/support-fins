@@ -39,16 +39,6 @@
   </label>
   <span class="spacer"></span>
   <button class="btn" id="fins-toggle">Add fins</button>
-  <span class="field fin-opts" id="fin-opts" hidden>
-    <select id="fin-mode" title="How overhang regions get grouped onto fins.">
-      <option value="stabilize">Stabilize — keep it standing</option>
-      <option value="coverage" disabled>Coverage — a fin per overhang (soon)</option>
-      <option value="draw" disabled>Draw — place them yourself (soon)</option>
-    </select>
-    <label class="check" title="A tilted part rests on an edge and peels off without one.">
-      <input type="checkbox" id="bed-pad" checked>bed pad
-    </label>
-  </span>
   <button class="btn" id="export">Export STL</button>
   <span class="badge" title="No file ever leaves your machine.">runs entirely in your browser</span>
 </header>
@@ -70,6 +60,24 @@
     <dt>Analysis</dt>                            <dd id="s-time">—</dd>
   </dl>
   <p class="note" id="s-fin-note"></p>
+</aside>
+
+<!-- Fin options live OUTSIDE the topbar on purpose. Inline, they appeared and
+     disappeared with the toggle, which re-flowed the whole bar and pushed it onto
+     a second row on narrower screens: the act of turning fins on moved every
+     other control out from under the pointer. -->
+<aside id="fin-opts" hidden>
+  <label class="fld">
+    Placement
+    <select id="fin-mode" title="How overhang regions get grouped onto fins.">
+      <option value="stabilize">Stabilize — keep it standing</option>
+      <option value="coverage" disabled>Coverage — a fin per overhang (soon)</option>
+      <option value="draw" disabled>Draw — place them yourself (soon)</option>
+    </select>
+  </label>
+  <label class="check" title="A tilted part rests on an edge and peels off the plate without one.">
+    <input type="checkbox" id="bed-pad" checked>Add bed pad
+  </label>
 </aside>
 
 <aside id="orient" hidden>

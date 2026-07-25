@@ -73,16 +73,19 @@ def check(case):
     if no_grip:
         problems.append(f'{no_grip} tines detached from wall')
 
-    # the standoff, sampled over the wall surface rather than at its corners
+    # The standoff is the wall's CLOSEST approach to the part, sampled over its
+    # surface. Not the median: a wall whose face is only partly covered by its
+    # patch has most of its area further away, which drags a median upward and
+    # reports a defect that is not there. Closest approach is what "spaced 0.2mm
+    # away" actually means.
     gaps = []
     for b in walls:
         if len(b.vertices) > 40:        # the base ellipse, not a wall
             continue
-        pts, _ = trimesh.sample.sample_surface(b, 4000)
+        pts, _ = trimesh.sample.sample_surface(b, 6000)
         d = pq.signed_distance(pts)
-        near = np.abs(d[np.abs(d) < 1.0])
-        if len(near):
-            gaps.append(float(np.median(near)))
+        if len(d):
+            gaps.append(float(np.abs(d).min()))
     gap_txt = ', '.join(f'{g:.3f}' for g in gaps) if gaps else 'n/a'
     if gaps and any(abs(g - STANDOFF) > 0.05 for g in gaps):
         problems.append(f'standoff off spec ({gap_txt})')

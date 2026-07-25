@@ -51,7 +51,7 @@ export const FIN = {
   arcSegs: 8,         // segments in the rounded top
   ellipseSegs: 40,
   minTines: 3,        // fewer than this and it is a prop, not a combined support
-  stiltFrac: 0.5,     // reject a site whose tined zone starts above this * height
+  stiltFrac: 0.35,    // reject a site whose tined zone starts above this * height
   padH: 0.5,          // bed pad thickness
   padMargin: 4.0,     // how far the pad spreads past the part's contact
   padMinArea: 60.0,   // mm^2 of bed contact above which no pad is needed
@@ -343,14 +343,42 @@ function buildFin(p, out, span, topo, rot, offset) {
   }
   sec.push([tTop - r, wOut], [tBedOut, wOut]);
 
-  // Verify the wall is actually in open air before committing to it. The span
-  // search is a proximity test over bins; this is the exact question. A wall
-  // that fails here is not a wall to shorten -- it is a site to abandon.
-  for (const uu of [u0, (u0 + u1) / 2, u1]) {
-    for (const [tt, ww] of [[tTop, wIn], [tTop, wOut], [tTop - r, wIn],
-                            [(tBedIn + tTop) / 2, wIn], [(tBedIn + tTop) / 2, wOut]]) {
-      const q = patchPoint(p, ww, uu, tt);
-      if (insidePart(topo, rot, offset, q[0], q[1], q[2])) return null;
+  // Verify the fin is actually in open air before committing to it. The span
+  // search is a proximity test over bins; this is the exact question. A fin that
+  // fails here is not a fin to shorten -- it is a site to abandon.
+  //
+  // Sampled on a grid, not at a few corners: a coarser version of this check
+  // passed a wall that had three vertices buried in a hub. The base gets its own
+  // samples because it reaches `baseMinor` outboard and `basePad` past the ends,
+  // so it can be inside the part while every point on the wall is clear.
+  const NU = 7, NT = 6;
+  for (let i = 0; i < NU; i++) {
+    const uu = u0 + ((u1 - u0) * i) / (NU - 1);
+    for (let j = 0; j < NT; j++) {
+      const tt = tBedIn + ((tTop - tBedIn) * j) / (NT - 1);
+      for (const ww of [wIn, wOut]) {
+        const q = patchPoint(p, ww, uu, tt);
+        if (insidePart(topo, rot, offset, q[0], q[1], q[2])) return null;
+      }
+    }
+  }
+  {
+    // the base's outer rim, at the height it actually occupies
+    const nhx0 = p.n.x / p.h, nhy0 = p.n.y / p.h;
+    const bw0 = FIN.baseMinor / 2, bu0 = (u1 - u0) / 2 + FIN.basePad;
+    const foot0 = patchPoint(p, wIn, (u0 + u1) / 2, tAtZ(p, wIn, 0));
+    const cx0 = foot0[0] + nhx0 * bw0, cy0 = foot0[1] + nhy0 * bw0;
+    // sampled through the base's full thickness, not just its mid-height: parts
+    // commonly flare in the first millimetre off the plate, so the rim can be
+    // clear at 0.5mm and buried at 1.0mm
+    for (let i = 0; i < 24; i++) {
+      const a = (2 * Math.PI * i) / 24;
+      const sx = bw0 * Math.cos(a), su = bu0 * Math.sin(a);
+      const qx = cx0 + nhx0 * sx + p.u.x * su;
+      const qy = cy0 + nhy0 * sx + p.u.y * su;
+      for (const qz of [0.05, FIN.baseH / 2, FIN.baseH]) {
+        if (insidePart(topo, rot, offset, qx, qy, qz)) return null;
+      }
     }
   }
 
@@ -501,24 +529,32 @@ function buildPad(contact, out) {
  * contact toward the centre of its mass. A fin whose face looks along that
  * direction is a fin in the way of the fall.
  */
-function chooseStabilize(patches, tip, maxFins) {
+function chooseStabilize(patches, tip, maxFins, stats = null) {
   // A site whose face starts high off the plate makes the wall below it a bare
   // stilt: it holds nothing, it is the part most likely to wobble, and it is
   // most of the plastic. Reject rather than score -- a 47mm stilt under 12mm of
   // grip is not a worse fin, it is a different and worse idea.
   const usable = patches.filter((p) => p.z0 - FIN.baseH <= FIN.stiltFrac * p.z1);
+  if (stats) stats.tooHigh = patches.length - usable.length;
   if (!usable.length) return [];
 
   const maxH = Math.max(...usable.map((p) => p.z1), 1);
   const maxW = Math.max(...usable.map((p) => p.u1 - p.u0), 1);
 
+  // A stilt is penalised as well as capped. The hard filter alone let fins land
+  // 10-14mm up the part -- legal, but they read as stuck on halfway up rather
+  // than bracing anything, and the bare wall under them is the wobbliest part of
+  // the fin. Between two otherwise equal faces, the lower one is the better
+  // brace, so height alone must not decide it.
   const ranked = usable.map((p) => {
     const align = tip ? (p.n.x * tip.x + p.n.y * tip.y) / p.h : 0;
+    const stilt = Math.max(0, p.z0 - FIN.baseH) / maxH;
     return {
       patch: p,
       score: 1.0 * Math.max(0, align)
            + 0.6 * (p.z1 / maxH)
-           + 0.4 * ((p.u1 - p.u0) / maxW),
+           + 0.4 * ((p.u1 - p.u0) / maxW)
+           - 1.2 * stilt,
     };
   }).sort((a, b) => b.score - a.score);
 
@@ -559,7 +595,8 @@ export function buildFins(topo, result, rot, opts = {}) {
   const out = [];
   const padOut = [];
 
-  const patches = findWallPatches(topo, rot, result.offset);
+  const patchStats = {};
+  const patches = findWallPatches(topo, rot, result.offset, patchStats);
 
   // where the part's mass is, versus where it is actually touching down
   const { pos, nFaces, area } = topo;
@@ -592,10 +629,12 @@ export function buildFins(topo, result, rot, opts = {}) {
     if (dn > 0.5) tip = { x: dx / dn, y: dy / dn };
   }
 
-  const sites = mode === 'stabilize' ? chooseStabilize(patches, tip, maxFins) : [];
+  const sites = mode === 'stabilize'
+    ? chooseStabilize(patches, tip, maxFins, patchStats) : [];
 
   const fins = [];
-  const rejected = { blocked: 0, tooFewTines: 0 };
+  const rejected = { blocked: 0, tooFewTines: 0, sites: 0 };
+  rejected.sites = sites.length;
   for (const patch of sites) {
     const spans = chooseSpan(patch, topo, rot, result.offset);
     if (!spans.length) { rejected.blocked++; continue; }
@@ -614,7 +653,7 @@ export function buildFins(topo, result, rot, opts = {}) {
 
   return {
     triangles: out, padTriangles: padOut, fins, pad, rejected,
-    patchCount: patches.length,
+    patchCount: patches.length, patchStats,
     tines: fins.reduce((a, f) => a + f.tines, 0),
     // Stabilize does not claim to serve overhangs -- it claims to keep the part
     // standing. Anything still red after the fins go on is the user's call:
