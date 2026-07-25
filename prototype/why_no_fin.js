@@ -74,7 +74,9 @@ if (patches.length) {
 
 const built = buildFins(topo, res, rot, { mode: 'stabilize', bedPad: true });
 console.log('PLACEMENT');
-console.log(`  sites tried, no clear window   ${built.rejected.blocked}`);
+console.log(`  ranked candidate sites         ${built.rejected.sites}`);
+console.log(`  actually attempted             ${built.rejected.tried}`);
+console.log(`  attempted, no clear window     ${built.rejected.blocked}`);
 console.log(`  windows built, then discarded  ${built.rejected.tooFewTines}` +
             `   (wall inside the part, or < ${FIN.minTines} tines)`);
 console.log(`  FINS                           ${built.fins.length}` +

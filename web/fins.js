@@ -57,6 +57,7 @@ export const FIN = {
   padMinArea: 60.0,   // mm^2 of bed contact above which no pad is needed
   maxLen: 25,         // mm; a fin is a short brace at a corner, not a full-length wall
   maxFins: 3,
+  maxSiteTries: 24,   // candidate faces to attempt before giving up
   minScoreRatio: 0.35,  // a 2nd/3rd fin must score this fraction of the best
   minSeparationDeg: 60, // ...and face at least this far from those chosen
   minSiteGap: 12,     // mm; ...and stand this far from them in space, see below
@@ -529,11 +530,10 @@ function buildPad(contact, out) {
  * contact toward the centre of its mass. A fin whose face looks along that
  * direction is a fin in the way of the fall.
  */
-function chooseStabilize(patches, tip, maxFins, stats = null) {
+function rankSites(patches, tip, stats = null) {
   // A site whose face starts high off the plate makes the wall below it a bare
   // stilt: it holds nothing, it is the part most likely to wobble, and it is
-  // most of the plastic. Reject rather than score -- a 47mm stilt under 12mm of
-  // grip is not a worse fin, it is a different and worse idea.
+  // most of the plastic.
   const usable = patches.filter((p) => p.z0 - FIN.baseH <= FIN.stiltFrac * p.z1);
   if (stats) stats.tooHigh = patches.length - usable.length;
   if (!usable.length) return [];
@@ -546,7 +546,7 @@ function chooseStabilize(patches, tip, maxFins, stats = null) {
   // than bracing anything, and the bare wall under them is the wobbliest part of
   // the fin. Between two otherwise equal faces, the lower one is the better
   // brace, so height alone must not decide it.
-  const ranked = usable.map((p) => {
+  return usable.map((p) => {
     const align = tip ? (p.n.x * tip.x + p.n.y * tip.y) / p.h : 0;
     const stilt = Math.max(0, p.z0 - FIN.baseH) / maxH;
     return {
@@ -557,30 +557,25 @@ function chooseStabilize(patches, tip, maxFins, stats = null) {
            - 1.2 * stilt,
     };
   }).sort((a, b) => b.score - a.score);
+}
 
+/**
+ * Is this site too close to one that already carries a fin?
+ *
+ * Checked in POSITION as well as direction. Comparing only normals looks
+ * sufficient and is not: the two faces of a thin rib are a perfect 180 degrees
+ * apart and sail through, which is how one hub got two "opposite" fins standing
+ * 1.6mm from each other. Two fins that close are one fin's worth of bracing at
+ * two fins' cost -- and the reason the spec says opposite sides is torsion,
+ * which needs a lever arm.
+ */
+function clashes(taken, cand) {
   const sepCut = Math.cos((FIN.minSeparationDeg * Math.PI) / 180);
-  const chosen = [ranked[0]];
-  for (const cand of ranked.slice(1)) {
-    if (chosen.length >= maxFins) break;
-    if (cand.score < ranked[0].score * FIN.minScoreRatio) break;
-    // Spread them around the part. Two fins on the same face are one fin's worth
-    // of bracing and two fins' worth of plastic; the spec's "two fins, opposite
-    // sides" exists because a single face lets the part twist off it.
-    // Separation is checked in POSITION as well as in direction. Comparing only
-    // normals looks sufficient and is not: the two faces of a thin rib are a
-    // perfect 180 degrees apart and sail through, which is how the hub got two
-    // "opposite" fins standing 1.6mm from each other. Two fins that close are
-    // one fin's worth of bracing at two fins' cost -- and the reason the spec
-    // says opposite sides is torsion, which needs a lever arm.
-    const clash = chosen.some((c) => {
-      const a = c.patch, b = cand.patch;
-      const aligned = (a.n.x * b.n.x + a.n.y * b.n.y) / (a.h * b.h) > sepCut;
-      const dx = a.mid.x - b.mid.x, dy = a.mid.y - b.mid.y;
-      return aligned || Math.hypot(dx, dy) < FIN.minSiteGap;
-    });
-    if (!clash) chosen.push(cand);
-  }
-  return chosen.map((c) => c.patch);
+  return taken.some((a) => {
+    const aligned = (a.n.x * cand.n.x + a.n.y * cand.n.y) / (a.h * cand.h) > sepCut;
+    const dx = a.mid.x - cand.mid.x, dy = a.mid.y - cand.mid.y;
+    return aligned || Math.hypot(dx, dy) < FIN.minSiteGap;
+  });
 }
 
 /**
@@ -629,22 +624,37 @@ export function buildFins(topo, result, rot, opts = {}) {
     if (dn > 0.5) tip = { x: dx / dn, y: dy / dn };
   }
 
-  const sites = mode === 'stabilize'
-    ? chooseStabilize(patches, tip, maxFins, patchStats) : [];
+  const ranked = mode === 'stabilize' ? rankSites(patches, tip, patchStats) : [];
 
+  // Walk the ranking until enough fins EXIST, rather than picking sites up front
+  // and hoping. Choosing first and building second meant a site that turned out
+  // to have no clear window burned one of the three slots and the part came back
+  // with no fins at all -- on a tapered hub, 1 site tried and 93 candidates left
+  // untouched. Separation is therefore checked against the fins actually built.
   const fins = [];
-  const rejected = { blocked: 0, tooFewTines: 0, sites: 0 };
-  rejected.sites = sites.length;
-  for (const patch of sites) {
-    const spans = chooseSpan(patch, topo, rot, result.offset);
+  const taken = [];
+  const rejected = { blocked: 0, tooFewTines: 0, sites: 0, tried: 0 };
+
+  for (const cand of ranked) {
+    if (fins.length >= maxFins) break;
+    if (rejected.tried >= FIN.maxSiteTries) break;
+    // a 2nd or 3rd fin still has to be worth its plastic next to the first
+    if (fins.length && cand.score < ranked[0].score * FIN.minScoreRatio) break;
+    if (clashes(taken, cand.patch)) continue;
+
+    rejected.tried++;
+    const spans = chooseSpan(cand.patch, topo, rot, result.offset);
     if (!spans.length) { rejected.blocked++; continue; }
+
     let info = null;
     for (const span of spans) {
-      info = buildFin(patch, out, span, topo, rot, result.offset);
+      info = buildFin(cand.patch, out, span, topo, rot, result.offset);
       if (info) break;
     }
-    if (info) fins.push(info); else rejected.tooFewTines++;
+    if (info) { fins.push(info); taken.push(cand.patch); }
+    else rejected.tooFewTines++;
   }
+  rejected.sites = ranked.length;
 
   let pad = null;
   if ((opts.bedPad ?? true) && result.bedArea < FIN.padMinArea) {
