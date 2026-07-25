@@ -59,6 +59,7 @@ export const FIN = {
   maxFins: 3,
   minScoreRatio: 0.35,  // a 2nd/3rd fin must score this fraction of the best
   minSeparationDeg: 60, // ...and face at least this far from those chosen
+  minSiteGap: 12,     // mm; ...and stand this far from them in space, see below
 };
 
 /**
@@ -529,9 +530,17 @@ function chooseStabilize(patches, tip, maxFins) {
     // Spread them around the part. Two fins on the same face are one fin's worth
     // of bracing and two fins' worth of plastic; the spec's "two fins, opposite
     // sides" exists because a single face lets the part twist off it.
+    // Separation is checked in POSITION as well as in direction. Comparing only
+    // normals looks sufficient and is not: the two faces of a thin rib are a
+    // perfect 180 degrees apart and sail through, which is how the hub got two
+    // "opposite" fins standing 1.6mm from each other. Two fins that close are
+    // one fin's worth of bracing at two fins' cost -- and the reason the spec
+    // says opposite sides is torsion, which needs a lever arm.
     const clash = chosen.some((c) => {
       const a = c.patch, b = cand.patch;
-      return (a.n.x * b.n.x + a.n.y * b.n.y) / (a.h * b.h) > sepCut;
+      const aligned = (a.n.x * b.n.x + a.n.y * b.n.y) / (a.h * b.h) > sepCut;
+      const dx = a.mid.x - b.mid.x, dy = a.mid.y - b.mid.y;
+      return aligned || Math.hypot(dx, dy) < FIN.minSiteGap;
     });
     if (!clash) chosen.push(cand);
   }

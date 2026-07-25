@@ -273,8 +273,15 @@ function fitPatch(topo, g, rn, rot, offset) {
   if (t1 - t0 < MIN_PATCH_H) return null;
   if (u1 - u0 < MIN_PATCH_W) return null;
 
+  // where this site sits, for keeping chosen fins apart in space
+  const umid = (u0 + u1) / 2, tmid = (t0 + t1) / 2;
+  const mid = {
+    x: nx * d + ux * umid + tx * tmid,
+    y: ny * d + uy * umid + ty * tmid,
+  };
+
   return {
-    faces: g.faces, area: g.area,
+    faces: g.faces, area: g.area, mid,
     n: { x: nx, y: ny, z: nz },
     u: { x: ux, y: uy },
     t: { x: tx, y: ty, z: tz },

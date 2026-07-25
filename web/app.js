@@ -124,6 +124,7 @@ let partName = '';
 let topology = null;      // welded adjacency, rebuilt only when the mesh changes
 let weldMs = 0;
 let analysisTiming = '';
+let lastSize = null;
 
 // The user rotates. Always. Auto-orientation may suggest, never apply -- the
 // spike's strength-optimal pose for one hub was 155mm tall balanced on a needle:
@@ -332,14 +333,47 @@ function report(filename, size) {
   el('s-bbox').textContent =
     `${size.x.toFixed(1)} × ${size.y.toFixed(1)} × ${size.z.toFixed(1)} mm`;
 
-  const v = currentVolume();
-  const over = size.x > v.x || size.y > v.y || size.z > v.z;
-  const fit = el('s-fit');
-  fit.textContent = over ? 'does not fit' : 'fits';
-  fit.classList.toggle('warn', over);
+  lastSize = size;
+  updateFit();
 
   el('stats').hidden = false;
   el('drop').classList.add('hidden');
+}
+
+/**
+ * Does it fit the build volume -- including everything the tool ADDS?
+ *
+ * Checking the part alone understates it. The pad spreads `padMargin` past the
+ * part's contact and the fin's base another `basePad` past the wall, so a part
+ * that fits on its own can still put its bed pad over the edge of the plate. The
+ * export bakes those in, so the answer has to account for them.
+ */
+function updateFit() {
+  if (!lastSize) return;
+  const v = currentVolume();
+  let dx = lastSize.x, dy = lastSize.y, dz = lastSize.z;
+
+  const added = [...finTris, ...padTris];
+  if (added.length) {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z1 = -Infinity;
+    for (const t of added) {
+      if (t[0] < x0) x0 = t[0]; if (t[0] > x1) x1 = t[0];
+      if (t[1] < y0) y0 = t[1]; if (t[1] > y1) y1 = t[1];
+      if (t[2] > z1) z1 = t[2];
+    }
+    // the part is centred on the plate, so what matters is the half-extent each
+    // way, not the raw span of the fins alone
+    dx = Math.max(dx, 2 * Math.max(Math.abs(x0), Math.abs(x1)));
+    dy = Math.max(dy, 2 * Math.max(Math.abs(y0), Math.abs(y1)));
+    dz = Math.max(dz, z1);
+  }
+
+  const over = dx > v.x || dy > v.y || dz > v.z;
+  const fit = el('s-fit');
+  fit.textContent = over
+    ? (added.length ? 'does not fit (with fins)' : 'does not fit')
+    : 'fits';
+  fit.classList.toggle('warn', over);
 }
 
 // ------------------------------------------------------------------- printers
@@ -403,6 +437,7 @@ function refreshFins() {
   finMesh = meshFrom(finTris, finMaterial);
   padMesh = meshFrom(padTris, padMaterial);
   updateFinReadout(built, performance.now() - t0);
+  updateFit();
 }
 
 /**
