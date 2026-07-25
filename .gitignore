@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.DS_Store
+node_modules/
+dist/
+*.stl
+!tests/fixtures/*.stl
+out/
