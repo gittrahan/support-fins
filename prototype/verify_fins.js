@@ -80,7 +80,9 @@ console.log(`  -> ${built.fins.length} fins, ${built.tines} tines, ` +
 for (const f of built.fins) {
   console.log(`     ${f.height.toFixed(1)}mm tall x ${f.length.toFixed(1)}mm  ` +
               `${f.tines} tines / ${f.rows} rows  bearing ${f.bearing}deg  ` +
-              `stilt ${f.stilt.toFixed(1)}`);
+              `stilt ${f.stilt.toFixed(1)}  lean ${f.lean.toFixed(0)}  ` +
+              `d ${f.site.d.toFixed(2)} u ${f.site.u0.toFixed(1)}..${f.site.u1.toFixed(1)}` +
+              ` of ${f.site.patchU[0].toFixed(1)}..${f.site.patchU[1].toFixed(1)}`);
 }
 console.log(`  unserved overhang regions: ${built.unserved}`);
 

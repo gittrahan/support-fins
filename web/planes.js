@@ -44,13 +44,22 @@ export const MAX_LEAN_DEG = 45;
 export const NORMAL_AGREE_DEG = 12;
 
 /**
- * Max deviation from the mean plane, mm. This is the tine budget, not an
- * aesthetic tolerance: a tine is one 0.3mm bead crossing a 0.2mm gap, so a patch
- * that bows by more than about half a bead has tines that either miss the part
- * or crash into it. Curved and stepped faces get rejected here rather than
- * finned badly.
+ * Max deviation from the mean plane, mm.
+ *
+ * This is NOT a free parameter, and getting that wrong cost two real defects.
+ * The fin is placed relative to the patch's FITTED plane, but it has to clear
+ * the actual surface, so the flatness budget is bounded on both sides:
+ *
+ *   - below the standoff (0.2mm), or a patch that bows toward the fin puts the
+ *     wall INSIDE the part -- measured at 1.7mm deep with this set to 0.5;
+ *   - below the tine bite (0.3mm), or a patch that bows away leaves the tines
+ *     hanging in air -- 45 of 78 tines fused nothing, same run.
+ *
+ * So it must sit under the smaller of the two, with margin. Curved and stepped
+ * faces get rejected here rather than finned badly, which is the right trade:
+ * a face this tool declines is a face draw mode can still serve.
  */
-export const FLAT_TOL = 0.5;
+export const FLAT_TOL = 0.15;
 
 export const MIN_PATCH_H = 4.0;     // mm, measured up the face
 export const MIN_PATCH_W = 4.0;     // mm, measured across it
@@ -212,7 +221,14 @@ function fitPatch(topo, g, rn, rot, offset) {
   const h = Math.hypot(nx, ny);           // horizontal share of the normal
   if (h < 1e-6) return null;              // a floor or ceiling, not a wall
   const ux = -ny / h, uy = nx / h;        // horizontal, across the face
-  const tx = -nz * ux, ty = -nz * uy, tz = h;   // n x u, up the face
+
+  // t = n x u, up the face. Note it is built from n's OWN horizontal direction
+  // (nx/h, ny/h), not from u's components -- those are perpendicular to each
+  // other, so using u here silently yields a vector that is not even in the
+  // patch plane (t . n = nz*h). It is exactly right whenever nz = 0 and wrong in
+  // proportion to the lean otherwise, which made it invisible on upright faces
+  // and put a 40-degree face's tines 13.6mm away from their own wall.
+  const tx = -nz * (nx / h), ty = -nz * (ny / h), tz = h;
 
   // Area-weighted mean plane offset. Note the per-FACE weighting: an earlier
   // version added `area[f]` once per vertex while also dividing by three, which

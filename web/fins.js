@@ -28,6 +28,7 @@
  */
 import { findWallPatches, patchCovers, patchPoint, tAtZ, zAt } from './planes.js';
 import { BED_EPS } from './overhangs.js';
+import { insidePart } from './inside.js';
 
 export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
@@ -54,6 +55,7 @@ export const FIN = {
   padH: 0.5,          // bed pad thickness
   padMargin: 4.0,     // how far the pad spreads past the part's contact
   padMinArea: 60.0,   // mm^2 of bed contact above which no pad is needed
+  maxLen: 25,         // mm; a fin is a short brace at a corner, not a full-length wall
   maxFins: 3,
   minScoreRatio: 0.35,  // a 2nd/3rd fin must score this fraction of the best
   minSeparationDeg: 60, // ...and face at least this far from those chosen
@@ -86,40 +88,101 @@ function extrude(poly, tLo, tHi, P, out) {
 }
 
 /**
- * The longest stretch of the patch, along u, where the wall has clear air.
+ * Where along the patch to put a fin, and how tall to make it.
  *
- * A patch is flat but the PART is not. The wall is a planar slab running the
- * patch's full length and down to the plate, so anywhere the part bulges past
- * the patch plane -- a flange below the face, a boss beside it -- the wall
- * drives straight through it. Measured on a tilted hub: 20 of 300 wall vertices
- * ended up inside the part. A fin fused to the part is not a breakaway fin, it
- * is a lump you have to cut off.
+ * A patch is flat but the PART is not, so a wall standing off the patch plane
+ * can still drive straight through geometry beside it. The fix is not to trim
+ * the wall's LENGTH against a globally-tall wall -- that was the previous
+ * version and it found nothing.
  *
- * So the span gets trimmed to where the wall actually fits. Bins along u are
- * marked blocked if any part vertex reaches the wall's inner face within the
- * wall's height, and the longest free run wins. This is also, concretely, what
- * docs/FIN-SPEC.md means by "place it on an edge or corner": the corner is where
- * the clear span is.
+ * THE THING THAT WAS WRONG: the wall's height came from the patch's bounding
+ * box, so every u got a wall as tall as the patch's highest point. On a tilted
+ * part the patch is a DIAGONAL BAND in (u, z), so at most u values that wall
+ * shot right past the patch into the part's neighbouring faces. Mapping it made
+ * it obvious -- two diagonal lines of obstruction running along the patch's
+ * edges, together sweeping 92 of 100 bins on the hub. The wall was being blocked
+ * by geometry it only reached because it was too tall to begin with.
+ *
+ * So the height follows the patch LOCALLY. Per bin we know the patch's own top,
+ * and the lowest obstruction crossing the wall's slab; a window is valid when
+ * its wall -- no taller than the lowest patch top inside it -- clears every
+ * obstruction inside it.
+ *
+ * The window is also capped at `maxLen`, which is docs/FIN-SPEC.md's "place it
+ * on an edge or corner, never mid-face" expressed as arithmetic: a fin is a
+ * short brace at a corner, not a wall down the whole side of the part.
  */
-function freeSpan(p, topo, rot, offset, zTop) {
+function chooseSpan(p, topo, rot, offset) {
   const { pos, nFaces } = topo;
   const BIN = 0.5;
   const nBins = Math.max(1, Math.ceil((p.u1 - p.u0) / BIN));
-  const blocked = new Uint8Array(nBins);
   const wMin = FIN.gap - 0.05;   // anything this far out is in the wall's way
+  const zOf = (t) => p.n.z * p.d + p.t.z * t;   // world z on the patch face
 
-  // Blocking is per TRIANGLE, and it clips the triangle to the region that
-  // actually obstructs the wall before taking its u-extent.
+  // Per bin: how high the patch itself reaches, how low it starts, the lowest
+  // obstruction crossing the wall's slab, and whether the base is obstructed.
+  const patchTopT = new Float64Array(nBins).fill(-Infinity);
+  const patchBotT = new Float64Array(nBins).fill(Infinity);
+  const obsMinZ = new Float64Array(nBins).fill(Infinity);
+  const baseBlocked = new Uint8Array(nBins);
+
+  // the patch's own profile: intersect each of its triangles with the vertical
+  // line at each bin centre, in the patch's (u, t) plane
+  const tris = p.tris;
+  for (let i = 0; i < tris.length; i += 6) {
+    const ux = [tris[i], tris[i + 2], tris[i + 4]];
+    const tv = [tris[i + 1], tris[i + 3], tris[i + 5]];
+    let lo = Math.min(ux[0], ux[1], ux[2]), hi = Math.max(ux[0], ux[1], ux[2]);
+    let b0 = Math.max(0, Math.ceil((lo - p.u0) / BIN - 0.5));
+    let b1 = Math.min(nBins - 1, Math.floor((hi - p.u0) / BIN - 0.5));
+    for (let b = b0; b <= b1; b++) {
+      const u = p.u0 + (b + 0.5) * BIN;
+      let tLo = Infinity, tHi = -Infinity;
+      for (let e = 0; e < 3; e++) {
+        const j = (e + 1) % 3;
+        const ua = ux[e], ub = ux[j];
+        if ((ua <= u) === (ub <= u)) continue;      // edge does not cross
+        const s = (u - ua) / (ub - ua);
+        const t = tv[e] + (tv[j] - tv[e]) * s;
+        if (t < tLo) tLo = t;
+        if (t > tHi) tHi = t;
+      }
+      if (tHi === -Infinity) continue;
+      if (tHi > patchTopT[b]) patchTopT[b] = tHi;
+      if (tLo < patchBotT[b]) patchBotT[b] = tLo;
+    }
+  }
+
+  // The wall and the base sweep different volumes, so each gets its own band.
+  // The base is only 1mm tall but reaches `baseMinor` outboard, which nothing
+  // used to check at all.
+  const bands = [
+    { wLo: wMin, wHi: FIN.gap + FIN.th + 0.15, base: false },
+    { wLo: wMin, wHi: FIN.gap + FIN.baseMinor + 0.3, base: true },
+  ];
+
+  // Blocking is per TRIANGLE, clipped to the volume the fin actually sweeps,
+  // then its u-extent is marked.
   //
-  // Neither simpler version works. Testing VERTICES misses large faces: the hub
-  // in the test set is 1,186 triangles for the whole part, so single faces sail
-  // across the span with every vertex outside it and register as clear. But
-  // blocking a face's FULL u-extent is far too blunt -- one big triangle that
-  // grazes the wall with one corner then blocks the entire patch, and the tool
-  // stops finding sites at all. Clipping against the three half-spaces that
-  // bound the wall (outboard of its inner face, above the plate, below its top)
-  // gives the exact obstructed span, so a fin is shortened by what is in its way
-  // and by nothing else.
+  // The `w` bound is a BAND, not a half-space, and that distinction is the whole
+  // problem. Blocking on "any surface outboard of the wall's inner face" sounds
+  // safe and is badly wrong: on a hub, every other arm of the part sticks out
+  // past this patch's plane, so all 52 bins blocked with the obstruction sitting
+  // 14-58mm away -- open air where the wall wanted to stand. Bounding the band
+  // at the wall's outer face asks the right question, "does anything cross the
+  // volume the fin occupies".
+  //
+  // It is exact, not a heuristic, and the reason is worth keeping: if the wall's
+  // box were entirely buried inside solid material with no surface crossing it,
+  // the part would have to be solid down to the plate there -- and since nothing
+  // can extend below z = 0, it would then have a face at z ~ 0 inside the box,
+  // which this band catches. Engulfment without a crossing is not reachable.
+  //
+  // The two rejected alternatives, so they are not re-tried: testing VERTICES
+  // misses large faces (the hub is 1,186 triangles for the whole part, so single
+  // faces sail across the span with every vertex outside it), and blocking a
+  // face's FULL u-extent is far too blunt -- one big triangle grazing the wall
+  // blocks the entire patch.
   const tri = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];   // [w, u, z] per vertex
   for (let f = 0; f < nFaces; f++) {
     for (let i = 0; i < 3; i++) {
@@ -132,48 +195,109 @@ function freeSpan(p, topo, rot, offset, zTop) {
       tri[i][1] = wx * p.u.x + wy * p.u.y;
       tri[i][2] = wz;
     }
-    // cheap rejects before the clipper
-    if (Math.max(tri[0][0], tri[1][0], tri[2][0]) < wMin) continue;
-    if (Math.max(tri[0][2], tri[1][2], tri[2][2]) < -0.1) continue;
-    if (Math.min(tri[0][2], tri[1][2], tri[2][2]) > zTop) continue;
+    // cheap rejects shared by both bands
     if (Math.max(tri[0][1], tri[1][1], tri[2][1]) < p.u0) continue;
     if (Math.min(tri[0][1], tri[1][1], tri[2][1]) > p.u1) continue;
+    if (Math.min(tri[0][0], tri[1][0], tri[2][0]) > bands[1].wHi) continue;
+    if (Math.max(tri[0][0], tri[1][0], tri[2][0]) < wMin) continue;
 
-    let poly = tri.map((v) => v.slice());
-    poly = clipHalfSpace(poly, (v) => v[0] - wMin);
-    poly = clipHalfSpace(poly, (v) => v[2] + 0.1);
-    poly = clipHalfSpace(poly, (v) => zTop - v[2]);
-    if (poly.length < 2) continue;
+    for (const band of bands) {
+      if (Math.min(tri[0][0], tri[1][0], tri[2][0]) > band.wHi) continue;
+      const zHi = band.base ? FIN.baseH + 0.2 : Infinity;
+      if (Math.min(tri[0][2], tri[1][2], tri[2][2]) > zHi) continue;
+      if (Math.max(tri[0][2], tri[1][2], tri[2][2]) < -0.1) continue;
 
-    let lo = Infinity, hi = -Infinity;
-    for (const v of poly) { if (v[1] < lo) lo = v[1]; if (v[1] > hi) hi = v[1]; }
-    if (hi < p.u0 || lo > p.u1) continue;
-    const b0 = Math.max(0, Math.floor((Math.max(lo, p.u0) - p.u0) / BIN));
-    const b1 = Math.min(nBins - 1, Math.floor((Math.min(hi, p.u1) - p.u0) / BIN));
-    for (let b = b0; b <= b1; b++) blocked[b] = 1;
-  }
+      let poly = tri.map((v) => v.slice());
+      poly = clipHalfSpace(poly, (v) => v[0] - band.wLo);
+      poly = clipHalfSpace(poly, (v) => band.wHi - v[0]);
+      poly = clipHalfSpace(poly, (v) => v[2] + 0.1);
+      if (band.base) poly = clipHalfSpace(poly, (v) => zHi - v[2]);
+      if (poly.length < 2) continue;
 
-  let best = null, runStart = -1;
-  for (let i = 0; i <= nBins; i++) {
-    if (i < nBins && !blocked[i]) { if (runStart < 0) runStart = i; continue; }
-    if (runStart >= 0) {
-      const len = i - runStart;
-      if (!best || len > best.len) best = { start: runStart, len };
-      runStart = -1;
+      let lo = Infinity, hi = -Infinity, zMin = Infinity;
+      for (const v of poly) {
+        if (v[1] < lo) lo = v[1];
+        if (v[1] > hi) hi = v[1];
+        if (v[2] < zMin) zMin = v[2];
+      }
+      if (hi < p.u0 || lo > p.u1) continue;
+      const b0 = Math.max(0, Math.floor((Math.max(lo, p.u0) - p.u0) / BIN));
+      const b1 = Math.min(nBins - 1, Math.floor((Math.min(hi, p.u1) - p.u0) / BIN));
+      for (let b = b0; b <= b1; b++) {
+        if (band.base) baseBlocked[b] = 1;
+        else if (zMin < obsMinZ[b]) obsMinZ[b] = zMin;
+      }
     }
   }
-  if (!best) return null;
-  // Inset by basePad: the base ellipse overhangs the wall's ends, so the clear
-  // run has to accommodate the WHOLE fin, not just its wall. Without this the
-  // base reaches back into exactly the geometry the trim was avoiding -- which
-  // is how the first version still buried 26 vertices in the part after the
-  // wall itself had been trimmed clear.
-  const u0 = p.u0 + best.start * BIN + FIN.basePad;
-  const u1 = Math.min(p.u1, p.u0 + (best.start + best.len) * BIN) - FIN.basePad;
-  return u1 - u0 >= MIN_SPAN ? { u0, u1 } : null;
+
+  // Slide a window of up to maxLen and keep the best one. "Best" is wall AREA --
+  // height times length -- because a fin's job is bracing: a stubby tall fin and
+  // a long low one are both worse than the balanced one between them, and the
+  // scoring in chooseStabilize already handles WHICH face, not how much of it.
+  const maxBins = Math.max(1, Math.round(FIN.maxLen / BIN));
+  const minBins = Math.max(1, Math.ceil(MIN_SPAN / BIN));
+  const padBins = Math.ceil(FIN.basePad / BIN);
+  const cands = [];
+
+  for (let a = 0; a < nBins; a++) {
+    if (patchTopT[a] === -Infinity) continue;
+    let topT = Infinity, botT = -Infinity, lowObs = Infinity;
+    for (let b = a; b < Math.min(nBins, a + maxBins); b++) {
+      if (patchTopT[b] === -Infinity) break;     // patch has a hole here
+      topT = Math.min(topT, patchTopT[b]);
+      botT = Math.max(botT, patchBotT[b]);
+      lowObs = Math.min(lowObs, obsMinZ[b]);
+      if (b - a + 1 < minBins) continue;
+
+      // the base overhangs the wall's ends, so its own footprint must be clear
+      let baseOk = true;
+      for (let k = a - padBins; k <= b + padBins && baseOk; k++) {
+        if (k >= 0 && k < nBins && baseBlocked[k]) baseOk = false;
+      }
+      if (!baseOk) continue;
+
+      // The wall's highest point is not on the patch plane: it sits `w` outboard
+      // and carries a rounded cap, and on a leaning patch that lifts it further.
+      // Compare the real top against the obstruction, not the face's.
+      const wallTopZ = zOf(topT)
+        + Math.abs(p.n.z) * (FIN.gap + FIN.th) + FIN.th / 2;
+      if (wallTopZ >= lowObs) continue;          // wall would hit something
+      const grip = zOf(topT) - Math.max(zOf(botT), FIN.baseH);
+      if (grip < MIN_GRIP) continue;             // too little face to tine into
+
+      // Score by GRIP area, not wall area. A 57mm wall that only overlaps the
+      // patch for its top 4mm is mostly stilt: it looks impressive and holds
+      // almost nothing. What braces the part is the face the tines can reach.
+      const len = (b - a + 1) * BIN;
+      const score = grip * len;
+      cands.push({ score, a, b, topT, botT });
+    }
+  }
+
+  // Return several, not one. The winner still has to survive an exact
+  // containment check once its geometry exists (buildFin), and a site whose best
+  // window is buried usually has a perfectly good second one a few millimetres
+  // along. Returning only the maximum threw the whole face away.
+  cands.sort((x, y) => y.score - x.score);
+  const picked = [];
+  for (const cnd of cands) {
+    // keep them genuinely distinct rather than 40 slivers of the same window
+    if (picked.some((q) => Math.abs(q.a - cnd.a) < minBins
+                        && Math.abs(q.b - cnd.b) < minBins)) continue;
+    picked.push(cnd);
+    if (picked.length >= MAX_SPAN_TRIES) break;
+  }
+  return picked.map((cnd) => ({
+    u0: p.u0 + cnd.a * BIN,
+    u1: p.u0 + (cnd.b + 1) * BIN,
+    tTop: cnd.topT,
+    tBot: cnd.botT,
+  }));
 }
 
 const MIN_SPAN = 4.0;   // mm; a shorter wall is not worth the plate space
+const MAX_SPAN_TRIES = 8;  // candidate windows per site before giving up
+const MIN_GRIP = 3.0;   // mm of patch face the wall must overlap to be worth tining
 
 /** Sutherland-Hodgman: keep the part of `poly` where `f(v) >= 0`. */
 function clipHalfSpace(poly, f) {
@@ -196,7 +320,7 @@ function clipHalfSpace(poly, f) {
  * Build one fin -- wall, base, tines -- for `patch`, or null if the site cannot
  * carry enough tines to be a combined support.
  */
-function buildFin(p, out, span) {
+function buildFin(p, out, span, topo, rot, offset) {
   const before = out.length;
   const { u0, u1 } = span;
   const r = FIN.th / 2;
@@ -208,7 +332,7 @@ function buildFin(p, out, span) {
   // heights up the face -- which is exactly why the section is built here rather
   // than as an axis-aligned rectangle.
   const tBedIn = tAtZ(p, wIn, 0), tBedOut = tAtZ(p, wOut, 0);
-  const tTop = p.t1;
+  const tTop = span.tTop ?? p.t1;
   if (tTop - r <= Math.max(tBedIn, tBedOut) + 0.5) return null;  // no wall to build
 
   const sec = [[tBedIn, wIn], [tTop - r, wIn]];
@@ -217,6 +341,17 @@ function buildFin(p, out, span) {
     sec.push([tTop - r + r * Math.cos(a), FIN.gap + r + r * Math.sin(a)]);
   }
   sec.push([tTop - r, wOut], [tBedOut, wOut]);
+
+  // Verify the wall is actually in open air before committing to it. The span
+  // search is a proximity test over bins; this is the exact question. A wall
+  // that fails here is not a wall to shorten -- it is a site to abandon.
+  for (const uu of [u0, (u0 + u1) / 2, u1]) {
+    for (const [tt, ww] of [[tTop, wIn], [tTop, wOut], [tTop - r, wIn],
+                            [(tBedIn + tTop) / 2, wIn], [(tBedIn + tTop) / 2, wOut]]) {
+      const q = patchPoint(p, ww, uu, tt);
+      if (insidePart(topo, rot, offset, q[0], q[1], q[2])) return null;
+    }
+  }
 
   extrude(sec, u0, u1, (a, b, t) => patchPoint(p, b, t, a), out);
 
@@ -240,9 +375,13 @@ function buildFin(p, out, span) {
   extrude(ell, 0, FIN.baseH, (a, b, t) => [a, b, t], out);
 
   // --- tines, in world axes so each one lands in a single layer ---
+  // Tine rows follow THIS window, not the patch's global z-range. Using the
+  // global range put most stations outside the local face, where patchCovers
+  // rejected them -- a 46mm wall came out with six tines.
   const zTop = zAt(p, FIN.gap + r, tTop);
-  const zLo = Math.max(p.z0, FIN.baseH) + 0.4;
-  const zHi = Math.min(p.z1, zTop) - FIN.tineH - 0.5;
+  const localBot = span.tBot != null ? zAt(p, 0, span.tBot) : p.z0;
+  const zLo = Math.max(localBot, FIN.baseH) + 0.4;
+  const zHi = Math.min(zAt(p, 0, tTop), zTop) - FIN.tineH - 0.5;
 
   // Dense low, spreading with height: the part is least stable early, when it is
   // a narrow foot with all its leverage still to come. Higher up it is already
@@ -286,6 +425,9 @@ function buildFin(p, out, span) {
   if (tines < FIN.minTines) { out.length = before; return null; }
 
   return {
+    // the site, so a failure can be traced back to the face that produced it
+    site: { d: p.d, n: { ...p.n }, u0, u1, tTop, lean: p.lean,
+            patchU: [p.u0, p.u1], patchT: [p.t0, p.t1] },
     tines, rows: rows.length,
     height: zTop, length: u1 - u0,
     stilt: Math.max(0, p.z0 - FIN.baseH),
@@ -446,10 +588,13 @@ export function buildFins(topo, result, rot, opts = {}) {
   const fins = [];
   const rejected = { blocked: 0, tooFewTines: 0 };
   for (const patch of sites) {
-    const span = freeSpan(patch, topo, rot, result.offset,
-                          zAt(patch, FIN.gap + FIN.th / 2, patch.t1));
-    if (!span) { rejected.blocked++; continue; }
-    const info = buildFin(patch, out, span);
+    const spans = chooseSpan(patch, topo, rot, result.offset);
+    if (!spans.length) { rejected.blocked++; continue; }
+    let info = null;
+    for (const span of spans) {
+      info = buildFin(patch, out, span, topo, rot, result.offset);
+      if (info) break;
+    }
     if (info) fins.push(info); else rejected.tooFewTines++;
   }
 
