@@ -1,8 +1,6 @@
-# Edgewise
+# Support Fins
 
-*Working name — easy to change before launch.*
-
-**Tip a part on edge, and Edgewise adds the breakaway support fins that make that
+**Tip a part on edge, and Support Fins adds the breakaway support fins that make that
 orientation printable — baked into the STL.**
 
 Runs entirely in your browser. Nothing uploads, nothing installs, no account.
@@ -27,7 +25,7 @@ by hand every time.
 ## How it works
 
 1. Load an STL.
-2. Rotate it. You're in control — Edgewise suggests, it never decides for you.
+2. Rotate it. You're in control — Support Fins suggests, it never decides for you.
 3. It shows you live: overhang count, how many can take a real fin, height, bed contact.
    Point at the load direction and answer one question — *does it pull apart, or does it
    lever?* — and it scores orientations for strength too.
@@ -88,8 +86,12 @@ python3 prototype/spike_arrow.py yourpart.stl 0,0,-1   # load-direction scoring
 ## Credit
 
 The fin technique is Slant3D's — they've evangelized designed-in supports for years.
-Edgewise automates it. `docs/FIN-SPEC.md` cites their numbers directly.
+Support Fins automates it. `docs/FIN-SPEC.md` cites their numbers directly.
 
 ## License
 
-MIT
+MIT.
+
+**The license covers this tool, not what you make with it.** STLs you run through Support
+Fins are entirely yours — the output carries no license obligation, and nothing about
+using this tool affects how you license, sell, or distribute your models.
