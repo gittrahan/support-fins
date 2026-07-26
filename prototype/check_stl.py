@@ -49,6 +49,12 @@ def check(case):
     tines = [b for b in added if b.volume < TINE_MAX_VOL]
     problems = []
 
+    # A PROP has no tines by design: it stops short of the part so the part
+    # bridges the last layer and it snaps off. Its assertions are therefore the
+    # inverse of a fin's -- nothing may fuse, and the gap is the whole point.
+    if not tines:
+        return check_props(case, added, part, pq)
+
     bad = [b for b in added if not (b.is_watertight and b.is_volume)]
     if bad:
         problems.append(f'{len(bad)} solids not watertight/volume')
@@ -93,6 +99,37 @@ def check(case):
     ok = not problems
     print(f'{case.split("/")[-1]:28} {len(added):4} solids  {len(walls)-len(gaps)}+{len(gaps)} wall/base'
           f'  {len(tines):4} tines  standoff {gap_txt:14}'
+          f'  {"OK" if ok else "FAIL: " + "; ".join(problems)}')
+    return ok
+
+
+def check_props(case, added, part, pq):
+    """A prop is judged by what it does NOT touch."""
+    problems = []
+    bad = [b for b in added if not (b.is_watertight and b.is_volume)]
+    if bad:
+        problems.append(f'{len(bad)} solids not watertight/volume')
+
+    inside = 0
+    gaps = []
+    for b in added:
+        inside += int((pq.signed_distance(b.vertices) > 1e-3).sum())
+        # 2000 samples, computed once: signed_distance is the expensive call here
+        # and a prop is a simple swept wall, not a shape that needs dense cover
+        pts, _ = trimesh.sample.sample_surface(b, 2000)
+        gaps.append(float(np.abs(pq.signed_distance(pts)).min()))
+    if inside:
+        problems.append(f'{inside} prop verts inside part (must not fuse)')
+
+    # the closest approach IS the breakaway gap; too small welds, too large and
+    # the part has nothing to land on
+    gap_txt = ', '.join(f'{g:.3f}' for g in gaps) if gaps else 'n/a'
+    if gaps and any(abs(g - STANDOFF) > 0.06 for g in gaps):
+        problems.append(f'breakaway gap off spec ({gap_txt})')
+
+    ok = not problems
+    print(f'{case.split("/")[-1]:28} {len(added):4} solids  {len(added)} props'
+          f'  {"":16} gap {gap_txt:14}'
           f'  {"OK" if ok else "FAIL: " + "; ".join(problems)}')
     return ok
 

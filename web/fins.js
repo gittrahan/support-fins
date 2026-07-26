@@ -29,6 +29,7 @@
 import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js';
 import { BED_EPS } from './overhangs.js';
 import { insidePart } from './inside.js';
+import { buildProps } from './prop.js';
 
 export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
@@ -692,6 +693,35 @@ function clashes(taken, cand) {
 }
 
 /**
+ * The part's bed-contact points and its area-weighted centre of mass.
+ *
+ * Contact comes from VERTICES under BED_EPS, not from bed-flagged faces: a part
+ * tilted onto an edge has no face on the plate at all, which is exactly the case
+ * the bed pad exists for.
+ */
+function bedContact(topo, result, rot) {
+  const { pos, nFaces, area } = topo;
+  const { x: ox, y: oy, z: oz } = result.offset;
+  let mx = 0, my = 0, mw = 0;
+  const pts = [];
+  for (let f = 0; f < nFaces; f++) {
+    let gx = 0, gy = 0;
+    for (let i = 0; i < 3; i++) {
+      const o = f * 9 + i * 3;
+      const x = pos[o], y = pos[o + 1], z = pos[o + 2];
+      const wx = rot[0] * x + rot[3] * y + rot[6] * z + ox;
+      const wy = rot[1] * x + rot[4] * y + rot[7] * z + oy;
+      const wz = rot[2] * x + rot[5] * y + rot[8] * z + oz;
+      gx += wx; gy += wy;
+      if (wz < BED_EPS) pts.push([wx, wy]);
+    }
+    mx += (gx / 3) * area[f]; my += (gy / 3) * area[f]; mw += area[f];
+  }
+  if (mw > 0) { mx /= mw; my /= mw; }
+  return { pts, mx, my };
+}
+
+/**
  * Generate fins for the part in its current orientation.
  *
  * @param opts.mode     'stabilize' (only mode implemented; see docs/ROADMAP.md)
@@ -703,28 +733,35 @@ export function buildFins(topo, result, rot, opts = {}) {
   const out = [];
   const padOut = [];
 
+  // Prop is its own support, built by its own module -- a wall UNDER each
+  // overhang with no tines, which needs none of the face-finding below. Handled
+  // first so the patch search is not even run for it.
+  if (mode === 'prop') {
+    const built = buildProps(topo, result, rot, opts);
+    const contact = bedContact(topo, result, rot);
+    const pad = (opts.bedPad ?? true) && result.bedArea < FIN.padMinArea
+      ? buildPad(contact.pts, padOut) : null;
+    return {
+      triangles: built.triangles, padTriangles: padOut, pad, mode,
+      fins: built.props.map((q) => ({
+        height: q.height, length: q.span, tines: 0, rows: 0,
+        stilt: 0, lean: 0, bearing: 0, site: null,
+      })),
+      props: built.props,
+      rejected: { blocked: built.skipped.blocked, tooFewTines: 0,
+                  sites: result.regions.length,
+                  tried: result.regions.length },
+      patchCount: 0, patchStats: {}, tines: 0,
+      unserved: result.regions.length - built.props.length,
+      tip: null,
+    };
+  }
+
   const patchStats = {};
   const patches = findWallPatches(topo, rot, result.offset, patchStats);
 
   // where the part's mass is, versus where it is actually touching down
-  const { pos, nFaces, area } = topo;
-  const { x: ox, y: oy, z: oz } = result.offset;
-  let mx = 0, my = 0, mw = 0;
-  const contact = [];
-  for (let f = 0; f < nFaces; f++) {
-    let gx = 0, gy = 0;
-    for (let i = 0; i < 3; i++) {
-      const o = f * 9 + i * 3;
-      const x = pos[o], y = pos[o + 1], z = pos[o + 2];
-      const wx = rot[0] * x + rot[3] * y + rot[6] * z + ox;
-      const wy = rot[1] * x + rot[4] * y + rot[7] * z + oy;
-      const wz = rot[2] * x + rot[5] * y + rot[8] * z + oz;
-      gx += wx; gy += wy;
-      if (wz < BED_EPS) contact.push([wx, wy]);
-    }
-    mx += (gx / 3) * area[f]; my += (gy / 3) * area[f]; mw += area[f];
-  }
-  if (mw > 0) { mx /= mw; my /= mw; }
+  const { pts: contact, mx, my } = bedContact(topo, result, rot);
 
   let tip = null;
   if (contact.length) {

@@ -50,6 +50,7 @@ function rotX(deg) {
 
 const path = Deno.args[0];
 const tilt = Number(Deno.args[1] ?? 30);
+const mode = Deno.args[3] ?? 'stabilize';
 const pos = readBinarySTL(Deno.readFileSync(path));
 
 // the browser hands buildTopology a three.js BufferGeometry; it only ever reads
@@ -61,7 +62,7 @@ const rot = rotX(tilt);
 const res = analyze(topo, 45, rot);
 const patches = findWallPatches(topo, rot, res.offset);
 
-console.log(`${path.split('/').pop()}  tilt ${tilt}deg`);
+console.log(`${path.split('/').pop()}  tilt ${tilt}deg  mode ${mode}`);
 console.log(`  faces ${topo.nFaces}  overhang regions ${res.regions.length}` +
             `  bed contact ${res.bedArea.toFixed(1)} mm2`);
 console.log(`  wall patches ${patches.length}`);
@@ -72,12 +73,19 @@ for (const p of patches.slice(0, 6)) {
 }
 
 const t0 = performance.now();
-const built = buildFins(topo, res, rot, { mode: 'stabilize', bedPad: true });
+const built = buildFins(topo, res, rot, { mode, bedPad: true });
 const ms = performance.now() - t0;
 
-console.log(`  -> ${built.fins.length} fins, ${built.tines} tines, ` +
-            `pad ${built.pad ? 'yes' : 'no'}  (${ms.toFixed(0)} ms)`);
-for (const f of built.fins) {
+console.log(`  -> ${built.fins.length} ${mode === 'prop' ? 'props' : 'fins'}, ` +
+            `${built.tines} tines, pad ${built.pad ? 'yes' : 'no'}  (${ms.toFixed(0)} ms)`);
+if (mode === 'prop') {
+  for (const q of built.props ?? []) {
+    console.log(`     ${q.height.toFixed(1)}mm tall x ${q.span.toFixed(1)}mm span` +
+                `  over ${q.area.toFixed(0)} mm2 of overhang`);
+  }
+  console.log(`     skipped: ${JSON.stringify(built.rejected)}`);
+}
+for (const f of mode === 'prop' ? [] : built.fins) {
   console.log(`     ${f.height.toFixed(1)}mm tall x ${f.length.toFixed(1)}mm  ` +
               `${f.tines} tines / ${f.rows} rows  bearing ${f.bearing}deg  ` +
               `stilt ${f.stilt.toFixed(1)}  lean ${f.lean.toFixed(0)}  ` +

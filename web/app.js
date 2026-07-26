@@ -401,6 +401,14 @@ let finMode = 'stabilize';
  * actually emptied out.
  */
 function explainNoFins(b) {
+  if (b.mode === 'prop') {
+    const s = b.rejected.blocked;
+    if (!b.rejected.sites) return 'no overhangs to prop in this orientation';
+    return s
+      ? `every overhang has part in the way of a wall down to the plate — `
+        + 'rotate, or switch to Stabilize'
+      : 'the overhangs here are too small or too low to be worth a wall';
+  }
   const st = b.patchStats ?? {};
   if (!b.patchCount) {
     // a cylinder or a mesh of small facets has no flat face wide enough
@@ -507,8 +515,10 @@ function updateFinReadout(built, ms) {
   }
   el('s-pad').textContent = built.pad ? 'added' : 'not needed';
   const n = built.fins.length;
+  const kind = built.mode === 'prop' ? 'prop' : 'fin';
   box.textContent = n
-    ? `${n} fin${n === 1 ? '' : 's'} · ${built.tines} tines`
+    ? `${n} ${kind}${n === 1 ? '' : 's'}` +
+      (built.mode === 'prop' ? '' : ` · ${built.tines} tines`)
     : 'none possible';
   box.classList.toggle('warn', n === 0);
 
@@ -519,6 +529,10 @@ function updateFinReadout(built, ms) {
     bits.push(built.fins
       .map((f) => `${f.height.toFixed(0)}mm tall × ${f.length.toFixed(0)}mm`)
       .join(' · '));
+    if (built.mode === 'prop') {
+      bits.push('breakaway: each stops 0.2mm under the part, so it snaps off '
+              + 'rather than needing to be cut');
+    }
   }
   if (built.unserved) {
     bits.push(`${built.unserved} overhang region${built.unserved === 1 ? '' : 's'} ` +

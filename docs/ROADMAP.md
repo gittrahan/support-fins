@@ -301,6 +301,33 @@ Three faults were stacked, each hiding the one behind it:
   balanced on an edge is unlikely to be enough in practice.
 - **Still not test-printed.** Slicing cleanly is not the same as coming off the plate.
 
+## M5 status (2026-07-26) — Prop is landed but NOT finished
+
+Shipped behind the mode selector, labelled experimental, and not the default.
+
+**What works.** Prop places walls on parts Stabilize cannot serve at all —
+hub_post_foot gets a wall at 0 and 40 degrees, where Stabilize needs 50+. The
+solids are watertight and correctly wound, and no prop fuses to the part: the
+`insidePart` confirmation pass on the finished solid discards any that would.
+12/16 cases clean.
+
+**What does not.** The breakaway gap is the whole point of a prop, and it is not
+yet reliably 0.2mm. Measured closest approaches run 0.11–0.19mm on four cases,
+which is tight enough to weld, and one wall sits 13mm below the region it is
+meant to hold up (its path falls outside the region's own triangles, so
+`surfaceZAt` finds nothing above it and the height is never re-fitted). Both are
+clearance-precision problems, not structural ones.
+
+**The lesson that generalises.** M3 was called "validated — 14 closed solids, all
+watertight". Every one of those solids was wound INSIDE OUT: euler 2, no boundary
+edges, consistent winding, and negative volume. The check asked `is_watertight`
+and never asked `is_volume`. A slicer would have read the lot as holes. Retiring
+M3 for the wrong reason hid that for three milestones.
+
+**Next on this:** re-fit height from the part rather than the region (a downward
+query against the whole mesh, not the overhang patch), then re-check the gap; the
+containment guard already prevents the failure mode that matters.
+
 ## Decisions still open
 
 - **Name + domain.** Product is Support Fins; the domain isn't bought.
