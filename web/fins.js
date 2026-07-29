@@ -29,7 +29,7 @@
 import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js';
 import { BED_EPS } from './overhangs.js';
 import { insidePart } from './inside.js';
-import { buildProps } from './prop.js';
+import { buildProps, noProps } from './prop.js';
 
 export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
@@ -722,6 +722,41 @@ function bedContact(topo, result, rot) {
 }
 
 /**
+ * HOW the part meets the plate: on a face, on an edge, or on a single point.
+ *
+ * This is the question neither support mode was asking, and it is the one that
+ * explains hub_post_foot. That part has 0.0 mm^2 of bed contact at EVERY tilt
+ * from 0 to 165 degrees -- it balances on the tip of its own tapered foot -- so
+ * every overhang on it sits 70-100mm in the air. Stabilize finds nothing to grip
+ * and Prop wants a 100mm scaffold, and both then reported some local reason
+ * ("no flat face", "part in the way") that sent the user off tuning the wrong
+ * thing. The actionable truth is upstream of both: nothing you add to a part
+ * balanced on a point will hold it, because the support has nothing to work
+ * against. Rotate it until it sits down.
+ *
+ * A tilted-onto-an-EDGE part is the flagship Stabilize case and must not be
+ * caught by this -- it also has ~0 bed area, but its contact is a long line, not
+ * a dot. So the discriminator is the footprint's extent, not its area.
+ */
+const POINT_FOOTPRINT = 2.0;      // mm; contact narrower than this is a point
+
+function seatingOf(result, contactPts) {
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  for (const [x, y] of contactPts) {
+    if (x < minX) minX = x; if (x > maxX) maxX = x;
+    if (y < minY) minY = y; if (y > maxY) maxY = y;
+  }
+  const span = contactPts.length
+    ? Math.hypot(maxX - minX, maxY - minY) : 0;
+  // Area decides `face`, because a part can sit on a wide footprint of many
+  // separate little pads; extent decides point-vs-edge, because those two differ
+  // in shape at the same (~zero) area.
+  const kind = result.bedArea >= FIN.padMinArea ? 'face'
+    : span < POINT_FOOTPRINT ? 'point' : 'edge';
+  return { kind, span, bedArea: result.bedArea };
+}
+
+/**
  * Generate fins for the part in its current orientation.
  *
  * @param opts.mode     'stabilize' (only mode implemented; see docs/ROADMAP.md)
@@ -737,8 +772,16 @@ export function buildFins(topo, result, rot, opts = {}) {
   // overhang with no tines, which needs none of the face-finding below. Handled
   // first so the patch search is not even run for it.
   if (mode === 'prop') {
-    const built = buildProps(topo, result, rot, opts);
     const contact = bedContact(topo, result, rot);
+    const seating = seatingOf(result, contact.pts);
+    // A part seated on a POINT gets no props at all -- not because no wall
+    // fits (flat facets of an unservable part take geometrically valid walls
+    // happily), but because nothing standing on the plate can hold a part
+    // that never touches it. The UI already tells the user exactly that and
+    // outranks every mode-specific message with it; emitting walls anyway
+    // made the export contradict the readout.
+    const built = seating.kind === 'point'
+      ? noProps() : buildProps(topo, result, rot, opts);
     const pad = (opts.bedPad ?? true) && result.bedArea < FIN.padMinArea
       ? buildPad(contact.pts, padOut) : null;
     return {
@@ -748,11 +791,24 @@ export function buildFins(topo, result, rot, opts = {}) {
         stilt: 0, lean: 0, bearing: 0, site: null,
       })),
       props: built.props,
+      volume: built.volume,
+      // Prop's own reasons, unflattened. These USED to be squashed into the
+      // stabilize-shaped object below, which keeps only `blocked` -- so noLine,
+      // notALine, stub, degenerate and buried were dropped before anything could
+      // read them. M5 was then measured through that channel and recorded as
+      // working on parts where it built nothing: hub_post_foot reported
+      // `blocked: 0` at 0 degrees when the real reason was `buried: 1`.
+      // Whatever explains a failure has to survive the trip to the UI.
+      skipped: built.skipped,
       rejected: { blocked: built.skipped.blocked, tooFewTines: 0,
                   sites: result.regions.length,
                   tried: result.regions.length },
       patchCount: 0, patchStats: {}, tines: 0,
-      unserved: result.regions.length - built.props.length,
+      // regions minus SERVED REGIONS, not minus the prop count: a region can
+      // yield several walls now that it is split into sub-patches, and the old
+      // subtraction would go negative.
+      unserved: result.regions.length - built.served,
+      seating,
       tip: null,
     };
   }
@@ -819,6 +875,7 @@ export function buildFins(topo, result, rot, opts = {}) {
     // standing. Anything still red after the fins go on is the user's call:
     // rotate further, or wait for Draw mode. Saying so is the honest version.
     unserved: result.regions.length,
+    seating: seatingOf(result, contact),
     tip,
   };
 }

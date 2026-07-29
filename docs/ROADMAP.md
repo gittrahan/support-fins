@@ -18,7 +18,7 @@ through it, it waits.
 | Static host (Cloudflare Pages) | the whole app is files in `web/`. Deploy = push. |
 | **No build step** | `node` is not installed on this machine and we don't need it. Vendor `three.js` as an ES module, `<script type="module">`, develop with `python3 -m http.server`. Revisit only if we outgrow it. |
 | No boolean kernel | proven in the spike: fins are separate closed solids appended to the mesh, unioned by the slicer. No WASM CAD, no `manifold3d` in the browser. |
-| Auto-placement tops out around 65% of regions | manual fin placement is a **core feature**, not a fallback. |
+| Auto-placement must carry the product | **Owner's call, 2026-07-26: auto first, Draw after.** The old "auto tops out at ~65%, so manual is core" was measured against a support that needed a flat face to grip. A bed-attached vertical wall needs only a reachable underside, so the ceiling has to be re-measured before it is treated as a limit. Deriving the contact curve and its span — the two things `breakaway.py` took as arguments — is now the product, not a step toward Draw. |
 
 ## Libraries (all MIT, all vendored)
 
@@ -63,38 +63,164 @@ That is the entire dependency list. If a third library shows up, question it.
 - This toggle is not a nicety — pull-mode and bend-mode picked *different* best
   orientations on 4 of 4 parts tested. It's also the video's best educational beat.
 
-### Fins
+### Supports
 
-**Placement is a MODE, not a decision the tool makes for you.** How many fins a part
-wants is a question about intent, and the tool cannot read intent: someone who tilted a
-bracket into its strong orientation wants it to stay standing, while someone finning a
-display piece wants every underside clean. Both are correct. Guessing between them is how
-a tool earns *"it put junk fins all over my part."* So the grouping step is exposed. Every
-mode runs the same geometry engine underneath — the only thing that changes is **which
-overhang regions get bundled onto one fin.**
+> **PLAN REVISION, 2026-07-26.** Everything in this section was rewritten after the
+> owner looked at real output. The short version: the project took its primary
+> geometry from Slant3D's fin, which solves **toppling**, and treated
+> `breakaway.py`'s wall, which solves **overhangs**, as a secondary experimental
+> mode. That is backwards for every part in the test set. See
+> "Why the plan changed" below for the measurements.
 
-| mode | what it builds | needs | for |
-|---|---|---|---|
-| **Stabilize** | a wall BESIDE the part on a flat-ish face, gripping with horizontal tines | a face to grip | a part tilted onto an edge that would topple. This is the technique `docs/FIN-SPEC.md` measures, and where *"long parts: two fins, opposite sides"* comes from. |
-| **Prop** | a wall UNDER each overhang, stopping `gap` below it — no tines | only an underside contact line, so ANY shape | overhangs sitting above the plate on a part that is otherwise seated. |
-| **Draw** | whatever you place | you | the regions auto-placement can never serve |
+**There is ONE support primitive: a vertical breakaway wall.** It rises from the
+plate and stops `gap` below the part, so the part bridges that last layer and the
+wall snaps off. Everything else is a parameter of it or an optional addition.
 
-**Prop and Stabilize are different supports, not settings of one support**, and
-conflating them cost real coverage. A tine-less wall was rejected early on
-Slant3D's demo of a cube falling away from exactly that support — but that demo
-is a part balanced on an edge with the fin as its ONLY restraint. A wall propping
-an overhang from beneath, on a part that is otherwise sitting down, has no such
-failure mode: gravity holds the part onto the prop. `tools/support/breakaway.py`
-in the video repo does precisely this, contains no tines at all, and produced
-good fins on real printed shelter hubs — the parts this tool then could not
-serve. M3's geometry was never wrong; it was mis-scoped as a failed step toward
-Stabilize rather than recognised as the other mode.
+| property | rule | why |
+|---|---|---|
+| **orientation** | **always perpendicular to the plate.** Never leans. | A support carries load to the plate in compression. A 1.2mm wall leaning 40° is itself an unsupported overhang and buckles sideways. `breakaway.py` builds strictly vertical walls — its `profile()` varies the horizontal offset and the height independently — and the lean was added by this port, only so a flat wall could stay parallel to the flat face it grips. |
+| **top edge** | **contoured** to the surface above it, sampled densely, including the tip's own WIDTH | The wall follows the part; the part does not have to be flat. This is what removes the need to lean. The tip is a `tip`-wide flat, so on a sloped underside its up-slope corner is what sets the real gap — evaluate the surface at **both tip corners**, not the centreline. |
+| **length** | as long as the contact curve it serves, trimmed to where it is clear | No cap. `maxLen: 25` with the comment *"a fin is a short brace at a corner"* is the single line most responsible for useless output. |
+| **footprint** | flared foot + chamfer shoulder, scaled to wall height | Unchanged; already right. |
+| **attachment** | bed only | One clean thing to remove, not two welds to cut. |
 
-Shipping order is **Stabilize (M4) → Prop (M5) → Draw (M6)**. Prop moved ahead of Draw
-because it is the mode that serves round and organic parts — Stabilize needs a face to
-grip, and a cone has none — and because its geometry already exists and was validated in
-M3 (34/36 regions served, every wall watertight) before being retired for the wrong
-reason. Auto modes must say out loud what they could not reach.
+**Tines are an OPTIONAL anti-tip addition, not part of the support.** Slant3D's
+fin solves a specific problem — a part balanced on an edge that would rotate and
+fall — and the tines are what resist that torque. They do not hold up an overhang,
+and they are why the primary mode was small, low, and cornered. They stay
+available (`docs/FIN-SPEC.md` still governs their geometry) as a **Brace** option
+for the toppling case. They are no longer the default and no longer required.
+
+**The placement question is not "which region deserves a support".** It is
+**"is any part of this overhang further than `maxUnsupportedSpan` from a support?"**
+That is a measurable physical criterion, it is how a slicer thinks, and it
+replaces the per-region judgment that produced both failure modes on record —
+13 walls on a part that wanted 2, and one 4.5mm brace on a part with 3,403 mm² of
+overhang 75mm in the air.
+
+#### Why the plan changed (2026-07-26)
+
+Four findings, all from the shipped code and its own records.
+
+**1. The output is an order of magnitude too small.** `voron_drive_frame` at 40°
+is 53 × 92 × 78 mm, with **3,403 mm² of overhang running from the plate up to
+74.7 mm**, over an 89 mm-long underside. The tool builds **one fin, 16.5 mm tall ×
+4.5 mm long, on a 7.4 mm stilt** — chosen from an available face measuring 60 mm
+tall × 70 mm long. The owner's sketch of what it should look like is a wall
+spanning that underside, which is exactly `breakaway_wall` and nothing like a fin.
+
+**2. The smallness is a stated premise, not a bug.** `FIN.maxLen = 25`, commented
+*"a fin is a short brace at a corner, not a full-length wall"*. It traces to M3,
+where naive placement gave 13 walls 12–103 mm tall and the roadmap judged they
+*"would waste more plastic than the slicer supports they replace"* — **a claim
+that was never measured**, about a 1.2 mm wall, which is the thinnest support
+there is and the product's central claim. The correction to "too many, too big"
+should have been *fewer*, not *smaller*.
+
+**3. Leaning is common and structurally wrong.** Of the 16 fins the tool builds
+across the test matrix, **7 lean 25–40°**. `voron_filter_housing` at 40° is a
+35.8 mm wall leaning **40°**; at 60° it is a **147.5 mm** wall leaning 30° on a
+12.6 mm stilt. The roadmap defended this as *"a thin wall leaning up to 45° is a
+self-supporting overhang"* — true of printing a wall in isolation, false of a
+support, which has to transfer load down rather than merely exist.
+
+**4. It was already written down, filed under the wrong heading.** M4's own status
+section, above, records: *"Stabilize does not serve overhangs and says so. The hub
+at 40 degrees leaves 8 regions unsupported, and PrusaSlicer independently flags
+'Collapsing overhang, Long bridging extrusions, Floating object part, Low bed
+adhesion' on that export … a 46 mm fin on a 123 mm part balanced on an edge is
+unlikely to be enough in practice."* A slicer said the primary mode does not hold
+the part up, in writing, and it was logged as an **honest limitation** rather than
+read as *the primary mode is the wrong support*. Being candid about a shortfall is
+not the same as noticing that it invalidates the design.
+
+**And the underlying cause of the failures found the day before:** the port
+automated the one thing the human was doing. `breakaway_wall(bm, contact, t0, t1, …)`
+takes **the curve and the span as arguments** — *"pick t0 so contact(t0) has
+already cleared any solid the wall must NOT weld to"*. Deriving those two things
+from connected overhang regions is where the bowl-vs-ledge failure, the merged
+regions, the missing trim and the burial discards all live. The geometry was never
+the weak part. **Auto-placement stays first (owner's call), so deriving `contact`
+and `t0/t1` reliably IS the work — it is not a step on the way to something else.**
+
+#### Measured 2026-07-28 — the revision is right, and the blockers are four small ones
+
+The 2026-07-26 revision above was written from the shipped code's own records.
+It has now been re-run and instrumented (`prototype/probe_wall.js`,
+`prototype/probe_straightness.js`), and the picture is **better than the plan
+assumed**: Prop's geometry is not what is failing. Four specific gates are
+throwing away walls that are otherwise correct, and each one discards a whole
+region over a local problem.
+
+**0. The default mode is still `stabilize`.** `buildFins` reads
+`opts.mode ?? 'stabilize'`, so every leaning fin on record is what a user
+actually sees; the vertical wall is behind an experimental selector. Re-run of
+the full matrix: **7 of the 12 fins built lean 25–40°** (`hub_corner`@0 39°,
+`filter_housing`@25 25° / @40 40° / @60 30°, `drive_frame`@60 30°,
+`hub_corner`@60 28°, `hub_post_foot`@60 27°). Flipping the default is the single
+change that most directly answers "the fin is not perpendicular to the bed."
+
+**1. `sweep()` is all-or-nothing, and that alone loses the flagship part.**
+`if (h < PROP.minHeight) return false` aborts the entire wall if *any* station is
+short. On `voron_drive_frame` at 25° and 40° the contact line is otherwise
+perfect — tortuosity 1.29/1.44, span 92–100 mm, **zero blocked stations** — but
+its first one or two stations sit where the underside meets the plate (h = −0.2
+mm), so the whole thing is discarded as `degenerate`. This is `breakaway.py`'s
+`t0/t1` trim, never automated. Keeping the longest contiguous usable run instead:
+
+| case | before | after trim |
+|---|---|---|
+| `drive_frame` @25 | nothing (`degenerate`) | **44.1 mm tall × 96.1 mm span** over 3,276 mm² |
+| `drive_frame` @40 | nothing (`degenerate`) | **66.6 mm tall × 78.4 mm span** over 3,240 mm² |
+
+That is the owner's sketch, rendered and looked at: a vertical wall from the
+plate, top edge contoured to the tilted underside, running nearly the length of
+the part. Compare the fin it replaces — 16.5 × 4.5 mm on a 7.4 mm stilt.
+
+**2. Every `buried` rejection is the tip-corner bug, and it is fatal rather than
+cosmetic.** The 2026-07-26 entry filed "sub-spec gaps" as a precision problem to
+fix later. It is not: the buried vertices sit at the wall's **top**, not its foot
+(`filter_housing`@0: 10 verts at z = 40.68 on a wall topping at 40.7; foot-height
+verts implicated: **0 of 5, 0 of 10, 0 of 23, 0 of 29**). The top is a `tip`-wide
+flat set at the *centreline*, so its up-slope corner rises by `half_tip × slope`.
+Any underside steeper than `atan(gap / half_tip)` = **33.7°** drives that corner
+inside the part, `insidePart` sees it, and the entire wall is thrown away. Most
+overhang surfaces are steeper than 33.7°. Evaluating the surface at both tip
+corners and taking the lowest removes the whole `buried` bucket on
+`drive_frame`@25/40 and `hub_corner`@40.
+
+**3. `tortuosity` measures the sampling, not the shape — so it is not a
+precondition, it is a coin flip.** Same region, same geometry,
+`voron_drive_frame`@40 R0, varying only the station count:
+
+| stations | 8 | 14 | 24 | 48 | 96 |
+|---|---|---|---|---|---|
+| `tortuosity` | 1.14 | 1.44 | 1.59 | **2.08** | **3.16** |
+| RMS deviation / chord | 0.081 | 0.069 | 0.062 | 0.065 | 0.065 |
+
+Arc length grows without bound as you sample a curve more finely; the chord does
+not. The `maxTortuosity: 2.0` gate therefore flips on a good region purely
+because someone densified the sampling. **Replace it with RMS deviation from the
+fitted axis over chord**, which is scale- and density-independent. It separates
+the same cases the gate was built for: `drive_frame`'s servable region sits at
+0.065, `hub_post_foot`'s bowl at 0.15–0.21.
+
+**4. `samples: 14` is scale-blind, exactly as `foot: 7.0` was.** Fourteen
+stations across a 96 mm span is one every 7 mm, and a curved underside moves
+more than the 0.2 mm gap within that. Station spacing must be a **length**.
+**Order matters here and it was tested:** densifying to one station per 2 mm
+*before* fixing #3 regressed `drive_frame` from one good wall back to zero, by
+pushing tortuosity past the gate. #3 lands first.
+
+**What the four fixes together do not fix — and that is M6b.** With all of them,
+walls appear in 9 of 16 cases, but coverage of the overhang area is only 9–46%
+on the parts that matter (`drive_frame`@40: one wall, 46%). The reason is
+structural: **a connected overhang "region" is a topological artifact, not a
+support unit.** Union-find over adjacent overhang faces merges the entire tilted
+underside of `drive_frame` into one 3,240 mm² region whose contact line is 6.4 mm
+RMS off any straight axis. One wall per region can never cover it. M6b's job is
+to stop asking "one wall per region" and start asking "walls spaced at
+`maxUnsupportedSpan` under a height field."
 
 - Per-fin params with spec defaults (`docs/FIN-SPEC.md`): standoff 0.2, tine 0.3 tall ×
   0.4–0.8 wide, 7–8 tines low spreading with height, 1 mm elliptical base, rounded top.
@@ -113,7 +239,9 @@ reason. Auto modes must say out loud what they could not reach.
 - Binary STL, fins + pad baked in.
 - Small report: what was added, the intended print orientation, "no supports needed".
 - **Honest-limitations panel** — overhangs sitting over the part rather than the plate,
-  features under the wall-height floor, regions with no vertical face. Naming these
+  features under the wall-height floor, regions with no vertical face, **bowl-shaped
+  overhangs with no line to sweep, and parts that touch the plate at a single point**
+  (nothing the tool adds can hold one — the answer is to rotate). Naming these
   builds more trust than hiding them, and it's a chapter in the video.
 
 ### Footer
@@ -134,33 +262,124 @@ Each one ends at something you can open in a browser and judge.
 | ~~**M1**~~ ✅ | Overhang shading + stats readout. No fins yet. | ~~Red faces match what the Python probe reports on the same file.~~ **Done** — exact match on two models (4,782 faces / 264.6 mm² / 563 raw / 2 regions), threshold slider live at 2–8 ms. |
 | ~~**M2**~~ ✅ | Orientation: rotate gizmo, snap-to-face, live readout. | ~~Rotating a part visibly changes the overhang count.~~ **Done** — standing a Voron plate on edge moves it from 265 mm² of overhang / 3110 mm² bed contact to 1310 / 73, re-analysed in 1–6 ms. |
 | ~~**M3**~~ ✅ | Fin placement + STL export, end-to-end. *Gap-only geometry — internal milestone, never shipped.* | ~~Exported STL opens in a slicer with the fin present.~~ **Done** — 13 fins on a tilted Voron frame, exported as 14 closed solids (1 part + 13 fins), all watertight, seated at z=0. Validated with trimesh, **not yet opened in a real slicer.** |
-| **M4** | **Tines + Stabilize mode.** Fin stands beside the part on a vertical face, horizontal tines fused in, regions clustered per face. Bed pad included. | A printed test part comes off the plate and the fin snaps clean. |
-| **M5** | **Prop mode** — a breakaway wall under each overhang, no tines, swept along the contact line (M3's geometry, rescoped). | hub_post_foot and hub_corner get usable supports at the angle a human would print them. |
-| **M6** | Draw mode + strength overlay: load arrow, pull-vs-lever toggle, ranked suggestions. | A part both auto modes refuse can be finned by hand; toggling pull↔lever changes the recommended orientation. |
-| **M7** | 2 mm chamfer + permission checkboxes, limitations panel, sample model, Ko-fi, domain. | A stranger can use it without being told anything. |
+| ~~**M4**~~ ⚠️ | **Tines + Stabilize mode.** Fin stands beside the part on a vertical face, horizontal tines fused in, regions clustered per face. Bed pad included. | **Built and verified, then DEMOTED by the plan revision.** The geometry is correct (8/8 built cases clean, sliced, 227 of ~228 fin layers in the toolpaths) but it is the wrong primary support: it braces against toppling, it does not hold up an overhang. Survives as the optional **Brace**. Never test-printed. |
+| ~~**M5**~~ ⚠️ | **Prop mode** — a breakaway wall under each overhang. | **Landed experimental at 3/16 and superseded.** Its geometry is the right primitive; its *derivation* of the contact curve is what failed. Rebuilt as M5b. |
 
-**The bed pad moved from M7 into M4**, because M4's done-when depends on it. Nearly every
-tilted part has bed contact ≈ 0 — it rests on an edge — so without a pad there is no test
-print to judge, and the milestone cannot close. The 2 mm bottom chamfer stays in M7: it
-modifies *the user's own geometry* rather than adding a solid beside it, so it cannot ship
-before the permission UI that asks about it.
+### Revised, from here
 
-**M3 never ships.** A fin with no tines only constrains the part in one direction —
-Slant3D demos a cube falling away from exactly that support mid-print. M3 exists to prove
-the pipeline, M4 makes it correct.
+> **Executing any of these? Read `docs/IMPLEMENTATION-PLAN.md` first.** It is the
+> self-contained how-to for M5c / M6b / M7b: exact commands, the baseline
+> numbers, the ten invariants that each cost a measured regression, and which
+> "built nothing" cases are correct refusals rather than misses.
 
-M3 also made the *judgment* problem concrete rather than theoretical. On a Voron frame
-stood on edge, naive placement puts fins under all 13 servable overhang regions and they
-come out **12–103 mm tall on a 116 mm part** — full-height scaffold walls that would waste
-more plastic than the slicer supports they replace. Detection is solved; deciding which
-overhangs actually deserve a fin, and where it stands, is the product.
+| # | ships | done when |
+|---|---|---|
+| ~~**M5a**~~ ✅ | **The checker grows a coverage metric, before any geometry changes.** % of overhang area whose centroid lies within `maxUnsupportedSpan` (XY) of some wall's centreline, reported per case alongside clean/failed/empty. Prototyped in `prototype/probe_wall.js`; lift it into `check_stl.py` so it judges shipped output. | The current matrix is re-scored and the coverage column is in the table. A 4.5 mm brace under 3,403 mm² reads as ~0%, which is the number that was missing. |
+| ~~**M5b**~~ ✅ | **The wall primitive, done properly** — the four measured fixes, *in this order*: (1) **straightness gate** — replace `tortuosity` with RMS-deviation/chord, threshold from data (~0.10, between 0.065 and 0.15); (2) **tip-corner contouring** — evaluate the underside across the tip's own width and take the lowest, so `gap` is a floor; (3) **trim, don't discard** — keep the longest contiguous run of usable stations instead of aborting the sweep, the `t0/t1` trim `breakaway.py` asked a human for; (4) **station spacing as a length**, not `samples: 14`. Vertical always, no length cap, foot scales with height. | `voron_drive_frame` at 40° gets a wall spanning its raised underside that matches the owner's sketch (**prototyped: 66.6 mm × 78.4 mm, rendered**), measures 0.20 mm at its closest approach with the gap as a floor — `check_stl.py`'s ±0.05 band, currently failing at 0.003–0.343 — and slices. **This milestone is a picture next to a sketch.** |
+| **M5c** | **Flip the default from `stabilize` to the wall,** and demote the fin to the `brace` option the revision describes. Empty-state copy names the wall's own skip reasons. | A user who loads a part and exports gets a vertical wall, not a leaning fin. This is the milestone the original complaint is actually about. |
+| **M6b** | **Coverage, not one-wall-per-region.** The connected overhang region is a topological artifact — `drive_frame`'s whole underside is one 3,240 mm² region, 6.4 mm RMS off any axis, and one wall covers 46% of it. Replace region→wall with underside height field → a **set** of walls spaced at `maxUnsupportedSpan`. Sites route by shape: elongated → wall along the ridge; basin → column at the low point. Anisotropy stops being a rejection and becomes a routing decision. | Every model in the test set gets coverage under `maxUnsupportedSpan` with no wall inside the part, **and the coverage number is what the checker reports.** |
+| **M7b** | Judgment + honesty: `maxUnsupportedSpan` as the user-facing dial, plastic cost readout, limitations panel, point-balanced gate (landed), Brace as an option. | A part that needs 2 walls gets 2, a part that needs 9 gets 9, and the panel names what it could not reach. |
+| **M8** | Draw mode + strength overlay: load arrow, pull-vs-lever toggle, ranked suggestions. | A part auto refuses can be supported by hand; toggling pull↔lever changes the recommended orientation. |
+| **M9** | 2 mm chamfer + permission checkboxes, sample model, Ko-fi, domain. | A stranger can use it without being told anything. |
 
-That finding is what turned placement into a **mode** rather than an algorithm. "13 fins"
-is not a bug to be tuned away — it is the honest answer to *"serve every overhang,"* a
-question nobody asked. Stabilize asks a different one — *"what keeps this part standing?"* —
-and answers it with 2–3 fins on the same geometry. The count follows from the intent, so
-the intent has to be an input. M4 builds the correct geometry and the first mode; M5 lets
-the human override both.
+## M5a + M5b status (2026-07-28) — landed
+
+**M5a is in `check_stl.py`.** `coverage()` reports the percentage of overhang
+AREA within `MAX_UNSUPPORTED_SPAN` (12 mm) of a support, per case and summed
+across the matrix. A point counts as served only when a support has geometry
+near it in XY *and* at roughly its own height — without the height test a
+flared foot "serves" every overhang it happens to stand near in plan view.
+The first thing it measured is the number this project most needed:
+
+| mode | clean | overhang coverage |
+|---|---|---|
+| Stabilize (the fin) | 8/12 | **4%** |
+| Prop (the wall) | 8/16 | **13%** |
+
+The fin was never a support. It is now measured saying so, rather than argued
+about.
+
+`check_props` also stopped conflating two different clearances. The breakaway
+gap (wall top to the part above it, must be 0.2) and the flank clearance (wall
+sides to anything beside them, must merely never fuse) were one number, which
+failed walls whose flanks were correctly standing well clear. They are told
+apart by where the nearest part surface is relative to the sample, not by the
+wall's parameterisation.
+
+**M5b is in `prop.js`**, all four fixes plus two that the measurements forced:
+
+| | change | why |
+|---|---|---|
+| 1 | `straightness()` replaces `tortuosity()` | the old gate measured the sampling |
+| 2 | `contourTop()` | the tip's up-slope corner was buried past 33.7° of slope |
+| 3 | `longestRun()` + trim | one short station discarded a 92 mm wall |
+| 4 | `stationStep` (mm) replaces `samples` (count) | scale-blind, like `foot: 7.0` was |
+| 5 | `stationIsClear` probes the full height, outboard | both remaining welds were on the flank, above the last probe |
+| 6 | `settleTop()` | closes the loop: measure the built edge, lower it onto spec |
+
+**#6 is the one worth not re-deriving.** The generator confirms with sampled
+points and the checker measures exact surface-to-surface distance, so no amount
+of denser probing makes them agree — that chase is what produced the "0.11–0.19
+where 0.2 was intended" family the roadmap carried for two milestones. Measure
+the finished top edge, then move it. Two things about it were learned the hard
+way: it must **lower only** (raising on region-only evidence welded the wall to
+geometry it could not see — the matrix went 6 clean to 0, gaps of 0.002 mm), and
+it must be **per station** (one global shift let a single low triangle drop the
+whole wall 0.48 mm below the part, too far to land on).
+
+Result: breakaway gaps now measure **0.15–0.22 mm** against a 0.2 spec, every
+wall is vertical and seated at z = 0, and the flagship `voron_drive_frame` gets
+the wall from the owner's sketch. Rendered and looked at. Stabilize is unchanged
+at 8/12, so nothing regressed.
+
+**Still open, and honestly:** coverage is 13%. Six of sixteen cases build
+nothing, and the reason is now almost entirely the straightness gate rejecting
+regions that are genuinely curved. That is M6b's job — split the region, do not
+loosen the gate. `stationStep` is set to 1.0 rather than 2.0 for the same
+reason: at 2.0 the matrix scores 8 clean / **2 walls that would weld** / 18%
+coverage, at 1.0 it is 8-9 clean / **zero** bad walls / 13%. Coverage is a
+milestone away; a fused support is a ruined print.
+
+**The checker has to grow a coverage metric before M5b, not after** — it is M5a
+above, and it is prototyped and measured, not merely specified. Nothing in
+`check_stl.py` ever asked whether a support *holds anything up* — it asks only
+whether the solid is clean, outside the part, and correctly spaced. A 4.5 mm brace
+under 3,403 mm² of overhang passes every one of those. The new gate is
+**"% of overhang area within `maxUnsupportedSpan` of a support"**, and it would
+have caught this on day one. This is the same lesson as yesterday's "empty counted
+as clean", one level up: *the scoreboard has to measure the thing you actually want.*
+
+**The bed pad stays early.** Nearly every tilted part has bed contact ≈ 0 — it rests
+on an edge — so without a pad there is no test print to judge. The 2 mm bottom
+chamfer stays late: it modifies *the user's own geometry* rather than adding a solid
+beside it, so it cannot ship before the permission UI that asks about it.
+
+**"M3 never ships" was wrong, twice over.** It was retired on the grounds that a
+tine-less wall "only constrains the part in one direction", citing Slant3D's cube
+falling away from exactly that support. But that demo is a part balanced on an
+EDGE with the support as its only restraint; a wall propping an overhang from
+beneath, on a part that is otherwise sitting down, has gravity holding the part
+onto it. `breakaway.py` has no tines anywhere and produced good supports on real
+printed shelter hubs. The tine-less bed-attached wall is now the **primary**
+primitive, and M3's geometry — modulo the inside-out winding nobody caught — was
+closer to right than what replaced it.
+
+**And the "13 fins" finding was misread.** On a Voron frame stood on edge, naive
+placement puts a wall under all 13 servable regions, 12–103 mm tall on a 116 mm
+part, and the roadmap called them *"full-height scaffold walls that would waste
+more plastic than the slicer supports they replace."* **That comparison was never
+run.** A 1.2 mm wall is the thinnest support that exists — it is the product's
+central claim — and the correct response to "13 is too many" is *fewer walls*,
+not *smaller walls*. Reading it as the latter is what produced `maxLen: 25` and a
+4.5 mm brace under 3,403 mm² of overhang.
+
+So placement is **not a mode and not a judgment call about intent.** It is a
+coverage criterion: *no point of an overhang may be further than
+`maxUnsupportedSpan` from a support.* The count then falls out of the geometry —
+a part that needs 2 gets 2, a part that needs 9 gets 9 — and the dial is exposed
+to the user rather than guessed at. **Before `maxUnsupportedSpan` is defaulted,
+measure the plastic both ways** (walls vs. the slicer's own supports) so the
+claim the project rests on is finally a number.
 
 ---
 
@@ -186,11 +405,17 @@ the human override both.
 - **Orientation is applied as a transform, never baked into the geometry.** The mesh stays
   in its original frame and the analysis takes a rotation matrix, so nothing accumulates
   float error across a hundred rotations and the original file is always recoverable.
-- **The fin leans with the part.** Requiring a fin to stand against a *vertical* face is
-  self-defeating: tilting a part into a strong orientation is exactly what stops its faces
-  being vertical. At 30° the first version found ONE site on a 35,520-face Voron frame.
-  The fin is built in the patch's own frame and leans with the face it serves, which
-  prints because a thin wall leaning up to 45° is a self-supporting overhang.
+- ~~**The fin leans with the part.**~~ **REVERSED 2026-07-26 — walls are always
+  vertical.** The original reasoning was that requiring a *vertical face* to stand
+  against is self-defeating, since tilting a part is exactly what stops its faces
+  being vertical (at 30°, the first version found ONE site on a 35,520-face Voron
+  frame). That problem is real; leaning was the wrong answer to it. A thin wall
+  leaning 45° is a self-supporting overhang *as a printed object*, but a support
+  has to carry load to the plate, and a 1.2 mm wall at 40° buckles sideways rather
+  than taking it in compression — measured: 7 of 16 fins lean 25–40°, one of them a
+  147 mm wall on a 12.6 mm stilt. **The right answer to a non-vertical face is a
+  vertical wall with a contoured top edge**, which is what `breakaway.py` does and
+  what removes the need for the face to be flat *or* vertical.
 - **Planar segmentation must grow from a seed plane, never merge pairwise.** Union-find
   over adjacent faces whose normals agree within 12° *creeps*: a cylindrical boss's faces
   each differ from the next by a few degrees, so the whole cylinder merges into one "flat"
@@ -291,6 +516,9 @@ Three faults were stacked, each hiding the one behind it:
 
 - **`hub_corner` still finds no site at 0 and 25 degrees**, only at 40. Stabilize covers
   what it covers; this is the ~65% ceiling that makes Draw mode (M5) core, not a fallback.
+  *(Superseded 2026-07-26: that ceiling was measured against a support needing a flat
+  face to grip. A bed-attached vertical wall has different reach, and the number must
+  be re-measured rather than carried forward. Draw is now M8.)*
 - **Every case now produces exactly ONE fin.** Once positional separation was enforced, no
   dev model offered a genuine second site within the constraints. "Two fins, opposite
   sides" is still the spec; the parts are not currently giving us two.
@@ -301,32 +529,115 @@ Three faults were stacked, each hiding the one behind it:
   balanced on an edge is unlikely to be enough in practice.
 - **Still not test-printed.** Slicing cleanly is not the same as coming off the plate.
 
-## M5 status (2026-07-26) — Prop is landed but NOT finished
+## M5 status (2026-07-26, REVISED) — Prop covers far less than was recorded
 
 Shipped behind the mode selector, labelled experimental, and not the default.
 
-**What works.** Prop places walls on parts Stabilize cannot serve at all —
-hub_post_foot gets a wall at 0 and 40 degrees, where Stabilize needs 50+. The
-solids are watertight and correctly wound, and no prop fuses to the part: the
-`insidePart` confirmation pass on the finished solid discards any that would.
-12/16 cases clean.
+**The previous entry here was wrong, and the tooling is why.** It claimed
+"hub_post_foot gets a wall at 0 and 40 degrees" and "12/16 cases clean". Measured
+again over 4 models × 4 tilts:
 
-**What does not.** The breakaway gap is the whole point of a prop, and it is not
-yet reliably 0.2mm. Measured closest approaches run 0.11–0.19mm on four cases,
-which is tight enough to weld, and one wall sits 13mm below the region it is
-meant to hold up (its path falls outside the region's own triangles, so
-`surfaceZAt` finds nothing above it and the height is never re-fitted). Both are
-clearance-precision problems, not structural ones.
+| | cases |
+|---|---|
+| produced a clean support | **3 / 16** |
+| built something that failed | 2 |
+| **built nothing at all** | **11** |
+
+hub_post_foot gets **zero props at 0, 20, 25, 30, 40 and 50 degrees**; only at 60.
+For comparison, Stabilize over 4 models × 3 tilts is 8 clean / 0 failed / 4 empty.
+
+### Two measurement faults manufactured that number
+
+- **`check_stl.py` counted empty output as clean.** `if m is None: return True` —
+  a case where the tool built nothing scored exactly like a case where it built a
+  good support. 11 of the 16 "passes" were nothing at all. Empty is now its own
+  bucket: it is a coverage failure, just not a correctness one.
+- **Prop's skip reasons were thrown away before anything could read them.**
+  `buildFins` squashed `skipped` onto the stabilize-shaped `rejected` object,
+  which keeps only `blocked`. So `verify_fins.js` printed `blocked: 0` for
+  hub_post_foot at 0 degrees when the real reason was `buried: 1`, and the UI's
+  empty state read the same lossy object. Whatever explains a failure has to
+  survive the trip to the UI. Prop's own counters are now passed through intact.
+
+### Root cause on the hub post: it is a bowl, and Prop sweeps a line
+
+hub_post_foot's overhang is the underside of the **ball hub** — a bowl, not a
+ledge. The XY covariance of its lowest points is nearly isotropic (1.0 would be a
+perfect circle):
+
+| tilt | 0° | 25° | 40° | 60° |
+|---|---|---|---|---|
+| anisotropy | 1.08 | 1.03 | 1.31 | 36.1 |
+| props built | 0 | 0 | 0 | 1 |
+
+`contactLine` takes the principal axis of that point set — which is noise — and
+buckets along it, so the "contact line" alternates between the two sides of the
+ring, wandering **2.4× its own chord and up to 16mm off it**. The swept wall then
+saws through the part and is correctly binned by `insidePart`. The one tilt that
+works is the one tilt where a line actually exists.
+
+`breakaway.py` states the precondition in its own docstring — *"the contact line
+is assumed ~straight (a linear overhang)"* — and the port inherited the sweep
+without it. `PROP.maxTortuosity` now enforces it and reports `notALine`.
+
+### The 13mm wall was never real
+
+The previous entry blamed "its path falls outside that region's own triangles, so
+`surfaceZAt` finds nothing above it". That is not what happened. **`hub_corner.stl`
+is a two-body mesh** (1158 faces + a separate 28-face solid), and `check_stl.py`
+took `sorted(bodies)[0]` — the largest — as "the part". A prop correctly stopping
+0.2mm under the *smaller* body was measured against the larger one and reported a
+13.4mm gap. `verify_fins.js` now writes a `-part.stl` sidecar so the checker never
+has to guess which solid is the part; that prop measures 0.2mm.
+
+### The sub-spec gaps have an exact cause
+
+The "0.11–0.19mm where 0.2 was intended" family was filed as unexplained
+imprecision. It is geometric: **the wall's top is a 0.6mm-wide flat, and the gap
+is set at its centreline.** On a sloped underside the up-slope corner rises by
+`half_tip × slope` into the gap. On hub_corner at 25°, serving a ledge of slope
+0.466: `0.2 − 0.3×0.466 ≈ 0.06`, and the two top corners measure **0.056 and
+0.306** against a 0.2 spec — the pair straddling the intended gap is the
+signature. voron_drive_frame at 60° fails the same way and worse, its nearest top
+vertex sitting **0.009mm** off the part, which is a weld. Fix is to drop `top` by
+`half_tip × local slope` (or measure the gap perpendicular to the surface) — not
+yet done, and it is the reason Prop stays experimental.
+
+### A part balanced on a point cannot be supported at all
+
+The finding that actually explains the hub post. **hub_post_foot has 0.0 mm² of
+bed contact at every tilt from 0 to 165 degrees** — it stands on the tip of its
+own tapered foot — and 574 mm² only when flipped 180°. Every overhang on it
+therefore sits 70–100mm in the air, so even a geometrically valid prop is a
+1.2mm-thick wall 70–104mm tall: the same "12–103mm scaffold" failure M3 already
+identified, reappearing in M5.
+
+Both modes used to answer with a local reason ("no flat face", "part in the way")
+that sent the user off tuning something that was never the problem. `seatingOf`
+now classifies the part as sitting on a **face, an edge, or a point**, and the
+point case outranks every mode-specific message. An edge must not trip it — that
+is the flagship Stabilize case — so the discriminator is the footprint's extent,
+not its area.
 
 **The lesson that generalises.** M3 was called "validated — 14 closed solids, all
 watertight". Every one of those solids was wound INSIDE OUT: euler 2, no boundary
 edges, consistent winding, and negative volume. The check asked `is_watertight`
 and never asked `is_volume`. A slicer would have read the lot as holes. Retiring
-M3 for the wrong reason hid that for three milestones.
+M3 for the wrong reason hid that for three milestones. **M5 repeated the shape of
+that mistake**: a pass rate that counted absence of output as success, and a
+diagnostic channel that could not express its own failure mode. When a milestone
+reports better than it looks on screen, suspect the scoreboard.
 
-**Next on this:** re-fit height from the part rather than the region (a downward
-query against the whole mesh, not the overhang patch), then re-check the gap; the
-containment guard already prevents the failure mode that matters.
+**Next on this, in order:**
+1. Drop the wall top by `half_tip × local slope` so the breakaway gap is a floor.
+2. Trim the contact line to its longest clear run instead of discarding the whole
+   prop — `breakaway.py` takes `t0,t1` and tells the caller to *"pick t0 so
+   contact(t0) has already cleared any solid the wall must NOT weld to"*; a human
+   does that trim by hand and the port never automated it. Prototyped: it yields
+   an unburied wall on hub_post_foot at 0/25/40 where there are currently none.
+   Pair it with a height/plastic cap or it will just emit those scaffolds.
+3. A point-prop (tapered column) for bowl overhangs, which is what a ball hub's
+   underside actually wants. That is a third support type, not a Prop setting.
 
 ## Decisions still open
 

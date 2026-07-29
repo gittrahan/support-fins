@@ -185,7 +185,7 @@ export function findWallPatches(topo, rot, offset, stats = null) {
 }
 
 /** Neighbour lists in CSR form, cached on the topology (it is rotation-invariant). */
-function faceAdjacency(topo) {
+export function faceAdjacency(topo) {
   if (topo._adjStart) return { start: topo._adjStart, nbr: topo._adjNbr };
   const { nFaces, adjA, adjB } = topo;
   const start = new Int32Array(nFaces + 1);

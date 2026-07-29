@@ -83,7 +83,13 @@ if (mode === 'prop') {
     console.log(`     ${q.height.toFixed(1)}mm tall x ${q.span.toFixed(1)}mm span` +
                 `  over ${q.area.toFixed(0)} mm2 of overhang`);
   }
-  console.log(`     skipped: ${JSON.stringify(built.rejected)}`);
+  // built.skipped, NOT built.rejected: the latter is the stabilize-shaped object
+  // and keeps only `blocked`, so this line used to print "blocked: 0" for a part
+  // whose props were all discarded as buried.
+  console.log(`     skipped: ${JSON.stringify(built.skipped)}`);
+  if (built.volume) {
+    console.log(`     plastic: ${(built.volume / 1000).toFixed(2)} cm3 of walls`);
+  }
 }
 for (const f of mode === 'prop' ? [] : built.fins) {
   console.log(`     ${f.height.toFixed(1)}mm tall x ${f.length.toFixed(1)}mm  ` +
@@ -93,6 +99,11 @@ for (const f of mode === 'prop' ? [] : built.fins) {
               ` of ${f.site.patchU[0].toFixed(1)}..${f.site.patchU[1].toFixed(1)}`);
 }
 console.log(`  unserved overhang regions: ${built.unserved}`);
+const seat_ = built.seating;
+console.log(`  seating: on ${seat_.kind === 'edge' ? 'an' : 'a'} ${seat_.kind}` +
+            `  (footprint ${seat_.span.toFixed(1)}mm, ${seat_.bedArea.toFixed(1)} mm2)` +
+            (seat_.kind === 'point'
+              ? '  <-- balanced on a point; no support can hold this' : ''));
 
 // part, as oriented and seated, plus everything the tool added
 const { x: dx, y: dy, z: dz } = res.offset;
@@ -116,6 +127,14 @@ const out = Deno.args[2] ?? '/tmp/sf-check.stl';
 Deno.writeFileSync(out, writeBinarySTL(tris));
 console.log(`  wrote ${out}  (${partTris / 3} part tris + ` +
             `${(tris.length - partTris) / 3} added)`);
+
+// The part ALONE, so the checker never has to guess which solid it is. It used
+// to take the largest body of the combined file, which silently picks ONE body
+// of a multi-body part: hub_corner.stl is two solids, and a prop correctly
+// serving the smaller one was measured against the larger and reported a 13mm
+// breakaway gap that did not exist.
+Deno.writeFileSync(out.replace('.stl', '-part.stl'),
+                   writeBinarySTL(tris.slice(0, partTris)));
 
 // fins and pad SEPARATELY. The pad is meant to fuse to the part -- lumping it in
 // with the fins makes every pad look like a fin welded on by mistake.

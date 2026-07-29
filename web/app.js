@@ -401,13 +401,42 @@ let finMode = 'stabilize';
  * actually emptied out.
  */
 function explainNoFins(b) {
+  // A part balanced on a point cannot be rescued by ANY support, so saying
+  // "no flat face" or "part in the way" sends the user to tune something that
+  // was never the problem. This outranks every mode-specific reason below.
+  if (b.seating?.kind === 'point') {
+    return 'this part touches the plate at a single point, so it has nothing to '
+         + 'stand on — no fin or prop can hold it. Rotate until it sits down on '
+         + 'a face or an edge';
+  }
   if (b.mode === 'prop') {
-    const s = b.rejected.blocked;
+    const s = b.skipped ?? {};
     if (!b.rejected.sites) return 'no overhangs to prop in this orientation';
-    return s
-      ? `every overhang has part in the way of a wall down to the plate — `
-        + 'rotate, or switch to Stabilize'
-      : 'the overhangs here are too small or too low to be worth a wall';
+    // Named in the order that tells the user the most. Each is a different
+    // stage of the search, and lumping them into "blocked" is what let M5 be
+    // recorded as working on a part where it built nothing.
+    if (s.wanders) {
+      const one = s.wanders === 1;
+      return `${s.wanders} overhang${one ? ' is' : 's are'} bowl-shaped rather than `
+           + `a ledge — ${one ? 'its' : 'their'} lowest points form a ring, not a `
+           + 'line, so there is nothing for a wall to follow. Rotate, or wait for '
+           + 'Draw mode';
+    }
+    if (s.buried || s.weld) {
+      return 'every wall that reaches these overhangs would fuse to the '
+           + 'part — rotate, or place one by hand (M6)';
+    }
+    if (s.blocked) {
+      return 'no run of these overhangs is long enough to stand a wall under — '
+           + 'the part is in the way, or they sit too close to the plate';
+    }
+    if (s.stub || s.noLine || s.sliver) {
+      return 'the overhangs here are too small or too low to be worth a wall';
+    }
+    if (s.degenerate) {
+      return 'the contact lines here collapse to a point — nothing to sweep along';
+    }
+    return 'no overhang here can take a prop in this orientation';
   }
   const st = b.patchStats ?? {};
   if (!b.patchCount) {
@@ -426,7 +455,7 @@ function explainNoFins(b) {
   }
   if (b.rejected.blocked) {
     return 'the part is in the way of every wall position on the faces it found '
-         + '— rotate, or place one by hand (M5)';
+         + '— rotate, or place one by hand (M6)';
   }
   return 'the workable spots would put the fin inside the part — try rotating';
 }
@@ -534,9 +563,17 @@ function updateFinReadout(built, ms) {
               + 'rather than needing to be cut');
     }
   }
+  // Worth saying even when something WAS placed: a part balanced on a point puts
+  // every overhang far off the plate, so the props it does get are very tall thin
+  // walls that will whip long before they hold anything.
+  if (n && built.seating?.kind === 'point') {
+    bits.push('this part is balanced on a single point of contact — whatever is '
+            + 'placed here is holding up a part that has nothing to stand on. '
+            + 'Rotate until it sits down');
+  }
   if (built.unserved) {
     bits.push(`${built.unserved} overhang region${built.unserved === 1 ? '' : 's'} ` +
-              'still unsupported — rotate further, or fin them by hand (M5)');
+              'still unsupported — rotate further, or fin them by hand (M6)');
   }
   note.textContent = bits.join('. ') + '.';
   el('s-time').textContent = `${analysisTiming} · fins ${ms.toFixed(0)} ms`;
