@@ -276,11 +276,62 @@ Each one ends at something you can open in a browser and judge.
 |---|---|---|
 | ~~**M5a**~~ ✅ | **The checker grows a coverage metric, before any geometry changes.** % of overhang area whose centroid lies within `maxUnsupportedSpan` (XY) of some wall's centreline, reported per case alongside clean/failed/empty. Prototyped in `prototype/probe_wall.js`; lift it into `check_stl.py` so it judges shipped output. | The current matrix is re-scored and the coverage column is in the table. A 4.5 mm brace under 3,403 mm² reads as ~0%, which is the number that was missing. |
 | ~~**M5b**~~ ✅ | **The wall primitive, done properly** — the four measured fixes, *in this order*: (1) **straightness gate** — replace `tortuosity` with RMS-deviation/chord, threshold from data (~0.10, between 0.065 and 0.15); (2) **tip-corner contouring** — evaluate the underside across the tip's own width and take the lowest, so `gap` is a floor; (3) **trim, don't discard** — keep the longest contiguous run of usable stations instead of aborting the sweep, the `t0/t1` trim `breakaway.py` asked a human for; (4) **station spacing as a length**, not `samples: 14`. Vertical always, no length cap, foot scales with height. | `voron_drive_frame` at 40° gets a wall spanning its raised underside that matches the owner's sketch (**prototyped: 66.6 mm × 78.4 mm, rendered**), measures 0.20 mm at its closest approach with the gap as a floor — `check_stl.py`'s ±0.05 band, currently failing at 0.003–0.343 — and slices. **This milestone is a picture next to a sketch.** |
-| **M5c** | **Flip the default from `stabilize` to the wall,** and demote the fin to the `brace` option the revision describes. Empty-state copy names the wall's own skip reasons. | A user who loads a part and exports gets a vertical wall, not a leaning fin. This is the milestone the original complaint is actually about. |
-| **M6b** | **Coverage, not one-wall-per-region.** The connected overhang region is a topological artifact — `drive_frame`'s whole underside is one 3,240 mm² region, 6.4 mm RMS off any axis, and one wall covers 46% of it. Replace region→wall with underside height field → a **set** of walls spaced at `maxUnsupportedSpan`. Sites route by shape: elongated → wall along the ridge; basin → column at the low point. Anisotropy stops being a rejection and becomes a routing decision. | Every model in the test set gets coverage under `maxUnsupportedSpan` with no wall inside the part, **and the coverage number is what the checker reports.** |
+| ~~**M5c**~~ ✅ | **Flip the default from `stabilize` to the wall,** and demote the fin to the `brace` option the revision describes. Empty-state copy names the wall's own skip reasons. | **Done 2026-07-29.** `buildFins` defaults to `prop`, the selector lists Prop first and calls the fin **Brace — stop it toppling**, "experimental" is gone. A user who loads a part and exports gets a vertical wall. |
+| ~~**M6b**~~ ✅ | **Coverage, not one-wall-per-region.** The connected overhang region is a topological artifact — `drive_frame`'s whole underside is one 3,240 mm² region, 6.4 mm RMS off any axis, and one wall covers 46% of it. Replace region→wall with underside height field → a **set** of walls spaced at `maxUnsupportedSpan`. | **Done 2026-07-28/29** — `splitRegion` + `patchTracks` (rows of parallel walls). Matrix coverage **13% → 61%**, `drive_frame`@40 **86%**, `filter_housing`@60 **94%**, 10/16 clean, **zero** failed walls, and all 6 empties are measured correct refusals (see M6b status below). |
 | **M7b** | Judgment + honesty: `maxUnsupportedSpan` as the user-facing dial, plastic cost readout, limitations panel, point-balanced gate (landed), Brace as an option. | A part that needs 2 walls gets 2, a part that needs 9 gets 9, and the panel names what it could not reach. |
 | **M8** | Draw mode + strength overlay: load arrow, pull-vs-lever toggle, ranked suggestions. | A part auto refuses can be supported by hand; toggling pull↔lever changes the recommended orientation. |
 | **M9** | 2 mm chamfer + permission checkboxes, sample model, Ko-fi, domain. | A stranger can use it without being told anything. |
+
+## M6b + M5c status (2026-07-29) — landed, and the empties are all honest
+
+**The matrix's six empty cases are now all correct refusals, each verified
+against the geometry rather than assumed:**
+
+- `hub_post_foot` at **all four tilts** — 0.0 mm² of bed contact from 0° to
+  165°; the point-seating gate refuses before building and the UI says to
+  rotate. (The plan expected @60 to build a wall; that wall was a 104 mm
+  scaffold on a part that cannot stand, and refusing it is the better answer.)
+- `voron_drive_frame` @0 — two trivial regions 0.5 mm off the plate.
+- `hub_corner` @0 — **investigated 2026-07-29, and it is the bed-only
+  limitation, not a miss.** Raycast straight down from its ledge's overhang
+  faces: 10 of 18 hit the part's own base tab (z 0.7–2.3) before the plate, so
+  a wall would have to stand ON the part; the clear remainder is a
+  sub-`minSpan` stub. Its other two regions are socket rings directly over the
+  boss below (blocked at every station). The `stationIsClear` probe ladder
+  never looks below z≈1.4, so the low tab is invisible to it — but
+  `stationCertified` catches it at the foot chamfer, which is why the skip
+  says `blocked` and nothing welds.
+- **A narrow-foot retry was tried and REVERTED — don't re-derive it.** The
+  hypothesis was that only the flared foot collided at `hub_corner`@0 (probes
+  failed at o=±3.3, z=1.25, the flare band). Threading a `footCap` through
+  `stationIsClear`/`stationCertified`/`sweep` and retrying failed walls at
+  `footMin` changed **nothing anywhere in the matrix** — the tab sits under
+  the wall's whole footprint, not just under its flare. Complexity that
+  rescues zero cases does not ship.
+
+**M5c landed the same day:** `buildFins` defaults to `prop`, `app.js` starts
+on `prop`, the selector reads "Prop — hold up each overhang" / "Brace — stop
+it toppling" with "experimental" dropped. Stabilize re-verified after the
+flip: 11/12 clean, 0 failed, coverage 5% — no regression, and the 5%-vs-61%
+gap is the flip's justification, measured.
+
+**The unverified claim is now verified — both halves (2026-07-29).** Same
+export, same orientation, PrusaSlicer 2.9.6 defaults; walls baked in vs. bare
+part with the slicer's own supports (buildplate-only, matching our bed-only
+rule):
+
+| case | walls baked in | slicer supports | plastic | time |
+|---|---|---|---|---|
+| `drive_frame` @40 | 26.1 cm³ · 2h58m | 48.5 cm³ · 4h17m | **−46%** | **−31%** |
+| `filter_housing` @25 | 76.8 cm³ · 6h38m | 125.8 cm³ · 10h03m | **−39%** | **−34%** |
+| `hub_corner` @25 | 87.9 cm³ · 6h36m | 108.9 cm³ · 7h37m | **−19%** | **−13%** |
+
+**State the caveat whenever the number is used:** slicer supports cover 100%
+of overhangs; the walls covered 86% / 71% / 74% on these cases. Some of the
+saving is coverage the walls do not attempt (short spans under
+`maxUnsupportedSpan` that bridge fine, plus refusals). That is the design —
+support only what needs support — but the honest sentence is "less plastic
+partly because it supports less, on purpose."
 
 ## M5a + M5b status (2026-07-28) — landed
 
@@ -642,9 +693,12 @@ reports better than it looks on screen, suspect the scoreboard.
 ## Decisions still open
 
 - **Name + domain.** Product is Support Fins; the domain isn't bought.
-- **The "faster" claim is unverified** — fins are ~1.2 mm walls vs. supports' material and
-  travel, but tipping a part on edge raises Z height and can eat the gain. Measure with a
-  real slicer before it goes in a script. If it loses, drop it.
+- ~~**The "faster" claim is unverified**~~ **Verified 2026-07-29** — see the
+  M6b + M5c status table: 19–46% less plastic AND 13–34% faster than
+  PrusaSlicer's own buildplate-only supports at the same orientation, with the
+  coverage caveat stated there. The tipping-raises-Z concern is a *different*
+  comparison (tilted-with-walls vs. flat-with-supports) and still unmeasured;
+  don't conflate them in a script.
 - **Auto-orientation solver** stays out of v1 by design.
 
 ## Explicitly deferred

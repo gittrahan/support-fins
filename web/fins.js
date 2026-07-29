@@ -757,13 +757,15 @@ function seatingOf(result, contactPts) {
 }
 
 /**
- * Generate fins for the part in its current orientation.
+ * Generate supports for the part in its current orientation.
  *
- * @param opts.mode     'stabilize' (only mode implemented; see docs/ROADMAP.md)
+ * @param opts.mode     'prop' (the default: a vertical breakaway wall under
+ *                      each overhang) or 'stabilize' (the Brace: a tined fin
+ *                      against toppling; docs/FIN-SPEC.md)
  * @param opts.bedPad   add the pad when bed contact is too small to hold
  */
 export function buildFins(topo, result, rot, opts = {}) {
-  const mode = opts.mode ?? 'stabilize';
+  const mode = opts.mode ?? 'prop';
   const maxFins = opts.maxFins ?? FIN.maxFins;
   const out = [];
   const padOut = [];

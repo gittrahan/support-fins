@@ -391,7 +391,13 @@ function updateFit() {
 
 let lastResult = null;
 let finsVisible = false;
-let finMode = 'stabilize';
+// The wall is the default support and the fin is the Brace OPTION, not the
+// other way around -- flipped at M5c. Measured over the dev matrix, the fin
+// covers 4% of overhang area (it braces against toppling; it holds nothing up)
+// and 7 of its 12 placements lean 25-40deg. The wall covers 61%, always
+// vertical. A user who loads a part and exports should get the support that
+// supports.
+let finMode = 'prop';
 /**
  * Why did this part get no fins, in terms the user can act on?
  *
@@ -424,7 +430,7 @@ function explainNoFins(b) {
     }
     if (s.buried || s.weld) {
       return 'every wall that reaches these overhangs would fuse to the '
-           + 'part — rotate, or place one by hand (M6)';
+           + 'part — rotate, or place one by hand (Draw mode, soon)';
     }
     if (s.blocked) {
       return 'no run of these overhangs is long enough to stand a wall under — '
@@ -455,7 +461,7 @@ function explainNoFins(b) {
   }
   if (b.rejected.blocked) {
     return 'the part is in the way of every wall position on the faces it found '
-         + '— rotate, or place one by hand (M6)';
+         + '— rotate, or place one by hand (Draw mode, soon)';
   }
   return 'the workable spots would put the fin inside the part — try rotating';
 }
@@ -573,7 +579,7 @@ function updateFinReadout(built, ms) {
   }
   if (built.unserved) {
     bits.push(`${built.unserved} overhang region${built.unserved === 1 ? '' : 's'} ` +
-              'still unsupported — rotate further, or fin them by hand (M6)');
+              'still unsupported — rotate further, or support them by hand (Draw mode, soon)');
   }
   note.textContent = bits.join('. ') + '.';
   el('s-time').textContent = `${analysisTiming} · fins ${ms.toFixed(0)} ms`;

@@ -1,13 +1,17 @@
 # Implementation plan — M5c, M6b, M7b
 
+> **STATUS 2026-07-29: M5c and M6b are DONE and committed** (M6b landed as
+> `splitRegion`/`patchTracks` in `prop.js`; M5c flipped the default and the
+> selector labels; the §6 measurement ran and both claims verified — numbers
+> in `docs/ROADMAP.md` "M6b + M5c status"). §§3–4 below are kept for the
+> reasoning and the invariants; the next open milestone is **M7b** (§5),
+> then M8/M9.
+
 Self-contained handoff. `docs/ROADMAP.md` is the canonical *why*; this file is
 the *how*, written so it can be executed without re-deriving anything. Every
 number below was measured on this machine on 2026-07-28, not estimated.
 
 **Repo:** `~/projects/support-fins` (MIT, remote `gittrahan/support-fins`).
-**Working tree is dirty and nothing is committed.** It carries the previous
-session's M5 work *and* the M5a/M5b work described below. Commit before starting
-if you want a clean baseline to diff against.
 
 ---
 
@@ -70,6 +74,15 @@ change; re-run before believing it.
   0.5 mm off the plate with a 5.1 mm span. Correctly not worth a wall.
 
 So the real miss count is ~3, and they are the target of M6b.
+
+**UPDATE 2026-07-29, after M6b:** 10/16 clean, 61% coverage, and the six
+remaining empties are ALL correct refusals — the four above plus
+`hub_post_foot`@60 (the point gate now refuses it too; the "wall" it used to
+get was a 104 mm scaffold on a part that cannot stand) and `hub_corner`@0
+(its ledge overhangs the part's own base tab — 10 of 18 faces raycast into
+the part before the plate — and its other regions are socket rings over the
+boss; the bed-only limitation, verified, not a miss). A narrow-foot retry was
+tried for `hub_corner`@0 and reverted: it rescued nothing anywhere.
 
 ---
 
