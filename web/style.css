@@ -5,6 +5,10 @@
   --text: #e7e9ee;
   --dim: #8d95a5;
   --accent: #4da3ff;
+  --btn: #2a303a;       /* button fill — deliberately lighter than --panel so a
+                           control reads as a control against the dark viewport */
+  --btn-hi: #333a46;    /* button hover fill */
+  --btn-line: #454d5c;  /* button edge, strong enough to see over the 3D scene */
 }
 
 * { box-sizing: border-box; }
@@ -51,13 +55,18 @@ html, body {
 .btn {
   display: inline-block;
   padding: 5px 12px;
-  border: 1px solid var(--line);
+  /* A plain button floats over the near-black viewport, so --panel/--line (both
+     within a few points of --bg) made it read as a faint dark smudge. Lift it
+     off the scene: a lighter fill, a defined edge, and a drop shadow. */
+  border: 1px solid var(--btn-line);
   border-radius: 6px;
-  background: var(--panel);
+  background: var(--btn);
+  color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
   cursor: pointer;
   user-select: none;
 }
-.btn:hover { border-color: var(--accent); color: var(--accent); }
+.btn:hover { border-color: var(--accent); color: var(--accent); background: var(--btn-hi); }
 .btn.primary {
   border-color: var(--accent);
   color: #06121f;
@@ -70,10 +79,11 @@ html, body {
 .field select {
   margin-left: 6px;
   padding: 4px 8px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--btn-line);
   border-radius: 6px;
-  background: var(--panel);
+  background: var(--btn);
   color: var(--text);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
   font: inherit;
 }
 
@@ -190,9 +200,9 @@ html, body {
 .custom-vol input {
   width: 4.2em;
   padding: 4px 6px;
-  border: 1px solid var(--line);
+  border: 1px solid var(--btn-line);
   border-radius: 6px;
-  background: var(--panel);
+  background: var(--btn);
   color: var(--text);
   font: inherit;
   font-variant-numeric: tabular-nums;

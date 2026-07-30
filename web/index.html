@@ -71,7 +71,10 @@
     Placement
     <select id="fin-mode" title="What kind of support the part gets.">
       <option value="prop">Prop — hold up each overhang</option>
-      <option value="stabilize">Brace — stop it toppling</option>
+      <!-- "Brace" (stabilize) was dropped from v1: it's an anti-topple fin for tall
+           tippy parts, not an overhang support, so as a peer of Prop it only read as
+           a rival that "did nothing". The mode still exists in fins.js if it's ever
+           wanted back behind an advanced reveal. -->
       <option value="draw" disabled>Draw — place them yourself (soon)</option>
     </select>
   </label>

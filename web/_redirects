@@ -1,0 +1,5 @@
+# Cloudflare Pages redirects. The app is served at "/", so the bare index.html
+# path should never be a reachable URL of its own — send it home (301, permanent)
+# so it can't be linked, shared, or indexed as a duplicate.
+/index.html   /   301
+/index        /   301
