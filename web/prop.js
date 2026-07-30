@@ -34,9 +34,17 @@ export const PROP = {
   tip: 0.6,         // width of the contact tip
   chamfer: 2.5,     // height the flared foot rises over
   tipH: 1.5,        // height the tip taper runs
-  footMax: 7.0,     // widest the foot ever gets
+  // Foot half-width. Kept well under maxUnsupportedSpan/2 on purpose: props are
+  // laid in ROWS spaced maxUnsupportedSpan apart, so a foot wider than half that
+  // spacing overlaps its neighbour and the row's feet fuse into one slab -- the
+  // "thick overlapping feet, not thin fins" the flagship showed. breakaway.py's
+  // own 7.0 never hit this because a human places ONE wall per feature, never a
+  // packed row. A long wall also gets ample bed grip from its LENGTH, so the foot
+  // is only an anti-wobble brace, not the adhesion; 3.0 braces a tall thin wall
+  // fine and leaves a clean ~6mm gap between neighbours at the 12mm span.
+  footMax: 3.0,     // widest the foot ever gets (< maxUnsupportedSpan/2)
   footMin: 1.6,
-  footRatio: 0.35,  // foot half-width as a fraction of wall height
+  footRatio: 0.12,  // foot half-width as a fraction of wall height
   minSpan: 7.0,     // a wall shorter than this is not worth the plate space
   minHeight: 1.5,   // nor is one this short
   // mm between cross-sections; a LENGTH, not a count -- see `straightness`.
@@ -443,10 +451,20 @@ export function straightness(line) {
  * The spike used a fixed 7mm foot, which assumes the overhang sits well above
  * the plate. Real parts' overhangs are low -- median wall height 2.5mm -- so 22
  * of 36 walls degenerated into 14mm-wide splayed sheets. The foot has to scale
- * with how tall the wall actually is.
+ * with how tall the wall actually is: `footRatio * h`, floored and capped.
+ *
+ * The cap is the load-bearing part. A row of walls is spaced maxUnsupportedSpan
+ * apart, so the foot MUST stay under half that spacing or adjacent feet overlap
+ * and the whole row merges into a solid buttress (the flagship's "thick feet",
+ * measured 2026-07-30: 65mm-tall walls maxed the old 7mm foot -> 14mm feet on a
+ * 12mm pitch). `footMax` is set below that line, and this clamp enforces it even
+ * if the span is later dialled down -- leave ~1mm of air between neighbours.
  */
-export const footFor = (h) =>
-  Math.max(PROP.footMin, Math.min(PROP.footMax, h * PROP.footRatio));
+export const footFor = (h) => {
+  const spanCap = Math.max(PROP.footMin, (PROP.maxUnsupportedSpan - 1) / 2);
+  return Math.max(PROP.footMin,
+                  Math.min(PROP.footMax, spanCap, h * PROP.footRatio));
+};
 
 /** Rotate + seat one raw vertex into print space. */
 function seat(pos, i, rot, off, out) {
