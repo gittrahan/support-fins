@@ -776,16 +776,21 @@ export function buildFins(topo, result, rot, opts = {}) {
   if (mode === 'prop') {
     const contact = bedContact(topo, result, rot);
     const seating = seatingOf(result, contact.pts);
-    // A part seated on a POINT gets no props at all -- not because no wall
-    // fits (flat facets of an unservable part take geometrically valid walls
-    // happily), but because nothing standing on the plate can hold a part
-    // that never touches it. The UI already tells the user exactly that and
-    // outranks every mode-specific message with it; emitting walls anyway
-    // made the export contradict the readout.
-    const built = seating.kind === 'point'
-      ? noProps() : buildProps(topo, result, rot, opts);
     const pad = (opts.bedPad ?? true) && result.bedArea < FIN.padMinArea
       ? buildPad(contact.pts, padOut) : null;
+    // A part seated on a POINT gets no props -- nothing standing on the plate
+    // can hold a part that never touches it -- UNLESS the bed pad is on, in
+    // which case the pad is what seats it and the walls have something to work
+    // against. That is not speculation, it is the shelter workflow this whole
+    // tool descends from: hub.py's apex hub is a SPHERE-bottomed part with
+    // 0.0 mm2 of bed contact, and it printed cleanly as core pad + two webs
+    // (tools/shelter/hub.py --supports). The first version of this gate
+    // refused it -- the flagship real-world part, the one breakaway.py was
+    // written for -- while the readout said "rotate", which is exactly the
+    // advice the printed evidence contradicts. Refuse only when the user has
+    // turned the pad off.
+    const built = seating.kind === 'point' && !pad
+      ? noProps() : buildProps(topo, result, rot, opts);
     return {
       triangles: built.triangles, padTriangles: padOut, pad, mode,
       fins: built.props.map((q) => ({

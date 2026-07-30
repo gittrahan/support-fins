@@ -39,6 +39,18 @@ code, not a reimplementation.
 `voron_drive_frame`, `voron_filter_housing`, `hub_corner`, `hub_post_foot` in
 `web/dev-models/`. Always run the whole matrix; single cases mislead.
 
+`dev-models/` is gitignored. `hub_corner.stl` there must be the BARE part
+(the old copy was hub.py's supported output — see ROADMAP "Python parity").
+Regenerate it from the video repo:
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender -b -P \
+  ~/claude-video/tools/shelter/hub.py -- --frame lean-to --type apex \
+  --pole-dia 23.4 --pitch 45 --core-scale 2.0 --supports off -o /tmp/hc.stl
+python3 ~/claude-video/tools/support/manifold_repair.py /tmp/hc.stl
+# then rotate 180 about X (print orientation) and save over dev-models/hub_corner.stl
+```
+
 Browser: `python3 dev-server.py` then open the printed URL. Do **not** use
 `python3 -m http.server` — it sends no `Cache-Control`, so edited ES modules are
 silently served stale and it looks exactly like a logic bug.
@@ -83,6 +95,20 @@ get was a 104 mm scaffold on a part that cannot stand) and `hub_corner`@0
 the part before the plate — and its other regions are socket rings over the
 boss; the bed-only limitation, verified, not a miss). A narrow-foot retry was
 tried for `hub_corner`@0 and reverted: it rescued nothing anywhere.
+
+**UPDATE 2026-07-29, later — python parity (supersedes much of the above;
+canonical in ROADMAP "Python parity"):** the `hub_corner` dev model was
+hub.py's own supported OUTPUT (baked web), so its @0 "correct refusal" is
+retracted — on the bare part it builds. Point-seated parts with the pad ON
+now build (the pad seats them; the shelter hubs are the printed proof), so
+`hub_post_foot` 25/40/60 build at 69–96% coverage and only @0 (a bowl) and
+`drive_frame`@0 (trivial) stay empty. `tubeLine()` routes big curved regions
+to one lowest-line wall (fraction-of-area gate 0.4 at 25°, min 300 mm² —
+both thresholds measured; the worst-face version regressed the drive frame
+86%→34% and the no-floor version shipped a 0.297 gap over a pocket).
+Baseline now: **13/16 clean, 70% coverage, stabilize 12/12.** Known marginal:
+`hub_post_foot`@40 has one wall with a ~0.26 worst-spot gap; the checker's
+random sampling flips that case run to run.
 
 ---
 

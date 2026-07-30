@@ -61,6 +61,24 @@ export const PROP = {
   // how far a face's normal may swing from its sub-patch SEED's before the
   // region is split there -- see splitRegion
   splitAgreeDeg: 15,
+  // A region is CURVED (one wall under its lowest line, the tube case) when
+  // at least tubeCurvedFrac of its AREA has a normal more than tubeSpreadDeg
+  // from the area-weighted mean; otherwise it is a plane (rows of walls).
+  // The fraction matters, not the worst face -- a worst-face test routed the
+  // drive frame's 3,276 mm2 tilted plane to a single wall because its pocket
+  // rims fan to 66-75deg, and the flagship regressed from 9 walls / 86%
+  // coverage to 1 / 34%. Measured populations, area beyond 25deg: planes with
+  // pockets 4-29%, true curved bands 51-83%. 0.4 sits in the gap.
+  tubeSpreadDeg: 25,
+  tubeCurvedFrac: 0.4,
+  // A region must be at least this big for the tube route. Small curved
+  // POCKETS pass the fraction test too (filter_housing carries 15-230 mm2
+  // pockets at 25-75% deviant area), but a straight chord track under a
+  // pocket that curves in PLAN drifts off the surface -- one such wall
+  // measured 0.297 against the 0.2 spec, a wall the part never lands on.
+  // The patch path serves them correctly and always did. Real tube bands
+  // measure 1,000+ mm2; 300 sits in the gap.
+  tubeMinArea: 300,
   // mm an overhang may bridge unsupported: the wall-to-wall spacing across a
   // wide patch, and the ONE dial M7b puts in front of the user. check_stl.py
   // reads this value out of this file (MAX_UNSUPPORTED_SPAN) so the checker and
@@ -141,6 +159,126 @@ export function splitRegion(topo, faces, rot) {
     patches.push({ faces: members, area: total });
   }
   return patches;
+}
+
+/**
+ * The single lowest-line wall for a CURVED region -- the tube case, and the
+ * case this whole tool descends from.
+ *
+ * `breakaway.py` was written for the shelter hubs: round tubes fanning off a
+ * ball core, each propped by ONE web that follows `tube_underside()` -- the
+ * tube's true lowest generatrix. Those parts printed. The port lost that
+ * behaviour when splitRegion arrived: a tube's underside band curves, so the
+ * 15-degree grow cut shatters it into facet strips, and each strip then gets
+ * its own track along its own axis -- six short walls fanned across a tube
+ * that wants one long one (rendered and looked at, hub_corner at 25 degrees:
+ * a star of crossing walls under the ball).
+ *
+ * The routing question is CURVATURE, not width. A cylinder's underside band
+ * is ~1.4R wide -- wider than maxUnsupportedSpan on every hub -- but one wall
+ * under its lowest line is still the right support, because the band curves
+ * UP away from that line: each shell of the tube rests on the shell below it
+ * once the bottom generatrix is held. A flat plane has no such self-support,
+ * which is why it gets rows. So: normals fanning from their mean = curved =
+ * one wall on the lowest line; normals agreeing = flat = rows via
+ * splitRegion/patchTracks.
+ *
+ * A BOWL also fans, in every direction at once -- its lowest points form a
+ * ring, and `straightness` refuses the ring here, exactly as it always has.
+ * The caller then falls through to the splitRegion path, whose track holes
+ * refuse it a second way. Returns null when this region is not a tube.
+ */
+export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationStep) {
+  const { nrm, area } = topo;
+
+  let regionArea = 0;
+  for (const f of faces) regionArea += area[f];
+  if (regionArea < PROP.tubeMinArea) return null;  // a pocket, not a tube
+
+  // area-weighted mean normal, in print space
+  let mx = 0, my = 0, mz = 0, A = 0;
+  const rn = [];
+  for (const f of faces) {
+    const x = nrm[f * 3], y = nrm[f * 3 + 1], z = nrm[f * 3 + 2];
+    const v = [
+      rot[0] * x + rot[3] * y + rot[6] * z,
+      rot[1] * x + rot[4] * y + rot[7] * z,
+      rot[2] * x + rot[5] * y + rot[8] * z,
+    ];
+    rn.push([v, area[f]]);
+    A += area[f];
+    mx += v[0] * area[f]; my += v[1] * area[f]; mz += v[2] * area[f];
+  }
+  const mn = Math.hypot(mx, my, mz);
+  if (mn < 1e-9 || A < 1e-9) return null;
+  mx /= mn; my /= mn; mz /= mn;
+
+  // The FRACTION of area that deviates, never the worst face: one pocket rim
+  // in a big flat region must not reroute the whole region (see PROP).
+  const cut = Math.cos((PROP.tubeSpreadDeg * Math.PI) / 180);
+  let deviant = 0;
+  for (const [v, a] of rn) {
+    if (v[0] * mx + v[1] * my + v[2] * mz < cut) deviant += a;
+  }
+  if (deviant / A < PROP.tubeCurvedFrac) return null;  // flat: rows handle it
+
+  // The lowest line, from the mesh's own points -- good enough to decide
+  // whether a line EXISTS and where it runs, and no better: a coarse tube
+  // region has tens of vertices, so this polyline can have stations 7 mm
+  // apart with ends that sit wherever a vertex happened to land.
+  let dLo = [Infinity, Infinity], dHi = [-Infinity, -Infinity];
+  for (const p of pts) {
+    for (const a of [0, 1]) {
+      if (p[a] < dLo[a]) dLo[a] = p[a];
+      if (p[a] > dHi[a]) dHi[a] = p[a];
+    }
+  }
+  const diag = Math.hypot(dHi[0] - dLo[0], dHi[1] - dLo[1]);
+  const nSamples = Math.max(8, Math.min(400, Math.ceil(diag / step)));
+  const rough = contactLine(pts, regionTris, nSamples);
+  if (!rough || straightness(rough) > PROP.maxWander) return null;  // a ring, not a tube
+
+  // So RESAMPLE it the way patchTracks samples a track: fit the XY axis
+  // through the rough line's points, then walk it at stationStep asking the
+  // surface for its height at every station. Where the region does not cover
+  // a station (the mouth of a bore, a gap) the track splits, and each piece
+  // stands on its own -- same rule as patchTracks, same reason.
+  let cx = 0, cy = 0;
+  for (const p of rough) { cx += p[0]; cy += p[1]; }
+  cx /= rough.length; cy /= rough.length;
+  let sxx = 0, sxy = 0, syy = 0;
+  for (const p of rough) {
+    const dx = p[0] - cx, dy = p[1] - cy;
+    sxx += dx * dx; sxy += dx * dy; syy += dy * dy;
+  }
+  const tr2 = sxx + syy, det = sxx * syy - sxy * sxy;
+  const lam = tr2 / 2 + Math.sqrt(Math.max(0, (tr2 * tr2) / 4 - det));
+  let ux = sxy, uy = lam - sxx;
+  if (Math.hypot(ux, uy) < 1e-9) { ux = 1; uy = 0; }
+  const un = Math.hypot(ux, uy); ux /= un; uy /= un;
+  let uLo = Infinity, uHi = -Infinity;
+  for (const p of rough) {
+    const u = (p[0] - cx) * ux + (p[1] - cy) * uy;
+    if (u < uLo) uLo = u;
+    if (u > uHi) uHi = u;
+  }
+  if (uHi - uLo < 1e-6) return null;
+  const nSt = Math.max(2, Math.min(400, Math.ceil((uHi - uLo) / step)));
+
+  const lines = [];
+  let cur = [];
+  for (let k = 0; k <= nSt; k++) {
+    const u = uLo + ((uHi - uLo) * k) / nSt;
+    const x = cx + ux * u, y = cy + uy * u;
+    const z = surfaceZAt(regionTris, x, y);
+    if (z === null) {
+      if (cur.length) { lines.push(cur); cur = []; }
+    } else {
+      cur.push([x, y, z]);
+    }
+  }
+  if (cur.length) lines.push(cur);
+  return lines.filter((t) => t.length >= PROP.minStations);
 }
 
 /**
@@ -840,14 +978,33 @@ export function buildProps(topo, result, rot, opts = {}) {
     // 0.003 mm and flank 0.011 mm on hub_corner, measured the first time this
     // split shipped with per-patch triangles.
     const regionTris = new Float64Array(rFaces.length * 9);
+    const regionPts = [];
+    let regionArea = 0;
     for (let k = 0; k < rFaces.length; k++) {
+      regionArea += topo.area[rFaces[k]];
+      let gx = 0, gy = 0, gz = 0;
       for (let i = 0; i < 3; i++) {
         seat(pos, rFaces[k] * 9 + i * 3, rot, off, v);
         regionTris[k * 9 + i * 3] = v[0];
         regionTris[k * 9 + i * 3 + 1] = v[1];
         regionTris[k * 9 + i * 3 + 2] = v[2];
+        regionPts.push([v[0], v[1], v[2]]);
+        gx += v[0]; gy += v[1]; gz += v[2];
       }
+      regionPts.push([gx / 3, gy / 3, gz / 3]);
     }
+
+    // Curved region whose lowest line is straight = a tube: ONE wall under
+    // that line, the way breakaway.py props the shelter hubs. Only when the
+    // region is flat, or its lowest points form a ring, does it go to
+    // splitRegion for rows of tracks. See tubeLine.
+    const tube = tubeLine(topo, rFaces, rot, regionPts, regionTris, step);
+    if (tube && tube.length) {
+      patches.push({ faces: rFaces, area: regionArea, region: ri,
+                     tris: regionTris, lines: tube });
+      continue;
+    }
+
     for (const p of splitRegion(topo, rFaces, rot)) {
       if (p.area < MIN_REGION_AREA) { skipped.sliver++; continue; }
       p.region = ri;
@@ -859,25 +1016,30 @@ export function buildProps(topo, result, rot, opts = {}) {
 
   for (const patch of patches) {
     const regionTris = patch.tris;
-    // The patch's own geometry: vertices plus face centroids for the frame fit,
-    // and its triangles for asking "does the patch cover this station".
-    const pts = [];
-    const patchTris = new Float64Array(patch.faces.length * 9);
-    for (let k = 0; k < patch.faces.length; k++) {
-      const f = patch.faces[k];
-      let gx = 0, gy = 0, gz = 0;
-      for (let i = 0; i < 3; i++) {
-        seat(pos, f * 9 + i * 3, rot, off, v);
-        pts.push([v[0], v[1], v[2]]);
-        patchTris[k * 9 + i * 3] = v[0];
-        patchTris[k * 9 + i * 3 + 1] = v[1];
-        patchTris[k * 9 + i * 3 + 2] = v[2];
-        gx += v[0]; gy += v[1]; gz += v[2];
+    let lines;
+    if (patch.lines) {
+      // A tube's lowest-line track(s), fitted and resampled by tubeLine.
+      lines = patch.lines;
+    } else {
+      // The patch's own geometry: vertices plus face centroids for the frame
+      // fit, and its triangles for asking "does the patch cover this station".
+      const pts = [];
+      const patchTris = new Float64Array(patch.faces.length * 9);
+      for (let k = 0; k < patch.faces.length; k++) {
+        const f = patch.faces[k];
+        let gx = 0, gy = 0, gz = 0;
+        for (let i = 0; i < 3; i++) {
+          seat(pos, f * 9 + i * 3, rot, off, v);
+          pts.push([v[0], v[1], v[2]]);
+          patchTris[k * 9 + i * 3] = v[0];
+          patchTris[k * 9 + i * 3 + 1] = v[1];
+          patchTris[k * 9 + i * 3 + 2] = v[2];
+          gx += v[0]; gy += v[1]; gz += v[2];
+        }
+        pts.push([gx / 3, gy / 3, gz / 3]);
       }
-      pts.push([gx / 3, gy / 3, gz / 3]);
+      lines = patchTracks(pts, patchTris, step);
     }
-
-    const lines = patchTracks(pts, patchTris, step);
     if (!lines.length) { skipped.noLine++; continue; }
 
     for (const line of lines) {

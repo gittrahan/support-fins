@@ -282,6 +282,62 @@ Each one ends at something you can open in a browser and judge.
 | **M8** | Draw mode + strength overlay: load arrow, pull-vs-lever toggle, ranked suggestions. | A part auto refuses can be supported by hand; toggling pull↔lever changes the recommended orientation. |
 | **M9** | 2 mm chamfer + permission checkboxes, sample model, Ko-fi, domain. | A stranger can use it without being told anything. |
 
+## Python parity (2026-07-29, later) — the input was polluted, the gate was backwards, and the tube was shattered
+
+The owner's complaint — "breakaway.py makes perfect fins on the shelter hubs
+and this app has never done anything like it" — was correct, and it took
+three stacked findings to honor it. All landed the same day.
+
+**1. `dev-models/hub_corner.stl` was the python script's OUTPUT, not a part.**
+It is byte-identical in shape to `hub.py --supports` after `manifold_repair`:
+1,158 + 28 faces, where the 28-face body is one of breakaway.py's own webs and
+a second web is UNIONED INTO the part body via the core pad. Every hub_corner
+number ever measured here was measured against a part that already carried its
+supports. **This retracts yesterday's `hub_corner`@0 verdict**: the "part's own
+base tab" the raycast hit was the baked web's flared foot, and the "ledge" the
+app kept refusing sits exactly 0.2 mm above the old web's top — the app was
+refusing to support an overhang because the python support was already there.
+The dev model is now the bare part (`hub.py --supports off` + repair, flipped
+to print orientation, 936 faces, one body). The two-body checker workaround
+(`-part.stl` sidecar) stays, because multi-body inputs are still legal.
+
+**2. A point-seated part with the pad ON is seated BY THE PAD.** The bare hub
+core is a sphere: 0.0 mm² of bed contact in print orientation. The gate
+refused all props for exactly the part the whole tool descends from, while
+hub.py printed it fine as pad + webs. `buildFins` now refuses a point-seated
+part only when the user has the pad off; the readout says the pad is
+load-bearing. This also un-refused `hub_post_foot` at 25/40/60 (89/96/69%
+coverage — tall walls, priced by M7b's cost readout, warned about today).
+
+**3. A tube's support is ONE wall under its lowest line, and splitRegion was
+shattering it.** The 15° grow cut turns a curved tube band into facet strips,
+each with its own track along its own axis — six short crossing walls where
+breakaway.py sweeps one web along `tube_underside()` (rendered: the star of
+walls under the ball, hub_corner@25). `tubeLine()` now routes CURVED regions
+(≥40% of area >25° off the mean normal — the fraction, never the worst face,
+which mis-routed the drive frame's pocketed plane and regressed it 86%→34%
+before being caught; and ≥300 mm², because small curved POCKETS drift off a
+straight chord — one measured 0.297) to a single lowest-line wall, resampled
+at stationStep the way patchTracks samples (the mesh's own vertices gave 6
+stations over 41 mm). Flat regions keep their rows; bowls still fall through
+(the ring wanders) to the patch path and its hole-splitting.
+
+**Matrix after all three (clean models):** 13/16 clean, **70% coverage** (was
+61%), zero systematic failures. `hub_corner`@0 — the python-parity case —
+builds the long ridge-tube wall plus pad and slices at **68.9 cm³ / 4h03m vs
+89.0 cm³ / 5h44m** with slicer supports: −23% plastic, −29% time. Rendered
+side by side with the hub.py reference (`hub_ref.png` / `hub_corner-0-app.png`
+in ~/Downloads/support-fins-renders): same support, derived instead of
+hand-scripted. Remaining gaps vs python, both understood: the 45° rafter web
+(hub.py webs *at* 45°, our threshold is strictly steeper — the user's slider
+covers it) and a few small walls on the sphere's low band that hub.py leaves
+to the pad (judgment, M7b). Known marginal: one `hub_post_foot`@40 wall has a
+~0.26 worst-spot gap (bridges saggier, no weld); the checker's random sampling
+flips that case between OK and FAIL run to run — fix direction is measuring
+the gap perpendicular to the surface in `contourTop`, not raising `settleTop`.
+
+**Stabilize after all three: 12/12 clean** — no regression.
+
 ## M6b + M5c status (2026-07-29) — landed, and the empties are all honest
 
 **The matrix's six empty cases are now all correct refusals, each verified
@@ -292,15 +348,13 @@ against the geometry rather than assumed:**
   rotate. (The plan expected @60 to build a wall; that wall was a 104 mm
   scaffold on a part that cannot stand, and refusing it is the better answer.)
 - `voron_drive_frame` @0 — two trivial regions 0.5 mm off the plate.
-- `hub_corner` @0 — **investigated 2026-07-29, and it is the bed-only
-  limitation, not a miss.** Raycast straight down from its ledge's overhang
-  faces: 10 of 18 hit the part's own base tab (z 0.7–2.3) before the plate, so
-  a wall would have to stand ON the part; the clear remainder is a
-  sub-`minSpan` stub. Its other two regions are socket rings directly over the
-  boss below (blocked at every station). The `stationIsClear` probe ladder
-  never looks below z≈1.4, so the low tab is invisible to it — but
-  `stationCertified` catches it at the foot chamfer, which is why the skip
-  says `blocked` and nothing welds.
+- `hub_corner` @0 — ~~**investigated 2026-07-29, and it is the bed-only
+  limitation, not a miss.**~~ **RETRACTED the same day — see "Python parity"
+  above.** The "part's own base tab" the raycast hit was a breakaway web from
+  `hub.py --supports`, baked into the dev model itself. On the bare part this
+  case builds the ridge-tube wall and is the python-parity flagship. (The
+  probe-ladder observation below stands: `stationIsClear` never looks below
+  z≈1.4 and `stationCertified` is what catches low obstacles at the foot.)
 - **A narrow-foot retry was tried and REVERTED — don't re-derive it.** The
   hypothesis was that only the flared foot collided at `hub_corner`@0 (probes
   failed at o=±3.3, z=1.25, the flare band). Threading a `footCap` through
@@ -324,10 +378,11 @@ rule):
 |---|---|---|---|---|
 | `drive_frame` @40 | 26.1 cm³ · 2h58m | 48.5 cm³ · 4h17m | **−46%** | **−31%** |
 | `filter_housing` @25 | 76.8 cm³ · 6h38m | 125.8 cm³ · 10h03m | **−39%** | **−34%** |
-| `hub_corner` @25 | 87.9 cm³ · 6h36m | 108.9 cm³ · 7h37m | **−19%** | **−13%** |
+| `hub_corner` @25 *(re-measured on the clean part)* | 75.0 cm³ · 4h59m | 88.2 cm³ · 5h50m | **−15%** | **−15%** |
+| `hub_corner` @0 *(print orientation, the python-parity case)* | 68.9 cm³ · 4h03m | 89.0 cm³ · 5h44m | **−23%** | **−29%** |
 
 **State the caveat whenever the number is used:** slicer supports cover 100%
-of overhangs; the walls covered 86% / 71% / 74% on these cases. Some of the
+of overhangs; the walls covered 86% / 71% / 61% / 44% on these cases. Some of the
 saving is coverage the walls do not attempt (short spans under
 `maxUnsupportedSpan` that bridge fine, plus refusals). That is the design —
 support only what needs support — but the honest sentence is "less plastic

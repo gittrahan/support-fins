@@ -407,13 +407,15 @@ let finMode = 'prop';
  * actually emptied out.
  */
 function explainNoFins(b) {
-  // A part balanced on a point cannot be rescued by ANY support, so saying
-  // "no flat face" or "part in the way" sends the user to tune something that
-  // was never the problem. This outranks every mode-specific reason below.
-  if (b.seating?.kind === 'point') {
+  // A part balanced on a point cannot be rescued by ANY support UNLESS the
+  // bed pad is on to seat it (the shelter hubs print exactly that way), so
+  // saying "no flat face" or "part in the way" sends the user to tune
+  // something that was never the problem. This outranks every mode-specific
+  // reason below.
+  if (b.seating?.kind === 'point' && !b.pad) {
     return 'this part touches the plate at a single point, so it has nothing to '
-         + 'stand on — no fin or prop can hold it. Rotate until it sits down on '
-         + 'a face or an edge';
+         + 'stand on. Turn the bed pad on to seat it, or rotate until it sits '
+         + 'down on a face or an edge';
   }
   if (b.mode === 'prop') {
     const s = b.skipped ?? {};
@@ -569,13 +571,16 @@ function updateFinReadout(built, ms) {
               + 'rather than needing to be cut');
     }
   }
-  // Worth saying even when something WAS placed: a part balanced on a point puts
-  // every overhang far off the plate, so the props it does get are very tall thin
-  // walls that will whip long before they hold anything.
+  // Worth saying even when something WAS placed: a point-balanced part is
+  // standing on the added pad and nothing else, so the pad is load-bearing,
+  // not cosmetic.
   if (n && built.seating?.kind === 'point') {
-    bits.push('this part is balanced on a single point of contact — whatever is '
-            + 'placed here is holding up a part that has nothing to stand on. '
-            + 'Rotate until it sits down');
+    bits.push(built.pad
+      ? 'this part balances on a single point — the bed pad is what seats it, '
+        + 'so print with the pad on'
+      : 'this part is balanced on a single point of contact — whatever is '
+        + 'placed here is holding up a part that has nothing to stand on. '
+        + 'Rotate until it sits down');
   }
   if (built.unserved) {
     bits.push(`${built.unserved} overhang region${built.unserved === 1 ? '' : 's'} ` +
