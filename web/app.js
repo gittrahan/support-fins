@@ -217,6 +217,7 @@ function setPart(geometry, filename) {
   const tWeld = performance.now();
   topology = buildTopology(geometry);
   weldMs = performance.now() - tWeld;
+  computeFlatBaseline();
 
   partName = filename;
   part.quaternion.identity();
@@ -236,6 +237,18 @@ function setPart(geometry, filename) {
  */
 const rotM3 = new THREE.Matrix3();
 const rotM4 = new THREE.Matrix4();
+
+// Overhangs in the AS-LOADED (identity) orientation. For an exported STL that is
+// almost always the flat print pose, so it answers the question the leaf raised:
+// does this part even need the tool? A part that prints flat with no overhangs
+// gets none here, and every overhang the user then sees is one they created by
+// rotating. Depends only on topology + threshold, never on rotation, so it is
+// cached -- recomputed on load and on a threshold change, not per drag frame.
+const IDENTITY3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+let flatRegions = null;
+function computeFlatBaseline() {
+  flatRegions = topology ? analyze(topology, threshold, IDENTITY3).regions.length : null;
+}
 
 function shade() {
   if (!part || !topology) return new THREE.Vector3();
@@ -271,6 +284,21 @@ function shade() {
   el('s-overarea').textContent = `${res.overArea.toFixed(0)} mm²`;
   el('s-bed').textContent = `${res.bedArea.toFixed(0)} mm²`;
   el('s-bed').classList.toggle('warn', res.bedArea < 1);
+
+  // "Do you even need me?" -- fire the honest signal before the user turns fins
+  // on. Current pose clean wins outright; otherwise, if the part printed flat as
+  // loaded, the overhangs on screen are self-inflicted by rotating.
+  const flat = el('s-flat-note');
+  if (res.regions.length === 0) {
+    flat.textContent = 'Prints support-free in this orientation — no fins needed.';
+    flat.className = 'note good';
+  } else if (flatRegions === 0) {
+    flat.textContent = 'This part prints flat as loaded — the overhangs above appeared '
+      + 'when you rotated it. You only need fins if you’re tilting it for strength.';
+    flat.className = 'note';
+  } else {
+    flat.textContent = '';
+  }
   // Kept as a value rather than read back off the element: the fin readout
   // appends to this line, and the mode / bed-pad / toggle handlers call
   // refreshFins() WITHOUT going through shade(), so appending in place stacked
@@ -752,6 +780,7 @@ thrInput.value = String(threshold);
 thrInput.addEventListener('input', () => {
   threshold = Number(thrInput.value);
   el('thr-val').textContent = `${threshold}°`;
+  computeFlatBaseline();   // the flat baseline moves with the overhang threshold
   shade();
 });
 

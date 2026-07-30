@@ -145,6 +145,7 @@ html, body {
   line-height: 1.45;
 }
 #stats .note:empty { display: none; }
+#stats .note.good { color: #6fcf8b; }   /* the "you don't need me" all-clear */
 
 /* Fin options, anchored under the toggle rather than inside the topbar, so
    turning fins on never moves another control. */
