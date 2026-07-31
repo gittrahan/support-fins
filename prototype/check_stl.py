@@ -51,6 +51,27 @@ def _span_from_generator():
 MAX_UNSUPPORTED_SPAN = _span_from_generator()   # mm; the dial M7b exposes
 
 
+def _baseh_from_generator():
+    import re, pathlib
+    prop_js = pathlib.Path(__file__).resolve().parent.parent / 'web' / 'prop.js'
+    try:
+        m = re.search(r'baseH:\s*([0-9.]+)', prop_js.read_text())
+        if m:
+            return float(m.group(1))
+    except OSError:
+        pass
+    print('  ! could not read baseH from web/prop.js; using 1.0')
+    return 1.0
+
+
+# A prop is now TWO solids -- a wall and a flat base flange (its ⊥ foot) -- so
+# the checker sees twice as many bodies. A flange is no taller than baseH; a wall
+# reaches up toward the part. The breakaway 0.2mm spec applies to a wall's top
+# only. A flange still must never fuse, but its top is a base, not an interface.
+BASE_H = _baseh_from_generator()
+FLANGE_MAX_H = BASE_H + 0.3
+
+
 def coverage(case, added):
     """What fraction of the part's overhang area actually has a support under it.
 
@@ -225,11 +246,18 @@ def check_props(case, added, part, pq):
         problems.append(f'{len(bad)} solids not watertight/volume')
 
     inside = 0
+    nwall = 0
     tops, flanks = [], []
     for b in added:
         inside += int((pq.signed_distance(b.vertices) > 1e-3).sum())
         pts, _ = trimesh.sample.sample_surface(b, 4000)
         close, dist, _ = pq.on_surface(pts)
+        # A base flange: no breakaway spec on its top, it only has to clear the
+        # part the way a flank does. Its whole job is to sit flat on the plate.
+        if b.bounds[1][2] - b.bounds[0][2] <= FLANGE_MAX_H:
+            flanks.append(float(dist.min()))
+            continue
+        nwall += 1
         vec = close - pts
         norm = np.linalg.norm(vec, axis=1)
         with np.errstate(invalid='ignore', divide='ignore'):
@@ -249,7 +277,7 @@ def check_props(case, added, part, pq):
 
     ok = not problems
     cov, tot = coverage(case, added)
-    print(f'{case.split("/")[-1]:28} {len(added):4} solids  {len(added)} props'
+    print(f'{case.split("/")[-1]:28} {len(added):4} solids  {nwall} props'
           f'  {"":16} gap {gap_txt:14}'
           f'  cov {0 if cov is None else cov:3.0f}%  of {tot:6.0f} mm2'
           f'  {"OK" if ok else "FAIL: " + "; ".join(problems)}')

@@ -32,7 +32,12 @@ export const PROP = {
   th: 1.2,          // wall thickness
   gap: 0.2,         // breakaway clearance below the part
   tip: 0.6,         // width of the contact tip
-  chamfer: 2.5,     // height the flared foot rises over
+  baseH: 1.0,       // height of the flat base flange (Slant3D's ~1mm disc). The
+                    // foot used to be a CONE that ramped up over `chamfer` mm,
+                    // which reads in a slicer as a golf tee, not the upside-down
+                    // T a breakaway support should be. Now the base is a thin
+                    // flat slab, emitted as its own solid and unioned by the
+                    // slicer, with the wall standing straight up off it.
   tipH: 1.5,        // height the tip taper runs
   // Foot half-width. Kept well under maxUnsupportedSpan/2 on purpose: props are
   // laid in ROWS spaced maxUnsupportedSpan apart, so a foot wider than half that
@@ -466,6 +471,22 @@ export const footFor = (h) => {
                   Math.min(PROP.footMax, spanCap, h * PROP.footRatio));
 };
 
+/**
+ * Half-width of the ⊥ cross-section at height `z` above the bed, for a wall
+ * whose contact tips out at `top`: a flat base flange (the foot of the T), a
+ * straight thin wall, then the breakaway tip taper. ONE definition, shared by
+ * the geometry in sweep() and the two measurement passes -- they used to carry
+ * three separate copies of a cone formula, which is exactly how a shape change
+ * silently disagrees with the checker that is supposed to catch it.
+ */
+export function profileHalf(z, top) {
+  const ztip = Math.max(top - PROP.tipH, PROP.baseH + 0.1);
+  if (z < PROP.baseH) return footFor(top);      // flat flange (the T's foot)
+  if (z < ztip) return PROP.th / 2;             // straight wall (the T's stem)
+  return PROP.th / 2                            // neck into the contact tip
+       - ((PROP.th - PROP.tip) / 2) * ((z - ztip) / Math.max(1e-6, top - ztip));
+}
+
 /** Rotate + seat one raw vertex into print space. */
 function seat(pos, i, rot, off, out) {
   const x = pos[i], y = pos[i + 1], z = pos[i + 2];
@@ -745,9 +766,6 @@ export function stationIsClear(line, k, topo, rot, offset) {
   const sx = ry / rn, sy = -rx / rn;      // across the wall
 
   const top = p[2] - PROP.gap;
-  const foot = footFor(top);
-  const zsh = Math.min(PROP.chamfer, top - 0.4);
-  const ztip = Math.max(top - PROP.tipH, zsh + 0.1);
 
   // Probe the FULL height, and probe OUTSIDE the wall's own faces.
   //
@@ -778,13 +796,7 @@ export function stationIsClear(line, k, topo, rot, offset) {
   for (let i = 1; i <= nProbes; i++) {
     const z = (top * i) / nProbes - 0.05;
     if (z <= 0) continue;
-    // the wall's own half-width at this height: flared foot, then the wall, then
-    // the taper into the contact tip
-    let half;
-    if (z < zsh) half = foot - ((foot - PROP.th / 2) * z) / Math.max(1e-6, zsh);
-    else if (z < ztip) half = PROP.th / 2;
-    else half = PROP.th / 2
-              - ((PROP.th - PROP.tip) / 2) * ((z - ztip) / Math.max(1e-6, top - ztip));
+    const half = profileHalf(z, top);   // flange, wall, or tip taper at this z
     for (const m of [0.12, 0.24, PROP.sideClear]) {
       const w = half + m;
       if (insidePart(topo, rot, offset, p[0] + sx * w, p[1] + sy * w, z)) return false;
@@ -828,9 +840,6 @@ export function stationCertified(line, k, topo, rot, offset) {
   const sx = ry / rn, sy = -rx / rn;
 
   const top = p[2] - PROP.gap;
-  const foot = footFor(top);
-  const zsh = Math.min(PROP.chamfer, top - 0.4);
-  const ztip = Math.max(top - PROP.tipH, zsh + 0.1);
 
   // The cross-section outline: the top flat, then both flanks every 2mm down
   // the full height, at the profile's own half-width for that height. A first
@@ -840,12 +849,8 @@ export function stationCertified(line, k, topo, rot, offset) {
   // any surface tall enough to matter is seen by some probe, tangent or not --
   // the thing parity probing could not promise at any density.
   const probes = [[0, top], [PROP.tip / 2, top], [-PROP.tip / 2, top]];
-  for (let z = Math.max(0.4, zsh / 2); z < top - 0.05; z += 2.0) {
-    let half;
-    if (z < zsh) half = foot - ((foot - PROP.th / 2) * z) / Math.max(1e-6, zsh);
-    else if (z < ztip) half = PROP.th / 2;
-    else half = PROP.th / 2
-              - ((PROP.th - PROP.tip) / 2) * ((z - ztip) / Math.max(1e-6, top - ztip));
+  for (let z = 0.4; z < top - 0.05; z += 2.0) {
+    const half = profileHalf(z, top);
     probes.push([half, z], [-half, z]);
   }
   for (const [o, z] of probes) {
@@ -900,11 +905,44 @@ export function longestRun(usable) {
 }
 
 /**
- * Sweep the prop profile along `line`, emitting one closed solid.
- * Eight vertices per cross-section: foot, chamfer shoulder, wall, tip, mirrored.
+ * Bridge a run of cross-sections into one closed solid and push its triangles.
+ * Each section is a ring of `k` vertices in the same order; consecutive rings
+ * are joined with quads and the two ends are fan-capped. Caps assume the
+ * section is convex, which both sections below are (a rectangle, and a
+ * rectangle with a tapered top).
+ *
+ * Wound OUTWARD. Inherited from M3, where this emitted every triangle backwards:
+ * the shell was closed and consistent -- euler 2, no boundary edges -- but its
+ * volume came out NEGATIVE, so every normal faced into the solid. M3's own check
+ * only asked whether the mesh was watertight, which it was, so this survived
+ * being called validated. A slicer would read it as a hole rather than a wall.
+ */
+function ribbon(secs, out) {
+  const k = secs[0].length;
+  const tri = (a, b, c) => out.push(a, c, b);
+  for (let i = 0; i < secs.length - 1; i++) {
+    for (let j = 0; j < k; j++) {
+      const j2 = (j + 1) % k;
+      tri(secs[i][j], secs[i][j2], secs[i + 1][j2]);
+      tri(secs[i][j], secs[i + 1][j2], secs[i + 1][j]);
+    }
+  }
+  for (let j = 1; j < k - 1; j++) {                        // end caps
+    tri(secs[0][0], secs[0][j + 1], secs[0][j]);
+    const e = secs[secs.length - 1];
+    tri(e[0], e[j], e[j + 1]);
+  }
+}
+
+/**
+ * Sweep the prop along `line`, emitting an upside-down T: a straight thin wall
+ * standing on a flat base flange. They are TWO overlapping closed solids, not
+ * one -- the slicer unions them, the same overlap approach the rest of the repo
+ * uses -- which keeps each section convex and sidesteps capping a T's concave
+ * outline. Replaces the single cone-footed solid that read as a golf tee.
  */
 export function sweep(line, zBed, out) {
-  const secs = [];
+  const wall = [], flange = [];
   for (let i = 0; i < line.length; i++) {
     const p = line[i];
     const a = line[Math.max(0, i - 1)];
@@ -919,36 +957,23 @@ export function sweep(line, zBed, out) {
     const h = top - zBed;
     if (h < PROP.minHeight) return false;
     const foot = footFor(h);
-    const zsh = Math.min(zBed + PROP.chamfer, top - 0.4);
-    const ztip = Math.max(top - PROP.tipH, zsh + 0.1);
+    const ztip = Math.max(top - PROP.tipH, zBed + PROP.baseH + 0.1);
+    const baseTop = zBed + PROP.baseH;
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
 
-    secs.push([
-      P(+foot, zBed), P(+PROP.th / 2, zsh), P(+PROP.th / 2, ztip), P(+PROP.tip / 2, top),
-      P(-PROP.tip / 2, top), P(-PROP.th / 2, ztip), P(-PROP.th / 2, zsh), P(-foot, zBed),
+    // the stem: a straight thin wall from the bed up to the breakaway tip
+    wall.push([
+      P(+PROP.th / 2, zBed), P(+PROP.th / 2, ztip), P(+PROP.tip / 2, top),
+      P(-PROP.tip / 2, top), P(-PROP.th / 2, ztip), P(-PROP.th / 2, zBed),
+    ]);
+    // the foot: a flat slab, its own closed solid overlapping the wall's base
+    flange.push([
+      P(+foot, zBed), P(+foot, baseTop), P(-foot, baseTop), P(-foot, zBed),
     ]);
   }
 
-  const k = 8;
-  // Wound OUTWARD. Inherited from M3, where this emitted every triangle
-  // backwards: the shell was closed and consistent -- euler 2, no boundary
-  // edges -- but its volume came out NEGATIVE, so every normal faced into the
-  // solid. M3's own check only asked whether the mesh was watertight, which it
-  // was, so this survived being called validated. A slicer would read it as a
-  // hole rather than a wall.
-  const tri = (a, b, c) => out.push(a, c, b);
-  for (let i = 0; i < secs.length - 1; i++) {
-    for (let j = 0; j < k; j++) {
-      const j2 = (j + 1) % k;
-      tri(secs[i][j], secs[i][j2], secs[i + 1][j2]);
-      tri(secs[i][j], secs[i + 1][j2], secs[i + 1][j]);
-    }
-  }
-  for (let j = 1; j < k - 1; j++) {                        // end caps
-    tri(secs[0][0], secs[0][j + 1], secs[0][j]);
-    const e = secs[secs.length - 1];
-    tri(e[0], e[j], e[j + 1]);
-  }
+  ribbon(wall, out);
+  ribbon(flange, out);
   return true;
 }
 
