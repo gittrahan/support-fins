@@ -29,7 +29,11 @@ import { faceAdjacency } from './planes.js';
 import { MIN_REGION_AREA } from './overhangs.js';
 
 export const PROP = {
-  th: 1.2,          // wall thickness
+  th: 1.0,          // wall thickness. 1.0 (two 0.5mm passes) not breakaway.py's
+                    // 1.2: a prop is a free-standing wall with nothing bracing
+                    // its sides, so it cannot go as thin as a Slant3D fin (whose
+                    // tines grip the part), but 1.2 read as chunky. Contact tip
+                    // stays 0.6 (Slant3D's tine width) and the base flange 1mm.
   gap: 0.2,         // breakaway clearance below the part
   tip: 0.6,         // width of the contact tip
   baseH: 1.0,       // height of the flat base flange (Slant3D's ~1mm disc). The
