@@ -183,6 +183,33 @@ html, body {
   cursor: pointer;
 }
 
+/* Draw-mode controls, revealed under the placement select when Draw is live. */
+#draw-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+}
+#draw-controls[hidden] { display: none; }
+.draw-hint {
+  margin: 0;
+  max-width: 22ch;
+  color: var(--dim);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.draw-hint strong { color: var(--text); }
+.draw-hint kbd {
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  background: var(--bg);
+  font: inherit;
+  font-size: 10px;
+}
+.draw-btns { display: flex; gap: 6px; }
+
 /* Nothing in the topbar may wrap onto a second line: these are single controls,
    and a two-line button makes the bar jump in height as its contents change. */
 #topbar .btn,

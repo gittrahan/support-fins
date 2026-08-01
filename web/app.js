@@ -13,6 +13,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
 import { buildFins } from './fins.js';
 import { findWallPatches } from './planes.js';
+import { drawnWall } from './draw.js';
 import { writeBinarySTL, download } from './stl.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
@@ -224,6 +225,13 @@ function setPart(geometry, filename) {
   gizmo.attach(part);
   el('orient').hidden = false;
 
+  // A new part starts with no hand-drawn walls and a fresh print-space cache.
+  drawnWalls = [];
+  drawMsg = '';
+  printTrisDirty = true;
+  clearPreview();
+  setGizmo();
+
   const size = shade();
   frame(size);
   return size;
@@ -307,6 +315,7 @@ function shade() {
   el('s-time').textContent = analysisTiming;
 
   lastResult = res;
+  printTrisDirty = true;      // orientation moved: the cached print-space part is stale
   if (finsVisible && !gizmo.dragging) refreshFins();
   else if (finsVisible) markFinsStale();
 
@@ -352,6 +361,7 @@ function readableEuler(q) {
 
 /** Point the camera at the part, backed off far enough to see all of it. */
 function frame(size) {
+  sizeMarkers(size);
   const reach = Math.max(size.x, size.y, size.z, 40);
   const dist = reach * 2.1;
   camera.position.set(dist * 0.62, -dist * 0.72, dist * 0.55);
@@ -390,7 +400,7 @@ function updateFit() {
   const v = currentVolume();
   let dx = lastSize.x, dy = lastSize.y, dz = lastSize.z;
 
-  const added = [...finTris, ...padTris];
+  const added = activeAdded();
   if (added.length) {
     let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z1 = -Infinity;
     for (const t of added) {
@@ -425,7 +435,15 @@ let finsVisible = false;
 // and 7 of its 12 placements lean 25-40deg. The wall covers 61%, always
 // vertical. A user who loads a part and exports should get the support that
 // supports.
-let finMode = 'prop';
+//
+// DEFAULT IS 'draw', not 'prop'. Draw mode -- the user hands the tool one
+// contact line and it sweeps one clean breakaway wall along it -- is the
+// reliable path: it is exactly how tools/support/breakaway.py works, and its
+// output matches breakaway.py's because there is no contact line left to guess.
+// 'prop' (relabelled "Suggest" in the UI) is the best-effort auto-placer; it is
+// kept but demoted, because on a square face its PCA axis snaps to a diagonal
+// and it sprays walls that miss the face. See web/draw.js.
+let finMode = 'draw';
 /**
  * Why did this part get no fins, in terms the user can act on?
  *
@@ -455,12 +473,12 @@ function explainNoFins(b) {
       const one = s.wanders === 1;
       return `${s.wanders} overhang${one ? ' is' : 's are'} bowl-shaped rather than `
            + `a ledge — ${one ? 'its' : 'their'} lowest points form a ring, not a `
-           + 'line, so there is nothing for a wall to follow. Rotate, or wait for '
-           + 'Draw mode';
+           + 'line, so there is nothing for a wall to follow. Rotate, or switch '
+           + 'to Draw and place one by hand';
     }
     if (s.buried || s.weld) {
       return 'every wall that reaches these overhangs would fuse to the '
-           + 'part — rotate, or place one by hand (Draw mode, soon)';
+           + 'part — rotate, or switch to Draw and place one by hand';
     }
     if (s.blocked) {
       return 'no run of these overhangs is long enough to stand a wall under — '
@@ -491,7 +509,7 @@ function explainNoFins(b) {
   }
   if (b.rejected.blocked) {
     return 'the part is in the way of every wall position on the faces it found '
-         + '— rotate, or place one by hand (Draw mode, soon)';
+         + '— rotate, or switch to Draw and place one by hand';
   }
   return 'the workable spots would put the fin inside the part — try rotating';
 }
@@ -510,6 +528,167 @@ const finMaterial = new THREE.MeshStandardMaterial({
 const padMaterial = new THREE.MeshStandardMaterial({
   color: 0xe8b64c, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide,
 });
+
+// ---- draw mode: the user places breakaway walls by hand --------------------
+// A drawn wall IS the same kind of support the auto-placer emits, so it shares
+// the fin material and the green legend swatch. What is different is who chose
+// the line: a person, not a PCA fit -- which is the whole reason it comes out
+// straight. Endpoints are stored in the part's LOCAL frame so a wall tracks the
+// part through later rotations, the same way the auto fins are rebuilt each time
+// the orientation changes.
+let drawnWalls = [];        // committed walls: { a: Vector3(local), b: Vector3(local), ok, info }
+let drawnMesh = null;
+let drawnTris = [];
+let drawStart = null;       // Vector3 (local) -- first click of a wall in progress
+let drawMsg = '';           // last placement result, for the readout
+let lastBuilt = null;       // last buildFins result, kept for the bed pad + seating readout
+let printTris = null;       // whole part in print space, cached per orientation
+let printTrisDirty = true;
+
+const drawMaterial = new THREE.MeshStandardMaterial({
+  color: 0x59d98e, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide,
+});
+// A live, translucent preview of the wall the current drag would make.
+const ghostMaterial = new THREE.MeshStandardMaterial({
+  color: 0x8ff0bd, roughness: 0.7, transparent: true, opacity: 0.45,
+  side: THREE.DoubleSide,
+});
+let ghostMesh = null;
+
+// endpoint dot, cursor dot, and the rubber-band line between them. Base radius
+// 1mm; sizeMarkers() scales them to the part so they read on a 40mm cube and a
+// 300mm bracket alike.
+const drawDot = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14),
+  new THREE.MeshBasicMaterial({ color: 0x59d98e }));
+const drawCursor = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14),
+  new THREE.MeshBasicMaterial({ color: 0xcffbe4 }));
+const bandGeom = new THREE.BufferGeometry()
+  .setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+const drawBand = new THREE.Line(bandGeom,
+  new THREE.LineBasicMaterial({ color: 0x59d98e }));
+drawBand.frustumCulled = false;   // its endpoints move every frame; stale bounds would cull it
+for (const o of [drawDot, drawCursor, drawBand]) { o.visible = false; scene.add(o); }
+
+const drawActive = () => finsVisible && finMode === 'draw';
+
+function sizeMarkers(size) {
+  const r = Math.max(0.7, Math.max(size.x, size.y, size.z) / 90);
+  drawDot.scale.setScalar(r);
+  drawCursor.scale.setScalar(r * 0.85);
+}
+
+/** The whole part in PRINT space (rotated + seated), rebuilt only when the
+ *  orientation changes. This is the surface a drawn wall's contact line samples,
+ *  the same transform export bakes in. */
+function partPrintTriangles() {
+  if (printTris && !printTrisDirty) return printTris;
+  const { pos, nFaces } = topology;
+  const rot = rotM3.elements;
+  const { x: dx, y: dy, z: dz } = lastResult.offset;
+  const a = new Float64Array(nFaces * 9);
+  for (let i = 0; i < a.length; i += 3) {
+    const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+    a[i]     = rot[0] * x + rot[3] * y + rot[6] * z + dx;
+    a[i + 1] = rot[1] * x + rot[4] * y + rot[7] * z + dy;
+    a[i + 2] = rot[2] * x + rot[5] * y + rot[8] * z + dz;
+  }
+  printTris = a;
+  printTrisDirty = false;
+  return a;
+}
+
+/** Drop any wall-in-progress and hide every transient draw visual. */
+function clearPreview() {
+  drawStart = null;
+  drawDot.visible = drawCursor.visible = drawBand.visible = false;
+  if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); ghostMesh = null; }
+}
+
+/** Rebuild the committed drawn walls for the current orientation. */
+function rebuildDrawn() {
+  if (drawnMesh) { scene.remove(drawnMesh); drawnMesh.geometry.dispose(); drawnMesh = null; }
+  drawnTris = [];
+  if (!drawActive() || !drawnWalls.length || !topology || !lastResult) return;
+  part.updateMatrixWorld();
+  const tris = partPrintTriangles();
+  const wa = new THREE.Vector3(), wb = new THREE.Vector3();
+  for (const w of drawnWalls) {
+    part.localToWorld(wa.copy(w.a));
+    part.localToWorld(wb.copy(w.b));
+    const r = drawnWall([wa.x, wa.y, wa.z], [wb.x, wb.y, wb.z], tris, 0);
+    w.ok = r.ok;
+    w.info = r;
+    if (r.ok) for (const t of r.tris) drawnTris.push(t);
+  }
+  drawnMesh = meshFrom(drawnTris, drawMaterial);
+}
+
+/** The walls + pad the CURRENT mode contributes to the export and the fit check. */
+function activeAdded() {
+  const walls = finMode === 'draw' ? drawnTris : finTris;
+  return [...walls, ...padTris];
+}
+
+/** Show the endpoint / cursor / band, and a live ghost of the wall in progress. */
+let ghostQueued = null;
+function updatePreview(hitPoint) {
+  drawCursor.position.copy(hitPoint);
+  drawCursor.visible = true;
+  if (!drawStart) { drawBand.visible = false; return; }
+  part.updateMatrixWorld();
+  const aWorld = part.localToWorld(drawStart.clone());
+  drawDot.position.copy(aWorld);
+  drawDot.visible = true;
+  bandGeom.setFromPoints([aWorld, hitPoint]);
+  bandGeom.attributes.position.needsUpdate = true;
+  drawBand.visible = true;
+
+  // Build the ghost wall at most once per frame: one wall over the whole part is
+  // a few ms, fine occasionally but not at raw pointer-move rates.
+  const already = !!ghostQueued;
+  ghostQueued = [aWorld.clone(), hitPoint.clone()];
+  if (already) return;
+  requestAnimationFrame(() => {
+    const q = ghostQueued;
+    ghostQueued = null;
+    if (!q || !drawStart || !drawActive()) return;
+    if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); ghostMesh = null; }
+    const tris = partPrintTriangles();
+    const r = drawnWall([q[0].x, q[0].y, q[0].z], [q[1].x, q[1].y, q[1].z], tris, 0);
+    if (r.ok) ghostMesh = meshFrom(r.tris, ghostMaterial);
+  });
+}
+
+/** Commit the wall from `drawStart` to the just-clicked point, if it can build. */
+function placeSecondPoint(hitPoint) {
+  part.updateMatrixWorld();
+  const aWorld = part.localToWorld(drawStart.clone());
+  const bWorld = hitPoint.clone();
+  const tris = partPrintTriangles();
+  const r = drawnWall([aWorld.x, aWorld.y, aWorld.z],
+                      [bWorld.x, bWorld.y, bWorld.z], tris, 0);
+  if (!r.ok) {
+    drawMsg = `couldn’t place that wall: ${r.reason}`;
+    clearPreview();
+    updateReadout(lastBuilt);
+    return;
+  }
+  drawMsg = '';
+  drawnWalls.push({ a: drawStart.clone(), b: part.worldToLocal(bWorld.clone()) });
+  clearPreview();
+  rebuildDrawn();
+  updateReadout(lastBuilt);
+  updateFit();
+}
+
+/** Enable the rotate gizmo only when NOT drawing -- its handles would otherwise
+ *  swallow the clicks that place points. */
+function setGizmo() {
+  const on = !!part && !drawActive();
+  gizmo.enabled = on;
+  const helper = gizmo.getHelper ? gizmo.getHelper() : gizmo;
+  helper.visible = on;
+}
 
 /** Upload a triangle list into the scene, or null if there is nothing to show. */
 function meshFrom(tris, material) {
@@ -539,17 +718,35 @@ function refreshFins() {
   }
   finMesh = padMesh = null;
   finTris = padTris = [];
-  if (!finsVisible || !lastResult || !topology) { updateFinReadout(null); return; }
+  if (!finsVisible || !lastResult || !topology) {
+    clearPreview();
+    rebuildDrawn();
+    updateReadout(null);
+    return;
+  }
 
   const t0 = performance.now();
+  // buildFins runs in BOTH modes. In Suggest it places the walls; in Draw it is
+  // called only for the bed pad + seating verdict -- a tilted part rests on an
+  // edge and needs a pad however its walls are placed, and that logic lives in
+  // fins.js, so it is reused rather than duplicated. Draw simply ignores the
+  // walls buildFins suggests and shows the hand-drawn ones instead.
   const built = buildFins(topology, lastResult, rotM3.elements,
-                          { mode: finMode, bedPad: el('bed-pad').checked });
-  finTris = built.triangles;
+                          { mode: finMode === 'draw' ? 'prop' : finMode,
+                            bedPad: el('bed-pad').checked });
+  lastBuilt = built;
   padTris = built.padTriangles;
-
-  finMesh = meshFrom(finTris, finMaterial);
   padMesh = meshFrom(padTris, padMaterial);
-  updateFinReadout(built, performance.now() - t0);
+
+  if (finMode === 'draw') {
+    rebuildDrawn();
+  } else {
+    if (drawnMesh) { scene.remove(drawnMesh); drawnMesh.geometry.dispose(); drawnMesh = null; }
+    clearPreview();
+    finTris = built.triangles;
+    finMesh = meshFrom(finTris, finMaterial);
+  }
+  updateReadout(built, performance.now() - t0);
   updateFit();
 }
 
@@ -561,9 +758,54 @@ function refreshFins() {
  */
 /** Grey the fins while a drag is in flight, so nothing on screen is a lie. */
 function markFinsStale() {
-  for (const m of [finMesh, padMesh]) if (m) m.material.opacity = 0.25;
-  finMaterial.transparent = padMaterial.transparent = true;
+  for (const m of [finMesh, padMesh, drawnMesh]) if (m) m.material.opacity = 0.25;
+  finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = true;
   el('s-fins').textContent = 'recalculating…';
+}
+
+/** Route the readout to the active mode. */
+function updateReadout(built, ms) {
+  if (finMode === 'draw') updateDrawReadout(built, ms);
+  else updateFinReadout(built, ms);
+}
+
+/**
+ * Draw mode's readout. Reports the walls the USER placed, plus the pad/seating
+ * verdict from buildFins. When a drawn line can't become a wall it says WHY --
+ * silence-as-success is the exact bug M5's scoreboard was built on.
+ */
+function updateDrawReadout(built, ms) {
+  finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = false;
+  finMaterial.opacity = padMaterial.opacity = drawMaterial.opacity = 1;
+  const box = el('s-fins');
+  const note = el('s-fin-note');
+  el('s-pad').textContent = built?.pad ? 'added' : built ? 'not needed' : '—';
+
+  const ok = drawnWalls.filter((w) => w.ok);
+  const bad = drawnWalls.length - ok.length;
+  box.textContent = ok.length ? `${ok.length} wall${ok.length === 1 ? '' : 's'} · drawn` : 'none yet';
+  box.classList.toggle('warn', ok.length === 0);
+
+  const bits = [];
+  if (!drawnWalls.length && !drawMsg) {
+    bits.push('click two points under an overhang to lay a breakaway wall along that line');
+  }
+  if (ok.length) {
+    bits.push(ok.map((w) => `${w.info.height.toFixed(0)}mm tall × ${w.info.length.toFixed(0)}mm`).join(' · '));
+    bits.push('breakaway: each stops 0.2mm under the part, so it snaps off rather than needing to be cut');
+  }
+  if (bad) {
+    const one = drawnWalls.find((w) => !w.ok);
+    bits.push(`${bad} drawn wall${bad === 1 ? '' : 's'} no longer reach${bad === 1 ? 'es' : ''} the part in this orientation${one?.info?.reason ? ` (${one.info.reason})` : ''} — undo, or rotate back`);
+  }
+  if (drawMsg) bits.push(drawMsg);
+  if (built?.seating?.kind === 'point') {
+    bits.push(built.pad
+      ? 'this part balances on a single point — the bed pad is what seats it, so print with the pad on'
+      : 'this part balances on a single point — turn the bed pad on to seat it, or rotate until it sits down');
+  }
+  note.textContent = bits.length ? bits.join('. ') + '.' : '';
+  if (ms != null) el('s-time').textContent = `${analysisTiming} · pad ${ms.toFixed(0)} ms`;
 }
 
 function updateFinReadout(built, ms) {
@@ -612,14 +854,23 @@ function updateFinReadout(built, ms) {
   }
   if (built.unserved) {
     bits.push(`${built.unserved} overhang region${built.unserved === 1 ? '' : 's'} ` +
-              'still unsupported — rotate further, or support them by hand (Draw mode, soon)');
+              'still unsupported — rotate further, or switch to Draw and place them by hand');
   }
   note.textContent = bits.join('. ') + '.';
   el('s-time').textContent = `${analysisTiming} · fins ${ms.toFixed(0)} ms`;
 }
 
+/** Show the Draw controls (hint + Undo/Clear) only while Draw is the live mode. */
+function syncDrawControls() {
+  el('draw-controls').hidden = !(finsVisible && finMode === 'draw');
+}
+
 el('fin-mode').addEventListener('change', (e) => {
   finMode = e.target.value;
+  drawMsg = '';
+  clearPreview();
+  syncDrawControls();
+  setGizmo();
   refreshFins();
 });
 el('bed-pad').addEventListener('change', refreshFins);
@@ -629,7 +880,30 @@ el('fins-toggle').addEventListener('click', () => {
   el('fins-toggle').classList.toggle('primary', finsVisible);
   el('fins-toggle').textContent = finsVisible ? 'Fins on' : 'Add fins';
   el('fin-opts').hidden = !finsVisible;
+  drawMsg = '';
+  clearPreview();
+  syncDrawControls();
+  setGizmo();
   refreshFins();
+});
+
+el('draw-undo').addEventListener('click', () => {
+  if (!drawnWalls.length) return;
+  drawnWalls.pop();
+  drawMsg = '';
+  clearPreview();
+  rebuildDrawn();
+  updateReadout(lastBuilt);
+  updateFit();
+});
+el('draw-clear').addEventListener('click', () => {
+  if (!drawnWalls.length) return;
+  drawnWalls = [];
+  drawMsg = '';
+  clearPreview();
+  rebuildDrawn();
+  updateReadout(lastBuilt);
+  updateFit();
 });
 
 /**
@@ -657,8 +931,9 @@ el('export').addEventListener('click', () => {
       ];
     }
   }
-  for (const t of finTris) tris.push(t);
-  for (const t of padTris) tris.push(t);
+  // whichever walls the live mode contributes -- hand-drawn in Draw, suggested
+  // in Suggest -- plus the pad, all already in print space
+  for (const t of activeAdded()) tris.push(t);
 
   const base = partName.replace(/\.stl$/i, '') || 'part';
   download(writeBinarySTL(tris, base), `${base}-fins.stl`);
@@ -716,6 +991,21 @@ function pickFace(ev) {
 }
 
 renderer.domElement.addEventListener('pointermove', (ev) => {
+  // Draw mode: the pointer places wall endpoints, so face-lay hover is off and
+  // the cursor / band / ghost track the surface instead.
+  if (drawActive()) {
+    hoverFace.visible = false;
+    const hit = pickFace(ev);
+    if (hit) {
+      updatePreview(hit.point);
+      renderer.domElement.style.cursor = 'crosshair';
+    } else {
+      drawCursor.visible = drawBand.visible = false;
+      if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); ghostMesh = null; }
+      renderer.domElement.style.cursor = '';
+    }
+    return;
+  }
   // don't compete with the gizmo: if a handle is hovered or held, it wins
   if (!part || gizmo.dragging || gizmo.axis || pressAt) {
     hoverFace.visible = false;
@@ -745,9 +1035,26 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 renderer.domElement.addEventListener('pointerup', (e) => {
   const from = pressAt;
   pressAt = null;
-  if (!from || !part || !topology || gizmo.dragging || gizmo.axis) return;
+  if (!from || !part || !topology) return;
   // a drag is an orbit, not a pick
   if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
+
+  // Draw mode: first click sets the start of a wall, second click commits it.
+  if (drawActive()) {
+    const hit = pickFace(e);
+    if (!hit) return;
+    if (!drawStart) {
+      drawStart = part.worldToLocal(hit.point.clone());
+      drawMsg = '';
+      updatePreview(hit.point);
+      updateReadout(lastBuilt);
+    } else {
+      placeSecondPoint(hit.point);
+    }
+    return;
+  }
+
+  if (gizmo.dragging || gizmo.axis) return;
 
   const hit = pickFace(e);
   if (!hit) return;
@@ -760,6 +1067,19 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   layQuat.setFromUnitVectors(faceNormal, DOWN);
   part.quaternion.premultiply(layQuat);
   shade();
+});
+
+// Cancel a wall-in-progress: Escape, or a right-click in the viewport.
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && drawActive() && drawStart) {
+    clearPreview();
+    updateReadout(lastBuilt);
+  }
+});
+renderer.domElement.addEventListener('contextmenu', (e) => {
+  if (!drawActive()) return;
+  e.preventDefault();
+  if (drawStart) { clearPreview(); updateReadout(lastBuilt); }
 });
 
 const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0),
@@ -918,7 +1238,9 @@ window.__sf = { get part() { return part; }, get topo() { return topology; },
                 get result() { return lastResult; },
                 get finTris() { return finTris; },
                 get padTris() { return padTris; },
-                buildFins, findWallPatches };
+                get drawnTris() { return drawnTris; },
+                get drawnWalls() { return drawnWalls; },
+                buildFins, findWallPatches, drawnWall };
 
 const wanted = new URLSearchParams(location.search).get('stl');
 if (wanted) loadURL(wanted).catch((err) => console.error('?stl=', err));
