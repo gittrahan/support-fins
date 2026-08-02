@@ -91,9 +91,24 @@ export function drawnWall(a, b, tris, zBed = 0) {
     return { ok: false, reason: 'no surface found along that line' };
   }
   const out = [];
-  // `sweep` returns false when any station is shorter than PROP.minHeight, i.e.
-  // the drawn line sits basically on the plate: there is nothing to hold up.
+  // `sweep` returns false when any station is shorter than PROP.minHeight. Two
+  // very different situations produce that, and the message has to tell them
+  // apart or it sends the user to fix the wrong thing:
+  //   - the drawn line genuinely sits near the plate (drawn by a resting edge);
+  //   - the user pointed at a real overhang HIGH above the bed, but other part
+  //     geometry sits directly under it, so contourTop/settleTop pull the wall
+  //     top down to that lower surface and it collapses. A breakaway wall only
+  //     attaches to the bed, so an overhang stacked over the part is unreachable
+  //     (the L-bracket boss over its base) -- out of scope, fixed by rotating.
+  // The clicked endpoints' heights are exactly "what the user pointed at", so a
+  // high clickTop with a failed sweep is the over-the-part case, not a low line.
   if (!sweep(line, zBed, out)) {
+    const clickTop = Math.min(a[2], b[2]) - zBed;
+    if (clickTop >= PROP.minHeight + PROP.gap) {
+      return { ok: false, reason: 'this overhang sits above another part of the '
+        + 'model, so a wall standing on the plate can’t reach it — rotate so it '
+        + 'faces the plate' };
+    }
     return { ok: false, reason: 'nothing to hold up there — the line sits at the plate' };
   }
   let height = 0;
