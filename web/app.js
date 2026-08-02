@@ -558,16 +558,27 @@ let ghostMesh = null;
 // endpoint dot, cursor dot, and the rubber-band line between them. Base radius
 // 1mm; sizeMarkers() scales them to the part so they read on a 40mm cube and a
 // 300mm bracket alike.
-const drawDot = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14),
-  new THREE.MeshBasicMaterial({ color: 0x59d98e }));
-const drawCursor = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14),
-  new THREE.MeshBasicMaterial({ color: 0xcffbe4 }));
+//
+// These are a UI overlay, so they draw with depthTest OFF and a high renderOrder:
+// the line and dots sit ON the part surface, and an opaque part face (or a fin)
+// rendered over them would otherwise win the depth test and hide the guide --
+// which is exactly why the band read as "not rendering" on a face seen head-on.
+// depthTest off makes them a HUD that is always visible regardless of what's in
+// front. transparent:true is set so the renderOrder is honoured in the draw sort.
+const guideMat = (color) => new THREE.MeshBasicMaterial(
+  { color, depthTest: false, transparent: true });
+const drawDot = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), guideMat(0x59d98e));
+const drawCursor = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), guideMat(0xcffbe4));
 const bandGeom = new THREE.BufferGeometry()
   .setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
 const drawBand = new THREE.Line(bandGeom,
-  new THREE.LineBasicMaterial({ color: 0x59d98e }));
+  new THREE.LineBasicMaterial({ color: 0x6dffab, depthTest: false, transparent: true }));
 drawBand.frustumCulled = false;   // its endpoints move every frame; stale bounds would cull it
-for (const o of [drawDot, drawCursor, drawBand]) { o.visible = false; scene.add(o); }
+for (const o of [drawDot, drawCursor, drawBand]) {
+  o.visible = false;
+  o.renderOrder = 11;             // above the hoverFace (renderOrder 1) and the part
+  scene.add(o);
+}
 
 const drawActive = () => finsVisible && finMode === 'draw';
 
