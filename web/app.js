@@ -11,6 +11,7 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
+import { suggestOrientations } from './orient.js';
 import { buildFins } from './fins.js';
 import { findWallPatches } from './planes.js';
 import { drawnWall } from './draw.js';
@@ -1102,7 +1103,79 @@ el('rot-reset').addEventListener('click', () => {
   if (!part) return;
   part.quaternion.identity();
   el('rot-delta').textContent = '';
+  el('suggest-list').hidden = true;   // a manual turn invalidates the ranking's "active" mark
   shade();
+});
+
+// -------------------------------------------------------- suggest orientation
+
+const _sm4 = new THREE.Matrix4();
+let suggestions = [];
+
+/** Turn the part to a suggested pose. `rot` is a column-major 3x3. */
+function applySuggestion(rot) {
+  // Matrix4.set takes ROW-major args; rot is column-major (THREE.Matrix3 order).
+  _sm4.set(rot[0], rot[3], rot[6], 0,
+           rot[1], rot[4], rot[7], 0,
+           rot[2], rot[5], rot[8], 0,
+           0, 0, 0, 1);
+  part.quaternion.setFromRotationMatrix(_sm4);
+  el('rot-delta').textContent = '';
+  shade();
+}
+
+const CONF_TEXT = {
+  high: 'clear best pose', medium: 'a good pose, close alternatives',
+  low: 'several poses are similar — your call', none: '',
+};
+
+function renderSuggestions() {
+  const list = el('suggest-list');
+  list.replaceChildren();
+  suggestions.forEach((c, i) => {
+    const row = document.createElement('button');
+    row.className = 'btn suggest-row';
+    const point = c.seating === 'point';
+    const fins = c.walls === 0 ? 'no fins' : `${c.walls} fin${c.walls === 1 ? '' : 's'}`;
+    const overs = c.regions === 0 ? 'no overhangs'
+      : `${c.regions} overhang${c.regions === 1 ? '' : 's'} → ${fins}`;
+    row.innerHTML =
+      `<span class="sr-rank">${i === 0 ? 'Best' : `#${i + 1}`}</span>` +
+      `<span class="sr-main">${c.height.toFixed(0)} mm tall · ${c.bedArea.toFixed(0)} mm² on the bed</span>` +
+      `<span class="sr-sub">${overs}${point ? ' · balances on a point — can’t print this way' : ''}</span>`;
+    if (point) row.classList.add('bad');
+    row.addEventListener('click', () => {
+      applySuggestion(c.rot);
+      for (const r of list.children) r.classList.remove('active');
+      row.classList.add('active');
+    });
+    list.append(row);
+  });
+  list.hidden = false;
+}
+
+el('suggest-orient').addEventListener('click', () => {
+  if (!part || !topology) return;
+  const btn = el('suggest-orient');
+  btn.disabled = true; btn.textContent = 'Ranking…';
+  // let the button repaint before the (up to ~1s) solve blocks the thread
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    try {
+      const { candidates, confidence } = suggestOrientations(topology, { top: 3, threshold });
+      suggestions = candidates;
+      if (!candidates.length || confidence === 'none') {
+        el('suggest-list').hidden = true;
+        el('suggest-note').textContent = confidence === 'none'
+          ? 'No printable orientation — this part balances on a point at every angle.'
+          : 'Nothing to suggest for this part.';
+      } else {
+        el('suggest-note').textContent = `Best guess — ${CONF_TEXT[confidence]}. Click one to turn the part.`;
+        renderSuggestions();
+      }
+    } finally {
+      btn.disabled = false; btn.textContent = 'Suggest orientation';
+    }
+  }));
 });
 
 let threshold = DEFAULT_THRESHOLD;
