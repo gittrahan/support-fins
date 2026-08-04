@@ -75,14 +75,11 @@ export const PROP = {
   // approach on the flank instead of the top on 4 of 6 walls.
   sideClear: 0.35,
   maxWander: 0.10,  // RMS deviation / chord: above this there is no line to sweep
-  // Below this footprint anisotropy (lam1/lam2) the overhang is too round for its
-  // PCA principal axis to mean anything -- the top eigenvector is then covariance
-  // noise and the tracks run at an arbitrary diagonal (a jittered flat square,
-  // ratio 1.00, laid them at 84deg). A real frame patch reads well above this and
-  // keeps PCA; 1.6 sits in the gap. See patchTracks.
-  isoRatio: 1.6,
-  // For a round patch WITH slope, walls follow the level contour; flatter than
-  // this (rise/run) there is no contour to follow, so they snap to a world axis.
+  // Run direction: at or above this underside slope (rise/run) the walls run down
+  // the slope -- a robust, part-aligned axis. Flatter than this there is no slope
+  // to read, so a near-flat ledge aligns to its longer world axis instead. Chosen
+  // over the footprint's covariance principal axis, which drifts to a spurious
+  // diagonal on a messy real overhang. See patchTracks.
   contourSlopeMin: 0.15,
   // how far a face's normal may swing from its sub-patch SEED's before the
   // region is split there -- see splitRegion
@@ -350,14 +347,9 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
 export function patchTracks(pts, patchTris, step = PROP.stationStep) {
   if (!pts.length) return [];
 
-  // Run direction for the parallel tracks. Default: the footprint's principal
-  // HORIZONTAL axis, via the 2x2 XY covariance -- on a frame whose underside
-  // slopes along its length that axis IS the slope, and the wall's top climbs it.
-  // BUT the principal axis is only meaningful when the footprint is elongated. On
-  // a square or otherwise round patch the covariance is isotropic, so the top
-  // eigenvector is pure noise and the tracks run at an arbitrary diagonal (a
-  // jittered flat square, aniso 1.00, laid them at 84deg). There the axis is
-  // abandoned for the underside's own geometry -- see the isotropic branch.
+  // The 2x2 XY covariance of the patch, plus its cross-terms with Z. This used to
+  // pick the run direction from the covariance's principal axis, but that axis is
+  // only trustworthy on a clean rectangle -- see the run-direction note below.
   let cx = 0, cy = 0, cz = 0;
   for (const p of pts) { cx += p[0]; cy += p[1]; cz += p[2]; }
   cx /= pts.length; cy /= pts.length; cz /= pts.length;
@@ -367,29 +359,32 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep) {
     sxx += dx * dx; sxy += dx * dy; syy += dy * dy;
     sxz += dx * dz; syz += dy * dz;
   }
-  const tr = sxx + syy, det = sxx * syy - sxy * sxy;
-  const rad = Math.sqrt(Math.max(0, (tr * tr) / 4 - det));
-  const lam1 = tr / 2 + rad, lam2 = tr / 2 - rad;
-  const aniso = lam2 > 1e-9 ? lam1 / lam2 : Infinity;
+  const det = sxx * syy - sxy * sxy;
   // underside plane z = a x + b y + c: gradient (a,b) = steepest descent, from
   // the same centred sums (the covariance IS the normal-equation matrix)
   const gx = det > 1e-9 ? (syy * sxz - sxy * syz) / det : 0;
   const gy = det > 1e-9 ? (sxx * syz - sxy * sxz) / det : 0;
   const slope = Math.hypot(gx, gy);
 
+  // Run direction for the parallel wall tracks. Driven by the underside's SLOPE,
+  // not by the footprint's covariance principal axis. The principal axis is only
+  // trustworthy on a clean rectangle; a real overhang is a messy cloud of rings
+  // and struts whose covariance leans to a spurious diagonal even when the part
+  // is elongated straight along an axis (drive_frame tilted 30deg about X: the
+  // footprint is 51x99 along Y, but PCA reports 71deg, while the slope is a clean
+  // 90deg down the long axis). The slope gradient, fitted from the same sums, is
+  // robust and part-aligned -- so the walls run parallel to a real edge instead
+  // of at an angle the part never suggested.
   let ux, uy;
-  if (aniso >= PROP.isoRatio) {
-    // clearly elongated: the principal axis is real. UNCHANGED behaviour, so the
-    // flagship frame's along-the-slope walls are untouched.
-    ux = sxy; uy = lam1 - sxx;
-    if (Math.hypot(ux, uy) < 1e-9) { ux = 1; uy = 0; }
-  } else if (slope >= PROP.contourSlopeMin) {
-    // round but sloped: run each wall along the level contour (perpendicular to
-    // the gradient) so it is a uniform height, with rows marching up the slope.
-    ux = -gy; uy = gx;
+  if (slope >= PROP.contourSlopeMin) {
+    // run each wall DOWN the slope (steepest descent). When a part is tilted into
+    // a strong pose it is usually tipped about its SHORT axis, so down-slope is
+    // the LONG direction: long walls, the flagship's 96mm wall rather than the
+    // 15.7mm stub a level-contour run produced on the same messy region.
+    ux = gx; uy = gy;
   } else {
-    // flat round ledge: no contour to follow. Snap to the longer world axis --
-    // axis-aligned, the way a human draws a fin on a square face, never a diagonal.
+    // near-flat ledge: no slope to follow, so align to the longer world axis, the
+    // way a human draws a fin on a square face -- never a covariance diagonal.
     let xLo = Infinity, xHi = -Infinity, yLo = Infinity, yHi = -Infinity;
     for (const p of pts) {
       if (p[0] < xLo) xLo = p[0]; if (p[0] > xHi) xHi = p[0];
