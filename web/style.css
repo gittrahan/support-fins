@@ -95,11 +95,35 @@ html, body {
   font-size: 12px;
 }
 
+/* ---------- left rail ---------- */
+
+/* One scrolling column holds the stats panel and the rotate panel, pinned from
+   under the top bar to the bottom of the screen. When they fit, the rotate panel
+   sits at the bottom (margin-top:auto) exactly as before; when the window is too
+   short, the rail scrolls instead of the two panels overlapping. pointer-events
+   are off on the rail so the empty gap between the panels still orbits the scene,
+   and back on for the panels themselves. */
+#left-rail {
+  position: fixed;
+  top: 52px; bottom: 14px; left: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  pointer-events: none;
+  scrollbar-width: thin;
+}
+#left-rail > * { pointer-events: auto; }
+/* Pins #orient to the bottom when the rail has spare height, but shrinks to 0
+   under pressure so the rail scrolls cleanly instead of the panels overlapping. */
+#left-rail > .rail-spacer { flex: 1 1 0; min-height: 0; pointer-events: none; }
+.rail-spacer[hidden] { display: none; }
+
 /* ---------- stats ---------- */
 
 #stats {
-  position: fixed;
-  top: 52px; left: 14px;
   padding: 10px 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -237,8 +261,6 @@ html, body {
 }
 
 #orient {
-  position: fixed;
-  left: 14px; bottom: 14px;
   display: flex;
   align-items: center;
   gap: 6px;

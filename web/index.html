@@ -43,6 +43,11 @@
   <span class="badge" title="No file ever leaves your machine.">runs entirely in your browser</span>
 </header>
 
+<!-- The two stacked left-hand panels share one fixed rail (top of screen to
+     bottom) that scrolls as a unit, so a short window can never let stats and the
+     rotate controls overlap. #fin-opts sits between them in source but is
+     position:fixed, so it opts out of this flex flow and stays top-right. -->
+<div id="left-rail">
 <aside id="stats" hidden>
   <dl>
     <dt>File</dt>             <dd id="s-name">—</dd>
@@ -97,6 +102,10 @@
   </div>
 </aside>
 
+<!-- Grows to push the rotate panel to the bottom of the rail when there's room,
+     and shrinks to nothing when the rail has to scroll (an auto margin can't
+     shrink, so it clips the scrolled-away top instead). -->
+<div class="rail-spacer"></div>
 <aside id="orient" hidden>
   <span class="lbl">Rotate 90°</span>
   <button class="btn sm" id="rot-x">X</button>
@@ -104,15 +113,14 @@
   <button class="btn sm" id="rot-z">Z</button>
   <button class="btn sm" id="rot-reset">Reset</button>
   <p class="readout"><span id="rot-now">X 0° · Y 0° · Z 0°</span><span id="rot-delta"></span></p>
-  <p class="hint"><strong>Click any face</strong> to lay it flat on the plate. Or drag the
-    rings — snaps to 5°, hold <kbd>Shift</kbd> for free rotation.</p>
+  <p class="hint"><strong>Click any face</strong> to lay it flat, or drag the rings.</p>
   <div class="suggest">
     <button class="btn sm" id="suggest-orient">Suggest orientation</button>
-    <p class="hint" id="suggest-note">Ranks a few print poses for least support. It only
-      suggests — you apply the one you want.</p>
+    <p class="hint" id="suggest-note"></p>
     <div id="suggest-list" hidden></div>
   </div>
 </aside>
+</div><!-- /left-rail -->
 
 <div id="fps">—</div>
 

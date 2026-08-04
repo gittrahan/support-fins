@@ -1104,6 +1104,7 @@ el('rot-reset').addEventListener('click', () => {
   part.quaternion.identity();
   el('rot-delta').textContent = '';
   el('suggest-list').hidden = true;   // a manual turn invalidates the ranking's "active" mark
+  el('suggest-note').textContent = '';
   shade();
 });
 
