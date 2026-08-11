@@ -234,6 +234,11 @@ function setPart(geometry, filename) {
   clearPreview();
   setGizmo();
 
+  // Undo history does not carry across parts.
+  undoStack = [];
+  redoStack = [];
+  syncHistButtons();
+
   const size = shade();
   frame(size);
   return size;
@@ -687,6 +692,7 @@ function placeSecondPoint(hitPoint) {
     return;
   }
   drawMsg = '';
+  histPush();
   drawnWalls.push({ a: drawStart.clone(), b: part.worldToLocal(bWorld.clone()) });
   clearPreview();
   rebuildDrawn();
@@ -918,6 +924,7 @@ function syncDrawControls() {
 }
 
 el('fin-mode').addEventListener('change', (e) => {
+  histPush();
   finMode = e.target.value;
   drawMsg = '';
   clearPreview();
@@ -927,11 +934,18 @@ el('fin-mode').addEventListener('change', (e) => {
 });
 el('bed-pad').addEventListener('change', refreshFins);
 
-el('fins-toggle').addEventListener('click', () => {
-  finsVisible = !finsVisible;
+/** The fins-toggle button's appearance for the current finsVisible. Factored out
+ *  so undo/redo can re-sync it after restoring the flag. */
+function syncFinsToggleUI() {
   el('fins-toggle').classList.toggle('primary', finsVisible);
   el('fins-toggle').textContent = finsVisible ? 'Fins on' : 'Add fins';
   el('fin-opts').hidden = !finsVisible;
+}
+
+el('fins-toggle').addEventListener('click', () => {
+  histPush();
+  finsVisible = !finsVisible;
+  syncFinsToggleUI();
   drawMsg = '';
   clearPreview();
   syncDrawControls();
@@ -941,6 +955,7 @@ el('fins-toggle').addEventListener('click', () => {
 
 el('draw-undo').addEventListener('click', () => {
   if (!drawnWalls.length) return;
+  histPush();
   drawnWalls.pop();
   drawMsg = '';
   clearPreview();
@@ -950,6 +965,7 @@ el('draw-undo').addEventListener('click', () => {
 });
 el('draw-clear').addEventListener('click', () => {
   if (!drawnWalls.length) return;
+  histPush();
   drawnWalls = [];
   drawMsg = '';
   clearPreview();
@@ -1016,11 +1032,92 @@ el('export-3mf').addEventListener('click', () => {
   download(writeThreeMF(g.partTris, g.finTris, g.base), `${g.base}-fins.3mf`);
 });
 
+// ------------------------------------------------------------- undo / redo
+// A whole-state snapshot stack, not a command log. The undoable state is small
+// -- orientation plus the hand-drawn walls -- and restoring it re-runs the same
+// shade + refreshFins the rest of the app already uses, so there is no separate
+// inverse-operation path to keep correct. Every mutation calls histPush() first;
+// undo/redo swap snapshots between the two stacks.
+let undoStack = [];
+let redoStack = [];
+
+function snapshot() {
+  const q = part.quaternion;
+  return {
+    quat: [q.x, q.y, q.z, q.w],
+    walls: drawnWalls.map((w) => ({ a: w.a.clone(), b: w.b.clone() })),
+    finMode, finsVisible,
+  };
+}
+
+/** Capture state BEFORE a mutation. A fresh action invalidates the redo stack. */
+function histPush() {
+  if (!part) return;
+  undoStack.push(snapshot());
+  if (undoStack.length > 100) undoStack.shift();
+  redoStack.length = 0;
+  syncHistButtons();
+}
+
+function restoreState(s) {
+  part.quaternion.set(s.quat[0], s.quat[1], s.quat[2], s.quat[3]);
+  drawnWalls = s.walls.map((w) => ({ a: w.a.clone(), b: w.b.clone(), ok: false, info: null }));
+  finMode = s.finMode;
+  finsVisible = s.finsVisible;
+  drawStart = null;
+  clearPreview();
+  // Re-sync every control that mirrors the restored state, then rebuild the
+  // scene the same way a normal edit would.
+  el('fin-mode').value = finMode;
+  syncFinsToggleUI();
+  syncDrawControls();
+  setGizmo();
+  el('rot-delta').textContent = '';
+  el('suggest-list').hidden = true;
+  el('suggest-note').textContent = '';
+  shade();
+  refreshFins();
+  syncHistButtons();
+}
+
+function undo() {
+  if (!undoStack.length) return;
+  redoStack.push(snapshot());
+  restoreState(undoStack.pop());
+}
+
+function redo() {
+  if (!redoStack.length) return;
+  undoStack.push(snapshot());
+  restoreState(redoStack.pop());
+}
+
+function syncHistButtons() {
+  el('undo').disabled = !undoStack.length;
+  el('redo').disabled = !redoStack.length;
+}
+
+el('undo').addEventListener('click', undo);
+el('redo').addEventListener('click', redo);
+
+// Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z (or Ctrl+Y) redoes. Ignored while typing
+// in a field so it never eats a text-edit undo.
+addEventListener('keydown', (e) => {
+  if (!part) return;
+  const tag = e.target.tagName;
+  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  if (!(e.metaKey || e.ctrlKey)) return;
+  const k = e.key.toLowerCase();
+  if (k === 'z') { e.preventDefault(); e.shiftKey ? redo() : undo(); }
+  else if (k === 'y') { e.preventDefault(); redo(); }
+});
+
 // ---------------------------------------------------------------- orientation
 
 /** Rotate 90 degrees about a world axis, keeping the part seated. */
 function rotate90(name, axis) {
   if (!part) return;
+  histPush();
   const q = new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2);
   part.quaternion.premultiply(q);   // premultiply = about the WORLD axis
   showDelta(name.toUpperCase(), Math.PI / 2);
@@ -1136,6 +1233,10 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const hit = pickFace(e);
   if (!hit) return;
 
+  // A face-click re-lays the part flat, which silently discards a careful
+  // rotation -- the papercut that motivated undo. Snapshot before doing it so
+  // Ctrl-Z brings the old pose back.
+  histPush();
   // Use OUR winding-derived normal, not the STL's stored one, for the same
   // reason the analysis does: exported normals are not trustworthy.
   const i = hit.faceIndex * 3;
@@ -1166,6 +1267,7 @@ for (const a of ['x', 'y', 'z']) {
 }
 el('rot-reset').addEventListener('click', () => {
   if (!part) return;
+  histPush();
   part.quaternion.identity();
   el('rot-delta').textContent = '';
   el('suggest-list').hidden = true;   // a manual turn invalidates the ranking's "active" mark
@@ -1180,6 +1282,7 @@ let suggestions = [];
 
 /** Turn the part to a suggested pose. `rot` is a column-major 3x3. */
 function applySuggestion(rot) {
+  histPush();
   // Matrix4.set takes ROW-major args; rot is column-major (THREE.Matrix3 order).
   _sm4.set(rot[0], rot[3], rot[6], 0,
            rot[1], rot[4], rot[7], 0,
