@@ -776,10 +776,49 @@ function markFinsStale() {
   el('s-fins').textContent = 'recalculating…';
 }
 
+// PLA, the common default. Grams are labelled with the material so the number
+// is honest rather than pretending to be machine truth.
+const PLA_DENSITY_G_CM3 = 1.24;
+
+/** Signed volume of a closed triangle-soup, mm^3. Fins and pad are closed solids. */
+function meshVolumeMM3(tris) {
+  let v = 0;
+  for (let i = 0; i < tris.length; i += 3) {
+    const a = tris[i], b = tris[i + 1], c = tris[i + 2];
+    v += a[0] * (b[1] * c[2] - b[2] * c[1])
+       - a[1] * (b[0] * c[2] - b[2] * c[0])
+       + a[2] * (b[0] * c[1] - b[1] * c[0]);
+  }
+  return Math.abs(v) / 6;
+}
+
+const fmtGrams = (g) => (g < 9.95 ? g.toFixed(1) : String(Math.round(g)));
+
+/**
+ * The "what did this actually get me" receipt. The headline -- the mass of
+ * breakaway support the tool adds -- is EXACT (we generate that geometry, and
+ * this volume was cross-checked against buildFins' own wall volume). It ticks as
+ * you re-orient, so a better pose visibly costs less support.
+ *
+ * The saving vs. the slicer's own supports is deliberately NOT computed per part:
+ * we can't slice in the browser, and a made-up "you saved 5.2 g" is exactly what
+ * loses trust on the first print. Instead the sub-line states the MEASURED result
+ * from the test prints (see video notes), which is a claim we can stand behind.
+ */
+function updateReceipt() {
+  const box = el('receipt');
+  const added = activeAdded();
+  if (!finsVisible || !added.length) { box.hidden = true; return; }
+  const grams = meshVolumeMM3(added) * PLA_DENSITY_G_CM3 / 1000;
+  el('r-grams').textContent = `${fmtGrams(grams)} g`;
+  box.hidden = false;
+}
+
 /** Route the readout to the active mode. */
 function updateReadout(built, ms) {
   if (finMode === 'draw') updateDrawReadout(built, ms);
   else updateFinReadout(built, ms);
+  updateReceipt();
 }
 
 /**

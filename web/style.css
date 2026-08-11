@@ -171,6 +171,41 @@ html, body {
 #stats .note:empty { display: none; }
 #stats .note.good { color: #6fcf8b; }   /* the "you don't need me" all-clear */
 
+/* The receipt: the "what did this get me" payoff. The exact grams are the
+   headline; the saving is the reason to bother. Set apart from the plain stats
+   so the number reads as a result, not another row. */
+#receipt {
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-left: 3px solid #6fcf8b;
+  border-radius: 6px;
+  background: #171a20;
+}
+#receipt[hidden] { display: none; }
+#r-grams {
+  font-size: 20px;
+  font-weight: 650;
+  color: #6fcf8b;
+  font-variant-numeric: tabular-nums;
+}
+#receipt .r-unit { color: var(--dim); font-size: 11px; margin-left: 4px; }
+#receipt .r-saved {
+  display: block;
+  margin-top: 3px;
+  color: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+#receipt .r-est {
+  display: block;
+  margin-top: 2px;
+  color: var(--dim);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
 /* Fin options, anchored under the toggle rather than inside the topbar, so
    turning fins on never moves another control. */
 #fin-opts {
