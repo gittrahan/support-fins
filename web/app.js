@@ -240,10 +240,11 @@ function setPart(geometry, filename) {
   drawMsg = '';
   printTrisDirty = true;
   clearPreview();
-  // A new part starts with no load arrow either.
-  loadArrow = null;
+  // A new part starts with no load direction either.
+  loadDir = null;
   loadPlacing = false;
-  loadStart = null;
+  loadDragStart = null;
+  controls.enabled = true;
   loadArrowHelper.visible = false;
   if (loadArrowHelper.parent) loadArrowHelper.parent.remove(loadArrowHelper);
   syncLoadUI();
@@ -610,17 +611,21 @@ for (const o of [drawDot, drawCursor, drawBand]) {
 
 // ------------------------------------------------------------------- load arrow
 //
-// The user points at where a force actually hits the part -- and which way it
-// acts -- so the tool can say whether the print layers run WITH that load or
-// across it (the weak plane), and offer a stronger pose. It drives a QUALITATIVE
-// readout, never a fake "Nx stronger" number (see loadAlignment in orient.js).
+// The user shows which way the part is loaded in use, and the tool says whether
+// the print layers run WITH that load or across it (the weak plane), and offers a
+// stronger pose. It drives a QUALITATIVE readout, never a fake "Nx stronger"
+// number (see loadAlignment in orient.js).
 //
-// Stored in the part's LOCAL frame (`a` -> `b`, like a drawn wall), because the
-// force is anchored to a feature: it must rotate and re-seat with the part so the
-// readout tracks the pose. Parenting the ArrowHelper to `part` gives that for free.
-let loadArrow = null;       // { a: Vector3(local), b: Vector3(local) } or null
-let loadPlacing = false;    // true during the two-click placement
-let loadStart = null;       // Vector3(local) -- first click while placing
+// We store a DIRECTION only, in the part's local frame, because the pull model
+// only cares which way the load points -- not where on the part it lands. (A
+// cantilever/lever load WOULD care where it lands, since it snaps at the root; if
+// that toggle is ever built, this becomes a point + direction. Until then, storing
+// a bare direction keeps the UI honest: the arrow is drawn through the part's
+// centre so no spot on the surface looks load-bearing when it isn't.) Local so it
+// rotates and re-seats with the part; parenting the helper to `part` gives that.
+let loadDir = null;         // THREE.Vector3 unit direction in local space, or null
+let loadPlacing = false;    // true while dragging out a direction (modal: orbit off)
+let loadDragStart = null;   // world-space surface point the drag began at, transient
 const loadArrowHelper = new THREE.ArrowHelper(
   new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 10, 0xffb454, 4, 2.6);
 loadArrowHelper.visible = false;
@@ -631,7 +636,7 @@ for (const m of [loadArrowHelper.line, loadArrowHelper.cone]) {
   m.renderOrder = 12;
 }
 
-/** Pointer is placing the load arrow. Gates the gizmo and face-lay like drawing. */
+/** Pointer is setting the load direction. Gates the gizmo and face-lay like drawing. */
 const loadActive = () => loadPlacing;
 
 // Pointer is in wall-placement mode (draw mode, or Suggest with the add toggle on).
@@ -766,30 +771,34 @@ function setGizmo() {
 
 // ---------------------------------------------------------------- load arrow UI
 
-/** Redraw the arrow from `loadArrow`, parented to the part so it follows the pose. */
+/**
+ * Redraw the arrow from `loadDir`, parented to the part so it follows the pose.
+ * The part geometry is centred on its own origin (see setPart), so the load axis
+ * is drawn THROUGH that centre -- it reads as "the part is pulled this way", not
+ * as a force pinned to some spot, which is the honest picture for the pull model.
+ */
 function updateLoadArrowMesh() {
-  if (!loadArrow || !part) { loadArrowHelper.visible = false; return; }
+  if (!loadDir || !part) { loadArrowHelper.visible = false; return; }
   if (loadArrowHelper.parent !== part) part.add(loadArrowHelper);
-  const dir = loadArrow.b.clone().sub(loadArrow.a);
-  const len = dir.length();
-  if (len < 1e-6) { loadArrowHelper.visible = false; return; }
-  loadArrowHelper.position.copy(loadArrow.a);
-  loadArrowHelper.setDirection(dir.normalize());
-  // head sized to the arrow but capped so a long pull on a big part isn't all head
-  loadArrowHelper.setLength(len, Math.min(len * 0.35, 8), Math.min(len * 0.24, 5));
+  const bb = part.geometry.boundingBox;
+  const maxDim = Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z);
+  const len = Math.max(10, maxDim * 0.6);
+  // Centre the whole arrow on the origin: tail at -dir*len/2 so it spans the part.
+  loadArrowHelper.position.copy(loadDir).multiplyScalar(-len / 2);
+  loadArrowHelper.setDirection(loadDir);
+  loadArrowHelper.setLength(len, Math.min(len * 0.28, 12), Math.min(len * 0.18, 7));
   loadArrowHelper.visible = true;
 }
 
-/** Live preview of the arrow during the second click (from `loadStart` to cursor). */
-function previewLoadArrow(hitPoint) {
+/** Live preview while dragging out a direction: cursor at the pointer, band from
+ *  the drag's start point to it. */
+function previewLoadDrag(hitPoint) {
   drawCursor.position.copy(hitPoint);
   drawCursor.visible = true;
-  if (!loadStart) { drawBand.visible = false; return; }
-  part.updateMatrixWorld();
-  const aWorld = part.localToWorld(loadStart.clone());
-  drawDot.position.copy(aWorld);
+  if (!loadDragStart) { drawBand.visible = drawDot.visible = false; return; }
+  drawDot.position.copy(loadDragStart);
   drawDot.visible = true;
-  bandGeom.setFromPoints([aWorld, hitPoint]);
+  bandGeom.setFromPoints([loadDragStart, hitPoint]);
   bandGeom.attributes.position.needsUpdate = true;
   drawBand.visible = true;
 }
@@ -803,15 +812,13 @@ function previewLoadArrow(hitPoint) {
 function updateLoadReadout() {
   const note = el('load-note');
   const suggestBtn = el('load-suggest');
-  if (!loadArrow || !part) {
+  if (!loadDir || !part) {
     note.hidden = true;
     suggestBtn.hidden = true;
     return;
   }
-  part.updateMatrixWorld();
-  const aW = part.localToWorld(loadArrow.a.clone());
-  const bW = part.localToWorld(loadArrow.b.clone());
-  const al = loadAlignment([bW.x - aW.x, bW.y - aW.y, bW.z - aW.z]);
+  const w = loadDir.clone().applyQuaternion(part.quaternion);
+  const al = loadAlignment([w.x, w.y, w.z]);
   if (!al) { note.hidden = true; suggestBtn.hidden = true; return; }
   note.textContent = al.text;
   note.className = `load-verdict ${al.quality}`;
@@ -821,41 +828,50 @@ function updateLoadReadout() {
   suggestBtn.hidden = al.quality === 'good';
 }
 
-/** Enter two-click placement: first click sets the point the force acts on. */
+/** Enter direction-setting: modal, so a drag on the part sets direction instead
+ *  of orbiting the camera. */
 function beginLoadPlacement() {
   if (!part || !topology) return;
   loadPlacing = true;
-  loadStart = null;
+  loadDragStart = null;
+  controls.enabled = false;   // no orbit while aiming; a drag means "this way"
   clearPreview();
   setGizmo();
   syncLoadUI();
 }
 
-/** Leave placement without committing (Esc / right-click / re-toggle). */
+/** Leave direction-setting without committing (Esc / right-click / re-toggle). */
 function cancelLoadPlacement() {
   loadPlacing = false;
-  loadStart = null;
+  loadDragStart = null;
   drawCursor.visible = drawBand.visible = drawDot.visible = false;
   renderer.domElement.style.cursor = '';
+  controls.enabled = true;
   setGizmo();
   syncLoadUI();
 }
 
-/** Handle a click while placing: first sets the anchor, second commits the arrow. */
-function placeLoadPoint(hitPoint) {
-  if (!loadStart) {
-    loadStart = part.worldToLocal(hitPoint.clone());
-    previewLoadArrow(hitPoint);
-    return;
-  }
-  const b = part.worldToLocal(hitPoint.clone());
-  if (b.distanceTo(loadStart) < 1e-3) return;   // ignore a zero-length double-click
+/** Drop a drag-in-progress but stay in the mode, so a stray click can be retried. */
+function cancelLoadDrag() {
+  loadDragStart = null;
+  drawCursor.visible = drawBand.visible = drawDot.visible = false;
+}
+
+/** Commit the dragged direction (start -> end, both world surface points). Only the
+ *  DIRECTION is kept, converted to the part's local frame so it tracks the pose. */
+function commitLoadDrag(endWorld) {
+  const dirWorld = endWorld.clone().sub(loadDragStart);
+  if (dirWorld.length() < 1e-3) { cancelLoadDrag(); return; }   // a click, not a drag
+  // World direction -> local direction: rotate by the inverse pose (translation is
+  // irrelevant for a direction), so it's stored in the same frame as the geometry.
+  const local = dirWorld.applyQuaternion(part.quaternion.clone().invert()).normalize();
   histPush();
-  loadArrow = { a: loadStart.clone(), b };
+  loadDir = local;
   loadPlacing = false;
-  loadStart = null;
+  loadDragStart = null;
   drawCursor.visible = drawBand.visible = drawDot.visible = false;
   renderer.domElement.style.cursor = '';
+  controls.enabled = true;
   updateLoadArrowMesh();
   updateLoadReadout();
   setGizmo();
@@ -864,19 +880,19 @@ function placeLoadPoint(hitPoint) {
 
 /** Remove the load arrow entirely. */
 function clearLoad() {
-  if (!loadArrow) return;
+  if (!loadDir) return;
   histPush();
-  loadArrow = null;
+  loadDir = null;
   loadArrowHelper.visible = false;
   updateLoadReadout();
   syncLoadUI();
 }
 
-/** Mirror the button/hint state to whether an arrow exists and whether we're placing. */
+/** Mirror the button/hint state to whether a direction is set and whether we're placing. */
 function syncLoadUI() {
-  const has = !!loadArrow;
+  const has = !!loadDir;
   el('load-set').textContent = loadPlacing ? 'Cancel'
-    : has ? 'Move load arrow' : 'Set load direction';
+    : has ? 'Change load direction' : 'Set load direction';
   el('load-set').classList.toggle('active', loadPlacing);
   el('load-clear').hidden = !has || loadPlacing;
   el('load-hint').hidden = !loadPlacing;
@@ -1263,7 +1279,7 @@ function snapshot() {
   return {
     quat: [q.x, q.y, q.z, q.w],
     walls: drawnWalls.map((w) => ({ a: w.a.clone(), b: w.b.clone() })),
-    load: loadArrow ? { a: loadArrow.a.clone(), b: loadArrow.b.clone() } : null,
+    load: loadDir ? loadDir.clone() : null,
     finMode, finsVisible, drawAugment,
   };
 }
@@ -1280,9 +1296,10 @@ function histPush() {
 function restoreState(s) {
   part.quaternion.set(s.quat[0], s.quat[1], s.quat[2], s.quat[3]);
   drawnWalls = s.walls.map((w) => ({ a: w.a.clone(), b: w.b.clone(), ok: false, info: null }));
-  loadArrow = s.load ? { a: s.load.a.clone(), b: s.load.b.clone() } : null;
+  loadDir = s.load ? s.load.clone() : null;
   loadPlacing = false;
-  loadStart = null;
+  loadDragStart = null;
+  controls.enabled = true;
   updateLoadArrowMesh();
   syncLoadUI();
   finMode = s.finMode;
@@ -1390,13 +1407,14 @@ function pickFace(ev) {
 }
 
 renderer.domElement.addEventListener('pointermove', (ev) => {
-  // Placing the load arrow: the pointer sets its two ends, so face-lay hover is
-  // off and the cursor / band track the surface (same feel as draw mode).
+  // Setting the load direction: drag across the part. Face-lay hover is off; the
+  // cursor tracks the surface and, once a drag has started, a band shows the
+  // direction so far.
   if (loadActive()) {
     hoverFace.visible = false;
     const hit = pickFace(ev);
     if (hit) {
-      previewLoadArrow(hit.point);
+      previewLoadDrag(hit.point);
       renderer.domElement.style.cursor = 'crosshair';
     } else {
       drawCursor.visible = drawBand.visible = false;
@@ -1443,22 +1461,30 @@ renderer.domElement.addEventListener('pointerleave', () => {
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
   pressAt = { x: e.clientX, y: e.clientY };
+  // Load mode: the press begins a direction drag at the surface point under it.
+  if (loadActive()) {
+    const hit = pickFace(e);
+    loadDragStart = hit ? hit.point.clone() : null;
+    if (hit) previewLoadDrag(hit.point);
+  }
 });
 
 renderer.domElement.addEventListener('pointerup', (e) => {
   const from = pressAt;
   pressAt = null;
   if (!from || !part || !topology) return;
-  // a drag is an orbit, not a pick
-  if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
 
-  // Placing the load arrow: first click sets the point the force acts on, second
-  // sets the direction it acts in.
+  // Load mode: the release ends the direction drag. This is a DRAG by design, so
+  // it must be handled before the "a drag is an orbit" bail below.
   if (loadActive()) {
     const hit = pickFace(e);
-    if (hit) placeLoadPoint(hit.point);
+    if (loadDragStart && hit) commitLoadDrag(hit.point);
+    else cancelLoadDrag();
     return;
   }
+
+  // a drag is an orbit, not a pick
+  if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
 
   // Draw mode: first click sets the start of a wall, second click commits it.
   if (drawActive()) {
@@ -1611,13 +1637,10 @@ el('load-clear').addEventListener('click', clearLoad);
 // so it can't produce the needle-tower. If the current pose is already about as
 // good as it gets, say so instead of turning to an equivalent orientation.
 el('load-suggest').addEventListener('click', () => {
-  if (!part || !topology || !loadArrow) return;
-  const dl = loadArrow.b.clone().sub(loadArrow.a);
-  const pose = suggestStrengthPose(topology, [dl.x, dl.y, dl.z], { threshold });
-  part.updateMatrixWorld();
-  const aW = part.localToWorld(loadArrow.a.clone());
-  const bW = part.localToWorld(loadArrow.b.clone());
-  const cur = loadAlignment([bW.x - aW.x, bW.y - aW.y, bW.z - aW.z]);
+  if (!part || !topology || !loadDir) return;
+  const pose = suggestStrengthPose(topology, [loadDir.x, loadDir.y, loadDir.z], { threshold });
+  const w = loadDir.clone().applyQuaternion(part.quaternion);
+  const cur = loadAlignment([w.x, w.y, w.z]);
   const note = el('load-note');
   if (!pose || (cur && pose.cross >= cur.cross - 0.05)) {
     note.textContent = 'This is about the strongest printable orientation for this '
