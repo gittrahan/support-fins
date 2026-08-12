@@ -236,6 +236,7 @@ function setPart(geometry, filename) {
 
   // A new part starts with no hand-drawn walls and a fresh print-space cache.
   drawnWalls = [];
+  drawAugment = false;
   drawMsg = '';
   printTrisDirty = true;
   clearPreview();
@@ -458,6 +459,10 @@ let finsVisible = false;
 // kept but demoted, because on a square face its PCA axis snaps to a diagonal
 // and it sprays walls that miss the face. See web/draw.js.
 let finMode = 'draw';
+// Suggest + Draw mix: when true, the pointer places hand-drawn walls ON TOP of the
+// auto-placed ones (for when auto misses a spot). It only gates the pointer; the
+// drawn walls themselves stay shown/exported after placing until Clear all.
+let drawAugment = false;
 /**
  * Why did this part get no fins, in terms the user can act on?
  *
@@ -594,7 +599,14 @@ for (const o of [drawDot, drawCursor, drawBand]) {
   scene.add(o);
 }
 
-const drawActive = () => finsVisible && finMode === 'draw';
+// Pointer is in wall-placement mode (draw mode, or Suggest with the add toggle on).
+// Gates the draw interaction, the gizmo, and face-lay.
+const drawActive = () => finsVisible && (finMode === 'draw' || drawAugment);
+// Hand-drawn walls contribute to the display and the export. In Draw mode that's
+// always; in Suggest it's whenever the user has drawn any (they persist after the
+// add toggle is switched off, so you can orbit and export without losing them).
+const drawShown = () =>
+  finsVisible && (finMode === 'draw' || (finMode === 'prop' && (drawAugment || drawnWalls.length > 0)));
 
 function sizeMarkers(size) {
   const r = Math.max(0.7, Math.max(size.x, size.y, size.z) / 90);
@@ -633,7 +645,7 @@ function clearPreview() {
 function rebuildDrawn() {
   if (drawnMesh) { scene.remove(drawnMesh); drawnMesh.geometry.dispose(); drawnMesh = null; }
   drawnTris = [];
-  if (!drawActive() || !drawnWalls.length || !topology || !lastResult) return;
+  if (!drawShown() || !drawnWalls.length || !topology || !lastResult) return;
   part.updateMatrixWorld();
   const tris = partPrintTriangles();
   const wa = new THREE.Vector3(), wb = new THREE.Vector3();
@@ -650,8 +662,9 @@ function rebuildDrawn() {
 
 /** The walls + pad the CURRENT mode contributes to the export and the fit check. */
 function activeAdded() {
-  const walls = finMode === 'draw' ? drawnTris : finTris;
-  return [...walls, ...padTris];
+  const auto = finMode === 'prop' ? finTris : [];
+  const drawn = drawShown() ? drawnTris : [];
+  return [...auto, ...drawn, ...padTris];
 }
 
 /** Show the endpoint / cursor / band, and a live ghost of the wall in progress. */
@@ -767,10 +780,12 @@ function refreshFins() {
   if (finMode === 'draw') {
     rebuildDrawn();
   } else {
-    if (drawnMesh) { scene.remove(drawnMesh); drawnMesh.geometry.dispose(); drawnMesh = null; }
     clearPreview();
     finTris = built.triangles;
     finMesh = meshFrom(finTris, finMaterial);
+    // In Suggest, also (re)build any hand-drawn walls layered on top. rebuildDrawn
+    // self-gates on drawShown(), so it clears them when none apply.
+    rebuildDrawn();
   }
   updateReadout(built, performance.now() - t0);
   updateFit();
@@ -888,16 +903,19 @@ function updateFinReadout(built, ms) {
   el('s-pad').textContent = built.pad ? 'added' : 'not needed';
   const n = built.fins.length;
   const kind = built.mode === 'prop' ? 'prop' : 'fin';
-  box.textContent = n
-    ? `${n} ${kind}${n === 1 ? '' : 's'}` +
-      (built.mode === 'prop' ? '' : ` · ${built.tines} tines`)
-    : 'none possible';
-  box.classList.toggle('warn', n === 0);
+  // Hand-added walls (Suggest + Draw mix) count toward the tally too.
+  const drawnOk = drawShown() ? drawnWalls.filter((w) => w.ok).length : 0;
+  const autoTxt = n
+    ? `${n} ${kind}${n === 1 ? '' : 's'}` + (built.mode === 'prop' ? '' : ` · ${built.tines} tines`)
+    : '';
+  const drawnTxt = drawnOk ? `${autoTxt ? ' + ' : ''}${drawnOk} drawn` : '';
+  box.textContent = (autoTxt + drawnTxt) || 'none possible';
+  box.classList.toggle('warn', n === 0 && !drawnOk);
 
   const bits = [];
-  if (!n) {
+  if (!n && !drawnOk) {
     bits.push(explainNoFins(built));
-  } else {
+  } else if (n) {
     bits.push(built.fins
       .map((f) => `${f.height.toFixed(0)}mm tall × ${f.length.toFixed(0)}mm`)
       .join(' · '));
@@ -905,6 +923,20 @@ function updateFinReadout(built, ms) {
       bits.push('breakaway: each stops 0.2mm under the part, so it snaps off '
               + 'rather than needing to be cut');
     }
+  }
+  if (drawnOk) {
+    bits.push(`plus ${drawnOk} wall${drawnOk === 1 ? '' : 's'} you added by hand`);
+  }
+  // Hand-placement feedback has to surface here too (Suggest + Draw mix), or a
+  // rejected wall fails silently -- the same silence-as-success trap as M5.
+  if (drawShown()) {
+    const bad = drawnWalls.length - drawnOk;
+    if (bad) {
+      const one = drawnWalls.find((w) => !w.ok);
+      bits.push(`${bad} drawn wall${bad === 1 ? '' : 's'} couldn’t attach here`
+              + (one?.info?.reason ? ` (${one.info.reason})` : ''));
+    }
+    if (drawMsg) bits.push(drawMsg);
   }
   // Worth saying even when something WAS placed: a point-balanced part is
   // standing on the added pad and nothing else, so the pad is load-bearing,
@@ -919,22 +951,35 @@ function updateFinReadout(built, ms) {
   }
   if (built.unserved) {
     bits.push(`${built.unserved} overhang region${built.unserved === 1 ? '' : 's'} ` +
-              'still unsupported — rotate further, or switch to Draw and place them by hand');
+              'still unsupported — rotate further, or use “+ Add walls by hand” to place them here');
   }
   note.textContent = bits.join('. ') + '.';
-  el('s-time').textContent = `${analysisTiming} · fins ${ms.toFixed(0)} ms`;
+  // ms is absent when a hand-drawn wall (Suggest + Draw mix) re-runs the readout
+  // without rebuilding the auto fins -- don't touch the timing line then, and
+  // never throw, or the updateReceipt() call after this one never happens.
+  if (ms != null) el('s-time').textContent = `${analysisTiming} · fins ${ms.toFixed(0)} ms`;
 }
 
 /** Show the Draw controls (hint + Undo/Clear) only while Draw is the live mode. */
 function syncDrawControls() {
-  el('draw-controls').hidden = !(finsVisible && finMode === 'draw');
+  el('draw-controls').hidden = !drawShown();
+}
+
+/** The "+ Add walls by hand" toggle, shown only in Suggest mode. */
+function syncAugmentUI() {
+  const show = finsVisible && finMode === 'prop';
+  el('augment-toggle').hidden = !show;
+  el('augment-toggle').classList.toggle('primary', drawAugment);
+  el('augment-toggle').textContent = drawAugment ? 'Done adding walls' : '+ Add walls by hand';
 }
 
 el('fin-mode').addEventListener('change', (e) => {
   histPush();
   finMode = e.target.value;
+  drawAugment = false;      // start each mode with hand-placement off
   drawMsg = '';
   clearPreview();
+  syncAugmentUI();
   syncDrawControls();
   setGizmo();
   refreshFins();
@@ -952,9 +997,21 @@ function syncFinsToggleUI() {
 el('fins-toggle').addEventListener('click', () => {
   histPush();
   finsVisible = !finsVisible;
+  if (!finsVisible) drawAugment = false;
   syncFinsToggleUI();
   drawMsg = '';
   clearPreview();
+  syncAugmentUI();
+  syncDrawControls();
+  setGizmo();
+  refreshFins();
+});
+
+el('augment-toggle').addEventListener('click', () => {
+  drawAugment = !drawAugment;
+  drawMsg = '';
+  clearPreview();
+  syncAugmentUI();
   syncDrawControls();
   setGizmo();
   refreshFins();
@@ -1053,7 +1110,7 @@ function snapshot() {
   return {
     quat: [q.x, q.y, q.z, q.w],
     walls: drawnWalls.map((w) => ({ a: w.a.clone(), b: w.b.clone() })),
-    finMode, finsVisible,
+    finMode, finsVisible, drawAugment,
   };
 }
 
@@ -1071,12 +1128,14 @@ function restoreState(s) {
   drawnWalls = s.walls.map((w) => ({ a: w.a.clone(), b: w.b.clone(), ok: false, info: null }));
   finMode = s.finMode;
   finsVisible = s.finsVisible;
+  drawAugment = s.drawAugment ?? false;
   drawStart = null;
   clearPreview();
   // Re-sync every control that mirrors the restored state, then rebuild the
   // scene the same way a normal edit would.
   el('fin-mode').value = finMode;
   syncFinsToggleUI();
+  syncAugmentUI();
   syncDrawControls();
   setGizmo();
   el('rot-delta').textContent = '';

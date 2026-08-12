@@ -99,7 +99,11 @@
   <label class="check" title="A tilted part rests on an edge and peels off the plate without one.">
     <input type="checkbox" id="bed-pad" checked>Add bed pad
   </label>
-  <!-- Draw controls: shown only while Draw is the live mode (toggled in app.js). -->
+  <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
+       Shown only in Suggest mode (toggled in app.js). -->
+  <button class="btn sm" id="augment-toggle" hidden
+          title="Place extra breakaway walls by hand, on top of the auto-placed ones.">+ Add walls by hand</button>
+  <!-- Draw controls: shown while placing walls by hand (Draw mode, or Suggest + add). -->
   <div id="draw-controls" hidden>
     <p class="draw-hint">Click <strong>two points</strong> under an overhang to lay a
       breakaway wall along that line. <kbd>Esc</kbd> or right-click cancels.</p>
