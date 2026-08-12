@@ -124,6 +124,12 @@ html, body {
 /* ---------- stats ---------- */
 
 #stats {
+  /* Fixed width so a long value (a filename, the receipt's sentence) wraps
+     inside the panel instead of stretching the whole left column. Shrinks on
+     very narrow viewports. */
+  width: 272px;
+  max-width: calc(100vw - 28px);
+  box-sizing: border-box;
   padding: 10px 14px;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -132,12 +138,17 @@ html, body {
 }
 #stats dl {
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: auto 1fr;
   gap: 3px 16px;
   margin: 0;
 }
 #stats dt { color: var(--dim); }
-#stats dd { margin: 0; font-variant-numeric: tabular-nums; }
+#stats dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  min-width: 0;
+  overflow-wrap: anywhere;   /* a long filename wraps rather than overflowing */
+}
 #stats dd.warn { color: #ffb454; }
 #stats dd.good { color: #6fcf8b; }
 #stats hr {
