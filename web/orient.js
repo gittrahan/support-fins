@@ -69,6 +69,15 @@ function mul(A, B) {
   return O;
 }
 
+/** Apply a column-major 3x3 (THREE.Matrix3.elements order) to a vector: R * v. */
+function applyRot(R, v) {
+  return [
+    R[0] * v[0] + R[3] * v[1] + R[6] * v[2],
+    R[1] * v[0] + R[4] * v[1] + R[7] * v[2],
+    R[2] * v[0] + R[5] * v[1] + R[8] * v[2],
+  ];
+}
+
 /** Column-major rotation of `deg` about a unit world axis. */
 function rotAxis(axis, deg) {
   const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
@@ -181,4 +190,106 @@ export function suggestOrientations(topo, { top = 3, threshold = 45 } = {}) {
   }
 
   return { candidates: built.slice(0, top), confidence };
+}
+
+// ---------------------------------------------------------------- load / strength
+//
+// FDM parts are weakest ACROSS the layer lines -- the interlayer bond is the weak
+// plane, and the weak axis is the build direction (world +Z once the part is
+// seated). A tensile load carried along that axis pulls the layers apart; the
+// same load carried within the layer plane is the part's strong direction. So the
+// whole question "is this orientation strong for this load?" reduces to: how much
+// of the load points straight up the build axis?
+//
+// This is deliberately QUALITATIVE. We refuse to print a "3.4x stronger" number:
+// real anisotropy depends on infill, wall count, temperature and geometry, none
+// of which we can measure in the browser -- a hard multiplier would be the same
+// false-precision trust-trap the value receipt avoids. What we CAN say honestly is
+// which way the layers run relative to the load, and whether a better pose exists.
+
+/** cos of the angle between two unit-ish directions in the same frame. */
+function crossFraction(dir) {
+  const n = Math.hypot(dir[0], dir[1], dir[2]);
+  return n < 1e-9 ? null : Math.abs(dir[2]) / n;   // |d . buildZ| = share pulling across layers
+}
+
+/** Bucket a cross-fraction into an honest three-step verdict + copy. */
+function alignQuality(cross) {
+  // cross = |load . build-Z|: 0 = load lies in the layer plane (strong),
+  // 1 = load pulls straight across the layers (weak). Bounds at 60deg / 30deg
+  // from the plate: within 30deg of in-plane reads "well aligned".
+  if (cross <= 0.5) {
+    return { quality: 'good',
+      text: 'Layers run with your load — the pull is along the layer lines, '
+          + 'the part’s strong direction.' };
+  }
+  if (cross <= 0.866) {
+    return { quality: 'mixed',
+      text: 'Layers only partly aligned — some of the load pulls across the '
+          + 'layer lines.' };
+  }
+  return { quality: 'poor',
+    text: 'Layers poorly aligned — the load pulls straight across the layer '
+        + 'lines, where a printed part splits most easily.' };
+}
+
+/**
+ * Qualitative strength readout for a load in the CURRENT pose. `dirWorld` is the
+ * load direction in seated print space (so world +Z is the build axis). Pull
+ * model only: the critical tensile direction IS the applied force. (Lever -- where
+ * the part bends and the tensile stress runs along the beam, perpendicular to the
+ * push -- picks a different pose and can't be inferred from one arrow; it's a
+ * future toggle, not a default.)
+ */
+export function loadAlignment(dirWorld) {
+  const cross = crossFraction(dirWorld);
+  if (cross == null) return null;
+  return { cross, ...alignQuality(cross) };
+}
+
+/**
+ * The strongest PRINTABLE pose for a given load. The arrow is anchored to a
+ * feature, so its direction is fixed in the part's own (as-loaded) frame; as we
+ * try candidate orientations that direction swings relative to the build axis and
+ * we want the pose that lays it most in-plane.
+ *
+ * The guard is the whole point. A pure strength solver is exactly what produced
+ * the spike's "155mm tall, balanced on its own needle" pose -- geometrically the
+ * layers were perfect, the print was impossible. So we only consider poses that
+ * actually SIT on the plate (a real bed footprint, not a point) and whose
+ * printability cost is within a bounded budget of the best available; among those,
+ * we pick the strongest. Returns null if nothing beats simply not tilting.
+ */
+export function suggestStrengthPose(topo, dirLocal, { threshold = 45 } = {}) {
+  const dl = (() => {
+    const n = Math.hypot(dirLocal[0], dirLocal[1], dirLocal[2]);
+    return n < 1e-9 ? null : [dirLocal[0] / n, dirLocal[1] / n, dirLocal[2] / n];
+  })();
+  if (!dl) return null;
+
+  const cands = candidateDowns(topo).map((d) => {
+    const rot = rotFromTo(d, DOWN);
+    const a = analyze(topo, threshold, rot);
+    const cross = Math.abs(applyRot(rot, dl)[2]);   // rot orthonormal, dl unit -> result unit
+    // Same printability proxy suggestOrientations' pass 1 uses (overhang dominates,
+    // bed contact helps, height is a mild penalty) -- lower is better.
+    const printCost = a.overArea + Math.max(0, 200 - a.bedArea) * 0.25 + a.size.z * 2;
+    return { rot, cross, printCost, height: a.size.z, over: a.overArea, bedArea: a.bedArea };
+  });
+
+  // A pose with ~no bed contact is a tip/needle -- unprintable regardless of how
+  // nicely the layers line up. Drop those before ranking; if that leaves nothing,
+  // there's no printable pose to recommend.
+  const seated = cands.filter((c) => c.bedArea >= 1);
+  if (!seated.length) return null;
+
+  // Bound the strength search by printability: only poses within a budget of the
+  // most printable one are eligible, so we never trade a sane print for a tower.
+  const bestPrint = Math.min(...seated.map((c) => c.printCost));
+  const affordable = seated.filter((c) => c.printCost <= bestPrint + 60);
+  affordable.sort((p, r) => p.cross - r.cross);
+
+  const best = affordable[0];
+  return { rot: best.rot, cross: best.cross, ...alignQuality(best.cross),
+           height: best.height, over: best.over, bedArea: best.bedArea };
 }
