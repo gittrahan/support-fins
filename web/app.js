@@ -11,7 +11,7 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
-import { suggestOrientations, suggestStrengthPose, loadAlignment } from './orient.js';
+import { suggestOrientations, suggestStrengthPose, loadAlignment, layerVerdict } from './orient.js';
 import { buildFins } from './fins.js';
 import { findWallPatches } from './planes.js';
 import { drawnWall } from './draw.js';
@@ -345,7 +345,9 @@ function shade() {
   // where the part currently sits, the way a slicer states it
   const [ex, ey, ez] = readableEuler(part.quaternion);
   el('rot-now').textContent = `X ${ex}° · Y ${ey}° · Z ${ez}°`;
-  // the strength verdict is pose-dependent, so refresh it whenever the part turns
+  // both strength views are pose-dependent, so refresh them whenever the part turns:
+  // the automatic layer view (always), and the optional load-arrow verdict (if set)
+  updateLayerView(size);
   updateLoadReadout();
   return size;
 }
@@ -638,6 +640,65 @@ for (const m of [loadArrowHelper.line, loadArrowHelper.cone]) {
 
 /** Pointer is setting the load direction. Gates the gizmo and face-lay like drawing. */
 const loadActive = () => loadPlacing;
+
+// ------------------------------------------------------------------- layer view
+//
+// A faint stack of horizontal frames around the part, world-aligned, that shows
+// how the print is layered: they stay horizontal while the part turns INSIDE them,
+// so you see which way the layers slice it and (with the note) where it's weak.
+// Purely illustrative -- no input, no effect on geometry. This is the automatic
+// "what does this orientation do to strength" view; the load arrow is the optional
+// add-on for when you know the actual load. Rebuilt each shade() to fit the part.
+let layersOn = true;
+const MAX_LAYER_FRAMES = 16;
+const layerGeom = new THREE.BufferGeometry();
+layerGeom.setAttribute('position',
+  new THREE.BufferAttribute(new Float32Array(MAX_LAYER_FRAMES * 8 * 3), 3));
+// depthTest OFF so the horizontal frames read as layer lines ACROSS the part (a
+// HUD, like the draw guides) instead of being hidden inside its bounding box.
+const layerViz = new THREE.LineSegments(layerGeom,
+  new THREE.LineBasicMaterial({ color: 0x9ecbf5, transparent: true, opacity: 0.4, depthTest: false }));
+layerViz.frustumCulled = false;    // the frames resize every pose; stale bounds would cull it
+layerViz.renderOrder = 10;         // over the part, under the load arrow (12)
+layerViz.visible = false;
+scene.add(layerViz);
+
+/** Refit the layer frames to the seated bounding box `size` (part is centred on
+ *  XY origin, resting on z=0). Density is adaptive -- roughly a frame every 8mm,
+ *  clamped -- so a flat part isn't a cramped smear and a tall one isn't sparse. */
+function rebuildLayerViz(size) {
+  const count = Math.max(3, Math.min(MAX_LAYER_FRAMES, Math.round(size.z / 8) + 1));
+  // Extend the frames a little past the silhouette so the layer lines clearly poke
+  // out either side of the part instead of hiding along its edge.
+  const m = Math.max(4, 0.12 * Math.max(size.x, size.y));
+  const hx = size.x / 2 + m, hy = size.y / 2 + m;
+  const pos = layerGeom.getAttribute('position').array;
+  let o = 0;
+  const edge = (ax, ay, bx, by, z) => {
+    pos[o++] = ax; pos[o++] = ay; pos[o++] = z;
+    pos[o++] = bx; pos[o++] = by; pos[o++] = z;
+  };
+  for (let k = 0; k < count; k++) {
+    const z = (size.z * k) / (count - 1);
+    edge(-hx, -hy,  hx, -hy, z);
+    edge( hx, -hy,  hx,  hy, z);
+    edge( hx,  hy, -hx,  hy, z);
+    edge(-hx,  hy, -hx, -hy, z);
+  }
+  layerGeom.setDrawRange(0, count * 8);
+  layerGeom.getAttribute('position').needsUpdate = true;
+  layerGeom.computeBoundingSphere();
+}
+
+/** Update the automatic layer note + frames for the current pose. */
+function updateLayerView(size) {
+  rebuildLayerViz(size);
+  layerViz.visible = layersOn && !!part;
+  const lv = layerVerdict(size);
+  const ln = el('layer-note');
+  ln.textContent = lv.note;
+  ln.className = `layer-note ${lv.posture}`;
+}
 
 // Pointer is in wall-placement mode (draw mode, or Suggest with the add toggle on).
 // Gates the draw interaction, the gizmo, and face-lay.
@@ -1624,6 +1685,11 @@ el('suggest-orient').addEventListener('click', () => {
 });
 
 // --------------------------------------------------------------- load arrow
+
+el('show-layers').addEventListener('change', (e) => {
+  layersOn = e.target.checked;
+  layerViz.visible = layersOn && !!part;
+});
 
 el('load-set').addEventListener('click', () => {
   if (loadPlacing) cancelLoadPlacement();

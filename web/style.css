@@ -390,8 +390,27 @@ html, body {
 .suggest-row.active .sr-rank::after { content: ' ✓'; }
 .suggest-row.bad .sr-rank { color: var(--dim); }
 
-/* ---------- load arrow ---------- */
-#orient .loadfx { flex-basis: 100%; margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+/* ---------- automatic layer view ---------- */
+#orient .layerview { flex-basis: 100%; margin-top: 8px; }
+.layer-note {
+  margin: 0 0 5px;
+  padding: 6px 9px;
+  border-left: 3px solid var(--dim);
+  border-radius: 3px;
+  background: var(--btn);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.layer-note:empty { display: none; }
+.layer-note.strong { border-left-color: #6fcf8b; color: #cdeccf; }
+.layer-note.mixed  { border-left-color: #ffb454; color: #f0dcc0; }
+.layer-note.weak   { border-left-color: #ff6b6b; color: #f2cfcf; }
+.layers-toggle { color: var(--dim); font-size: 12px; }
+
+/* ---------- load arrow (optional add-on) ---------- */
+#orient .loadfx .loadfx-lede { flex-basis: 100%; margin: 0 0 2px; }
+#orient .loadfx { flex-basis: 100%; margin-top: 10px; padding-top: 8px;
+  border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px; }
 #orient .loadfx #load-hint { flex-basis: 100%; margin: 2px 0 0; color: var(--dim); font-size: 12px; }
 #orient .loadfx #load-hint strong { color: var(--text); }
 .btn.sm.active { border-color: var(--accent); color: var(--accent); background: var(--btn-hi); }

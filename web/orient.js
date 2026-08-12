@@ -234,6 +234,36 @@ function alignQuality(cross) {
 }
 
 /**
+ * Automatic, input-free strength note for the CURRENT pose. A printed part is
+ * weakest across its layer lines -- the flat, horizontal planes -- so it splits
+ * most easily when pulled straight up the build axis. We can't know the real
+ * load, but we can ALWAYS say how this orientation lays the part down: if its
+ * longest span stands up the layers that's the classic weak print; lying flat
+ * runs the long spans along the layers, the strong way. `size` is the seated
+ * bounding box {x, y, z}, z the build height. Changes as the part turns.
+ */
+export function layerVerdict(size) {
+  const z = size.z;
+  const dims = [size.x, size.y, size.z].sort((a, b) => a - b);
+  const span = dims[2];
+  const eps = 0.05 * Math.max(1, span);
+  if (z >= span - eps) {
+    return { posture: 'weak',
+      note: `Standing tall — its longest span (${z.toFixed(0)} mm) runs up the layers. `
+          + `That's the classic weak print: layer lines peel apart most easily when `
+          + `pulled straight up.` };
+  }
+  if (z <= dims[0] + eps) {
+    return { posture: 'strong',
+      note: `Lying flat (${z.toFixed(0)} mm tall) — its long spans run along the layers, `
+          + `the strong way. Only a straight-up pull tests the weaker layer bond.` };
+  }
+  return { posture: 'mixed',
+    note: `On its side (${z.toFixed(0)} mm tall) — layers run flat, so the part is weakest `
+        + `pulled straight up and stronger side-to-side.` };
+}
+
+/**
  * Qualitative strength readout for a load in the CURRENT pose. `dirWorld` is the
  * load direction in seated print space (so world +Z is the build axis). Pull
  * model only: the critical tensile direction IS the applied force. (Lever -- where

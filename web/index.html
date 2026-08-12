@@ -128,17 +128,28 @@
   <button class="btn sm" id="redo" title="Redo (⇧⌘/Ctrl+Shift+Z)" disabled>Redo</button>
   <p class="readout"><span id="rot-now">X 0° · Y 0° · Z 0°</span><span id="rot-delta"></span></p>
   <p class="hint"><strong>Click any face</strong> to lay it flat, or drag the rings.</p>
+  <!-- Automatic strength view: no input. The faint frames show how the print is
+       layered (they stay horizontal while the part turns inside them), and the note
+       says where this orientation is weak. A printed part splits across its layers,
+       so orientation IS strength -- this makes that visible as you rotate. -->
+  <div class="layerview">
+    <p class="layer-note" id="layer-note"></p>
+    <label class="check layers-toggle" title="Show the horizontal print layers around the part.">
+      <input type="checkbox" id="show-layers" checked>Show layers
+    </label>
+  </div>
   <div class="suggest">
     <button class="btn sm" id="suggest-orient">Suggest orientation</button>
     <p class="hint" id="suggest-note"></p>
     <div id="suggest-list" hidden></div>
   </div>
-  <!-- Load direction: show which way the part is pulled or pushed in use, and the
-       tool says whether the print layers run with the load or across it (the weak
-       plane) -- and can turn the part to the strongest printable pose. Only the
-       DIRECTION matters (pull model), so it's a drag, not a placed point. No fake
-       "Nx stronger" number: the verdict is qualitative on purpose. -->
+  <!-- Optional load arrow: the layer view above is automatic; this is for when you
+       KNOW how the part is loaded in use. Drag a direction and it checks whether the
+       layers resist that specific load and can turn the part to the strongest
+       printable pose. Only the direction matters (pull model), so it's a drag, not a
+       placed point. No fake "Nx stronger" number: the verdict is qualitative. -->
   <div class="loadfx">
+    <p class="hint loadfx-lede">Know how it’s loaded in use? Mark it to check this pose:</p>
     <button class="btn sm" id="load-set"
             title="Show which way the part is pulled or pushed in use, to check the print orientation.">Set load direction</button>
     <button class="btn sm" id="load-clear" hidden>Clear</button>
