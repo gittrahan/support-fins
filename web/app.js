@@ -45,6 +45,13 @@ const el = (id) => document.getElementById(id);
 const viewport = el('viewport');
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+// Label the canvas: a screen reader otherwise announces a bare "canvas". The 3D
+// itself isn't reachable non-visually, but the live stats panel carries the same
+// state as text, so this points there.
+renderer.domElement.setAttribute('role', 'img');
+renderer.domElement.setAttribute(
+  'aria-label', 'Interactive 3D preview of the loaded part. Orientation and support '
+  + 'stats are reported as text in the panel on the left.');
 viewport.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();

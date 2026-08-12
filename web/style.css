@@ -67,6 +67,26 @@ html, body {
   user-select: none;
 }
 .btn:hover { border-color: var(--accent); color: var(--accent); background: var(--btn-hi); }
+
+/* Keyboard focus was invisible: no control showed a focus ring, so tabbing
+   through the tool was untrackable. One visible ring for every focusable thing
+   -- buttons, the select, the slider, the file label -- shown only for keyboard
+   focus (:focus-visible) so a mouse click doesn't leave a lingering outline. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.btn:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+/* A disabled Undo/Redo shouldn't look clickable. */
+.btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+  box-shadow: none;
+}
+.btn:disabled:hover { border-color: var(--btn-line); color: var(--text); background: var(--btn); }
 .btn.primary {
   border-color: var(--accent);
   color: #06121f;
