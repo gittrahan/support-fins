@@ -133,6 +133,19 @@
     <p class="hint" id="suggest-note"></p>
     <div id="suggest-list" hidden></div>
   </div>
+  <!-- Load arrow: point at where a force hits the part and which way it acts, and
+       the tool says whether the print layers run with the load or across it (the
+       weak plane) -- and can turn the part to the strongest printable pose. No
+       fake "Nx stronger" number: the verdict is qualitative on purpose. -->
+  <div class="loadfx">
+    <button class="btn sm" id="load-set"
+            title="Point at where a force acts on the part, and which way, to check the print orientation.">Set load direction</button>
+    <button class="btn sm" id="load-clear" hidden>Clear</button>
+    <p class="hint" id="load-hint" hidden>Click where the force acts, then click the
+      direction it pushes or pulls. <kbd>Esc</kbd> cancels.</p>
+    <p class="load-verdict" id="load-note" hidden></p>
+    <button class="btn sm" id="load-suggest" hidden>Turn to the strongest printable pose</button>
+  </div>
 </aside>
 </div><!-- /left-rail -->
 

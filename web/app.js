@@ -11,7 +11,7 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
-import { suggestOrientations } from './orient.js';
+import { suggestOrientations, suggestStrengthPose, loadAlignment } from './orient.js';
 import { buildFins } from './fins.js';
 import { findWallPatches } from './planes.js';
 import { drawnWall } from './draw.js';
@@ -240,6 +240,13 @@ function setPart(geometry, filename) {
   drawMsg = '';
   printTrisDirty = true;
   clearPreview();
+  // A new part starts with no load arrow either.
+  loadArrow = null;
+  loadPlacing = false;
+  loadStart = null;
+  loadArrowHelper.visible = false;
+  if (loadArrowHelper.parent) loadArrowHelper.parent.remove(loadArrowHelper);
+  syncLoadUI();
   setGizmo();
 
   // Undo history does not carry across parts.
@@ -337,6 +344,8 @@ function shade() {
   // where the part currently sits, the way a slicer states it
   const [ex, ey, ez] = readableEuler(part.quaternion);
   el('rot-now').textContent = `X ${ex}° · Y ${ey}° · Z ${ez}°`;
+  // the strength verdict is pose-dependent, so refresh it whenever the part turns
+  updateLoadReadout();
   return size;
 }
 
@@ -599,6 +608,32 @@ for (const o of [drawDot, drawCursor, drawBand]) {
   scene.add(o);
 }
 
+// ------------------------------------------------------------------- load arrow
+//
+// The user points at where a force actually hits the part -- and which way it
+// acts -- so the tool can say whether the print layers run WITH that load or
+// across it (the weak plane), and offer a stronger pose. It drives a QUALITATIVE
+// readout, never a fake "Nx stronger" number (see loadAlignment in orient.js).
+//
+// Stored in the part's LOCAL frame (`a` -> `b`, like a drawn wall), because the
+// force is anchored to a feature: it must rotate and re-seat with the part so the
+// readout tracks the pose. Parenting the ArrowHelper to `part` gives that for free.
+let loadArrow = null;       // { a: Vector3(local), b: Vector3(local) } or null
+let loadPlacing = false;    // true during the two-click placement
+let loadStart = null;       // Vector3(local) -- first click while placing
+const loadArrowHelper = new THREE.ArrowHelper(
+  new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 10, 0xffb454, 4, 2.6);
+loadArrowHelper.visible = false;
+loadArrowHelper.renderOrder = 12;   // over the part and the draw guides
+for (const m of [loadArrowHelper.line, loadArrowHelper.cone]) {
+  m.material.depthTest = false;      // a HUD arrow, always visible like the draw guides
+  m.material.transparent = true;
+  m.renderOrder = 12;
+}
+
+/** Pointer is placing the load arrow. Gates the gizmo and face-lay like drawing. */
+const loadActive = () => loadPlacing;
+
 // Pointer is in wall-placement mode (draw mode, or Suggest with the add toggle on).
 // Gates the draw interaction, the gizmo, and face-lay.
 const drawActive = () => finsVisible && (finMode === 'draw' || drawAugment);
@@ -720,13 +755,131 @@ function placeSecondPoint(hitPoint) {
   updateFit();
 }
 
-/** Enable the rotate gizmo only when NOT drawing -- its handles would otherwise
- *  swallow the clicks that place points. */
+/** Enable the rotate gizmo only when NOT drawing or placing the load arrow --
+ *  its handles would otherwise swallow the clicks that place points. */
 function setGizmo() {
-  const on = !!part && !drawActive();
+  const on = !!part && !drawActive() && !loadActive();
   gizmo.enabled = on;
   const helper = gizmo.getHelper ? gizmo.getHelper() : gizmo;
   helper.visible = on;
+}
+
+// ---------------------------------------------------------------- load arrow UI
+
+/** Redraw the arrow from `loadArrow`, parented to the part so it follows the pose. */
+function updateLoadArrowMesh() {
+  if (!loadArrow || !part) { loadArrowHelper.visible = false; return; }
+  if (loadArrowHelper.parent !== part) part.add(loadArrowHelper);
+  const dir = loadArrow.b.clone().sub(loadArrow.a);
+  const len = dir.length();
+  if (len < 1e-6) { loadArrowHelper.visible = false; return; }
+  loadArrowHelper.position.copy(loadArrow.a);
+  loadArrowHelper.setDirection(dir.normalize());
+  // head sized to the arrow but capped so a long pull on a big part isn't all head
+  loadArrowHelper.setLength(len, Math.min(len * 0.35, 8), Math.min(len * 0.24, 5));
+  loadArrowHelper.visible = true;
+}
+
+/** Live preview of the arrow during the second click (from `loadStart` to cursor). */
+function previewLoadArrow(hitPoint) {
+  drawCursor.position.copy(hitPoint);
+  drawCursor.visible = true;
+  if (!loadStart) { drawBand.visible = false; return; }
+  part.updateMatrixWorld();
+  const aWorld = part.localToWorld(loadStart.clone());
+  drawDot.position.copy(aWorld);
+  drawDot.visible = true;
+  bandGeom.setFromPoints([aWorld, hitPoint]);
+  bandGeom.attributes.position.needsUpdate = true;
+  drawBand.visible = true;
+}
+
+/**
+ * The qualitative strength verdict for the CURRENT pose. World +Z is the build
+ * axis once the part is seated, so the load direction in world space is all
+ * loadAlignment needs. Re-run on every orientation change (from shade()) so the
+ * verdict tracks the part as it turns.
+ */
+function updateLoadReadout() {
+  const note = el('load-note');
+  const suggestBtn = el('load-suggest');
+  if (!loadArrow || !part) {
+    note.hidden = true;
+    suggestBtn.hidden = true;
+    return;
+  }
+  part.updateMatrixWorld();
+  const aW = part.localToWorld(loadArrow.a.clone());
+  const bW = part.localToWorld(loadArrow.b.clone());
+  const al = loadAlignment([bW.x - aW.x, bW.y - aW.y, bW.z - aW.z]);
+  if (!al) { note.hidden = true; suggestBtn.hidden = true; return; }
+  note.textContent = al.text;
+  note.className = `load-verdict ${al.quality}`;
+  note.hidden = false;
+  // Offer a stronger pose only when this one isn't already good. Wired in the
+  // suggest section below; here we just decide whether to show the button.
+  suggestBtn.hidden = al.quality === 'good';
+}
+
+/** Enter two-click placement: first click sets the point the force acts on. */
+function beginLoadPlacement() {
+  if (!part || !topology) return;
+  loadPlacing = true;
+  loadStart = null;
+  clearPreview();
+  setGizmo();
+  syncLoadUI();
+}
+
+/** Leave placement without committing (Esc / right-click / re-toggle). */
+function cancelLoadPlacement() {
+  loadPlacing = false;
+  loadStart = null;
+  drawCursor.visible = drawBand.visible = drawDot.visible = false;
+  renderer.domElement.style.cursor = '';
+  setGizmo();
+  syncLoadUI();
+}
+
+/** Handle a click while placing: first sets the anchor, second commits the arrow. */
+function placeLoadPoint(hitPoint) {
+  if (!loadStart) {
+    loadStart = part.worldToLocal(hitPoint.clone());
+    previewLoadArrow(hitPoint);
+    return;
+  }
+  const b = part.worldToLocal(hitPoint.clone());
+  if (b.distanceTo(loadStart) < 1e-3) return;   // ignore a zero-length double-click
+  histPush();
+  loadArrow = { a: loadStart.clone(), b };
+  loadPlacing = false;
+  loadStart = null;
+  drawCursor.visible = drawBand.visible = drawDot.visible = false;
+  renderer.domElement.style.cursor = '';
+  updateLoadArrowMesh();
+  updateLoadReadout();
+  setGizmo();
+  syncLoadUI();
+}
+
+/** Remove the load arrow entirely. */
+function clearLoad() {
+  if (!loadArrow) return;
+  histPush();
+  loadArrow = null;
+  loadArrowHelper.visible = false;
+  updateLoadReadout();
+  syncLoadUI();
+}
+
+/** Mirror the button/hint state to whether an arrow exists and whether we're placing. */
+function syncLoadUI() {
+  const has = !!loadArrow;
+  el('load-set').textContent = loadPlacing ? 'Cancel'
+    : has ? 'Move load arrow' : 'Set load direction';
+  el('load-set').classList.toggle('active', loadPlacing);
+  el('load-clear').hidden = !has || loadPlacing;
+  el('load-hint').hidden = !loadPlacing;
 }
 
 /** Upload a triangle list into the scene, or null if there is nothing to show. */
@@ -1110,6 +1263,7 @@ function snapshot() {
   return {
     quat: [q.x, q.y, q.z, q.w],
     walls: drawnWalls.map((w) => ({ a: w.a.clone(), b: w.b.clone() })),
+    load: loadArrow ? { a: loadArrow.a.clone(), b: loadArrow.b.clone() } : null,
     finMode, finsVisible, drawAugment,
   };
 }
@@ -1126,6 +1280,11 @@ function histPush() {
 function restoreState(s) {
   part.quaternion.set(s.quat[0], s.quat[1], s.quat[2], s.quat[3]);
   drawnWalls = s.walls.map((w) => ({ a: w.a.clone(), b: w.b.clone(), ok: false, info: null }));
+  loadArrow = s.load ? { a: s.load.a.clone(), b: s.load.b.clone() } : null;
+  loadPlacing = false;
+  loadStart = null;
+  updateLoadArrowMesh();
+  syncLoadUI();
   finMode = s.finMode;
   finsVisible = s.finsVisible;
   drawAugment = s.drawAugment ?? false;
@@ -1231,6 +1390,20 @@ function pickFace(ev) {
 }
 
 renderer.domElement.addEventListener('pointermove', (ev) => {
+  // Placing the load arrow: the pointer sets its two ends, so face-lay hover is
+  // off and the cursor / band track the surface (same feel as draw mode).
+  if (loadActive()) {
+    hoverFace.visible = false;
+    const hit = pickFace(ev);
+    if (hit) {
+      previewLoadArrow(hit.point);
+      renderer.domElement.style.cursor = 'crosshair';
+    } else {
+      drawCursor.visible = drawBand.visible = false;
+      renderer.domElement.style.cursor = '';
+    }
+    return;
+  }
   // Draw mode: the pointer places wall endpoints, so face-lay hover is off and
   // the cursor / band / ghost track the surface instead.
   if (drawActive()) {
@@ -1279,6 +1452,14 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   // a drag is an orbit, not a pick
   if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
 
+  // Placing the load arrow: first click sets the point the force acts on, second
+  // sets the direction it acts in.
+  if (loadActive()) {
+    const hit = pickFace(e);
+    if (hit) placeLoadPoint(hit.point);
+    return;
+  }
+
   // Draw mode: first click sets the start of a wall, second click commits it.
   if (drawActive()) {
     const hit = pickFace(e);
@@ -1315,12 +1496,15 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 
 // Cancel a wall-in-progress: Escape, or a right-click in the viewport.
 addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && drawActive() && drawStart) {
+  if (e.key !== 'Escape') return;
+  if (loadActive()) { cancelLoadPlacement(); return; }
+  if (drawActive() && drawStart) {
     clearPreview();
     updateReadout(lastBuilt);
   }
 });
 renderer.domElement.addEventListener('contextmenu', (e) => {
+  if (loadActive()) { e.preventDefault(); cancelLoadPlacement(); return; }
   if (!drawActive()) return;
   e.preventDefault();
   if (drawStart) { clearPreview(); updateReadout(lastBuilt); }
@@ -1411,6 +1595,39 @@ el('suggest-orient').addEventListener('click', () => {
       btn.disabled = false; btn.textContent = 'Suggest orientation';
     }
   }));
+});
+
+// --------------------------------------------------------------- load arrow
+
+el('load-set').addEventListener('click', () => {
+  if (loadPlacing) cancelLoadPlacement();
+  else beginLoadPlacement();
+});
+el('load-clear').addEventListener('click', clearLoad);
+
+// Turn the part to the strongest PRINTABLE pose for the placed load. Unlike
+// "Suggest orientation" (which minimises support), this is strength-driven: it
+// lays the load most in-plane, but only among poses that actually sit on the bed,
+// so it can't produce the needle-tower. If the current pose is already about as
+// good as it gets, say so instead of turning to an equivalent orientation.
+el('load-suggest').addEventListener('click', () => {
+  if (!part || !topology || !loadArrow) return;
+  const dl = loadArrow.b.clone().sub(loadArrow.a);
+  const pose = suggestStrengthPose(topology, [dl.x, dl.y, dl.z], { threshold });
+  part.updateMatrixWorld();
+  const aW = part.localToWorld(loadArrow.a.clone());
+  const bW = part.localToWorld(loadArrow.b.clone());
+  const cur = loadAlignment([bW.x - aW.x, bW.y - aW.y, bW.z - aW.z]);
+  const note = el('load-note');
+  if (!pose || (cur && pose.cross >= cur.cross - 0.05)) {
+    note.textContent = 'This is about the strongest printable orientation for this '
+      + 'load — a better-aligned pose wouldn’t sit on the bed.';
+    note.className = `load-verdict ${cur ? cur.quality : 'mixed'}`;
+    note.hidden = false;
+    el('load-suggest').hidden = true;
+    return;
+  }
+  applySuggestion(pose.rot);   // turns the part; shade() refreshes the verdict + button
 });
 
 let threshold = DEFAULT_THRESHOLD;

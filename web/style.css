@@ -390,6 +390,26 @@ html, body {
 .suggest-row.active .sr-rank::after { content: ' ✓'; }
 .suggest-row.bad .sr-rank { color: var(--dim); }
 
+/* ---------- load arrow ---------- */
+#orient .loadfx { flex-basis: 100%; margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+#orient .loadfx #load-hint { flex-basis: 100%; margin: 2px 0 0; color: var(--dim); font-size: 12px; }
+#orient .loadfx #load-hint strong { color: var(--text); }
+.btn.sm.active { border-color: var(--accent); color: var(--accent); background: var(--btn-hi); }
+.load-verdict {
+  flex-basis: 100%;
+  margin: 4px 0 0;
+  padding: 6px 9px;
+  border-left: 3px solid var(--dim);
+  border-radius: 3px;
+  background: var(--btn);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.load-verdict.good  { border-left-color: #6fcf8b; color: #cdeccf; }
+.load-verdict.mixed { border-left-color: #ffb454; color: #f0dcc0; }
+.load-verdict.poor  { border-left-color: #ff6b6b; color: #f2cfcf; }
+#orient .loadfx #load-suggest { flex-basis: 100%; margin-top: 2px; }
+
 #fps {
   position: fixed;
   right: 14px; bottom: 12px;
