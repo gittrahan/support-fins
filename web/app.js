@@ -763,7 +763,10 @@ function rebuildDrawn() {
 
 /** The walls + pad the CURRENT mode contributes to the export and the fit check. */
 function activeAdded() {
-  const auto = finMode === 'prop' ? finTris : [];
+  // Both auto modes bake their geometry into finTris (refreshFins' else branch):
+  // Suggest → breakaway walls, Combined fin → tined fins. Only Draw leaves it
+  // empty and exports the hand-drawn walls instead.
+  const auto = finMode === 'draw' ? [] : finTris;
   const drawn = drawShown() ? drawnTris : [];
   return [...auto, ...drawn, ...padTris];
 }

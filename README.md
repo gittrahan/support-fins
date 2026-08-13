@@ -48,8 +48,13 @@ browser app is not built yet.
 - [x] Bed-reachability test
 - [x] Fin wall swept along a curved contact line (watertight output)
 - [x] Orientation scoring + load-direction model
-- [ ] **Tines** — the fused connection. See `docs/FIN-SPEC.md`; this is the whole point
-      and the prototype doesn't have it yet
+- [x] **Tines** — the fused connection. See `docs/FIN-SPEC.md`; this is the whole point.
+      Shipped as the **Combined fin** mode (`fins.js` mode `stabilize`): wall + ellipse
+      base + horizontal tines that fuse laterally into the part. Tines are built in world
+      axes so each occupies a single layer (0.300mm in Z) and stays horizontal to the
+      plate however the face leans — the perpendicular-to-a-leaning-face tine is exactly
+      the failure Slant3D warns about. Verified watertight, standoff 0.200mm, tines fuse +
+      touch the wall across the dev matrix; exports to STL and 3MF.
 - [ ] Scale-aware fin profile
 - [ ] Bed pad on tilted exports
 - [ ] The actual browser app
