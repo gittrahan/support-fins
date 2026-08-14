@@ -465,14 +465,11 @@ let finsVisible = false;
 // vertical. A user who loads a part and exports should get the support that
 // supports.
 //
-// DEFAULT IS 'draw', not 'prop'. Draw mode -- the user hands the tool one
-// contact line and it sweeps one clean breakaway wall along it -- is the
-// reliable path: it is exactly how tools/support/breakaway.py works, and its
-// output matches breakaway.py's because there is no contact line left to guess.
-// 'prop' (relabelled "Suggest" in the UI) is the best-effort auto-placer; it is
-// kept but demoted, because on a square face its PCA axis snaps to a diagonal
-// and it sprays walls that miss the face. See web/draw.js.
-let finMode = 'draw';
+// DEFAULT IS 'auto': click "Add fins" and the tool places the supports for you
+// (tined combined fins on the grippable overhangs, plain props on the rest). Draw
+// is the by-hand path. ('prop' still exists internally -- Draw calls it for the
+// bed pad + seating verdict, and it is the geometry Auto props with.)
+let finMode = 'auto';
 // Suggest + Draw mix: when true, the pointer places hand-drawn walls ON TOP of the
 // auto-placed ones (for when auto misses a spot). It only gates the pointer; the
 // drawn walls themselves stay shown/exported after placing until Clear all.
@@ -659,7 +656,7 @@ const loadActive = () => loadPlacing;
 // Purely illustrative -- no input, no effect on geometry. This is the automatic
 // "what does this orientation do to strength" view; the load arrow is the optional
 // add-on for when you know the actual load. Rebuilt each shade() to fit the part.
-let layersOn = true;
+let layersOn = false;
 const MAX_LAYER_FRAMES = 16;
 const layerGeom = new THREE.BufferGeometry();
 layerGeom.setAttribute('position',
@@ -1248,7 +1245,24 @@ function updateFinReadout(built, ms) {
     bits.push(built.fins
       .map((f) => `${f.height.toFixed(0)}mm tall × ${f.length.toFixed(0)}mm`)
       .join(' · '));
-    if (built.mode === 'prop') {
+    if (built.mode === 'auto') {
+      // Make "why no tines" legible: props never take tines, only the gripping
+      // fins do, so a part that gets only props shows no tines and that's correct.
+      const b = built.braceCount, p = built.propCount;
+      if (b) {
+        bits.push(built.tines
+          ? 'the fins’ tines fuse to the part and bend to snap off'
+          : 'the fins stand 0.2mm off the part and snap off — turn Tines on to grip');
+      }
+      if (p && !b) {
+        bits.push('these are plain props, not gripping fins — the overhangs here '
+          + 'are too shallow or curved to stand a fin against, so there are no '
+          + 'tines to add (the Tines toggle only affects gripping fins)');
+      } else if (p) {
+        bits.push(`the ${p} prop${p === 1 ? '' : 's'} sit under overhangs too shallow `
+          + 'to grip, so those have no tines');
+      }
+    } else if (built.mode === 'prop') {
       bits.push('breakaway: each stops 0.2mm under the part, so it snaps off '
               + 'rather than needing to be cut');
     }

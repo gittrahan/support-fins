@@ -83,16 +83,15 @@
 <aside id="fin-opts" hidden>
   <label class="fld">
     Placement
-    <select id="fin-mode" title="Who places the support, and what kind.">
-      <!-- The support is a fin that follows a DOWNWARD overhang face down to the
-           plate; with the Tines toggle on it fuses to the part (Slant3D combined
-           support) and grips, off it is a plain breakaway wall. Suggest === fins.js
-           mode 'auto' (support fins on the overhangs + gap-only props for shallow
-           ledges that can't take a fin). Combined fin === 'stabilize' (the fins
-           only, no props). Draw is the manual path: the user clicks a face. -->
-      <option value="draw">Draw — place a support fin by hand</option>
-      <option value="auto">Suggest — auto: support fins on the overhangs + props</option>
-      <option value="stabilize">Combined fin — auto: support fins only, no props</option>
+    <select id="fin-mode" title="Who places the support.">
+      <!-- Two modes only, on purpose. AUTO (fins.js mode 'auto') is the default and
+           does everything: a tined combined fin on each overhang face steep and flat
+           enough to grip, a plain breakaway prop under the shallow/curved ones that
+           can't take a fin. DRAW lets you place a fin by hand. The old fins-only
+           "Combined fin" mode was dropped -- it built nothing (and said nothing) on
+           parts with no fin sites, which just read as broken. -->
+      <option value="auto">Auto — place supports for me</option>
+      <option value="draw">Draw — place them by hand</option>
     </select>
   </label>
   <label class="check" title="A tilted part rests on an edge and peels off the plate without one.">
@@ -142,7 +141,7 @@
   <div class="layerview">
     <p class="layer-note" id="layer-note"></p>
     <label class="check layers-toggle" title="Show the horizontal print layers around the part.">
-      <input type="checkbox" id="show-layers" checked>Show layers
+      <input type="checkbox" id="show-layers">Show layers
     </label>
   </div>
   <div class="suggest">
