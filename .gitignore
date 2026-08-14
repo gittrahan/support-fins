@@ -7,3 +7,4 @@ dist/
 !tests/fixtures/*.stl
 out/
 dev-models/
+prototype/stress/models/
