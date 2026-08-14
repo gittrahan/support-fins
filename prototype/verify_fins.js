@@ -91,12 +91,16 @@ if (mode === 'prop') {
     console.log(`     plastic: ${(built.volume / 1000).toFixed(2)} cm3 of walls`);
   }
 }
+// In 'auto' the list mixes props (site null, no tines) with braces (a real site),
+// so only print the site detail for the fins that have one.
 for (const f of mode === 'prop' ? [] : built.fins) {
+  const site = f.site
+    ? `  d ${f.site.d.toFixed(2)} u ${f.site.u0.toFixed(1)}..${f.site.u1.toFixed(1)}` +
+      ` of ${f.site.patchU[0].toFixed(1)}..${f.site.patchU[1].toFixed(1)}`
+    : '  (breakaway wall)';
   console.log(`     ${f.height.toFixed(1)}mm tall x ${f.length.toFixed(1)}mm  ` +
               `${f.tines} tines / ${f.rows} rows  bearing ${f.bearing}deg  ` +
-              `stilt ${f.stilt.toFixed(1)}  lean ${f.lean.toFixed(0)}  ` +
-              `d ${f.site.d.toFixed(2)} u ${f.site.u0.toFixed(1)}..${f.site.u1.toFixed(1)}` +
-              ` of ${f.site.patchU[0].toFixed(1)}..${f.site.patchU[1].toFixed(1)}`);
+              `stilt ${f.stilt.toFixed(1)}  lean ${f.lean.toFixed(0)}` + site);
 }
 console.log(`  unserved overhang regions: ${built.unserved}`);
 const seat_ = built.seating;

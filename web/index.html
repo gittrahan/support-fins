@@ -90,7 +90,12 @@
            is best-effort and demoted -- on a square face its PCA axis snaps to a
            diagonal and the walls miss the face. -->
       <option value="draw">Draw — place walls by hand</option>
-      <option value="prop">Suggest — auto-place (best effort)</option>
+      <option value="prop">Suggest — auto-place walls (best effort)</option>
+      <!-- Auto: the "put the right support on each problem" mode. Runs Suggest's
+           breakaway walls for the overhangs AND, if the part is tilted enough to
+           topple, adds tined combined fins to brace it. Composed from the prop +
+           stabilize paths in fins.js (mode 'auto'), so it can't regress them. -->
+      <option value="auto">Auto — walls for overhangs + brace if it’d topple</option>
       <!-- Combined fin (stabilize): the Slant3D "support fin" proper -- a tined
            brace that FUSES to the part (horizontal tines, in the layer plane) so
            it grips laterally instead of just propping from below. Different job

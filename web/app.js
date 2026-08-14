@@ -1138,9 +1138,20 @@ function updateFinReadout(built, ms) {
   const kind = built.mode === 'prop' ? 'prop' : 'fin';
   // Hand-added walls (Suggest + Draw mix) count toward the tally too.
   const drawnOk = drawShown() ? drawnWalls.filter((w) => w.ok).length : 0;
-  const autoTxt = n
-    ? `${n} ${kind}${n === 1 ? '' : 's'}` + (built.mode === 'prop' ? '' : ` · ${built.tines} tines`)
-    : '';
+  let autoTxt;
+  if (built.mode === 'auto') {
+    // Auto mixes two support kinds; naming them apart is the honest readout --
+    // "18 fins" would hide that 17 are breakaway walls and one is a tined brace.
+    const p = built.propCount, b = built.braceCount;
+    const seg = [];
+    if (p) seg.push(`${p} wall${p === 1 ? '' : 's'}`);
+    if (b) seg.push(`${b} brace${b === 1 ? '' : 's'} · ${built.tines} tines`);
+    autoTxt = seg.join(' + ');
+  } else {
+    autoTxt = n
+      ? `${n} ${kind}${n === 1 ? '' : 's'}` + (built.mode === 'prop' ? '' : ` · ${built.tines} tines`)
+      : '';
+  }
   const drawnTxt = drawnOk ? `${autoTxt ? ' + ' : ''}${drawnOk} drawn` : '';
   box.textContent = (autoTxt + drawnTxt) || 'none possible';
   box.classList.toggle('warn', n === 0 && !drawnOk);

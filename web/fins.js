@@ -760,8 +760,9 @@ function seatingOf(result, contactPts) {
  * Generate supports for the part in its current orientation.
  *
  * @param opts.mode     'prop' (the default: a vertical breakaway wall under
- *                      each overhang) or 'stabilize' (the Brace: a tined fin
- *                      against toppling; docs/FIN-SPEC.md)
+ *                      each overhang), 'stabilize' (the Brace: a tined fin
+ *                      against toppling; docs/FIN-SPEC.md), or 'auto' (props for
+ *                      the overhangs PLUS bracing fins if the part would topple)
  * @param opts.bedPad   add the pad when bed contact is too small to hold
  */
 export function buildFins(topo, result, rot, opts = {}) {
@@ -769,6 +770,34 @@ export function buildFins(topo, result, rot, opts = {}) {
   const maxFins = opts.maxFins ?? FIN.maxFins;
   const out = [];
   const padOut = [];
+
+  // AUTO: put the right support on each problem instead of making the user choose.
+  // The two supports solve DIFFERENT failures, so this is not "wall or fin per
+  // region" -- it is both, as needed: breakaway walls prop the overhangs, and if
+  // the part is tilted so it would topple, combined fins brace it too. Composed by
+  // calling the two proven paths and merging, never a third geometry, so it cannot
+  // regress either one. (Neither recursive call is 'auto', so this can't recurse.)
+  if (mode === 'auto') {
+    const propRes = buildFins(topo, result, rot, { ...opts, mode: 'prop' });
+    // Topple bracing is only warranted when the part actually leans: mass offset
+    // from the bed-contact centroid. buildFins('stabilize') reports that as `tip`,
+    // and returns null for a flat, balanced part -- so a part sitting square on a
+    // face gets props only, no bracing fins it doesn't need. bedPad:false so the
+    // pad is built once (by the prop path above), not twice.
+    const brace = buildFins(topo, result, rot, { ...opts, mode: 'stabilize', bedPad: false });
+    const stab = brace.tip && brace.fins.length ? brace : null;
+
+    const fins = [...propRes.fins, ...(stab ? stab.fins : [])];
+    return {
+      ...propRes,     // seating, pad, padTriangles, unserved, rejected, skipped
+      triangles: [...propRes.triangles, ...(stab ? stab.triangles : [])],
+      fins,
+      tines: fins.reduce((a, f) => a + f.tines, 0),
+      mode: 'auto',
+      propCount: propRes.fins.length,   // breakaway walls under overhangs
+      braceCount: stab ? stab.fins.length : 0,  // tined anti-topple fins
+    };
+  }
 
   // Prop is its own support, built by its own module -- a wall UNDER each
   // overhang with no tines, which needs none of the face-finding below. Handled
