@@ -707,7 +707,7 @@ const drawActive = () => finsVisible && (finMode === 'draw' || drawAugment);
 // always; in Suggest it's whenever the user has drawn any (they persist after the
 // add toggle is switched off, so you can orbit and export without losing them).
 const drawShown = () =>
-  finsVisible && (finMode === 'draw' || (finMode === 'prop' && (drawAugment || drawnWalls.length > 0)));
+  finsVisible && (finMode === 'draw' || (finMode === 'auto' && (drawAugment || drawnWalls.length > 0)));
 
 function sizeMarkers(size) {
   const r = Math.max(0.7, Math.max(size.x, size.y, size.z) / 90);
@@ -764,8 +764,8 @@ function rebuildDrawn() {
 /** The walls + pad the CURRENT mode contributes to the export and the fit check. */
 function activeAdded() {
   // Both auto modes bake their geometry into finTris (refreshFins' else branch):
-  // Suggest → breakaway walls, Combined fin → tined fins. Only Draw leaves it
-  // empty and exports the hand-drawn walls instead.
+  // Suggest → gripping fins + fallback props, Combined fin → gripping fins only.
+  // Only Draw leaves it empty and exports the hand-drawn walls instead.
   const auto = finMode === 'draw' ? [] : finTris;
   const drawn = drawShown() ? drawnTris : [];
   return [...auto, ...drawn, ...padTris];
@@ -1140,12 +1140,13 @@ function updateFinReadout(built, ms) {
   const drawnOk = drawShown() ? drawnWalls.filter((w) => w.ok).length : 0;
   let autoTxt;
   if (built.mode === 'auto') {
-    // Auto mixes two support kinds; naming them apart is the honest readout --
-    // "18 fins" would hide that 17 are breakaway walls and one is a tined brace.
+    // Grip-first, and named apart so the readout is honest: the gripping fins are
+    // the real support (they hold the part), the props are the fallback under
+    // ledges too flat to grip. "N fins" alone would hide which is which.
     const p = built.propCount, b = built.braceCount;
     const seg = [];
-    if (p) seg.push(`${p} wall${p === 1 ? '' : 's'}`);
-    if (b) seg.push(`${b} brace${b === 1 ? '' : 's'} · ${built.tines} tines`);
+    if (b) seg.push(`${b} gripping fin${b === 1 ? '' : 's'} · ${built.tines} tines`);
+    if (p) seg.push(`${p} prop${p === 1 ? '' : 's'}`);
     autoTxt = seg.join(' + ');
   } else {
     autoTxt = n
@@ -1194,8 +1195,12 @@ function updateFinReadout(built, ms) {
         + 'Rotate until it sits down');
   }
   if (built.unserved) {
+    // The grip-first nudge: an un-served ledge is one with no upright face to grip
+    // and no room to prop. The video's own fix is to tilt it so that ledge turns
+    // into a face the fin can grab -- point the user there, not just "rotate".
     bits.push(`${built.unserved} overhang region${built.unserved === 1 ? '' : 's'} ` +
-              'still unsupported — rotate further, or use “+ Add walls by hand” to place them here');
+              'still unsupported — tilt it so that ledge becomes a face I can grip ' +
+              '(try Suggest orientation), or use “+ Add walls by hand”');
   }
   note.textContent = bits.join('. ') + '.';
   // ms is absent when a hand-drawn wall (Suggest + Draw mix) re-runs the readout
@@ -1211,7 +1216,7 @@ function syncDrawControls() {
 
 /** The "+ Add walls by hand" toggle, shown only in Suggest mode. */
 function syncAugmentUI() {
-  const show = finsVisible && finMode === 'prop';
+  const show = finsVisible && finMode === 'auto';
   el('augment-toggle').hidden = !show;
   el('augment-toggle').classList.toggle('primary', drawAugment);
   el('augment-toggle').textContent = drawAugment ? 'Done adding walls' : '+ Add walls by hand';
