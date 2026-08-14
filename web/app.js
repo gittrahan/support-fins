@@ -867,18 +867,17 @@ function placeSecondPoint(hitPoint) {
 }
 
 /**
- * Grip-first Draw: stand a gripping fin against the face the user clicked. The
- * fin is pinned to the seed FACE (not a point), so it survives re-orientation.
- * A face that can't take one says why rather than doing nothing -- and the same
- * patch never gets two fins stacked on it.
+ * Draw: stand a support fin against the face the user clicked. The fin is pinned
+ * to the seed FACE (not a point), so it survives re-orientation. A face that
+ * can't take one says why rather than doing nothing -- and the same patch never
+ * gets two fins stacked on it.
  */
 function placeFin(faceIndex) {
   const grip = getGrip();
   const patch = grip && grip.faceMap.get(faceIndex);
   if (!patch) {
-    drawMsg = 'that face can’t take a gripping fin — a horizontal tine has to fuse '
-      + 'into a near-vertical face. Aim at a steep side (it lights up green), or '
-      + 'tilt the part so this becomes one';
+    drawMsg = 'can’t stand a support fin on that face — aim at an overhang face '
+      + '(it lights up green), or tilt the part so this becomes one';
     updateReadout(lastBuilt);
     return;
   }
@@ -1175,17 +1174,20 @@ function updateDrawReadout(built, ms) {
   const bad = drawnFins.length - ok.length;
   const tines = ok.reduce((a, d) => a + (d.info?.tines ?? 0), 0);
   box.textContent = ok.length
-    ? `${ok.length} gripping fin${ok.length === 1 ? '' : 's'} · ${tines} tines` : 'none yet';
+    ? `${ok.length} support fin${ok.length === 1 ? '' : 's'}` + (tines ? ` · ${tines} tines` : '')
+    : 'none yet';
   box.classList.toggle('warn', ok.length === 0);
 
   const bits = [];
   if (!drawnFins.length && !drawMsg) {
-    bits.push('click a steep face — it lights up green when a fin can grip it — and '
-      + 'a tined fin is stood against it');
+    bits.push('click an overhang face — it lights up green when a fin can go there — '
+      + 'and a support fin is stood against it');
   }
   if (ok.length) {
     bits.push(ok.map((d) => `${d.info.height.toFixed(0)}mm tall × ${d.info.length.toFixed(0)}mm`).join(' · '));
-    bits.push('tined combined support: horizontal tines fuse to the part and bend to snap off');
+    bits.push(tines
+      ? 'combined support: horizontal tines fuse to the part and bend to snap off'
+      : 'breakaway wall: stands 0.2mm off the part so it snaps off (turn Tines on to grip)');
   }
   if (bad) {
     const one = drawnFins.find((d) => !d.ok);
@@ -1221,17 +1223,18 @@ function updateFinReadout(built, ms) {
   const drawnOk = drawShown() ? drawnWalls.filter((w) => w.ok).length : 0;
   let autoTxt;
   if (built.mode === 'auto') {
-    // Grip-first, and named apart so the readout is honest: the gripping fins are
-    // the real support (they hold the part), the props are the fallback under
-    // ledges too flat to grip. "N fins" alone would hide which is which.
+    // Named apart so the readout is honest: the support fins sit on the overhangs
+    // (tined when the toggle is on), the props are the fallback under ledges too
+    // flat to take a fin. "N fins" alone would hide which is which.
     const p = built.propCount, b = built.braceCount;
     const seg = [];
-    if (b) seg.push(`${b} gripping fin${b === 1 ? '' : 's'} · ${built.tines} tines`);
+    if (b) seg.push(`${b} support fin${b === 1 ? '' : 's'}` + (built.tines ? ` · ${built.tines} tines` : ''));
     if (p) seg.push(`${p} prop${p === 1 ? '' : 's'}`);
     autoTxt = seg.join(' + ');
   } else {
     autoTxt = n
-      ? `${n} ${kind}${n === 1 ? '' : 's'}` + (built.mode === 'prop' ? '' : ` · ${built.tines} tines`)
+      ? `${n} ${kind === 'prop' ? 'prop' : 'support fin'}${n === 1 ? '' : 's'}`
+        + (built.mode === 'prop' || !built.tines ? '' : ` · ${built.tines} tines`)
       : '';
   }
   const drawnTxt = drawnOk ? `${autoTxt ? ' + ' : ''}${drawnOk} drawn` : '';
@@ -1276,11 +1279,11 @@ function updateFinReadout(built, ms) {
         + 'Rotate until it sits down');
   }
   if (built.unserved) {
-    // The grip-first nudge: an un-served ledge is one with no upright face to grip
-    // and no room to prop. The video's own fix is to tilt it so that ledge turns
-    // into a face the fin can grab -- point the user there, not just "rotate".
+    // An un-served ledge is a shallow overhang with no room for a prop and too
+    // flat to stand a fin against. The video's own fix is to tilt it steeper so a
+    // fin can follow it -- point the user there, not just "rotate".
     bits.push(`${built.unserved} overhang region${built.unserved === 1 ? '' : 's'} ` +
-              'still unsupported — tilt it so that ledge becomes a face I can grip ' +
+              'still unsupported — tilt it steeper so a support fin can follow it ' +
               '(try Suggest orientation), or use “+ Add walls by hand”');
   }
   note.textContent = bits.join('. ') + '.';
@@ -1291,13 +1294,13 @@ function updateFinReadout(built, ms) {
 }
 
 /** Show the Draw controls (hint + Undo/Clear) only while hand-placement is live,
- *  and word the hint for what the click does: a gripping fin in Draw, a two-point
+ *  and word the hint for what the click does: a support fin in Draw, a two-point
  *  wall in the Suggest "+ Add" augment. */
 function syncDrawControls() {
   el('draw-controls').hidden = !drawShown();
   el('draw-hint').innerHTML = finMode === 'draw'
-    ? 'Click a <strong>steep face</strong> — it lights up green when a fin can grip '
-      + 'it — to stand a tined gripping fin against it.'
+    ? 'Click an <strong>overhang face</strong> — it lights up green when a fin can '
+      + 'go there — to stand a support fin against it.'
     : 'Click <strong>two points</strong> under an overhang to lay a breakaway wall '
       + 'along that line. <kbd>Esc</kbd> or right-click cancels.';
 }

@@ -84,21 +84,15 @@
   <label class="fld">
     Placement
     <select id="fin-mode" title="Who places the support, and what kind.">
-      <!-- GRIP-FIRST. The tool's real support is the Slant3D combined fin -- a
-           tined fin beside a steep face, whose horizontal tines fuse to the part
-           so it grips instead of only propping from below. Both auto-place modes
-           lead with it and fall back to a gap-only prop only where a shallow ledge
-           has no upright face to grip (a horizontal tine needs a near-vertical
-           face; see planes.js).
-
-           Draw is the reliable manual path: the user picks the face and the tool
-           stands a gripping fin against it. Suggest === fins.js mode 'auto' (grips
-           the part + props the un-grippable ledges). Combined fin === 'stabilize'
-           (grips only, no props). The old prop-only "Suggest" and separate "Auto"
-           were folded into this one grip-first Suggest. -->
-      <option value="draw">Draw — place a gripping fin on a face</option>
-      <option value="auto">Suggest — auto: grip the part + prop the rest</option>
-      <option value="stabilize">Combined fin — gripping fins only</option>
+      <!-- The support is a fin that follows a DOWNWARD overhang face down to the
+           plate; with the Tines toggle on it fuses to the part (Slant3D combined
+           support) and grips, off it is a plain breakaway wall. Suggest === fins.js
+           mode 'auto' (support fins on the overhangs + gap-only props for shallow
+           ledges that can't take a fin). Combined fin === 'stabilize' (the fins
+           only, no props). Draw is the manual path: the user clicks a face. -->
+      <option value="draw">Draw — place a support fin by hand</option>
+      <option value="auto">Suggest — auto: support fins on the overhangs + props</option>
+      <option value="stabilize">Combined fin — auto: support fins only, no props</option>
     </select>
   </label>
   <label class="check" title="A tilted part rests on an edge and peels off the plate without one.">
@@ -115,11 +109,11 @@
   <button class="btn sm" id="augment-toggle" hidden
           title="Place extra breakaway walls by hand, on top of the auto-placed ones.">+ Add walls by hand</button>
   <!-- Draw controls: shown while placing by hand. Hint text is set per mode in
-       app.js (syncDrawControls): a gripping fin on a face in Draw, a two-point
+       app.js (syncDrawControls): a support fin on a face in Draw, a two-point
        wall in the Suggest "+ Add" augment. -->
   <div id="draw-controls" hidden>
-    <p class="draw-hint" id="draw-hint">Click a <strong>steep face</strong> — it lights
-      up green when a fin can grip it — to stand a tined gripping fin against it.</p>
+    <p class="draw-hint" id="draw-hint">Click an <strong>overhang face</strong> — it lights
+      up green when a fin can go there — to stand a support fin against it.</p>
     <div class="draw-btns">
       <button class="btn sm" id="draw-undo">Undo</button>
       <button class="btn sm" id="draw-clear">Clear all</button>
