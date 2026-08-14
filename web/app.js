@@ -781,7 +781,8 @@ function rebuildDrawn() {
           + 'rotate back, or undo' };
         continue;
       }
-      const r = buildFinOnPatch(topology, lastResult, rotM3.elements, patch);
+      const r = buildFinOnPatch(topology, lastResult, rotM3.elements, patch,
+                                { tines: el('tines').checked });
       d.ok = r.ok;
       d.info = r.ok ? r.info : r;
       if (r.ok) for (const t of r.triangles) drawnTris.push(t);
@@ -1080,7 +1081,8 @@ function refreshFins() {
   // walls buildFins suggests and shows the hand-drawn ones instead.
   const built = buildFins(topology, lastResult, rotM3.elements,
                           { mode: finMode === 'draw' ? 'prop' : finMode,
-                            bedPad: el('bed-pad').checked });
+                            bedPad: el('bed-pad').checked,
+                            tines: el('tines').checked });
   lastBuilt = built;
   padTris = built.padTriangles;
   padMesh = meshFrom(padTris, padMaterial);
@@ -1320,6 +1322,7 @@ el('fin-mode').addEventListener('change', (e) => {
   refreshFins();
 });
 el('bed-pad').addEventListener('change', refreshFins);
+el('tines').addEventListener('change', refreshFins);
 
 /** The fins-toggle button's appearance for the current finsVisible. Factored out
  *  so undo/redo can re-sync it after restoring the flag. */

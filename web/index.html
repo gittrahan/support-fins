@@ -104,6 +104,12 @@
   <label class="check" title="A tilted part rests on an edge and peels off the plate without one.">
     <input type="checkbox" id="bed-pad" checked>Add bed pad
   </label>
+  <!-- Combined support toggle: ON = horizontal tines fuse the support to the part
+       so it grips (Slant3D combined support); OFF = the plain breakaway wall that
+       just stands under the overhang and snaps off. Same fin, tines or no tines. -->
+  <label class="check" title="Tines fuse the support to the part so it grips instead of just propping. Off = plain breakaway wall.">
+    <input type="checkbox" id="tines" checked>Tines (grip the part)
+  </label>
   <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
        Shown only in Suggest mode (toggled in app.js). -->
   <button class="btn sm" id="augment-toggle" hidden
