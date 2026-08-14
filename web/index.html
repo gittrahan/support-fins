@@ -96,7 +96,7 @@
            the part + props the un-grippable ledges). Combined fin === 'stabilize'
            (grips only, no props). The old prop-only "Suggest" and separate "Auto"
            were folded into this one grip-first Suggest. -->
-      <option value="draw">Draw — place walls by hand</option>
+      <option value="draw">Draw — place a gripping fin on a face</option>
       <option value="auto">Suggest — auto: grip the part + prop the rest</option>
       <option value="stabilize">Combined fin — gripping fins only</option>
     </select>
@@ -108,10 +108,12 @@
        Shown only in Suggest mode (toggled in app.js). -->
   <button class="btn sm" id="augment-toggle" hidden
           title="Place extra breakaway walls by hand, on top of the auto-placed ones.">+ Add walls by hand</button>
-  <!-- Draw controls: shown while placing walls by hand (Draw mode, or Suggest + add). -->
+  <!-- Draw controls: shown while placing by hand. Hint text is set per mode in
+       app.js (syncDrawControls): a gripping fin on a face in Draw, a two-point
+       wall in the Suggest "+ Add" augment. -->
   <div id="draw-controls" hidden>
-    <p class="draw-hint">Click <strong>two points</strong> under an overhang to lay a
-      breakaway wall along that line. <kbd>Esc</kbd> or right-click cancels.</p>
+    <p class="draw-hint" id="draw-hint">Click a <strong>steep face</strong> — it lights
+      up green when a fin can grip it — to stand a tined gripping fin against it.</p>
     <div class="draw-btns">
       <button class="btn sm" id="draw-undo">Undo</button>
       <button class="btn sm" id="draw-clear">Clear all</button>

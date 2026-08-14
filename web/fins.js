@@ -647,6 +647,44 @@ function buildPad(contact, out) {
 }
 
 /**
+ * DRAW mode support: every grippable face in this pose, and a map from any face
+ * index to the patch it belongs to. Grip-first Draw lets the user pick the face
+ * by hand, so the UI needs to know which faces CAN take a fin (to guide the
+ * pointer) and, given a picked face, which patch to stand a fin against. This is
+ * findWallPatches plus a face->patch index; the caller caches it per orientation
+ * and rebuilds only when the part turns.
+ */
+export function gripPatches(topo, result, rot) {
+  const patches = findWallPatches(topo, rot, result.offset);
+  const faceMap = new Map();
+  for (const p of patches) for (const f of p.faces) if (!faceMap.has(f)) faceMap.set(f, p);
+  return { patches, faceMap };
+}
+
+/**
+ * Build ONE gripping fin against `patch` -- the same wall + base + tines geometry
+ * Suggest auto-places, but for a face the user picked. Returns
+ * { ok, triangles, info } or { ok:false, reason } with a message the UI can show;
+ * a hand-placed fin that can't build must say WHY, never fail silently (the M5
+ * scoreboard trap). buildFin already truncates its own output on failure, so a
+ * fresh array per span cannot leak partial geometry.
+ */
+export function buildFinOnPatch(topo, result, rot, patch) {
+  const spans = chooseSpan(patch, topo, rot, result.offset);
+  if (!spans.length) {
+    return { ok: false, reason: 'no room for a fin against this face — the part is '
+      + 'in the way, or the face sits too close to the plate' };
+  }
+  for (const span of spans) {
+    const out = [];
+    const info = buildFin(patch, out, span, topo, rot, result.offset);
+    if (info) return { ok: true, triangles: out, info };
+  }
+  return { ok: false, reason: 'this face is too shallow or small to hold the tines a '
+    + 'gripping fin needs — tilt it steeper, or pick a taller face' };
+}
+
+/**
  * STABILIZE mode: pick the few sites that best keep the part standing.
  *
  * This is not "a fin per overhang" -- that is Coverage mode, and on a tilted
