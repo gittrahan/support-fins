@@ -390,9 +390,20 @@ function wallIsClear(p, u0, u1, zTop, topo, rot, offset) {
 /**
  * Build one fin -- wall, base, tines -- for `patch`, or null if the site cannot
  * carry enough tines to be a combined support.
+ *
+ * @param opts.tines  false to build the wall + base WITHOUT the tine comb (the
+ *                    plain breakaway variant the UI toggles to). Default true.
  */
-function buildFin(p0, out, span, topo, rot, offset) {
+function buildFin(p0, out, span, topo, rot, offset, opts = {}) {
   const before = out.length;
+  const withTines = opts.tines !== false;
+  // A fin serving a DOWNWARD overhang face sits tucked under the part at the
+  // plate-contact edge, where the part's own foot comes down right beside the
+  // wall. The base ellipse, centred tangent to the wall, then reaches back UNDER
+  // that tilted foot and reads as inside the part. Push it fully outboard (in +nh,
+  // which always points away from the part) so the whole disc clears -- the wall's
+  // outer half still overlaps it enough to anchor. Upright side fins are untouched.
+  const baseOut = p0.n.z < -0.05 ? 1.0 : 0;
   const { u0, u1 } = span;
   const r = FIN.th / 2;
   const wIn = FIN.gap, wOut = FIN.gap + FIN.th;
@@ -467,7 +478,7 @@ function buildFin(p0, out, span, topo, rot, offset) {
     const nhx0 = p.n.x / p.h, nhy0 = p.n.y / p.h;
     const bw0 = FIN.baseMinor / 2, bu0 = (u1 - u0) / 2 + FIN.basePad;
     const foot0 = patchPoint(p, wIn, (u0 + u1) / 2, tAtZ(p, wIn, 0));
-    const cx0 = foot0[0] + nhx0 * bw0, cy0 = foot0[1] + nhy0 * bw0;
+    const cx0 = foot0[0] + nhx0 * (bw0 + baseOut), cy0 = foot0[1] + nhy0 * (bw0 + baseOut);
     // sampled through the base's full thickness, not just its mid-height: parts
     // commonly flare in the first millimetre off the plate, so the rim can be
     // clear at 0.5mm and buried at 1.0mm
@@ -496,7 +507,7 @@ function buildFin(p0, out, span, topo, rot, offset) {
   const foot = patchPoint(p, wIn, (u0 + u1) / 2, tBedIn);
   const bw = FIN.baseMinor / 2;
   const bu = (u1 - u0) / 2 + FIN.basePad;
-  const cx = foot[0] + nhx * bw, cy = foot[1] + nhy * bw;
+  const cx = foot[0] + nhx * (bw + baseOut), cy = foot[1] + nhy * (bw + baseOut);
 
   const ell = [];
   for (let i = 0; i < FIN.ellipseSegs; i++) {
@@ -533,7 +544,7 @@ function buildFin(p0, out, span, topo, rot, offset) {
   const nU = sB > sA ? Math.max(2, Math.ceil((sB - sA) / FIN.tineSpacingU) + 1) : 1;
 
   let tines = 0;
-  for (const z of rows) {
+  if (withTines) for (const z of rows) {
     const zMid = z + FIN.tineH / 2;
     // the wall's outer anchor is fixed; the inner end moves to meet the surface
     const s1 = (p.d + FIN.gap + FIN.tineGrip - p.n.z * zMid) / p.h;
@@ -580,8 +591,10 @@ function buildFin(p0, out, span, topo, rot, offset) {
   }
 
   // A wall with too little grip is the M3 failure mode with extra steps: it
-  // props the part in one direction and lets it fall away in the other.
-  if (tines < FIN.minTines) { out.length = before; return null; }
+  // props the part in one direction and lets it fall away in the other. Only the
+  // TINED variant makes that promise; the plain (tines-off) wall is a breakaway
+  // wall and is allowed to grip nothing.
+  if (withTines && tines < FIN.minTines) { out.length = before; return null; }
 
   return {
     // the site, so a failure can be traced back to the face that produced it
@@ -669,7 +682,7 @@ export function gripPatches(topo, result, rot) {
  * scoreboard trap). buildFin already truncates its own output on failure, so a
  * fresh array per span cannot leak partial geometry.
  */
-export function buildFinOnPatch(topo, result, rot, patch) {
+export function buildFinOnPatch(topo, result, rot, patch, opts = {}) {
   const spans = chooseSpan(patch, topo, rot, result.offset);
   if (!spans.length) {
     return { ok: false, reason: 'no room for a fin against this face — the part is '
@@ -677,7 +690,7 @@ export function buildFinOnPatch(topo, result, rot, patch) {
   }
   for (const span of spans) {
     const out = [];
-    const info = buildFin(patch, out, span, topo, rot, result.offset);
+    const info = buildFin(patch, out, span, topo, rot, result.offset, opts);
     if (info) return { ok: true, triangles: out, info };
   }
   return { ok: false, reason: 'this face is too shallow or small to hold the tines a '
@@ -698,10 +711,14 @@ export function buildFinOnPatch(topo, result, rot, patch) {
  * direction is a fin in the way of the fall.
  */
 function rankSites(patches, tip, stats = null) {
-  // A site whose face starts high off the plate makes the wall below it a bare
-  // stilt: it holds nothing, it is the part most likely to wobble, and it is
-  // most of the plastic.
-  const usable = patches.filter((p) => p.z0 - FIN.baseH <= FIN.stiltFrac * p.z1);
+  // COMBINED SUPPORT places its fins on the part's DOWNWARD overhang faces (the
+  // surfaces that actually need holding up), following each face down to the
+  // plate -- not on the upright side faces the old beside-the-face model picked,
+  // which stood a lonely fin against a wall that was printing fine on its own.
+  // Also drop bare-stilt sites: a face starting high off the plate makes the wall
+  // below it a stilt that holds nothing and is most of the plastic.
+  const usable = patches.filter((p) =>
+    p.n.z < -0.05 && p.z0 - FIN.baseH <= FIN.stiltFrac * p.z1);
   if (stats) stats.tooHigh = patches.length - usable.length;
   if (!usable.length) return [];
 
@@ -962,7 +979,8 @@ export function buildFins(topo, result, rot, opts = {}) {
 
     let info = null;
     for (const span of spans) {
-      info = buildFin(cand.patch, out, span, topo, rot, result.offset);
+      info = buildFin(cand.patch, out, span, topo, rot, result.offset,
+                      { tines: opts.tines });
       if (info) break;
     }
     if (info) { fins.push(info); taken.push(cand.patch); }
