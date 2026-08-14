@@ -54,14 +54,29 @@ export const FIN = {
   arcSegs: 8,         // segments in the rounded top
   ellipseSegs: 40,
   minTines: 3,        // fewer than this and it is a prop, not a combined support
-  stiltFrac: 0.35,    // reject a site whose tined zone starts above this * height
+  // Reject a site whose tined zone starts above this * height -- a bare stilt
+  // holds little and is most of the plastic. Kept modest (0.4): the "78mm part
+  // held by one 4mm nub" bug was NOT this filter, it was the score-ratio break
+  // below stopping the search after one fin. With that fixed, a tight stilt
+  // filter is free -- it just keeps a second fin off a mostly-airborne face.
+  stiltFrac: 0.4,
   padH: 0.5,          // bed pad thickness
   padMargin: 4.0,     // how far the pad spreads past the part's contact
   padMinArea: 60.0,   // mm^2 of bed contact above which no pad is needed
   maxLen: 25,         // mm; a fin is a short brace at a corner, not a full-length wall
-  maxFins: 3,
+  // Grip-first holds the part, and the spec's own rule is "long parts: two fins,
+  // opposite sides" -- so one fin is too few and this is exactly two. Not more:
+  // over-finning is the baseline this tool argues against ("less plastic because
+  // it refuses to over-support"). Where two clear opposite faces don't exist the
+  // part gets one and the readout says to rotate; it never sprays a dozen.
+  maxFins: 2,
   maxSiteTries: 24,   // candidate faces to attempt before giving up
-  minScoreRatio: 0.35,  // a 2nd/3rd fin must score this fraction of the best
+  // A later fin must still clear this fraction of the best fin's score, so junk
+  // sites are skipped -- but at 0.35 this fired right after the first fin and
+  // STOPPED the search before it ever reached the opposite-side face (which
+  // scores ~0.7x by construction below). 0.25 keeps the anti-junk floor while
+  // letting the opposite fin through.
+  minScoreRatio: 0.25,
   minSeparationDeg: 60, // ...and face at least this far from those chosen
   minSiteGap: 12,     // mm; ...and stand this far from them in space, see below
 };
@@ -660,12 +675,18 @@ function rankSites(patches, tip, stats = null) {
   // than bracing anything, and the bare wall under them is the wobbliest part of
   // the fin. Between two otherwise equal faces, the lower one is the better
   // brace, so height alone must not decide it.
+  // Both sides matter, not just the one the part falls toward. The spec puts a
+  // fin on the fall side AND one opposite so the part cannot twist off, so a face
+  // looking AWAY from the lean must still rank -- `Math.max(0, align)` zeroed it
+  // and the opposite fin never got built. `alignAbs` keeps both sides in play;
+  // the small `alignPos` bonus still lets the fall-toward face win the top slot.
   return usable.map((p) => {
-    const align = tip ? (p.n.x * tip.x + p.n.y * tip.y) / p.h : 0;
+    const a = tip ? (p.n.x * tip.x + p.n.y * tip.y) / p.h : 0;
+    const alignAbs = Math.abs(a), alignPos = Math.max(0, a);
     const stilt = Math.max(0, p.z0 - FIN.baseH) / maxH;
     return {
       patch: p,
-      score: 1.0 * Math.max(0, align)
+      score: 0.7 * alignAbs + 0.3 * alignPos
            + 0.6 * (p.z1 / maxH)
            + 0.4 * ((p.u1 - p.u0) / maxW)
            - 1.2 * stilt,
@@ -771,31 +792,37 @@ export function buildFins(topo, result, rot, opts = {}) {
   const out = [];
   const padOut = [];
 
-  // AUTO: put the right support on each problem instead of making the user choose.
-  // The two supports solve DIFFERENT failures, so this is not "wall or fin per
-  // region" -- it is both, as needed: breakaway walls prop the overhangs, and if
-  // the part is tilted so it would topple, combined fins brace it too. Composed by
-  // calling the two proven paths and merging, never a third geometry, so it cannot
-  // regress either one. (Neither recursive call is 'auto', so this can't recurse.)
+  // AUTO -- the grip-first mode, and the tool's real recommendation. It puts the
+  // right support on each problem instead of making the user choose:
+  //   * GRIPPING FINS (fins.js 'stabilize') hold the part -- the Slant3D combined
+  //     support, a tined fin beside a steep face. This is PRIMARY: a tilted part
+  //     is strong but wants to topple/peel, and the fin is what lets it print.
+  //   * PROPS (prop.js) are the FALLBACK, only for a shallow overhang ledge that
+  //     has no upright face to grip. A horizontal tine needs a near-vertical face
+  //     (planes.js), so a flat-lying ledge geometrically can't be gripped -- the
+  //     honest answer there is a gap-only wall, and the readout says to tilt it.
+  // Composed by calling the two proven paths and merging, never a third geometry,
+  // so it cannot regress either. (Neither recursive call is 'auto', so no recursion.)
   if (mode === 'auto') {
     const propRes = buildFins(topo, result, rot, { ...opts, mode: 'prop' });
-    // Topple bracing is only warranted when the part actually leans: mass offset
-    // from the bed-contact centroid. buildFins('stabilize') reports that as `tip`,
-    // and returns null for a flat, balanced part -- so a part sitting square on a
-    // face gets props only, no bracing fins it doesn't need. bedPad:false so the
-    // pad is built once (by the prop path above), not twice.
+    // Grip fires whenever the part needs HOLDING, which 'stabilize' decides for
+    // itself (it leans, or it rests on almost no bed) and reports by returning
+    // fins -- a flat, well-seated part gets props only. bedPad:false so the pad is
+    // built once, by the prop path above.
     const brace = buildFins(topo, result, rot, { ...opts, mode: 'stabilize', bedPad: false });
-    const stab = brace.tip && brace.fins.length ? brace : null;
+    const stab = brace.fins.length ? brace : null;
 
-    const fins = [...propRes.fins, ...(stab ? stab.fins : [])];
+    // Grips first: they are the primary support, so they lead the list and the
+    // readout, and props read as the fallback they are.
+    const fins = [...(stab ? stab.fins : []), ...propRes.fins];
     return {
       ...propRes,     // seating, pad, padTriangles, unserved, rejected, skipped
-      triangles: [...propRes.triangles, ...(stab ? stab.triangles : [])],
+      triangles: [...(stab ? stab.triangles : []), ...propRes.triangles],
       fins,
       tines: fins.reduce((a, f) => a + f.tines, 0),
       mode: 'auto',
-      propCount: propRes.fins.length,   // breakaway walls under overhangs
-      braceCount: stab ? stab.fins.length : 0,  // tined anti-topple fins
+      propCount: propRes.fins.length,   // breakaway walls under un-grippable ledges
+      braceCount: stab ? stab.fins.length : 0,  // tined gripping fins (primary)
     };
   }
 
@@ -866,7 +893,14 @@ export function buildFins(topo, result, rot, opts = {}) {
     if (dn > 0.5) tip = { x: dx / dn, y: dy / dn };
   }
 
-  const ranked = mode === 'stabilize' ? rankSites(patches, tip, patchStats) : [];
+  // A part sitting square on a wide face is not going anywhere -- gripping fins on
+  // its upright sides would be plastic spent holding a part that holds itself. So
+  // grip only fires when the part actually needs holding: it leans (has a `tip`),
+  // or it rests on so little bed that it would peel/topple. This is also what
+  // stops standalone Combined-fin from spraying braces on a flat, seated part.
+  const needsHolding = tip !== null || result.bedArea < FIN.padMinArea;
+  const ranked = mode === 'stabilize' && needsHolding
+    ? rankSites(patches, tip, patchStats) : [];
 
   // Walk the ranking until enough fins EXIST, rather than picking sites up front
   // and hoping. Choosing first and building second meant a site that turned out
