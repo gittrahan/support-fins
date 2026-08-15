@@ -429,6 +429,37 @@ html, body {
 .load-verdict.poor  { border-left-color: #ff6b6b; color: #f2cfcf; }
 #orient .loadfx #load-suggest { flex-basis: 100%; margin-top: 2px; }
 
+/* ---------- bottom-right status card ---------- */
+#status {
+  position: fixed;
+  right: 14px; bottom: 34px;
+  z-index: 3;
+  width: 264px;
+  max-width: calc(100vw - 28px);
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;          /* clicks pass through the empty gaps to the canvas */
+  text-align: left;
+}
+#status[hidden] { display: none; }
+#status > * { pointer-events: auto; }
+#status .layer-note { margin: 0; }
+/* Overhang warning: the tool isn't holding these up, so it's an amber caution, not
+   a green all-clear. Matches the .layer-note card look so the two read as one stack. */
+.over-warn {
+  margin: 0;
+  padding: 6px 9px;
+  border-left: 3px solid #ffb454;
+  border-radius: 3px;
+  background: var(--btn);
+  color: #f0dcc0;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.over-warn:empty { display: none; }
+
 #fps {
   position: fixed;
   right: 14px; bottom: 12px;

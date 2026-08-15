@@ -314,6 +314,21 @@ function shade() {
     : `${res.regions.length} region${res.regions.length === 1 ? '' : 's'}` +
       (dropped ? ` (+${dropped} sliver${dropped === 1 ? '' : 's'})` : '');
   el('s-over').classList.toggle('good', res.regions.length === 0);
+
+  // Overhang warning (bottom-right card). The tool builds support for the big
+  // overhang REGIONS but drops the small ones -- hole ceilings, slot roofs, bore
+  // tops -- as slivers. Those are exactly what prints rough by surprise, so name
+  // them out loud instead of leaving the maker to find out at the printer. Only
+  // fires when this pose actually has overhangs to support (a clean/flat pose says
+  // its piece via s-flat-note); the fix is almost always a better orientation.
+  const warn = el('over-warn');
+  if (res.regions.length > 0 && dropped > 0) {
+    warn.textContent = `⚠ ${dropped} small overhang${dropped === 1 ? '' : 's'} `
+      + `(hole ceilings, slots, bore tops) aren’t supported in this pose — small `
+      + `features may print rough. Try Suggest orientation to point them up.`;
+  } else {
+    warn.textContent = '';
+  }
   el('s-overarea').textContent = `${res.overArea.toFixed(0)} mm²`;
   el('s-bed').textContent = `${res.bedArea.toFixed(0)} mm²`;
   el('s-bed').classList.toggle('warn', res.bedArea < 1);
@@ -413,6 +428,7 @@ function report(filename, size) {
   updateFit();
 
   el('stats').hidden = false;
+  el('status').hidden = false;
   el('drop').classList.add('hidden');
 }
 
@@ -1181,7 +1197,6 @@ function updateDrawReadout(built, ms) {
       + 'and a support fin is stood against it');
   }
   if (ok.length) {
-    bits.push(ok.map((d) => `${d.info.height.toFixed(0)}mm tall × ${d.info.length.toFixed(0)}mm`).join(' · '));
     bits.push(tines
       ? 'combined support: horizontal tines fuse to the part and bend to snap off'
       : 'breakaway wall: stands 0.2mm off the part so it snaps off (turn Tines on to grip)');
@@ -1242,9 +1257,6 @@ function updateFinReadout(built, ms) {
   if (!n && !drawnOk) {
     bits.push(explainNoFins(built));
   } else if (n) {
-    bits.push(built.fins
-      .map((f) => `${f.height.toFixed(0)}mm tall × ${f.length.toFixed(0)}mm`)
-      .join(' · '));
     if (built.mode === 'auto') {
       // Make "why no tines" legible: props never take tines, only the gripping
       // fins do, so a part that gets only props shows no tines and that's correct.
