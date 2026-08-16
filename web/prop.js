@@ -640,7 +640,7 @@ export function contactLine(pts, tris, nSamples) {
  * where 0.2mm was intended, which welds. Checking the midpoints and pulling the
  * span down is what turns the gap into a floor.
  */
-export function lowerSag(line, tris) {
+export function lowerSag(line, tris, band = Infinity) {
   for (let pass = 0; pass < 3; pass++) {
     let moved = false;
     for (let i = 0; i < line.length - 1; i++) {
@@ -650,6 +650,10 @@ export function lowerSag(line, tris) {
       if (zz === null) continue;
       const midWall = (line[i][2] + line[i + 1][2]) / 2;
       const over = midWall - zz;
+      // `band` caps how far below the wall a surface can be and still pull it
+      // down: a PART-ATTACHED top must settle against the OVERHANG, not the floor
+      // metres beneath it that surfaceZAt (lowest hit) would otherwise return.
+      if (over > band) continue;
       if (over > 1e-4) {
         line[i] = [line[i][0], line[i][1], line[i][2] - over];
         line[i + 1] = [line[i + 1][0], line[i + 1][1], line[i + 1][2] - over];
@@ -691,7 +695,7 @@ export function lowerSag(line, tris) {
  * never lands on. The tip is 0.6mm wide; that is the only distance this pass is
  * responsible for.
  */
-export function contourTop(line, tris) {
+export function contourTop(line, tris, band = Infinity) {
   const half = PROP.tip / 2;
   for (let i = 0; i < line.length; i++) {
     const a = line[Math.max(0, i - 1)];
@@ -701,10 +705,13 @@ export function contourTop(line, tris) {
     if (rn < 1e-9) continue;
     const sx = ry / rn, sy = -rx / rn;     // across the wall
 
-    let z = line[i][2];
+    const z0 = line[i][2];
+    let z = z0;
     for (const o of [-half, half]) {
       const zz = surfaceZAt(tris, line[i][0] + sx * o, line[i][1] + sy * o);
-      if (zz !== null && zz < z) z = zz;
+      // Within `band` of the overhang only: past that, the lowest hit is the
+      // floor a part-attached wall means to land on, not the overhang it clears.
+      if (zz !== null && zz < z && z0 - zz <= band) z = zz;
     }
     line[i] = [line[i][0], line[i][1], z];
   }
@@ -735,7 +742,7 @@ export function contourTop(line, tris) {
  * step made corrective rather than merely fatal: the wall is not discarded for
  * being 0.07mm high, it is lowered 0.07mm.
  */
-export function settleTop(line, tris, step = 0.25) {
+export function settleTop(line, tris, step = 0.25, band = Infinity) {
   const half = PROP.tip / 2;
 
   // PER STATION, not one shift for the whole wall. A single global drop was
@@ -773,6 +780,10 @@ export function settleTop(line, tris, step = 0.25) {
           // another part of the mesh, which this pass cannot see. Raising on
           // that evidence welds it to what it could not measure: tried, and it
           // took the matrix from 6 clean to 0, with gaps of 0.002-0.015mm.
+          // A surface more than `band` below the wall top is the floor, not the
+          // overhang -- settling to it is exactly the collapse a part-attached
+          // top must avoid, so leave it to floorLine/sweepBetween.
+          if (topZ - zz > band) continue;
           const need = PROP.gap - (zz - topZ);
           if (need <= 1e-4) continue;
           // charge the deficit to whichever end of the span owns this sample
@@ -1016,6 +1027,122 @@ export function sweep(line, zBed, out) {
 
   ribbon(wall, out);
   ribbon(flange, out);
+  return true;
+}
+
+/**
+ * Every part-surface height directly above (x, y), as a list.
+ *
+ * `surfaceZAt` returns only the LOWEST, which is what a bed-attached prop wants
+ * (the underside it clears). A PART-ATTACHED support instead needs the surfaces
+ * in BETWEEN -- the floor it stands on lives above the plate and below the
+ * overhang -- so keep them all. Same ray test draw.js uses; shared here so
+ * floorLine and the draw path measure the part identically.
+ */
+export function surfaceZsAt(tris, x, y) {
+  const zs = [];
+  for (let i = 0; i < tris.length; i += 9) {
+    const ax = tris[i], ay = tris[i + 1], az = tris[i + 2];
+    const bx = tris[i + 3], by = tris[i + 4], bz = tris[i + 5];
+    const cx = tris[i + 6], cy = tris[i + 7], cz = tris[i + 8];
+    const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+    if (Math.abs(den) < 1e-12) continue;
+    const l1 = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / den;
+    const l2 = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / den;
+    const l3 = 1 - l1 - l2;
+    if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
+    zs.push(l1 * az + l2 * bz + l3 * cz);
+  }
+  return zs;
+}
+
+/**
+ * The floor contour a PART-ATTACHED support stands on: for each station of
+ * `topLine`, the HIGHEST part surface strictly below the overhang, or 0 (the
+ * plate) where nothing intervenes.
+ *
+ * This is the exact mirror of `contourTop`. contourTop looks UP across the tip
+ * and takes the LOWEST hit, so the tip stops `gap` under the overhang; floorLine
+ * looks DOWN across the tip and takes the HIGHEST hit below the overhang, so the
+ * support lands on the part instead of driving to z=0. Taking the highest hit
+ * across the tip's width (not just the centre) means the bottom rests ON the
+ * floor and never digs into it -- the same reasoning contourTop uses to keep the
+ * top out of the part.
+ *
+ * `margin` keeps the overhang's OWN face from being read as its floor: only
+ * surfaces at least `margin` below the contact line count. Stations with no
+ * intervening surface fall through to 0, so a wall that is part over-part and
+ * part over-bed degrades station-by-station to the plate with nothing special-
+ * cased -- the current all-to-plate behaviour is just the everywhere-0 case.
+ */
+export function floorLine(topLine, tris, margin = 1.0) {
+  const half = PROP.tip / 2;
+  const bot = [];
+  for (let i = 0; i < topLine.length; i++) {
+    const a = topLine[Math.max(0, i - 1)];
+    const b = topLine[Math.min(topLine.length - 1, i + 1)];
+    let rx = b[0] - a[0], ry = b[1] - a[1];
+    const rn = Math.hypot(rx, ry) || 1;
+    const sx = ry / rn, sy = -rx / rn;      // across the wall
+    const ceil = topLine[i][2] - margin;
+    let z = 0;                               // plate fallback
+    for (const o of [-half, 0, half]) {
+      for (const zz of surfaceZsAt(tris, topLine[i][0] + sx * o, topLine[i][1] + sy * o)) {
+        if (zz < ceil && zz > z) z = zz;     // highest surface below the overhang
+      }
+    }
+    bot.push([topLine[i][0], topLine[i][1], z]);
+  }
+  return bot;
+}
+
+/**
+ * Sweep a PART-ATTACHED wall between two contours: its top stops `gap` below the
+ * overhang (`topLine`, exactly as `sweep` does) and its bottom rests ON the floor
+ * contour (`botLine` from `floorLine`) instead of a flat `zBed`.
+ *
+ * The bottom is a per-station contour, so it conforms to a sloped or curved floor
+ * for free -- no flat foot ellipse, which would only touch a level surface at one
+ * edge. The wall tapers to the `tip` width at BOTH ends: the top tip breaks away
+ * under the overhang (the part bridges the `gap`), and the bottom tip is the only
+ * thing that welds to the part below, kept as narrow as the top so it leaves the
+ * smallest possible witness mark and snaps off cleanly. There is no `gap` at the
+ * bottom on purpose: an air gap at both ends would make the support a floating
+ * island the slicer cannot anchor, so the support grows UP from the floor (the
+ * only printable topology) and the single scar it can leave is on an internal
+ * surface you could not have oriented away.
+ */
+export function sweepBetween(topLine, botLine, out) {
+  const wall = [];
+  for (let i = 0; i < topLine.length; i++) {
+    const p = topLine[i];
+    const a = topLine[Math.max(0, i - 1)];
+    const b = topLine[Math.min(topLine.length - 1, i + 1)];
+    let rx = b[0] - a[0], ry = b[1] - a[1];
+    const rn = Math.hypot(rx, ry);
+    if (rn < 1e-9) return false;
+    rx /= rn; ry /= rn;
+    const sx = ry, sy = -rx;                 // horizontal, across the wall
+
+    const top = p[2] - PROP.gap;
+    const bot = botLine[i][2];
+    const h = top - bot;
+    if (h < PROP.minHeight) return false;
+    const taper = Math.min(PROP.tipH, h / 2); // tapers meet in the middle if short
+    const zBotTip = bot + taper;
+    const zTopTip = top - taper;
+    const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
+
+    // one closed 8-gon section: tip-wide at both ends, th-wide through the middle
+    wall.push([
+      P(+PROP.tip / 2, bot), P(+PROP.th / 2, zBotTip),
+      P(+PROP.th / 2, zTopTip), P(+PROP.tip / 2, top),
+      P(-PROP.tip / 2, top), P(-PROP.th / 2, zTopTip),
+      P(-PROP.th / 2, zBotTip), P(-PROP.tip / 2, bot),
+    ]);
+  }
+
+  ribbon(wall, out);
   return true;
 }
 
