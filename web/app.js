@@ -1823,10 +1823,15 @@ function renderSuggestions() {
     const fins = c.walls === 0 ? 'no fins' : `${c.walls} fin${c.walls === 1 ? '' : 's'}`;
     const overs = c.regions === 0 ? 'no overhangs'
       : `${c.regions} overhang${c.regions === 1 ? '' : 's'} → ${fins}`;
+    // Rough holes = the small hole/slot/bore-top overhangs this pose leaves
+    // unsupported (dropped slivers + bore-refused). Showing it is what makes a
+    // hole-friendly pose legible: "Best · 12 rough holes" over "#3 · 561".
+    const rough = (c.holes ?? 0) + (c.bore ?? 0);
+    const roughTxt = rough ? ` · ${rough} rough hole${rough === 1 ? '' : 's'}` : '';
     row.innerHTML =
       `<span class="sr-rank">${i === 0 ? 'Best' : `#${i + 1}`}</span>` +
       `<span class="sr-main">${c.height.toFixed(0)} mm tall · ${c.bedArea.toFixed(0)} mm² on the bed</span>` +
-      `<span class="sr-sub">${overs}${point ? ' · balances on a point — can’t print this way' : ''}</span>`;
+      `<span class="sr-sub">${overs}${roughTxt}${point ? ' · balances on a point — can’t print this way' : ''}</span>`;
     if (point) row.classList.add('bad');
     row.addEventListener('click', () => {
       applySuggestion(c.rot);

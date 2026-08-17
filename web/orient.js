@@ -136,9 +136,17 @@ export function suggestOrientations(topo, { top = 3, threshold = 45 } = {}) {
   const scored = downs.map((d) => {
     const rot = rotFromTo(d, DOWN);
     const a = analyze(topo, threshold, rot);
+    // The small overhangs analyze() drops as slivers ARE the hole ceilings, slot
+    // roofs and bore tops that print rough by surprise -- a pose that turns them
+    // UP prints them clean with no support, so fewer is better. This is the
+    // quality-first counterpart to the bore-guard: it gives the "rotate so the
+    // hole points up" warning a pose to actually land on.
+    const holes = a.rawRegionCount - a.regions.length;
     // printability proxy: overhang area dominates, bed contact helps adhesion,
-    // height is a mild time/tipping penalty. Lower is better.
-    const cheap = a.overArea + Math.max(0, 200 - a.bedArea) * 0.25 + a.size.z * 2;
+    // height is a mild time/tipping penalty, holes-in-overhang a rough-surface
+    // penalty. Lower is better.
+    const cheap = a.overArea + Math.max(0, 200 - a.bedArea) * 0.25
+      + a.size.z * 2 + holes * 2;
     return { rot, a, cheap };
   }).sort((p, r) => p.cheap - r.cheap);
 
@@ -152,15 +160,25 @@ export function suggestOrientations(topo, { top = 3, threshold = 45 } = {}) {
     const nReg = s.a.regions.length;
     const coverage = nReg ? (nReg - (b.unserved ?? nReg)) / nReg : 1;
     const point = b.seating?.kind === 'point';
+    // Holes/slots/bore tops in overhang (the dropped slivers) print rough; ones
+    // inside a bore (b.skipped.bore) can't even be supported, only oriented away.
+    // Penalise both so a pose that points the holes UP -- the one-click answer to
+    // the bore/rough-overhang warning -- ranks above one that buries them under
+    // an overhang. Weighted below the plastic/height terms so it tips near-ties,
+    // not so hard it chases a few slivers into a worse-supported pose.
+    const holes = s.a.rawRegionCount - s.a.regions.length;
+    const bore = b.skipped?.bore ?? 0;
     // Printability cost, lower is better: the overhang that needs supporting at
     // all dominates; then the plastic the fins themselves cost, a height penalty
-    // (layers = time, and tall = tippy), and a bed-adhesion bonus. A part balanced
-    // on a point is unprintable in this pose -- push it to the bottom, not out, so
-    // it still shows with an honest "nothing can hold this".
+    // (layers = time, and tall = tippy), a bed-adhesion bonus, and the rough-hole
+    // penalty. A part balanced on a point is unprintable in this pose -- push it
+    // to the bottom, not out, so it still shows with an honest "nothing can hold this".
     const score = s.a.overArea
       + (b.volume ?? 0) / 1000 * 2
       + s.a.size.z * 3
       + Math.max(0, 300 - s.a.bedArea) * 0.5
+      + holes * 2
+      + bore * 25
       + (point ? 1e6 : 0);
     return {
       rot: s.rot,
@@ -172,6 +190,7 @@ export function suggestOrientations(topo, { top = 3, threshold = 45 } = {}) {
       coverage,
       volume: b.volume ?? 0,
       seating: b.seating?.kind ?? 'unknown',
+      holes, bore,
       score,
     };
   }).sort((p, r) => p.score - r.score);
