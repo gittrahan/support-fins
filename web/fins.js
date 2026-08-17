@@ -29,7 +29,7 @@
 import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js';
 import { BED_EPS } from './overhangs.js';
 import { insidePart } from './inside.js';
-import { buildProps, noProps } from './prop.js';
+import { buildProps, noProps, surfaceZAt } from './prop.js';
 
 export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
@@ -608,19 +608,62 @@ function buildFin(p0, out, span, topo, rot, offset, opts = {}) {
   };
 }
 
+const PAD = {
+  cell: 1.2,        // mm; heightfield resolution across the footprint
+  minTop: FIN.gap,  // mm; a cell thinner than this isn't worth printing -- and at
+                    // the resting contact it is exactly where a weld would form,
+                    // so dropping it leaves the part's own edge to touch the plate
+};
+
 /**
- * A flat pad under the part's bed contact.
+ * A breakaway pad under the part's bed contact.
  *
  * Not a nicety: a part tilted into a strong orientation rests on an EDGE, so its
  * bed contact is near zero and it peels off before the fins have anything to
- * hold. The pad is a wide, thin ellipse -- thin enough to cut off, wide enough
+ * hold. The pad is a wide, thin footprint -- thin enough to cut off, wide enough
  * to stick.
  *
- * It is fed the part's lowest VERTICES, not its bed-contact faces. A part
- * standing on an edge has no face on the plate at all, so a face-based footprint
- * is empty in precisely the case the pad exists for.
+ * It is fed the part's lowest VERTICES for its outline (a part standing on an
+ * edge has no face on the plate at all, so a face-based footprint is empty in
+ * precisely the case the pad exists for) AND the seated part triangles, so its
+ * TOP can hold `gap` clear of the part instead of welding to it.
+ *
+ * THE SHAPE (v0.1 print fix): the first pad was a flat 0.5mm slab, so wherever
+ * the part's underside dipped into that band -- which is exactly the resting
+ * contact the pad exists for -- the two fused solid (measured 0.46mm of
+ * interpenetration on a tilted drive_frame) and would not break off. This pad is
+ * a conforming heightfield instead. Each cell rises to the full `padH` OUTBOARD,
+ * where there is no part overhead, giving the wide bed grip; under the part it
+ * caps at `part_low - gap`, holding the 0.2mm breakaway standoff the tines use;
+ * and where the part comes within `minTop` of the plate (the resting line) the
+ * cell drops out, so the part's own edge anchors to the bed as a thin, snappable
+ * contact and the pad never welds. Cells are closed boxes the slicer unions --
+ * the same overlap approach every support here uses -- overlapped a hair so the
+ * union is seamless.
  */
-function buildPad(contact, out) {
+/**
+ * The whole part, seated into print space, as a flat triangle array -- what
+ * `surfaceZAt` needs to know how low the part hangs over each pad cell. Built
+ * only when a pad is actually wanted (small bed contact), so the full-mesh pass
+ * is not paid on every well-seated part.
+ */
+function seatedPartTris(topo, rot, offset) {
+  const { pos, nFaces } = topo;
+  const { x: ox, y: oy, z: oz } = offset;
+  const tris = new Float64Array(nFaces * 9);
+  for (let f = 0; f < nFaces; f++) {
+    for (let i = 0; i < 3; i++) {
+      const o = f * 9 + i * 3;
+      const x = pos[o], y = pos[o + 1], z = pos[o + 2];
+      tris[o] = rot[0] * x + rot[3] * y + rot[6] * z + ox;
+      tris[o + 1] = rot[1] * x + rot[4] * y + rot[7] * z + oy;
+      tris[o + 2] = rot[2] * x + rot[5] * y + rot[8] * z + oz;
+    }
+  }
+  return tris;
+}
+
+function buildPad(contact, partTris, out) {
   if (contact.length < 3) return null;
 
   let cx = 0, cy = 0;
@@ -649,14 +692,42 @@ function buildPad(contact, out) {
   }
   const r1 = e1 + FIN.padMargin, r2 = e2 + FIN.padMargin;
 
-  const poly = [];
-  for (let i = 0; i < FIN.ellipseSegs; i++) {
-    const a = (2 * Math.PI * i) / FIN.ellipseSegs;
-    const s = r1 * Math.cos(a), t = r2 * Math.sin(a);
-    poly.push([cx + ax * s + bx * t, cy + ay * s + by * t]);
+  // March a grid over the footprint in the pad's own (a, b) axes, so the ellipse
+  // test is a plain unit-disc check. The half-cell overlap (`ov`) makes adjacent
+  // boxes intersect rather than merely abut, so the slicer unions them into one
+  // pad with no coincident-face seam.
+  const d = PAD.cell, hd = d / 2, ov = 0.1;
+  const box = [[-1, -1], [1, -1], [1, 1], [-1, 1]];   // unit square, CCW
+  let cells = 0, maxTop = 0;
+  for (let s = -r1; s <= r1 + 1e-9; s += d) {
+    for (let t = -r2; t <= r2 + 1e-9; t += d) {
+      // inside the ellipse (test the cell CENTRE, in normalised axes)
+      if ((s / r1) ** 2 + (t / r2) ** 2 > 1) continue;
+      const x = cx + ax * s + bx * t, y = cy + ay * s + by * t;
+
+      // Conform to the LOWEST part surface anywhere the cell covers -- centre and
+      // the four corners -- so a cell straddling the steep flank near the resting
+      // edge caps under its lowest point, never the average. No part overhead
+      // (surfaceZAt null) means open bed: full-height grip.
+      let low = Infinity;
+      for (const [os, ot] of [[0, 0], ...box]) {
+        const px = cx + ax * (s + os * hd) + bx * (t + ot * hd);
+        const py = cy + ay * (s + os * hd) + by * (t + ot * hd);
+        const z = surfaceZAt(partTris, px, py);
+        if (z !== null && z < low) low = z;
+      }
+      const top = low === Infinity ? FIN.padH
+        : Math.min(FIN.padH, low - FIN.gap);
+      if (top < PAD.minTop) continue;              // resting line / too thin: drop
+
+      const P = (a, b, z) => [x + a * (hd + ov), y + b * (hd + ov), z];
+      extrude(box, 0, top, P, out);
+      cells++;
+      if (top > maxTop) maxTop = top;
+    }
   }
-  extrude(poly, 0, FIN.padH, (a, b, t) => [a, b, t], out);
-  return { r1, r2, points: contact.length };
+  if (!cells) return null;
+  return { r1, r2, cells, height: maxTop, points: contact.length };
 }
 
 /**
@@ -888,7 +959,7 @@ export function buildFins(topo, result, rot, opts = {}) {
     const contact = bedContact(topo, result, rot);
     const seating = seatingOf(result, contact.pts);
     const pad = (opts.bedPad ?? true) && result.bedArea < FIN.padMinArea
-      ? buildPad(contact.pts, padOut) : null;
+      ? buildPad(contact.pts, seatedPartTris(topo, rot, result.offset), padOut) : null;
     // A part seated on a POINT gets no props -- nothing standing on the plate
     // can hold a part that never touches it -- UNLESS the bed pad is on, in
     // which case the pad is what seats it and the walls have something to work
@@ -990,7 +1061,7 @@ export function buildFins(topo, result, rot, opts = {}) {
 
   let pad = null;
   if ((opts.bedPad ?? true) && result.bedArea < FIN.padMinArea) {
-    pad = buildPad(contact, padOut);
+    pad = buildPad(contact, seatedPartTris(topo, rot, result.offset), padOut);
   }
 
   return {
