@@ -1312,6 +1312,15 @@ function updateFinReadout(built, ms) {
               'still unsupported — tilt it steeper so a support fin can follow it ' +
               '(try Suggest orientation), or use “+ Add walls by hand”');
   }
+  if (built.skipped?.bore) {
+    // A support standing INSIDE a bore or slot scars a surface you can't clean --
+    // worse than a little sag. The tool refuses those on purpose; the honest fix
+    // is to rotate the hole so it faces out and prints clean with no support.
+    const b = built.skipped.bore;
+    bits.push(`${b} overhang${b === 1 ? '' : 's'} sit inside a bore or slot, where a ` +
+              'support would scar a surface you can’t reach — left unsupported on ' +
+              'purpose; rotate so the hole points up');
+  }
   note.textContent = bits.join('. ') + '.';
   // ms is absent when a hand-drawn wall (Suggest + Draw mix) re-runs the readout
   // without rebuilding the auto fins -- don't touch the timing line then, and

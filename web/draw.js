@@ -16,13 +16,7 @@
  * into a watertight wall, reusing prop.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
-import { PROP, sweep, sweepBetween, floorLine, contourTop, lowerSag, settleTop } from './prop.js';
-
-// How far below the clicked overhang a settle pass may still pull the top down
-// when probing for a part-attached support. Comfortably covers an overhang's own
-// slope over a wall's length, and stays well under the smallest floor-to-overhang
-// gap worth supporting -- so the top settles on the overhang, never its floor.
-const PART_BAND = 3.0;
+import { PROP, PART_BAND, sweep, sweepBetween, floorLine, contourTop, lowerSag, settleTop } from './prop.js';
 
 /**
  * Every surface height directly above (x, y), as a list.

@@ -1146,6 +1146,146 @@ export function sweepBetween(topLine, botLine, out) {
   return true;
 }
 
+// How far below the clicked/probed overhang a settle pass may still pull the top
+// down when looking for a part-attached support. Comfortably covers an overhang's
+// own slope over a wall's length, and stays well under the smallest floor-to-
+// overhang gap worth supporting -- so the top settles on the overhang, never its
+// floor. Shared with draw.js so the two paths measure a part-attached wall alike.
+export const PART_BAND = 3.0;
+
+const BORE = {
+  radius: 10,      // mm; a cavity narrower than ~2x this reads as a bore/slot
+  dirs: 8,         // compass rays cast outward from the support column
+  walledMin: 6,    // ...this many hitting part within `radius` = enclosed
+  step: 0.5,       // mm along each ray
+};
+
+/**
+ * Is the support column at station `k` enclosed by part walls -- i.e. standing
+ * inside a bore or narrow slot? A support there SCARS an internal surface you
+ * cannot clean (worse than a little sag), so [[project_support_fin_quality_first]]
+ * says refuse it: a hole is an ORIENTATION problem, not a support one.
+ *
+ * Cast `dirs` horizontal rays out from the column's centreline at mid-height and
+ * count how many strike part material within `radius`. An open ledge-over-base
+ * has air on at least some sides (few walled); a blind bore is walled all round.
+ */
+function enclosedFloor(top, floor, k, topo, rot, offset) {
+  const p = top[k];
+  const zMid = (floor[k][2] + (top[k][2] - PROP.gap)) / 2;
+  // A column whose own centreline is inside the part is buried, not standable.
+  if (insidePart(topo, rot, offset, p[0], p[1], zMid)) return true;
+  let walled = 0;
+  for (let d = 0; d < BORE.dirs; d++) {
+    const ang = (d / BORE.dirs) * 2 * Math.PI;
+    const dx = Math.cos(ang), dy = Math.sin(ang);
+    for (let r = BORE.step; r <= BORE.radius; r += BORE.step) {
+      if (insidePart(topo, rot, offset, p[0] + dx * r, p[1] + dy * r, zMid)) {
+        walled++;
+        break;
+      }
+    }
+  }
+  return walled >= BORE.walledMin;
+}
+
+/**
+ * Can a PART-ATTACHED wall at station `k` stand between its floor and the overhang
+ * without piercing a side wall? Mirror of stationIsClear, but bounded to the
+ * (floor, top) span the wall actually occupies -- it probes STRICTLY between the
+ * ends, since the bottom is meant to weld to the floor and the top to break away
+ * under the overhang, and probing those would read the intended contacts as welds.
+ */
+function clearBetween(top, floor, k, topo, rot, offset) {
+  const p = top[k];
+  const a = top[Math.max(0, k - 1)];
+  const b = top[Math.min(top.length - 1, k + 1)];
+  const rx = b[0] - a[0], ry = b[1] - a[1];
+  const rn = Math.hypot(rx, ry);
+  if (rn < 1e-9) return true;
+  const sx = ry / rn, sy = -rx / rn;
+  const zTop = p[2] - PROP.gap, zBot = floor[k][2];
+  const nP = Math.max(3, Math.ceil((zTop - zBot) / 1.5));
+  for (let i = 1; i < nP; i++) {                 // strictly interior heights
+    const z = zBot + ((zTop - zBot) * i) / nP;
+    for (const m of [0.12, 0.24, PROP.sideClear]) {
+      const w = PROP.th / 2 + m;
+      if (insidePart(topo, rot, offset, p[0] + sx * w, p[1] + sy * w, z)) return false;
+      if (insidePart(topo, rot, offset, p[0] - sx * w, p[1] - sy * w, z)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Try to stand a PART-ATTACHED wall under `line` (the overhang contact polyline,
+ * seated). Returns one of three verdicts:
+ *   { ok: true, prop }   -- a part-attached wall was built into `out`.
+ *   { floored: true }    -- there IS a floor here (an over-the-part overhang) but
+ *                           no safe wall fits (a bore, or side walls in the way);
+ *                           the caller must NOT then stilt to the plate through
+ *                           the part -- it counts this and moves on.
+ *   { }                  -- no floor beneath the overhang; an ordinary bed
+ *                           overhang. The caller falls through to the plate path
+ *                           UNCHANGED, so the flagship parts don't change.
+ *
+ * This is the auto-placer's version of what draw.js does by hand: settle a BANDED
+ * top so the overhang isn't dragged onto its own floor, read the floor with
+ * floorLine, and bridge the two with sweepBetween. It only claims a line when a
+ * real floor sits under MOST of it, refuses bores (enclosedFloor), and refuses to
+ * pierce side walls (clearBetween).
+ */
+function buildPartAttached(line, partTris, topo, rot, offset, out) {
+  const top = line.map((p) => [p[0], p[1], p[2]]);
+  contourTop(top, partTris, PART_BAND);
+  lowerSag(top, partTris, PART_BAND);
+  settleTop(top, partTris, 0.25, PART_BAND);
+  const floor = floorLine(top, partTris);
+
+  // A real floor under a majority of stations, or this is a bed overhang -- let
+  // the plate path have it. floorLine returns ~0 with clear air to the plate, so
+  // this declines on every ordinary overhang and the flagship parts don't change.
+  let real = 0;
+  for (const f of floor) if (f[2] > PROP.gap + 0.5) real++;
+  if (real < Math.max(PROP.minStations, Math.ceil(floor.length * 0.5))) return {};
+
+  const ok = top.map((p, k) => {
+    if (floor[k][2] <= PROP.gap + 0.5) return false;               // no real floor
+    if ((p[2] - PROP.gap) - floor[k][2] < PROP.minHeight) return false;
+    if (enclosedFloor(top, floor, k, topo, rot, offset)) return false;
+    return clearBetween(top, floor, k, topo, rot, offset);
+  });
+  const run = longestRun(ok);
+  if (!run || run[1] - run[0] < PROP.minStations) return { floored: true };
+
+  const subTop = top.slice(run[0], run[1]);
+  const subFloor = floor.slice(run[0], run[1]);
+  const span = Math.hypot(subTop[subTop.length - 1][0] - subTop[0][0],
+                          subTop[subTop.length - 1][1] - subTop[0][1]);
+  if (span < PROP.minSpan) return { floored: true };
+
+  const before = out.length;
+  if (!sweepBetween(subTop, subFloor, out)) { out.length = before; return { floored: true }; }
+
+  let height = 0, vol = 0;
+  for (let i = 0; i < subTop.length; i++) {
+    height = Math.max(height, (subTop[i][2] - PROP.gap) - subFloor[i][2]);
+  }
+  for (let i = before; i < out.length; i += 3) {
+    const a = out[i], b = out[i + 1], c = out[i + 2];
+    vol += (a[0] * (b[1] * c[2] - b[2] * c[1]) + a[1] * (b[2] * c[0] - b[0] * c[2])
+          + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
+  }
+  return {
+    ok: true,
+    prop: {
+      span, height, stations: subTop.length, volume: Math.abs(vol),
+      partAttached: true,
+      line: subTop.map((p) => [p[0], p[1], p[2] - PROP.gap]),
+    },
+  };
+}
+
 /**
  * What buildProps returns when it builds nothing -- kept here so the callers
  * that refuse to build (a part seated on a point) return the same shape.
@@ -1154,7 +1294,7 @@ export function noProps() {
   return {
     triangles: [], props: [], served: 0, volume: 0,
     skipped: { noLine: 0, wanders: 0, stub: 0, blocked: 0,
-               degenerate: 0, buried: 0, weld: 0, sliver: 0 },
+               degenerate: 0, buried: 0, weld: 0, sliver: 0, bore: 0 },
   };
 }
 
@@ -1172,8 +1312,21 @@ export function buildProps(topo, result, rot, opts = {}) {
   const out = [];
   const props = [];
   const skipped = { noLine: 0, wanders: 0, stub: 0, blocked: 0,
-                    degenerate: 0, buried: 0, weld: 0, sliver: 0 };
+                    degenerate: 0, buried: 0, weld: 0, sliver: 0, bore: 0 };
   const v = [0, 0, 0];
+
+  // The whole part, seated once, for the part-attached floor probe: the floor a
+  // support lands on is usually a DIFFERENT region than the overhang, so it must
+  // raycast the full mesh. Cheap next to the per-region work below.
+  const partTris = new Float64Array(pos.length);
+  for (let f = 0; f < topo.nFaces; f++) {
+    for (let i = 0; i < 3; i++) {
+      seat(pos, f * 9 + i * 3, rot, off, v);
+      partTris[f * 9 + i * 3] = v[0];
+      partTris[f * 9 + i * 3 + 1] = v[1];
+      partTris[f * 9 + i * 3 + 2] = v[2];
+    }
+  }
 
   // The support unit is the locally-straight sub-patch, not the connected
   // region -- see splitRegion. Fragments too small to be worth a wall are
@@ -1255,6 +1408,23 @@ export function buildProps(topo, result, rot, opts = {}) {
     if (!lines.length) { skipped.noLine++; continue; }
 
     for (const line of lines) {
+      // PART-ATTACHED first: if solid part sits below this overhang, a support
+      // must stand on THAT floor, not stilt to the plate through the part (the
+      // bug Matthew hit on a real hub). buildPartAttached declines on an ordinary
+      // bed overhang (floorLine ~0), so the plate path below is reached unchanged
+      // for the flagship parts. When there IS a floor but no safe wall fits (a
+      // bore, or side walls in the way) it says `floored` -- counted and skipped,
+      // never stilted through the part or scarred into a bore. Works on a COPY so
+      // the plate path's own `line` is untouched.
+      const pa = buildPartAttached(line, partTris, topo, rot, off, out);
+      if (pa.ok) {
+        servedRegions.add(patch.region);
+        props.push({ ...pa.prop, area: patch.area,
+                     trimmed: line.length - pa.prop.stations });
+        continue;
+      }
+      if (pa.floored) { skipped.bore++; continue; }
+
       // Finish the top against the WHOLE region, not just this patch: a track
       // near a patch boundary can run under a sibling patch's faces, and
       // clearance measured against patch-only triangles welded walls to
