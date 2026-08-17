@@ -49,6 +49,16 @@ shapes['sphere']     = trimesh.creation.icosphere(subdivisions=3, radius=26)
 shapes['torus']      = trimesh.creation.torus(major_radius=30, minor_radius=11)
 shapes['coin']       = trimesh.creation.cylinder(radius=40, height=6, sections=64)
 shapes['tube']       = trimesh.creation.annulus(r_min=12, r_max=22, height=55, sections=48)
+# --- internal overhang over a floor (the part-attached case) ---
+# A rectangular FRAME: extruded along Z, it is a tunnel whose inner ceiling
+# overhangs the inner floor. Stood on its side (any pose with the tunnel axis
+# horizontal) that ceiling is an over-the-PART overhang -- the case a plate stilt
+# would drive straight through the part, and the one part-attached support exists
+# for. The base under the cavity is a real floor; the guard-rail is that it is NOT
+# a bore (open front-to-back), so the tool should support it, not refuse it.
+_frame = Polygon([(-20, 0), (20, 0), (20, 34), (-20, 34)],
+                 [[(-11, 2), (11, 2), (11, 30), (-11, 30)]])   # shell with a hole
+shapes['portal']     = trimesh.creation.extrude_polygon(_frame, 30)
 # --- needle / point-seated (the hub_post_foot family) ---
 prof = np.array([[0, 0], [26, 0], [22, 6], [4, 150], [4, 165], [0, 165]])  # foot -> long taper
 shapes['needle']     = trimesh.creation.revolve(prof, sections=48)
