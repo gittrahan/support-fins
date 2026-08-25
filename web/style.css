@@ -47,10 +47,14 @@ html, body {
 #topbar .spacer { flex: 1; pointer-events: none; }
 
 .brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   font-weight: 650;
   letter-spacing: .02em;
   margin-right: 4px;
 }
+.brand-mark { height: 20px; width: auto; display: block; }
 
 .btn {
   display: inline-block;
