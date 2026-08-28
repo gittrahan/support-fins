@@ -108,6 +108,15 @@
   <label class="check" title="Tines fuse the support to the part so it grips instead of just propping. Off = plain breakaway wall.">
     <input type="checkbox" id="tines" checked>Tines (grip the part)
   </label>
+  <!-- Wide-face row density: an overhang face too wide for one corner brace gets a
+       ROW of fins (a wide tilted plate would otherwise sag between two braces).
+       This sets the row pitch: Sparse = fewer fins / less plastic, Dense = more.
+       Only bites on a broad face; narrow parts keep their 2-corner bracing. -->
+  <label class="fld" id="coverage-fld"
+         title="How densely to line a WIDE overhang face with fins. Sparse = fewer fins / less plastic; Dense = more support. Narrow parts are unaffected.">
+    Wide-face coverage <span class="mut">sparse ⟶ dense</span>
+    <input type="range" id="coverage" min="0" max="100" step="5" value="25">
+  </label>
   <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
        Shown only in Suggest mode (toggled in app.js). -->
   <button class="btn sm" id="augment-toggle" hidden

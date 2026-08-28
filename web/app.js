@@ -1094,7 +1094,8 @@ function refreshFins() {
   const built = buildFins(topology, lastResult, rotM3.elements,
                           { mode: finMode === 'draw' ? 'prop' : finMode,
                             bedPad: el('bed-pad').checked,
-                            tines: el('tines').checked });
+                            tines: el('tines').checked,
+                            coverage: el('coverage').valueAsNumber / 100 });
   lastBuilt = built;
   padTris = built.padTriangles;
   padMesh = meshFrom(padTris, padMaterial);
@@ -1351,6 +1352,7 @@ function syncAugmentUI() {
 el('fin-mode').addEventListener('change', (e) => {
   histPush();
   finMode = e.target.value;
+  el('coverage-fld').hidden = finMode !== 'auto';  // row density only applies to Auto
   drawAugment = false;      // start each mode with hand-placement off
   drawMsg = '';
   clearPreview();
@@ -1361,6 +1363,7 @@ el('fin-mode').addEventListener('change', (e) => {
 });
 el('bed-pad').addEventListener('change', refreshFins);
 el('tines').addEventListener('change', refreshFins);
+el('coverage').addEventListener('input', refreshFins);
 
 /** The fins-toggle button's appearance for the current finsVisible. Factored out
  *  so undo/redo can re-sync it after restoring the flag. */
