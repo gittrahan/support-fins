@@ -79,6 +79,18 @@ export const FIN = {
   minScoreRatio: 0.25,
   minSeparationDeg: 60, // ...and face at least this far from those chosen
   minSiteGap: 12,     // mm; ...and stand this far from them in space, see below
+  // WIDE-FACE ROW COVERAGE. maxFins:2 is the "opposite corners" rule for a
+  // COMPACT part's torsion; a face WIDER than this is not a corner to brace but
+  // an EDGE to line, and gets a whole ROW of braces tiled along it instead -- a
+  // 300mm plate edge sags with one 25mm corner brace. Density is the maker's
+  // call via opts.coverage (0 sparse .. 1 dense), which maps to the row pitch.
+  wideFace: 55,       // mm of grippable u-extent above which a face tiles a row
+  wideMinArea: 1500,  // ...AND this much face area, so a long THIN spike (a needle,
+                      // a plate's own 4mm edge) is not mistaken for a broad face
+  coverSparse: 55,    // mm row pitch at coverage 0
+  coverDense: 22,     // mm row pitch at coverage 1
+  coverDefault: 0.25, // density used when the UI has not set one yet
+  rowMaxTotal: 20,    // hard cap on total fins, so a row can never spray
 };
 
 /**
@@ -132,7 +144,7 @@ function extrude(poly, tLo, tHi, P, out) {
  * on an edge or corner, never mid-face" expressed as arithmetic: a fin is a
  * short brace at a corner, not a wall down the whole side of the part.
  */
-function chooseSpan(p, topo, rot, offset) {
+function chooseSpan(p, topo, rot, offset, pitch = 0) {
   const { pos, nFaces } = topo;
   const BIN = 0.5;
   const nBins = Math.max(1, Math.ceil((p.u1 - p.u0) / BIN));
@@ -298,6 +310,30 @@ function chooseSpan(p, topo, rot, offset) {
   // containment check once its geometry exists (buildFin), and a site whose best
   // window is buried usually has a perfectly good second one a few millimetres
   // along. Returning only the maximum threw the whole face away.
+  const toSpan = (cnd) => ({
+    u0: p.u0 + cnd.a * BIN,
+    u1: p.u0 + (cnd.b + 1) * BIN,
+    tTop: cnd.topT,
+    tBot: cnd.botT,
+  });
+
+  // WIDE-FACE ROW: partition the patch into pitch-wide slots and return the best
+  // VALID window in each, so a long edge gets a fin tiled along its whole length.
+  // Every window still comes from `cands`, so it carries the same obstruction and
+  // grip guarantees as the score-picked path -- only the SELECTION differs.
+  if (pitch > 0) {
+    const uExt = p.u1 - p.u0;
+    const n = Math.max(1, Math.min(FIN.rowMaxTotal, Math.round(uExt / pitch)));
+    const slotW = uExt / n;
+    const bySlot = new Array(n).fill(null);
+    for (const c of cands) {
+      const cu = ((c.a + c.b + 1) / 2) * BIN;        // window centre, patch-local
+      const s = Math.max(0, Math.min(n - 1, Math.floor(cu / slotW)));
+      if (!bySlot[s] || c.score > bySlot[s].score) bySlot[s] = c;
+    }
+    return bySlot.filter(Boolean).map(toSpan);
+  }
+
   cands.sort((x, y) => y.score - x.score);
   const picked = [];
   for (const cnd of cands) {
@@ -307,12 +343,7 @@ function chooseSpan(p, topo, rot, offset) {
     picked.push(cnd);
     if (picked.length >= MAX_SPAN_TRIES) break;
   }
-  return picked.map((cnd) => ({
-    u0: p.u0 + cnd.a * BIN,
-    u1: p.u0 + (cnd.b + 1) * BIN,
-    tTop: cnd.topT,
-    tBot: cnd.botT,
-  }));
+  return picked.map(toSpan);
 }
 
 const MIN_SPAN = 4.0;   // mm; a shorter wall is not worth the plate space
@@ -1037,25 +1068,51 @@ export function buildFins(topo, result, rot, opts = {}) {
   const taken = [];
   const rejected = { blocked: 0, tooFewTines: 0, sites: 0, tried: 0 };
 
+  // Row density: only the stabilize path tiles, and only where a face is wide.
+  const coverage = mode === 'stabilize' ? (opts.coverage ?? FIN.coverDefault) : null;
+  const covPitch = coverage == null ? 0
+    : FIN.coverSparse - Math.max(0, Math.min(1, coverage)) * (FIN.coverSparse - FIN.coverDense);
+  let compactCount = 0;   // only these count against the maxFins "opposite corners" cap
+
   for (const cand of ranked) {
-    if (fins.length >= maxFins) break;
     if (rejected.tried >= FIN.maxSiteTries) break;
-    // a 2nd or 3rd fin still has to be worth its plastic next to the first
-    if (fins.length && cand.score < ranked[0].score * FIN.minScoreRatio) break;
+    if (fins.length >= FIN.rowMaxTotal) break;
     if (clashes(taken, cand.patch)) continue;
 
-    rejected.tried++;
-    const spans = chooseSpan(cand.patch, topo, rot, result.offset);
-    if (!spans.length) { rejected.blocked++; continue; }
-
-    let info = null;
-    for (const span of spans) {
-      info = buildFin(cand.patch, out, span, topo, rot, result.offset,
-                      { tines: opts.tines });
-      if (info) break;
+    // A face wider than a couple of braces is an EDGE to line, not a corner to
+    // brace: tile a row along it at the chosen density. The compact
+    // opposite-corners cap and its score-ratio break gate only the short brace.
+    const wide = covPitch > 0 && (cand.patch.u1 - cand.patch.u0) > FIN.wideFace
+      && cand.patch.area > FIN.wideMinArea;
+    if (!wide) {
+      if (compactCount >= maxFins) break;
+      // a 2nd or 3rd fin still has to be worth its plastic next to the first
+      if (compactCount && cand.score < ranked[0].score * FIN.minScoreRatio) break;
     }
-    if (info) { fins.push(info); taken.push(cand.patch); }
-    else rejected.tooFewTines++;
+
+    rejected.tried++;
+    if (wide) {
+      const rowSpans = chooseSpan(cand.patch, topo, rot, result.offset, covPitch);
+      let placed = 0;
+      for (const span of rowSpans) {
+        if (fins.length >= FIN.rowMaxTotal) break;
+        const info = buildFin(cand.patch, out, span, topo, rot, result.offset,
+                              { tines: opts.tines });
+        if (info) { fins.push(info); placed++; }
+      }
+      if (placed) taken.push(cand.patch); else rejected.tooFewTines++;
+    } else {
+      const spans = chooseSpan(cand.patch, topo, rot, result.offset);
+      if (!spans.length) { rejected.blocked++; continue; }
+      let info = null;
+      for (const span of spans) {
+        info = buildFin(cand.patch, out, span, topo, rot, result.offset,
+                        { tines: opts.tines });
+        if (info) break;
+      }
+      if (info) { fins.push(info); taken.push(cand.patch); compactCount++; }
+      else rejected.tooFewTines++;
+    }
   }
   rejected.sites = ranked.length;
 
