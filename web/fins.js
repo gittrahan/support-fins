@@ -949,37 +949,33 @@ export function buildFins(topo, result, rot, opts = {}) {
   const out = [];
   const padOut = [];
 
-  // AUTO -- the grip-first mode, and the tool's real recommendation. It puts the
-  // right support on each problem instead of making the user choose:
-  //   * GRIPPING FINS (fins.js 'stabilize') hold the part -- the Slant3D combined
-  //     support, a tined fin beside a steep face. This is PRIMARY: a tilted part
-  //     is strong but wants to topple/peel, and the fin is what lets it print.
-  //   * PROPS (prop.js) are the FALLBACK, only for a shallow overhang ledge that
-  //     has no upright face to grip. A horizontal tine needs a near-vertical face
-  //     (planes.js), so a flat-lying ledge geometrically can't be gripped -- the
-  //     honest answer there is a gap-only wall, and the readout says to tilt it.
-  // Composed by calling the two proven paths and merging, never a third geometry,
-  // so it cannot regress either. (Neither recursive call is 'auto', so no recursion.)
-  if (mode === 'auto') {
-    const propRes = buildFins(topo, result, rot, { ...opts, mode: 'prop' });
-    // Grip fires whenever the part needs HOLDING, which 'stabilize' decides for
-    // itself (it leans, or it rests on almost no bed) and reports by returning
-    // fins -- a flat, well-seated part gets props only. bedPad:false so the pad is
-    // built once, by the prop path above.
-    const brace = buildFins(topo, result, rot, { ...opts, mode: 'stabilize', bedPad: false });
-    const stab = brace.fins.length ? brace : null;
-
-    // Grips first: they are the primary support, so they lead the list and the
-    // readout, and props read as the fallback they are.
-    const fins = [...(stab ? stab.fins : []), ...propRes.fins];
+  // THE COMBINED SUPPORT IS A TINED PERPENDICULAR RIB (prop.js), not the old
+  // beside-the-face fin that lay FLAT against the part. A support fin has to stand
+  // PERPENDICULAR to the part -- a wall UNDER the overhang, rising off the plate as
+  // an upside-down T, gripped along its top by a comb of tines -- the way a human
+  // draws one and the way it actually prints. The earlier geometry leaned the wall
+  // parallel to the face (planes.js "the fin leans with the part"), which put a
+  // 35deg-raked blade flat on a 35deg-tilted cube: wrong, and the reason this was
+  // rebuilt.
+  //
+  // So both the grip mode ('stabilize') and the recommendation ('auto') now
+  // deliver prop.js's rib with the tine comb ON. prop.js already sites these
+  // correctly: one wall down a curved tube's lowest line, rows across a wide flat
+  // overhang, part-attached where a floor sits under the overhang -- all watertight
+  // and weld-certified. Tines default ON here (that is what makes it "combined"
+  // rather than a plain breakaway prop); 'prop' proper leaves them off. The old
+  // leaning-fin machinery below (rankSites / chooseSpan / buildFin) is no longer
+  // reached from these modes and is kept only for reference / Draw-mode reuse.
+  if (mode === 'auto' || mode === 'stabilize') {
+    const withTines = opts.tines ?? true;
+    const res = buildFins(topo, result, rot, { ...opts, mode: 'prop', tines: withTines });
+    // A tined rib IS the combined support (a "brace"); a tineless one is a plain
+    // prop. Report the split so the stress harness / UI metrics keep working now
+    // that the two support kinds share one geometry.
     return {
-      ...propRes,     // seating, pad, padTriangles, unserved, rejected, skipped
-      triangles: [...(stab ? stab.triangles : []), ...propRes.triangles],
-      fins,
-      tines: fins.reduce((a, f) => a + f.tines, 0),
-      mode: 'auto',
-      propCount: propRes.fins.length,   // breakaway walls under un-grippable ledges
-      braceCount: stab ? stab.fins.length : 0,  // tined gripping fins (primary)
+      ...res, mode,
+      braceCount: withTines ? res.fins.length : 0,
+      propCount: withTines ? 0 : res.fins.length,
     };
   }
 
@@ -1023,7 +1019,7 @@ export function buildFins(topo, result, rot, opts = {}) {
       rejected: { blocked: built.skipped.blocked, tooFewTines: 0,
                   sites: result.regions.length,
                   tried: result.regions.length },
-      patchCount: 0, patchStats: {}, tines: 0,
+      patchCount: 0, patchStats: {}, tines: built.tines ?? 0,
       // regions minus SERVED REGIONS, not minus the prop count: a region can
       // yield several walls now that it is split into sub-patches, and the old
       // subtraction would go negative.

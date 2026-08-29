@@ -107,6 +107,24 @@ export const PROP = {
   // reads this value out of this file (MAX_UNSUPPORTED_SPAN) so the checker and
   // the generator cannot disagree about it.
   maxUnsupportedSpan: 12.0,
+
+  // --- TINES (the grip comb) ---------------------------------------------
+  // A plain prop stops `gap` under the overhang and the part bridges over it:
+  // a pure breakaway, no grip. The COMBINED support adds a comb of tiny
+  // horizontal nubs along the wall's top that bite a hair into the part, so a
+  // tilted part cannot peel or twist off the wall -- and, because each nub is
+  // one layer line lying in the layer plane, it BENDS to snap clean instead of
+  // tearing out (fins.js documents the same reasoning for the beside-the-face
+  // fin these replace). Tines only bite where the overhang is steep enough that
+  // a horizontal poke reaches solid: past a slope of gap/bite the nub lands in
+  // the part, below it in air, and the emitter simply skips the ones that miss
+  // (verified by insidePart, never assumed) -- the same honest behaviour the
+  // beside-the-face fin had.
+  tineH: 0.3,        // one layer line
+  tineW: 0.6,        // a single bead across the run (matches the contact tip)
+  tineBite: 0.5,     // how far a nub reaches horizontally into the part
+  tineStep: 2.0,     // mm between nubs along the wall's top
+  tineOverlap: 0.3,  // how far the nub sinks back into the wall, so they union
 };
 
 /**
@@ -1031,6 +1049,101 @@ export function sweep(line, zBed, out) {
 }
 
 /**
+ * Extrude a CCW polygon (in the a,b plane of the right-handed frame a,b,c) from
+ * c = lo to c = hi, emitting outward-wound triangles as vertex triples. The twin
+ * of fins.js's `extrude`, kept local so prop.js has no cross-import: the winding
+ * only comes out consistently outward when (a,b,c) is right-handed, which every
+ * caller below guarantees by construction.
+ */
+function boxExtrude(poly, lo, hi, P, out) {
+  const n = poly.length;
+  const vlo = poly.map(([a, b]) => P(a, b, lo));
+  const vhi = poly.map(([a, b]) => P(a, b, hi));
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    out.push(vlo[i], vlo[j], vhi[j]);
+    out.push(vlo[i], vhi[j], vhi[i]);
+  }
+  for (let i = 1; i < n - 1; i++) {
+    out.push(vhi[0], vhi[i], vhi[i + 1]);
+    out.push(vlo[0], vlo[i + 1], vlo[i]);
+  }
+}
+
+/**
+ * Lay a comb of grip tines along a placed wall's top, biting a hair into the
+ * part, and return how many actually landed.
+ *
+ * `line` is the wall's settled TOP contour (each station's z is the part surface
+ * directly above it; the wall's own top sits `gap` under that). A tine is one
+ * layer-tall nub that reaches horizontally off the wall top into the part. The
+ * direction is chosen, not assumed: the part material adjacent to the top lies
+ * DOWN-slope (where the underside is lower, the wall-top height is already inside
+ * the solid), so the emitter tries both run directions and keeps whichever puts
+ * the nub's tip inside the part -- and emits nothing where neither does, which is
+ * the honest "this face is too shallow to grip" case a horizontal tine has by
+ * nature (fins.js's tineSpanMax rule, expressed as a containment test here).
+ *
+ * Nubs are the wall's own thickness wide and overlap back into it, so the slicer
+ * unions them onto the wall the same way every other solid here is unioned.
+ */
+function emitTines(line, tris, topo, rot, offset, out) {
+  if (line.length < 2) return 0;
+
+  // arc length along the run, to space nubs by a real distance not a station count
+  const s = [0];
+  for (let i = 1; i < line.length; i++) {
+    s.push(s[i - 1] + Math.hypot(line[i][0] - line[i - 1][0],
+                                 line[i][1] - line[i - 1][1]));
+  }
+  const total = s[s.length - 1];
+  if (total < PROP.tineStep) return 0;
+
+  const half = PROP.th / 2;
+  let count = 0;
+  for (let d = PROP.tineStep / 2; d < total; d += PROP.tineStep) {
+    // interpolate the station at arc length d
+    let k = 0;
+    while (k < s.length - 1 && s[k + 1] < d) k++;
+    const seg = Math.max(1e-9, s[k + 1] - s[k]);
+    const f = (d - s[k]) / seg;
+    const x = line[k][0] + (line[k + 1][0] - line[k][0]) * f;
+    const y = line[k][1] + (line[k + 1][1] - line[k][1]) * f;
+    const z = line[k][2] + (line[k + 1][2] - line[k][2]) * f;   // surface z
+    const wallTop = z - PROP.gap;
+    if (wallTop < PROP.baseH + 0.2) continue;                   // too low to matter
+
+    // run tangent (horizontal), and the two ways a nub could bite
+    let rx = line[k + 1][0] - line[k][0], ry = line[k + 1][1] - line[k][1];
+    const rn = Math.hypot(rx, ry);
+    if (rn < 1e-9) continue;
+    rx /= rn; ry /= rn;
+    const zMid = wallTop + PROP.tineH / 2;
+
+    let dirx = 0, diry = 0;
+    for (const sgn of [1, -1]) {
+      const tx = x + rx * sgn * PROP.tineBite, ty = y + ry * sgn * PROP.tineBite;
+      if (insidePart(topo, rot, offset, tx, ty, zMid)) { dirx = rx * sgn; diry = ry * sgn; break; }
+    }
+    if (dirx === 0 && diry === 0) continue;                     // no grip here
+
+    // frame (along = bite dir, across = z x along, up = z) is right-handed
+    const ax = -diry, ay = dirx;                                // across = z x along
+    const base = [x, y, 0];
+    const P = (a, b, c) => [base[0] + dirx * a + ax * b,
+                            base[1] + diry * a + ay * b, c];
+    // rectangle in (along, across): from -overlap (into the wall) to +bite
+    const poly = [
+      [-PROP.tineOverlap, -half], [PROP.tineBite, -half],
+      [PROP.tineBite, half], [-PROP.tineOverlap, half],
+    ];
+    boxExtrude(poly, wallTop, wallTop + PROP.tineH, P, out);
+    count++;
+  }
+  return count;
+}
+
+/**
  * Every part-surface height directly above (x, y), as a list.
  *
  * `surfaceZAt` returns only the LOWEST, which is what a bed-attached prop wants
@@ -1308,6 +1421,8 @@ export function buildProps(topo, result, rot, opts = {}) {
   const step = opts.step ?? PROP.stationStep;
   const zBed = 0;
   const off = result.offset;
+  const withTines = opts.tines === true;
+  let tineTotal = 0;
 
   const out = [];
   const props = [];
@@ -1419,6 +1534,12 @@ export function buildProps(topo, result, rot, opts = {}) {
       const pa = buildPartAttached(line, partTris, topo, rot, off, out);
       if (pa.ok) {
         servedRegions.add(patch.region);
+        // pa.prop.line already carries the wall top (surface minus gap); add the
+        // gap back so emitTines reads it as the surface, like the plate path does.
+        if (withTines) {
+          const topLine = pa.prop.line.map((p) => [p[0], p[1], p[2] + PROP.gap]);
+          tineTotal += emitTines(topLine, partTris, topo, rot, off, out);
+        }
         props.push({ ...pa.prop, area: patch.area,
                      trimmed: line.length - pa.prop.stations });
         continue;
@@ -1526,6 +1647,9 @@ export function buildProps(topo, result, rot, opts = {}) {
                 + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
         }
         servedRegions.add(patch.region);
+        // The grip comb: nubs along this wall's settled top that bite into the
+        // part. `settled` carries the surface z; emitTines subtracts the gap.
+        if (withTines) tineTotal += emitTines(settled, regionTris, topo, rot, off, out);
         props.push({
           span: span2, height: top - zBed, area: patch.area,
           stations: settled.length, trimmed: line.length - settled.length,
@@ -1543,5 +1667,6 @@ export function buildProps(topo, result, rot, opts = {}) {
   // yield several -- subtracting a prop count from a region count would say a
   // part with one region and three walls had "-2 unserved".
   return { triangles: out, props, skipped, served: servedRegions.size,
+           tines: tineTotal,
            volume: props.reduce((s, q) => s + q.volume, 0) };
 }
