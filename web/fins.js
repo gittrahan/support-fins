@@ -768,35 +768,42 @@ function buildPad(contact, partTris, out) {
  * pointer) and, given a picked face, which patch to stand a fin against. This is
  * findWallPatches plus a face->patch index; the caller caches it per orientation
  * and rebuilds only when the part turns.
+ *
+ * Only DOWNWARD faces are offered: a support fin is a perpendicular wedge that
+ * holds an overhang up from below, so highlighting a vertical side (which the
+ * old beside-the-face fin gripped) would just guide the pointer at a face the
+ * build then refuses.
  */
 export function gripPatches(topo, result, rot) {
-  const patches = findWallPatches(topo, rot, result.offset);
+  const patches = findWallPatches(topo, rot, result.offset).filter((p) => p.n.z < -0.05);
   const faceMap = new Map();
   for (const p of patches) for (const f of p.faces) if (!faceMap.has(f)) faceMap.set(f, p);
   return { patches, faceMap };
 }
 
 /**
- * Build ONE gripping fin against `patch` -- the same wall + base + tines geometry
- * Suggest auto-places, but for a face the user picked. Returns
- * { ok, triangles, info } or { ok:false, reason } with a message the UI can show;
- * a hand-placed fin that can't build must say WHY, never fail silently (the M5
- * scoreboard trap). buildFin already truncates its own output on failure, so a
- * fresh array per span cannot leak partial geometry.
+ * Build the PERPENDICULAR wedge support against a face the user picked in Draw
+ * mode -- the same edge-on rib auto places, honouring the pick (no broad-face
+ * gate, so even a smaller overhang the user clicks gets at least one wedge).
+ * Returns { ok, triangles, info } or { ok:false, reason } with a message the UI
+ * can show; a hand-placed fin that can't build must say WHY, never fail silently
+ * (the M5 scoreboard trap).
+ *
+ * A support fin holds an overhang up from below, so it only makes sense on a
+ * DOWNWARD face -- clicking a vertical side is refused with that reason, rather
+ * than standing the old flat-against-the-face blade there.
  */
 export function buildFinOnPatch(topo, result, rot, patch, opts = {}) {
-  const spans = chooseSpan(patch, topo, rot, result.offset);
-  if (!spans.length) {
-    return { ok: false, reason: 'no room for a fin against this face — the part is '
-      + 'in the way, or the face sits too close to the plate' };
+  if (patch.n.z >= -0.05) {
+    return { ok: false, reason: 'aim at a downward / overhang face — a support fin '
+      + 'holds an overhang up from below, not a vertical side' };
   }
-  for (const span of spans) {
-    const out = [];
-    const info = buildFin(patch, out, span, topo, rot, result.offset, opts);
-    if (info) return { ok: true, triangles: out, info };
+  const w = buildPerpFins(patch, topo, rot, result.offset, { tines: opts.tines });
+  if (!w.count) {
+    return { ok: false, reason: 'this face is too small or shallow to stand a fin '
+      + 'under — tilt it steeper, or pick a broader overhang' };
   }
-  return { ok: false, reason: 'this face is too shallow or small to hold the tines a '
-    + 'gripping fin needs — tilt it steeper, or pick a taller face' };
+  return { ok: true, triangles: w.triangles, info: { count: w.count, tines: w.tines, perp: true } };
 }
 
 /**
