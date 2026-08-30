@@ -29,7 +29,7 @@
 import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js';
 import { BED_EPS } from './overhangs.js';
 import { insidePart } from './inside.js';
-import { buildProps, noProps, surfaceZAt } from './prop.js';
+import { buildProps, noProps, surfaceZAt, emitTines } from './prop.js';
 
 export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
@@ -935,6 +935,149 @@ function seatingOf(result, contactPts) {
 }
 
 /**
+ * The ANGLED perpendicular wedge -- the grip support for a LEANING face a
+ * straight-up prop cannot reach.
+ *
+ * When a wide/long part is tilted steeply (a 300mm plate at 60deg), it leans out
+ * OVER the vertical path a prop would need, so prop.js reports every station
+ * `blocked` and the overhang goes unserved. The fix is not a vertical wall but a
+ * thin WEDGE that fills the open triangular gap between the leaning underside and
+ * the bed: its broad face is perpendicular to the part (edge-on, thin across the
+ * face `u`), its top rides the underside `gap` below, and it drops to the plate --
+ * so it clears the lean instead of driving through it. Tiled across the face at a
+ * coverage pitch, this is the "row of fins" a must-tilt plate needs, and it stays
+ * the same perpendicular T-rib Matthew approved on the cube.
+ */
+const PERP = {
+  th: 1.2,        // wedge thickness (thin across the face)
+  gap: 0.2,       // breakaway clearance under the contact (matches PROP/FIN)
+  footHalf: 3.0,  // foot flange half-width past the wedge, each side
+  footH: 0.6,
+  pitch: 24.0,    // mm between wedges across the face (a ROW, not a wall of plastic)
+  tStep: 1.5,     // sampling step up the face
+  minH: 2.0,      // skip a wedge shorter than this
+  inset: 2.0,     // keep wedges off the very edges of the patch
+  maxRow: 14,     // hard cap on wedges per patch, so a wide face never sprays
+  // A wedge is for a BROAD leaning face props can't reach. Below this face area
+  // (or u-extent) it is a small/curved patch better left to props or draw-mode --
+  // wedging it just sprays spikes (the hook's curved arm).
+  minArea: 500,
+  minWidth: 22,
+};
+
+/** Push a closed solid, flipping winding to outward if its signed volume is negative. */
+function pushSolid(local, out) {
+  let V = 0;
+  for (let i = 0; i < local.length; i += 3) {
+    const a = local[i], b = local[i + 1], c = local[i + 2];
+    V += (a[0] * (b[1] * c[2] - b[2] * c[1]) + a[1] * (b[2] * c[0] - b[0] * c[2])
+        + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
+  }
+  if (V < 0) for (let i = 0; i < local.length; i += 3) out.push(local[i], local[i + 2], local[i + 1]);
+  else for (const v of local) out.push(v);
+}
+
+/** Extrude a planar ring (a list of [x,y,z]) by +/- half along the horizontal uDir. */
+function extrudeRing(ring, uDir, half, out) {
+  const n = ring.length;
+  const lo = ring.map((p) => [p[0] - uDir.x * half, p[1] - uDir.y * half, p[2]]);
+  const hi = ring.map((p) => [p[0] + uDir.x * half, p[1] + uDir.y * half, p[2]]);
+  const local = [];
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    local.push(lo[i], lo[j], hi[j], lo[i], hi[j], hi[i]);
+  }
+  for (let i = 1; i < n - 1; i++) {          // convex fan caps (a monotone wedge is convex)
+    local.push(hi[0], hi[i], hi[i + 1], lo[0], lo[i + 1], lo[i]);
+  }
+  pushSolid(local, out);
+}
+
+/** A flat foot flange under the wedge's bed footprint (a -> b at z=0). */
+function emitFoot(a, b, uDir, out) {
+  const sx = b[0] - a[0], sy = b[1] - a[1];
+  const L = Math.hypot(sx, sy);
+  if (L < 1e-6) return;
+  const ux = sx / L, uy = sy / L;                 // along the run (bed footprint)
+  const hw = PERP.th / 2 + PERP.footHalf, hl = L / 2 + PERP.footHalf;
+  const cx = (a[0] + b[0]) / 2, cy = (a[1] + b[1]) / 2;
+  const P = (s, w, z) => [cx + ux * s + uDir.x * w, cy + uy * s + uDir.y * w, z];
+  const rect = [[-hl, -hw], [hl, -hw], [hl, hw], [-hl, hw]];
+  const lo = rect.map(([s, w]) => P(s, w, 0)), hi = rect.map(([s, w]) => P(s, w, PERP.footH));
+  const local = [];
+  for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; local.push(lo[i], lo[j], hi[j], lo[i], hi[j], hi[i]); }
+  for (let i = 1; i < 3; i++) local.push(hi[0], hi[i], hi[i + 1], lo[0], lo[i + 1], lo[i]);
+  pushSolid(local, out);
+}
+
+/**
+ * Tile perpendicular wedges across one down-facing patch. Returns
+ * { triangles, tines, count }.
+ */
+function buildPerpFins(p, topo, rot, offset, opts = {}) {
+  const uDir = { x: p.u.x, y: p.u.y };            // horizontal, across the face (unit)
+  const half = PERP.th / 2;
+  const lo = p.u0 + PERP.inset, hi = p.u1 - PERP.inset;
+  if (hi - lo <= 0) return { triangles: [], tines: 0, count: 0 };
+  const span = hi - lo;
+  const n = Math.max(1, Math.min(PERP.maxRow, Math.round(span / (opts.pitch ?? PERP.pitch))));
+  const out = [];
+  let tineTotal = 0, count = 0;
+
+  for (let k = 0; k < n; k++) {
+    const uc = n === 1 ? (lo + hi) / 2 : lo + (span * k) / (n - 1);
+
+    // contact profile up the face at this u (stop at the first hole after starting)
+    const contact = [];
+    const nT = Math.max(2, Math.ceil((p.t1 - p.t0) / PERP.tStep));
+    for (let i = 0; i <= nT; i++) {
+      const t = p.t0 + ((p.t1 - p.t0) * i) / nT;
+      const dev = patchProbe(p, uc, t);
+      if (dev === null) { if (contact.length) break; else continue; }
+      const w = patchPoint(p, dev, uc, t);
+      if (w[2] > 0.3) contact.push(w);
+    }
+    if (contact.length < 2) continue;
+    const top = contact.map((w) => [w[0], w[1], w[2] - PERP.gap]);
+    if (Math.max(...top.map((q) => q[2])) < PERP.minH) continue;
+
+    // ring: up the bed edge, along the top, down the bed edge (closes along the bed)
+    const ring = [[top[0][0], top[0][1], 0], ...top,
+                  [top[top.length - 1][0], top[top.length - 1][1], 0]];
+    const before = out.length;
+    extrudeRing(ring, uDir, half, out);
+    emitFoot([top[0][0], top[0][1], 0], [top[top.length - 1][0], top[top.length - 1][1], 0], uDir, out);
+    if (opts.tines !== false) tineTotal += emitTines(contact, null, topo, rot, offset, out);
+    if (out.length > before) count++;
+  }
+  return { triangles: out, tines: tineTotal, count };
+}
+
+/**
+ * Does a prop wall already stand under this patch's footprint? Decided in space,
+ * not by face index: a prop `line` is a centreline of [x,y,z] points, and the
+ * patch's world footprint is the xy bbox of its four (u,t) corners. If any prop
+ * point lands in that box (plus a small margin) the patch is already served and a
+ * wedge would just double it.
+ */
+function propServesPatch(p, props) {
+  if (!props || !props.length) return false;
+  let xLo = Infinity, xHi = -Infinity, yLo = Infinity, yHi = -Infinity;
+  for (const u of [p.u0, p.u1]) for (const t of [p.t0, p.t1]) {
+    const q = patchPoint(p, 0, u, t);
+    if (q[0] < xLo) xLo = q[0]; if (q[0] > xHi) xHi = q[0];
+    if (q[1] < yLo) yLo = q[1]; if (q[1] > yHi) yHi = q[1];
+  }
+  const m = 8;
+  for (const q of props) {
+    for (const pt of (q.line ?? [])) {
+      if (pt[0] >= xLo - m && pt[0] <= xHi + m && pt[1] >= yLo - m && pt[1] <= yHi + m) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Generate supports for the part in its current orientation.
  *
  * @param opts.mode     'prop' (the default: a vertical breakaway wall under
@@ -968,14 +1111,41 @@ export function buildFins(topo, result, rot, opts = {}) {
   // reached from these modes and is kept only for reference / Draw-mode reuse.
   if (mode === 'auto' || mode === 'stabilize') {
     const withTines = opts.tines ?? true;
-    const res = buildFins(topo, result, rot, { ...opts, mode: 'prop', tines: withTines });
-    // A tined rib IS the combined support (a "brace"); a tineless one is a plain
-    // prop. Report the split so the stress harness / UI metrics keep working now
-    // that the two support kinds share one geometry.
+    const base = buildFins(topo, result, rot, { ...opts, mode: 'prop', tines: withTines });
+
+    // Add ANGLED WEDGES on grippable down-facing patches that NO prop wall
+    // reached -- the wide/long leaning face where a vertical wall is blocked by
+    // the part itself. "Reached" is decided in SPACE (a prop line under the
+    // patch's footprint), not by face-index, because a wall-patch and an overhang
+    // region grow from different seeds and don't share a face set. Patches props
+    // already serve are left untouched, so the reachable parts don't change.
+    const patches = findWallPatches(topo, rot, result.offset);
+    const wedgeTris = [];
+    let wedgeTines = 0, wedgeCount = 0, wedgedPatches = 0;
+    for (const p of patches) {
+      if (p.n.z >= -0.05) continue;                 // downward faces only
+      if (p.area < PERP.minArea || (p.u1 - p.u0) < PERP.minWidth) continue; // broad faces only
+      if (propServesPatch(p, base.props)) continue; // a prop already stands under it
+      const w = buildPerpFins(p, topo, rot, result.offset, { tines: withTines });
+      if (!w.count) continue;
+      for (const v of w.triangles) wedgeTris.push(v);
+      wedgeTines += w.tines; wedgeCount += w.count; wedgedPatches++;
+    }
+
+    const fins = [...base.fins];
+    for (let i = 0; i < wedgeCount; i++) {
+      fins.push({ height: 0, length: 0, tines: 0, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null });
+    }
     return {
-      ...res, mode,
-      braceCount: withTines ? res.fins.length : 0,
-      propCount: withTines ? 0 : res.fins.length,
+      ...base, mode,
+      triangles: [...base.triangles, ...wedgeTris],
+      fins,
+      tines: (base.tines ?? 0) + wedgeTines,
+      // A tined rib/wedge IS the combined support (a "brace"); a tineless one is a
+      // plain prop. Report the split so the stress harness / UI metrics keep working.
+      braceCount: withTines ? fins.length : wedgeCount,
+      propCount: withTines ? 0 : base.fins.length,
+      unserved: Math.max(0, (base.unserved ?? 0) - wedgedPatches),
     };
   }
 
@@ -1020,6 +1190,7 @@ export function buildFins(topo, result, rot, opts = {}) {
                   sites: result.regions.length,
                   tried: result.regions.length },
       patchCount: 0, patchStats: {}, tines: built.tines ?? 0,
+      servedRegions: built.servedRegions ?? [],
       // regions minus SERVED REGIONS, not minus the prop count: a region can
       // yield several walls now that it is split into sub-patches, and the old
       // subtraction would go negative.

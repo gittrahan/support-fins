@@ -1087,7 +1087,7 @@ function boxExtrude(poly, lo, hi, P, out) {
  * Nubs are the wall's own thickness wide and overlap back into it, so the slicer
  * unions them onto the wall the same way every other solid here is unioned.
  */
-function emitTines(line, tris, topo, rot, offset, out) {
+export function emitTines(line, tris, topo, rot, offset, out) {
   if (line.length < 2) return 0;
 
   // arc length along the run, to space nubs by a real distance not a station count
@@ -1667,6 +1667,7 @@ export function buildProps(topo, result, rot, opts = {}) {
   // yield several -- subtracting a prop count from a region count would say a
   // part with one region and three walls had "-2 unserved".
   return { triangles: out, props, skipped, served: servedRegions.size,
+           servedRegions: [...servedRegions],
            tines: tineTotal,
            volume: props.reduce((s, q) => s + q.volume, 0) };
 }
