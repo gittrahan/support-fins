@@ -61,7 +61,16 @@ export const FIN = {
   // filter is free -- it just keeps a second fin off a mostly-airborne face.
   stiltFrac: 0.4,
   padH: 0.5,          // bed pad thickness
-  padMargin: 4.0,     // how far the pad spreads past the part's contact
+  padMargin: 8.0,     // how far the pad's open-bed grip spreads past the part's
+                      // contact. A part tilted onto an EDGE grips only the OUTBOARD
+                      // side (inboard the part rises over the pad, which conforms
+                      // or drops), so the whole hold is one narrow strip -- at 4mm
+                      // a 40mm tilted cube kept ~190mm2 and still peeled off the
+                      // plate mid-print. Widened so that one-sided strip is enough
+                      // to anchor a near-zero-contact part. Outboard cells sit on
+                      // open bed at full height, so a wider margin only adds bed
+                      // grip -- it can never weld to the part. Pair with a slicer
+                      // brim on the worst tilted parts; the pad is a baked mini-brim.
   padMinArea: 60.0,   // mm^2 of bed contact above which no pad is needed
   maxLen: 25,         // mm; a fin is a short brace at a corner, not a full-length wall
   // Grip-first holds the part, and the spec's own rule is "long parts: two fins,
