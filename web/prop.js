@@ -377,7 +377,7 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
  * its ring only ever covers short chords of a straight line, and short chords
  * are stubs. The hole is load-bearing; never bridge across a null.
  */
-export function patchTracks(pts, patchTris, step = PROP.stationStep) {
+export function patchTracks(pts, patchTris, step = PROP.stationStep, support = null) {
   if (!pts.length) return [];
 
   // The 2x2 XY covariance of the patch, plus its cross-terms with Z. This used to
@@ -423,7 +423,54 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep) {
       if (p[0] < xLo) xLo = p[0]; if (p[0] > xHi) xHi = p[0];
       if (p[1] < yLo) yLo = p[1]; if (p[1] > yHi) yHi = p[1];
     }
-    if (xHi - xLo >= yHi - yLo) { ux = 1; uy = 0; } else { ux = 0; uy = 1; }
+    let spanX = xHi - xLo, spanY = yHi - yLo;
+
+    // Run walls along the axis of the longer UNSUPPORTED span, not the longer
+    // face. A bridge ceiling is one flat square face whose ends rest on the two
+    // legs below it; the part that bridges is only the gap between them. Measured
+    // as the whole face the gap reads square, the tie picks the wrong axis, and
+    // the walls run ALONG the bridge (parallel to the layer lines they should be
+    // breaking up) instead of across it. So SCAN A GRID, mark every cell with
+    // solid part directly beneath as supported, and size each axis by its longest
+    // CONTIGUOUS free run (not the free bounding box, whose edges survive on the
+    // odd boundary cell insidePart reads as outside). With nothing below -- an
+    // ordinary bed overhang -- every cell is free and the runs equal the bbox, so
+    // this is the old longer-axis rule unchanged.
+    if (support && spanX > 0 && spanY > 0) {
+      const gstep = Math.max(1, step);
+      const nx = Math.min(80, Math.ceil(spanX / gstep));
+      const ny = Math.min(80, Math.ceil(spanY / gstep));
+      const grid = [];                                    // grid[i][j] = free?
+      for (let i = 0; i <= nx; i++) {
+        const x = xLo + (spanX * i) / nx;
+        const col = [];
+        for (let j = 0; j <= ny; j++) {
+          const y = yLo + (spanY * j) / ny;
+          const z = surfaceZAt(patchTris, x, y);
+          col.push(z !== null &&
+            !insidePart(support.topo, support.rot, support.offset, x, y, z - 0.1));
+        }
+        grid.push(col);
+      }
+      const dx = spanX / nx, dy = spanY / ny;
+      let runX = 0, runY = 0;
+      for (let j = 0; j <= ny; j++) {                     // longest free run along X
+        let run = 0;
+        for (let i = 0; i <= nx; i++) {
+          run = grid[i][j] ? run + 1 : 0;
+          if (run > runX) runX = run;
+        }
+      }
+      for (let i = 0; i <= nx; i++) {                     // longest free run along Y
+        let run = 0;
+        for (let j = 0; j <= ny; j++) {
+          run = grid[i][j] ? run + 1 : 0;
+          if (run > runY) runY = run;
+        }
+      }
+      if (runX > 0 && runY > 0) { spanX = runX * dx; spanY = runY * dy; }
+    }
+    if (spanX >= spanY) { ux = 1; uy = 0; } else { ux = 0; uy = 1; }
   }
   const un = Math.hypot(ux, uy); ux /= un; uy /= un;
   const vx = -uy, vy = ux;
@@ -1555,7 +1602,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         }
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
-      lines = patchTracks(pts, patchTris, step);
+      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off });
     }
     if (!lines.length) { skipped.noLine++; continue; }
 
