@@ -648,7 +648,7 @@ function buildFin(p0, out, span, topo, rot, offset, opts = {}) {
   };
 }
 
-const PAD = {
+export const PAD = {
   cell: 1.2,        // mm; heightfield resolution across the footprint
   minTop: 0.2,      // mm; one layer -- a cell thinner than this can't print, so it
                     // drops. Only the razor line where the part meets the plate is

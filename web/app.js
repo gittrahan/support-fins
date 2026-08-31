@@ -12,7 +12,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
 import { suggestOrientations, suggestStrengthPose, loadAlignment, layerVerdict } from './orient.js';
-import { buildFins, gripPatches, buildFinOnPatch } from './fins.js';
+import { buildFins, gripPatches, buildFinOnPatch, PAD } from './fins.js';
+import { PROP } from './prop.js';
 import { findWallPatches } from './planes.js';
 import { drawnWall } from './draw.js';
 import { writeBinarySTL, download } from './stl.js';
@@ -1371,6 +1372,19 @@ el('fin-mode').addEventListener('change', (e) => {
 el('bed-pad').addEventListener('change', refreshFins);
 el('tines').addEventListener('change', refreshFins);
 el('coverage').addEventListener('input', refreshFins);
+
+// Gap tuning. PROP.gap / PAD.grab are read fresh on every build, so setting them
+// here and rebuilding is all it takes. Clamp to the input's own range so a typed
+// value can't drive the support into the part or float it off the overhang.
+function wireGap(id, obj, key, lo, hi) {
+  const input = el(id);
+  input.addEventListener('input', () => {
+    const v = input.valueAsNumber;
+    if (Number.isFinite(v)) { obj[key] = Math.min(hi, Math.max(lo, v)); refreshFins(); }
+  });
+}
+wireGap('gap', PROP, 'gap', 0.1, 0.4);
+wireGap('pad-grip', PAD, 'grab', 0, 0.3);
 
 /** The fins-toggle button's appearance for the current finsVisible. Factored out
  *  so undo/redo can re-sync it after restoring the flag. */

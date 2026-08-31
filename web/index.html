@@ -108,6 +108,20 @@
   <label class="check" title="Tines fuse the support to the part so it grips instead of just propping. Off = plain breakaway wall.">
     <input type="checkbox" id="tines" checked>Tines (grip the part)
   </label>
+  <!-- Contact/gap tuning: the default holds and breaks off for most parts, but the
+       right clearance depends on the printer and the surface you care about, so it
+       is exposed. Support gap = clearance between a support top and the part (bigger
+       = cleaner surface / easier to remove, too big = stops holding the overhang).
+       Pad grip = how far the bed pad bites into a tilted part to keep it on the
+       plate (bigger = holds harder, too big = harder to snap off). -->
+  <label class="fld" title="Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.">
+    Support gap <span class="mut">mm</span>
+    <input type="number" id="gap" min="0.1" max="0.4" step="0.05" value="0.2">
+  </label>
+  <label class="fld" id="padgrip-fld" title="How far the bed pad bites into a tilted part to hold it on the plate. Bigger = holds harder; too big = harder to snap off. Default 0.05mm.">
+    Pad grip <span class="mut">mm</span>
+    <input type="number" id="pad-grip" min="0" max="0.3" step="0.05" value="0.05">
+  </label>
   <!-- Wide-face row density: an overhang face too wide for one corner brace gets a
        ROW of fins (a wide tilted plate would otherwise sag between two braces).
        This sets the row pitch: Sparse = fewer fins / less plastic, Dense = more.
