@@ -650,9 +650,18 @@ function buildFin(p0, out, span, topo, rot, offset, opts = {}) {
 
 const PAD = {
   cell: 1.2,        // mm; heightfield resolution across the footprint
-  minTop: FIN.gap,  // mm; a cell thinner than this isn't worth printing -- and at
-                    // the resting contact it is exactly where a weld would form,
-                    // so dropping it leaves the part's own edge to touch the plate
+  minTop: 0.2,      // mm; one layer -- a cell thinner than this can't print, so it
+                    // drops. Only the razor line where the part meets the plate is
+                    // that thin now, so effectively nothing drops.
+  grab: 0.15,       // mm the pad rises PAST the part underside to bite in near the
+                    // contact, instead of standing off. A tilted part rests on a
+                    // knife edge; a pad held 0.2mm below it never touches, so the
+                    // part peeled while its own edge did all the anchoring. The pad
+                    // is a baked brim -- it has to CONNECT to the part to hold it.
+                    // Capped at padH, so the bite only happens on the low near-edge
+                    // strip (a thin, snappable weld) and the pad merely kisses under
+                    // the higher part. Bounded by grab, it can never re-create the
+                    // deep 0.46mm slab weld the old flat pad made.
 };
 
 /**
@@ -757,8 +766,8 @@ function buildPad(contact, partTris, out) {
         if (z !== null && z < low) low = z;
       }
       const top = low === Infinity ? FIN.padH
-        : Math.min(FIN.padH, low - FIN.gap);
-      if (top < PAD.minTop) continue;              // resting line / too thin: drop
+        : Math.min(FIN.padH, low + PAD.grab);      // bite into the part, don't stand off
+      if (top < PAD.minTop) continue;              // below one layer: unprintable, drop
 
       const P = (a, b, z) => [x + a * (hd + ov), y + b * (hd + ov), z];
       extrude(box, 0, top, P, out);
