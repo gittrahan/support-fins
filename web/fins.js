@@ -653,15 +653,17 @@ const PAD = {
   minTop: 0.2,      // mm; one layer -- a cell thinner than this can't print, so it
                     // drops. Only the razor line where the part meets the plate is
                     // that thin now, so effectively nothing drops.
-  grab: 0.15,       // mm the pad rises PAST the part underside to bite in near the
+  grab: 0.05,       // mm the pad rises PAST the part underside to bite in near the
                     // contact, instead of standing off. A tilted part rests on a
-                    // knife edge; a pad held 0.2mm below it never touches, so the
-                    // part peeled while its own edge did all the anchoring. The pad
-                    // is a baked brim -- it has to CONNECT to the part to hold it.
-                    // Capped at padH, so the bite only happens on the low near-edge
-                    // strip (a thin, snappable weld) and the pad merely kisses under
-                    // the higher part. Bounded by grab, it can never re-create the
-                    // deep 0.46mm slab weld the old flat pad made.
+                    // knife edge; a pad held 0.2mm below it never touches (the "huge
+                    // gap"), so the part peeled while its own edge did all the
+                    // anchoring. The pad is a baked brim -- it has to CONNECT. But a
+                    // 0.15mm bite read as "too close"/welded, so this is a light TACK:
+                    // just enough to connect the part to the wide open-bed grip
+                    // (padMargin), which does the actual holding, while staying thin
+                    // enough to snap off clean. Capped at padH so the tack only lands
+                    // on the low near-edge strip; bounded by grab it can never
+                    // recreate the deep 0.46mm slab weld the old flat pad made.
 };
 
 /**
