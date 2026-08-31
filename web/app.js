@@ -212,7 +212,14 @@ function setPart(geometry, filename) {
     -(bb.min.x + bb.max.x) / 2,
     -(bb.min.y + bb.max.y) / 2,
     -(bb.min.z + bb.max.z) / 2);
-  if (!geometry.getAttribute('normal')) geometry.computeVertexNormals();
+  // Always recompute shading normals from the winding -- never trust the STL's
+  // stored normals. A binary STL carries a per-face normal that STLLoader loads
+  // into a `normal` attribute, and exporters routinely write those as zero or
+  // garbage (the same reason buildTopology derives its own). A zero normal lights
+  // as pure black, so trusting the stored one renders the whole part invisible.
+  // Dropping the attribute first forces computeVertexNormals to rebuild it.
+  geometry.deleteAttribute('normal');
+  geometry.computeVertexNormals();
   geometry.computeBoundingBox();
 
   part = new THREE.Mesh(geometry, partMaterial);
