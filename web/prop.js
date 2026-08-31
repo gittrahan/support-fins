@@ -123,8 +123,23 @@ export const PROP = {
   tineH: 0.3,        // one layer line
   tineW: 0.6,        // a single bead across the run (matches the contact tip)
   tineBite: 0.5,     // how far a nub reaches horizontally into the part
-  tineStep: 2.0,     // mm between nubs along the wall's top
+  tineStep: 2.0,     // mm between nubs -- the DENSEST comb, used on tippy parts
   tineOverlap: 0.3,  // how far the nub sinks back into the wall, so they union
+
+  // Tine density scales with TIP-OVER RISK, not applied flat. A tine's whole job
+  // is to keep the part from falling away/toppling mid-print (that is why Slant
+  // insists on them over a bare gap-wall). But that payoff only exists for a part
+  // that CAN tip: a squat, wide part has no toppling moment, so a dense comb there
+  // is pure cost -- it marks the surface where a plain wall wouldn't, and welds a
+  // rigid support cage to the part so its cool-down shrink peels it off the plate
+  // (the small-cube bed-release seen on the first test bank). So: a few grip tines
+  // on a stable part, the full dense comb on a tower.
+  //   risk = printed height / narrowest footprint span (the axis it tips over)
+  tineStepSquat: 9.0,  // sparse spacing at/below tipRiskLo -- a stable part
+  tipRiskLo: 1.3,      // risk at/below which the part can't topple -> sparse comb
+  tipRiskHi: 3.5,      // risk at/above which -> full dense comb
+  minGripTines: 3,     // grip floor: never fewer than this per grippable wall,
+                       // however squat -- a wall that grips nothing is a loose prop
 };
 
 /**
@@ -1087,7 +1102,7 @@ function boxExtrude(poly, lo, hi, P, out) {
  * Nubs are the wall's own thickness wide and overlap back into it, so the slicer
  * unions them onto the wall the same way every other solid here is unioned.
  */
-export function emitTines(line, tris, topo, rot, offset, out) {
+export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep) {
   if (line.length < 2) return 0;
 
   // arc length along the run, to space nubs by a real distance not a station count
@@ -1097,11 +1112,18 @@ export function emitTines(line, tris, topo, rot, offset, out) {
                                  line[i][1] - line[i - 1][1]));
   }
   const total = s[s.length - 1];
-  if (total < PROP.tineStep) return 0;
+
+  // The caller's step encodes tip-over risk (sparse for a stable part). But grip
+  // is a floor no part goes under: a wall gets at least minGripTines along its
+  // length, so a squat part's sparse spacing never starves a long wall of grip or
+  // leaves a short wall with a single lonely nub. min() only ever TIGHTENS the
+  // requested spacing, never loosens it past the dense comb.
+  const step = Math.min(stepArg, total / PROP.minGripTines);
+  if (total < step) return 0;
 
   const half = PROP.th / 2;
   let count = 0;
-  for (let d = PROP.tineStep / 2; d < total; d += PROP.tineStep) {
+  for (let d = step / 2; d < total; d += step) {
     // interpolate the station at arc length d
     let k = 0;
     while (k < s.length - 1 && s[k + 1] < d) k++;
@@ -1434,14 +1456,29 @@ export function buildProps(topo, result, rot, opts = {}) {
   // support lands on is usually a DIFFERENT region than the overhang, so it must
   // raycast the full mesh. Cheap next to the per-region work below.
   const partTris = new Float64Array(pos.length);
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity,
+      minZ = Infinity, maxZ = -Infinity;
   for (let f = 0; f < topo.nFaces; f++) {
     for (let i = 0; i < 3; i++) {
       seat(pos, f * 9 + i * 3, rot, off, v);
       partTris[f * 9 + i * 3] = v[0];
       partTris[f * 9 + i * 3 + 1] = v[1];
       partTris[f * 9 + i * 3 + 2] = v[2];
+      if (v[0] < minX) minX = v[0]; if (v[0] > maxX) maxX = v[0];
+      if (v[1] < minY) minY = v[1]; if (v[1] > maxY) maxY = v[1];
+      if (v[2] < minZ) minZ = v[2]; if (v[2] > maxZ) maxZ = v[2];
     }
   }
+
+  // Tip-over risk of the seated part sets how dense the grip combs get (see PROP
+  // tine block). It tips over its NARROWEST footprint span, so that is the
+  // denominator; a taller part over the same stance topples more easily.
+  const height = maxZ - minZ;
+  const footMin = Math.max(1e-3, Math.min(maxX - minX, maxY - minY));
+  const tipRisk = height / footMin;
+  const rk = Math.min(1, Math.max(0,
+    (tipRisk - PROP.tipRiskLo) / (PROP.tipRiskHi - PROP.tipRiskLo)));
+  const tineStepEff = PROP.tineStepSquat + rk * (PROP.tineStep - PROP.tineStepSquat);
 
   // The support unit is the locally-straight sub-patch, not the connected
   // region -- see splitRegion. Fragments too small to be worth a wall are
@@ -1538,7 +1575,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         // gap back so emitTines reads it as the surface, like the plate path does.
         if (withTines) {
           const topLine = pa.prop.line.map((p) => [p[0], p[1], p[2] + PROP.gap]);
-          tineTotal += emitTines(topLine, partTris, topo, rot, off, out);
+          tineTotal += emitTines(topLine, partTris, topo, rot, off, out, tineStepEff);
         }
         props.push({ ...pa.prop, area: patch.area,
                      trimmed: line.length - pa.prop.stations });
@@ -1649,7 +1686,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         servedRegions.add(patch.region);
         // The grip comb: nubs along this wall's settled top that bite into the
         // part. `settled` carries the surface z; emitTines subtracts the gap.
-        if (withTines) tineTotal += emitTines(settled, regionTris, topo, rot, off, out);
+        if (withTines) tineTotal += emitTines(settled, regionTris, topo, rot, off, out, tineStepEff);
         props.push({
           span: span2, height: top - zBed, area: patch.area,
           stations: settled.length, trimmed: line.length - settled.length,
