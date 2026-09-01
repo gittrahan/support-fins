@@ -52,6 +52,23 @@ export function blockTopo(...args) {
   return buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
 }
 
+/** A block with a rotation about X BAKED into its vertices, reseated so min z = 0
+ *  -- i.e. a part a user tilted and the STL was saved tilted (rot stays identity).
+ *  degX = 45 gives faces whose normals land exactly on |nz| = sin(45). */
+export function tiltedBlockTopo(x0, x1, y0, y1, z0, z1, degX) {
+  const a = (degX * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  const raw = block(x0, x1, y0, y1, z0, z1);
+  let minZ = Infinity;
+  const rot = new Float32Array(raw.length);
+  for (let i = 0; i < raw.length; i += 3) {
+    const y = raw[i + 1], z = raw[i + 2];
+    rot[i] = raw[i]; rot[i + 1] = y * c - z * s; rot[i + 2] = y * s + z * c;
+    if (rot[i + 2] < minZ) minZ = rot[i + 2];
+  }
+  for (let i = 0; i < rot.length; i += 3) rot[i + 2] -= minZ;
+  return buildTopology({ getAttribute: (k) => (k === 'position' ? { array: rot } : null) });
+}
+
 // --- rotations (column-major 3x3, THREE.Matrix3.elements order) -----------
 const d2r = (d) => (d * Math.PI) / 180;
 export const rotX = (d) => { const c = Math.cos(d2r(d)), s = Math.sin(d2r(d)); return [1, 0, 0, 0, c, s, 0, -s, c]; };

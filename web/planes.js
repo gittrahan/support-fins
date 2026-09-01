@@ -94,7 +94,13 @@ export const MIN_PATCH_AREA = 25.0; // mm^2
  */
 export function findWallPatches(topo, rot, offset, stats = null) {
   const { pos, nFaces, nrm, area } = topo;
-  const leanCut = Math.sin((MAX_LEAN_DEG * Math.PI) / 180);
+  // A hair of slack past the exact sine. 45 degrees is the most common tilt a
+  // user dials in -- a cube on its edge -- and its face normal lands on sin(45)
+  // to the last float bit, so a bare `<=` let winding round-off reject or accept
+  // the very same overhang. The slack is far below any real face spacing, so it
+  // only pulls that exact-boundary face in; a genuinely flatter 46deg face stays
+  // well outside it. Pinned by tests/patches.test.js.
+  const leanCut = Math.sin((MAX_LEAN_DEG * Math.PI) / 180) + 1e-6;
   const agreeCut = Math.cos((NORMAL_AGREE_DEG * Math.PI) / 180);
 
   // rotated face normals, kept because both the grouping test and the plane fit
