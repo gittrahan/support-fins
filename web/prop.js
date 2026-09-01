@@ -123,13 +123,16 @@ export const PROP = {
   tineH: 0.3,        // one layer line
   tineW: 0.6,        // a single bead across the run (matches the contact tip)
   tineBite: 0.5,     // how far a nub reaches horizontally into the part
-  tineStep: 2.0,     // mm between nubs -- the dense grip comb, applied uniformly
+  tineStep: 2.0,     // mm between nubs -- the DENSE grip comb, the default
+  tineStepSparse: 5.0, // mm between nubs at the sparse end of the Tine-grip slider
   tineOverlap: 0.3,  // how far the nub sinks back into the wall, so they union
   // NOTE: a TIP-OVER-RISK density scale (tineStepSquat/tipRiskLo/tipRiskHi) was
   // removed -- it let stable parts fall to a sparse 9mm comb that read as "laying
   // on the face", and the cube bed-release it was meant to cure was the pad's
-  // fault, not the tines'. If surface marking from a dense comb ever needs taming,
-  // do it deliberately (with a print + a test), not by silently starving grip.
+  // fault, not the tines'. Surface marking from the dense comb is now tamed the
+  // deliberate way: the user's "Tine grip" slider (tineStepFor / opts.tineDensity),
+  // which DEFAULTS to dense and the minGripTines floor still protects -- never by
+  // silently starving grip. Pinned by tests/tine_density.test.js.
   minGripTines: 3,     // grip floor: never fewer than this per grippable wall,
                        // however squat -- a wall that grips nothing is a loose prop
 };
@@ -1201,6 +1204,17 @@ function biteDirAt(topo, rot, offset, px, py, pz) {
   return { x: hx / hm, y: hy / hm };
 }
 
+/**
+ * Nub spacing (mm) for a user "Tine grip" setting in [0 sparse .. 1 dense].
+ * DEFAULT (undefined) is dense -- the proven comb. Sparse only ever LOOSENS the
+ * requested spacing; emitTines's minGripTines floor still guarantees grip on
+ * short walls, so a sparse setting thins surface marking without starving grip.
+ */
+export function tineStepFor(density) {
+  const d = Math.max(0, Math.min(1, density ?? 1));
+  return PROP.tineStepSparse - d * (PROP.tineStepSparse - PROP.tineStep);
+}
+
 export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep) {
   if (line.length < 2) return 0;
 
@@ -1583,9 +1597,11 @@ export function buildProps(topo, result, rot, opts = {}) {
   // instead of a gripping comb (regression Matthew caught). The cube-detach that
   // scale was reacting to was actually the bed pad's fault (fixed separately in the
   // pad commits), not the tines'. So the comb is uniformly dense again (Slant3D's
-  // "7-8 low down, spreading with height"); density is PROP.tineStep, and
-  // tests/tines_realparts.test.js pins that real parts get a full comb.
-  const tineStepEff = PROP.tineStep;
+  // "7-8 low down, spreading with height"); density DEFAULTS to PROP.tineStep and
+  // tests/tines_realparts.test.js pins that real parts get a full comb. The user's
+  // "Tine grip" slider (opts.tineDensity) can loosen it toward tineStepSparse for a
+  // surface-critical face, never silently -- see tineStepFor / tests/tine_density.test.js.
+  const tineStepEff = tineStepFor(opts.tineDensity);
 
   // The support unit is the locally-straight sub-patch, not the connected
   // region -- see splitRegion. Fragments too small to be worth a wall are

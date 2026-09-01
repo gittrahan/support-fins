@@ -108,6 +108,16 @@
   <label class="check" title="Tines fuse the support to the part so it grips instead of just propping. Off = plain breakaway wall.">
     <input type="checkbox" id="tines" checked>Tines (grip the part)
   </label>
+  <!-- Tine grip density: how tightly the horizontal tine comb is spaced along each
+       gripping support. Firm = a dense comb (max grip, the default) but leaves more
+       marks on the supported face; Light = a looser comb for a surface-critical face
+       (fewer marks). A per-wall floor keeps at least a few tines however light, so it
+       thins marking without ever letting go. Shown only when Tines is on. -->
+  <label class="fld" id="tinegrip-fld"
+         title="How tightly to space the grip tines. Firm = dense comb / max grip (default); Light = fewer marks on a surface-critical face. A per-wall floor keeps grip either way.">
+    Tine grip <span class="mut">light ⟶ firm</span>
+    <input type="range" id="tine-density" min="0" max="100" step="5" value="100">
+  </label>
   <!-- Contact/gap tuning: the default holds and breaks off for most parts, but the
        right clearance depends on the printer and the surface you care about, so it
        is exposed. Support gap = clearance between a support top and the part (bigger

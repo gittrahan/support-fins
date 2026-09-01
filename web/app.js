@@ -803,7 +803,8 @@ function rebuildDrawn() {
         continue;
       }
       const r = buildFinOnPatch(topology, lastResult, rotM3.elements, patch,
-                                { tines: el('tines').checked });
+                                { tines: el('tines').checked,
+                                  tineDensity: el('tine-density').valueAsNumber / 100 });
       d.ok = r.ok;
       d.info = r.ok ? r.info : r;
       if (r.ok) for (const t of r.triangles) drawnTris.push(t);
@@ -1103,6 +1104,7 @@ function refreshFins() {
                           { mode: finMode === 'draw' ? 'prop' : finMode,
                             bedPad: el('bed-pad').checked,
                             tines: el('tines').checked,
+                            tineDensity: el('tine-density').valueAsNumber / 100,
                             coverage: el('coverage').valueAsNumber / 100 });
   lastBuilt = built;
   padTris = built.padTriangles;
@@ -1370,8 +1372,13 @@ el('fin-mode').addEventListener('change', (e) => {
   refreshFins();
 });
 el('bed-pad').addEventListener('change', refreshFins);
-el('tines').addEventListener('change', refreshFins);
+// Tine grip only means anything when the tines are on, so hide its slider with the
+// toggle (keeps the panel honest -- no dead control).
+function syncTineGrip() { el('tinegrip-fld').hidden = !el('tines').checked; }
+el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); });
+el('tine-density').addEventListener('input', refreshFins);
 el('coverage').addEventListener('input', refreshFins);
+syncTineGrip();
 
 // Gap tuning. PROP.gap / PAD.grab are read fresh on every build, so setting them
 // here and rebuilding is all it takes. Clamp to the input's own range so a typed

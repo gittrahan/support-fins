@@ -29,7 +29,7 @@
 import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js';
 import { BED_EPS } from './overhangs.js';
 import { insidePart } from './inside.js';
-import { buildProps, noProps, surfaceZAt, emitTines } from './prop.js';
+import { buildProps, noProps, surfaceZAt, emitTines, tineStepFor } from './prop.js';
 
 export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
@@ -818,7 +818,7 @@ export function buildFinOnPatch(topo, result, rot, patch, opts = {}) {
     return { ok: false, reason: 'aim at a downward / overhang face — a support fin '
       + 'holds an overhang up from below, not a vertical side' };
   }
-  const w = buildPerpFins(patch, topo, rot, result.offset, { tines: opts.tines });
+  const w = buildPerpFins(patch, topo, rot, result.offset, { tines: opts.tines, tineDensity: opts.tineDensity });
   if (!w.count) {
     return { ok: false, reason: 'this face is too small or shallow to stand a fin '
       + 'under — tilt it steeper, or pick a broader overhang' };
@@ -1074,7 +1074,7 @@ function buildPerpFins(p, topo, rot, offset, opts = {}) {
     const before = out.length;
     extrudeRing(ring, uDir, half, out);
     emitFoot([top[0][0], top[0][1], 0], [top[top.length - 1][0], top[top.length - 1][1], 0], uDir, out);
-    if (opts.tines !== false) tineTotal += emitTines(contact, null, topo, rot, offset, out);
+    if (opts.tines !== false) tineTotal += emitTines(contact, null, topo, rot, offset, out, tineStepFor(opts.tineDensity));
     if (out.length > before) count++;
   }
   return { triangles: out, tines: tineTotal, count };
@@ -1160,7 +1160,7 @@ export function buildFins(topo, result, rot, opts = {}) {
       if (p.n.z >= -0.05) continue;                 // downward faces only
       if (p.area < PERP.minArea || (p.u1 - p.u0) < PERP.minWidth) continue; // broad faces only
       if (propServesPatch(p, base.props)) continue; // a prop already stands under it
-      const w = buildPerpFins(p, topo, rot, result.offset, { tines: withTines, pitch: covPitch });
+      const w = buildPerpFins(p, topo, rot, result.offset, { tines: withTines, pitch: covPitch, tineDensity: opts.tineDensity });
       if (!w.count) continue;
       for (const v of w.triangles) wedgeTris.push(v);
       wedgeTines += w.tines; wedgeCount += w.count; wedgedPatches++;
