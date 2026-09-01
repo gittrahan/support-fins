@@ -377,7 +377,8 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
  * its ring only ever covers short chords of a straight line, and short chords
  * are stubs. The hole is load-bearing; never bridge across a null.
  */
-export function patchTracks(pts, patchTris, step = PROP.stationStep, support = null) {
+export function patchTracks(pts, patchTris, step = PROP.stationStep, support = null,
+                            span = PROP.maxUnsupportedSpan) {
   if (!pts.length) return [];
 
   // The 2x2 XY covariance of the patch, plus its cross-terms with Z. This used to
@@ -486,7 +487,11 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   const nSt = Math.max(2, Math.min(400, Math.ceil((uHi - uLo) / step)));
 
   const vExt = vHi - vLo;
-  const nWalls = Math.max(1, Math.round(vExt / PROP.maxUnsupportedSpan));
+  // `span` is the row spacing: the structural cap (maxUnsupportedSpan) by default,
+  // tightened by the coverage slider. Clamp so a dense setting can only ADD rows,
+  // never loosen past the cap and strand an overhang.
+  const rowSpan = Math.min(PROP.maxUnsupportedSpan, Math.max(1, span));
+  const nWalls = Math.max(1, Math.round(vExt / rowSpan));
 
   const tracks = [];
   for (let w = 0; w < nWalls; w++) {
@@ -1488,6 +1493,12 @@ export function noProps() {
 export function buildProps(topo, result, rot, opts = {}) {
   const { pos } = topo;
   const step = opts.step ?? PROP.stationStep;
+  // Wide-face coverage (0 sparse .. 1 dense) tightens the row spacing: sparse is
+  // the structural cap (maxUnsupportedSpan), dense halves it for ~twice the rows.
+  // Denser only adds material, never loosens past the cap. Pinned by
+  // tests/coverage.test.js.
+  const coverage = Math.max(0, Math.min(1, opts.coverage ?? 0.25));
+  const rowSpan = PROP.maxUnsupportedSpan - coverage * (PROP.maxUnsupportedSpan / 2);
   const zBed = 0;
   const off = result.offset;
   const withTines = opts.tines === true;
@@ -1602,7 +1613,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         }
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
-      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off });
+      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan);
     }
     if (!lines.length) { skipped.noLine++; continue; }
 

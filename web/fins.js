@@ -1138,6 +1138,13 @@ export function buildFins(topo, result, rot, opts = {}) {
   // reached from these modes and is kept only for reference / Draw-mode reuse.
   if (mode === 'auto' || mode === 'stabilize') {
     const withTines = opts.tines ?? true;
+    // Wide-face coverage (0 sparse .. 1 dense) drives how densely a broad face is
+    // lined -- the prop rows (buildProps reads opts.coverage, forwarded below) and
+    // the wedge row pitch here. Denser only ADDS supports and never loosens past
+    // the structural cap, so dragging it right can't strand an overhang. Pinned by
+    // tests/coverage.test.js.
+    const coverage = Math.max(0, Math.min(1, opts.coverage ?? FIN.coverDefault));
+    const covPitch = FIN.coverSparse - coverage * (FIN.coverSparse - FIN.coverDense);
     const base = buildFins(topo, result, rot, { ...opts, mode: 'prop', tines: withTines });
 
     // Add ANGLED WEDGES on grippable down-facing patches that NO prop wall
@@ -1153,7 +1160,7 @@ export function buildFins(topo, result, rot, opts = {}) {
       if (p.n.z >= -0.05) continue;                 // downward faces only
       if (p.area < PERP.minArea || (p.u1 - p.u0) < PERP.minWidth) continue; // broad faces only
       if (propServesPatch(p, base.props)) continue; // a prop already stands under it
-      const w = buildPerpFins(p, topo, rot, result.offset, { tines: withTines });
+      const w = buildPerpFins(p, topo, rot, result.offset, { tines: withTines, pitch: covPitch });
       if (!w.count) continue;
       for (const v of w.triangles) wedgeTris.push(v);
       wedgeTines += w.tines; wedgeCount += w.count; wedgedPatches++;
