@@ -1154,6 +1154,61 @@ function boxExtrude(poly, lo, hi, P, out) {
  * Nubs are the wall's own thickness wide and overlap back into it, so the slicer
  * unions them onto the wall the same way every other solid here is unioned.
  */
+/** Squared distance from point p to triangle (a,b,c). Ericson closest-point. */
+function ptTriDist2(p, a, b, c) {
+  const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+  const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  const ab = sub(b, a), ac = sub(c, a), ap = sub(p, a);
+  const d1 = dot(ab, ap), d2 = dot(ac, ap);
+  if (d1 <= 0 && d2 <= 0) return dot(ap, ap);
+  const bp = sub(p, b), d3 = dot(ab, bp), d4 = dot(ac, bp);
+  if (d3 >= 0 && d4 <= d3) return dot(bp, bp);
+  const cp = sub(p, c), d5 = dot(ab, cp), d6 = dot(ac, cp);
+  if (d6 >= 0 && d5 <= d6) return dot(cp, cp);
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) { const v = d1 / (d1 - d3); const q = [a[0] + v * ab[0], a[1] + v * ab[1], a[2] + v * ab[2]]; const w = sub(p, q); return dot(w, w); }
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) { const w = d2 / (d2 - d6); const q = [a[0] + w * ac[0], a[1] + w * ac[1], a[2] + w * ac[2]]; const u = sub(p, q); return dot(u, u); }
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) { const w = (d4 - d3) / ((d4 - d3) + (d5 - d6)); const q = [b[0] + w * (c[0] - b[0]), b[1] + w * (c[1] - b[1]), b[2] + w * (c[2] - b[2])]; const u = sub(p, q); return dot(u, u); }
+  const denom = 1 / (va + vb + vc), v = vb * denom, w = vc * denom;
+  const q = [a[0] + ab[0] * v + ac[0] * w, a[1] + ab[1] * v + ac[1] * w, a[2] + ab[2] * v + ac[2] * w];
+  const u = sub(p, q); return dot(u, u);
+}
+
+/**
+ * Horizontal INWARD-normal of the part face nearest a tine seed -- the direction
+ * a tine must bite to grip "straight on". The bite heading has to come from the
+ * PART (which way the face points), never from the wall's run: a wall along a
+ * leaning face's level contour runs TANGENT to the surface, so a run-aligned nub
+ * lies flat instead of biting in. The nearest face handles both scenarios the tool
+ * places walls in -- under a sloped overhang (nearest face is the underside) and
+ * beside a near-vertical wall (nearest face is that side) -- while a shallow ceiling
+ * (near-vertical normal, tiny horizontal component) returns null, the honest "too
+ * flat to grip horizontally" case. Returns {x,y} unit horizontal or null.
+ */
+function biteDirAt(topo, rot, offset, px, py, pz) {
+  const pos = topo.pos, nrm = topo.nrm, nF = topo.nFaces;
+  const P = [px, py, pz];
+  const seat = (o) => [rot[0] * pos[o] + rot[3] * pos[o + 1] + rot[6] * pos[o + 2] + offset.x,
+                       rot[1] * pos[o] + rot[4] * pos[o + 1] + rot[7] * pos[o + 2] + offset.y,
+                       rot[2] * pos[o] + rot[5] * pos[o + 1] + rot[8] * pos[o + 2] + offset.z];
+  let best = Infinity, bf = -1;
+  for (let f = 0; f < nF; f++) {
+    const o = f * 9;
+    const d2 = ptTriDist2(P, seat(o), seat(o + 3), seat(o + 6));
+    if (d2 < best) { best = d2; bf = f; }
+  }
+  if (bf < 0) return null;
+  const nx = nrm[bf * 3], ny = nrm[bf * 3 + 1], nz = nrm[bf * 3 + 2];
+  // seated normal, then INWARD (into the part) = negated, horizontal component only
+  const sx = rot[0] * nx + rot[3] * ny + rot[6] * nz;
+  const sy = rot[1] * nx + rot[4] * ny + rot[7] * nz;
+  const hx = -sx, hy = -sy, hm = Math.hypot(hx, hy);
+  if (hm < 0.34) return null;               // face too flat (near-horizontal ceiling) to grip sideways
+  return { x: hx / hm, y: hy / hm };
+}
+
 export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep) {
   if (line.length < 2) return 0;
 
@@ -1187,19 +1242,17 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
     const wallTop = z - PROP.gap;
     if (wallTop < PROP.baseH + 0.2) continue;                   // too low to matter
 
-    // run tangent (horizontal), and the two ways a nub could bite
-    let rx = line[k + 1][0] - line[k][0], ry = line[k + 1][1] - line[k][1];
-    const rn = Math.hypot(rx, ry);
-    if (rn < 1e-9) continue;
-    rx /= rn; ry /= rn;
     const zMid = wallTop + PROP.tineH / 2;
 
-    let dirx = 0, diry = 0;
-    for (const sgn of [1, -1]) {
-      const tx = x + rx * sgn * PROP.tineBite, ty = y + ry * sgn * PROP.tineBite;
-      if (insidePart(topo, rot, offset, tx, ty, zMid)) { dirx = rx * sgn; diry = ry * sgn; break; }
-    }
-    if (dirx === 0 && diry === 0) continue;                     // no grip here
+    // BITE DIRECTION comes from the PART (which way the nearest face points),
+    // never from the wall's run: a run-aligned nub lies flat on a leaning face
+    // whose level contour the wall follows -- the regression. Then require the
+    // nub's full reach to actually land inside the part, or skip it (honest -- no
+    // tine gripping air, no tine on a ceiling too shallow to grab sideways).
+    const bd = biteDirAt(topo, rot, offset, x, y, zMid);
+    if (!bd) continue;
+    const dirx = bd.x, diry = bd.y;
+    if (!insidePart(topo, rot, offset, x + dirx * PROP.tineBite, y + diry * PROP.tineBite, zMid)) continue;
 
     // frame (along = bite dir, across = z x along, up = z) is right-handed
     const ax = -diry, ay = dirx;                                // across = z x along

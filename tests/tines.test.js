@@ -8,9 +8,9 @@
 //   - hung BELOW the contact -> a tall tooth, not a one-layer bridge.
 // These tests pin emitTines directly on a controlled solid so both stay caught.
 
-import { blockTopo, prop, insidePart, bbox, assert, assertClose } from './_util.js';
+import { blockTopo, tiltedBlockTopo, prop, insidePart, bbox, assert, assertClose } from './_util.js';
 
-const { emitTines } = prop;
+const { emitTines, surfaceZAt } = prop;
 
 /**
  * Run emitTines against a solid block whose interior is at y >= 0, with a
@@ -60,6 +60,37 @@ Deno.test('emitTines: most tooth volume actually lands inside the part', () => {
   // Baseline: ~0.83. A tooth that lies ON the surface instead of biting IN drops
   // this toward zero -- the exact regression to catch.
   assert(inside / out.length >= 0.4, `tines grip weakly: only ${(inside / out.length * 100 | 0)}% of verts inside the part`);
+});
+
+Deno.test('emitTines: on a wall along the level CONTOUR, teeth still bite INTO the face', () => {
+  // THE REGRESSION THIS PINS. A leaning face is often supported by a wall running
+  // along its level contour (constant height), so the wall's RUN is TANGENT to the
+  // surface. The old code took the bite direction from the run and probed +-run
+  // only -> a run-aligned nub either lies flat on the piece or, on a pure tilt,
+  // finds nothing (the run heads along the gap, never into material) and drops out.
+  // The bite must come from the PART: point into the slope, regardless of the run.
+  const topo = tiltedBlockTopo(-15, 15, -20, 20, 0, 30, 40);   // ceiling rises with +Y
+  const rot = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  const offset = { x: 0, y: 0, z: 0 };
+  // a contact line running along X (the contour) at y=0, sitting on the underside
+  const line = [];
+  for (let x = -8; x <= 8; x += 1) {
+    const z = surfaceZAt(topo.pos, x, 0);
+    if (z !== null) line.push([x, 0, z]);
+  }
+  const out = [];
+  const n = emitTines(line, null, topo, rot, offset, out);
+  // The old run-aligned bite produced ZERO tines here: probing +-run heads along
+  // the contour (constant height), never into the material, so every station drops
+  // out. A part-derived bite grips the sloped face.
+  assert(n >= 3, `contour wall produced too few tines: ${n} (old bug: 0 -- bit along the run)`);
+  let inside = 0;
+  for (const v of out) if (insidePart(topo, rot, offset, v[0], v[1], v[2])) inside++;
+  assert(inside / out.length >= 0.35, `contour tines lie flat: only ${(inside / out.length * 100 | 0)}% of verts inside`);
+  // the bite runs ACROSS the wall (into the slope in Y), not ALONG it (X): the run
+  // spans x in [-8,8] but the tooth reach in Y must clear the wall thickness.
+  const box = bbox(out);
+  assert((box.hi[1] - box.lo[1]) > 0.6, `contour tines don't reach into the face (Y-extent ${(box.hi[1] - box.lo[1]).toFixed(2)})`);
 });
 
 Deno.test('emitTines: an overhang the tooth cannot reach into gets no tine (honest)', () => {
