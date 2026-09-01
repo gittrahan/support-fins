@@ -1265,6 +1265,10 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
       [PROP.tineBite, half], [-PROP.tineOverlap, half],
     ];
     boxExtrude(poly, wallTop, wallTop + PROP.tineH, P, out);
+    // Test seam: tests/tines_realparts.test.js sets globalThis.__TINECAP to an array
+    // and reads back each tine's seed + bite heading to verify grip on real parts
+    // through the whole pipeline. Undefined in the browser -> a zero-cost noop.
+    if (globalThis.__TINECAP) globalThis.__TINECAP.push({ x, y, z: zMid, biteX: dirx, biteY: diry });
     count++;
   }
   return count;

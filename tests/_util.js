@@ -98,6 +98,50 @@ export function isClosed(tris) {
   return true;
 }
 
+/** Squared distance from point p to triangle (a,b,c) (each [x,y,z]). */
+export function ptTriDist2(p, a, b, c) {
+  const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
+  const dot = (u, v) => u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  const ab = sub(b, a), ac = sub(c, a), ap = sub(p, a);
+  const d1 = dot(ab, ap), d2 = dot(ac, ap);
+  if (d1 <= 0 && d2 <= 0) return dot(ap, ap);
+  const bp = sub(p, b), d3 = dot(ab, bp), d4 = dot(ac, bp);
+  if (d3 >= 0 && d4 <= d3) return dot(bp, bp);
+  const cp = sub(p, c), d5 = dot(ab, cp), d6 = dot(ac, cp);
+  if (d6 >= 0 && d5 <= d6) return dot(cp, cp);
+  const vc = d1 * d4 - d3 * d2;
+  if (vc <= 0 && d1 >= 0 && d3 <= 0) { const v = d1 / (d1 - d3); const q = [a[0] + v * ab[0], a[1] + v * ab[1], a[2] + v * ab[2]]; const w = sub(p, q); return dot(w, w); }
+  const vb = d5 * d2 - d1 * d6;
+  if (vb <= 0 && d2 >= 0 && d6 <= 0) { const w = d2 / (d2 - d6); const q = [a[0] + w * ac[0], a[1] + w * ac[1], a[2] + w * ac[2]]; const u = sub(p, q); return dot(u, u); }
+  const va = d3 * d6 - d5 * d4;
+  if (va <= 0 && (d4 - d3) >= 0 && (d5 - d6) >= 0) { const w = (d4 - d3) / ((d4 - d3) + (d5 - d6)); const q = [b[0] + w * (c[0] - b[0]), b[1] + w * (c[1] - b[1]), b[2] + w * (c[2] - b[2])]; const u = sub(p, q); return dot(u, u); }
+  const denom = 1 / (va + vb + vc), v = vb * denom, w = vc * denom;
+  const q = [a[0] + ab[0] * v + ac[0] * w, a[1] + ab[1] * v + ac[1] * w, a[2] + ab[2] * v + ac[2] * w];
+  const u = sub(p, q); return dot(u, u);
+}
+
+/** Horizontal INWARD unit normal of the seated part face nearest point p, or null
+ *  if that face is near-horizontal (no sideways grip). Independent of the engine's
+ *  own biteDirAt -- a test using this checks the bite from scratch. */
+export function nearestFaceInwardH(topo, rot, offset, p) {
+  const { pos, nrm, nFaces } = topo;
+  const seat = (o) => [rot[0] * pos[o] + rot[3] * pos[o + 1] + rot[6] * pos[o + 2] + offset.x,
+                       rot[1] * pos[o] + rot[4] * pos[o + 1] + rot[7] * pos[o + 2] + offset.y,
+                       rot[2] * pos[o] + rot[5] * pos[o + 1] + rot[8] * pos[o + 2] + offset.z];
+  let best = Infinity, bf = -1;
+  for (let f = 0; f < nFaces; f++) {
+    const o = f * 9, d2 = ptTriDist2(p, seat(o), seat(o + 3), seat(o + 6));
+    if (d2 < best) { best = d2; bf = f; }
+  }
+  if (bf < 0) return null;
+  const nx = nrm[bf * 3], ny = nrm[bf * 3 + 1], nz = nrm[bf * 3 + 2];
+  const sx = rot[0] * nx + rot[3] * ny + rot[6] * nz;
+  const sy = rot[1] * nx + rot[4] * ny + rot[7] * nz;
+  const hx = -sx, hy = -sy, hm = Math.hypot(hx, hy);
+  if (hm < 0.2) return null;
+  return { x: hx / hm, y: hy / hm };
+}
+
 /** axis-aligned bounding box of a [x,y,z] vert list */
 export function bbox(tris) {
   const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
