@@ -123,21 +123,13 @@ export const PROP = {
   tineH: 0.3,        // one layer line
   tineW: 0.6,        // a single bead across the run (matches the contact tip)
   tineBite: 0.5,     // how far a nub reaches horizontally into the part
-  tineStep: 2.0,     // mm between nubs -- the DENSEST comb, used on tippy parts
+  tineStep: 2.0,     // mm between nubs -- the dense grip comb, applied uniformly
   tineOverlap: 0.3,  // how far the nub sinks back into the wall, so they union
-
-  // Tine density scales with TIP-OVER RISK, not applied flat. A tine's whole job
-  // is to keep the part from falling away/toppling mid-print (that is why Slant
-  // insists on them over a bare gap-wall). But that payoff only exists for a part
-  // that CAN tip: a squat, wide part has no toppling moment, so a dense comb there
-  // is pure cost -- it marks the surface where a plain wall wouldn't, and welds a
-  // rigid support cage to the part so its cool-down shrink peels it off the plate
-  // (the small-cube bed-release seen on the first test bank). So: a few grip tines
-  // on a stable part, the full dense comb on a tower.
-  //   risk = printed height / narrowest footprint span (the axis it tips over)
-  tineStepSquat: 9.0,  // sparse spacing at/below tipRiskLo -- a stable part
-  tipRiskLo: 1.3,      // risk at/below which the part can't topple -> sparse comb
-  tipRiskHi: 3.5,      // risk at/above which -> full dense comb
+  // NOTE: a TIP-OVER-RISK density scale (tineStepSquat/tipRiskLo/tipRiskHi) was
+  // removed -- it let stable parts fall to a sparse 9mm comb that read as "laying
+  // on the face", and the cube bed-release it was meant to cure was the pad's
+  // fault, not the tines'. If surface marking from a dense comb ever needs taming,
+  // do it deliberately (with a print + a test), not by silently starving grip.
   minGripTines: 3,     // grip floor: never fewer than this per grippable wall,
                        // however squat -- a wall that grips nothing is a loose prop
 };
@@ -1585,15 +1577,15 @@ export function buildProps(topo, result, rot, opts = {}) {
     }
   }
 
-  // Tip-over risk of the seated part sets how dense the grip combs get (see PROP
-  // tine block). It tips over its NARROWEST footprint span, so that is the
-  // denominator; a taller part over the same stance topples more easily.
-  const height = maxZ - minZ;
-  const footMin = Math.max(1e-3, Math.min(maxX - minX, maxY - minY));
-  const tipRisk = height / footMin;
-  const rk = Math.min(1, Math.max(0,
-    (tipRisk - PROP.tipRiskLo) / (PROP.tipRiskHi - PROP.tipRiskLo)));
-  const tineStepEff = PROP.tineStepSquat + rk * (PROP.tineStep - PROP.tineStepSquat);
+  // DENSE grip comb, uniform along every grippable wall. A tip-over-risk scale
+  // (commit c0fcf8e) once let "stable" parts fall back to a sparse 9mm comb -- which
+  // starved shallow parts down to a few nubs that read as "laying on the face"
+  // instead of a gripping comb (regression Matthew caught). The cube-detach that
+  // scale was reacting to was actually the bed pad's fault (fixed separately in the
+  // pad commits), not the tines'. So the comb is uniformly dense again (Slant3D's
+  // "7-8 low down, spreading with height"); density is PROP.tineStep, and
+  // tests/tines_realparts.test.js pins that real parts get a full comb.
+  const tineStepEff = PROP.tineStep;
 
   // The support unit is the locally-straight sub-patch, not the connected
   // region -- see splitRegion. Fragments too small to be worth a wall are
