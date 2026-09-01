@@ -17,6 +17,12 @@ fence around it.
 - teeth **point INTO the part**, flush with the wall's flanks -- never standing
   proud as sideways tabs "laying on" the surface;
 - teeth are **thin horizontal bridges** (one layer line), never tall dropped towers;
+- on a wall along a leaning face's **level contour**, teeth still **bite into the
+  face** -- the bite heading comes from the part (nearest-face inward normal), not
+  the wall's run. This one shipped broken: the bite was taken from the run tangent,
+  which only lands right when the wall happens to run up the slope, so tines on a
+  contour-following wall lay FLAT. The earlier "point INTO the part" test missed it
+  because its block put the run tangent *into* the part by construction;
 - an overhang a tooth cannot reach into gets **no tine** (no gripping air).
 
 **`supports.test.js`** -- `buildFins` on the stress models, tilted so they place fins:
