@@ -100,14 +100,15 @@
     <input type="checkbox" id="tines" checked>Tines (grip the part)
   </label>
   <!-- Tine grip density: how tightly the horizontal tine comb is spaced along each
-       gripping support. Firm = a dense comb (max grip, the default) but leaves more
-       marks on the supported face; Light = a looser comb for a surface-critical face
-       (fewer marks). A per-wall floor keeps at least a few tines however light, so it
-       thins marking without ever letting go. Shown only when Tines is on. -->
+       gripping support. Light = a loose comb (fewest marks, the default) — a per-wall
+       floor keeps at least a few tines so it still holds; Firm = a dense comb (max grip)
+       for a tippy or tall part, at the cost of more marks on the supported face.
+       Defaults Light so the part comes out cleanest; dial up only if it needs the grip.
+       Shown only when Tines is on. -->
   <label class="fld" id="tinegrip-fld"
-         title="How tightly to space the grip tines. Firm = dense comb / max grip (default); Light = fewer marks on a surface-critical face. A per-wall floor keeps grip either way.">
+         title="How tightly to space the grip tines. Light = fewest marks (default), a per-wall floor keeps grip; Firm = dense comb / max grip for a tippy or tall part.">
     Tine grip <span class="mut">light ⟶ firm</span>
-    <input type="range" id="tine-density" min="0" max="100" step="5" value="100">
+    <input type="range" id="tine-density" min="0" max="100" step="5" value="0">
   </label>
   <!-- Contact/gap tuning: the default holds and breaks off for most parts, but the
        right clearance depends on the printer and the surface you care about, so it
@@ -126,11 +127,13 @@
   <!-- Wide-face row density: an overhang face too wide for one corner brace gets a
        ROW of fins (a wide tilted plate would otherwise sag between two braces).
        This sets the row pitch: Sparse = fewer fins / less plastic, Dense = more.
-       Only bites on a broad face; narrow parts keep their 2-corner bracing. -->
+       Defaults Sparse (fewest fins / least plastic); a floor keeps at least one brace
+       so a wide face is never left bare. Dial up only if a broad plate sags between
+       braces. Only bites on a broad face; narrow parts keep their 2-corner bracing. -->
   <label class="fld" id="coverage-fld"
-         title="How densely to line a WIDE overhang face with fins. Sparse = fewer fins / less plastic; Dense = more support. Narrow parts are unaffected.">
+         title="How densely to line a WIDE overhang face with fins. Sparse = fewest fins / least plastic (default); Dense = more support if a broad plate sags. Narrow parts are unaffected.">
     Wide-face coverage <span class="mut">sparse ⟶ dense</span>
-    <input type="range" id="coverage" min="0" max="100" step="5" value="25">
+    <input type="range" id="coverage" min="0" max="100" step="5" value="0">
   </label>
   <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
        Shown only in Suggest mode (toggled in app.js). -->
