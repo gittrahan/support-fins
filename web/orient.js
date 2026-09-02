@@ -185,6 +185,7 @@ export function suggestOrientations(topo, { top = 3, threshold = 45 } = {}) {
       overArea: s.a.overArea,
       bedArea: s.a.bedArea,
       height: s.a.size.z,
+      size: s.a.size,       // full {x,y,z} so callers can run layerVerdict on the pose
       regions: s.a.regions.length,
       walls: b.props?.length ?? 0,
       coverage,

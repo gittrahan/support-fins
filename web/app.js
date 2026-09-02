@@ -1866,12 +1866,22 @@ let suggestCurBore = 0;
 function noSupportVerdict(c) {
   if (c.regions === 0) {
     const rough = c.holes ?? 0;
-    const caveat = rough
-      ? ` (one small spot may print a touch rough — ream or sand it.)`
+    const roughCaveat = rough
+      ? ` One small spot may print a touch rough — ream or sand it.`
+      : '';
+    // Support-free is a PRINTABILITY win — the suggester never scored strength (it
+    // can't know the load). If this same pose stands the part's longest span up the
+    // build axis, it's the weak layer direction, so don't sell "just rotate it" as
+    // free: name the tradeoff and point at the load arrow. Not lying by omission is
+    // the whole point of the tool.
+    const lv = c.size ? layerVerdict(c.size) : null;
+    const strengthCaveat = lv?.posture === 'weak'
+      ? ` Strength tradeoff: this pose stands the part tall, its weakest layer `
+        + `direction — if it bears load, use Set load direction to check.`
       : '';
     return { tier: 'free', badge: 'No support',
       note: 'Best orientation needs no support at all — turn it and it prints with 0 g '
-          + `of fins. The best support is no support.${caveat}` };
+          + `of fins. The best support is no support.${roughCaveat}${strengthCaveat}` };
   }
   if ((c.bore ?? 0) === 0 && suggestCurBore > 0) {
     const grams = (c.volume ?? 0) * PLA_DENSITY_G_CM3 / 1000;
