@@ -427,10 +427,15 @@ html, body {
 .layer-note.weak   { border-left-color: #ff6b6b; color: #f2cfcf; }
 .layers-toggle { color: var(--dim); font-size: 12px; }
 
-/* ---------- strength check (load direction) ---------- */
+/* ---------- strength arrow (load direction) ---------- */
 #orient .loadfx .loadfx-lede { flex-basis: 100%; margin: 0 0 3px;
   font-size: 13px; color: var(--text); }
 #orient .loadfx .loadfx-lede strong { color: var(--accent); }
+#orient .loadfx .strength-pad { flex-basis: 100%; display: grid;
+  grid-template-columns: repeat(2, 1fr); gap: 4px; margin: 2px 0; }
+#orient .loadfx .strength-pad .btn { padding: 5px 6px; font-size: 13px; }
+/* keep the lay-flat button on its own row under the rotate hint */
+#orient #lay-face { flex-basis: 100%; margin-top: 2px; }
 #orient .loadfx { flex-basis: 100%; margin-top: 10px; padding-top: 8px;
   border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px; }
 #orient .loadfx #load-hint { flex-basis: 100%; margin: 2px 0 0; color: var(--dim); font-size: 12px; }

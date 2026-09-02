@@ -252,7 +252,7 @@ function setPart(geometry, filename) {
   clearPreview();
   // A new part starts with no load direction either.
   loadDir = null;
-  loadPlacing = false;
+  layPlacing = false;
   controls.enabled = true;
   loadArrowHelper.visible = false;
   if (loadArrowHelper.parent) loadArrowHelper.parent.remove(loadArrowHelper);
@@ -373,6 +373,7 @@ function shade() {
   // the automatic layer view (always), and the optional load-arrow verdict (if set)
   updateLayerView(size);
   updateLoadReadout();
+  syncLoadUI();            // re-light the pad button for the load's new world direction
   return size;
 }
 
@@ -656,7 +657,8 @@ for (const o of [drawDot, drawCursor, drawBand]) {
 // centre so no spot on the surface looks load-bearing when it isn't.) Local so it
 // rotates and re-seats with the part; parenting the helper to `part` gives that.
 let loadDir = null;         // THREE.Vector3 unit direction in local space, or null
-let loadPlacing = false;    // true while picking a loaded face (modal: orbit off)
+let layPlacing = false;     // true while "lay a face flat" is armed -- gated behind a
+                            // button so a stray viewport click can't re-lay the part
 const loadArrowHelper = new THREE.ArrowHelper(
   new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 10, 0xffb454, 4, 2.6);
 loadArrowHelper.visible = false;
@@ -667,8 +669,9 @@ for (const m of [loadArrowHelper.line, loadArrowHelper.cone]) {
   m.renderOrder = 12;
 }
 
-/** Pointer is setting the load direction. Gates the gizmo and face-lay like drawing. */
-const loadActive = () => loadPlacing;
+/** "Lay a face flat" is armed: a face click lays the part on that face. Off by
+ *  default so casual clicks orbit instead of silently re-laying the part. */
+const layActive = () => layPlacing;
 
 // ------------------------------------------------------------------- layer view
 //
@@ -914,10 +917,10 @@ function placeFin(faceIndex) {
   updateFit();
 }
 
-/** Enable the rotate gizmo only when NOT drawing or placing the load arrow --
- *  its handles would otherwise swallow the clicks that place points. */
+/** Enable the rotate gizmo only when NOT drawing or laying a face flat --
+ *  its handles would otherwise swallow the clicks those modes need. */
 function setGizmo() {
-  const on = !!part && !drawActive() && !loadActive();
+  const on = !!part && !drawActive() && !layActive();
   gizmo.enabled = on;
   const helper = gizmo.getHelper ? gizmo.getHelper() : gizmo;
   helper.visible = on;
@@ -944,16 +947,12 @@ function updateLoadArrowMesh() {
   loadArrowHelper.visible = true;
 }
 
-/** Commit a load direction (part-LOCAL, so it tracks the pose) and leave pick mode.
- *  Every entry point -- a face click, the "hangs down" preset -- lands here. */
+/** Commit a load direction (part-LOCAL, so it tracks the pose). Every pad button
+ *  lands here via setLoadWorld. */
 function setLoadDir(local) {
   if (!part || local.lengthSq() < 1e-9) return;
   histPush();
   loadDir = local.normalize();
-  loadPlacing = false;
-  hoverFace.visible = false;
-  renderer.domElement.style.cursor = '';
-  controls.enabled = true;
   updateLoadArrowMesh();
   updateLoadReadout();
   setGizmo();
@@ -985,35 +984,23 @@ function updateLoadReadout() {
   suggestBtn.hidden = al.quality === 'good';
 }
 
-/** Enter face-pick mode: modal, so a click on the part sets the load direction
- *  instead of orbiting the camera. Hovering highlights the face under the pointer. */
-function beginLoadPlacement() {
-  if (!part || !topology) return;
-  loadPlacing = true;
-  controls.enabled = false;   // no orbit while aiming; a click means "the load acts here"
-  clearPreview();
-  setGizmo();
-  syncLoadUI();
-}
+// The Strength-arrow pad: pick a world direction and the load points that way.
+// The strength math only wants a unit direction (it discards any anchor point), so
+// a handful of buttons is the honest input -- no 3D aiming, no face-hunting, and
+// nothing that collides with click-to-lay-flat. Directions are WORLD-relative (as
+// the part sits on the bed); stored local so the arrow tracks the pose as it turns.
+const PAD_DIRS = {
+  up:    [0, 0, 1],  down:  [0, 0, -1],
+  right: [1, 0, 0],  left:  [-1, 0, 0],
+  back:  [0, 1, 0],  front: [0, -1, 0],
+};
 
-/** Leave face-pick mode without committing (Esc / right-click / re-toggle). */
-function cancelLoadPlacement() {
-  loadPlacing = false;
-  hoverFace.visible = false;
-  renderer.domElement.style.cursor = '';
-  controls.enabled = true;
-  setGizmo();
-  syncLoadUI();
-}
-
-/** The load pulls straight down in use (a hook, a shelf bracket): the single most
- *  common case, one click, no aiming. Gravity is world -Z; store it in the part's
- *  local frame so the arrow and verdict track the pose as it turns. */
-function setLoadDown() {
+/** Point the load along a world direction (one pad button). */
+function setLoadWorld(key) {
   if (!part) return;
-  const localDown = new THREE.Vector3(0, 0, -1)
-    .applyQuaternion(part.quaternion.clone().invert());
-  setLoadDir(localDown);
+  const [x, y, z] = PAD_DIRS[key];
+  const local = new THREE.Vector3(x, y, z).applyQuaternion(part.quaternion.clone().invert());
+  setLoadDir(local);
 }
 
 /** Remove the load arrow entirely. */
@@ -1026,14 +1013,49 @@ function clearLoad() {
   syncLoadUI();
 }
 
-/** Mirror the button/hint state to whether a direction is set and whether we're picking. */
+/** Show Clear once a load is set, and light the pad button whose world direction the
+ *  arrow currently points along. Stateless -- recomputed from the live pose, so the
+ *  highlight clears itself when you rotate the part off that axis. */
 function syncLoadUI() {
   const has = !!loadDir;
-  el('load-set').textContent = loadPlacing ? 'Cancel'
-    : has ? 'Pick another face' : 'Click the loaded face';
-  el('load-set').classList.toggle('active', loadPlacing);
-  el('load-clear').hidden = !has || loadPlacing;
-  el('load-hint').hidden = !loadPlacing;
+  let activeKey = null;
+  if (has && part) {
+    const w = loadDir.clone().applyQuaternion(part.quaternion);
+    for (const [key, [x, y, z]] of Object.entries(PAD_DIRS)) {
+      if (w.x * x + w.y * y + w.z * z > 0.999) { activeKey = key; break; }
+    }
+  }
+  for (const key of Object.keys(PAD_DIRS)) {
+    el(`load-${key}`).classList.toggle('active', key === activeKey);
+  }
+  el('load-clear').hidden = !has;
+}
+
+// ---- Lay a face flat (armed behind a button so stray clicks can't re-lay) -------
+
+/** Arm face-lay: the next face click lays the part on that face. Modal so a click
+ *  isn't swallowed by the rotate gizmo; hovering highlights the face. */
+function beginLay() {
+  if (!part || !topology) return;
+  layPlacing = true;
+  clearPreview();
+  setGizmo();          // hides the rotate rings so they don't eat the pick
+  syncLayUI();
+}
+
+/** Disarm face-lay (Esc / right-click / re-toggle / after a lay). */
+function cancelLay() {
+  layPlacing = false;
+  hoverFace.visible = false;
+  renderer.domElement.style.cursor = '';
+  setGizmo();
+  syncLayUI();
+}
+
+function syncLayUI() {
+  el('lay-face').textContent = layPlacing ? 'Click a face to lay it flat — Esc cancels'
+    : 'Lay a face flat';
+  el('lay-face').classList.toggle('active', layPlacing);
 }
 
 /** Upload a triangle list into the scene, or null if there is nothing to show. */
@@ -1523,7 +1545,7 @@ function restoreState(s) {
   drawnWalls = s.walls.map((w) => ({ a: w.a.clone(), b: w.b.clone(), ok: false, info: null }));
   drawnFins = (s.fins ?? []).map((face) => ({ face, ok: false, info: null }));
   loadDir = s.load ? s.load.clone() : null;
-  loadPlacing = false;
+  layPlacing = false;
   controls.enabled = true;
   updateLoadArrowMesh();
   syncLoadUI();
@@ -1632,27 +1654,6 @@ function pickFace(ev) {
 }
 
 renderer.domElement.addEventListener('pointermove', (ev) => {
-  // Setting the load direction: drag across the part. Face-lay hover is off; the
-  // cursor tracks the surface and, once a drag has started, a band shows the
-  // direction so far.
-  if (loadActive()) {
-    const hit = pickFace(ev);
-    if (hit) {
-      const pos = hoverGeom.getAttribute('position');
-      const src = part.geometry.getAttribute('position').array;
-      const o = hit.faceIndex * 9;
-      for (let i = 0; i < 9; i++) pos.array[i] = src[o + i];
-      pos.needsUpdate = true;
-      hoverGeom.computeBoundingSphere();
-      hoverFace.material.color.setHex(0xffb454);   // amber: the face the load acts on
-      hoverFace.visible = true;
-      renderer.domElement.style.cursor = 'pointer';
-    } else {
-      hoverFace.visible = false;
-      renderer.domElement.style.cursor = '';
-    }
-    return;
-  }
   // Draw a gripping fin: hover a face and it lights up -- green if a fin can grip
   // it, grey if not -- so the user aims at a real site instead of clicking blind.
   if (drawActive() && finMode === 'draw') {
@@ -1687,8 +1688,10 @@ renderer.domElement.addEventListener('pointermove', (ev) => {
     }
     return;
   }
-  // don't compete with the gizmo: if a handle is hovered or held, it wins
-  if (!part || gizmo.dragging || gizmo.axis || pressAt) {
+  // Face-lay hover ONLY while armed: otherwise a highlighted, clickable-looking
+  // face invites the stray click that silently re-lays the part. Off by default,
+  // clicks just orbit.
+  if (!layActive() || !part || gizmo.dragging || gizmo.axis || pressAt) {
     hoverFace.visible = false;
     return;
   }
@@ -1719,20 +1722,6 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   pressAt = null;
   if (!from || !part || !topology) return;
 
-  // Load mode: CLICK a face to set the load perpendicular to it. The strength math
-  // only consumes a unit direction (it discards any anchor point), so a whole
-  // two-point surface drag was richer input than the model uses -- a click that
-  // reads the face normal is the honest match, and it can't miss into empty space.
-  // Handled before the "a drag is an orbit" bail below since orbit is off here.
-  if (loadActive()) {
-    const hit = pickFace(e);
-    if (hit) {
-      const i = hit.faceIndex * 3;
-      setLoadDir(new THREE.Vector3(topology.nrm[i], topology.nrm[i + 1], topology.nrm[i + 2]));
-    }
-    return;
-  }
-
   // a drag is an orbit, not a pick
   if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
 
@@ -1759,12 +1748,13 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 
   if (gizmo.dragging || gizmo.axis) return;
 
+  // Lay a face flat -- ONLY when armed via the button. Off by default so a stray
+  // viewport click orbits instead of silently discarding a careful rotation.
+  if (!layActive()) return;
   const hit = pickFace(e);
   if (!hit) return;
 
-  // A face-click re-lays the part flat, which silently discards a careful
-  // rotation -- the papercut that motivated undo. Snapshot before doing it so
-  // Ctrl-Z brings the old pose back.
+  // Snapshot before laying so Ctrl-Z brings the old pose back.
   histPush();
   // Use OUR winding-derived normal, not the STL's stored one, for the same
   // reason the analysis does: exported normals are not trustworthy.
@@ -1773,20 +1763,21 @@ renderer.domElement.addEventListener('pointerup', (e) => {
             .applyQuaternion(part.quaternion);
   layQuat.setFromUnitVectors(faceNormal, DOWN);
   part.quaternion.premultiply(layQuat);
+  cancelLay();            // one-shot: disarm after a lay so the next click is safe
   shade();
 });
 
-// Cancel a wall-in-progress: Escape, or a right-click in the viewport.
+// Cancel an armed mode / wall-in-progress: Escape, or a right-click in the viewport.
 addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
-  if (loadActive()) { cancelLoadPlacement(); return; }
+  if (layActive()) { cancelLay(); return; }
   if (drawActive() && drawStart) {
     clearPreview();
     updateReadout(lastBuilt);
   }
 });
 renderer.domElement.addEventListener('contextmenu', (e) => {
-  if (loadActive()) { e.preventDefault(); cancelLoadPlacement(); return; }
+  if (layActive()) { e.preventDefault(); cancelLay(); return; }
   if (!drawActive()) return;
   e.preventDefault();
   if (drawStart) { clearPreview(); updateReadout(lastBuilt); }
@@ -1863,7 +1854,7 @@ function noSupportVerdict(c) {
     const lv = c.size ? layerVerdict(c.size) : null;
     const strengthCaveat = lv?.posture === 'weak'
       ? ` Strength tradeoff: this pose stands the part tall, its weakest layer `
-        + `direction — if it bears load, use the Will it hold? check below.`
+        + `direction — if it bears load, check it with the Strength arrow below.`
       : '';
     return { tier: 'free', badge: 'No support',
       note: 'Best orientation needs no support at all — turn it and it prints with 0 g '
@@ -1958,15 +1949,17 @@ el('show-layers').addEventListener('change', (e) => {
   layerViz.visible = layersOn && !!part;
 });
 
-el('load-set').addEventListener('click', () => {
-  if (loadPlacing) cancelLoadPlacement();
-  else beginLoadPlacement();
-});
-el('load-down').addEventListener('click', () => {
-  if (loadPlacing) cancelLoadPlacement();
-  setLoadDown();
-});
+// Strength-arrow pad: each button points the load along a world direction.
+for (const key of Object.keys(PAD_DIRS)) {
+  el(`load-${key}`).addEventListener('click', () => setLoadWorld(key));
+}
 el('load-clear').addEventListener('click', clearLoad);
+
+// Lay a face flat -- armed behind a button so a stray click can't re-lay the part.
+el('lay-face').addEventListener('click', () => {
+  if (layPlacing) cancelLay();
+  else beginLay();
+});
 
 // Turn the part to the strongest PRINTABLE pose for the placed load. Unlike
 // "Suggest orientation" (which minimises support), this is strength-driven: it

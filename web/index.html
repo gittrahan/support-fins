@@ -158,10 +158,6 @@
   </div>
 </aside>
 
-<!-- Grows to push the rotate panel to the bottom of the rail when there's room,
-     and shrinks to nothing when the rail has to scroll (an auto margin can't
-     shrink, so it clips the scrolled-away top instead). -->
-<div class="rail-spacer"></div>
 <aside id="orient" hidden>
   <span class="lbl">Rotate 90°</span>
   <button class="btn sm" id="rot-x" aria-label="Rotate 90 degrees about X">X</button>
@@ -171,7 +167,9 @@
   <button class="btn sm" id="undo" title="Undo (⌘/Ctrl+Z)" disabled>Undo</button>
   <button class="btn sm" id="redo" title="Redo (⇧⌘/Ctrl+Shift+Z)" disabled>Redo</button>
   <p class="readout"><span id="rot-now">X 0° · Y 0° · Z 0°</span><span id="rot-delta"></span></p>
-  <p class="hint"><strong>Click any face</strong> to lay it flat, or drag the rings.</p>
+  <p class="hint">Drag the rings to turn it, or:</p>
+  <button class="btn sm" id="lay-face"
+          title="Click this, then click a face to set it flat on the bed. Off by default so a stray click can't re-lay the part.">Lay a face flat</button>
   <!-- Automatic strength view: no input. The faint frames show how the print is
        layered (they stay horizontal while the part turns inside them), and the note
        says where this orientation is weak. A printed part splits across its layers,
@@ -186,26 +184,32 @@
     <p class="hint" id="suggest-note"></p>
     <div id="suggest-list" hidden></div>
   </div>
-  <!-- Strength check: the layer view above is automatic; this checks the print
-       against how the part is actually loaded in use. Pick the loaded face (the load
-       is taken perpendicular to it) or say it hangs straight down, and it reports
-       whether the layers resist that load and can turn the part to the strongest
-       printable pose. Only the direction matters (pull model), so a click that reads
-       the face normal is the honest input -- the math discards any anchor point. No
-       fake "Nx stronger" number: the verdict is qualitative. -->
+  <!-- Strength arrow: the layer view above is automatic; this checks the print
+       against how the part is loaded in use. Point the arrow the way the part is
+       pulled/pushed and it reports whether the layers resist that load and can turn
+       the part to the strongest printable pose. Only the direction matters (pull
+       model), so a handful of buttons is the honest input -- no 3D aiming, and
+       nothing that collides with click-to-lay. No fake "Nx stronger" number: the
+       verdict is qualitative. -->
   <div class="loadfx">
-    <p class="loadfx-lede"><strong>Will it hold?</strong> Check the print against the load.</p>
-    <button class="btn sm" id="load-set"
-            title="Click the face the load pulls on; the load is taken perpendicular to it.">Click the loaded face</button>
-    <button class="btn sm" id="load-down"
-            title="The part hangs straight down in use — a hook or a shelf bracket holding weight.">↓ Hangs down</button>
+    <p class="loadfx-lede"><strong>Strength arrow</strong> — which way is it loaded?</p>
+    <div class="strength-pad" role="group" aria-label="Load direction">
+      <button class="btn sm" id="load-up"    aria-label="Load points up">↑</button>
+      <button class="btn sm" id="load-down"  aria-label="Load points down">↓</button>
+      <button class="btn sm" id="load-left"  aria-label="Load points left">←</button>
+      <button class="btn sm" id="load-right" aria-label="Load points right">→</button>
+      <button class="btn sm" id="load-front" aria-label="Load points toward you">⊙ front</button>
+      <button class="btn sm" id="load-back"  aria-label="Load points away from you">⊗ back</button>
+    </div>
     <button class="btn sm" id="load-clear" hidden>Clear</button>
-    <p class="hint" id="load-hint" hidden>Click the face the load pulls on — only the
-      direction counts. <kbd>Esc</kbd> cancels.</p>
     <p class="load-verdict" id="load-note" hidden></p>
     <button class="btn sm" id="load-suggest" hidden>Turn to the strongest printable pose</button>
   </div>
 </aside>
+<!-- Spacer AFTER the panels so they top-anchor and grow DOWNWARD: content that
+     appears on a click (the suggestion list, the load verdict) never shoves the
+     controls above it upward. Shrinks to nothing when the rail has to scroll. -->
+<div class="rail-spacer"></div>
 </div><!-- /left-rail -->
 
 <!-- Bottom-right status card: how this orientation lays the part down (the pose
