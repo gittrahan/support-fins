@@ -240,17 +240,14 @@ function alignQuality(cross) {
   // from the plate: within 30deg of in-plane reads "well aligned".
   if (cross <= 0.5) {
     return { quality: 'good',
-      text: 'Layers run with your load — the pull is along the layer lines, '
-          + 'the part’s strong direction.' };
+      text: 'The load runs along the layers — the strong direction. Good.' };
   }
   if (cross <= 0.866) {
     return { quality: 'mixed',
-      text: 'Layers only partly aligned — some of the load pulls across the '
-          + 'layer lines.' };
+      text: 'The load partly crosses the layers.' };
   }
   return { quality: 'poor',
-    text: 'Layers poorly aligned — the load pulls straight across the layer '
-        + 'lines, where a printed part splits most easily.' };
+    text: 'The load pulls straight across the layers — where prints split first.' };
 }
 
 /**
@@ -269,18 +266,17 @@ export function layerVerdict(size) {
   const eps = 0.05 * Math.max(1, span);
   if (z >= span - eps) {
     return { posture: 'weak',
-      note: `Standing tall — its longest span (${z.toFixed(0)} mm) runs up the layers. `
-          + `That's the classic weak print: layer lines peel apart most easily when `
-          + `pulled straight up.` };
+      note: `Standing tall (${z.toFixed(0)} mm) — the long axis runs up the layers, `
+          + `the weak direction. It'll snap easiest pulled straight up.` };
   }
   if (z <= dims[0] + eps) {
     return { posture: 'strong',
-      note: `Lying flat (${z.toFixed(0)} mm tall) — its long spans run along the layers, `
-          + `the strong way. Only a straight-up pull tests the weaker layer bond.` };
+      note: `Lying flat (${z.toFixed(0)} mm) — the long spans run along the layers, `
+          + `the strong direction. Only a straight-up pull hits the weak bond.` };
   }
   return { posture: 'mixed',
-    note: `On its side (${z.toFixed(0)} mm tall) — layers run flat, so the part is weakest `
-        + `pulled straight up and stronger side-to-side.` };
+    note: `On its side (${z.toFixed(0)} mm) — layers run flat. Weakest pulled straight up, `
+        + `stronger side to side.` };
 }
 
 /**

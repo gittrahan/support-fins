@@ -345,11 +345,11 @@ function shade() {
   // loaded, the overhangs on screen are self-inflicted by rotating.
   const flat = el('s-flat-note');
   if (res.regions.length === 0) {
-    flat.textContent = 'Prints support-free in this orientation — no fins needed.';
+    flat.textContent = 'No supports needed this way up.';
     flat.className = 'note good';
   } else if (flatRegions === 0) {
-    flat.textContent = 'This part prints flat as loaded — the overhangs above appeared '
-      + 'when you rotated it. You only need fins if you’re tilting it for strength.';
+    flat.textContent = 'This printed flat as loaded — the overhangs showed up when you '
+      + 'turned it. You only need fins if you’re tilting it for strength.';
     flat.className = 'note';
   } else {
     flat.textContent = '';
@@ -1844,28 +1844,24 @@ function noSupportVerdict(c) {
   if (c.regions === 0) {
     const rough = c.holes ?? 0;
     const roughCaveat = rough
-      ? ` One small spot may print a touch rough — ream or sand it.`
+      ? ` One small spot may come out rough — clean it up after.`
       : '';
-    // Support-free is a PRINTABILITY win — the suggester never scored strength (it
-    // can't know the load). If this same pose stands the part's longest span up the
-    // build axis, it's the weak layer direction, so don't sell "just rotate it" as
-    // free: name the tradeoff and point at the load arrow. Not lying by omission is
-    // the whole point of the tool.
+    // The suggester ranks for printability, not strength (it can't know the load).
+    // If this pose also stands the part's long axis up the layers, that's the weak
+    // print direction, so add a heads-up and point at the Strength arrow.
     const lv = c.size ? layerVerdict(c.size) : null;
     const strengthCaveat = lv?.posture === 'weak'
-      ? ` Strength tradeoff: this pose stands the part tall, its weakest layer `
-        + `direction — if it bears load, check it with the Strength arrow below.`
+      ? ` It does stand the part tall, the weaker way to print — if it takes a load, `
+        + `check the Strength arrow.`
       : '';
     return { tier: 'free', badge: 'No support',
-      note: 'Best orientation needs no support at all — turn it and it prints with 0 g '
-          + `of fins. The best support is no support.${roughCaveat}${strengthCaveat}` };
+      note: `Turn it this way and it needs no supports — 0 g.${roughCaveat}${strengthCaveat}` };
   }
   if ((c.bore ?? 0) === 0 && suggestCurBore > 0) {
     const grams = (c.volume ?? 0) * PLA_DENSITY_G_CM3 / 1000;
     return { tier: 'holeclean', badge: 'Bores clean',
-      note: 'Best orientation points the bores up — nothing stands inside a hole, so no '
-          + `support ever scars a fit surface. (${fmtGrams(grams)} g of fins, all on `
-          + 'reachable outside faces.)' };
+      note: `Turn it this way and the bores point up, so no support sits inside a hole `
+          + `to scar it. (${fmtGrams(grams)} g of fins, all on the outside.)` };
   }
   return null;
 }
