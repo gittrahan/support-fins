@@ -1080,36 +1080,93 @@ function meshFrom(tris, material) {
  * (already rotated and seated), not in the part's local frame, so they are added
  * to the scene rather than parented to the part.
  */
+// Support generation used to run inline on the main thread, which froze the whole
+// page (orbit, buttons, sliders) for however long a build took -- a couple of
+// seconds on a large or badly-posed part. buildFins is pure mesh math with no
+// DOM/three.js dependency, so it runs in a Worker instead (web/finworker.js): the
+// current fins stay on screen, greyed, while the new ones compute, and the UI
+// stays live. A generation counter drops the reply from a pose that has since
+// been superseded, and if a Worker can't be created (e.g. the page was opened
+// from file://) it falls back to building inline.
+let finWorker;               // undefined = not tried yet, null = unavailable, else a Worker
+let finGen = 0;              // bumped per request; a reply with a stale id is ignored
+let finT0 = 0;               // start time of the in-flight build, for the readout timing
+let lastOpts = null;
+
+function finOpts() {
+  return { mode: finMode === 'draw' ? 'prop' : finMode,
+           bedPad: el('bed-pad').checked,
+           tines: el('tines').checked,
+           tineDensity: el('tine-density').valueAsNumber / 100,
+           coverage: el('coverage').valueAsNumber / 100 };
+}
+
+function getFinWorker() {
+  if (finWorker === undefined) {
+    try {
+      finWorker = new Worker(new URL('./finworker.js', import.meta.url), { type: 'module' });
+      finWorker.onmessage = (e) => {
+        if (e.data.id !== finGen) return;            // a newer pose already superseded this build
+        if (e.data.error) {                          // worker failed -- build inline so support still appears
+          applyBuilt(buildFins(topology, lastResult, rotM3.elements, lastOpts));
+          return;
+        }
+        applyBuilt(e.data.built);
+      };
+      finWorker.onerror = () => { finWorker = null; };  // drop to inline on any worker-level error
+    } catch { finWorker = null; }
+  }
+  return finWorker;
+}
+
 function refreshFins() {
   // The pose may have changed, so the cached grippable-face map is stale. Drop it;
   // rebuildDrawn (below) recomputes it once, and hover reuses that until the next
   // orientation change. In Draw mode the gizmo is off, so a pose only ever changes
   // through a path that lands here (rotate buttons, Suggest, reset).
   gripCache = null;
-  for (const m of [finMesh, padMesh]) {
-    if (m) { scene.remove(m); m.geometry.dispose(); }
-  }
-  finMesh = padMesh = null;
-  finTris = padTris = [];
   if (!finsVisible || !lastResult || !topology) {
+    for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
+    finMesh = padMesh = null;
+    finTris = padTris = [];
     clearPreview();
     rebuildDrawn();
     updateReadout(null);
     return;
   }
 
-  const t0 = performance.now();
-  // buildFins runs in BOTH modes. In Suggest it places the walls; in Draw it is
-  // called only for the bed pad + seating verdict -- a tilted part rests on an
-  // edge and needs a pad however its walls are placed, and that logic lives in
-  // fins.js, so it is reused rather than duplicated. Draw simply ignores the
-  // walls buildFins suggests and shows the hand-drawn ones instead.
-  const built = buildFins(topology, lastResult, rotM3.elements,
-                          { mode: finMode === 'draw' ? 'prop' : finMode,
-                            bedPad: el('bed-pad').checked,
-                            tines: el('tines').checked,
-                            tineDensity: el('tine-density').valueAsNumber / 100,
-                            coverage: el('coverage').valueAsNumber / 100 });
+  finT0 = performance.now();
+  lastOpts = finOpts();
+  const worker = getFinWorker();
+  if (!worker) {                       // no worker available: build inline (old behaviour)
+    for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
+    finMesh = padMesh = null;
+    finTris = padTris = [];
+    applyBuilt(buildFins(topology, lastResult, rotM3.elements, lastOpts));
+    return;
+  }
+
+  // Leave the current fins on screen (greyed) until the fresh build lands, so the
+  // viewport never blanks mid-recalc. markFinsStale also shows "recalculating…".
+  finGen++;
+  markFinsStale();
+  worker.postMessage({ id: finGen, topology, result: lastResult, rot: rotM3.elements, opts: lastOpts });
+}
+
+// Turn a finished buildFins result into meshes + readout. Shared by the worker
+// reply and the inline fallback. buildFins runs in BOTH modes: in Suggest it
+// places the walls; in Draw it is called only for the bed pad + seating verdict
+// (a tilted part rests on an edge and needs a pad however its walls are placed,
+// and that logic lives in fins.js), so Draw ignores the suggested walls and shows
+// the hand-drawn ones instead.
+function applyBuilt(built) {
+  for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
+  finMesh = padMesh = null;
+  finTris = padTris = [];
+  // Undo the grey markFinsStale applied to the shared materials.
+  finMaterial.transparent = padMaterial.transparent = false;
+  finMaterial.opacity = padMaterial.opacity = 1;
+
   lastBuilt = built;
   padTris = built.padTriangles;
   padMesh = meshFrom(padTris, padMaterial);
@@ -1124,7 +1181,7 @@ function refreshFins() {
     // self-gates on drawShown(), so it clears them when none apply.
     rebuildDrawn();
   }
-  updateReadout(built, performance.now() - t0);
+  updateReadout(built, performance.now() - finT0);
   updateFit();
 }
 
