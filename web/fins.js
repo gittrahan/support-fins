@@ -1038,6 +1038,66 @@ function emitFoot(a, b, uDir, out) {
 }
 
 /**
+ * Is a wedge at this u standable AND uninterrupted by a bore? Two conditions:
+ *   - its first contiguous contact run (from the bed up) is tall enough to matter;
+ *   - the face does NOT resume ABOVE a gap -- material / void / material is a BORE
+ *     punched through the face, and a column there dies at the void (the angle-
+ *     bracket bug). A clean top is material / void / END (past the top), which is
+ *     fine. The resume must persist a couple of samples so a sliver gap in the
+ *     triangulation is not mistaken for a hole.
+ */
+function columnClear(p, u) {
+  const nT = Math.max(2, Math.ceil((p.t1 - p.t0) / PERP.tStep));
+  let started = false, ended = false, top = 0, resume = 0;
+  for (let i = 0; i <= nT; i++) {
+    const t = p.t0 + ((p.t1 - p.t0) * i) / nT;
+    const dev = patchProbe(p, u, t);
+    if (dev === null) { if (started) ended = true; continue; }
+    if (ended) { resume++; continue; }                      // material above a gap
+    started = true;
+    const z = zAt(p, dev, t) - PERP.gap;
+    if (z > top) top = z;
+  }
+  return top >= PERP.minH && resume < 2;
+}
+
+/**
+ * The u positions to stand wedges at across [lo, hi]. With no hole this is the
+ * old even row (round(span/pitch) columns). A bore/slot splits the standable u's
+ * into BANDS on either side of it; each band gets its own row, so a drawn or auto
+ * fin lands as two fins FLANKING the bore instead of one column dying at the void
+ * (a tilted bore prints poorly and must not be finned -- rotate hole-up or draw).
+ */
+export function perpColumns(p, lo, hi, pitch) {
+  const span = hi - lo;
+  if (span <= 0) return [];
+  const nS = Math.max(2, Math.ceil(span / 1.0));
+  const clear = [];
+  for (let i = 0; i <= nS; i++) clear.push(columnClear(p, lo + (span * i) / nS));
+
+  // contiguous clear samples -> u-bands (the void is the gap between them)
+  const bands = [];
+  let s = -1;
+  for (let i = 0; i <= nS; i++) {
+    if (clear[i] && s < 0) s = i;
+    if (s >= 0 && (!clear[i] || i === nS)) {
+      const e = clear[i] ? i : i - 1;
+      if (e >= s) bands.push([lo + (span * s) / nS, lo + (span * e) / nS]);
+      s = -1;
+    }
+  }
+  if (!bands.length) bands.push([lo, hi]);   // nothing read as clear: fall back to one row
+
+  const cols = [];
+  for (const [a, b] of bands) {
+    const w = b - a;
+    const m = Math.max(1, Math.min(PERP.maxRow, Math.round(w / pitch)));
+    for (let k = 0; k < m; k++) cols.push(m === 1 ? (a + b) / 2 : a + (w * k) / (m - 1));
+  }
+  return cols.slice(0, PERP.maxRow);
+}
+
+/**
  * Tile perpendicular wedges across one down-facing patch. Returns
  * { triangles, tines, count }.
  */
@@ -1046,14 +1106,10 @@ function buildPerpFins(p, topo, rot, offset, opts = {}) {
   const half = PERP.th / 2;
   const lo = p.u0 + PERP.inset, hi = p.u1 - PERP.inset;
   if (hi - lo <= 0) return { triangles: [], tines: 0, count: 0 };
-  const span = hi - lo;
-  const n = Math.max(1, Math.min(PERP.maxRow, Math.round(span / (opts.pitch ?? PERP.pitch))));
   const out = [];
   let tineTotal = 0, count = 0;
 
-  for (let k = 0; k < n; k++) {
-    const uc = n === 1 ? (lo + hi) / 2 : lo + (span * k) / (n - 1);
-
+  for (const uc of perpColumns(p, lo, hi, opts.pitch ?? PERP.pitch)) {
     // contact profile up the face at this u (stop at the first hole after starting)
     const contact = [];
     const nT = Math.max(2, Math.ceil((p.t1 - p.t0) / PERP.tStep));

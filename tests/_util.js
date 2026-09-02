@@ -69,6 +69,33 @@ export function tiltedBlockTopo(x0, x1, y0, y1, z0, z1, degX) {
   return buildTopology({ getAttribute: (k) => (k === 'position' ? { array: rot } : null) });
 }
 
+/** A wide thin plate x[-X,X] y[-Y,Y] z[0,TH] with a rectangular bore x[-hx,hx]
+ *  y[-hy,hy] punched through Z, as a watertight frame slab. Tilt it with rotX(45)
+ *  and its -Z face is a broad downward overhang with a bore through it -- the
+ *  angle-bracket case. */
+export function holedPlateTopo(X, Y, TH, hx, hy) {
+  const tris = [];
+  const quad = (a, b, c, d) => { tris.push(a, b, c, a, c, d); };
+  const V = (x, y, z) => [x, y, z];
+  const frame = (z, up) => {
+    const strips = [[-X, -Y, -hx, Y], [hx, -Y, X, Y], [-hx, -Y, hx, -hy], [-hx, hy, hx, Y]];
+    for (const [x0, y0, x1, y1] of strips) {
+      const p = [V(x0, y0, z), V(x1, y0, z), V(x1, y1, z), V(x0, y1, z)];
+      up ? quad(p[0], p[1], p[2], p[3]) : quad(p[0], p[3], p[2], p[1]);
+    }
+  };
+  frame(TH, true); frame(0, false);
+  const wall = (x0, y0, x1, y1, out) => {
+    const a = V(x0, y0, 0), b = V(x1, y1, 0), c = V(x1, y1, TH), d = V(x0, y0, TH);
+    out ? quad(a, b, c, d) : quad(a, d, c, b);
+  };
+  wall(-X, -Y, X, -Y, true); wall(X, -Y, X, Y, true); wall(X, Y, -X, Y, true); wall(-X, Y, -X, -Y, true);
+  wall(-hx, -hy, hx, -hy, false); wall(hx, -hy, hx, hy, false); wall(hx, hy, -hx, hy, false); wall(-hx, hy, -hx, -hy, false);
+  const pos = new Float32Array(tris.length * 3);
+  let i = 0; for (const v of tris) { pos[i++] = v[0]; pos[i++] = v[1]; pos[i++] = v[2]; }
+  return buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
+}
+
 // --- rotations (column-major 3x3, THREE.Matrix3.elements order) -----------
 const d2r = (d) => (d * Math.PI) / 180;
 export const rotX = (d) => { const c = Math.cos(d2r(d)), s = Math.sin(d2r(d)); return [1, 0, 0, 0, c, s, 0, -s, c]; };
