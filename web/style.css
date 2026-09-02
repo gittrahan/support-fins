@@ -175,6 +175,10 @@ html, body {
 }
 #stats dd.warn { color: #ffb454; }
 #stats dd.good { color: #6fcf8b; }
+/* Reserve two lines for the analysis timing: it wraps to a second line once the
+   fin/pad time is appended, and that one-line growth used to nudge everything below
+   the panel down when fins were added. Always two lines high = no shift. */
+#stats #s-time { display: block; min-height: 2.6em; line-height: 1.3; }
 #stats hr {
   border: 0;
   border-top: 1px solid var(--line);
@@ -196,21 +200,21 @@ html, body {
 
 /* What the fins did and did not do. Wraps rather than truncating: every line
    here is a limitation the user needs before they commit to a print. */
-#stats .note {
+.note {
   max-width: 26ch;
-  margin: 8px 0 0;
+  margin: 0;
   color: var(--dim);
   font-size: 11px;
   line-height: 1.45;
 }
-#stats .note:empty { display: none; }
-#stats .note.good { color: #6fcf8b; }   /* the "you don't need me" all-clear */
+.note:empty { display: none; }
+.note.good { color: #6fcf8b; }   /* the "you don't need me" all-clear */
 
 /* The receipt: the "what did this get me" payoff. The exact grams are the
    headline; the saving is the reason to bother. Set apart from the plain stats
    so the number reads as a result, not another row. */
 #receipt {
-  margin: 12px 0 0;
+  margin: 0;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-left: 3px solid #6fcf8b;

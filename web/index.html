@@ -70,15 +70,6 @@
     <dt><i class="sw sw-pad"></i>Bed&nbsp;pad</dt> <dd id="s-pad">—</dd>
     <dt>Analysis</dt>                            <dd id="s-time">—</dd>
   </dl>
-  <div id="receipt" hidden
-       title="Grams assume PLA and count only the fins + pad the tool adds, printed near-solid. Cross-checked against the fin volume the builder computes.">
-    <span id="r-grams">—</span>
-    <span class="r-unit">of support material added</span>
-    <span class="r-saved">In test prints, breakaway fins used 20–45% less plastic and printed ~30% faster than slicer supports.</span>
-    <span class="r-est">PLA · fins + pad only</span>
-  </div>
-  <p class="note" id="s-flat-note"></p>
-  <p class="note" id="s-fin-note"></p>
 </aside>
 
 <!-- Fin options live OUTSIDE the topbar on purpose. Inline, they appeared and
@@ -212,15 +203,24 @@
 <div class="rail-spacer"></div>
 </div><!-- /left-rail -->
 
-<!-- Bottom-right status card: how this orientation lays the part down (the pose
-     verdict, moved out of the Rotate panel so it has its own home) plus a warning
-     naming the overhangs this pose leaves UNsupported. The warning is the honesty
-     layer -- the tool builds fins for the big overhangs but drops the small ones
-     (hole ceilings, slots, bore tops); silence there is what makes a print come out
-     rough by surprise. -->
+<!-- Bottom-right status card: all the pose/fin FEEDBACK, kept out of the left rail
+     so it can never shove the controls around when it grows. Bottom-anchored, so
+     new lines expand UPWARD into empty canvas. Holds: how this orientation lays the
+     part down; the "do you even need me / prints support-free" note; the honesty
+     warning naming the small overhangs this pose leaves UNsupported (hole ceilings,
+     slots, bore tops); and the grams receipt payoff once fins are on. -->
 <aside id="status" hidden>
   <p class="layer-note" id="layer-note"></p>
+  <p class="note" id="s-flat-note"></p>
+  <p class="note" id="s-fin-note"></p>
   <p class="over-warn" id="over-warn"></p>
+  <div id="receipt" hidden
+       title="Grams assume PLA and count only the fins + pad the tool adds, printed near-solid. Cross-checked against the fin volume the builder computes.">
+    <span id="r-grams">—</span>
+    <span class="r-unit">of support material added</span>
+    <span class="r-saved">In test prints, breakaway fins used 20–45% less plastic and printed ~30% faster than slicer supports.</span>
+    <span class="r-est">PLA · fins + pad only</span>
+  </div>
 </aside>
 
 <div id="fps">—</div>
