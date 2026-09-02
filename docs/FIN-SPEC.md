@@ -77,6 +77,12 @@ welts.
   height.
 - **The 2 mm bottom chamfer modifies the user's part**, not just adds a fin. That's a
   bigger permission ask — surface it explicitly in the UI, don't do it silently.
+  **DECISION (2026-09-02): do NOT build it. The breakaway bed pad solves the same
+  bed-adhesion problem without touching the user's geometry** (quality-first). Don't
+  re-litigate unless a real print shows the pad alone can't hold a tilted-onto-an-edge
+  part. (Everything else Slant3D shows in vnn4XeKQobs — rounded top, ellipse pad,
+  corner placement, 0.3×0.5 horizontal tines, two-fins-opposite, one-STL — is already
+  implemented; this chamfer is the only spec feature we intentionally skip.)
 
 ## Naming
 
