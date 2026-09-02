@@ -1376,12 +1376,22 @@ el('fin-mode').addEventListener('change', (e) => {
   refreshFins();
 });
 el('bed-pad').addEventListener('change', refreshFins);
+// A slider fires `input` on every pixel of a drag; on a big part one regenerate can
+// take a while, so re-running it per tick freezes the page mid-drag. Coalesce the
+// drag into a single rebuild once the value settles. `change` (fires on release) is
+// too coarse -- no live preview at all -- so debounce instead: quick enough to feel
+// live on a small part, one rebuild instead of dozens on a large one.
+let refreshTimer = null;
+function debouncedRefresh(ms = 180) {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => { refreshTimer = null; refreshFins(); }, ms);
+}
 // Tine grip only means anything when the tines are on, so hide its slider with the
 // toggle (keeps the panel honest -- no dead control).
 function syncTineGrip() { el('tinegrip-fld').hidden = !el('tines').checked; }
 el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); });
-el('tine-density').addEventListener('input', refreshFins);
-el('coverage').addEventListener('input', refreshFins);
+el('tine-density').addEventListener('input', () => debouncedRefresh());
+el('coverage').addEventListener('input', () => debouncedRefresh());
 syncTineGrip();
 
 // Gap tuning. PROP.gap / PAD.grab are read fresh on every build, so setting them
@@ -1391,7 +1401,7 @@ function wireGap(id, obj, key, lo, hi) {
   const input = el(id);
   input.addEventListener('input', () => {
     const v = input.valueAsNumber;
-    if (Number.isFinite(v)) { obj[key] = Math.min(hi, Math.max(lo, v)); refreshFins(); }
+    if (Number.isFinite(v)) { obj[key] = Math.min(hi, Math.max(lo, v)); debouncedRefresh(); }
   });
 }
 wireGap('gap', PROP, 'gap', 0.1, 0.4);
