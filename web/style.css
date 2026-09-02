@@ -367,6 +367,7 @@ html, body {
 
 #orient .suggest { flex-basis: 100%; margin-top: 6px; }
 #orient .suggest #suggest-note { margin-top: 4px; }
+#suggest-note.good { color: #6fcf8b; }   /* the "best support is no support" win */
 #suggest-list {
   display: flex;
   flex-direction: column;
@@ -393,6 +394,21 @@ html, body {
 .suggest-row.active { border-color: var(--accent); background: var(--btn-hi); }
 .suggest-row.active .sr-rank::after { content: ' ✓'; }
 .suggest-row.bad .sr-rank { color: var(--dim); }
+/* the "best support is no support" win: a pose that needs nothing, or that keeps
+   every hole/bore support-free. Celebrated, not buried as a gray "0 fins". */
+.suggest-row .sr-badge {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: #6fcf8b;
+  border: 1px solid #6fcf8b66;
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: 6px;
+  white-space: nowrap;
+}
+.suggest-row.free { border-color: #6fcf8b66; }
+.suggest-row.free .sr-rank { color: #6fcf8b; }
 
 /* ---------- automatic layer view ---------- */
 #orient .layerview { flex-basis: 100%; margin-top: 8px; }

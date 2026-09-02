@@ -1844,6 +1844,45 @@ const CONF_TEXT = {
   low: 'several poses are similar — your call', none: '',
 };
 
+// Overhangs the CURRENT pose refuses to support inside a bore/slot (scarring a fit
+// surface) — the count buildFins reports as skipped.bore. We only celebrate a pose
+// for CLEARING the bore when the current one actually has that problem, so the
+// "points the holes up" verdict never fires on a part with no bores. Set before
+// renderSuggestions runs.
+let suggestCurBore = 0;
+
+/**
+ * The "best support is no support" verdict for a suggested pose — the product's
+ * whole thesis made a first-class outcome instead of a gray "0 fins". Two tiers:
+ *   free      — the pose needs NO support fins at all (regions === 0): 0 g added.
+ *               A leftover rough sliver (c.holes) is a cosmetic caveat, not a
+ *               support cost, so it's mentioned but doesn't disqualify the win.
+ *   holeclean — it still needs external fins, but every bore prints support-free,
+ *               so nothing ever stands inside a hole and scars a fit surface. This
+ *               is the "point the bore up" win (bore_bracket: 5 in-bore → 0).
+ * Returns null for an ordinary supported pose, so the caller falls back to the
+ * normal confidence line.
+ */
+function noSupportVerdict(c) {
+  if (c.regions === 0) {
+    const rough = c.holes ?? 0;
+    const caveat = rough
+      ? ` (one small spot may print a touch rough — ream or sand it.)`
+      : '';
+    return { tier: 'free', badge: 'No support',
+      note: 'Best orientation needs no support at all — turn it and it prints with 0 g '
+          + `of fins. The best support is no support.${caveat}` };
+  }
+  if ((c.bore ?? 0) === 0 && suggestCurBore > 0) {
+    const grams = (c.volume ?? 0) * PLA_DENSITY_G_CM3 / 1000;
+    return { tier: 'holeclean', badge: 'Bores clean',
+      note: 'Best orientation points the bores up — nothing stands inside a hole, so no '
+          + `support ever scars a fit surface. (${fmtGrams(grams)} g of fins, all on `
+          + 'reachable outside faces.)' };
+  }
+  return null;
+}
+
 function renderSuggestions() {
   const list = el('suggest-list');
   list.replaceChildren();
@@ -1859,11 +1898,16 @@ function renderSuggestions() {
     // hole-friendly pose legible: "Best · 12 rough holes" over "#3 · 561".
     const rough = (c.holes ?? 0) + (c.bore ?? 0);
     const roughTxt = rough ? ` · ${rough} rough hole${rough === 1 ? '' : 's'}` : '';
+    // A support-free pose is the headline outcome, not a footnote — badge it green
+    // instead of letting it read as a dull "no overhangs → 0 fins".
+    const verdict = point ? null : noSupportVerdict(c);
+    const badge = verdict ? `<span class="sr-badge">${verdict.badge}</span>` : '';
     row.innerHTML =
       `<span class="sr-rank">${i === 0 ? 'Best' : `#${i + 1}`}</span>` +
-      `<span class="sr-main">${c.height.toFixed(0)} mm tall · ${c.bedArea.toFixed(0)} mm² on the bed</span>` +
+      `<span class="sr-main">${c.height.toFixed(0)} mm tall · ${c.bedArea.toFixed(0)} mm² on the bed${badge}</span>` +
       `<span class="sr-sub">${overs}${roughTxt}${point ? ' · balances on a point — can’t print this way' : ''}</span>`;
     if (point) row.classList.add('bad');
+    if (verdict?.tier === 'free') row.classList.add('free');
     row.addEventListener('click', () => {
       applySuggestion(c.rot);
       for (const r of list.children) r.classList.remove('active');
@@ -1883,14 +1927,27 @@ el('suggest-orient').addEventListener('click', () => {
     try {
       const { candidates, confidence } = suggestOrientations(topology, { top: 3, threshold });
       suggestions = candidates;
+      // In-bore overhangs the current pose refuses (would scar a fit surface) — the
+      // baseline the "points the bores up" verdict measures its win against.
+      suggestCurBore = lastBuilt?.skipped?.bore ?? 0;
       if (!candidates.length || confidence === 'none') {
         el('suggest-list').hidden = true;
         el('suggest-note').textContent = confidence === 'none'
           ? 'No printable orientation — this part balances on a point at every angle.'
           : 'Nothing to suggest for this part.';
       } else {
-        el('suggest-note').textContent = `Best guess — ${CONF_TEXT[confidence]}. Click one to turn the part.`;
         renderSuggestions();
+        // Lead with the win when the best pose needs no support (or clears every
+        // bore); otherwise fall back to the honest confidence line.
+        const note = el('suggest-note');
+        const verdict = candidates[0].seating === 'point' ? null : noSupportVerdict(candidates[0]);
+        if (verdict) {
+          note.textContent = verdict.note;
+          note.className = 'hint good';
+        } else {
+          note.textContent = `Best guess — ${CONF_TEXT[confidence]}. Click one to turn the part.`;
+          note.className = 'hint';
+        }
       }
     } finally {
       btn.disabled = false; btn.textContent = 'Suggest orientation';
