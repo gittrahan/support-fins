@@ -186,18 +186,22 @@
     <p class="hint" id="suggest-note"></p>
     <div id="suggest-list" hidden></div>
   </div>
-  <!-- Optional load arrow: the layer view above is automatic; this is for when you
-       KNOW how the part is loaded in use. Drag a direction and it checks whether the
-       layers resist that specific load and can turn the part to the strongest
-       printable pose. Only the direction matters (pull model), so it's a drag, not a
-       placed point. No fake "Nx stronger" number: the verdict is qualitative. -->
+  <!-- Strength check: the layer view above is automatic; this checks the print
+       against how the part is actually loaded in use. Pick the loaded face (the load
+       is taken perpendicular to it) or say it hangs straight down, and it reports
+       whether the layers resist that load and can turn the part to the strongest
+       printable pose. Only the direction matters (pull model), so a click that reads
+       the face normal is the honest input -- the math discards any anchor point. No
+       fake "Nx stronger" number: the verdict is qualitative. -->
   <div class="loadfx">
-    <p class="hint loadfx-lede">Know how it’s loaded in use? Mark it to check this pose:</p>
+    <p class="loadfx-lede"><strong>Will it hold?</strong> Check the print against the load.</p>
     <button class="btn sm" id="load-set"
-            title="Show which way the part is pulled or pushed in use, to check the print orientation.">Set load direction</button>
+            title="Click the face the load pulls on; the load is taken perpendicular to it.">Click the loaded face</button>
+    <button class="btn sm" id="load-down"
+            title="The part hangs straight down in use — a hook or a shelf bracket holding weight.">↓ Hangs down</button>
     <button class="btn sm" id="load-clear" hidden>Clear</button>
-    <p class="hint" id="load-hint" hidden>Drag across the part to show which way it’s
-      pulled or pushed — anywhere works, only the direction counts. <kbd>Esc</kbd> cancels.</p>
+    <p class="hint" id="load-hint" hidden>Click the face the load pulls on — only the
+      direction counts. <kbd>Esc</kbd> cancels.</p>
     <p class="load-verdict" id="load-note" hidden></p>
     <button class="btn sm" id="load-suggest" hidden>Turn to the strongest printable pose</button>
   </div>

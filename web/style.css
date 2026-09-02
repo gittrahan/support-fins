@@ -427,8 +427,10 @@ html, body {
 .layer-note.weak   { border-left-color: #ff6b6b; color: #f2cfcf; }
 .layers-toggle { color: var(--dim); font-size: 12px; }
 
-/* ---------- load arrow (optional add-on) ---------- */
-#orient .loadfx .loadfx-lede { flex-basis: 100%; margin: 0 0 2px; }
+/* ---------- strength check (load direction) ---------- */
+#orient .loadfx .loadfx-lede { flex-basis: 100%; margin: 0 0 3px;
+  font-size: 13px; color: var(--text); }
+#orient .loadfx .loadfx-lede strong { color: var(--accent); }
 #orient .loadfx { flex-basis: 100%; margin-top: 10px; padding-top: 8px;
   border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px; }
 #orient .loadfx #load-hint { flex-basis: 100%; margin: 2px 0 0; color: var(--dim); font-size: 12px; }

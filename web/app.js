@@ -253,7 +253,6 @@ function setPart(geometry, filename) {
   // A new part starts with no load direction either.
   loadDir = null;
   loadPlacing = false;
-  loadDragStart = null;
   controls.enabled = true;
   loadArrowHelper.visible = false;
   if (loadArrowHelper.parent) loadArrowHelper.parent.remove(loadArrowHelper);
@@ -657,8 +656,7 @@ for (const o of [drawDot, drawCursor, drawBand]) {
 // centre so no spot on the surface looks load-bearing when it isn't.) Local so it
 // rotates and re-seats with the part; parenting the helper to `part` gives that.
 let loadDir = null;         // THREE.Vector3 unit direction in local space, or null
-let loadPlacing = false;    // true while dragging out a direction (modal: orbit off)
-let loadDragStart = null;   // world-space surface point the drag began at, transient
+let loadPlacing = false;    // true while picking a loaded face (modal: orbit off)
 const loadArrowHelper = new THREE.ArrowHelper(
   new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 10, 0xffb454, 4, 2.6);
 loadArrowHelper.visible = false;
@@ -946,17 +944,20 @@ function updateLoadArrowMesh() {
   loadArrowHelper.visible = true;
 }
 
-/** Live preview while dragging out a direction: cursor at the pointer, band from
- *  the drag's start point to it. */
-function previewLoadDrag(hitPoint) {
-  drawCursor.position.copy(hitPoint);
-  drawCursor.visible = true;
-  if (!loadDragStart) { drawBand.visible = drawDot.visible = false; return; }
-  drawDot.position.copy(loadDragStart);
-  drawDot.visible = true;
-  bandGeom.setFromPoints([loadDragStart, hitPoint]);
-  bandGeom.attributes.position.needsUpdate = true;
-  drawBand.visible = true;
+/** Commit a load direction (part-LOCAL, so it tracks the pose) and leave pick mode.
+ *  Every entry point -- a face click, the "hangs down" preset -- lands here. */
+function setLoadDir(local) {
+  if (!part || local.lengthSq() < 1e-9) return;
+  histPush();
+  loadDir = local.normalize();
+  loadPlacing = false;
+  hoverFace.visible = false;
+  renderer.domElement.style.cursor = '';
+  controls.enabled = true;
+  updateLoadArrowMesh();
+  updateLoadReadout();
+  setGizmo();
+  syncLoadUI();
 }
 
 /**
@@ -984,54 +985,35 @@ function updateLoadReadout() {
   suggestBtn.hidden = al.quality === 'good';
 }
 
-/** Enter direction-setting: modal, so a drag on the part sets direction instead
- *  of orbiting the camera. */
+/** Enter face-pick mode: modal, so a click on the part sets the load direction
+ *  instead of orbiting the camera. Hovering highlights the face under the pointer. */
 function beginLoadPlacement() {
   if (!part || !topology) return;
   loadPlacing = true;
-  loadDragStart = null;
-  controls.enabled = false;   // no orbit while aiming; a drag means "this way"
+  controls.enabled = false;   // no orbit while aiming; a click means "the load acts here"
   clearPreview();
   setGizmo();
   syncLoadUI();
 }
 
-/** Leave direction-setting without committing (Esc / right-click / re-toggle). */
+/** Leave face-pick mode without committing (Esc / right-click / re-toggle). */
 function cancelLoadPlacement() {
   loadPlacing = false;
-  loadDragStart = null;
-  drawCursor.visible = drawBand.visible = drawDot.visible = false;
+  hoverFace.visible = false;
   renderer.domElement.style.cursor = '';
   controls.enabled = true;
   setGizmo();
   syncLoadUI();
 }
 
-/** Drop a drag-in-progress but stay in the mode, so a stray click can be retried. */
-function cancelLoadDrag() {
-  loadDragStart = null;
-  drawCursor.visible = drawBand.visible = drawDot.visible = false;
-}
-
-/** Commit the dragged direction (start -> end, both world surface points). Only the
- *  DIRECTION is kept, converted to the part's local frame so it tracks the pose. */
-function commitLoadDrag(endWorld) {
-  const dirWorld = endWorld.clone().sub(loadDragStart);
-  if (dirWorld.length() < 1e-3) { cancelLoadDrag(); return; }   // a click, not a drag
-  // World direction -> local direction: rotate by the inverse pose (translation is
-  // irrelevant for a direction), so it's stored in the same frame as the geometry.
-  const local = dirWorld.applyQuaternion(part.quaternion.clone().invert()).normalize();
-  histPush();
-  loadDir = local;
-  loadPlacing = false;
-  loadDragStart = null;
-  drawCursor.visible = drawBand.visible = drawDot.visible = false;
-  renderer.domElement.style.cursor = '';
-  controls.enabled = true;
-  updateLoadArrowMesh();
-  updateLoadReadout();
-  setGizmo();
-  syncLoadUI();
+/** The load pulls straight down in use (a hook, a shelf bracket): the single most
+ *  common case, one click, no aiming. Gravity is world -Z; store it in the part's
+ *  local frame so the arrow and verdict track the pose as it turns. */
+function setLoadDown() {
+  if (!part) return;
+  const localDown = new THREE.Vector3(0, 0, -1)
+    .applyQuaternion(part.quaternion.clone().invert());
+  setLoadDir(localDown);
 }
 
 /** Remove the load arrow entirely. */
@@ -1044,11 +1026,11 @@ function clearLoad() {
   syncLoadUI();
 }
 
-/** Mirror the button/hint state to whether a direction is set and whether we're placing. */
+/** Mirror the button/hint state to whether a direction is set and whether we're picking. */
 function syncLoadUI() {
   const has = !!loadDir;
   el('load-set').textContent = loadPlacing ? 'Cancel'
-    : has ? 'Change load direction' : 'Set load direction';
+    : has ? 'Pick another face' : 'Click the loaded face';
   el('load-set').classList.toggle('active', loadPlacing);
   el('load-clear').hidden = !has || loadPlacing;
   el('load-hint').hidden = !loadPlacing;
@@ -1542,7 +1524,6 @@ function restoreState(s) {
   drawnFins = (s.fins ?? []).map((face) => ({ face, ok: false, info: null }));
   loadDir = s.load ? s.load.clone() : null;
   loadPlacing = false;
-  loadDragStart = null;
   controls.enabled = true;
   updateLoadArrowMesh();
   syncLoadUI();
@@ -1655,13 +1636,19 @@ renderer.domElement.addEventListener('pointermove', (ev) => {
   // cursor tracks the surface and, once a drag has started, a band shows the
   // direction so far.
   if (loadActive()) {
-    hoverFace.visible = false;
     const hit = pickFace(ev);
     if (hit) {
-      previewLoadDrag(hit.point);
-      renderer.domElement.style.cursor = 'crosshair';
+      const pos = hoverGeom.getAttribute('position');
+      const src = part.geometry.getAttribute('position').array;
+      const o = hit.faceIndex * 9;
+      for (let i = 0; i < 9; i++) pos.array[i] = src[o + i];
+      pos.needsUpdate = true;
+      hoverGeom.computeBoundingSphere();
+      hoverFace.material.color.setHex(0xffb454);   // amber: the face the load acts on
+      hoverFace.visible = true;
+      renderer.domElement.style.cursor = 'pointer';
     } else {
-      drawCursor.visible = drawBand.visible = false;
+      hoverFace.visible = false;
       renderer.domElement.style.cursor = '';
     }
     return;
@@ -1725,12 +1712,6 @@ renderer.domElement.addEventListener('pointerleave', () => {
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
   pressAt = { x: e.clientX, y: e.clientY };
-  // Load mode: the press begins a direction drag at the surface point under it.
-  if (loadActive()) {
-    const hit = pickFace(e);
-    loadDragStart = hit ? hit.point.clone() : null;
-    if (hit) previewLoadDrag(hit.point);
-  }
 });
 
 renderer.domElement.addEventListener('pointerup', (e) => {
@@ -1738,12 +1719,17 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   pressAt = null;
   if (!from || !part || !topology) return;
 
-  // Load mode: the release ends the direction drag. This is a DRAG by design, so
-  // it must be handled before the "a drag is an orbit" bail below.
+  // Load mode: CLICK a face to set the load perpendicular to it. The strength math
+  // only consumes a unit direction (it discards any anchor point), so a whole
+  // two-point surface drag was richer input than the model uses -- a click that
+  // reads the face normal is the honest match, and it can't miss into empty space.
+  // Handled before the "a drag is an orbit" bail below since orbit is off here.
   if (loadActive()) {
     const hit = pickFace(e);
-    if (loadDragStart && hit) commitLoadDrag(hit.point);
-    else cancelLoadDrag();
+    if (hit) {
+      const i = hit.faceIndex * 3;
+      setLoadDir(new THREE.Vector3(topology.nrm[i], topology.nrm[i + 1], topology.nrm[i + 2]));
+    }
     return;
   }
 
@@ -1877,7 +1863,7 @@ function noSupportVerdict(c) {
     const lv = c.size ? layerVerdict(c.size) : null;
     const strengthCaveat = lv?.posture === 'weak'
       ? ` Strength tradeoff: this pose stands the part tall, its weakest layer `
-        + `direction — if it bears load, use Set load direction to check.`
+        + `direction — if it bears load, use the Will it hold? check below.`
       : '';
     return { tier: 'free', badge: 'No support',
       note: 'Best orientation needs no support at all — turn it and it prints with 0 g '
@@ -1975,6 +1961,10 @@ el('show-layers').addEventListener('change', (e) => {
 el('load-set').addEventListener('click', () => {
   if (loadPlacing) cancelLoadPlacement();
   else beginLoadPlacement();
+});
+el('load-down').addEventListener('click', () => {
+  if (loadPlacing) cancelLoadPlacement();
+  setLoadDown();
 });
 el('load-clear').addEventListener('click', clearLoad);
 
