@@ -215,11 +215,14 @@ html, body {
    so the number reads as a result, not another row. */
 #receipt {
   margin: 0;
-  padding: 10px 12px;
+  padding: 7px 12px;
   border: 1px solid var(--line);
   border-left: 3px solid #6fcf8b;
   border-radius: 6px;
   background: #171a20;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
 }
 #receipt[hidden] { display: none; }
 #r-grams {
@@ -228,22 +231,22 @@ html, body {
   color: #6fcf8b;
   font-variant-numeric: tabular-nums;
 }
-#receipt .r-unit { color: var(--dim); font-size: 11px; margin-left: 4px; }
-#receipt .r-saved {
-  display: block;
-  margin-top: 3px;
-  color: var(--text);
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-}
-#receipt .r-est {
-  display: block;
-  margin-top: 2px;
+#receipt .r-unit { color: var(--dim); font-size: 11px; }
+/* The detail (methodology + the "20-45% less plastic" claim) lives behind this
+   icon's tooltip -- long and repetitive to show every time, so it's opt-in. */
+#receipt .r-info {
+  margin-left: auto;
+  align-self: center;
+  width: 16px; height: 16px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
   color: var(--dim);
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  font: italic 600 11px/1 Georgia, serif;
+  cursor: help;
 }
+#receipt .r-info:hover { color: var(--text); border-color: var(--dim); }
 
 /* Fin options, anchored under the toggle rather than inside the topbar, so
    turning fins on never moves another control. */
