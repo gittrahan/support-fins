@@ -29,6 +29,34 @@ html, body {
 #viewport { position: fixed; inset: 0; }
 #viewport canvas { display: block; }
 
+/* ---------- long-build spinner ---------- */
+#spinner {
+  position: fixed;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--dim);
+  font-size: 12px;
+  pointer-events: none;               /* informational only; never blocks the canvas */
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+#spinner .ring {
+  width: 15px; height: 15px;
+  border: 2px solid var(--btn-line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { #spinner .ring { animation-duration: 2.4s; } }
+
 /* ---------- top bar ---------- */
 
 #topbar {

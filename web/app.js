@@ -1092,6 +1092,19 @@ let finWorker;               // undefined = not tried yet, null = unavailable, e
 let finGen = 0;              // bumped per request; a reply with a stale id is ignored
 let finT0 = 0;               // start time of the in-flight build, for the readout timing
 let lastOpts = null;
+let finSpinnerTimer = null;  // shows the spinner only if a build runs past ~1s
+
+// Reveal the spinner only for builds that actually run long, so a sub-second
+// rebuild never flashes it. Cleared the moment the build lands (applyBuilt).
+function armSpinner() {
+  clearTimeout(finSpinnerTimer);
+  finSpinnerTimer = setTimeout(() => { el('spinner').hidden = false; }, 1000);
+}
+function clearSpinner() {
+  clearTimeout(finSpinnerTimer);
+  finSpinnerTimer = null;
+  el('spinner').hidden = true;
+}
 
 function finOpts() {
   return { mode: finMode === 'draw' ? 'prop' : finMode,
@@ -1126,6 +1139,7 @@ function refreshFins() {
   // through a path that lands here (rotate buttons, Suggest, reset).
   gripCache = null;
   if (!finsVisible || !lastResult || !topology) {
+    clearSpinner();
     for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
     finMesh = padMesh = null;
     finTris = padTris = [];
@@ -1147,9 +1161,11 @@ function refreshFins() {
   }
 
   // Leave the current fins on screen (greyed) until the fresh build lands, so the
-  // viewport never blanks mid-recalc. markFinsStale also shows "recalculating…".
+  // viewport never blanks mid-recalc. markFinsStale also shows "recalculating…";
+  // the spinner joins it only if the build runs past ~1s.
   finGen++;
   markFinsStale();
+  armSpinner();
   worker.postMessage({ id: finGen, topology, result: lastResult, rot: rotM3.elements, opts: lastOpts });
 }
 
@@ -1160,6 +1176,7 @@ function refreshFins() {
 // and that logic lives in fins.js), so Draw ignores the suggested walls and shows
 // the hand-drawn ones instead.
 function applyBuilt(built) {
+  clearSpinner();
   for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
   finMesh = padMesh = null;
   finTris = padTris = [];
