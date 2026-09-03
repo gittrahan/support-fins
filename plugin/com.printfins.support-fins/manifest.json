@@ -1,0 +1,15 @@
+{
+  "id": "com.printfins.support-fins",
+  "name": "Support Fins",
+  "description": "Prints a breakaway support fin holding up an overhang, so you can watch it snap off. The full auto tool lives at printfins.com.",
+  "category": "Calibration",
+  "license": "MIT",
+  "min_slicer_version": "3.0.0",
+  "version": "0.1.0",
+  "author": "matthewtrahan",
+  "web": "https://printfins.com",
+  "repo": "https://github.com/gittrahan/support-fins",
+  "required_apis": {
+    "project.plugin": "1.0.0"
+  }
+}
