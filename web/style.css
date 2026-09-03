@@ -46,11 +46,21 @@ html, body {
   font-size: 12px;
   pointer-events: none;               /* informational only; never blocks the canvas */
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
-  opacity: 0;                         /* fade in (see .show) so it never hard-flashes */
-  transition: opacity 0.5s ease;
+  /* Always laid out (never display:none) so the opacity transition fires every
+     time; visibility keeps the idle spinner out of the a11y/hit tree. Toggling
+     display:none instead skipped the fade unpredictably. */
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.5s ease, visibility 0s linear 0.5s;   /* fade out, then hide */
 }
-#spinner.show { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { #spinner { transition: none; } }
+#spinner.show {
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.5s ease, visibility 0s;               /* show immediately, fade in */
+}
+@media (prefers-reduced-motion: reduce) {
+  #spinner, #spinner.show { transition: none; }
+}
 #spinner .ring {
   width: 15px; height: 15px;
   border: 2px solid var(--btn-line);

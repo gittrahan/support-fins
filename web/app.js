@@ -1099,21 +1099,16 @@ let finBusy = false;         // a worker build is outstanding (used to supersede
 // rebuild never flashes it. Cleared the moment the build lands (applyBuilt).
 function armSpinner() {
   clearTimeout(finSpinnerTimer);
-  // Short delay so a quick build never shows it at all; the 0.5s CSS fade-in then
-  // eases it on rather than snapping, so even a build that finishes mid-fade reads
-  // as a gentle cue, not a flash. (A hard 1s delay felt both late and jumpy.)
-  finSpinnerTimer = setTimeout(() => {
-    const s = el('spinner');
-    s.hidden = false;
-    requestAnimationFrame(() => s.classList.add('show'));  // next frame so the transition runs
-  }, 300);
+  // Short delay so a quick build never shows it at all; the 0.5s CSS fade-in (the
+  // .show class) then eases it on rather than snapping. The spinner is always in
+  // the layout, so toggling the class transitions reliably every time -- the
+  // earlier display:none/hidden toggle skipped the fade unpredictably.
+  finSpinnerTimer = setTimeout(() => el('spinner').classList.add('show'), 300);
 }
 function clearSpinner() {
   clearTimeout(finSpinnerTimer);
   finSpinnerTimer = null;
-  const s = el('spinner');
-  s.classList.remove('show');
-  s.hidden = true;
+  el('spinner').classList.remove('show');
 }
 
 function finOpts() {
