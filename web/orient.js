@@ -251,32 +251,22 @@ function alignQuality(cross) {
 }
 
 /**
- * Automatic, input-free strength note for the CURRENT pose. A printed part is
+ * How the CURRENT pose lays the part down, as a posture only. A printed part is
  * weakest across its layer lines -- the flat, horizontal planes -- so it splits
- * most easily when pulled straight up the build axis. We can't know the real
- * load, but we can ALWAYS say how this orientation lays the part down: if its
- * longest span stands up the layers that's the classic weak print; lying flat
- * runs the long spans along the layers, the strong way. `size` is the seated
- * bounding box {x, y, z}, z the build height. Changes as the part turns.
+ * most easily when pulled straight up the build axis: standing the longest span
+ * up the layers is the classic weak print, lying it flat is the strong one. The
+ * always-on text readout for this was dropped (it earned its keep only in the
+ * weak case), so the posture now feeds one place: the strength caveat on a
+ * suggested pose. `size` is the seated bounding box {x, y, z}, z the build height.
  */
 export function layerVerdict(size) {
   const z = size.z;
   const dims = [size.x, size.y, size.z].sort((a, b) => a - b);
   const span = dims[2];
   const eps = 0.05 * Math.max(1, span);
-  if (z >= span - eps) {
-    return { posture: 'weak',
-      note: `Standing tall (${z.toFixed(0)} mm) — the long axis runs up the layers, `
-          + `the weak direction. It'll snap easiest pulled straight up.` };
-  }
-  if (z <= dims[0] + eps) {
-    return { posture: 'strong',
-      note: `Lying flat (${z.toFixed(0)} mm) — the long spans run along the layers, `
-          + `the strong direction. Only a straight-up pull hits the weak bond.` };
-  }
-  return { posture: 'mixed',
-    note: `On its side (${z.toFixed(0)} mm) — layers run flat. Weakest pulled straight up, `
-        + `stronger side to side.` };
+  if (z >= span - eps) return { posture: 'weak' };
+  if (z <= dims[0] + eps) return { posture: 'strong' };
+  return { posture: 'mixed' };
 }
 
 /**

@@ -331,8 +331,8 @@ function shade() {
   const warn = el('over-warn');
   if (res.regions.length > 0 && dropped > 0) {
     warn.textContent = `⚠ ${dropped} small overhang${dropped === 1 ? '' : 's'} `
-      + `(hole ceilings, slots, bore tops) aren’t supported in this pose — small `
-      + `features may print rough. Try Suggest orientation to point them up.`;
+      + `(hole ceilings, slots, bore tops) print unsupported this way up and may come `
+      + `out rough. Try Suggest orientation to point them up.`;
   } else {
     warn.textContent = '';
   }
@@ -348,8 +348,8 @@ function shade() {
     flat.textContent = 'No supports needed this way up.';
     flat.className = 'note good';
   } else if (flatRegions === 0) {
-    flat.textContent = 'This printed flat as loaded — the overhangs showed up when you '
-      + 'turned it. You only need fins if you’re tilting it for strength.';
+    flat.textContent = 'This prints clean lying flat. You only need fins if you’re '
+      + 'tilting it for strength.';
     flat.className = 'note';
   } else {
     flat.textContent = '';
@@ -722,14 +722,12 @@ function rebuildLayerViz(size) {
   layerGeom.computeBoundingSphere();
 }
 
-/** Update the automatic layer note + frames for the current pose. */
+/** Rebuild the layer-line frames for the current pose (the toggle-able 3D viz).
+ *  The prose strength note that used to live here was dropped -- the Strength
+ *  arrow below covers load, and the always-on line mostly stated the obvious. */
 function updateLayerView(size) {
   rebuildLayerViz(size);
   layerViz.visible = layersOn && !!part;
-  const lv = layerVerdict(size);
-  const ln = el('layer-note');
-  ln.textContent = lv.note;
-  ln.className = `layer-note ${lv.posture}`;
 }
 
 // Pointer is in wall-placement mode (draw mode, or Suggest with the add toggle on).
@@ -1305,6 +1303,21 @@ function updateReadout(built, ms) {
 }
 
 /**
+ * Two audiences, two homes. `lead` is the short, must-see stuff -- a support that
+ * couldn't build, a part balanced on a point -- and stays in the status panel.
+ * `detail` is the how-it-works / how-to-fix text, which reads as a wall when it's
+ * always on, so it's tucked behind the (i) on the Fins row where a curious user
+ * can hover for it. Either can be empty.
+ */
+function setFinNote(lead, detail) {
+  el('s-fin-note').textContent = lead.length ? lead.join('. ') + '.' : '';
+  const info = el('s-fin-info');
+  const text = detail.filter(Boolean).join(' ');
+  if (text) { info.title = text; info.hidden = false; }
+  else { info.title = ''; info.hidden = true; }
+}
+
+/**
  * Draw mode's readout. Reports the gripping FINS the user placed by hand, plus
  * the pad/seating verdict from buildFins. When a clicked face can't take a fin it
  * says WHY -- silence-as-success is the exact bug M5's scoreboard was built on.
@@ -1313,7 +1326,6 @@ function updateDrawReadout(built, ms) {
   finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = false;
   finMaterial.opacity = padMaterial.opacity = drawMaterial.opacity = 1;
   const box = el('s-fins');
-  const note = el('s-fin-note');
   el('s-pad').textContent = built?.pad ? 'added' : built ? 'not needed' : '—';
 
   const ok = drawnFins.filter((d) => d.ok);
@@ -1324,28 +1336,30 @@ function updateDrawReadout(built, ms) {
     : 'none yet';
   box.classList.toggle('warn', ok.length === 0);
 
-  const bits = [];
+  const lead = [];
+  const help = [];
   if (!drawnFins.length && !drawMsg) {
-    bits.push('click an overhang face — it lights up green when a fin can go there — '
-      + 'and a support fin is stood against it');
+    lead.push('Click an overhang face (it lights up green where a fin can go) to '
+      + 'stand a support fin against it');
   }
   if (ok.length) {
-    bits.push(tines
-      ? 'combined support: horizontal tines fuse to the part and bend to snap off'
-      : 'breakaway wall: stands 0.2mm off the part so it snaps off (turn Tines on to grip)');
+    help.push(tines
+      ? 'The tines grab onto the part and bend away when you snap the supports off.'
+      : 'Each wall stands a hair off the part (0.2mm) so it pops right off. Turn '
+        + 'Tines on if you want it to grip.');
   }
   if (bad) {
     const one = drawnFins.find((d) => !d.ok);
-    bits.push(`${bad} fin${bad === 1 ? '' : 's'} couldn’t build in this orientation`
-      + `${one?.info?.reason ? ` (${one.info.reason})` : ''} — undo, or rotate`);
+    lead.push(`${bad} fin${bad === 1 ? '' : 's'} couldn’t build this way up`
+      + `${one?.info?.reason ? ` (${one.info.reason})` : ''}. Undo, or rotate`);
   }
-  if (drawMsg) bits.push(drawMsg);
+  if (drawMsg) lead.push(drawMsg);
   if (built?.seating?.kind === 'point') {
-    bits.push(built.pad
-      ? 'this part balances on a single point — the bed pad is what seats it, so print with the pad on'
-      : 'this part balances on a single point — turn the bed pad on to seat it, or rotate until it sits down');
+    lead.push(built.pad
+      ? 'this part balances on one point, so the bed pad is holding it. Print with the pad on'
+      : 'this part balances on one point. Turn the bed pad on to seat it, or rotate until it sits down');
   }
-  note.textContent = bits.length ? bits.join('. ') + '.' : '';
+  setFinNote(lead, help);
   if (ms != null) el('s-time').textContent = `${analysisTiming} · pad ${ms.toFixed(0)} ms`;
 }
 
@@ -1353,12 +1367,11 @@ function updateFinReadout(built, ms) {
   finMaterial.transparent = padMaterial.transparent = false;
   finMaterial.opacity = padMaterial.opacity = 1;
   const box = el('s-fins');
-  const note = el('s-fin-note');
   if (!built) {
     box.textContent = '—';
     box.classList.remove('warn');
     el('s-pad').textContent = '—';
-    note.textContent = '';
+    setFinNote([], []);
     return;
   }
   el('s-pad').textContent = built.pad ? 'added' : 'not needed';
@@ -1386,75 +1399,77 @@ function updateFinReadout(built, ms) {
   box.textContent = (autoTxt + drawnTxt) || 'none possible';
   box.classList.toggle('warn', n === 0 && !drawnOk);
 
-  const bits = [];
+  // `lead` = short + must-see, stays in the panel; `help` = how-it-works and
+  // how-to-fix, goes behind the (i). Split so the panel doesn't read as a wall.
+  const lead = [];
+  const help = [];
   if (!n && !drawnOk) {
-    bits.push(explainNoFins(built));
+    // Nothing placed -- the box already says "none possible"; the why goes in the
+    // (i), since it's a paragraph and the user can hover for it.
+    help.push(explainNoFins(built));
   } else if (n) {
     if (built.mode === 'auto') {
       // Make "why no tines" legible: props never take tines, only the gripping
       // fins do, so a part that gets only props shows no tines and that's correct.
       const b = built.braceCount, p = built.propCount;
       if (b) {
-        bits.push(built.tines
-          ? 'the fins’ tines fuse to the part and bend to snap off'
-          : 'the fins stand 0.2mm off the part and snap off — turn Tines on to grip');
+        help.push(built.tines
+          ? 'The tines grab onto the part and bend away when you snap the supports off.'
+          : 'The fins stand a hair off the part (0.2mm) so they pop off. Turn Tines on if you want them to grip.');
       }
       if (p && !b) {
-        bits.push('these are plain props, not gripping fins — the overhangs here '
-          + 'are too shallow or curved to stand a fin against, so there are no '
-          + 'tines to add (the Tines toggle only affects gripping fins)');
+        help.push('These are plain props, not gripping fins. The overhangs here are '
+          + 'too shallow or curved to stand a fin against, so there are no tines to add.');
       } else if (p) {
-        bits.push(`the ${p} prop${p === 1 ? '' : 's'} sit under overhangs too shallow `
-          + 'to grip, so those have no tines');
+        help.push(`The ${p} prop${p === 1 ? '' : 's'} sit under overhangs too shallow `
+          + 'to grip, so those get no tines.');
       }
     } else if (built.mode === 'prop') {
-      bits.push('breakaway: each stops 0.2mm under the part, so it snaps off '
-              + 'rather than needing to be cut');
+      help.push('Each one stops a hair under the part (0.2mm) so it pops off instead of needing a cut.');
     }
   }
   if (drawnOk) {
-    bits.push(`plus ${drawnOk} wall${drawnOk === 1 ? '' : 's'} you added by hand`);
+    lead.push(`plus ${drawnOk} wall${drawnOk === 1 ? '' : 's'} you added by hand`);
   }
   // Hand-placement feedback has to surface here too (Suggest + Draw mix), or a
-  // rejected wall fails silently -- the same silence-as-success trap as M5.
+  // rejected wall fails silently -- the same silence-as-success trap as M5. This
+  // one is an interactive failure, so it stays visible, not behind the (i).
   if (drawShown()) {
     const bad = drawnWalls.length - drawnOk;
     if (bad) {
       const one = drawnWalls.find((w) => !w.ok);
-      bits.push(`${bad} drawn wall${bad === 1 ? '' : 's'} couldn’t attach here`
+      lead.push(`${bad} drawn wall${bad === 1 ? '' : 's'} couldn’t attach here`
               + (one?.info?.reason ? ` (${one.info.reason})` : ''));
     }
-    if (drawMsg) bits.push(drawMsg);
+    if (drawMsg) lead.push(drawMsg);
   }
   // Worth saying even when something WAS placed: a point-balanced part is
   // standing on the added pad and nothing else, so the pad is load-bearing,
-  // not cosmetic.
+  // not cosmetic. Must-see -> stays visible.
   if (n && built.seating?.kind === 'point') {
-    bits.push(built.pad
-      ? 'this part balances on a single point — the bed pad is what seats it, '
-        + 'so print with the pad on'
-      : 'this part is balanced on a single point of contact — whatever is '
-        + 'placed here is holding up a part that has nothing to stand on. '
-        + 'Rotate until it sits down');
+    lead.push(built.pad
+      ? 'this part balances on one point, so the bed pad is holding it. Print with the pad on'
+      : 'this part balances on one point with nothing under it. Turn the bed pad on, or rotate until it sits down');
   }
   if (built.unserved) {
     // An un-served ledge is a shallow overhang with no room for a prop and too
-    // flat to stand a fin against. The video's own fix is to tilt it steeper so a
-    // fin can follow it -- point the user there, not just "rotate".
-    bits.push(`${built.unserved} overhang region${built.unserved === 1 ? '' : 's'} ` +
-              'still unsupported — tilt it steeper so a support fin can follow it ' +
-              '(try Suggest orientation), or use “+ Add walls by hand”');
+    // flat to stand a fin against. The fix (tilt steeper) is a sentence, so it
+    // rides in the (i) rather than the panel.
+    help.push(`${built.unserved} overhang${built.unserved === 1 ? ' is' : 's are'} `
+            + 'too shallow for a fin this way up. Tilt the part steeper so a fin can '
+            + 'follow it (try Suggest orientation), or add a wall by hand.');
   }
   if (built.skipped?.bore) {
     // A support standing INSIDE a bore or slot scars a surface you can't clean --
     // worse than a little sag. The tool refuses those on purpose; the honest fix
     // is to rotate the hole so it faces out and prints clean with no support.
     const b = built.skipped.bore;
-    bits.push(`${b} overhang${b === 1 ? '' : 's'} sit inside a bore or slot, where a ` +
-              'support would scar a surface you can’t reach — left unsupported on ' +
-              'purpose; rotate so the hole points up');
+    help.push(`${b} overhang${b === 1 ? ' sits' : 's sit'} inside a bore or slot, `
+            + `where a support would leave a mark you can’t reach. The tool leaves `
+            + `${b === 1 ? 'it' : 'them'} alone, so turn the hole upward to print `
+            + `${b === 1 ? 'it' : 'them'} clean.`);
   }
-  note.textContent = bits.join('. ') + '.';
+  setFinNote(lead, help);
   // ms is absent when a hand-drawn wall (Suggest + Draw mix) re-runs the readout
   // without rebuilding the auto fins -- don't touch the timing line then, and
   // never throw, or the updateReceipt() call after this one never happens.

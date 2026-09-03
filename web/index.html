@@ -71,7 +71,9 @@
     <dt><i class="sw sw-over"></i>Overhangs</dt> <dd id="s-over">—</dd>
     <dt>Area</dt>                                <dd id="s-overarea">—</dd>
     <dt><i class="sw sw-bed"></i>Bed&nbsp;contact</dt> <dd id="s-bed">—</dd>
-    <dt><i class="sw sw-fin"></i>Fins</dt>       <dd id="s-fins">—</dd>
+    <dt><i class="sw sw-fin"></i>Fins</dt>       <dd><span id="s-fins">—</span><button
+        type="button" class="note-info" id="s-fin-info" hidden
+        aria-label="How these supports work, and what this pose leaves uncovered">i</button></dd>
     <dt><i class="sw sw-pad"></i>Bed&nbsp;pad</dt> <dd id="s-pad">—</dd>
     <dt>Analysis</dt>                            <dd id="s-time">—</dd>
   </dl>
@@ -211,14 +213,15 @@
 <div class="rail-spacer"></div>
 </div><!-- /left-rail -->
 
-<!-- Bottom-right status card: all the pose/fin FEEDBACK, kept out of the left rail
-     so it can never shove the controls around when it grows. Bottom-anchored, so
-     new lines expand UPWARD into empty canvas. Holds: how this orientation lays the
-     part down; the "do you even need me / prints support-free" note; the honesty
-     warning naming the small overhangs this pose leaves UNsupported (hole ceilings,
-     slots, bore tops); and the grams receipt payoff once fins are on. -->
+<!-- Bottom-right status card: the pose/fin FEEDBACK worth glancing at, kept out of
+     the left rail so it can never shove the controls around when it grows. Bottom-
+     anchored, so new lines expand UPWARD into empty canvas. Holds: the "do you even
+     need me / prints support-free" note; must-see fin trouble (a support that
+     couldn't build, a part balanced on a point); the honesty warning naming the
+     small overhangs this pose leaves UNsupported; and the grams receipt payoff once
+     fins are on. The how-it-works / how-to-fix detail lives behind the (i) on the
+     Fins stat instead of stacking up here. -->
 <aside id="status" hidden>
-  <p class="layer-note" id="layer-note"></p>
   <p class="note" id="s-flat-note"></p>
   <p class="note" id="s-fin-note"></p>
   <p class="over-warn" id="over-warn"></p>

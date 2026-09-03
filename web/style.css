@@ -290,6 +290,23 @@ html, body {
 }
 #receipt .r-info:hover { color: var(--text); border-color: var(--dim); }
 
+/* The (i) on the Fins row: same opt-in-detail idea as the receipt's, for the
+   how-it-works / how-to-fix text that reads as a wall when it's always on. */
+.note-info {
+  margin-left: 5px;
+  width: 15px; height: 15px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--dim);
+  font: italic 600 10px/1 Georgia, serif;
+  cursor: help;
+  vertical-align: middle;
+}
+.note-info[hidden] { display: none; }
+.note-info:hover { color: var(--text); border-color: var(--dim); }
+
 /* Fin options, anchored under the toggle rather than inside the topbar, so
    turning fins on never moves another control. */
 #fin-opts {
@@ -461,19 +478,6 @@ html, body {
 
 /* ---------- automatic layer view ---------- */
 #orient .layerview { flex-basis: 100%; margin-top: 8px; }
-.layer-note {
-  margin: 0 0 5px;
-  padding: 6px 9px;
-  border-left: 3px solid var(--dim);
-  border-radius: 3px;
-  background: var(--btn);
-  font-size: 12px;
-  line-height: 1.35;
-}
-.layer-note:empty { display: none; }
-.layer-note.strong { border-left-color: #6fcf8b; color: #cdeccf; }
-.layer-note.mixed  { border-left-color: #ffb454; color: #f0dcc0; }
-.layer-note.weak   { border-left-color: #ff6b6b; color: #f2cfcf; }
 .layers-toggle { color: var(--dim); font-size: 12px; }
 
 /* ---------- strength arrow (load direction) ---------- */
@@ -521,9 +525,8 @@ html, body {
 }
 #status[hidden] { display: none; }
 #status > * { pointer-events: auto; }
-#status .layer-note { margin: 0; }
 /* Overhang warning: the tool isn't holding these up, so it's an amber caution, not
-   a green all-clear. Matches the .layer-note card look so the two read as one stack. */
+   a green all-clear. Card look sets it apart from the plainer .note lines above. */
 .over-warn {
   margin: 0;
   padding: 6px 9px;
