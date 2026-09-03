@@ -14,6 +14,11 @@ flat directory with two menu entries under **Support Fins**:
   surface (see below), so positioning is by hand — set **Overhang Height** to your overhang's
   height above the plate, keep the fin's foot on the plate, and centre it under the overhang;
   the tip then lands `gap` below the surface. Auto-fitting is exactly what the website does.
+- **Combined Support Demo** (`combined_support.lua`) — a cube tilted onto its edge (so it
+  would topple mid-print) held by a fin with a comb of **horizontal tines** biting the
+  vertical front face — Slant3D's *combined* support. The **Tines (combined)** toggle is the
+  lesson: on = it grips and prints; off = a plain wall the cube falls away from. Print it and
+  bend the fin off — the horizontal tines fatigue and snap clean.
 
 ## Why this is a *demo*, not the whole tool — read before filming
 
@@ -93,11 +98,13 @@ can't be unit-tested (`api`/`VolumeType`/presets exist only in the slicer) — v
 - **v0 (this):** two entries — the self-contained **Overhang Test** demo and **Add a Fin**
   (manual breakaway-fin primitive you position with the slicer's move tool). Both are the PROP
   primitive (the web tool's default), no tines — flat undersides correctly get none.
-- **v1 — the combined-support hero:** a block tilted onto its edge held by a fin *with a
-  horizontal tine comb*, plus a `combined` toggle (tines on = it holds; tines off = it falls
-  away, Slant3D's own "why you need tines" failure). This is the signature snap-off and the
-  video's money shot; it needs 2-object placement + tilt trig, so it ships after v0 is
-  verified in-slicer.
+- **v1 — the combined-support hero (SHIPPED):** `combined_support.lua` — a cube tilted onto
+  its edge held by a fin with a horizontal tine comb + a `combined` toggle (tines on = holds;
+  off = falls away, Slant3D's "why you need tines"). The tilt keeps the front face on y = 0
+  (vertical), so tines are constant-gap horizontal nubs; `combined_test.lua` point-in-polygon
+  verifies every tine bites the face. Bed-start caveat: the cube rests on a line edge onto a
+  breakaway raft — confirm first-layer adhesion in-slicer; a brim is the fallback (we skip the
+  part-modifying chamfer by design).
 - **Distribution:** optionally PR to
   [leotrax3d/prusaslicer-plugins-unofficial](https://github.com/leotrax3d/prusaslicer-plugins-unofficial)
   for reach + its CI (`check-plugins.sh`, `run-tests.sh`) and signing/release workflow, while
