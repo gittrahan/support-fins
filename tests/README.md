@@ -33,5 +33,17 @@ fence around it.
 - added geometry is **watertight**;
 - a tilted part gets a **tined, gripping** fin.
 
+**`orient.test.js`** -- the orientation/strength logic behind the left rail (pure,
+no DOM), so a change to a verdict or a solver can't silently drift:
+- **`layerVerdict`** buckets a pose's posture -- tall = weak, flat = strong, on its
+  side = mixed -- and now returns **posture only** (the always-on text note was
+  dropped; this locks that so a future edit can't quietly re-add it);
+- **`loadAlignment`** reads a pull as good/mixed/poor from how much of it crosses
+  the layers, with the good/mixed cut pinned at 60deg off in-plane;
+- **`suggestOrientations`** turns a part saved tilted (a baked-in overhang) back to
+  its support-free flat pose and ranks it first, best-first and well-formed;
+- **`suggestStrengthPose`** lays an axial pull into the layer plane on a *seated*
+  pose (never the needle-tower), and declines to turn an already in-plane load.
+
 See `docs/FIN-SPEC.md` for the spec these encode. `prototype/stress/run.js` is the
 broader sweep (all models × poses) for eyeballing; this suite is the pass/fail gate.
