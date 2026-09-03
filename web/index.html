@@ -181,10 +181,15 @@
     </label>
   </div>
   <div class="suggest">
-    <button class="btn sm" id="suggest-orient">Suggest orientation</button>
-    <button class="btn sm sr-close" id="suggest-close" hidden aria-label="Hide suggestions" title="Hide suggestions">×</button>
-    <p class="hint" id="suggest-note"></p>
-    <div id="suggest-list" hidden></div>
+    <div class="suggest-head">
+      <button class="btn sm" id="suggest-orient">Suggest orientation</button>
+      <button class="disclosure" id="suggest-toggle" hidden aria-expanded="true"
+              aria-label="Collapse suggestions" title="Collapse">&rsaquo;</button>
+    </div>
+    <div id="suggest-body">
+      <p class="hint" id="suggest-note"></p>
+      <div id="suggest-list" hidden></div>
+    </div>
   </div>
   <!-- Strength arrow: the layer view above is automatic; this checks the print
        against how the part is loaded in use. Point the arrow the way the part is

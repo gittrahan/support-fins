@@ -431,19 +431,32 @@ html, body {
 }
 .btn.sm { padding: 3px 9px; }
 
-#orient .suggest { flex-basis: 100%; margin-top: 6px; position: relative; }
+#orient .suggest { flex-basis: 100%; margin-top: 6px; }
+.suggest-head { display: flex; align-items: center; gap: 6px; }
 #orient .suggest #suggest-note { margin-top: 4px; }
 #suggest-note.good { color: #6fcf8b; }   /* the "best support is no support" win */
-/* Dismiss the results without turning the part -- sits at the top-right of the
-   block, level with the Suggest button, so the rail folds back to its plain height. */
-.suggest .sr-close {
-  position: absolute;
-  top: 0; right: 0;
-  width: 26px; height: 26px;
+/* Collapse/expand the results in place (keeps them, unlike a dismiss). A bare
+   chevron that points right when folded and rotates down when open. */
+.disclosure {
+  flex: 0 0 auto;
+  width: 20px; height: 20px;
   padding: 0;
-  font-size: 15px; line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--dim);
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform .15s ease, color .15s ease;
+  transform: rotate(90deg);            /* expanded: chevron points down */
 }
-.suggest .sr-close[hidden] { display: none; }
+.disclosure[aria-expanded="false"] { transform: rotate(0deg); }   /* collapsed: points right */
+.disclosure[hidden] { display: none; }
+.disclosure:hover { color: var(--text); }
+#suggest-body[hidden] { display: none; }
 #suggest-list {
   display: flex;
   flex-direction: column;
@@ -468,9 +481,9 @@ html, body {
 }
 .suggest-row .sr-line {
   flex: 1 1 auto;
+  min-width: 0;                 /* let the row wrap inside the panel instead of spilling past its border */
   font-variant-numeric: tabular-nums;
   font-size: 11px;
-  white-space: nowrap;
 }
 .suggest-row.active { border-color: var(--accent); background: var(--btn-hi); }
 .suggest-row.active .sr-rank::after { content: ' ✓'; }

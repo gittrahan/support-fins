@@ -2024,14 +2024,17 @@ function renderSuggestions() {
     // A support-free pose is the headline outcome, not a footnote — badge it green
     // instead of letting it read as a dull "no overhangs → 0 fins".
     const verdict = point ? null : noSupportVerdict(c);
-    const badge = verdict ? `<span class="sr-badge">${verdict.badge}</span>` : '';
-    // One tight line per pose: rank · height · overhangs→fins · rough holes. Bed
-    // area was dropped to fit -- height already stands in for how it sits.
+    // The support-free win is already carried by the green left border (.free) and
+    // the "no fins" text, so its badge would just be noise. The "Bores clean" win
+    // isn't obvious from the line, so that one earns a badge -- flowed inline so it
+    // wraps with the text instead of floating to a lonely top-right corner.
+    const badge = verdict?.tier === 'holeclean' ? ` <span class="sr-badge">${verdict.badge}</span>` : '';
+    // One tight line per pose: rank · height · fins · rough holes. Bed area was
+    // dropped to fit -- height already stands in for how it sits.
     const tail = point ? ' · can’t print (on a point)' : roughTxt;
     row.innerHTML =
       `<span class="sr-rank">${i === 0 ? 'Best' : `#${i + 1}`}</span>` +
-      `<span class="sr-line">${c.height.toFixed(0)} mm · ${overs}${tail}</span>` +
-      badge;
+      `<span class="sr-line">${c.height.toFixed(0)} mm · ${overs}${tail}${badge}</span>`;
     if (point) row.classList.add('bad');
     if (verdict?.tier === 'free') row.classList.add('free');
     row.addEventListener('click', () => {
@@ -2044,14 +2047,19 @@ function renderSuggestions() {
   list.hidden = false;
 }
 
-/** Fold the suggestion results away (the × dismiss, and the reset paths). */
+/** Clear the suggestion results entirely (new part, or a manual turn that
+ *  invalidates the ranking). The disclosure chevron does NOT come through here --
+ *  it only collapses/expands what's already there. */
 function hideSuggestions() {
   el('suggest-list').hidden = true;
   el('suggest-list').replaceChildren();
   const note = el('suggest-note');
   note.textContent = '';
   note.className = 'hint';
-  el('suggest-close').hidden = true;
+  const tog = el('suggest-toggle');
+  tog.hidden = true;
+  tog.setAttribute('aria-expanded', 'true');   // next results open expanded
+  el('suggest-body').hidden = false;
 }
 
 el('suggest-orient').addEventListener('click', () => {
@@ -2066,7 +2074,13 @@ el('suggest-orient').addEventListener('click', () => {
       // In-bore overhangs the current pose refuses (would scar a fit surface) — the
       // baseline the "points the bores up" verdict measures its win against.
       suggestCurBore = lastBuilt?.skipped?.bore ?? 0;
-      el('suggest-close').hidden = false;   // there's now something to dismiss
+      // Fresh results always land expanded, with the collapse chevron available.
+      const tog = el('suggest-toggle');
+      tog.hidden = false;
+      tog.setAttribute('aria-expanded', 'true');
+      tog.setAttribute('aria-label', 'Collapse suggestions');
+      tog.title = 'Collapse';
+      el('suggest-body').hidden = false;
       if (!candidates.length || confidence === 'none') {
         el('suggest-list').hidden = true;
         el('suggest-note').textContent = confidence === 'none'
@@ -2092,7 +2106,16 @@ el('suggest-orient').addEventListener('click', () => {
   }));
 });
 
-el('suggest-close').addEventListener('click', hideSuggestions);
+// Collapse/expand the results in place, keeping them (and the ranking) intact.
+el('suggest-toggle').addEventListener('click', () => {
+  const tog = el('suggest-toggle');
+  const open = tog.getAttribute('aria-expanded') !== 'false';
+  const next = !open;
+  tog.setAttribute('aria-expanded', String(next));
+  tog.setAttribute('aria-label', next ? 'Collapse suggestions' : 'Show suggestions');
+  tog.title = next ? 'Collapse' : 'Show';
+  el('suggest-body').hidden = !next;
+});
 
 // --------------------------------------------------------------- load arrow
 
