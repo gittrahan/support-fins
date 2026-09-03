@@ -1,13 +1,19 @@
 # Support Fins — PrusaSlicer 3.0 plugin
 
-A native PrusaSlicer plugin companion to [printfins.com](https://printfins.com). It
-generates a **cantilever overhang test object with a real breakaway support fin baked in**
-— a thin wall on a wide foot that rises from the plate and stops the breakaway `gap`
-(0.2 mm) below the overhang, so the overhang bridges the last layer and the fin snaps off
-clean. Print it, bend the fin off, look at the underside.
+A native PrusaSlicer plugin companion to [printfins.com](https://printfins.com), targeting
+the **3.0 plugin API** (`project.plugin` 1.0.0). Bundle `com.printfins.support-fins/` is one
+flat directory with two menu entries under **Support Fins**:
 
-Bundle: `com.printfins.support-fins/` — one flat directory (`manifest.json` +
-`support_fins.lua`), targeting the PrusaSlicer **3.0 plugin API** (`project.plugin` 1.0.0).
+- **Overhang Test** (`support_fins.lua`) — generates a cantilever overhang test object with a
+  breakaway fin baked in: a thin wall on a wide foot that stops the breakaway `gap` (0.2 mm)
+  below the overhang, so the overhang bridges the last layer and the fin snaps off clean.
+  Print it, bend the fin off, look at the underside. Nothing to position — it's self-contained.
+- **Add a Fin** (`add_fin.lua`) — drops ONE standalone breakaway fin (wall + foot + a necked
+  tip), sized to your overhang, into the scene. You then slide it under your overhang with
+  **PrusaSlicer's own move tool**. The plugin can't read your model or place things on its
+  surface (see below), so positioning is by hand — set **Overhang Height** to your overhang's
+  height above the plate, keep the fin's foot on the plate, and centre it under the overhang;
+  the tip then lands `gap` below the surface. Auto-fitting is exactly what the website does.
 
 ## Why this is a *demo*, not the whole tool — read before filming
 
@@ -59,28 +65,34 @@ inside a `com.printfins.support-fins/` folder), and importers need
 `api`, `VolumeType`, and the preset system exist only inside PrusaSlicer, so behaviour is
 verified by hand, once:
 
-1. Menu entry appears under `Calibration/Support Fin Overhang Test`; the dialog shows the
-   five float params.
-2. Generate with defaults → an upright post carrying a slab that juts out over air, with a
-   thin finned wall on a foot standing under the slab's free end.
-3. **The one unverified assumption to eyeball:** the post (the object's main mesh) is *not*
-   translated, so it relies on `make_cube` being corner-origin (base at z = 0). This matches
-   `tolerance_test.lua` and the API notes, but if the post sits half-buried in the plate,
-   `make_cube` is centred — fix by giving `add_object` an object `translate` of `+H/2` in z.
-4. Slice: the fin's top should sit ~0.2 mm under the slab (breakaway gap), and the slicer's
-   own supports should be absent from the span (the `SupportBlocker` + `support_material = 0`).
-5. Print, then bend the fin off and check the underside is clean. That's the whole thesis.
+1. Both entries appear under a **Support Fins** menu (`Overhang Test`, `Add a Fin`); each
+   dialog shows five float params.
+2. **Overhang Test** with defaults → an upright post carrying a slab that juts out over air,
+   with a thin finned wall on a foot standing under the slab's free end.
+3. **Add a Fin** with defaults → one standalone fin (wall + wide foot + a thin top tip). Move
+   it under an overhang with PrusaSlicer's move tool; foot stays on the plate.
+4. **The one unverified assumption to eyeball:** each object's main mesh is *not* translated,
+   so it relies on `make_cube` being corner-origin (base at z = 0). This matches
+   `tolerance_test.lua` and the API notes, but if a piece sits half-buried in the plate,
+   `make_cube` is centred — fix by giving `add_object` an object `translate` of `+height/2`.
+5. Slice: the fin's tip should sit ~0.2 mm under the overhang (breakaway gap); on the Overhang
+   Test the slicer's own supports should be absent from the span (`SupportBlocker` +
+   `support_material = 0`).
+6. Print, then bend the fin off and check the underside is clean. That's the whole thesis.
 
-**Lint:** this machine has no `lua`/`luac`, so the Lua here is unlinted locally. Before a
-release run `luac -p support_fins.lua` (syntax) and reproduce the slicer's scan pass with a
-`check-plugins.sh`-style check — the fatal, silent trap is any `require`/`api` call at file
-scope (the scan runs the whole file just to read `info`, on a bare engine with neither). This
-plugin keeps all `api` use inside `execute()` and needs no `require`; keep it that way.
+**Lint / local checks:** run `./run-tests.sh` from the `plugin/` dir (needs `lua`/`luac`). It
+covers syntax (`luac -p`), the manifest JSON, the slicer's **scan pass** on a bare engine, and
+the placement **arithmetic** against a mock api (`tests/`). The fatal, silent trap it guards
+is any `require`/`api` call at file scope — the scan runs the whole file just to read `info`,
+on an engine with neither, and a hit there produces no menu entry and no error. Both plugins
+keep all `api` use inside `execute()` and need no `require`; keep it that way. Behaviour itself
+can't be unit-tested (`api`/`VolumeType`/presets exist only in the slicer) — verify in-slicer.
 
 ## Roadmap
 
-- **v0 (this):** cantilever overhang + breakaway wall — the PROP primitive (the web tool's
-  default), no tines. Flat undersides correctly get no tines.
+- **v0 (this):** two entries — the self-contained **Overhang Test** demo and **Add a Fin**
+  (manual breakaway-fin primitive you position with the slicer's move tool). Both are the PROP
+  primitive (the web tool's default), no tines — flat undersides correctly get none.
 - **v1 — the combined-support hero:** a block tilted onto its edge held by a fin *with a
   horizontal tine comb*, plus a `combined` toggle (tines on = it holds; tines off = it falls
   away, Slant3D's own "why you need tines" failure). This is the signature snap-off and the

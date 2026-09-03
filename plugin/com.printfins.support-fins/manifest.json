@@ -1,7 +1,7 @@
 {
   "id": "com.printfins.support-fins",
   "name": "Support Fins",
-  "description": "Prints a breakaway support fin holding up an overhang, so you can watch it snap off. The full auto tool lives at printfins.com.",
+  "description": "Breakaway support fins in the slicer: a print-and-snap overhang demo, plus Add a Fin to drop a breakaway fin you position under your own part. The full auto tool lives at printfins.com.",
   "category": "Calibration",
   "license": "MIT",
   "min_slicer_version": "3.0.0",

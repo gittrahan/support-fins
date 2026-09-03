@@ -20,7 +20,7 @@ info = {
     id = "support_fins_overhang_test",
     type = "project.plugin",
     title = "Support Fin Overhang Test",
-    menu = "Calibration/Support Fin Overhang Test",
+    menu = "Support Fins/Overhang Test",
     params = {
         {name = "reach",            label = "Overhang Reach [mm]",   type = "float", default = 36},
         {name = "clearance_height", label = "Overhang Height [mm]",  type = "float", default = 30},
