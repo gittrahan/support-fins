@@ -46,7 +46,11 @@ html, body {
   font-size: 12px;
   pointer-events: none;               /* informational only; never blocks the canvas */
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+  opacity: 0;                         /* fade in (see .show) so it never hard-flashes */
+  transition: opacity 0.5s ease;
 }
+#spinner.show { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { #spinner { transition: none; } }
 #spinner .ring {
   width: 15px; height: 15px;
   border: 2px solid var(--btn-line);
