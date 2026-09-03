@@ -148,6 +148,10 @@ gizmo.addEventListener('dragging-changed', (e) => {
   controls.enabled = !e.value;
   if (!e.value) {
     el('rot-delta').textContent = '';
+    // Drag released: reseat onto the plate now the pivot is allowed to move again
+    // (shade() holds part.position steady WHILE dragging -- see the note there --
+    // so this is the frame that actually drops the turned part back down).
+    shade();
     // Fins are rebuilt when the drag ENDS, not during it. Placement runs the
     // exact confirmation passes -- containment, clearance, per-tine bite -- and
     // costs ~100ms on a 43k-face part, which is fine once and unusable at 60fps.
@@ -298,8 +302,13 @@ function shade() {
   const res = analyze(topology, threshold, rotM3.elements);
   const ms = performance.now() - t0;
 
-  // drop the rotated part back onto the plate, centred over it
-  part.position.set(res.offset.x, res.offset.y, res.offset.z);
+  // Drop the rotated part back onto the plate, centred over it -- but NOT mid-drag.
+  // The rotate gizmo turns the part about part.position, so re-seating it every
+  // frame slides the pivot out from under the pointer and the ring reads as jumpy /
+  // jittery. While a drag is live we hold the pre-drag seat and let the part swing
+  // about that fixed point; the drag-end handler re-seats once, on release. The
+  // face SHADING below still updates live either way, so the diagnosis never stalls.
+  if (!gizmo.dragging) part.position.set(res.offset.x, res.offset.y, res.offset.z);
 
   const size = new THREE.Vector3(res.size.x, res.size.y, res.size.z);
   report(partName, size);
