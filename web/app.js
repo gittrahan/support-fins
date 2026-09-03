@@ -1714,8 +1714,7 @@ function restoreState(s) {
   syncDrawControls();
   setGizmo();
   el('rot-delta').textContent = '';
-  el('suggest-list').hidden = true;
-  el('suggest-note').textContent = '';
+  hideSuggestions();
   shade();
   refreshFins();
   syncHistButtons();
@@ -1945,8 +1944,7 @@ el('rot-reset').addEventListener('click', () => {
   histPush();
   part.quaternion.identity();
   el('rot-delta').textContent = '';
-  el('suggest-list').hidden = true;   // a manual turn invalidates the ranking's "active" mark
-  el('suggest-note').textContent = '';
+  hideSuggestions();   // a manual turn invalidates the ranking's "active" mark
   shade();
 });
 
@@ -1967,11 +1965,6 @@ function applySuggestion(rot) {
   el('rot-delta').textContent = '';
   shade();
 }
-
-const CONF_TEXT = {
-  high: 'clear best pose', medium: 'a good pose, close alternatives',
-  low: 'several poses are similar — your call', none: '',
-};
 
 // Overhangs the CURRENT pose refuses to support inside a bore/slot (scarring a fit
 // surface) — the count buildFins reports as skipped.bore. We only celebrate a pose
@@ -1995,25 +1988,22 @@ let suggestCurBore = 0;
 function noSupportVerdict(c) {
   if (c.regions === 0) {
     const rough = c.holes ?? 0;
-    const roughCaveat = rough
-      ? ` One small spot may come out rough — clean it up after.`
-      : '';
+    const roughCaveat = rough ? ` One small spot may print a bit rough.` : '';
     // The suggester ranks for printability, not strength (it can't know the load).
     // If this pose also stands the part's long axis up the layers, that's the weak
     // print direction, so add a heads-up and point at the Strength arrow.
     const lv = c.size ? layerVerdict(c.size) : null;
     const strengthCaveat = lv?.posture === 'weak'
-      ? ` It does stand the part tall, the weaker way to print — if it takes a load, `
-        + `check the Strength arrow.`
+      ? ` It prints tall, though, the weaker direction, so check the Strength arrow if it bears a load.`
       : '';
     return { tier: 'free', badge: 'No support',
-      note: `Turn it this way and it needs no supports — 0 g.${roughCaveat}${strengthCaveat}` };
+      note: `This way up it needs no fins, 0 g.${roughCaveat}${strengthCaveat}` };
   }
   if ((c.bore ?? 0) === 0 && suggestCurBore > 0) {
     const grams = (c.volume ?? 0) * PLA_DENSITY_G_CM3 / 1000;
     return { tier: 'holeclean', badge: 'Bores clean',
-      note: `Turn it this way and the bores point up, so no support sits inside a hole `
-          + `to scar it. (${fmtGrams(grams)} g of fins, all on the outside.)` };
+      note: `This way up the bores point up, so no support sits inside a hole to scar it `
+          + `(${fmtGrams(grams)} g of fins, all on the outside).` };
   }
   return null;
 }
@@ -2025,22 +2015,23 @@ function renderSuggestions() {
     const row = document.createElement('button');
     row.className = 'btn suggest-row';
     const point = c.seating === 'point';
-    const fins = c.walls === 0 ? 'no fins' : `${c.walls} fin${c.walls === 1 ? '' : 's'}`;
-    const overs = c.regions === 0 ? 'no overhangs'
-      : `${c.regions} overhang${c.regions === 1 ? '' : 's'} → ${fins}`;
+    const overs = c.walls === 0 ? 'no fins' : `${c.walls} fin${c.walls === 1 ? '' : 's'}`;
     // Rough holes = the small hole/slot/bore-top overhangs this pose leaves
     // unsupported (dropped slivers + bore-refused). Showing it is what makes a
-    // hole-friendly pose legible: "Best · 12 rough holes" over "#3 · 561".
+    // hole-friendly pose legible: "Best · 12 rough" over "#3 · 561".
     const rough = (c.holes ?? 0) + (c.bore ?? 0);
-    const roughTxt = rough ? ` · ${rough} rough hole${rough === 1 ? '' : 's'}` : '';
+    const roughTxt = rough ? ` · ${rough} rough` : '';
     // A support-free pose is the headline outcome, not a footnote — badge it green
     // instead of letting it read as a dull "no overhangs → 0 fins".
     const verdict = point ? null : noSupportVerdict(c);
     const badge = verdict ? `<span class="sr-badge">${verdict.badge}</span>` : '';
+    // One tight line per pose: rank · height · overhangs→fins · rough holes. Bed
+    // area was dropped to fit -- height already stands in for how it sits.
+    const tail = point ? ' · can’t print (on a point)' : roughTxt;
     row.innerHTML =
       `<span class="sr-rank">${i === 0 ? 'Best' : `#${i + 1}`}</span>` +
-      `<span class="sr-main">${c.height.toFixed(0)} mm tall · ${c.bedArea.toFixed(0)} mm² on the bed${badge}</span>` +
-      `<span class="sr-sub">${overs}${roughTxt}${point ? ' · balances on a point — can’t print this way' : ''}</span>`;
+      `<span class="sr-line">${c.height.toFixed(0)} mm · ${overs}${tail}</span>` +
+      badge;
     if (point) row.classList.add('bad');
     if (verdict?.tier === 'free') row.classList.add('free');
     row.addEventListener('click', () => {
@@ -2051,6 +2042,16 @@ function renderSuggestions() {
     list.append(row);
   });
   list.hidden = false;
+}
+
+/** Fold the suggestion results away (the × dismiss, and the reset paths). */
+function hideSuggestions() {
+  el('suggest-list').hidden = true;
+  el('suggest-list').replaceChildren();
+  const note = el('suggest-note');
+  note.textContent = '';
+  note.className = 'hint';
+  el('suggest-close').hidden = true;
 }
 
 el('suggest-orient').addEventListener('click', () => {
@@ -2065,10 +2066,11 @@ el('suggest-orient').addEventListener('click', () => {
       // In-bore overhangs the current pose refuses (would scar a fit surface) — the
       // baseline the "points the bores up" verdict measures its win against.
       suggestCurBore = lastBuilt?.skipped?.bore ?? 0;
+      el('suggest-close').hidden = false;   // there's now something to dismiss
       if (!candidates.length || confidence === 'none') {
         el('suggest-list').hidden = true;
         el('suggest-note').textContent = confidence === 'none'
-          ? 'No printable orientation — this part balances on a point at every angle.'
+          ? 'No printable orientation: this part balances on a point at every angle.'
           : 'Nothing to suggest for this part.';
       } else {
         renderSuggestions();
@@ -2080,7 +2082,7 @@ el('suggest-orient').addEventListener('click', () => {
           note.textContent = verdict.note;
           note.className = 'hint good';
         } else {
-          note.textContent = `Best guess — ${CONF_TEXT[confidence]}. Click one to turn the part.`;
+          note.textContent = 'Click a pose to turn the part.';
           note.className = 'hint';
         }
       }
@@ -2089,6 +2091,8 @@ el('suggest-orient').addEventListener('click', () => {
     }
   }));
 });
+
+el('suggest-close').addEventListener('click', hideSuggestions);
 
 // --------------------------------------------------------------- load arrow
 

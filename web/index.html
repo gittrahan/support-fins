@@ -182,6 +182,7 @@
   </div>
   <div class="suggest">
     <button class="btn sm" id="suggest-orient">Suggest orientation</button>
+    <button class="btn sm sr-close" id="suggest-close" hidden aria-label="Hide suggestions" title="Hide suggestions">×</button>
     <p class="hint" id="suggest-note"></p>
     <div id="suggest-list" hidden></div>
   </div>
@@ -193,7 +194,7 @@
        nothing that collides with click-to-lay. No fake "Nx stronger" number: the
        verdict is qualitative. -->
   <div class="loadfx">
-    <p class="loadfx-lede"><strong>Strength arrow</strong> — which way is it loaded?</p>
+    <p class="loadfx-lede"><strong>Strength arrow</strong>: which way is it loaded?</p>
     <div class="strength-pad" role="group" aria-label="Load direction">
       <button class="btn sm" id="load-up"    aria-label="Load points up">↑</button>
       <button class="btn sm" id="load-down"  aria-label="Load points down">↓</button>
