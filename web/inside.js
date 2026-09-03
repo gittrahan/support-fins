@@ -259,8 +259,26 @@ export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
              rot[6] * x + rot[7] * y + rot[8] * z];
   }
 
+  // A part triangle is registered in every YZ cell its extent touches, so the
+  // same (wall triangle, part triangle) pair is otherwise measured once per
+  // shared cell -- on a coarse part (few big triangles spanning many cells) that
+  // was ~82% of the distance work here, all redundant. A per-wall-triangle
+  // generation stamp collapses each pair to one test. This is why nearestPart
+  // (rMax 0.45, normal-sized tris, a 3x3 neighbourhood) deliberately does NOT
+  // dedup and this does: the repeat rate is only pathological for the exact,
+  // full-mesh weld check, on parts whose triangles are large next to a cell.
+  // Skipping a repeat of an identical pair cannot change the running minimum, so
+  // the output is bit-identical. Stamp is cached on `topo` (like the grid) and
+  // the generation is monotonic across calls; the array is only ever read where
+  // the current generation matches, so a fresh array of zeros is safe.
+  const seen = (topo._scSeen && topo._scSeen.length === topo.nFaces)
+    ? topo._scSeen : (topo._scSeen = new Int32Array(topo.nFaces));
+  let gen = topo._scGen | 0;
+  if (gen > 2e9) { seen.fill(0); gen = 0; }   // guard Int32 overflow on a long-lived worker
+
   let best = rMax * rMax, bp = null, bq = null;
   for (let t = 0; t < mv.length; t += 3) {
+    gen++;
     const A = [mv[t], mv[t + 1], mv[t + 2]];
     let xLo = Infinity, xHi = -Infinity;
     let yLo = Infinity, yHi = -Infinity, zLo = Infinity, zHi = -Infinity;
@@ -279,6 +297,8 @@ export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
         const c = a * GRID + b;
         for (let i = grid.start[c]; i < grid.start[c + 1]; i++) {
           const f = grid.items[i];
+          if (seen[f] === gen) continue;   // this part tri already measured vs this wall tri
+          seen[f] = gen;
           const o = f * 9;
           // reject on the axis-aligned boxes before any real geometry -- a
           // triangle appears in every cell its span touches, so most
@@ -335,6 +355,7 @@ export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
       }
     }
   }
+  topo._scGen = gen;   // keep the stamp generation monotonic across calls
   if (!bp) return null;
   const d = Math.sqrt(best);
   const dx = bq[0] - bp[0], dy = bq[1] - bp[1], dz = bq[2] - bp[2];
