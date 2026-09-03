@@ -1,7 +1,7 @@
 {
   "id": "com.printfins.support-fins",
   "name": "Support Fins",
-  "description": "Breakaway support fins in the slicer: a print-and-snap overhang demo, plus Add a Fin to drop a breakaway fin you position under your own part. The full auto tool lives at printfins.com.",
+  "description": "Add a breakaway support fin (blade + tine comb) to the plate and position it under your overhang. The full auto tool lives at printfins.com.",
   "category": "Calibration",
   "license": "MIT",
   "min_slicer_version": "3.0.0",

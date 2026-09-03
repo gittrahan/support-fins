@@ -20,6 +20,6 @@ for f in "$BUNDLE"/*.lua; do
 done
 
 echo "== geometry (mock api) =="
-( cd tests && lua geometry_test.lua && lua add_fin_test.lua && lua combined_test.lua )
+( cd tests && lua add_fin_test.lua )
 
 echo "ALL PLUGIN CHECKS PASS"
