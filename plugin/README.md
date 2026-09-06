@@ -63,18 +63,24 @@ inside a `com.printfins.support-fins/` folder), and importers need
    `~/Downloads/support-fin-plugin-preview.png`.)
 3. Move it so the tine face meets a part's overhanging face, foot on the plate; nudge until the
    tines just kiss the face.
-4. **The one unverified assumption to eyeball:** the wall (main mesh) is *not* translated, so it
-   relies on `make_cube` being corner-origin (base at z = 0). This matches `tolerance_test.lua`
-   and the API notes; if the fin sits half-buried, `make_cube` is centred — fix with an object
-   `translate` of `+height/2`.
+4. **It must be ONE connected fin, not scattered boxes.** All pieces are built in one flat
+   object space via `shapes.builder()` (vendored from leotrax3d, MIT) — the same pattern the
+   shipped `box_generator`/`tolerance_test` use, which anchors every volume to the first and
+   never assumes a primitive's origin. Corner-origin `make_cube` (base at z = 0) is confirmed by
+   those working plugins. The earlier hand-rolled version centred the attachments at y = 0 while
+   the wall spanned `y[0,length]`, flinging the foot/tip/tines ~half the length off the blade —
+   that bug is what the builder + the new overlap assertions in the test now rule out.
 5. Slice, print, bend the fin off — tines should snap clean and leave faint marks.
 
 **Lint / local checks:** run `./run-tests.sh` from the `plugin/` dir (needs `lua`/`luac`). It
 covers syntax (`luac -p`), the manifest JSON, the slicer's **scan pass** on a bare engine, and
-the fin **arithmetic** against a mock api (`tests/add_fin_test.lua`). The fatal, silent trap it
-guards is any `require`/`api` call at file scope — the scan runs the whole file just to read
-`info`, on an engine with neither, and a hit there produces no menu entry and no error. The
-plugin keeps all `api` use inside `execute()` and needs no `require`; keep it that way.
+the fin **arithmetic** against a mock api (`tests/add_fin_test.lua`) — whose mock now models the
+*real* semantics (corner-origin cubes; `other_volumes` translates **relative to the main mesh**)
+and asserts every piece actually **overlaps the wall**, the check that catches the scatter. The
+fatal, silent trap the scan guards is any `require`/`api` call **at file scope** — the scan runs
+the whole file just to read `info`, on an engine with neither, so a hit there produces no menu
+entry and no error. Both files keep all `api`/`require` use inside functions (`execute()` for the
+plugin, method bodies for the module); keep it that way.
 
 ## Notes / possible polish
 
