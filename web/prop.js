@@ -61,13 +61,20 @@ export const PROP = {
   // than that gets NOTHING from the wall path -- its stations are trimmed as
   // stub/blocked and the low ledge prints into air (the near-bed overhangs that
   // came out rough on real organic parts). Below minHeight but above this floor a
-  // FLANGELESS squat breakaway is built instead: no foot (a wall this short
-  // stands on its own footprint and cannot tip), tapering to the tip at both ends
-  // so it still breaks away under the overhang and off the plate. Below
-  // minHeightSquat the overhang sits ~on the bed and the first few layers
-  // self-support, so nothing is built.
+  // brimmed squat breakaway is built instead (see sweepSquat): a thin wall on a
+  // thin wide brim -- the full T-foot can't fit, but the wall still needs plate
+  // grip. Below minHeightSquat the overhang sits ~on the bed and the first few
+  // layers self-support, so nothing is built.
   minHeightSquat: 0.6,
   minSpanSquat: 4.0,   // squat walls are cheap; a shorter low ledge still earns one
+  // A squat wall's failure mode is PEELING off the plate, not tipping: its own
+  // footprint is a hair-wide contact strip, so it needs adhesion AREA the way the
+  // bed pad gives the tall parts. It gets a flat brim -- WIDE for grip, but only a
+  // couple layers tall so it still snaps off clean, and because it sits on the
+  // plate (~gap below the overhang) it never marks the part. Half-width stays
+  // under maxUnsupportedSpan/2 so a row of squat walls never fuses brim-to-brim.
+  squatBrimH: 0.4,     // ~2 layers
+  squatBrimW: 2.5,     // half-width; a 5mm-wide brim strip along the wall
   // mm between cross-sections; a LENGTH, not a count -- see `straightness`.
   // 1.0 rather than 2.0 deliberately, and the trade is measured: at 2.0 the
   // matrix is 8 clean / 2 walls that would weld / 18% coverage, at 1.0 it is
@@ -1428,7 +1435,7 @@ export function floorLine(topLine, tris, margin = 1.0) {
  * only printable topology) and the single scar it can leave is on an internal
  * surface you could not have oriented away.
  */
-export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
+export function sweepBetween(topLine, botLine, out) {
   const wall = [];
   for (let i = 0; i < topLine.length; i++) {
     const p = topLine[i];
@@ -1443,7 +1450,7 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     const top = p[2] - PROP.gap;
     const bot = botLine[i][2];
     const h = top - bot;
-    if (h < minH) return false;
+    if (h < PROP.minHeight) return false;
     const taper = Math.min(PROP.tipH, h / 2); // tapers meet in the middle if short
     const zBotTip = bot + taper;
     const zTopTip = top - taper;
@@ -1603,7 +1610,51 @@ function buildPartAttached(line, partTris, topo, rot, offset, out) {
 }
 
 /**
- * Build FLANGELESS squat breakaway walls on the sub-minHeight bed stations of a
+ * Sweep a SQUAT breakaway wall: a thin wall necking to the breakaway tip, on a
+ * flat brim. The full T-flange (`sweep`) can't fit here -- baseH 1.0 alone is most
+ * of the wall -- but a squat wall still has to hold to the plate, so it gets a
+ * thin WIDE brim instead: two layers tall (snaps off, leaves no part mark since it
+ * sits on the plate), wide enough to grip. Two overlapping solids the slicer
+ * unions, exactly like `sweep`'s wall + flange.
+ */
+export function sweepSquat(line, zBed, out) {
+  const wall = [], brim = [];
+  const brimTop = zBed + PROP.squatBrimH;
+  for (let i = 0; i < line.length; i++) {
+    const p = line[i];
+    const a = line[Math.max(0, i - 1)];
+    const b = line[Math.min(line.length - 1, i + 1)];
+    let rx = b[0] - a[0], ry = b[1] - a[1];
+    const rn = Math.hypot(rx, ry);
+    if (rn < 1e-9) return false;
+    rx /= rn; ry /= rn;
+    const sx = ry, sy = -rx;                 // horizontal, across the wall
+
+    const top = p[2] - PROP.gap;
+    const h = top - zBed;
+    if (h < PROP.minHeightSquat) return false;
+    // neck to the tip over whatever height is left above the brim
+    const ztip = Math.max(top - PROP.tipH, brimTop + 0.05);
+    const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
+
+    // the stem: bed to breakaway tip, th-wide then necking to the contact tip
+    wall.push([
+      P(+PROP.th / 2, zBed), P(+PROP.th / 2, ztip), P(+PROP.tip / 2, top),
+      P(-PROP.tip / 2, top), P(-PROP.th / 2, ztip), P(-PROP.th / 2, zBed),
+    ]);
+    // the brim: a thin flat slab overlapping the wall's base, for plate grip
+    brim.push([
+      P(+PROP.squatBrimW, zBed), P(+PROP.squatBrimW, brimTop),
+      P(-PROP.squatBrimW, brimTop), P(-PROP.squatBrimW, zBed),
+    ]);
+  }
+  ribbon(wall, out);
+  ribbon(brim, out);
+  return true;
+}
+
+/**
+ * Build brimmed squat breakaway walls on the sub-minHeight bed stations of a
  * contoured overhang line -- the near-bed overhangs a full T-wall can't reach.
  *
  * A flanged wall needs ~minHeight of headroom to exist at all, so `sweep` and its
@@ -1611,12 +1662,12 @@ function buildPartAttached(line, partTris, topo, rot, offset, out) {
  * ramps down to the plate, that abandons the whole low band and it prints into
  * air. Here the low band is built directly: the stations with minHeightSquat <=
  * height < minHeight (DISJOINT from the tall run the caller builds, so the two
- * never compete) are walked into maximal runs, and each is swept between the
- * overhang and a flat bed floor via `sweepBetween` -- a double-tapered wall with
- * no foot. A wall this short stands on its own footprint and cannot tip, so the
- * foot the tall wall needs would only be a splayed sheet here (footMin 1.6 on a
- * 1mm wall). Same weld guard as the plate path: a squat wall that would fuse is
- * dropped, never shipped ("no prop" is fixable, a fused prop is a ruined print).
+ * never compete) are walked into maximal runs, and each is swept via `sweepSquat`
+ * -- a thin wall on a thin WIDE brim. The full T-foot can't fit under a 1mm wall
+ * (footMin 1.6 would splay into a sheet), but the wall still has to HOLD to the
+ * plate, so the brim gives it the adhesion area a bare 0.6mm-wide tip never could.
+ * Same weld guard as the plate path: a squat wall that would fuse is dropped,
+ * never shipped ("no prop" is fixable, a fused prop is a ruined print).
  *
  * Operates on a private deep copy of the line so `settleTop` never mutates the
  * points the caller's tall path still reads. Appends triangles to `out` and
@@ -1660,9 +1711,8 @@ export function buildSquatBed(line, regionTris, topo, rot, offset, out) {
                             settled[settled.length - 1][1] - settled[0][1]);
     if (span < PROP.minSpanSquat) continue;
 
-    const floor = settled.map((p) => [p[0], p[1], zBed]);
     const before = out.length;
-    if (!sweepBetween(settled, floor, out, PROP.minHeightSquat)) {
+    if (!sweepSquat(settled, zBed, out)) {
       out.length = before;
       continue;
     }
