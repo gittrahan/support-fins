@@ -59,6 +59,16 @@ shapes['tube']       = trimesh.creation.annulus(r_min=12, r_max=22, height=55, s
 _frame = Polygon([(-20, 0), (20, 0), (20, 34), (-20, 34)],
                  [[(-11, 2), (11, 2), (11, 30), (-11, 30)]])   # shell with a hole
 shapes['portal']     = trimesh.creation.extrude_polygon(_frame, 30)
+# --- shallow cantilevered ledge (near-bed / squat-prop territory) ---
+# A side profile (u across, v up) extruded into a slab and stood up so v is the
+# print Z: a wall (u 0..6) at full height, and a thin tongue (u 6..50) whose
+# UNDERSIDE sits at v=1.0 -- ~1mm above the plate. Too little headroom for a
+# flanged breakaway wall (gap + base flange + tip taper all want ~minHeight), so
+# it is the case the FLANGELESS squat prop exists for; a plate stilt just gets
+# trimmed away here and the ledge prints into air.
+_ledge = prism([(0, 0), (6, 0), (6, 1.0), (50, 1.0), (50, 2.4), (0, 2.4)], 40)
+_ledge.apply_transform(trimesh.transformations.rotation_matrix(np.pi / 2, [1, 0, 0]))
+shapes['lowledge']   = _ledge
 # --- needle / point-seated (the hub_post_foot family) ---
 prof = np.array([[0, 0], [26, 0], [22, 6], [4, 150], [4, 165], [0, 165]])  # foot -> long taper
 shapes['needle']     = trimesh.creation.revolve(prof, sections=48)

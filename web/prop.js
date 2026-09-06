@@ -56,6 +56,18 @@ export const PROP = {
   footRatio: 0.12,  // foot half-width as a fraction of wall height
   minSpan: 7.0,     // a wall shorter than this is not worth the plate space
   minHeight: 1.5,   // nor is one this short
+  // SQUAT BED SUPPORT. A flanged T-wall needs ~minHeight of headroom just to
+  // exist (gap 0.2 + baseH 1.0 + a sliver of tip taper), so a bed overhang lower
+  // than that gets NOTHING from the wall path -- its stations are trimmed as
+  // stub/blocked and the low ledge prints into air (the near-bed overhangs that
+  // came out rough on real organic parts). Below minHeight but above this floor a
+  // FLANGELESS squat breakaway is built instead: no foot (a wall this short
+  // stands on its own footprint and cannot tip), tapering to the tip at both ends
+  // so it still breaks away under the overhang and off the plate. Below
+  // minHeightSquat the overhang sits ~on the bed and the first few layers
+  // self-support, so nothing is built.
+  minHeightSquat: 0.6,
+  minSpanSquat: 4.0,   // squat walls are cheap; a shorter low ledge still earns one
   // mm between cross-sections; a LENGTH, not a count -- see `straightness`.
   // 1.0 rather than 2.0 deliberately, and the trade is measured: at 2.0 the
   // matrix is 8 clean / 2 walls that would weld / 18% coverage, at 1.0 it is
@@ -1416,7 +1428,7 @@ export function floorLine(topLine, tris, margin = 1.0) {
  * only printable topology) and the single scar it can leave is on an internal
  * surface you could not have oriented away.
  */
-export function sweepBetween(topLine, botLine, out) {
+export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
   const wall = [];
   for (let i = 0; i < topLine.length; i++) {
     const p = topLine[i];
@@ -1431,7 +1443,7 @@ export function sweepBetween(topLine, botLine, out) {
     const top = p[2] - PROP.gap;
     const bot = botLine[i][2];
     const h = top - bot;
-    if (h < PROP.minHeight) return false;
+    if (h < minH) return false;
     const taper = Math.min(PROP.tipH, h / 2); // tapers meet in the middle if short
     const zBotTip = bot + taper;
     const zTopTip = top - taper;
@@ -1588,6 +1600,95 @@ function buildPartAttached(line, partTris, topo, rot, offset, out) {
       line: subTop.map((p) => [p[0], p[1], p[2] - PROP.gap]),
     },
   };
+}
+
+/**
+ * Build FLANGELESS squat breakaway walls on the sub-minHeight bed stations of a
+ * contoured overhang line -- the near-bed overhangs a full T-wall can't reach.
+ *
+ * A flanged wall needs ~minHeight of headroom to exist at all, so `sweep` and its
+ * trim discard every station lower than that; on an organic part whose underside
+ * ramps down to the plate, that abandons the whole low band and it prints into
+ * air. Here the low band is built directly: the stations with minHeightSquat <=
+ * height < minHeight (DISJOINT from the tall run the caller builds, so the two
+ * never compete) are walked into maximal runs, and each is swept between the
+ * overhang and a flat bed floor via `sweepBetween` -- a double-tapered wall with
+ * no foot. A wall this short stands on its own footprint and cannot tip, so the
+ * foot the tall wall needs would only be a splayed sheet here (footMin 1.6 on a
+ * 1mm wall). Same weld guard as the plate path: a squat wall that would fuse is
+ * dropped, never shipped ("no prop" is fixable, a fused prop is a ruined print).
+ *
+ * Operates on a private deep copy of the line so `settleTop` never mutates the
+ * points the caller's tall path still reads. Appends triangles to `out` and
+ * returns the placed prop descriptors (marked `squat: true`).
+ */
+export function buildSquatBed(line, regionTris, topo, rot, offset, out) {
+  const zBed = 0;
+  const placed = [];
+  const heightOf = (p) => (p[2] - PROP.gap) - zBed;
+  const usable = line.map((p, k) => {
+    const h = heightOf(p);
+    return h >= PROP.minHeightSquat && h < PROP.minHeight
+        && stationIsClear(line, k, topo, rot, offset);
+  });
+
+  let k = 0;
+  while (k < usable.length) {
+    if (!usable[k]) { k++; continue; }
+    let j = k;
+    while (j < usable.length && usable[j]) j++;
+    const raw = line.slice(k, j).map((p) => [p[0], p[1], p[2]]);  // deep copy
+    k = j;
+    if (raw.length < PROP.minStations) continue;
+    const spanRaw = Math.hypot(raw[raw.length - 1][0] - raw[0][0],
+                               raw[raw.length - 1][1] - raw[0][1]);
+    if (spanRaw < PROP.minSpanSquat) continue;
+
+    // Put the closest approach on spec, then re-trim: settling can lift a station
+    // into the tall band or drop one below the squat floor, exactly as it can for
+    // a full wall. Keep only what is still squat-height and measurably clear.
+    settleTop(raw, regionTris);
+    const avail = raw.map((p, i) => {
+      const h = heightOf(p);
+      return h >= PROP.minHeightSquat && h < PROP.minHeight
+          && stationCertified(raw, i, topo, rot, offset);
+    });
+    const run = longestRun(avail);
+    if (!run || run[1] - run[0] < PROP.minStations) continue;
+    const settled = raw.slice(run[0], run[1]);
+    const span = Math.hypot(settled[settled.length - 1][0] - settled[0][0],
+                            settled[settled.length - 1][1] - settled[0][1]);
+    if (span < PROP.minSpanSquat) continue;
+
+    const floor = settled.map((p) => [p[0], p[1], zBed]);
+    const before = out.length;
+    if (!sweepBetween(settled, floor, out, PROP.minHeightSquat)) {
+      out.length = before;
+      continue;
+    }
+
+    // Same acceptance as the plate path: an approach from above is the breakaway
+    // interface (must clear the gap), anything else is a flank weld.
+    const hit = solidClearance(topo, rot, offset, out.slice(before), 0.25);
+    if (hit && (hit.cosUp > 0.7 ? hit.d < PROP.gap - 0.065 : hit.d < 0.205)) {
+      out.length = before;
+      continue;
+    }
+
+    const top = Math.max(...settled.map((p) => p[2])) - PROP.gap;
+    let vol = 0;
+    for (let i = before; i < out.length; i += 3) {
+      const a = out[i], b = out[i + 1], c = out[i + 2];
+      vol += (a[0] * (b[1] * c[2] - b[2] * c[1]) + a[1] * (b[2] * c[0] - b[0] * c[2])
+            + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
+    }
+    placed.push({
+      span, height: top - zBed, stations: settled.length, volume: Math.abs(vol),
+      squat: true,
+      line: settled.map((p) => [p[0], p[1], p[2] - PROP.gap]),
+    });
+  }
+  return placed;
 }
 
 /**
@@ -1766,6 +1867,19 @@ export function buildProps(topo, result, rot, opts = {}) {
       // geometry they could not see (gap 0.003mm, flank 0.011mm, hub_corner).
       contourTop(line, regionTris);
       lowerSag(line, regionTris);
+
+      // SQUAT BED PASS: hold the near-bed stations too low for the flanged wall
+      // below (which discards everything under minHeight as stub/blocked). Runs on
+      // this same contoured line but on the DISJOINT sub-minHeight stations, so it
+      // never competes with the tall run; its own deep copy keeps settleTop off the
+      // points the tall path still reads.
+      for (const sq of buildSquatBed(line, regionTris, topo, rot, off, out)) {
+        if (withTines) tineTotal += emitTines(
+          sq.line.map((p) => [p[0], p[1], p[2] + PROP.gap]),
+          regionTris, topo, rot, off, out, tineStepEff);
+        servedRegions.add(patch.region);
+        props.push({ ...sq, area: patch.area });
+      }
 
       // A track is straight in XY by construction, so this gate is a tripwire
       // rather than the bowl-refusal it was for bucketed polylines -- bowls are
