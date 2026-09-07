@@ -62,16 +62,17 @@ export const FIN = {
   // filter is free -- it just keeps a second fin off a mostly-airborne face.
   stiltFrac: 0.4,
   padH: 0.5,          // bed pad thickness
-  padMargin: 8.0,     // how far the pad's open-bed grip spreads past the part's
+  padMargin: 4.0,     // how far the pad's open-bed grip spreads past the part's
                       // contact. A part tilted onto an EDGE grips only the OUTBOARD
                       // side (inboard the part rises over the pad, which conforms
-                      // or drops), so the whole hold is one narrow strip -- at 4mm
-                      // a 40mm tilted cube kept ~190mm2 and still peeled off the
-                      // plate mid-print. Widened so that one-sided strip is enough
-                      // to anchor a near-zero-contact part. Outboard cells sit on
-                      // open bed at full height, so a wider margin only adds bed
-                      // grip -- it can never weld to the part. Pair with a slicer
-                      // brim on the worst tilted parts; the pad is a baked mini-brim.
+                      // or drops), so the whole hold is one narrow strip. This was
+                      // 8mm to anchor a near-zero-contact tilted cube on the pad
+                      // alone, but that made the pad a fat blob on every part;
+                      // Matthew chose a slimmer, cleaner oval and a slicer brim for
+                      // the worst tilts instead (the readout says so). Outboard
+                      // cells sit on open bed at full height, so the margin only
+                      // adds bed grip -- it can never weld to the part.
+  padSegs: 48,        // segments on the smooth-oval pad (open-bed footprint)
   padMinArea: 60.0,   // mm^2 of bed contact above which no pad is needed
   maxLen: 25,         // mm; a fin is a short brace at a corner, not a full-length wall
   // Grip-first holds the part, and the spec's own rule is "long parts: two fins,
@@ -744,11 +745,43 @@ function buildPad(contact, partTris, out) {
   }
   const r1 = e1 + FIN.padMargin, r2 = e2 + FIN.padMargin;
 
+  const d = PAD.cell, hd = d / 2, ov = 0.1;
+
+  // FAST PATH -- a clean smooth oval. The grid march below exists ONLY to duck the
+  // pad under a part that overhangs its own footprint (a steeply tilted part rests
+  // on an edge with the sloping flank hanging over the inboard cells). When NOTHING
+  // part-side sits over the footprint -- the common case: a flat-ish part with a
+  // small resting patch -- every cell is full-height open bed, so the boxy grid is
+  // just an ugly way to draw a flat ellipse. Detect that and extrude one smooth
+  // ellipse instead. Scan centres AND corners, the same points the conform reads,
+  // so a flank clipping any corner still routes to the grid.
+  let overhangsFootprint = false;
+  outer:
+  for (let s = -r1; s <= r1 + 1e-9 && !overhangsFootprint; s += d) {
+    for (let t = -r2; t <= r2 + 1e-9; t += d) {
+      if ((s / r1) ** 2 + (t / r2) ** 2 > 1) continue;
+      for (const [os, ot] of [[0, 0], [-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        const px = cx + ax * (s + os * hd) + bx * (t + ot * hd);
+        const py = cy + ay * (s + os * hd) + by * (t + ot * hd);
+        if (surfaceZAt(partTris, px, py) !== null) { overhangsFootprint = true; break outer; }
+      }
+    }
+  }
+  if (!overhangsFootprint) {
+    const ring = [];
+    for (let i = 0; i < FIN.padSegs; i++) {
+      const a = (2 * Math.PI * i) / FIN.padSegs;
+      const s = r1 * Math.cos(a), t = r2 * Math.sin(a);
+      ring.push([cx + ax * s + bx * t, cy + ay * s + by * t]);
+    }
+    extrude(ring, 0, FIN.padH, (px, py, z) => [px, py, z], out);
+    return { r1, r2, cells: FIN.padSegs, height: FIN.padH, points: contact.length, oval: true };
+  }
+
   // March a grid over the footprint in the pad's own (a, b) axes, so the ellipse
   // test is a plain unit-disc check. The half-cell overlap (`ov`) makes adjacent
   // boxes intersect rather than merely abut, so the slicer unions them into one
   // pad with no coincident-face seam.
-  const d = PAD.cell, hd = d / 2, ov = 0.1;
   const box = [[-1, -1], [1, -1], [1, 1], [-1, 1]];   // unit square, CCW
   let cells = 0, maxTop = 0;
   for (let s = -r1; s <= r1 + 1e-9; s += d) {
