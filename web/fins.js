@@ -664,10 +664,7 @@ function buildFin(p0, out, span, topo, rot, offset, opts = {}) {
 }
 
 export const PAD = {
-  cell: 1.2,        // mm; heightfield resolution across the footprint
-  minTop: 0.2,      // mm; one layer -- a cell thinner than this can't print, so it
-                    // drops. Only the razor line where the part meets the plate is
-                    // that thin now, so effectively nothing drops.
+  cell: 1.2,        // mm; radial vertex spacing across the conforming oval disc
   grab: 0.05,       // mm the pad rises PAST the part underside to bite in near the
                     // contact, instead of standing off. A tilted part rests on a
                     // knife edge; a pad held 0.2mm below it never touches (the "huge
@@ -694,18 +691,16 @@ export const PAD = {
  * precisely the case the pad exists for) AND the seated part triangles, so its
  * TOP can hold `gap` clear of the part instead of welding to it.
  *
- * THE SHAPE (v0.1 print fix): the first pad was a flat 0.5mm slab, so wherever
- * the part's underside dipped into that band -- which is exactly the resting
- * contact the pad exists for -- the two fused solid (measured 0.46mm of
- * interpenetration on a tilted drive_frame) and would not break off. This pad is
- * a conforming heightfield instead. Each cell rises to the full `padH` OUTBOARD,
- * where there is no part overhead, giving the wide bed grip; under the part it
- * caps at `part_low - gap`, holding the 0.2mm breakaway standoff the tines use;
- * and where the part comes within `minTop` of the plate (the resting line) the
- * cell drops out, so the part's own edge anchors to the bed as a thin, snappable
- * contact and the pad never welds. Cells are closed boxes the slicer unions --
- * the same overlap approach every support here uses -- overlapped a hair so the
- * union is seamless.
+ * THE SHAPE: the first pad was a flat 0.5mm slab, so wherever the part's underside
+ * dipped into that band -- which is exactly the resting contact the pad exists for
+ * -- the two fused solid (measured 0.46mm of interpenetration on a tilted
+ * drive_frame) and would not break off. The pad conforms to the part instead, and
+ * (Matthew's ask) it is a clean OVAL rather than a boxy grid: a radial mesh of the
+ * contact ellipse -- rings of vertices from the centre out to (r1, r2) -- with each
+ * vertex given its own top height. OUTBOARD (no part overhead) rises to the full
+ * `padH` for the wide bed grip; under the part it caps at `part_low + grab`, a light
+ * tack that connects without the deep weld. The disc is one watertight solid (top
+ * cap + flat bottom + side wall), so there are no cells to drop and no holes.
  */
 /**
  * The whole part, seated into print space, as a flat triangle array -- what
@@ -758,74 +753,75 @@ function buildPad(contact, partTris, out) {
   }
   const r1 = e1 + FIN.padMargin, r2 = e2 + FIN.padMargin;
 
-  const d = PAD.cell, hd = d / 2, ov = 0.1;
+  // A CONFORMING ELLIPTICAL DISC, not a boxy grid. Matthew wanted the pad to read
+  // as a clean oval, but it still has to duck under a tilted part's flank the way
+  // the old heightfield did. So build a radial mesh of the ellipse -- rings of
+  // vertices from the centre out to (r1, r2) -- and give each vertex its own
+  // conformed top height, exactly as a grid cell used to. The result is a smooth
+  // oval outline whose TOP follows the part surface. It replaces both the boxy
+  // grid AND the flat-ellipse fast path (which only fired on open-bed footprints,
+  // so a tilted cube -- the case Matthew was looking at -- never became an oval).
+  //
+  // Height rule per vertex, unchanged from the grid: OUTBOARD (no part overhead)
+  // rises to the full padH for bed grip; UNDER the part it caps at part_low + grab
+  // to bite in a hair rather than stand off or weld deep. low+grab is always >= grab
+  // (0.05mm) > 0, so every column has positive height and the mesh stays a valid,
+  // watertight solid -- no cells to drop, no holes in the disc.
+  const conform = (x, y) => {
+    const low = surfaceZAt(partTris, x, y);
+    return low === null ? FIN.padH : Math.min(FIN.padH, low + PAD.grab);
+  };
+  const nTheta = FIN.padSegs;
+  const nRing = Math.max(2, Math.ceil(Math.max(r1, r2) / PAD.cell));
 
-  // FAST PATH -- a clean smooth oval. The grid march below exists ONLY to duck the
-  // pad under a part that overhangs its own footprint (a steeply tilted part rests
-  // on an edge with the sloping flank hanging over the inboard cells). When NOTHING
-  // part-side sits over the footprint -- the common case: a flat-ish part with a
-  // small resting patch -- every cell is full-height open bed, so the boxy grid is
-  // just an ugly way to draw a flat ellipse. Detect that and extrude one smooth
-  // ellipse instead. Scan centres AND corners, the same points the conform reads,
-  // so a flank clipping any corner still routes to the grid.
-  let overhangsFootprint = false;
-  outer:
-  for (let s = -r1; s <= r1 + 1e-9 && !overhangsFootprint; s += d) {
-    for (let t = -r2; t <= r2 + 1e-9; t += d) {
-      if ((s / r1) ** 2 + (t / r2) ** 2 > 1) continue;
-      for (const [os, ot] of [[0, 0], [-1, -1], [1, -1], [1, 1], [-1, 1]]) {
-        const px = cx + ax * (s + os * hd) + bx * (t + ot * hd);
-        const py = cy + ay * (s + os * hd) + by * (t + ot * hd);
-        if (surfaceZAt(partTris, px, py) !== null) { overhangsFootprint = true; break outer; }
-      }
+  // Ring/segment vertex in world XY, at radial fraction `fr` and angle index `j`.
+  const vAt = (fr, j) => {
+    const a = (2 * Math.PI * j) / nTheta;
+    const s = r1 * fr * Math.cos(a), t = r2 * fr * Math.sin(a);
+    return [cx + ax * s + bx * t, cy + ay * s + by * t];
+  };
+  // Precompute the vertex ring positions + their conformed tops once (reused by the
+  // top cap, the side wall, and the flat bottom), so every shared edge is keyed
+  // from bit-identical coordinates and the soup stays edge-manifold.
+  const V = [];   // V[i][j] = [x, y, topZ], i in 0..nRing, j in 0..nTheta-1
+  for (let i = 0; i <= nRing; i++) {
+    const fr = i / nRing, row = [];
+    for (let j = 0; j < nTheta; j++) {
+      const [x, y] = vAt(fr, j);
+      row.push([x, y, conform(x, y)]);
     }
+    V.push(row);
   }
-  if (!overhangsFootprint) {
-    const ring = [];
-    for (let i = 0; i < FIN.padSegs; i++) {
-      const a = (2 * Math.PI * i) / FIN.padSegs;
-      const s = r1 * Math.cos(a), t = r2 * Math.sin(a);
-      ring.push([cx + ax * s + bx * t, cy + ay * s + by * t]);
+  const centreTop = V[0][0];   // ring 0 collapses to the centre (fr = 0)
+  const tri = (a, b, c) => out.push(a, b, c);
+  let maxTop = 0;
+  for (const row of V) for (const v of row) if (v[2] > maxTop) maxTop = v[2];
+
+  for (let j = 0; j < nTheta; j++) {
+    const jn = (j + 1) % nTheta;
+    // TOP surface (normal up). Inner fan from the centre, then quad strips outward.
+    tri(centreTop, V[1][j], V[1][jn]);
+    for (let i = 1; i < nRing; i++) {
+      tri(V[i][j], V[i + 1][j], V[i + 1][jn]);
+      tri(V[i][j], V[i + 1][jn], V[i][jn]);
     }
-    extrude(ring, 0, FIN.padH, (px, py, z) => [px, py, z], out);
-    return { r1, r2, cells: FIN.padSegs, height: FIN.padH, points: contact.length, oval: true };
-  }
-
-  // March a grid over the footprint in the pad's own (a, b) axes, so the ellipse
-  // test is a plain unit-disc check. The half-cell overlap (`ov`) makes adjacent
-  // boxes intersect rather than merely abut, so the slicer unions them into one
-  // pad with no coincident-face seam.
-  const box = [[-1, -1], [1, -1], [1, 1], [-1, 1]];   // unit square, CCW
-  let cells = 0, maxTop = 0;
-  for (let s = -r1; s <= r1 + 1e-9; s += d) {
-    for (let t = -r2; t <= r2 + 1e-9; t += d) {
-      // inside the ellipse (test the cell CENTRE, in normalised axes)
-      if ((s / r1) ** 2 + (t / r2) ** 2 > 1) continue;
-      const x = cx + ax * s + bx * t, y = cy + ay * s + by * t;
-
-      // Conform to the LOWEST part surface anywhere the cell covers -- centre and
-      // the four corners -- so a cell straddling the steep flank near the resting
-      // edge caps under its lowest point, never the average. No part overhead
-      // (surfaceZAt null) means open bed: full-height grip.
-      let low = Infinity;
-      for (const [os, ot] of [[0, 0], ...box]) {
-        const px = cx + ax * (s + os * hd) + bx * (t + ot * hd);
-        const py = cy + ay * (s + os * hd) + by * (t + ot * hd);
-        const z = surfaceZAt(partTris, px, py);
-        if (z !== null && z < low) low = z;
-      }
-      const top = low === Infinity ? FIN.padH
-        : Math.min(FIN.padH, low + PAD.grab);      // bite into the part, don't stand off
-      if (top < PAD.minTop) continue;              // below one layer: unprintable, drop
-
-      const P = (a, b, z) => [x + a * (hd + ov), y + b * (hd + ov), z];
-      extrude(box, 0, top, P, out);
-      cells++;
-      if (top > maxTop) maxTop = top;
+    // BOTTOM surface at z=0 (normal down: reverse the top winding).
+    const b0 = [cx, cy, 0];
+    const bi = (i, k) => [V[i][k][0], V[i][k][1], 0];
+    tri(b0, bi(1, jn), bi(1, j));
+    for (let i = 1; i < nRing; i++) {
+      tri(bi(i, j), bi(i + 1, jn), bi(i + 1, j));
+      tri(bi(i, j), bi(i, jn), bi(i + 1, jn));
     }
+    // SIDE wall around the outer ring, top down to the plate (normal outward).
+    const oR = nRing;
+    const tj = V[oR][j], tjn = V[oR][jn];
+    const bj = [tj[0], tj[1], 0], bjn = [tjn[0], tjn[1], 0];
+    tri(tj, bj, bjn);
+    tri(tj, bjn, tjn);
   }
-  if (!cells) return null;
-  return { r1, r2, cells, height: maxTop, points: contact.length };
+
+  return { r1, r2, cells: nTheta * nRing, height: maxTop, points: contact.length, oval: true };
 }
 
 /**
