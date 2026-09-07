@@ -511,10 +511,12 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   const nSt = Math.max(2, Math.min(400, Math.ceil((uHi - uLo) / step)));
 
   const vExt = vHi - vLo;
-  // `span` is the row spacing: the structural cap (maxUnsupportedSpan) by default,
-  // tightened by the coverage slider. Clamp so a dense setting can only ADD rows,
-  // never loosen past the cap and strand an overhang.
-  const rowSpan = Math.min(PROP.maxUnsupportedSpan, Math.max(1, span));
+  // `span` is the requested row spacing from the coverage slider (see coverRowSpan).
+  // The old code clamped this to maxUnsupportedSpan so a wide face always got at
+  // least cap-density rows; Matthew wanted to be able to go SPARSER than that on a
+  // small part, so the clamp is gone and the caller warns (sagRisk) when the
+  // resulting spacing actually exceeds the cap. Denser still only adds rows.
+  const rowSpan = Math.max(1, span);
   const nWalls = Math.max(1, Math.round(vExt / rowSpan));
 
   const tracks = [];
@@ -533,7 +535,12 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
     }
     if (cur.length) tracks.push(cur);
   }
-  return tracks.filter((t) => t.length >= PROP.minStations);
+  const kept = tracks.filter((t) => t.length >= PROP.minStations);
+  // The lateral gap between adjacent rows this face ended up with. The caller
+  // compares it to the anti-sag cap to decide whether to warn: only a face wide
+  // enough to want >1 row can actually sag, and only when its spacing exceeds cap.
+  kept.spacing = nWalls > 1 ? vExt / nWalls : 0;
+  return kept;
 }
 
 /**
@@ -1768,20 +1775,43 @@ export function noProps() {
   };
 }
 
+// mm row pitch at the sparsest coverage (0). This is DELIBERATELY wider than
+// maxUnsupportedSpan: the mid-slider (0.5) is the structural anti-sag cap, and
+// dragging left of it trades sag safety for fewer supports -- the tool warns when
+// a part actually lands a row wider than the cap (buildProps.sagRisk). Matthew
+// asked for this: a small part was floored at 3 fins by the hard cap.
+export const COVER_SPARSE_SPAN = 30.0;
+
+/**
+ * Wide-face row pitch for a coverage setting. 0.5 is the neutral default and maps
+ * to the structural cap (maxUnsupportedSpan) -- the old sparse behaviour, so a part
+ * built at the slider's default is byte-identical to before. Left of centre loosens
+ * past the cap toward COVER_SPARSE_SPAN (fewer supports, may sag); right of centre
+ * tightens to half the cap (denser). Monotonic, so tests/coverage.test.js holds.
+ */
+export function coverRowSpan(coverage) {
+  const c = Math.max(0, Math.min(1, coverage));
+  const cap = PROP.maxUnsupportedSpan;
+  return c <= 0.5
+    ? cap + ((0.5 - c) / 0.5) * (COVER_SPARSE_SPAN - cap)   // 30 .. 12
+    : cap - ((c - 0.5) / 0.5) * (cap / 2);                  // 12 .. 6
+}
+
 /**
  * Build a breakaway prop under every overhang region that can take one.
  *
- * @returns {{triangles, props, skipped, served}}
+ * @returns {{triangles, props, skipped, served, sagRisk}}
  */
 export function buildProps(topo, result, rot, opts = {}) {
   const { pos } = topo;
   const step = opts.step ?? PROP.stationStep;
-  // Wide-face coverage (0 sparse .. 1 dense) tightens the row spacing: sparse is
-  // the structural cap (maxUnsupportedSpan), dense halves it for ~twice the rows.
-  // Denser only adds material, never loosens past the cap. Pinned by
-  // tests/coverage.test.js.
-  const coverage = Math.max(0, Math.min(1, opts.coverage ?? 0.25));
-  const rowSpan = PROP.maxUnsupportedSpan - coverage * (PROP.maxUnsupportedSpan / 2);
+  // Wide-face coverage (0 sparse .. 1 dense) sets the row spacing via coverRowSpan:
+  // 0.5 is the anti-sag cap (the default), left of it loosens past the cap (fewer
+  // supports, flagged as sagRisk when a row actually lands wider than the cap),
+  // right of it tightens. Pinned by tests/coverage.test.js.
+  const coverage = Math.max(0, Math.min(1, opts.coverage ?? 0.5));
+  const rowSpan = coverRowSpan(coverage);
+  let sagRisk = false;   // a row was placed wider than the anti-sag cap
   const zBed = 0;
   const off = result.offset;
   const withTines = opts.tines === true;
@@ -1899,6 +1929,10 @@ export function buildProps(topo, result, rot, opts = {}) {
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
       lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan);
+      // This face is wide enough for a row, but the loosened spacing left a gap
+      // between rows wider than the anti-sag cap -- the user dragged coverage
+      // below centre. Flag it so the UI can warn (it never blocks; Matthew's call).
+      if (lines.length && lines.spacing > PROP.maxUnsupportedSpan + 0.5) sagRisk = true;
     }
     if (!lines.length) { skipped.noLine++; continue; }
 
@@ -2063,6 +2097,6 @@ export function buildProps(topo, result, rot, opts = {}) {
   // part with one region and three walls had "-2 unserved".
   return { triangles: out, props, skipped, served: servedRegions.size,
            servedRegions: [...servedRegions],
-           tines: tineTotal,
+           tines: tineTotal, sagRisk,
            volume: props.reduce((s, q) => s + q.volume, 0) };
 }

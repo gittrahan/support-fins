@@ -1460,6 +1460,14 @@ function updateFinReadout(built, ms) {
       ? 'this part balances on one point, so the bed pad is holding it. Print with the pad on'
       : 'this part balances on one point with nothing under it. Turn the bed pad on, or rotate until it sits down');
   }
+  if (built.sagRisk) {
+    // The coverage slider is left of centre, so a broad flat overhang got rows
+    // spaced wider than the 12mm anti-sag guide. That's allowed on purpose (fewer
+    // supports), but the plate can bow between them -- must-see, so it's in the
+    // panel, not behind the (i).
+    lead.push('coverage is below the anti-sag guide, so a broad overhang may sag '
+            + 'between supports — nudge the slider right if the surface bows');
+  }
   if (built.unserved) {
     // An un-served ledge is a shallow overhang with no room for a prop and too
     // flat to stand a fin against. The fix (tilt steeper) is a sentence, so it

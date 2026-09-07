@@ -98,11 +98,24 @@ export const FIN = {
   wideFace: 55,       // mm of grippable u-extent above which a face tiles a row
   wideMinArea: 1500,  // ...AND this much face area, so a long THIN spike (a needle,
                       // a plate's own 4mm edge) is not mistaken for a broad face
-  coverSparse: 55,    // mm row pitch at coverage 0
+  coverExtraSparse: 88, // mm row pitch at coverage 0 (below the neutral default)
+  coverSparse: 55,    // mm row pitch at coverage 0.5 -- the neutral default
   coverDense: 22,     // mm row pitch at coverage 1
-  coverDefault: 0.25, // density used when the UI has not set one yet
+  coverDefault: 0.5,  // density used when the UI has not set one yet (neutral)
   rowMaxTotal: 20,    // hard cap on total fins, so a row can never spray
 };
+
+/**
+ * Wedge row pitch for a coverage setting, mirroring prop.js's coverRowSpan: 0.5 is
+ * the neutral default (coverSparse, the pre-slider behaviour), left of it loosens
+ * toward coverExtraSparse, right of it tightens toward coverDense. Kept monotonic.
+ */
+function coverPitch(coverage) {
+  const c = Math.max(0, Math.min(1, coverage));
+  return c <= 0.5
+    ? FIN.coverSparse + ((0.5 - c) / 0.5) * (FIN.coverExtraSparse - FIN.coverSparse)
+    : FIN.coverSparse - ((c - 0.5) / 0.5) * (FIN.coverSparse - FIN.coverDense);
+}
 
 /**
  * Extrude a closed convex polygon into a prism.
@@ -1234,7 +1247,7 @@ export function buildFins(topo, result, rot, opts = {}) {
     // the structural cap, so dragging it right can't strand an overhang. Pinned by
     // tests/coverage.test.js.
     const coverage = Math.max(0, Math.min(1, opts.coverage ?? FIN.coverDefault));
-    const covPitch = FIN.coverSparse - coverage * (FIN.coverSparse - FIN.coverDense);
+    const covPitch = coverPitch(coverage);
     const base = buildFins(topo, result, rot, { ...opts, mode: 'prop', tines: withTines });
 
     // Add ANGLED WEDGES on grippable down-facing patches that NO prop wall
@@ -1319,6 +1332,7 @@ export function buildFins(topo, result, rot, opts = {}) {
       // yield several walls now that it is split into sub-patches, and the old
       // subtraction would go negative.
       unserved: result.regions.length - built.served,
+      sagRisk: built.sagRisk ?? false,
       seating,
       tip: null,
     };
@@ -1361,8 +1375,7 @@ export function buildFins(topo, result, rot, opts = {}) {
 
   // Row density: only the stabilize path tiles, and only where a face is wide.
   const coverage = mode === 'stabilize' ? (opts.coverage ?? FIN.coverDefault) : null;
-  const covPitch = coverage == null ? 0
-    : FIN.coverSparse - Math.max(0, Math.min(1, coverage)) * (FIN.coverSparse - FIN.coverDense);
+  const covPitch = coverage == null ? 0 : coverPitch(coverage);
   let compactCount = 0;   // only these count against the maxFins "opposite corners" cap
 
   for (const cand of ranked) {

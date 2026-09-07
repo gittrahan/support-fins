@@ -138,9 +138,9 @@
        so a wide face is never left bare. Dial up only if a broad plate sags between
        braces. Only bites on a broad face; narrow parts keep their 2-corner bracing. -->
   <label class="fld" id="coverage-fld"
-         title="How densely to line a WIDE overhang face with fins. Sparse = fewest fins / least plastic (default); Dense = more support if a broad plate sags. Narrow parts are unaffected.">
+         title="How densely to line a WIDE overhang face with fins. The middle is the anti-sag default; drag LEFT for fewer fins (a small part can go down to one — the readout warns if a broad face then risks sagging), RIGHT for more support. Narrow parts are unaffected.">
     Wide-face coverage <span class="mut">sparse ⟶ dense</span>
-    <input type="range" id="coverage" min="0" max="100" step="5" value="0">
+    <input type="range" id="coverage" min="0" max="100" step="5" value="50">
   </label>
   <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
        Shown only in Suggest mode (toggled in app.js). -->
