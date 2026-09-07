@@ -139,7 +139,13 @@ export const PROP = {
   // the part, below it in air, and the emitter simply skips the ones that miss
   // (verified by insidePart, never assumed) -- the same honest behaviour the
   // beside-the-face fin had.
-  tineH: 0.3,        // one layer line
+  // A tine must be exactly ONE layer tall: printed that way it lays down as a
+  // single continuous bead (the nozzle runs along the wall, into the part, back
+  // out -- no retraction), which is the whole reason it fuses AND snaps off clean
+  // (FIN-SPEC.md "Why the tines must be horizontal"). One layer means one SLICER
+  // layer, so this has to equal the print's layer height -- 0.3 (Slant3D's number,
+  // his layer height) baked in a 1.5-layer tine at Matthew's 0.2mm.
+  tineH: 0.2,        // = slicer layer height; keep in sync if you change it
   tineW: 0.6,        // a single bead across the run (matches the contact tip)
   tineBite: 0.5,     // how far a nub reaches horizontally into the part
   tineStep: 2.0,     // mm between nubs -- the DENSE grip comb, the default
@@ -1288,7 +1294,8 @@ export function tineStepFor(density) {
   return PROP.tineStepSparse - d * (PROP.tineStepSparse - PROP.tineStep);
 }
 
-export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep) {
+export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
+                          minTop = PROP.baseH + 0.2) {
   if (line.length < 2) return 0;
 
   // arc length along the run, to space nubs by a real distance not a station count
@@ -1319,7 +1326,9 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
     const y = line[k][1] + (line[k + 1][1] - line[k][1]) * f;
     const z = line[k][2] + (line[k + 1][2] - line[k][2]) * f;   // surface z
     const wallTop = z - PROP.gap;
-    if (wallTop < PROP.baseH + 0.2) continue;                   // too low to matter
+    if (wallTop < minTop) continue;   // below the wall's base (flange or brim): no
+                                      // face to attach a tine to. minTop defaults to
+                                      // the flanged base; a squat wall passes its brim.
 
     const zMid = wallTop + PROP.tineH / 2;
 
@@ -1924,9 +1933,11 @@ export function buildProps(topo, result, rot, opts = {}) {
       // never competes with the tall run; its own deep copy keeps settleTop off the
       // points the tall path still reads.
       for (const sq of buildSquatBed(line, regionTris, topo, rot, off, out)) {
+        // a squat wall's base is the thin brim, not the tall flange, so tines
+        // attach from squatBrimH up (the default minTop would skip every one).
         if (withTines) tineTotal += emitTines(
           sq.line.map((p) => [p[0], p[1], p[2] + PROP.gap]),
-          regionTris, topo, rot, off, out, tineStepEff);
+          regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH);
         servedRegions.add(patch.region);
         props.push({ ...sq, area: patch.area });
       }

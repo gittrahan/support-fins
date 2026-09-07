@@ -22,7 +22,7 @@ entire point, not a refinement.**
 | feature | value | rationale |
 |---|---|---|
 | fin body standoff | **0.2 mm** from the part face | "spaced exactly 0.2mm away the same way support would be" |
-| tine height (vertical) | **0.3 mm** — one layer line | a single bead is enough; smaller ⇒ smaller divot |
+| tine height (vertical) | **one layer line** (0.3 mm at Slant3D's layer height; **0.2 mm here**, matching the print's layer height) | a single bead is enough; smaller ⇒ smaller divot. Must equal the *slicer's* layer height or it slices into 1.5 layers and stops being one continuous bead |
 | tine width | **0.4–0.8 mm** | 0.4 = one nozzle pass, 0.8 = out-and-back. Prefer the smallest that prints. |
 | tine count | **7–8 near the base**, spreading out with height | the part is least stable early. ~5 is usually enough. |
 | tine spacing (upper) | every few layers | "just to make sure everything is fully reinforced" |

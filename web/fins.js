@@ -34,7 +34,8 @@ import { buildProps, noProps, surfaceZAt, emitTines, tineStepFor } from './prop.
 export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
   gap: 0.2,           // standoff from the part face
-  tineH: 0.3,         // one layer line; smaller bead = smaller divot
+  tineH: 0.2,         // = slicer layer height: a tine must be ONE layer so it prints
+                      // as a single continuous bead (see prop.js tineH / FIN-SPEC)
   tineW: 0.5,         // between one nozzle pass (0.4) and out-and-back (0.8)
   baseH: 1.0,         // base disc thickness
   rowsLow: 8,         // tine rows in the dense zone -- "7 or 8 low down"
