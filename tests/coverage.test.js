@@ -32,3 +32,20 @@ Deno.test('coverage: density is monotonic and never drops below sparse', () => {
   const c0 = finCount(0), c05 = finCount(0.5), c1 = finCount(1);
   assert(c05 >= c0 && c1 >= c05, `not monotonic: ${c0} -> ${c05} -> ${c1}`);
 });
+
+function sagRiskAt(coverage) {
+  const { topo, res } = plate();
+  return fins.buildFins(topo, res, IDENTITY, { mode: 'auto', bedPad: true, tines: true, coverage }).sagRisk;
+}
+
+Deno.test('coverage: the neutral default never cries sag on a wide plate', () => {
+  // Regression: round(vExt/cap) lands a hair over the cap even at coverage 0.5, so
+  // an achieved-spacing test warned on the DEFAULT. The warning must fire only when
+  // the user actually dragged BELOW centre, not from rounding at the neutral pitch.
+  assert(!sagRiskAt(0.5), 'sag warning fired at the neutral default (0.5) -- false alarm');
+  assert(!sagRiskAt(1), 'sag warning fired at the densest setting');
+});
+
+Deno.test('coverage: dragging below centre DOES warn on a wide multi-row plate', () => {
+  assert(sagRiskAt(0) === true, 'no sag warning at the sparsest setting on a wide plate');
+});

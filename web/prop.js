@@ -1811,7 +1811,14 @@ export function buildProps(topo, result, rot, opts = {}) {
   // right of it tightens. Pinned by tests/coverage.test.js.
   const coverage = Math.max(0, Math.min(1, opts.coverage ?? 0.5));
   const rowSpan = coverRowSpan(coverage);
-  let sagRisk = false;   // a row was placed wider than the anti-sag cap
+  // sagRisk warns ONLY when the user dragged coverage below centre, asking for row
+  // pitch wider than the anti-sag cap. It is NOT enough that the placed spacing
+  // exceeds the cap: rounding vExt/rowSpan down routinely lands a hair over the cap
+  // even at the neutral default (a 53mm face / 12mm cap -> 4 rows at 13.25mm), and
+  // warning there is just noise. So gate on the REQUESTED pitch, not the rounded
+  // result.
+  const wantSparse = rowSpan > PROP.maxUnsupportedSpan + 0.5;
+  let sagRisk = false;   // the user chose sub-cap spacing AND a real row landed wide
   const zBed = 0;
   const off = result.offset;
   const withTines = opts.tines === true;
@@ -1929,10 +1936,10 @@ export function buildProps(topo, result, rot, opts = {}) {
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
       lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan);
-      // This face is wide enough for a row, but the loosened spacing left a gap
-      // between rows wider than the anti-sag cap -- the user dragged coverage
-      // below centre. Flag it so the UI can warn (it never blocks; Matthew's call).
-      if (lines.length && lines.spacing > PROP.maxUnsupportedSpan + 0.5) sagRisk = true;
+      // The user chose sub-cap spacing (wantSparse) AND this face actually landed a
+      // multi-row gap wider than the cap. Flag it so the UI can warn (never blocks;
+      // Matthew's call). Single-row faces (spacing 0) can't sag, so they don't warn.
+      if (wantSparse && lines.length && lines.spacing > PROP.maxUnsupportedSpan) sagRisk = true;
     }
     if (!lines.length) { skipped.noLine++; continue; }
 
