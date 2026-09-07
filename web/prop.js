@@ -146,7 +146,11 @@ export const PROP = {
   // layer, so this has to equal the print's layer height -- 0.3 (Slant3D's number,
   // his layer height) baked in a 1.5-layer tine at Matthew's 0.2mm.
   tineH: 0.2,        // = slicer layer height; keep in sync if you change it
-  tineW: 0.6,        // a single bead across the run (matches the contact tip)
+  // Tine WIDTH across the run = the bead the nozzle lays: Slant3D's spec is
+  // 0.4-0.8mm (0.4 = one nozzle pass, 0.8 = out-and-back), "as small as possible".
+  // 0.5 is his stated number ("0.5 by 0.5"). NOTE: this used to be dead -- emitTines
+  // built the tine `th` (1.0mm) wide, ~2x spec, a fat divot Matthew caught by eye.
+  tineW: 0.5,
   tineBite: 0.5,     // how far a nub reaches horizontally into the part
   tineStep: 2.0,     // mm between nubs -- the DENSE grip comb, the default
   tineStepSparse: 5.0, // mm between nubs at the sparse end of the Tine-grip slider
@@ -1314,7 +1318,9 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
   const step = Math.min(stepArg, total / PROP.minGripTines);
   if (total < step) return 0;
 
-  const half = PROP.th / 2;
+  // half the tine's WIDTH across the run -- one nozzle bead (PROP.tineW), NOT the
+  // wall thickness. Building it th-wide made a 1mm divot, ~2x Slant3D's spec.
+  const half = PROP.tineW / 2;
   let count = 0;
   for (let d = step / 2; d < total; d += step) {
     // interpolate the station at arc length d

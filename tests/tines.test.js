@@ -36,12 +36,17 @@ Deno.test('emitTines: a grippable overhang yields tines', () => {
   assert(out.length === n * 36, `expected 36 verts/tine, got ${out.length} for ${n}`);
 });
 
-Deno.test('emitTines: teeth point INTO the part, not out its flanks', () => {
-  const { out, box } = tinesOnBlock();
-  // X is the wall-thickness (across) axis here. A flush tooth stays within the
-  // wall half-thickness (PROP.th/2 = 0.5). A "proud" tab blows past it.
-  assertClose(box.lo[0], -0.5, 0.05, 'tine juts past the -X flank (proud tab)');
-  assertClose(box.hi[0], 0.5, 0.05, 'tine juts past the +X flank (proud tab)');
+Deno.test('emitTines: teeth are one nozzle bead wide, centred on the wall', () => {
+  const { box } = tinesOnBlock();
+  // X is the width-across-the-run axis = the bead the nozzle lays. Slant3D's spec
+  // is 0.4-0.8mm (one nozzle pass to out-and-back), NOT the wall thickness -- a
+  // th-wide (1.0mm) tine is ~2x spec, the fat divot Matthew caught by eye.
+  const width = box.hi[0] - box.lo[0];
+  assertClose(width, prop.PROP.tineW, 0.05,
+    `tine width ${width.toFixed(2)}mm != one bead (PROP.tineW ${prop.PROP.tineW})`);
+  assert(width <= 0.8 + 1e-6,
+    `tine wider than a nozzle out-and-back (${width.toFixed(2)}mm > 0.8) -- fat divot`);
+  assertClose((box.lo[0] + box.hi[0]) / 2, 0, 0.02, 'tine is not centred on the wall');
   // Y is the bite axis: teeth must reach well into the block (y>0 is inside).
   assert(box.hi[1] > 1.0, `tine barely reaches into the part (max y ${box.hi[1].toFixed(2)})`);
 });
@@ -49,8 +54,9 @@ Deno.test('emitTines: teeth point INTO the part, not out its flanks', () => {
 Deno.test('emitTines: teeth are horizontal one-layer bridges, not tall towers', () => {
   const { box } = tinesOnBlock();
   const zExtent = box.hi[2] - box.lo[2];
-  // tineH is 0.3mm; allow slack but nothing like the 1.1mm a dropped tooth spans.
-  assert(zExtent <= 0.5, `tine is not a thin horizontal bridge: z-extent ${zExtent.toFixed(2)}mm`);
+  // Exactly one layer (PROP.tineH) -- a single continuous bead. A dropped tooth
+  // spans ~1.1mm; a >1-layer tine slices into multiple beads and stops being one.
+  assertClose(zExtent, prop.PROP.tineH, 1e-6, `tine is not one layer: z-extent ${zExtent.toFixed(2)}mm`);
 });
 
 Deno.test('emitTines: most tooth volume actually lands inside the part', () => {
