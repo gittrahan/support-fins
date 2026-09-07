@@ -12,7 +12,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
 import { suggestOrientations, suggestStrengthPose, loadAlignment, layerVerdict } from './orient.js';
-import { buildFins, gripPatches, buildFinOnPatch, PAD } from './fins.js';
+import { buildFins, PAD } from './fins.js';
 import { PROP } from './prop.js';
 import { findWallPatches } from './planes.js';
 import { drawnWall } from './draw.js';
@@ -246,10 +246,8 @@ function setPart(geometry, filename) {
   gizmo.attach(part);
   el('orient').hidden = false;
 
-  // A new part starts with no hand-drawn walls or fins and a fresh print-space cache.
+  // A new part starts with no hand-drawn walls and a fresh print-space cache.
   drawnWalls = [];
-  drawnFins = [];
-  gripCache = null;
   drawAugment = false;
   drawMsg = '';
   printTrisDirty = true;
@@ -600,14 +598,6 @@ const padMaterial = new THREE.MeshStandardMaterial({
 // part through later rotations, the same way the auto fins are rebuilt each time
 // the orientation changes.
 let drawnWalls = [];        // committed walls: { a: Vector3(local), b: Vector3(local), ok, info }
-// Grip-first Draw: hand-placed GRIPPING FINS, each pinned to a seed FACE index
-// (topology faces are orientation-invariant, so a fin survives re-orientation by
-// re-finding its patch). Kept separate from drawnWalls: Draw places fins, the
-// Suggest "+ Add" augment still places under-ledge walls -- different geometry.
-let drawnFins = [];         // { face: seedFaceIdx, ok, info }
-// The grippable faces in the current pose, cached and recomputed only when the
-// part turns (findWallPatches is tens of ms on a big part). null = recompute.
-let gripCache = null;
 let drawnMesh = null;
 let drawnTris = [];
 let drawStart = null;       // Vector3 (local) -- first click of a wall in progress
@@ -782,53 +772,25 @@ function clearPreview() {
 }
 
 /** Rebuild the committed drawn walls for the current orientation. */
-/** The grippable faces in the current pose, computed once per orientation. */
-function getGrip() {
-  if (!gripCache && topology && lastResult) {
-    gripCache = gripPatches(topology, lastResult, rotM3.elements);
-  }
-  return gripCache;
-}
-
 function rebuildDrawn() {
   if (drawnMesh) { scene.remove(drawnMesh); drawnMesh.geometry.dispose(); drawnMesh = null; }
   drawnTris = [];
   if (!drawShown() || !topology || !lastResult) return;
   part.updateMatrixWorld();
 
-  if (finMode === 'draw') {
-    // Grip-first Draw: each hand-placed fin is pinned to a seed face, so re-find
-    // that face's patch in the CURRENT pose and rebuild the fin against it. A fin
-    // whose face no longer takes one (rotated away) is kept but flagged, the same
-    // way a drawn wall that no longer reaches the part is -- never dropped silently.
-    const { faceMap } = getGrip() ?? { faceMap: new Map() };
-    for (const d of drawnFins) {
-      const patch = faceMap.get(d.face);
-      if (!patch) {
-        d.ok = false;
-        d.info = { reason: 'that face no longer takes a fin in this orientation — '
-          + 'rotate back, or undo' };
-        continue;
-      }
-      const r = buildFinOnPatch(topology, lastResult, rotM3.elements, patch,
-                                { tines: el('tines').checked,
-                                  tineDensity: el('tine-density').valueAsNumber / 100 });
-      d.ok = r.ok;
-      d.info = r.ok ? r.info : r;
-      if (r.ok) for (const t of r.triangles) drawnTris.push(t);
-    }
-  } else {
-    // Suggest "+ Add" augment: hand-placed under-ledge breakaway walls.
-    const tris = partPrintTriangles();
-    const wa = new THREE.Vector3(), wb = new THREE.Vector3();
-    for (const w of drawnWalls) {
-      part.localToWorld(wa.copy(w.a));
-      part.localToWorld(wb.copy(w.b));
-      const r = drawnWall([wa.x, wa.y, wa.z], [wb.x, wb.y, wb.z], tris, 0);
-      w.ok = r.ok;
-      w.info = r;
-      if (r.ok) for (const t of r.tris) drawnTris.push(t);
-    }
+  // Both Draw and the Suggest "+ Add" augment place the SAME thing now: hand-drawn
+  // under-overhang breakaway walls. Each wall is stored as two local endpoints and
+  // re-swept against the part's current pose, so a wall that no longer reaches the
+  // part (rotated away) is flagged by drawnWall rather than dropped silently.
+  const tris = partPrintTriangles();
+  const wa = new THREE.Vector3(), wb = new THREE.Vector3();
+  for (const w of drawnWalls) {
+    part.localToWorld(wa.copy(w.a));
+    part.localToWorld(wb.copy(w.b));
+    const r = drawnWall([wa.x, wa.y, wa.z], [wb.x, wb.y, wb.z], tris, 0);
+    w.ok = r.ok;
+    w.info = r;
+    if (r.ok) for (const t of r.tris) drawnTris.push(t);
   }
   drawnMesh = meshFrom(drawnTris, drawMaterial);
 }
@@ -892,34 +854,6 @@ function placeSecondPoint(hitPoint) {
   drawnWalls.push({ a: drawStart.clone(), b: part.worldToLocal(bWorld.clone()) });
   clearPreview();
   rebuildDrawn();
-  updateReadout(lastBuilt);
-  updateFit();
-}
-
-/**
- * Draw: stand a support fin against the face the user clicked. The fin is pinned
- * to the seed FACE (not a point), so it survives re-orientation. A face that
- * can't take one says why rather than doing nothing -- and the same patch never
- * gets two fins stacked on it.
- */
-function placeFin(faceIndex) {
-  const grip = getGrip();
-  const patch = grip && grip.faceMap.get(faceIndex);
-  if (!patch) {
-    drawMsg = 'can’t stand a support fin on that face — aim at an overhang face '
-      + '(it lights up green), or tilt the part so this becomes one';
-    updateReadout(lastBuilt);
-    return;
-  }
-  if (drawnFins.some((d) => grip.faceMap.get(d.face) === patch)) {
-    drawMsg = 'there is already a fin on that face';
-    updateReadout(lastBuilt);
-    return;
-  }
-  histPush();
-  drawnFins.push({ face: faceIndex, ok: false, info: null });
-  drawMsg = '';
-  rebuildDrawn();          // builds the fin and sets its ok/info (or a reason)
   updateReadout(lastBuilt);
   updateFit();
 }
@@ -1161,11 +1095,6 @@ function supersedeBuild() {
 }
 
 function refreshFins() {
-  // The pose may have changed, so the cached grippable-face map is stale. Drop it;
-  // rebuildDrawn (below) recomputes it once, and hover reuses that until the next
-  // orientation change. In Draw mode the gizmo is off, so a pose only ever changes
-  // through a path that lands here (rotate buttons, Suggest, reset).
-  gripCache = null;
   if (!finsVisible || !lastResult || !topology) {
     supersedeBuild();                  // no build wanted now: drop any in-flight one so it can't re-add fins
     clearSpinner();
@@ -1327,9 +1256,10 @@ function setFinNote(lead, detail) {
 }
 
 /**
- * Draw mode's readout. Reports the gripping FINS the user placed by hand, plus
- * the pad/seating verdict from buildFins. When a clicked face can't take a fin it
- * says WHY -- silence-as-success is the exact bug M5's scoreboard was built on.
+ * Draw mode's readout. Reports the breakaway WALLS the user drew by hand (a wall
+ * per line, straight onto the overhang), plus the pad/seating verdict from
+ * buildFins. When a drawn wall can't build it says WHY -- silence-as-success is
+ * the exact bug M5's scoreboard was built on.
  */
 function updateDrawReadout(built, ms) {
   finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = false;
@@ -1337,30 +1267,27 @@ function updateDrawReadout(built, ms) {
   const box = el('s-fins');
   el('s-pad').textContent = built?.pad ? 'added' : built ? 'not needed' : '—';
 
-  const ok = drawnFins.filter((d) => d.ok);
-  const bad = drawnFins.length - ok.length;
-  const tines = ok.reduce((a, d) => a + (d.info?.tines ?? 0), 0);
+  const ok = drawnWalls.filter((w) => w.ok);
+  const bad = drawnWalls.length - ok.length;
   box.textContent = ok.length
-    ? `${ok.length} support fin${ok.length === 1 ? '' : 's'}` + (tines ? ` · ${tines} tines` : '')
+    ? `${ok.length} drawn wall${ok.length === 1 ? '' : 's'}`
     : 'none yet';
   box.classList.toggle('warn', ok.length === 0);
 
   const lead = [];
   const help = [];
-  if (!drawnFins.length && !drawMsg) {
-    lead.push('Click an overhang face (it lights up green where a fin can go) to '
-      + 'stand a support fin against it');
+  if (!drawnWalls.length && !drawMsg) {
+    lead.push('Click two points across an overhang (a line lands right where you '
+      + 'draw it, red faces included) to lay a breakaway wall under it');
   }
   if (ok.length) {
-    help.push(tines
-      ? 'The tines grab onto the part and bend away when you snap the supports off.'
-      : 'Each wall stands a hair off the part (0.2mm) so it pops right off. Turn '
-        + 'Tines on if you want it to grip.');
+    help.push('Each wall stops a hair under the part (0.2mm) so it snaps off clean. '
+      + 'For a wall that grips instead, use Auto — its fins carry the tine comb.');
   }
   if (bad) {
-    const one = drawnFins.find((d) => !d.ok);
-    lead.push(`${bad} fin${bad === 1 ? '' : 's'} couldn’t build this way up`
-      + `${one?.info?.reason ? ` (${one.info.reason})` : ''}. Undo, or rotate`);
+    const one = drawnWalls.find((w) => !w.ok);
+    lead.push(`${bad} wall${bad === 1 ? '' : 's'} couldn’t build here`
+      + `${one?.info?.reason ? ` (${one.info.reason})` : ''}. Undo, or redraw`);
   }
   if (drawMsg) lead.push(drawMsg);
   if (built?.seating?.kind === 'point') {
@@ -1498,11 +1425,9 @@ function updateFinReadout(built, ms) {
  *  wall in the Suggest "+ Add" augment. */
 function syncDrawControls() {
   el('draw-controls').hidden = !drawShown();
-  el('draw-hint').innerHTML = finMode === 'draw'
-    ? 'Click an <strong>overhang face</strong> — it lights up green when a fin can '
-      + 'go there — to stand a support fin against it.'
-    : 'Click <strong>two points</strong> under an overhang to lay a breakaway wall '
-      + 'along that line. <kbd>Esc</kbd> or right-click cancels.';
+  el('draw-hint').innerHTML = 'Click <strong>two points</strong> across an overhang '
+    + '— straight onto the red faces — to lay a breakaway wall along that line. '
+    + '<kbd>Esc</kbd> or right-click cancels.';
 }
 
 /** The "+ Add walls by hand" toggle, shown only in Suggest mode. */
@@ -1588,13 +1513,12 @@ el('augment-toggle').addEventListener('click', () => {
   refreshFins();
 });
 
-// Undo/Clear act on whatever the live mode places -- fins in Draw, walls in the
-// Suggest "+ Add" augment.
+// Undo/Clear act on the hand-drawn breakaway walls -- the thing both Draw and the
+// Suggest "+ Add" augment now place.
 el('draw-undo').addEventListener('click', () => {
-  const list = finMode === 'draw' ? drawnFins : drawnWalls;
-  if (!list.length) return;
+  if (!drawnWalls.length) return;
   histPush();
-  list.pop();
+  drawnWalls.pop();
   drawMsg = '';
   clearPreview();
   rebuildDrawn();
@@ -1602,10 +1526,9 @@ el('draw-undo').addEventListener('click', () => {
   updateFit();
 });
 el('draw-clear').addEventListener('click', () => {
-  const draw = finMode === 'draw';
-  if (!(draw ? drawnFins : drawnWalls).length) return;
+  if (!drawnWalls.length) return;
   histPush();
-  if (draw) drawnFins = []; else drawnWalls = [];
+  drawnWalls = [];
   drawMsg = '';
   clearPreview();
   rebuildDrawn();
@@ -1685,7 +1608,6 @@ function snapshot() {
   return {
     quat: [q.x, q.y, q.z, q.w],
     walls: drawnWalls.map((w) => ({ a: w.a.clone(), b: w.b.clone() })),
-    fins: drawnFins.map((d) => d.face),
     load: loadDir ? loadDir.clone() : null,
     finMode, finsVisible, drawAugment,
   };
@@ -1703,7 +1625,6 @@ function histPush() {
 function restoreState(s) {
   part.quaternion.set(s.quat[0], s.quat[1], s.quat[2], s.quat[3]);
   drawnWalls = s.walls.map((w) => ({ a: w.a.clone(), b: w.b.clone(), ok: false, info: null }));
-  drawnFins = (s.fins ?? []).map((face) => ({ face, ok: false, info: null }));
   loadDir = s.load ? s.load.clone() : null;
   layPlacing = false;
   controls.enabled = true;
@@ -1813,27 +1734,11 @@ function pickFace(ev) {
 }
 
 renderer.domElement.addEventListener('pointermove', (ev) => {
-  // Draw a gripping fin: hover a face and it lights up -- green if a fin can grip
-  // it, grey if not -- so the user aims at a real site instead of clicking blind.
-  if (drawActive() && finMode === 'draw') {
-    drawCursor.visible = drawBand.visible = false;
-    const hit = pickFace(ev);
-    if (!hit) { hoverFace.visible = false; renderer.domElement.style.cursor = ''; return; }
-    const grip = getGrip();
-    const ok = !!grip && grip.faceMap.has(hit.faceIndex);
-    const pos = hoverGeom.getAttribute('position');
-    const src = part.geometry.getAttribute('position').array;
-    const o = hit.faceIndex * 9;
-    for (let i = 0; i < 9; i++) pos.array[i] = src[o + i];
-    pos.needsUpdate = true;
-    hoverGeom.computeBoundingSphere();
-    hoverFace.material.color.setHex(ok ? 0x39d98a : 0x8892a0);
-    hoverFace.visible = true;
-    renderer.domElement.style.cursor = ok ? 'pointer' : 'not-allowed';
-    return;
-  }
-  // Suggest "+ Add" augment: the pointer places wall endpoints, so face-lay hover
-  // is off and the cursor / band / ghost track the surface instead.
+  // Draw / Suggest "+ Add": the pointer places wall endpoints ON the overhang, so
+  // face-lay hover is off and the cursor / band / ghost track the surface instead.
+  // Draw picks ANY surface point the user aims at -- including the red overhang
+  // faces themselves -- because a drawn breakaway wall sweeps under the line you
+  // draw, wherever you draw it; there is no "grippable face" gate to fight.
   if (drawActive()) {
     hoverFace.visible = false;
     const hit = pickFace(ev);
@@ -1884,13 +1789,9 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   // a drag is an orbit, not a pick
   if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
 
-  // Draw a gripping fin: one click on a face stands a fin against it.
-  if (drawActive() && finMode === 'draw') {
-    const hit = pickFace(e);
-    if (hit) placeFin(hit.faceIndex);
-    return;
-  }
-  // Suggest "+ Add" augment: first click sets the start of a wall, second commits it.
+  // Draw / Suggest "+ Add": first click sets the start of a wall on the overhang,
+  // second commits it. A breakaway wall sweeps under the line between the two
+  // points, so the user draws it straight onto the red overhang -- no face gate.
   if (drawActive()) {
     const hit = pickFace(e);
     if (!hit) return;
