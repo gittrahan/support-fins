@@ -783,11 +783,15 @@ function rebuildDrawn() {
   // re-swept against the part's current pose, so a wall that no longer reaches the
   // part (rotated away) is flagged by drawnWall rather than dropped silently.
   const tris = partPrintTriangles();
+  // Drawn walls grip with the same tine comb the auto fins use when Tines is on.
+  const drawOpts = { tines: el('tines').checked,
+                     tineDensity: el('tine-density').valueAsNumber / 100,
+                     topo: topology, rot: rotM3.elements, offset: lastResult.offset };
   const wa = new THREE.Vector3(), wb = new THREE.Vector3();
   for (const w of drawnWalls) {
     part.localToWorld(wa.copy(w.a));
     part.localToWorld(wb.copy(w.b));
-    const r = drawnWall([wa.x, wa.y, wa.z], [wb.x, wb.y, wb.z], tris, 0);
+    const r = drawnWall([wa.x, wa.y, wa.z], [wb.x, wb.y, wb.z], tris, 0, drawOpts);
     w.ok = r.ok;
     w.info = r;
     if (r.ok) for (const t of r.tris) drawnTris.push(t);
@@ -1269,8 +1273,9 @@ function updateDrawReadout(built, ms) {
 
   const ok = drawnWalls.filter((w) => w.ok);
   const bad = drawnWalls.length - ok.length;
+  const tines = ok.reduce((a, w) => a + (w.info?.tines ?? 0), 0);
   box.textContent = ok.length
-    ? `${ok.length} drawn wall${ok.length === 1 ? '' : 's'}`
+    ? `${ok.length} drawn wall${ok.length === 1 ? '' : 's'}` + (tines ? ` · ${tines} tines` : '')
     : 'none yet';
   box.classList.toggle('warn', ok.length === 0);
 
@@ -1281,8 +1286,10 @@ function updateDrawReadout(built, ms) {
       + 'draw it, red faces included) to lay a breakaway wall under it');
   }
   if (ok.length) {
-    help.push('Each wall stops a hair under the part (0.2mm) so it snaps off clean. '
-      + 'For a wall that grips instead, use Auto — its fins carry the tine comb.');
+    help.push(tines
+      ? 'The tines grab onto the part and bend away when you snap the wall off.'
+      : 'Each wall stops a hair under the part (0.2mm) so it snaps off clean. Turn '
+        + 'Tines on if you want it to grip the part.');
   }
   if (bad) {
     const one = drawnWalls.find((w) => !w.ok);

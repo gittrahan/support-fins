@@ -16,7 +16,7 @@
  * into a watertight wall, reusing prop.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
-import { PROP, PART_BAND, sweep, sweepBetween, floorLine, contourTop, lowerSag, settleTop } from './prop.js';
+import { PROP, PART_BAND, sweep, sweepBetween, floorLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
 
 /**
  * Every surface height directly above (x, y), as a list.
@@ -84,13 +84,21 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity) 
  * that can't be built should say WHY (too short, at the plate) rather than
  * silently doing nothing, the failure mode M5's scoreboard was built on.
  */
-export function drawnWall(a, b, tris, zBed = 0) {
+export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   const dx = b[0] - a[0], dy = b[1] - a[1];
   const len = Math.hypot(dx, dy);
   if (len < PROP.minSpan) {
     return { ok: false, reason: `wall too short — ${len.toFixed(0)}mm, needs ${PROP.minSpan}mm` };
   }
   const out = [];
+  // A drawn wall grips the part with the same tine comb the auto fins use, when
+  // Tines is on. emitTines needs the part in topology form (for bite direction), so
+  // it only runs when the caller passes topo/rot/offset -- the live preview omits
+  // them and stays a plain wall for speed. `topLine` is the wall's surface-z contact
+  // line (emitTines subtracts the gap itself).
+  const withTines = (line) => opts.tines && opts.topo
+    ? emitTines(line, tris, opts.topo, opts.rot, opts.offset, out, tineStepFor(opts.tineDensity))
+    : 0;
   // PART-ATTACHED first: if solid part sits below the overhang, the support
   // stands on THAT, not the plate. Probe with a BANDED top contour so the
   // overhang isn't settled down onto the very floor we're looking for; floorLine
@@ -110,7 +118,8 @@ export function drawnWall(a, b, tris, zBed = 0) {
       for (let i = 0; i < topPA.length; i++) {
         height = Math.max(height, (topPA[i][2] - PROP.gap) - floor[i][2]);
       }
-      return { ok: true, tris: out, length: len, height, partAttached: true };
+      const tines = withTines(topPA);
+      return { ok: true, tris: out, length: len, height, partAttached: true, tines };
     }
   }
 
@@ -142,5 +151,6 @@ export function drawnWall(a, b, tris, zBed = 0) {
   }
   let height = 0;
   for (const p of line) height = Math.max(height, p[2] - PROP.gap - zBed);
-  return { ok: true, tris: out, length: len, height };
+  const tines = withTines(line);
+  return { ok: true, tris: out, length: len, height, tines };
 }
