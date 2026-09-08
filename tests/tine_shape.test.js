@@ -89,6 +89,40 @@ Deno.test('tine height tracks the layer-height setting, not a hardcoded 0.2', ()
   }
 });
 
+Deno.test('the tine tops out at the underside and roots DOWN into the wall (not up off it)', () => {
+  // The join bug: the tine used to seat its BOTTOM on the wall top and grow UP, so a
+  // taller tine (bigger layer height) rose off the wall top into the breakaway gap
+  // and overshot past the part -- connected to the wall only on a coplanar seam. It
+  // now seats its TOP at the underside and grows DOWN, so its root embeds into the
+  // wall by (tineH - gap). Pin both: top flush with the local surface, root below the
+  // wall top when the layer exceeds the gap.
+  const topo = tiltedBlockTopo(-15, 15, -20, 20, 0, 30, 40);
+  const rot = [1, 0, 0, 0, 1, 0, 0, 0, 1], offset = { x: 0, y: 0, z: 0 };
+  const line = [];
+  for (let x = -8; x <= 8; x += 1) {
+    const z = surfaceZAt(topo.pos, x, 0);
+    if (z !== null) line.push([x, 0, z]);
+  }
+  const H = 0.4;                        // deliberately > gap (0.2), so the root must sink
+  const out = [];
+  const n = emitTines(line, null, topo, rot, offset, out, PROP.tineStep, undefined, H);
+  assert(n >= 3, `need tines to test the seating, got ${n}`);
+  for (let i = 0; i < n; i++) {
+    let lo = Infinity, hi = -Infinity, cx = 0;
+    for (let v = i * 36; v < (i + 1) * 36; v++) {
+      if (out[v][2] < lo) lo = out[v][2];
+      if (out[v][2] > hi) hi = out[v][2];
+      cx += out[v][0];
+    }
+    cx /= 36;
+    const surf = surfaceZAt(topo.pos, cx, 0);
+    const wallTop = surf - PROP.gap;
+    assertClose(hi, surf, 1e-6, `tooth ${i} top ${hi.toFixed(3)} not flush with the underside ${surf.toFixed(3)} (would poke through the part)`);
+    assertClose(wallTop - lo, H - PROP.gap, 1e-6,
+      `tooth ${i} root embeds ${(wallTop - lo).toFixed(3)}mm, not the expected ${(H - PROP.gap).toFixed(3)}mm into the wall`);
+  }
+});
+
 Deno.test('a squat wall (low contact) carries tines only with the brim-height floor', () => {
   // A grippable vertical face (the block's y=0 plane) with the contact line LOW --
   // wallTop ~0.6mm, under the flanged base floor (baseH+0.2) but above the brim.

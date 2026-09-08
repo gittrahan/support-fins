@@ -1381,7 +1381,16 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
                                       // face to attach a tine to. minTop defaults to
                                       // the flanged base; a squat wall passes its brim.
 
-    const zMid = wallTop + tineH / 2;
+    // Seat the tine's TOP at the part underside (z) and grow it DOWN by tineH, so a
+    // taller tine (a higher layer height) embeds its root DEEPER INTO THE WALL rather
+    // than rising up off the wall top into the breakaway gap and overshooting past the
+    // part. At tineH == gap this is exactly the old [wallTop, z] span; for tineH > gap
+    // the root sinks (z - tineH) below the wall top into solid wall, giving a
+    // volumetric join through the tine's full height instead of a coplanar top-seam
+    // that a tall single bead just cantilevers off (wallTop = z - gap). The bite tip
+    // still tops out flush with the underside, never poking through the part face.
+    const tineBot = z - tineH;
+    const zMid = z - tineH / 2;
 
     // BITE DIRECTION comes from the PART (which way the nearest face points),
     // never from the wall's run: a run-aligned nub lies flat on a leaning face
@@ -1403,7 +1412,7 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
       [-PROP.tineOverlap, -half], [PROP.tineBite, -half],
       [PROP.tineBite, half], [-PROP.tineOverlap, half],
     ];
-    boxExtrude(poly, wallTop, wallTop + tineH, P, out);
+    boxExtrude(poly, tineBot, z, P, out);
     // Test seam: tests/tines_realparts.test.js sets globalThis.__TINECAP to an array
     // and reads back each tine's seed + bite heading to verify grip on real parts
     // through the whole pipeline. Undefined in the browser -> a zero-cost noop.
