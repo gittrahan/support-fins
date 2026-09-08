@@ -67,6 +67,28 @@ Deno.test('every tooth is exactly one layer tall and perfectly horizontal', () =
   }
 });
 
+Deno.test('tine height tracks the layer-height setting, not a hardcoded 0.2', () => {
+  // The UI's Layer height feeds emitTines a tineH so the tine is always exactly one
+  // of the user's real layers (a mismatch tears instead of bending off). Pin that
+  // the emitted tooth spans the passed height, at a non-default layer.
+  const topo = tiltedBlockTopo(-15, 15, -20, 20, 0, 30, 40);
+  const rot = [1, 0, 0, 0, 1, 0, 0, 0, 1], offset = { x: 0, y: 0, z: 0 };
+  const line = [];
+  for (let x = -8; x <= 8; x += 1) {
+    const z = surfaceZAt(topo.pos, x, 0);
+    if (z !== null) line.push([x, 0, z]);
+  }
+  const H = 0.32;                       // a 0.32mm layer, not the 0.2 default
+  const out = [];
+  const n = emitTines(line, null, topo, rot, offset, out, PROP.tineStep, undefined, H);
+  assert(n >= 3, `need tines to test their height, got ${n}`);
+  for (let i = 0; i < n; i++) {
+    let lo = Infinity, hi = -Infinity;
+    for (let v = i * 36; v < (i + 1) * 36; v++) { if (out[v][2] < lo) lo = out[v][2]; if (out[v][2] > hi) hi = out[v][2]; }
+    assertClose(hi - lo, H, 1e-6, `tooth ${i} spans ${(hi - lo).toFixed(3)}mm, not the ${H}mm layer`);
+  }
+});
+
 Deno.test('a squat wall (low contact) carries tines only with the brim-height floor', () => {
   // A grippable vertical face (the block's y=0 plane) with the contact line LOW --
   // wallTop ~0.6mm, under the flanged base floor (baseH+0.2) but above the brim.

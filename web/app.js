@@ -786,6 +786,7 @@ function rebuildDrawn() {
   // Drawn walls grip with the same tine comb the auto fins use when Tines is on.
   const drawOpts = { tines: el('tines').checked,
                      tineDensity: el('tine-density').valueAsNumber / 100,
+                     layerHeight: el('layer-height').valueAsNumber,
                      topo: topology, rot: rotM3.elements, offset: lastResult.offset };
   const wa = new THREE.Vector3(), wb = new THREE.Vector3();
   for (const w of drawnWalls) {
@@ -1061,6 +1062,7 @@ function finOpts() {
            bedPad: el('bed-pad').checked,
            tines: el('tines').checked,
            tineDensity: el('tine-density').valueAsNumber / 100,
+           layerHeight: el('layer-height').valueAsNumber,
            coverage: el('coverage').valueAsNumber / 100 };
 }
 
@@ -1470,9 +1472,15 @@ function debouncedRefresh(ms = 180) {
 }
 // Tine grip only means anything when the tines are on, so hide its slider with the
 // toggle (keeps the panel honest -- no dead control).
-function syncTineGrip() { el('tinegrip-fld').hidden = !el('tines').checked; }
+// Tine grip + layer height only matter when Tines is on -- hide both otherwise.
+function syncTineGrip() {
+  const on = el('tines').checked;
+  el('tinegrip-fld').hidden = !on;
+  el('layerh-fld').hidden = !on;
+}
 el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); });
 el('tine-density').addEventListener('input', () => debouncedRefresh());
+el('layer-height').addEventListener('input', () => debouncedRefresh());
 el('coverage').addEventListener('input', () => debouncedRefresh());
 syncTineGrip();
 

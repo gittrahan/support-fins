@@ -145,7 +145,9 @@ export const PROP = {
   // (FIN-SPEC.md "Why the tines must be horizontal"). One layer means one SLICER
   // layer, so this has to equal the print's layer height -- 0.3 (Slant3D's number,
   // his layer height) baked in a 1.5-layer tine at Matthew's 0.2mm.
-  tineH: 0.2,        // = slicer layer height; keep in sync if you change it
+  tineH: 0.2,        // = slicer layer height; the DEFAULT only -- the UI's "Layer
+                     // height" field drives it per build (opts.layerHeight) so the
+                     // tine is always exactly one of the user's real layers
   // Tine WIDTH across the run = the bead the nozzle lays: Slant3D's spec is
   // 0.4-0.8mm (0.4 = one nozzle pass, 0.8 = out-and-back), "as small as possible".
   // 0.5 is his stated number ("0.5 by 0.5"). NOTE: this used to be dead -- emitTines
@@ -1306,7 +1308,7 @@ export function tineStepFor(density) {
 }
 
 export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
-                          minTop = PROP.baseH + 0.2) {
+                          minTop = PROP.baseH + 0.2, tineH = PROP.tineH) {
   if (line.length < 2) return 0;
 
   // arc length along the run, to space nubs by a real distance not a station count
@@ -1343,7 +1345,7 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
                                       // face to attach a tine to. minTop defaults to
                                       // the flanged base; a squat wall passes its brim.
 
-    const zMid = wallTop + PROP.tineH / 2;
+    const zMid = wallTop + tineH / 2;
 
     // BITE DIRECTION comes from the PART (which way the nearest face points),
     // never from the wall's run: a run-aligned nub lies flat on a leaning face
@@ -1365,7 +1367,7 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
       [-PROP.tineOverlap, -half], [PROP.tineBite, -half],
       [PROP.tineBite, half], [-PROP.tineOverlap, half],
     ];
-    boxExtrude(poly, wallTop, wallTop + PROP.tineH, P, out);
+    boxExtrude(poly, wallTop, wallTop + tineH, P, out);
     // Test seam: tests/tines_realparts.test.js sets globalThis.__TINECAP to an array
     // and reads back each tine's seed + bite heading to verify grip on real parts
     // through the whole pipeline. Undefined in the browser -> a zero-cost noop.
@@ -1859,6 +1861,10 @@ export function buildProps(topo, result, rot, opts = {}) {
   // "Tine grip" slider (opts.tineDensity) can loosen it toward tineStepSparse for a
   // surface-critical face, never silently -- see tineStepFor / tests/tine_density.test.js.
   const tineStepEff = tineStepFor(opts.tineDensity);
+  // A tine MUST be exactly one slicer layer tall or it stops printing as one clean
+  // continuous bead and tears on removal (welts) instead of bending off. So it
+  // tracks the user's real layer height (default 0.2mm) -- see the UI's Layer height.
+  const tineHeight = opts.layerHeight ?? PROP.tineH;
 
   // The support unit is the locally-straight sub-patch, not the connected
   // region -- see splitRegion. Fragments too small to be worth a wall are
@@ -1959,7 +1965,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         // gap back so emitTines reads it as the surface, like the plate path does.
         if (withTines) {
           const topLine = pa.prop.line.map((p) => [p[0], p[1], p[2] + PROP.gap]);
-          tineTotal += emitTines(topLine, partTris, topo, rot, off, out, tineStepEff);
+          tineTotal += emitTines(topLine, partTris, topo, rot, off, out, tineStepEff, undefined, tineHeight);
         }
         props.push({ ...pa.prop, area: patch.area,
                      trimmed: line.length - pa.prop.stations });
@@ -1984,7 +1990,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         // attach from squatBrimH up (the default minTop would skip every one).
         if (withTines) tineTotal += emitTines(
           sq.line.map((p) => [p[0], p[1], p[2] + PROP.gap]),
-          regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH);
+          regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH, tineHeight);
         servedRegions.add(patch.region);
         props.push({ ...sq, area: patch.area });
       }
@@ -2085,7 +2091,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         servedRegions.add(patch.region);
         // The grip comb: nubs along this wall's settled top that bite into the
         // part. `settled` carries the surface z; emitTines subtracts the gap.
-        if (withTines) tineTotal += emitTines(settled, regionTris, topo, rot, off, out, tineStepEff);
+        if (withTines) tineTotal += emitTines(settled, regionTris, topo, rot, off, out, tineStepEff, undefined, tineHeight);
         props.push({
           span: span2, height: top - zBed, area: patch.area,
           stations: settled.length, trimmed: line.length - settled.length,

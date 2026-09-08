@@ -123,6 +123,14 @@
        = cleaner surface / easier to remove, too big = stops holding the overhang).
        Pad grip = how far the bed pad bites into a tilted part to keep it on the
        plate (bigger = holds harder, too big = harder to snap off). -->
+  <!-- Layer height: the grip tines are exactly ONE layer tall so they print as one
+       clean bead and BEND off instead of tearing. That only holds if this matches
+       the layer height you actually slice at -- set it wrong and the tines slice
+       into ~1.5 layers and leave welts. Shown only when Tines is on. -->
+  <label class="fld" id="layerh-fld" title="Set this to the layer height you slice at. The grip tines are one layer tall so they snap off clean; if this doesn't match your slicer, the tines tear and leave marks. Default 0.2mm.">
+    Layer height <span class="mut">mm</span>
+    <input type="number" id="layer-height" min="0.08" max="0.4" step="0.04" value="0.2">
+  </label>
   <label class="fld" title="Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.">
     Support gap <span class="mut">mm</span>
     <input type="number" id="gap" min="0.1" max="0.4" step="0.05" value="0.2">

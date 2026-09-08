@@ -97,7 +97,8 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   // them and stays a plain wall for speed. `topLine` is the wall's surface-z contact
   // line (emitTines subtracts the gap itself).
   const withTines = (line) => opts.tines && opts.topo
-    ? emitTines(line, tris, opts.topo, opts.rot, opts.offset, out, tineStepFor(opts.tineDensity))
+    ? emitTines(line, tris, opts.topo, opts.rot, opts.offset, out,
+                tineStepFor(opts.tineDensity), undefined, opts.layerHeight ?? PROP.tineH)
     : 0;
   // PART-ATTACHED first: if solid part sits below the overhang, the support
   // stands on THAT, not the plate. Probe with a BANDED top contour so the
