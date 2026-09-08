@@ -14,9 +14,9 @@
 // nearestFaceInwardH is computed independently here, so this does not just re-assert the
 // engine's own biteDirAt.
 
-import { loadModel, analyze, fins, insidePart, nearestFaceInwardH, rotX, rotY, assert } from './_util.js';
+import { loadModel, analyze, fins, prop, insidePart, nearestFaceInwardH, rotX, rotY, assert } from './_util.js';
 
-const TINE_BITE = 0.5;   // PROP.tineBite -- how far the nub reaches in
+const TINE_BITE = prop.PROP.tineBite;   // how far the nub reaches in -- read from source, don't drift
 
 const CASES = [
   ['plate', rotX(45)], ['plate', rotY(40)], ['plate', rotY(-40)],

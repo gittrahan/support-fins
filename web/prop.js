@@ -153,7 +153,15 @@ export const PROP = {
   // 0.5 is his stated number ("0.5 by 0.5"). NOTE: this used to be dead -- emitTines
   // built the tine `th` (1.0mm) wide, ~2x spec, a fat divot Matthew caught by eye.
   tineW: 0.5,
-  tineBite: 0.5,     // how far a nub reaches horizontally into the part
+  tineBite: 0.5,     // how far a nub reaches horizontally into the part. TRIMMING this
+                     // toward Slant3D's smaller sliver (0.3) to shrink the pockmark was
+                     // tried and reverted: because the tine seeds on the surface and
+                     // drops `gap` below it, the reach-into-solid margin is thin, and
+                     // the slope gate is gap/bite -- so a shorter reach stops gripping
+                     // at/near 45deg (the common orientation). tines_realparts +
+                     // draw + tine_density pin real grip there and fail below ~0.45;
+                     // 0.5 is already near the grip floor. Mark reduction is a
+                     // PLACEMENT problem (keep tines off flat mid-faces), not a bite one.
   tineStep: 2.0,     // mm between nubs -- the DENSE grip comb, the default
   tineStepSparse: 5.0, // mm between nubs at the sparse end of the Tine-grip slider
   tineOverlap: 0.3,  // how far the nub sinks back into the wall, so they union
