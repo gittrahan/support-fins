@@ -72,15 +72,19 @@ function capTines(topo, res, rot, opts) {
   return caps;
 }
 
-// median nearest-neighbour spacing across a tine cloud -- a comb reads small, a
-// few scattered nubs read large. (Same measure tines_realparts.test.js uses.)
-function medianNN(caps) {
+// nearest-neighbour spacing percentile across a tine cloud. The comb is EDGE-BIASED
+// (dense at each wall's ends, thinned across the middle), so the whole-part median
+// legitimately rises with the middle -- what proves grip survives is the DENSE END
+// ANCHORS, i.e. the low percentile. pctNN(caps, 0.25) reads the densest quarter: a
+// real comb keeps it at ~tineStep, a globally-starved comb (the c0fcf8e tip-risk
+// regression) pushes even this up. (tines_realparts.test.js uses the same measure.)
+function pctNN(caps, f) {
   const nn = caps.map((a, i) => {
     let best = Infinity;
     caps.forEach((b, j) => { if (i !== j) best = Math.min(best, Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)); });
     return best;
   }).sort((p, q) => p - q);
-  return nn[nn.length >> 1];
+  return nn[Math.min(nn.length - 1, Math.floor(f * nn.length))];
 }
 
 Deno.test('buildFins: the slider moves tine count monotonically, dense > sparse', () => {
@@ -109,6 +113,45 @@ Deno.test('REGRESSION c0fcf8e: a STABLE squat part still gets a dense comb by de
   const res = analyze(squat, 45, IDENTITY);
   const caps = capTines(squat, res, IDENTITY, {});               // default density
   assert(caps.length >= 12, `stable part starved of grip: only ${caps.length} tines (the c0fcf8e symptom)`);
-  const median = medianNN(caps);
-  assert(median <= 3.0, `stable part got a SPARSE comb by default (median tine spacing ${median.toFixed(1)}mm) -- tip-risk sparsening is back`);
+  // Edge-bias thins the wall MIDDLES on purpose, so the whole-part median rises --
+  // but the dense end anchors (the densest quarter) must stay at ~tineStep. A
+  // tip-risk sparsening keyed on stability would lift THIS too. (~2.3mm here: the
+  // 30deg tilt projects the 2mm arc-length step to 2/cos30.)
+  const p25 = pctNN(caps, 0.25);
+  assert(p25 <= 3.0, `stable part's dense end anchors are gone (p25 spacing ${p25.toFixed(1)}mm) -- tip-risk sparsening is back`);
+});
+
+// --- 3. edge bias ----------------------------------------------------------
+// Slant3D's rule: tines belong on an edge/corner, never marching across a visible
+// flat middle (the mid-face pockmarks Matthew caught). So a long wall's comb is
+// DENSE within tineEdgeBand of each end and THINNED (tineMidFactor) across the
+// middle. This pins the bias positively so it can't silently revert to uniform.
+Deno.test('emitTines: EDGE-BIASED -- a long wall is denser at its ends than its middle', () => {
+  const topo = tiltedBlockTopo(-15, 15, -25, 25, 0, 40, 40);   // ceiling rises with +Y: grippable end to end
+  const line = [];
+  for (let y = -20; y <= 20; y += 0.5) {
+    const z = surfaceZAt(topo.pos, 0, y);
+    if (z !== null) line.push([0, y, z]);
+  }
+  const out = [];
+  globalThis.__TINECAP = [];
+  emitTines(line, null, topo, IDENTITY, { x: 0, y: 0, z: 0 }, out, PROP.tineStep);   // dense request
+  const caps = globalThis.__TINECAP;
+  globalThis.__TINECAP = undefined;
+  assert(caps.length >= 8, `too few tines to judge the bias: ${caps.length}`);
+
+  // classify each consecutive-tine gap by whether its midpoint lies in the END
+  // fifths or the MIDDLE of the run (positions monotonic in y along the wall)
+  const ys = caps.map((c) => c.y).sort((a, b) => a - b);
+  const lo = ys[0], hi = ys[ys.length - 1], mid = (lo + hi) / 2, halfRun = (hi - lo) / 2;
+  const endGaps = [], midGaps = [];
+  for (let i = 1; i < ys.length; i++) {
+    const g = ys[i] - ys[i - 1];
+    const frac = Math.abs((ys[i] + ys[i - 1]) / 2 - mid) / halfRun;   // 0 at centre, 1 at an end
+    (frac > 0.6 ? endGaps : midGaps).push(g);
+  }
+  const med = (a) => a.slice().sort((p, q) => p - q)[a.length >> 1];
+  assert(endGaps.length && midGaps.length, `run too short to split end/middle (${ys.length} tines)`);
+  assert(med(midGaps) > 1.4 * med(endGaps),
+    `not edge-biased: middle gap ${med(midGaps).toFixed(2)} not looser than end gap ${med(endGaps).toFixed(2)}`);
 });

@@ -174,6 +174,15 @@ export const PROP = {
   // silently starving grip. Pinned by tests/tine_density.test.js.
   minGripTines: 3,     // grip floor: never fewer than this per grippable wall,
                        // however squat -- a wall that grips nothing is a loose prop
+  // EDGE BIAS. Slant3D's rule is tines go on an edge/corner, never across a visible
+  // flat middle -- that mid-face march is what left Matthew's bracket "marked
+  // everywhere". So the comb runs DENSE within a band at each end of a wall's run
+  // (the run's ends sit on the overhang's edges/corners, where the marks hide and
+  // where anti-peel/twist grip has the longest moment arm anyway) and THINS across
+  // the middle by tineMidFactor. Short walls (run <= 2*band) are all-edge, so they
+  // stay dense end-to-end and the minGripTines floor is untouched.
+  tineEdgeBand: 8.0,   // mm of dense comb held at each end of the run
+  tineMidFactor: 2.0,  // interior spacing = requested step * this (2mm dense -> 4mm)
 };
 
 /**
@@ -1338,8 +1347,27 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
   // half the tine's WIDTH across the run -- one nozzle bead (PROP.tineW), NOT the
   // wall thickness. Building it th-wide made a 1mm divot, ~2x Slant3D's spec.
   const half = PROP.tineW / 2;
+
+  // EDGE-BIASED stations: dense (`step`) within tineEdgeBand of either end, thinned
+  // (`step * tineMidFactor`) across the middle, so the comb clusters at the run's
+  // ends/corners and stops marching across a visible flat face (PROP.tineEdgeBand).
+  // The step chosen for the NEXT gap depends on where we are now: still dense while
+  // the current station sits in either end band. A run <= 2*band is all-edge.
+  const band = Math.min(PROP.tineEdgeBand, total / 2);
+  // The interior step thins by tineMidFactor but never past the slider's OWN
+  // sparsest setting: edge-bias must not compound with a user who already dialed
+  // grip to light and starve the comb to a few scattered nubs. So when the
+  // requested step is already sparse, edge-bias adds no further thinning.
+  const midStep = Math.min(step * PROP.tineMidFactor, PROP.tineStepSparse);
+  const stations = [];
+  for (let d = step / 2; d < total; ) {
+    stations.push(d);
+    const inEndBand = Math.min(d, total - d) <= band;
+    d += inEndBand ? step : midStep;
+  }
+
   let count = 0;
-  for (let d = step / 2; d < total; d += step) {
+  for (const d of stations) {
     // interpolate the station at arc length d
     let k = 0;
     while (k < s.length - 1 && s[k + 1] < d) k++;

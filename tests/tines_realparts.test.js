@@ -45,19 +45,22 @@ Deno.test('tines on real parts: every tine bites INTO the nearest face, none lie
         if (align < 0.85) { flat++; flatCases.add(`${name}(${align.toFixed(2)})`); }
       }
     }
-    // DENSITY: a grippable wall must get a DENSE comb (~tineStep apart), not the
-    // sparse ~9mm comb a tip-over-risk scale once handed "stable" parts -- which read
-    // as a few nubs laying on the face. Independent of tine count: for every tine,
-    // the distance to its NEAREST neighbour tine should be ~tineStep (2mm), so the
-    // median nearest-neighbour distance across a case with a real comb stays small.
+    // DENSITY: a grippable wall must get a DENSE comb, not the sparse ~9mm comb a
+    // tip-over-risk scale once handed "stable" parts -- which read as a few nubs
+    // laying on the face. The comb is EDGE-BIASED (dense at each wall's ends, thinned
+    // across the middle), so the whole-part median legitimately rises with the
+    // middle; what proves grip is the DENSE END ANCHORS. So check the densest quarter
+    // (p25 nearest-neighbour): a real comb keeps it near tineStep (a hair over 2mm
+    // once a tilt projects the arc-length step), a scattered no-grip comb pushes even
+    // this wide.
     if (caps.length >= 6) {
       const nn = caps.map((a, i) => {
         let best = Infinity;
         caps.forEach((b, j) => { if (i !== j) best = Math.min(best, Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z)); });
         return best;
       }).sort((p, q) => p - q);
-      const median = nn[nn.length >> 1];
-      if (median > 4.0) sparseCases.push(`${name}(${median.toFixed(1)}mm)`);
+      const p25 = nn[Math.floor(0.25 * nn.length)];
+      if (p25 > 3.5) sparseCases.push(`${name}(p25 ${p25.toFixed(1)}mm)`);
     }
   }
   globalThis.__TINECAP = undefined;
