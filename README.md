@@ -74,13 +74,14 @@ Tests (Deno for the JS engine):
 deno test --allow-read tests/
 ```
 
-## The PrusaSlicer plugin
+## The PrusaSlicer plugin (exploratory — not currently working)
 
-`plugin/` is a native PrusaSlicer 3.0 companion. It can't do the automatic tool — the 3.0
-plugin sandbox can't read a loaded mesh's triangles — but it *generates* the fin natively
-(an overhang test object, a standalone breakaway fin you position by hand, and a combined
-tine demo) so PrusaSlicer users get a printable proof of the mechanism without leaving the
-slicer. See `plugin/README.md`.
+**Status: exploratory. This does not currently work — treat it as a research spike, not a
+usable feature.** `plugin/` is an in-progress attempt at a native PrusaSlicer 3.0 companion.
+It can't do the automatic tool — the 3.0 plugin sandbox can't read a loaded mesh's triangles
+— and the intended fallback (generating the fin natively: an overhang test object, a
+standalone breakaway fin you position by hand, and a combined tine demo) is not functional
+yet. Kept in the repo for reference only. Use the browser app instead. See `plugin/README.md`.
 
 ## Honest limitations
 
@@ -93,7 +94,7 @@ slicer. See `plugin/README.md`.
 
 ```
 web/         the browser app (live at printfins.com)
-plugin/      native PrusaSlicer 3.0 plugin
+plugin/      native PrusaSlicer 3.0 plugin (exploratory — not working)
 prototype/   Python/trimesh proof of concept the engine was ported from
 docs/        FIN-SPEC.md — the verified fin geometry, with sources
 tests/       offline geometry regression suite
