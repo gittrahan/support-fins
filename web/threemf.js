@@ -24,6 +24,14 @@
 import { zipStore } from './zip.js';
 
 const NS_CORE = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02';
+// Production extension. We declare it (but never list it in `requiredextensions`,
+// so a reader that doesn't know it just ignores the p:* attributes) purely to
+// carry a p:UUID on every object, the build, and each build item. PrusaSlicer's
+// and Bambu/Orca's 3MF readers use those UUIDs to reconstruct the object tree
+// faithfully; WITHOUT them a multi-body file (our part + fins) falls back to a
+// grouping/arrange heuristic that spreads the bodies out or drops them to the
+// bed -- the "geometry is not as expected" import that this tool kept hitting.
+const NS_PROD = 'http://schemas.microsoft.com/3dmanufacturing/production/2015/06';
 const REL_3DMODEL = 'http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel';
 const CT_MODEL = 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml';
 const CT_RELS = 'application/vnd.openxmlformats-package.relationships+xml';
@@ -78,27 +86,48 @@ function meshXML(tris) {
   return `<mesh><vertices>${v.join('')}</vertices><triangles>${f.join('')}</triangles></mesh>`;
 }
 
+// A v4 UUID for the production extension. crypto.randomUUID exists in every
+// browser we target and in Node; the fallback keeps the writer working anywhere.
+function uuid() {
+  try {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) return crypto.randomUUID();
+  } catch (_) { /* fall through */ }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
+// The 3MF production extension requires every <component> to carry an identity
+// (or real) transform. Stating it explicitly -- rather than relying on the
+// "absent = identity" default -- stops slicers that auto-arrange an un-placed
+// body from moving the fins off the part.
+const IDENTITY = '1 0 0 0 1 0 0 0 1 0 0 0';
+
 function modelXML(partTris, finTris, title) {
-  const objects = [`<object id="1" type="model">${meshXML(partTris)}</object>`];
+  const objects = [`<object id="1" type="model" p:UUID="${uuid()}">${meshXML(partTris)}</object>`];
   let buildId = 1;
 
   if (finTris && finTris.length) {
-    objects.push(`<object id="2" type="model">${meshXML(finTris)}</object>`);
+    objects.push(`<object id="2" type="model" p:UUID="${uuid()}">${meshXML(finTris)}</object>`);
     // An assembly object so the part and fins import as one locked unit while
-    // remaining two distinct meshes.
+    // remaining two distinct meshes. Each component states an explicit identity
+    // transform and every object/item carries a p:UUID so the reader keeps the
+    // relative placement instead of re-arranging the bodies.
     objects.push(
-      '<object id="3" type="model"><components>' +
-      '<component objectid="1"/><component objectid="2"/></components></object>');
+      `<object id="3" type="model" p:UUID="${uuid()}"><components>` +
+      `<component objectid="1" transform="${IDENTITY}"/>` +
+      `<component objectid="2" transform="${IDENTITY}"/></components></object>`);
     buildId = 3;
   }
 
   const safeTitle = String(title).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
   return '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    `<model unit="millimeter" xml:lang="en-US" xmlns="${NS_CORE}">` +
+    `<model unit="millimeter" xml:lang="en-US" xmlns="${NS_CORE}" xmlns:p="${NS_PROD}">` +
     '<metadata name="Application">Support Fins</metadata>' +
     `<metadata name="Title">${safeTitle}</metadata>` +
     `<resources>${objects.join('')}</resources>` +
-    `<build><item objectid="${buildId}"/></build></model>`;
+    `<build><item objectid="${buildId}" p:UUID="${uuid()}"/></build></model>`;
 }
 
 const CONTENT_TYPES = '<?xml version="1.0" encoding="UTF-8"?>\n' +
