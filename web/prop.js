@@ -36,12 +36,24 @@ export const PROP = {
                     // stays 0.6 (Slant3D's tine width) and the base flange 1mm.
   gap: 0.2,         // breakaway clearance below the part
   tip: 0.6,         // width of the contact tip
-  baseH: 1.0,       // height of the flat base flange (Slant3D's ~1mm disc). The
-                    // foot used to be a CONE that ramped up over `chamfer` mm,
-                    // which reads in a slicer as a golf tee, not the upside-down
-                    // T a breakaway support should be. Now the base is a thin
-                    // flat slab, emitted as its own solid and unioned by the
-                    // slicer, with the wall standing straight up off it.
+  baseH: 0.6,       // height of the flat base flange. The foot used to be a CONE
+                    // that ramped up over `chamfer` mm, which reads in a slicer as
+                    // a golf tee, not the upside-down T a breakaway support should
+                    // be. Now the base is a thin flat slab, emitted as its own
+                    // solid and unioned by the slicer, with the wall standing
+                    // straight up off it.
+                    //
+                    // WAS 1.0 (Slant3D's ~1mm disc). Lowered to 0.6 because the
+                    // flange height sets how high off the plate the TINE grip can
+                    // start: `emitTines` skips any station whose wall top sits
+                    // below the flange (minTop = baseH + 0.2), so a 1mm flange left
+                    // the bottom ~2mm of a tilted part ungripped -- exactly where
+                    // the part is least stable and peels. The flange is only an
+                    // anti-wobble brace (a long wall gets its bed grip from its
+                    // LENGTH, and a tilted part from the bed pad), so 0.6mm -- still
+                    // three layers -- braces fine while letting the tine comb reach
+                    // ~0.4mm lower down the face. Grip, not adhesion, is what the
+                    // bottom band needs.
   tipH: 1.5,        // height the tip taper runs
   // Foot half-width. Kept well under maxUnsupportedSpan/2 on purpose: props are
   // laid in ROWS spaced maxUnsupportedSpan apart, so a foot wider than half that
@@ -57,7 +69,7 @@ export const PROP = {
   minSpan: 7.0,     // a wall shorter than this is not worth the plate space
   minHeight: 1.5,   // nor is one this short
   // SQUAT BED SUPPORT. A flanged T-wall needs ~minHeight of headroom just to
-  // exist (gap 0.2 + baseH 1.0 + a sliver of tip taper), so a bed overhang lower
+  // exist (gap 0.2 + baseH 0.6 + a sliver of tip taper), so a bed overhang lower
   // than that gets NOTHING from the wall path -- its stations are trimmed as
   // stub/blocked and the low ledge prints into air (the near-bed overhangs that
   // came out rough on real organic parts). Below minHeight but above this floor a
@@ -1365,6 +1377,17 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
     const inEndBand = Math.min(d, total - d) <= band;
     d += inEndBand ? step : midStep;
   }
+
+  // GRIP THE BASE. A run's ENDS are the wall's lowest points -- the part's bottom
+  // edge, where a tilted part peels off first (Slant3D's "dense low"). The comb
+  // above starts half a step IN from each end, so the lowest ~step/2 of the wall
+  // -- exactly the bottom band -- got no tine ("the fins don't reach the bottom of
+  // the part"). Add a nub hard against each end (one tine-width in, so it stays on
+  // the wall) below the first interior row. The minTop gate + a real part face at
+  // that height still decide whether it takes; on a run that tapers to a knife
+  // edge or a face too close to the plate it simply won't bite, which is honest.
+  const endIn = Math.min(half, total / 2);
+  if (total > 3 * half) { stations.unshift(endIn); stations.push(total - endIn); }
 
   let count = 0;
   for (const d of stations) {

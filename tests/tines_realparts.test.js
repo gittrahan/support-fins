@@ -69,3 +69,26 @@ Deno.test('tines on real parts: every tine bites INTO the nearest face, none lie
   assert(flat === 0, `${flat}/${checked} tines lie FLAT (bite off the face inward normal): ${[...flatCases]}`);
   assert(sparseCases.length === 0, `SPARSE comb (nubs laying on the face, not gripping) -- median tine spacing too wide: ${sparseCases}`);
 });
+
+// BOTTOM-EDGE GRIP. "The fins don't go all the way to the bottom of the part."
+// The tine comb used to start half a step IN from each wall-run end, leaving the
+// lowest ~step/2 of the wall -- the part's bottom edge, where a tilted part peels
+// off first -- with no tine. emitTines now drops a nub hard against each run end,
+// and PROP.baseH (0.6) keeps minTop low enough to admit it. So on a tilted part
+// the lowest tine sits ~1.2mm up (the wall base) instead of the old ~1.95mm floor.
+Deno.test('tines reach the wall base on tilted parts, not a step up (bottom-edge peel fix)', () => {
+  for (const name of ['cube', 'tshape', 'lbracket']) {
+    const topo = loadModel(name);
+    const rot = rotX(45);
+    const res = analyze(topo, 45, rot);
+    globalThis.__TINECAP = [];
+    fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true });
+    const zs = globalThis.__TINECAP.map((t) => t.z);
+    globalThis.__TINECAP = undefined;
+    assert(zs.length >= 4, `${name}: too few tines to check (${zs.length})`);
+    const lo = Math.min(...zs);
+    // Old floor was ~1.9 (first station at step/2); the base nub lands ~1.2. 1.6
+    // cleanly separates the fixed comb from a regression back to the step/2 inset.
+    assert(lo < 1.6, `${name}: lowest tine ${lo.toFixed(2)}mm -- bottom band ungripped (step/2 inset regressed?)`);
+  }
+});
