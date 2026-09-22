@@ -49,6 +49,42 @@ the way up (auto, or click an upright side in Draw), STL and 3MF import, STL and
 
 Still open: scale-aware fin profiles, and the bed pad on tilted exports.
 
+### Sway braces for tall parts (new, not yet test-printed)
+
+Tall, slender parts have a problem the fins were never built for: nothing overhangs, but
+as the part grows, the nozzle's drag and each layer shrinking as it cools push the top
+around. The part drifts, sags or wobbles, and every movement shows up as a layer line.
+Sway braces stop that by tying the part's upright sides to a stiff support all the way up.
+
+**What a sway brace is:** a vertical rib standing **edge-on** to an upright side (its stiff
+direction). It's deep at the bed and tapers to a 4 mm flat top, gets thicker as it gets
+taller, and sits on a thin foot on the plate. One-layer horizontal tines, spaced **evenly
+up the full height**, tie it to the part. Like every support here, it stands off by the
+breakaway gap and snaps off; only the tines touch the part.
+
+**Using it:** tick **Sway braces (tall parts)** in the options panel. It's off by default.
+- **Auto** braces the tallest sides for you: up to four faces facing different ways, so
+  both axes are held, with each rib placed where its face reaches highest.
+- **Draw**: one click on an upright side stands a brace there. Click a support you placed
+  to select it (amber), then press **Delete** or **Remove selected**; Undo brings it back.
+- Three settings appear while it's on: **Brace grip from** (height the tines start;
+  0 = the whole height), **Brace tine spacing** (default 6 mm) and **Brace depth**
+  (% of height at the bed; default 15%).
+- Braces keep at least 1 mm of air between them. One that would run into another,
+  for example straight across a narrow channel, is refused with a reason rather than
+  fused into a bar that won't break away.
+
+**Why this shape, not the old Brace fin:** the Brace fin lies flat against the face, so it
+bends the easy way exactly when the part leans into it, and its tines bunch at the base
+and spread out going up, leaving the top of a tall part, where the sway is, nearly
+untied. Every number and the reasoning behind it is in `docs/FIN-SPEC.md` ("Sway
+braces"); the code is `web/sway.js`, and `tests/sway.test.js` pins its behaviour.
+
+**Status:** first trialled on a 249 mm fence-post cap, where Auto placed 4 braces
+(about 20 g of support) and hand-placed braces followed its gable up to 225 mm. The
+defaults (depth, thickness, spacing) are first estimates until a physical print confirms
+the top stays still and the braces snap off clean.
+
 ### The "no config, geometry only" notice
 
 Opening the 3MF, **Bambu Studio** ("invalid config, load geometry data only") and
