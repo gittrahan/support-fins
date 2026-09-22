@@ -1,6 +1,6 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = []
+# dependencies = ["numpy"]
 #
 # [tool.orcaslicer.plugin]
 # name = "Support Fins — Probe"
@@ -24,9 +24,11 @@ whether the port is even worth starting:
                real STL/3MF the user dragged in" are different claims. This reads
                them and reports counts + bbox so we can eyeball it against the file.
 
-  2. DEPS      The overhang math is pure-numpy-able; numpy is guaranteed present
-               (Orca's own `ModelInstance.matrix()` needs it). trimesh is NOT
-               guaranteed in the embedded interpreter, and the fuller fin steps
+  2. DEPS      The overhang math is pure-numpy-able. numpy is NOT bundled -- the
+               host's vertices()/triangles()/matrix() raise ImportError without it,
+               so it is declared in the PEP 723 `dependencies` above and Orca's
+               bundled `uv` installs it at plugin-install time. trimesh is likewise
+               not in the embedded interpreter, and the fuller fin steps
                (surface sampling, submesh, contact-line) currently use it. So the
                probe runs the OVERHANG CLASSIFICATION in pure numpy -- no trimesh --
                and separately just tries `import trimesh` to report whether the
@@ -39,8 +41,13 @@ That is the real ceiling and it is not a probe bug: fins can be COMPUTED here bu
 must be written to a .3mf and re-imported by the user. This probe stops at the
 report so we can confirm the read + the math before building the export half.
 
-Install (side-load): OrcaSlicer -> Plugins dialog -> Browse -> Install local
-plugin -> pick this .py. Or drop it in `<data_dir>/orca_plugins/`. Then run it
+Requires an OrcaSlicer NIGHTLY (or a release newer than 2.4.2) -- the plugin
+system is not in 2.4.2 stable or earlier.
+
+Install (side-load): OrcaSlicer -> Plugins -> Browse plugins (split button) ->
+Install local plugin -> pick this .py. Manual alternative: it must sit in ITS OWN
+subfolder, `<data_dir>/orca_plugins/support_fins_probe/support_fins_probe.py`
+(a bare .py directly in orca_plugins/ is not picked up). Then run it
 from the Plugins dialog's Run action with a model loaded on the plate; the report
 comes back in the result dialog.
 
@@ -75,24 +82,61 @@ def _probe_trimesh():
         return f"trimesh NOT available ({type(e).__name__}) -- port must reimplement its calls"
 
 
-def _analyse_mesh(V, T):
-    """Pure-numpy overhang classification on one volume's raw triangle arrays.
+def _world_mesh(obj, vol):
+    """One volume's triangles in PLATE (world) space, winding-corrected.
 
-    V: (N,3) float vertices in the file's own coordinates.
-    T: (M,3) int triangle vertex indices.
+    orca.host hands back vertices in the volume's LOCAL frame. The overhang test
+    is a z-normal test, so it must run after the instance + volume transforms:
+    a part the user rotated/scaled/lay-on-faced in Orca is otherwise scored in the
+    orientation it had in the file, which is exactly the orientation they changed.
+    """
+    mesh = vol.mesh()
+    V = np.asarray(mesh.vertices(), dtype=np.float64)
+    T = np.asarray(mesh.triangles(), dtype=np.int64)
+    M = np.asarray(obj.instance(0).matrix(), dtype=np.float64) @ \
+        np.asarray(vol.matrix(), dtype=np.float64)
+    V = (np.c_[V, np.ones(len(V))] @ M.T)[:, :3]
+    # A mirrored transform (det < 0) flips the winding, which would flip every
+    # normal and turn floors into "overhangs". Swap two indices to undo it.
+    if np.linalg.det(M[:3, :3]) < 0:
+        T = T[:, [0, 2, 1]]
+    return V, T
+
+
+def _is_model_part(vol):
+    """Skip modifiers / negative volumes / support blockers if the API tells us.
+
+    The host docs don't list a volume-type accessor, so probe a few likely names
+    and default to "yes, it's a part" if none exist.
+    """
+    for attr in ("is_model_part",):
+        f = getattr(vol, attr, None)
+        if f is not None:
+            try:
+                return bool(f() if callable(f) else f)
+            except Exception:
+                pass
+    return True
+
+
+def _analyse_mesh(V, T, z0):
+    """Pure-numpy overhang classification on one volume's triangle arrays.
+
+    V: (N,3) float vertices in PLATE (world) coordinates.
+    T: (M,3) int triangle vertex indices, winding already corrected.
+    z0: the owning OBJECT's lowest z (all its part volumes), so a multi-volume
+        object is seated as one part rather than each volume dropped separately.
     Mirrors spike_overhangs.py's nz-based test. Returns a dict of measures.
 
-    Note: this scores the model in its CURRENT (as-loaded) orientation only. The
+    Note: this scores the model in its CURRENT on-plate orientation only. The
     website's win is re-orienting to MINIMISE overhang before fitting fins; that is
     the next spike (spike_orient.py), not this one. Here we just prove read + math.
     """
-    V = np.asarray(V, dtype=np.float64)
-    T = np.asarray(T, dtype=np.int64)
     if V.size == 0 or T.size == 0:
         return None
 
     # Seat the part on the plate (min z -> 0), same as the website's print space.
-    V = V - [0.0, 0.0, V[:, 2].min()]
+    V = V - [0.0, 0.0, z0]
 
     tris = V[T]                       # (M,3,3): per-face vertex coords
     e1 = tris[:, 1] - tris[:, 0]
@@ -107,7 +151,7 @@ def _analyse_mesh(V, T):
     tri_z = tris[:, :, 2]
     on_bed = (tri_z <= BED_EPS).all(axis=1)
 
-    overhang = (nz < OVERHANG_CUT) & (~on_bed) & (areas >= 0.0)
+    overhang = (nz < OVERHANG_CUT) & (~on_bed)
     over_area = float(areas[overhang].sum())
     total_area = float(areas.sum())
 
@@ -135,8 +179,10 @@ class SupportFinsProbe(orca.script.ScriptPluginCapabilityBase):
         try:
             model = orca.host.model()
         except Exception as e:
-            return orca.ExecutionResult.failure(
-                "host-error", f"orca.host.model() raised {type(e).__name__}: {e}")
+            # (failure() needs an orca.PluginResult enum as its status, whose
+            # members aren't documented -- skipped() carries the message safely.)
+            return orca.ExecutionResult.skipped(
+                f"orca.host.model() raised {type(e).__name__}: {e}")
 
         objs = list(model.objects())
         if not objs:
@@ -147,16 +193,21 @@ class SupportFinsProbe(orca.script.ScriptPluginCapabilityBase):
         for oi, obj in enumerate(objs):
             vols = list(obj.volumes())
             lines.append(f"Object {oi}: {len(vols)} volume(s)")
+            meshes = []
             for vi, vol in enumerate(vols):
+                if not _is_model_part(vol):
+                    lines.append(f"  vol {vi}: modifier/negative -- skipped")
+                    continue
                 try:
-                    mesh = vol.mesh()
-                    V = np.asarray(mesh.vertices())
-                    T = np.asarray(mesh.triangles())
+                    meshes.append((vi, *_world_mesh(obj, vol)))
                 except Exception as e:
                     lines.append(f"  vol {vi}: mesh read FAILED "
                                  f"({type(e).__name__}: {e})")
-                    continue
-                r = _analyse_mesh(V, T)
+            if not meshes:
+                continue
+            z0 = min((V[:, 2].min() for _, V, _ in meshes if V.size), default=0.0)
+            for vi, V, T in meshes:
+                r = _analyse_mesh(V, T, z0)
                 if r is None:
                     lines.append(f"  vol {vi}: empty mesh")
                     continue
@@ -169,7 +220,7 @@ class SupportFinsProbe(orca.script.ScriptPluginCapabilityBase):
 
         lines.append("")
         lines.append("Read + overhang math ran inside Orca — the printfins.com "
-                     "analysis half is portable." if True else "")
+                     "analysis half is portable.")
         lines.append("NOTE: placing fins on the plate is NOT possible via the Orca "
                      "plugin API (host is read-only). Next phase writes a finned "
                      ".3mf for File > Import.")

@@ -44,8 +44,13 @@ breakaway mesh fin. Different, deeper, lower-fidelity. Not the plan.
 
 ## Install (side-load)
 
-OrcaSlicer → **Plugins** dialog → **Browse ▸ Install local plugin** → pick
-`support_fins_probe.py`. Or drop it in `<data_dir>/orca_plugins/`. Load a model, then
+**Needs an OrcaSlicer nightly (or a release newer than 2.4.2)** — the Python plugin
+system is not in 2.4.2 stable. First install pulls `numpy` via Orca's bundled `uv`
+(declared in the PEP 723 block).
+
+OrcaSlicer → **Plugins** → **Browse plugins ▸ Install local plugin** → pick
+`support_fins_probe.py`. Manual alternative: each plugin needs **its own subfolder** —
+`<data_dir>/orca_plugins/support_fins_probe/support_fins_probe.py`. Load a model, then
 **Plugins ▸ Run** the probe; the report comes back in the result dialog (and stdout).
 
 **Status:** untested against a live OrcaSlicer build — written to the documented API.
