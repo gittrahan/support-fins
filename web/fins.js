@@ -30,6 +30,7 @@ import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js'
 import { BED_EPS } from './overhangs.js';
 import { insidePart } from './inside.js';
 import { buildProps, noProps, surfaceZAt, emitTines, tineStepFor, PROP } from './prop.js';
+import { buildSwayBraces } from './sway.js';
 
 export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
@@ -1306,6 +1307,21 @@ function unservedAfterWedges(topo, rot, result, servedRegions, wedgeTris) {
  */
 export function buildFins(topo, result, rot, opts = {}) {
   applyTunables(opts.tunables);
+  const built = buildFinsCore(topo, result, rot, opts);
+  // Sway braces are an optional ADD-ON to whatever the mode placed (sway.js): a
+  // tall part still needs its overhangs held, and bracing its sides is a
+  // separate job on separate faces.
+  if (!opts.sway?.on) return built;
+  const sw = buildSwayBraces(topo, result, rot,
+    { ...opts.sway, tines: opts.tines, layerHeight: opts.layerHeight });
+  return {
+    ...built,
+    triangles: [...built.triangles, ...sw.triangles],
+    sway: { count: sw.count, tines: sw.tines, skipped: sw.skipped, reason: sw.reason },
+  };
+}
+
+function buildFinsCore(topo, result, rot, opts = {}) {
   const mode = opts.mode ?? 'prop';
   const maxFins = opts.maxFins ?? FIN.maxFins;
   const out = [];
@@ -1337,7 +1353,7 @@ export function buildFins(topo, result, rot, opts = {}) {
     // tests/coverage.test.js.
     const coverage = Math.max(0, Math.min(1, opts.coverage ?? FIN.coverDefault));
     const covPitch = coverPitch(coverage);
-    const base = buildFins(topo, result, rot, { ...opts, mode: 'prop', tines: withTines });
+    const base = buildFinsCore(topo, result, rot, { ...opts, mode: 'prop', tines: withTines });
 
     // Add ANGLED WEDGES on grippable down-facing patches that NO prop wall
     // reached -- the wide/long leaning face where a vertical wall is blocked by

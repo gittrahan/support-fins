@@ -78,5 +78,14 @@ that aren't fin geometry, because the file format is equally part of the product
   face alone (dropping a partial one would shear the rest of the mesh), and a
   non-ZIP or mesh-free package throws rather than opening blank.
 
+**`sway.test.js`** -- sway braces (`web/sway.js`) on a 150 mm post (plain blocks,
+no stress models needed):
+- a tall part gets braces, watertight, and the **rib never fuses** into the part;
+- every tine is **one layer**, on the layer grid, and bites into solid;
+- tines run **all the way up at even spacing**, and "grip from" keeps them off below it;
+- a short part gets none **and says why**; Draw's one-click brace works on a side and
+  refuses a roof; `buildFins` without the option is unchanged;
+- a brace straight across a channel from another is **refused**, a staggered one is not.
+
 See `docs/FIN-SPEC.md` for the spec these encode. `prototype/stress/run.js` is the
 broader sweep (all models × poses) for eyeballing; this suite is the pass/fail gate.

@@ -84,6 +84,25 @@ welts.
   corner placement, 0.3×0.5 horizontal tines, two-fins-opposite, one-STL — is already
   implemented; this chamfer is the only spec feature we intentionally skip.)
 
+## Sway braces (tall parts) — `web/sway.js`
+
+Not from the video; an extension for tall, slender parts that drift, sag or wobble
+as they grow. Nothing overhangs, but the nozzle's drag and each layer shrinking as
+it cools push the top around, and every movement leaves a visible layer line. Off by
+default ("Sway braces (tall parts)" in the options panel).
+
+| feature | value | rationale |
+|---|---|---|
+| orientation | vertical rib, **edge-on** to an upright face (≤ 30° lean) | a plate lying flat against the face bends the easy way exactly when the part leans into it; edge-on is its stiff direction |
+| inner edge | the breakaway gap (Support gap) off the face | same standoff as every other support |
+| depth | **15%** of rib height at the bed ("Brace depth"), tapering to 4 mm at the top | stiffer than the part at the bottom, where the lever arm is longest; a flat top, never a point |
+| thickness | 1.2 mm + 0.004 mm per mm of height, max 2.4 mm | a 250 mm rib at 1.2 mm is more slender than the part it holds |
+| tines | one layer, one bead wide, **evenly spaced** (default 6 mm, "Brace tine spacing") from "Brace grip from" to the top | the sway is at the top; the Brace's dense-low, 1.6×-spreading rows left the top of a tall part untied |
+| grip floor | ≥ 3 tines and ≥ 30% of the rows must find the face | a tall rib tied on at a few points still lets the part wave about between them |
+| auto placement | up to 4 faces with bearings ≥ 60° apart, a rib per ~100 mm of face width, at the face's **tallest** columns | holds both axes; a rib at a gable's low end braces the half that wasn't moving |
+| manual | Draw mode: one click on an upright side; click a placed support to select it, Delete / "Remove selected" to take it out | |
+| clash check | ≥ 1 mm of air between braces, compared at the same heights (feet on the plate, ribs every 10 mm up) | two ribs on facing walls of a channel reach toward each other; fused, they are one bar that neither snaps off nor breaks away |
+
 ## Naming
 
 Slant3D says "grip fins" once. Unrelated to the *grip fin* used elsewhere in Matthew's

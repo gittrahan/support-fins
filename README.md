@@ -44,7 +44,8 @@ engine is validated against third-party STLs and pinned by an offline test suite
 
 Working: overhang detection, bed-reachability, contoured breakaway fin walls, orientation +
 load-direction scoring, the combined fin (wall + tines that fuse into the part — the whole
-point; see `docs/FIN-SPEC.md`), STL and 3MF import, STL and 3MF export.
+point; see `docs/FIN-SPEC.md`), optional sway braces that tie tall parts' sides on all
+the way up (auto, or click an upright side in Draw), STL and 3MF import, STL and 3MF export.
 
 Still open: scale-aware fin profiles, and the bed pad on tilted exports.
 
