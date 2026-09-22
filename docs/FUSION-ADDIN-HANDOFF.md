@@ -28,8 +28,10 @@ not working), and anything that changes the user's own geometry.
 - Repo: <https://github.com/MitchMilam/support-fins> (Mitch's fork; the original is
   Matthew's project). Local clone: `C:\Users\mitch\source\repos\support-fins`.
 - Branch **`sway-braces`**, pushed, **no PR yet** (waiting on a physical print):
-  - `6cb3e85` sway: add optional sway braces for tall parts
-  - `66ca477` readme: describe sway braces for tall parts
+  - `6fb7b2c` sway: add optional sway braces for tall parts
+  - `97c986c` readme: describe sway braces for tall parts
+  - `d89e842` docs: add handoff for a Fusion add-in that inserts sway braces (this document)
+  - Rebased onto Matthew's `main` at `771ac7b` on 2026-09-22; merges as a fast-forward.
 - Files to port:
   - `web/sway.js` — the whole brace algorithm, ~500 lines, pure geometry, no DOM. **This is
     the reference implementation.** Where this document and the code disagree, the code wins.
