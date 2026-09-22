@@ -1189,13 +1189,83 @@ function ribbon(secs, out) {
 }
 
 /**
+ * The stations a plate wall may occupy: the longest run of TALL stations
+ * (`tall[k]`, >= minHeight) extended at each end through the contiguous LOW ones
+ * (`low[k]`, >= minHeightSquat) -- the wall's tail running on down the slope.
+ *
+ * Why: stations are 1mm apart and the wall used to begin at the first one tall
+ * enough for a full T, so where an overhang slopes INTO the bed the wall stopped
+ * ~2mm of height (~3mm of slope on a 35deg cube) short of the part's bottom edge.
+ * The squat pass never caught that band either -- on a slope it is one station
+ * long, under its minStations/minSpanSquat -- so it printed into air. A tail is
+ * the same wall continuing down, not a separate prop, so it needs no span of its
+ * own. A run with no tall station is never a wall (that band is the squat pass's).
+ */
+export function withLowTails(tall, low) {
+  const run = longestRun(tall);
+  const mask = tall.map(() => false);
+  if (!run) return mask;
+  let a = run[0], b = run[1];
+  while (a > 0 && low[a - 1]) a--;
+  while (b < low.length && low[b]) b++;
+  for (let k = a; k < b; k++) mask[k] = true;
+  return mask;
+}
+
+/**
+ * Stations that belong to a TALL wall's tail rather than a squat ledge: low
+ * (>= minHeightSquat, < minHeight) stations connected through other low stations
+ * to one >= minHeight. buildSquatBed leaves these to the tall wall's tail
+ * (withLowTails) so the two never stack two props on the same stations.
+ */
+function tailStations(line) {
+  const hOf = (p) => p[2] - PROP.gap;
+  const low = line.map((p) => hOf(p) >= PROP.minHeightSquat && hOf(p) < PROP.minHeight);
+  const out = line.map(() => false);
+  for (let k = 0; k < line.length; k++) {
+    if (hOf(line[k]) < PROP.minHeight) continue;
+    for (let j = k - 1; j >= 0 && low[j]; j--) out[j] = true;
+    for (let j = k + 1; j < line.length && low[j]; j++) out[j] = true;
+  }
+  return out;
+}
+
+/**
+ * Where a line's END dips under the squat floor, insert one station exactly AT
+ * the floor (top = minHeightSquat), linearly between the first station above it
+ * and the last below (an edge row's track can run past the knife edge, so
+ * several end stations may sit under the floor). Stations are 1mm apart, so without this the wall's low end
+ * snaps to whichever station happens to clear the floor -- up to a full step
+ * (0.7mm of height on a 35deg face) higher than it has to. Mutates `line`.
+ */
+export function insertFloorStations(line) {
+  const floorZ = PROP.minHeightSquat + PROP.gap + 0.02;   // a hair over, so float noise can't drop it
+  const cross = (i, j) => {                       // i below the floor, j above
+    const zi = line[i][2], zj = line[j][2];
+    if (!(zi < floorZ && zj > floorZ + 1e-3)) return null;
+    const t = (floorZ - zi) / (zj - zi);
+    return line[i].map((v, c) => v + (line[j][c] - v) * t);
+  };
+  // walk in from each end past every sub-floor station to the first crossing
+  let j = line.length - 1;
+  while (j > 0 && line[j][2] < floorZ) j--;
+  const hiEnd = j < line.length - 1 ? cross(j + 1, j) : null;
+  if (hiEnd) line.splice(j + 1, 0, hiEnd);
+  let i = 0;
+  while (i < line.length - 1 && line[i][2] < floorZ) i++;
+  const loEnd = i > 0 ? cross(i - 1, i) : null;
+  if (loEnd) line.splice(i, 0, loEnd);
+  return line;
+}
+
+/**
  * Sweep the prop along `line`, emitting an upside-down T: a straight thin wall
  * standing on a flat base flange. They are TWO overlapping closed solids, not
  * one -- the slicer unions them, the same overlap approach the rest of the repo
  * uses -- which keeps each section convex and sidesteps capping a T's concave
  * outline. Replaces the single cone-footed solid that read as a golf tee.
  */
-export function sweep(line, zBed, out) {
+export function sweep(line, zBed, out, minH = PROP.minHeight) {
   const wall = [], flange = [];
   for (let i = 0; i < line.length; i++) {
     const p = line[i];
@@ -1209,10 +1279,13 @@ export function sweep(line, zBed, out) {
 
     const top = p[2] - PROP.gap;
     const h = top - zBed;
-    if (h < PROP.minHeight) return false;
+    if (h < minH) return false;
     const foot = footFor(h);
-    const ztip = Math.max(top - PROP.tipH, zBed + PROP.baseH + 0.1);
-    const baseTop = zBed + PROP.baseH;
+    // A low TAIL station (see withLowTails) has less headroom than the flange +
+    // tip taper assume, so both shrink with it. Identical to before for h >= 1.2.
+    const flangeH = Math.min(PROP.baseH, h / 2);
+    const ztip = Math.max(top - PROP.tipH, zBed + flangeH + 0.1);
+    const baseTop = zBed + flangeH;
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
 
     // the stem: a straight thin wall from the bed up to the breakaway tip
@@ -1785,9 +1858,10 @@ export function buildSquatBed(line, regionTris, topo, rot, offset, out) {
   const zBed = 0;
   const placed = [];
   const heightOf = (p) => (p[2] - PROP.gap) - zBed;
+  const tail = tailStations(line);
   const usable = line.map((p, k) => {
     const h = heightOf(p);
-    return h >= PROP.minHeightSquat && h < PROP.minHeight
+    return h >= PROP.minHeightSquat && h < PROP.minHeight && !tail[k]
         && stationIsClear(line, k, topo, rot, offset);
   });
 
@@ -2063,6 +2137,8 @@ export function buildProps(topo, result, rot, opts = {}) {
       // geometry they could not see (gap 0.003mm, flank 0.011mm, hub_corner).
       contourTop(line, regionTris);
       lowerSag(line, regionTris);
+      // pin the wall's low end to the squat floor, not the nearest 1mm station
+      if (insertFloorStations(line).length) contourTop(line, regionTris);
 
       // SQUAT BED PASS: hold the near-bed stations too low for the flanged wall
       // below (which discards everything under minHeight as stub/blocked). Runs on
@@ -2087,8 +2163,10 @@ export function buildProps(topo, result, rot, opts = {}) {
 
       // Trim to the longest run that can actually carry a wall, rather than
       // discarding the track over a local problem. See `longestRun`.
-      const usable = line.map((p, k) =>
-        p[2] - PROP.gap >= PROP.minHeight && stationIsClear(line, k, topo, rot, off));
+      const clear = line.map((p, k) =>
+        p[2] - PROP.gap >= PROP.minHeightSquat && stationIsClear(line, k, topo, rot, off));
+      const usable = withLowTails(
+        line.map((p, k) => clear[k] && p[2] - PROP.gap >= PROP.minHeight), clear);
       const run = longestRun(usable);
       if (!run || run[1] - run[0] < PROP.minStations) { skipped.blocked++; continue; }
       const sub = line.slice(run[0], run[1]);
@@ -2108,8 +2186,10 @@ export function buildProps(topo, result, rot, opts = {}) {
       // all-or-nothing failure the trim exists to prevent, reintroduced one step
       // later. Re-trim against the settled line: on height, and on the measured
       // clearance to everything settleTop could not see (stationCertified).
-      const avail = sub.map((p, k) =>
-        p[2] - PROP.gap >= PROP.minHeight && stationCertified(sub, k, topo, rot, off));
+      // Tall stations carry the wall; low ones may only extend it as its tail.
+      const lowA = sub.map((p, k) =>
+        p[2] - PROP.gap >= PROP.minHeightSquat && stationCertified(sub, k, topo, rot, off));
+      const tallA = sub.map((p, k) => lowA[k] && p[2] - PROP.gap >= PROP.minHeight);
 
       // Sweep, then MEASURE the finished solid -- exact triangle-to-triangle
       // clearance against the whole part (solidClearance), because the last
@@ -2121,7 +2201,7 @@ export function buildProps(topo, result, rot, opts = {}) {
       // prop is a ruined print.
       let placed = false, reason = null;
       for (let tries = 0; tries < 4 && !placed; tries++) {
-        const run2 = longestRun(avail);
+        const run2 = longestRun(withLowTails(tallA, lowA));
         if (!run2 || run2[1] - run2[0] < PROP.minStations) { reason = 'blocked'; break; }
         const settled = sub.slice(run2[0], run2[1]);
         const span2 = Math.hypot(settled[settled.length - 1][0] - settled[0][0],
@@ -2129,7 +2209,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         if (span2 < PROP.minSpan) { reason = 'stub'; break; }
 
         const before = out.length;
-        if (!sweep(settled, zBed, out)) {
+        if (!sweep(settled, zBed, out, PROP.minHeightSquat)) {
           out.length = before;
           reason = 'degenerate';
           break;
@@ -2151,9 +2231,10 @@ export function buildProps(topo, result, rot, opts = {}) {
             if (dx * dx + dy * dy < dBest) { dBest = dx * dx + dy * dy; kBest = k; }
           }
           const at = run2[0] + kBest;
-          avail[Math.max(0, at - 1)] = false;
-          avail[at] = false;
-          avail[Math.min(avail.length - 1, at + 1)] = false;
+          for (const k of [Math.max(0, at - 1), at, Math.min(lowA.length - 1, at + 1)]) {
+            lowA[k] = false;
+            tallA[k] = false;
+          }
           reason = 'weld';
           continue;
         }

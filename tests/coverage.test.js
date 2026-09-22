@@ -4,7 +4,7 @@
 // slider moves density monotonically, and only ever ADDS support (denser is
 // never fewer fins, so it can't strand an overhang).
 
-import { tiltedBlockTopo, analyze, fins, assert } from './_util.js';
+import { tiltedBlockTopo, analyze, fins, prop, assert } from './_util.js';
 
 const IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
@@ -48,4 +48,32 @@ Deno.test('coverage: the neutral default never cries sag on a wide plate', () =>
 
 Deno.test('coverage: dragging below centre DOES warn on a wide multi-row plate', () => {
   assert(sagRiskAt(0) === true, 'no sag warning at the sparsest setting on a wide plate');
+});
+// Matthew's screenshot (cube-tines-35deg-RAW-tilted.stl): the walls ran the full
+// WIDTH of the face but stopped ~3mm up the slope from the part's bottom edge,
+// leaving the lowest band -- where the overhang meets the pad -- in air. Cause:
+// stations sit 1mm apart and the wall began at the first one >= minHeight
+// (1.5mm), while the squat pass wants 3 stations/4mm of low band -- a slope running
+// INTO the bed has ~1 low station, so nobody built it. Pin the wall's low end: every
+// wall reaches down to the squat floor (top ~minHeightSquat, overhang <1mm up), not
+// the old 1.9mm, and the geometry comes within ~1.2mm of the bottom edge.
+Deno.test('coverage: walls run down the slope to the part bottom edge, not stop 3mm short', () => {
+  const topo = tiltedBlockTopo(-20, 20, -20, 20, -20, 20, 35);
+  const res = analyze(topo, 45, IDENTITY);
+  const b = fins.buildFins(topo, res, IDENTITY, { mode: 'auto', bedPad: true, tines: true, coverage: 0.5 });
+  // The bottom edge is where the overhang meets z = 0: 35deg tilt about X puts it
+  // at y = -20*cos35 + 20*sin35 (the cube's (-20,+20) corner in y,z), ~-4.91.
+  const a = (35 * Math.PI) / 180;
+  const edgeY = -20 * Math.cos(a) + 20 * Math.sin(a);
+  const walls = b.props.filter((p) => !p.squat);
+  assert(walls.length >= 3, `expected a row of walls, got ${walls.length}`);
+  for (const p of walls) {
+    const low = p.line.reduce((m, q) => (q[2] < m[2] ? q : m));
+    const lowTop = low[2];                     // props[].line is the wall top (gap already off)
+    assert(lowTop <= prop.PROP.minHeightSquat + 0.15,
+      `wall at x=${low[0].toFixed(1)} stops with its top ${lowTop.toFixed(2)}mm up -- ` +
+      `should run down to ~${prop.PROP.minHeightSquat}mm`);
+    assert(low[1] - edgeY < 1.4,
+      `wall at x=${low[0].toFixed(1)} ends ${(low[1] - edgeY).toFixed(2)}mm up-slope of the bottom edge`);
+  }
 });
