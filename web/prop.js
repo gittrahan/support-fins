@@ -424,11 +424,15 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
  * planes.js's 15-degree vertical cut was: on that frame the level contour is
  * the SHORT direction, and the flagship 96mm wall came out 15.7mm.)
  *
- * One track per maxUnsupportedSpan of width, centred so the outermost sit half
- * a spacing inside the edges: a patch narrower than one span gets exactly one
- * wall down its middle, a wide plane gets a row of parallel buttresses. Each
- * track is straight in XY by construction, so the sweep's sections are parallel
- * and cannot collide.
+ * A patch narrower than one span gets exactly one wall down its middle. A WIDE
+ * plane lays its rows EDGE TO EDGE -- a buttress on each outer edge plus evenly
+ * between -- so the overhang's full width, and its edges and corners (which curl
+ * worst), are held, not just a centred band that leaves half a spacing bare on
+ * each side (the "fin doesn't cover the whole overhang" gap). Bands are sized by
+ * CEIL so the resulting pitch never exceeds the requested span (the anti-sag cap
+ * at the default), which also makes a wide face a touch denser than the old
+ * round-and-centre. Each track is straight in XY by construction, so the sweep's
+ * sections are parallel and cannot collide.
  *
  * Where the patch does not cover a station -- a pocket, the hole in the middle
  * of a bowl's ring, the notch of an L -- the track SPLITS, and each piece stands
@@ -552,11 +556,31 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // small part, so the clamp is gone and the caller warns (sagRisk) when the
   // resulting spacing actually exceeds the cap. Denser still only adds rows.
   const rowSpan = Math.max(1, span);
-  const nWalls = Math.max(1, Math.round(vExt / rowSpan));
+  // CEIL, not round: the pitch (vExt / nBands) then never exceeds rowSpan, so a
+  // wide face is held at least as tight as the requested cap rather than a hair
+  // looser. nBands is the number of GAPS; a wide face gets nBands+1 rows, edge to
+  // edge (see below).
+  const nBands = Math.max(1, Math.ceil(vExt / rowSpan));
+
+  // Row v-offsets across the width. Narrow face (one band): a single centred wall,
+  // which bridges -- unchanged. Wide face: a wall on each outer EDGE plus evenly
+  // between, so the whole overhang incl. its edges/corners is held. The two edge
+  // rows are pulled a hair inboard so they sit on the face, not on its razor edge
+  // where surfaceZAt reads past the end and drops the track.
+  const rowVs = [];
+  if (nBands <= 1) {
+    rowVs.push(vLo + vExt * 0.5);
+  } else {
+    const inset = Math.min(rowSpan * 0.2, vExt * 0.05, PROP.footMin);
+    for (let w = 0; w <= nBands; w++) {
+      let v0 = vLo + (vExt * w) / nBands;
+      if (w === 0) v0 += inset; else if (w === nBands) v0 -= inset;
+      rowVs.push(v0);
+    }
+  }
 
   const tracks = [];
-  for (let w = 0; w < nWalls; w++) {
-    const v0 = vLo + (vExt * (w + 0.5)) / nWalls;
+  for (const v0 of rowVs) {
     let cur = [];
     for (let k = 0; k <= nSt; k++) {
       const u = uLo + ((uHi - uLo) * k) / nSt;
@@ -574,7 +598,7 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // The lateral gap between adjacent rows this face ended up with. The caller
   // compares it to the anti-sag cap to decide whether to warn: only a face wide
   // enough to want >1 row can actually sag, and only when its spacing exceeds cap.
-  kept.spacing = nWalls > 1 ? vExt / nWalls : 0;
+  kept.spacing = nBands > 1 ? vExt / nBands : 0;
   return kept;
 }
 

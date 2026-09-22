@@ -77,3 +77,30 @@ Deno.test('coverage: walls run down the slope to the part bottom edge, not stop 
       `wall at x=${low[0].toFixed(1)} ends ${(low[1] - edgeY).toFixed(2)}mm up-slope of the bottom edge`);
   }
 });
+
+// EDGE-TO-EDGE. A wide overhang lays its buttress rows out to its own edges (plus
+// evenly between), not a centred band that leaves half a spacing bare on each side
+// -- the "the fin doesn't cover the whole overhang" gap. Pin that the outermost
+// fin geometry reaches near the plate's x-edges (the row axis for a tilt about X).
+Deno.test('coverage: wide-face rows reach the overhang edges, not half a pitch inside', () => {
+  // A 40mm cube tilted 35deg: its underside is a wide flat overhang whose row runs
+  // across X out to the edges at +-20. Old centred layout stopped ~half a pitch
+  // inside (outer rows ~+-13, maxAbsX ~16 with the foot). Edge-to-edge lands the
+  // outer rows ~+-18, reaching the edge/corner (maxAbsX ~21 with the foot).
+  const topo = tiltedBlockTopo(-20, 20, -20, 20, -20, 20, 35);
+  const res = analyze(topo, 45, IDENTITY);
+  const b = fins.buildFins(topo, res, IDENTITY, { mode: 'auto', bedPad: true, tines: true, coverage: 0.5 });
+  let maxAbsX = 0;
+  for (const v of b.triangles) if (Math.abs(v[0]) > maxAbsX) maxAbsX = Math.abs(v[0]);
+  assert(maxAbsX > 18, `outer fins stop short of the +-20 edge (maxAbsX ${maxAbsX.toFixed(1)}) -- edge not covered`);
+});
+
+Deno.test('coverage: a narrow face still gets ONE centred wall, not two edge walls', () => {
+  // Edge-to-edge only kicks in on a face wide enough for >1 band; a face that
+  // bridges on a single wall must not sprout a wall on each edge (waste + the pair
+  // could fuse). One band => one centred row, unchanged.
+  const topo = tiltedBlockTopo(-5, 5, -45, 45, -6, 6, 55);   // only 10mm across
+  const res = analyze(topo, 60, IDENTITY);
+  const b = fins.buildFins(topo, res, IDENTITY, { mode: 'auto', bedPad: true, tines: true, coverage: 0.5 });
+  assert(b.fins.length <= 2, `narrow face got ${b.fins.length} fins -- expected ~1 centred wall`);
+});
