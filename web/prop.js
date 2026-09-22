@@ -565,13 +565,16 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // Row v-offsets across the width. Narrow face (one band): a single centred wall,
   // which bridges -- unchanged. Wide face: a wall on each outer EDGE plus evenly
   // between, so the whole overhang incl. its edges/corners is held. The two edge
-  // rows are pulled a hair inboard so they sit on the face, not on its razor edge
-  // where surfaceZAt reads past the end and drops the track.
+  // rows sit HALF A WALL-THICKNESS in from the edge, so the wall's OUTER face is
+  // flush with the overhang edge (it reaches all the way out) while its body still
+  // sits on the face -- not centred on the razor edge, where half the wall hangs
+  // off and the clearance pass drops it. If a ragged edge still rejects the outer
+  // row, the next row in covers -- the loss is graceful, never a bare middle.
   const rowVs = [];
   if (nBands <= 1) {
     rowVs.push(vLo + vExt * 0.5);
   } else {
-    const inset = Math.min(rowSpan * 0.2, vExt * 0.05, PROP.footMin);
+    const inset = PROP.th / 2;
     for (let w = 0; w <= nBands; w++) {
       let v0 = vLo + (vExt * w) / nBands;
       if (w === 0) v0 += inset; else if (w === nBands) v0 -= inset;

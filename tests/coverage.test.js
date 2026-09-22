@@ -85,14 +85,15 @@ Deno.test('coverage: walls run down the slope to the part bottom edge, not stop 
 Deno.test('coverage: wide-face rows reach the overhang edges, not half a pitch inside', () => {
   // A 40mm cube tilted 35deg: its underside is a wide flat overhang whose row runs
   // across X out to the edges at +-20. Old centred layout stopped ~half a pitch
-  // inside (outer rows ~+-13, maxAbsX ~16 with the foot). Edge-to-edge lands the
-  // outer rows ~+-18, reaching the edge/corner (maxAbsX ~21 with the foot).
+  // inside (outer rows ~+-13, maxAbsX ~16 with the foot). Edge-to-edge seats the
+  // outer rows half a wall-thickness in (+-19.4), so the wall's OUTER FACE is flush
+  // with the +-20 edge -- fin geometry reaches past 19.5 (well past, with the foot).
   const topo = tiltedBlockTopo(-20, 20, -20, 20, -20, 20, 35);
   const res = analyze(topo, 45, IDENTITY);
   const b = fins.buildFins(topo, res, IDENTITY, { mode: 'auto', bedPad: true, tines: true, coverage: 0.5 });
   let maxAbsX = 0;
   for (const v of b.triangles) if (Math.abs(v[0]) > maxAbsX) maxAbsX = Math.abs(v[0]);
-  assert(maxAbsX > 18, `outer fins stop short of the +-20 edge (maxAbsX ${maxAbsX.toFixed(1)}) -- edge not covered`);
+  assert(maxAbsX > 19.5, `outer fins stop short of the +-20 edge (maxAbsX ${maxAbsX.toFixed(1)}) -- edge not covered`);
 });
 
 Deno.test('coverage: a narrow face still gets ONE centred wall, not two edge walls', () => {
