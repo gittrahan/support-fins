@@ -8,6 +8,39 @@ or linked from here.
 
 ---
 
+## 0. Current status (updated 2026-09-22, add-in v0.2.1)
+
+**Phase 1 is built and working in Fusion.** The add-in lives in a separate repo, not in
+support-fins; that repo's README covers install, use and layout. File paths below such as
+`SupportFins/…`, `sway_core/…` and `tests/test_sway.py` are in the add-in repo. Sections 1–3 below are the original spec and still hold. Section 4 now
+records where the build departed from the plan, and sections 7–9 are rewritten.
+
+**Confirmed working in Fusion (Mitch's machine):**
+- Auto on the fence cap (an imported STL mesh body): 4 braces.
+- Pick faces: clicking several spots, including several on the same wall, gives one brace per click.
+  Undo last pick and Clear picks work.
+- Single-component *Part Design* documents: braces go into the root component.
+- Bed defaults to the XY origin plane.
+
+**Tested outside Fusion:** `python -m unittest discover -s tests` runs 15 tests. They are the
+10 ported website tests plus checks for:
+- a leaning face being refused;
+- the defaults;
+- mapping a click to the right face;
+- a click ray landing on the face you see;
+- the box-and-cut construction rebuilding each piece exactly;
+- the fence cap matching the website: **4 braces, 102 tines, 1 skipped**, exactly
+  (`tools/check_stl.py … --grow`).
+
+**Not yet tried in Fusion:**
+- parametric vs direct designs;
+- parts inside sub-components (occurrence transforms, proxies);
+- multi-component documents, where braces go in a separate *Supports* component;
+- construction planes other than XY;
+- curved faces.
+
+---
+
 ## 1. Goal and scope
 
 **Phase 1 — sway braces (this project's first deliverable).**
@@ -178,6 +211,52 @@ another brace — click a spot staggered from it".
 - Settings to remember between sessions: Fusion attributes or a small JSON file next to the
   add-in.
 
+### What was actually built (2026-09-22)
+
+Where the build departed from the plan above, and why:
+
+- **Faces come from a mesh, not BRep planar faces.** The body is meshed (a mesh body's own mesh is
+  used as-is; solid bodies are meshed with a 0.05 mm tolerance). Walls are then found with a port
+  of the website's region-growing `findWallPatches` (`sway_core/patches.py`,
+  `grow_wall_patches`). Treating each exact planar face as its own wall gave the fence cap
+  **5 braces / 118 tines**; region-growing gives the website's **4 / 102**. It also handles STL
+  bodies, where every triangle is its own face, and curved faces.
+- **Obstruction is the website's triangle clipping** against that mesh, not BRep booleans.
+  Containment for tines uses `pointContainment` on solid bodies and mesh ray-parity on mesh bodies.
+- **Tapered rib:** every piece is a convex prism built as its bounding box minus one big box past
+  each slanted edge (`Prism.boxes()` in the core, unit-tested). Each brace's rib, foot and tines are
+  unioned into one body named *Sway brace N*.
+- **Bed:** defaults to the ground origin plane (XY, or XZ when Fusion's up axis is Y). A face or
+  construction plane can be picked instead; up is whichever side the part is on. Picking the part
+  itself stands it on its lowest point, square to Fusion's up axis. It works but isn't the
+  expected workflow.
+- **Mesh bodies are supported** (Fusion imports STLs as mesh bodies, and the fence cap is one).
+- **Where braces go:** a *Supports* component, or the root component in a single-component
+  *Part Design* document (`addNewComponent` raises there). A base feature is used in parametric
+  designs. Each brace body carries a `SupportFins/sway` attribute (foot and levels in world cm)
+  so later runs avoid it.
+
+### Gotchas found the hard way
+
+- **Fusion toggles selections.** Clicking an already-selected entity deselects it. On a mesh body
+  every click hits the same entity, so a selection-based "one brace per click" loses every second
+  click. Clearing the selection in code doesn't reset Fusion's toggle state, and tracking the
+  cursor over a selected entity goes stale. The fix: in `preSelect`, note the body under the
+  cursor and set `isSelectable = False`. Then on `mouseClick`, cast a ray from the camera through
+  the clicked pixel (`viewport.viewToModelSpace` plus the camera) onto the part's mesh.
+- **A click changes no input, so Fusion won't re-run the preview.** Call
+  `command.doExecutePreview()` after banking a pick.
+- **Preview bodies are live while the command recomputes.** Anything that reads the design mid-
+  command, such as the "existing braces" clash list, sees the previous preview's bodies. Read it
+  once when the dialog opens, or every pick clashes with its own preview.
+- **Stop/Run doesn't reload an add-in's submodules.** They stay cached in `sys.modules`.
+  `SupportFins.py` purges its package's modules on `run`. Bump the manifest version with each
+  Fusion-side change; the dialog readout shows it, so Mitch can confirm which build is running.
+- **`InputChanged.inputs` is the changed input's own group.** Use
+  `args.firingEvent.sender.commandInputs` to reach the whole dialog.
+- Fusion's *Edit in VS Code* writes `SupportFins/.env` and `.vscode/` with machine-specific paths.
+  Both are gitignored.
+
 ## 5. Reference model and expected results
 
 **Model:** `Fence Cap-45 Degree Vertical-Rev 3.stl` (in the support-fins repo's `Samples/`
@@ -215,16 +294,35 @@ On a 40 × 30 × 150 mm block (and a two-wall channel):
    refused; one staggered 20 mm along is allowed.
 10. Auto on the channel places ≥ 2 braces without clashes.
 
+**Ported (2026-09-22)** in `tests/test_sway.py`. Test 8 has no Fusion equivalent (the command is
+the opt-in), so it became a check that the defaults match the website's.
+
 ## 7. Open items
 
-- **Physical print pending** (started the night of 2026-09-21, 8–9 h). Record: does the top
-  still move or show layer lines; how easily do braces snap off; what marks do tines leave;
-  does any brace wobble or lift. **Defaults (depth, thickness, spacing) may change** — port
-  after, or keep them as named constants that are easy to update.
-- Whether separate tine bodies merge with the part in Mitch's slicer.
-- Distribution: install by hand in the add-ins folder first; the Autodesk App Store later
-  (it has a review process).
+- **Slicer check (next):** export the part plus the brace bodies from Fusion (STL/3MF) and confirm
+  the slicer merges the tines, which overlap the part by `bite`, into the part.
+- **Physical print pending** (started the night of 2026-09-21, 8–9 h). Record:
+  - does the top still move or show layer lines?
+  - how easily do the braces snap off?
+  - what marks do the tines leave?
+  - does any brace wobble or lift?
+
+  The defaults may change. They're the `SWAY` constants in `SupportFins/sway_core/sway.py`.
+  `tests/test_sway.py` pins some of them, and the fence-cap test pins the website's result.
+- **Untried in Fusion:**
+  - parametric vs direct designs;
+  - parts in sub-components;
+  - multi-component documents (the separate *Supports* component);
+  - picking a face or a non-XY plane as the bed;
+  - curved faces.
+- **Hand-placed reference not yet reproduced:** the 169/194/219 mm braces from section 5 on the
+  fence cap. The click positions aren't recorded, so it needs clicking at matching spots in Fusion.
+- **Weight readout:** "g solid" is solid volume × density, an upper bound. The website's ~20 g for
+  the Auto set evidently uses a different model; the add-in says ~31 g.
+- Distribution: install by hand in the add-ins folder for now (see the README); the Autodesk App
+  Store later (it has a review process).
 - support-fins PR for Matthew: open once the print confirms. (Issue already left for him.)
+- Phase 2 (overhang fins via the website's JS engine in an HTML palette): not started.
 - Known website bug, unrelated to Fusion but worth knowing: material (PLA/PETG) and gap settings
   don't reach the website's background build worker in Auto mode. `sway.js` works around it
   by taking gap/bite as options.
@@ -232,21 +330,29 @@ On a 40 × 30 × 150 mm block (and a two-wall channel):
 ## 8. Machine notes (Mitch's Windows PC)
 
 - Python: `C:\Python312\python.exe`. The bare `python3` command opens the Microsoft Store.
-  `numpy`/`trimesh` are not installed.
+  `numpy`/`trimesh` are not installed; pytest isn't either, so the tests use `unittest`.
 - Node is installed; **Deno is not** (the website's tests are Deno tests; they were run under
   Node with a small shim).
 - Git Bash and PowerShell are both available.
-- An **Autodesk Fusion connection (MCP)** is available in Claude sessions — useful for a quick
-  prototype (pick a face on the fence cap, build one brace) before writing the full add-in.
+- **The add-in is installed** as a junction:
+  `%APPDATA%\Autodesk\Autodesk Fusion 360\API\AddIns\SupportFins` → the add-in repo's `SupportFins/`.
+  Edits are live; **Stop** then **Run** in Scripts and Add-Ins reloads them. Keep only one
+  SupportFins entry in that list. A second copy linked to the repo folder once caused confusion.
+- **GitHub CLI** is installed at `C:\Program Files\GitHub CLI\gh.exe` and logged in as MitchMilam.
+  It may not be on PATH in an already-open shell, so call it by full path.
+- **No Autodesk Fusion connection (MCP) was available** in the session that built the add-in,
+  despite the note that used to be here, so Fusion-side code can't be run from a session. Mitch
+  tests every Fusion change; bump the manifest version each time.
 - Website dev server: `C:\Python312\python.exe dev-server.py` in the support-fins repo →
   http://localhost:8731. Downloads from the in-app browser pane arrive as unnamed `.tmp` files;
   use a normal browser for exports.
 
-## 9. Suggested first steps
+## 9. Suggested next steps
 
-1. Wait for the print result; update the defaults in section 3 if needed.
-2. Prototype through the Fusion connection: fence cap, pick the bed and one inner wall, build
-   one brace as temporary bodies, and check it against the 169/194/219 mm reference.
-3. Scaffold the add-in: pure-Python `sway` module + tests (section 6), then the command
-   dialog, then Auto.
-4. Export STL/3MF from Fusion and slice to confirm the tines merge.
+1. Slice an export from Fusion to confirm the tines merge (section 7).
+2. When the print result is in, update the `SWAY` defaults if needed and re-run the tests.
+3. Try the untried cases in Fusion, especially a parametric solid-body design and a part inside a
+   sub-component, and fix what breaks.
+4. Reproduce Mitch's hand-placed set on the fence cap by clicking, and compare the heights with
+   169/194/219 mm.
+5. Then: the support-fins PR for Matthew, App Store packaging, and Phase 2.
