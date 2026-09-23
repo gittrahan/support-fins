@@ -1627,6 +1627,16 @@ function updateDrawReadout(built, ms) {
       : 'Each wall stops a hair under the part (0.2mm) so it snaps off clean. Turn '
         + 'Tines on if you want it to grip the part.');
   }
+  // A brace you place by hand is built even where Auto would refuse to stand one,
+  // so say what it is doing: below its first tine it holds nothing and nothing
+  // holds it, which is worth knowing but is your call to make.
+  const stilted = ok.filter((w) => w.kind === 'sway' && (w.info?.stilt ?? 0) > 20);
+  if (stilted.length) {
+    const tallest = Math.max(...stilted.map((w) => w.info.stilt));
+    help.push(`${stilted.length === 1 ? 'One brace stands' : `${stilted.length} braces stand`} `
+      + `up to ${Math.round(tallest)}mm before gripping the part — that much of it prints as a `
+      + 'lone wall. Fine if it prints; rotate so that side reaches the plate if it wobbles.');
+  }
   if (bad) {
     const one = drawnWalls.find((w) => !w.ok);
     lead.push(`${bad} wall${bad === 1 ? '' : 's'} couldn’t build here`

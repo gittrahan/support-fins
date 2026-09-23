@@ -233,7 +233,7 @@ Deno.test('sway: a brace never lands on a support that is already there', () => 
   assert(fine.ok, `a distant wall blocked a brace: ${fine.reason}`);
 });
 
-Deno.test('sway: a brace that would stand a long way up before gripping is refused', () => {
+Deno.test('sway: auto refuses a stilt, a hand-placed brace builds one and reports it', () => {
   // A wide block held up on a narrow pedestal: its sides start 70mm off the plate,
   // so a brace there prints as a lone wall for 70mm before its first tine. Raised
   // on #29 by a part tilted onto a corner, where every face starts high.
@@ -249,12 +249,21 @@ Deno.test('sway: a brace that would stand a long way up before gripping is refus
     if (topo.nrm[f * 3 + 1] < -0.9 && topo.pos[f * 9 + 2] > 69) { side = f; break; }
   }
   assert(side >= 0, 'no raised side face found');
-  const r = sway.swayAtFace(topo, res, ID, side, [0, -15, 110], { tines: true, layerHeight: LAYER });
-  assert(!r.ok && /holding nothing/.test(r.reason),
-         `a 70mm stilt was not refused (${r.ok ? 'built ' + r.height + 'mm' : r.reason})`);
-
+  // AUTO won't stand one there...
   const auto = sway.buildSwayBraces(topo, res, ID, { tines: true, layerHeight: LAYER });
   assert(auto.count === 0, `auto stood ${auto.count} braces on stilts`);
+
+  // ...but a brace the user clicks is built anyway, reporting how far it stands
+  // before it grips, so the readout can say so. The tool suggests; you decide.
+  const r = sway.swayAtFace(topo, res, ID, side, [0, -15, 110], { tines: true, layerHeight: LAYER });
+  assert(r.ok, `a hand-placed brace was refused: ${r.reason}`);
+  assert(r.stilt > 60, `stilt reported as ${r.stilt?.toFixed(1)}mm, expected ~70`);
+
+  // ...and the same call can still be held to Auto's rule when asked.
+  const strict = sway.swayAtFace(topo, res, ID, side, [0, -15, 110],
+                                 { tines: true, layerHeight: LAYER, allowStilt: false });
+  assert(!strict.ok && /holding nothing/.test(strict.reason),
+         `allowStilt:false did not refuse (${strict.ok ? 'built' : strict.reason})`);
 });
 
 Deno.test('sway: "grip from" is the user\'s choice, not a stilt to refuse', () => {

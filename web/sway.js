@@ -103,6 +103,10 @@ function settings(opts = {}) {
     gripFrom: Math.max(0, num(opts.gripFrom, 0)),
     spacing: Math.max(1, num(opts.tineSpacing, SWAY.tineSpacing)),
     reach: Math.max(0.05, Math.min(0.5, num(opts.reach, SWAY.reach))),
+    // Auto refuses a brace that would stand a long way up before its first tine;
+    // a brace placed BY HAND is built anyway and reports the stilt instead. The
+    // tool suggests, the person decides -- the same split as the rest of the app.
+    allowStilt: opts.allowStilt === true,
   };
 }
 
@@ -307,7 +311,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
         0, SWAY.footH, (s, uu, z) => fr.toWorld(s, uu, z), out);
 
   // Tines: evenly spaced up the face, each snapped into exactly one layer cell.
-  let tines = 0, firstGrip = Infinity;
+  let tines = 0, firstGrip = Infinity, stilt = 0;
   if (S.tines) {
     const zStart = Math.max(fz0 + 0.5, S.gripFrom, SWAY.footH + 0.5);
     const zEnd = Math.min(fz1, H) - 0.5;
@@ -344,9 +348,9 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     // Measured from the plate, or from "Brace grip from" when that is higher: a user
     // who asks to grip only above 80mm has chosen that stilt, and this is not the
     // place to overrule them. What it catches is the stilt the GEOMETRY imposes.
-    const stilt = firstGrip - Math.max(SWAY.footH, S.gripFrom);
+    stilt = Math.max(0, firstGrip - Math.max(SWAY.footH, S.gripFrom));
     const maxStilt = Math.min(SWAY.stiltMax, SWAY.stiltMaxFrac * H);
-    if (stilt > maxStilt) {
+    if (!S.allowStilt && stilt > maxStilt) {
       return { ok: false, reason: `this side only starts ${firstGrip.toFixed(0)}mm up, so the brace `
         + `would stand ${stilt.toFixed(0)}mm holding nothing before it grips (max ${maxStilt.toFixed(0)}mm) `
         + '— rotate so this side reaches the plate' };
@@ -362,7 +366,9 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     levels.push({ z, a: fr.toWorld(sIn(z), uc, z), b: fr.toWorld(sIn(z) + depthAt(z), uc, z) });
     if (z >= H) break;
   }
-  return { ok: true, tris: out, tines, height: H, depth: D0, th, foot, halfW: footHalfW, levels };
+  // `stilt`: how far it stands holding nothing before its first tine. Auto keeps this
+  // small by refusing; a hand-placed brace reports it so the readout can say so.
+  return { ok: true, tris: out, tines, height: H, depth: D0, th, stilt, foot, halfW: footHalfW, levels };
 }
 
 /** Closest distance between two 2D segments. */
@@ -588,6 +594,9 @@ export function faceIsUpright(topo, rot, faceIndex) {
  * refused -- with that reason -- if it can't. Returns buildSwayRib's result.
  */
 export function swayAtFace(topo, result, rot, faceIndex, point, opts = {}, avoid = []) {
+  // A brace you clicked is a brace you meant, so the stilt limit Auto obeys is
+  // advisory here: it builds and reports `stilt` for the readout to mention.
+  opts = { allowStilt: true, ...opts };
   const { byFace, partTris } = patchesFor(topo, rot, result.offset);
   const p = byFace.get(faceIndex);
   if (!p) return { ok: false, reason: 'that face is too small or curved to stand a brace against' };
