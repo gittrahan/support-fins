@@ -663,6 +663,36 @@ function buildFin(p0, out, span, topo, rot, offset, opts = {}) {
   };
 }
 
+/**
+ * Apply the page's clearance settings to FIN / PROP / PAD.
+ *
+ * WHY THIS IS A PARAMETER AND NOT JUST A MODULE EDIT. app.js sets these objects
+ * directly (applyMaterial for the PLA/PETG profiles, the Support gap and Pad grip
+ * fields) and that works for anything it builds itself. But the real build runs in
+ * finworker.js, a module Worker with its OWN instance of fins.js and prop.js: module
+ * state does not cross a Worker boundary, so everything the page set stayed on the
+ * page. PETG picked in Auto mode therefore printed PLA's clearances -- silently, since
+ * the numbers on screen were right and only the geometry disagreed.
+ *
+ * So the values travel WITH the build request (opts.tunables, structured-cloned like
+ * every other option) and are applied here, in whichever instance is doing the work.
+ * Unknown or non-finite entries are ignored, and calling this with nothing leaves the
+ * defaults alone -- an old caller that doesn't pass tunables behaves exactly as before.
+ */
+export function applyTunables(t) {
+  if (!t) return;
+  const set = (obj, key, v) => { if (Number.isFinite(v)) obj[key] = v; };
+  set(FIN, 'gap', t.finGap);
+  set(FIN, 'tineBite', t.tineBite);
+  set(FIN, 'padH', t.padH);
+  set(PAD, 'grab', t.padGrab);
+  set(PROP, 'gap', t.propGap);
+  // The wedge keeps its own copy of the clearance, so the Support gap field and the
+  // PETG profile never reached it -- not even on the main thread, where everything
+  // else worked. One clearance, applied everywhere it is spelled.
+  set(PERP, 'gap', t.propGap);
+}
+
 export const PAD = {
   cell: 1.2,        // mm; radial vertex spacing across the conforming oval disc
   grab: 0.05,       // mm the pad rises PAST the part underside to bite in near the
@@ -1275,6 +1305,7 @@ function unservedAfterWedges(topo, rot, result, servedRegions, wedgeTris) {
  * @param opts.bedPad   add the pad when bed contact is too small to hold
  */
 export function buildFins(topo, result, rot, opts = {}) {
+  applyTunables(opts.tunables);
   const mode = opts.mode ?? 'prop';
   const maxFins = opts.maxFins ?? FIN.maxFins;
   const out = [];

@@ -1220,7 +1220,13 @@ function finOpts() {
            tines: el('tines').checked,
            tineDensity: el('tine-density').valueAsNumber / 100,
            layerHeight: el('layer-height').valueAsNumber,
-           coverage: el('coverage').valueAsNumber / 100 };
+           coverage: el('coverage').valueAsNumber / 100,
+           // The clearances have to travel WITH the request: the build runs in a
+           // Worker with its own copy of fins.js / prop.js, which never sees what
+           // applyMaterial and the gap fields set on this page's copy (fins.js
+           // applyTunables). Without this, Auto mode always built PLA's numbers.
+           tunables: { finGap: FIN.gap, tineBite: FIN.tineBite, padH: FIN.padH,
+                       padGrab: PAD.grab, propGap: PROP.gap } };
 }
 
 function makeFinWorker() {
