@@ -577,13 +577,6 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
     : Math.max(1, Math.ceil((vExt - PROP.th) / (rowSpan + PROP.th) - 0.01));
   const clear = single ? 0 : (vExt - PROP.th) / nBands - PROP.th;
 
-  const rowVs = [];
-  if (single) {
-    rowVs.push(vLo + vExt * 0.5);
-  } else {
-    for (let w = 0; w <= nBands; w++) rowVs.push(vLo + inset + ((vExt - PROP.th) * w) / nBands);
-  }
-
   // Trace ONE row at offset v0: the straight track across the patch, split
   // wherever the patch doesn't cover a station. Exposed on the result (traceRow)
   // so buildProps can re-trace a REJECTED row a little to either side.
@@ -604,23 +597,94 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
     return out.filter((t) => t.length >= PROP.minStations);
   };
 
+
+  // TWO LAYOUTS, keep the one that covers the face. Edge-to-edge is right for a
+  // face with real edges (the 40mm cube: main's centred rows left the outer 7mm
+  // and the corners cantilevered). On a ROUND face the "edge" is a tangent: an
+  // edge row there is an 8mm stub and the band inside it goes bare (cone X25
+  // sparse: main's two 41-station walls at x=+-13 became stubs at +-25.5 and
+  // coverage fell 98 -> 83%). So also lay the same number of rows centred in
+  // equal bands, and score both on the face itself: the share of its area within
+  // half a row span of a traced wall's face -- between two walls that is a bridge,
+  // past the outer wall a cantilever of at most half a span. Edge-to-edge wins
+  // ties, so a rectangular face is laid exactly as before.
+  const edgeVs = [], midVs = [];
+  if (single) {
+    edgeVs.push(vLo + vExt * 0.5);
+  } else {
+    for (let w = 0; w <= nBands; w++) edgeVs.push(vLo + inset + ((vExt - PROP.th) * w) / nBands);
+    for (let w = 0; w <= nBands; w++) midVs.push(vLo + (vExt * (w + 0.5)) / (nBands + 1));
+  }
+  let rowVs = edgeVs, centred = false;
+  if (!single) {
+    // measured from the wall FACE, like the clear-gap count: a 12mm clear bridge
+    // puts its midpoint 6.5mm from each wall's centreline, not 6. Judged at no
+    // more than the anti-sag cap even when the slider asks for sparser rows: at
+    // a 30mm span both layouts "reach" everything, and the tie laid the cone's
+    // edge rows on the tangent again.
+    const reach = Math.min(rowSpan, PROP.maxUnsupportedSpan) / 2 + PROP.th / 2;
+    const samples = faceSamples(patchTris, ux, uy, vx, vy);
+    const score = (vs) => {
+      const tracks = vs.flatMap((v0) => traceRow(v0).map((t) => {
+        const u = t.map((p) => p[0] * ux + p[1] * uy);
+        return [v0, Math.min(u[0], u.at(-1)), Math.max(u[0], u.at(-1))];
+      }));
+      let got = 0;
+      for (const [u, v, a] of samples) {
+        for (const [v0, u0, u1] of tracks) {
+          const du = Math.max(0, u0 - u, u - u1);
+          if (du * du + (v - v0) * (v - v0) <= reach * reach) { got += a; break; }
+        }
+      }
+      return got;
+    };
+    const eScore = score(edgeVs), mScore = score(midVs);
+    if (mScore > eScore * 1.01) { rowVs = midVs; centred = true; }
+  }
+
   // Each row's BAND: how far it may shift and still be "that row" -- half the
   // way to each neighbour (an edge row only inward: outward is off the face).
   // Used only when a row is rejected, see buildProps' row fallback.
-  const half = single ? Math.max(0, (vExt - PROP.th) / 2) : ((vExt - PROP.th) / nBands) / 2;
+  // (Centred rows sit half a band in from each edge, so they may shift both ways.)
+  const half = single ? Math.max(0, (vExt - PROP.th) / 2)
+    : centred ? (vExt / (nBands + 1)) / 2 : ((vExt - PROP.th) / nBands) / 2;
   const kept = [];
   kept.rowOf = [];
   kept.rows = rowVs.map((v0, r) => ({
     v0,
-    lo: single ? -half : (r === 0 ? 0 : -half),
-    hi: single ? half : (r === rowVs.length - 1 ? 0 : half),
+    lo: single || centred ? -half : (r === 0 ? 0 : -half),
+    hi: single || centred ? half : (r === rowVs.length - 1 ? 0 : half),
   }));
   kept.traceRow = traceRow;
   rowVs.forEach((v0, r) => {
     for (const t of traceRow(v0)) { kept.push(t); kept.rowOf.push(r); }
   });
-  kept.spacing = clear;
+  kept.spacing = centred ? vExt / (nBands + 1) - PROP.th : clear;
+  kept.centred = centred;
   return kept;
+}
+
+// Area samples over a patch in its (u, v) row frame: each triangle split into
+// ~2mm pieces, [u, v, area] per piece centroid. Used to score a row layout.
+function faceSamples(tris, ux, uy, vx, vy, sub = 2) {
+  const out = [];
+  for (let i = 0; i < tris.length; i += 9) {
+    const ax = tris[i], ay = tris[i + 1], bx = tris[i + 3], by = tris[i + 4], cx = tris[i + 6], cy = tris[i + 7];
+    const e1x = bx - ax, e1y = by - ay, e2x = cx - ax, e2y = cy - ay;
+    const area = Math.abs(e1x * e2y - e1y * e2x) / 2;       // plan area: what a wall must reach
+    if (area < 1e-9) continue;
+    const n = Math.max(1, Math.ceil(Math.max(Math.hypot(e1x, e1y), Math.hypot(e2x, e2y),
+                                             Math.hypot(cx - bx, cy - by)) / sub));
+    const piece = area / (n * n);
+    for (let a = 0; a < n; a++) for (let b = 0; b < n - a; b++) {
+      const pts = b < n - a - 1 ? [[a + 1 / 3, b + 1 / 3], [a + 2 / 3, b + 2 / 3]] : [[a + 1 / 3, b + 1 / 3]];
+      for (const [s1, t1] of pts) {
+        const x = ax + (e1x * s1 + e2x * t1) / n, y = ay + (e1y * s1 + e2y * t1) / n;
+        out.push([x * ux + y * uy, x * vx + y * vy, piece]);
+      }
+    }
+  }
+  return out;
 }
 
 /**
