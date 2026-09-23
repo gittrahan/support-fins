@@ -65,6 +65,15 @@ export const SWAY = {
   tineSpacing: 6,     // DEFAULT mm between tines up the rib (UI: "Tine spacing")
   minTines: 3,
   minGripShare: 0.3,  // ...and at least this share of the rows up the rib must find the face
+  // ...and it may not climb this far before its FIRST tine. Below its lowest grip a
+  // brace is a lone wall: it prints for hours holding nothing, and nothing holds it
+  // either, so it is free to wobble exactly while the part beside it is at its most
+  // delicate. A part tilted up onto a corner puts every face high off the plate and
+  // is the case this catches (raised by Matthew on #29, with a 50-degree post).
+  // Both bounds: the fraction keeps a short rib from being mostly stilt, the
+  // absolute stops a very tall one from growing an unreasonable one.
+  stiltMax: 40,
+  stiltMaxFrac: 0.4,
 
   // auto-placement
   pitch: 100,         // mm of face width per rib
@@ -298,7 +307,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
         0, SWAY.footH, (s, uu, z) => fr.toWorld(s, uu, z), out);
 
   // Tines: evenly spaced up the face, each snapped into exactly one layer cell.
-  let tines = 0;
+  let tines = 0, firstGrip = Infinity;
   if (S.tines) {
     const zStart = Math.max(fz0 + 0.5, S.gripFrom, SWAY.footH + 0.5);
     const zEnd = Math.min(fz1, H) - 0.5;
@@ -320,12 +329,27 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
              [sWall + SWAY.tineOverlap, top], [sPart - S.bite, top]],
             uc - SWAY.tineW / 2, uc + SWAY.tineW / 2, P, out);
       tines++;
+      if (bot < firstGrip) firstGrip = bot;
     }
     // A tall rib tied on at a handful of points still lets the part wave about
     // between them, so the grip has to cover a real share of the height too.
     const wanted = Math.max(SWAY.minTines, Math.floor(SWAY.minGripShare * (zEnd - zStart) / S.spacing));
     if (tines < wanted) {
       return { ok: false, reason: 'too little of this face lines up with the brace for its tines to grip — try a flatter part of the side' };
+    }
+    // Everything below the lowest tine is a lone wall holding nothing, and held by
+    // nothing. Past this much of it the brace is its own liability, so refuse rather
+    // than print a stilt: "Brace grip from" raises this deliberately, and a face that
+    // starts high off the plate (a part tilted onto a corner) reaches it by itself.
+    // Measured from the plate, or from "Brace grip from" when that is higher: a user
+    // who asks to grip only above 80mm has chosen that stilt, and this is not the
+    // place to overrule them. What it catches is the stilt the GEOMETRY imposes.
+    const stilt = firstGrip - Math.max(SWAY.footH, S.gripFrom);
+    const maxStilt = Math.min(SWAY.stiltMax, SWAY.stiltMaxFrac * H);
+    if (stilt > maxStilt) {
+      return { ok: false, reason: `this side only starts ${firstGrip.toFixed(0)}mm up, so the brace `
+        + `would stand ${stilt.toFixed(0)}mm holding nothing before it grips (max ${maxStilt.toFixed(0)}mm) `
+        + '— rotate so this side reaches the plate' };
     }
   }
 

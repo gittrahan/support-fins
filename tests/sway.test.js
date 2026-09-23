@@ -232,3 +232,35 @@ Deno.test('sway: a brace never lands on a support that is already there', () => 
   const fine = sway.swayAtFace(topo, res, ID, side, [0, -15, 60], opts, { walls: [farAway] });
   assert(fine.ok, `a distant wall blocked a brace: ${fine.reason}`);
 });
+
+Deno.test('sway: a brace that would stand a long way up before gripping is refused', () => {
+  // A wide block held up on a narrow pedestal: its sides start 70mm off the plate,
+  // so a brace there prints as a lone wall for 70mm before its first tine. Raised
+  // on #29 by a part tilted onto a corner, where every face starts high.
+  const foot = block(-8, 8, -8, 8, 0, 70);          // the pedestal
+  const top = block(-20, 20, -15, 15, 70, 150);     // the part being braced
+  const pos = new Float32Array(foot.length + top.length);
+  pos.set(foot, 0); pos.set(top, foot.length);
+  const topo = topoOf(pos);
+  const res = analyze(topo, 45, ID);
+
+  let side = -1;
+  for (let f = 0; f < topo.nFaces; f++) {
+    if (topo.nrm[f * 3 + 1] < -0.9 && topo.pos[f * 9 + 2] > 69) { side = f; break; }
+  }
+  assert(side >= 0, 'no raised side face found');
+  const r = sway.swayAtFace(topo, res, ID, side, [0, -15, 110], { tines: true, layerHeight: LAYER });
+  assert(!r.ok && /holding nothing/.test(r.reason),
+         `a 70mm stilt was not refused (${r.ok ? 'built ' + r.height + 'mm' : r.reason})`);
+
+  const auto = sway.buildSwayBraces(topo, res, ID, { tines: true, layerHeight: LAYER });
+  assert(auto.count === 0, `auto stood ${auto.count} braces on stilts`);
+});
+
+Deno.test('sway: "grip from" is the user\'s choice, not a stilt to refuse', () => {
+  // The same rule must not fight the setting: gripping only above 80mm on a part
+  // whose face reaches the plate is deliberate, and still builds.
+  const { topo, res } = post();
+  const s = sway.buildSwayBraces(topo, res, ID, { tines: true, layerHeight: LAYER, gripFrom: 80 });
+  assert(s.count >= 2, `"grip from" 80mm was refused as a stilt (${s.count} braces, ${s.reason})`);
+});

@@ -110,9 +110,10 @@ to write one, but it is enough to say the PLA numbers are a safe starting point 
 | thickness | 1.2 mm + 0.004 mm per mm of height, max 2.4 mm | a 250 mm rib at 1.2 mm is more slender than the part it holds |
 | tines | one layer, one bead wide, **evenly spaced** (default 6 mm, "Brace tine spacing") from "Brace grip from" to the top | the sway is at the top; the Brace's dense-low, 1.6×-spreading rows left the top of a tall part untied |
 | grip floor | ≥ 3 tines and ≥ 30% of the rows must find the face | a tall rib tied on at a few points still lets the part wave about between them |
+| stilt limit | below its first tine a rib may stand at most **40 mm**, and at most **40%** of its height, measured from the plate or from "Brace grip from" if that is higher | under its lowest grip a brace holds nothing and nothing holds it: it prints for hours as a lone wall, free to wobble beside a part at its most delicate. A part tilted onto a corner puts every face high off the plate and hits this |
+| clash | ≥ 1 mm of air from another brace (compared at matching heights) and from any prop wall or wedge (compared at the bed, where both are widest) | two supports fused into one piece no longer break away in pieces |
 | auto placement | up to 4 faces with bearings ≥ 60° apart, a rib per ~100 mm of face width, at the face's **tallest** columns | holds both axes; a rib at a gable's low end braces the half that wasn't moving |
 | manual | Draw mode: one click on an upright side; click a placed support to select it, Delete / "Remove selected" to take it out | |
-| clash check | ≥ 1 mm of air between braces, compared at the same heights (feet on the plate, ribs every 10 mm up) | two ribs on facing walls of a channel reach toward each other; fused, they are one bar that neither snaps off nor breaks away |
 
 ## Naming
 
