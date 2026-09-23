@@ -19,11 +19,29 @@ const IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 const SLAB = block(-40, 40, -10, 10, 30, 34);
 const LOW = block(-40, 40, -10, 10, 6, 10);     // same, only 6mm up: no room for holes
 
-function wall(pattern, tris = SLAB, z = 30) {
+// A SLOPED overhang, like the underside of a cube tipped onto its edge: a slab
+// tilted 35deg about Y, so a wall drawn along X under it is a tall triangle-ish
+// fin whose top climbs the slope. Issue #34's screenshot: here the lattice has to
+// follow the slope, not stop at the first cell that is short at one end.
+function tiltedSlab(deg) {
+  const t = block(-45, 45, -10, 10, 0, 4);
+  const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+  const out = new Float32Array(t.length);
+  for (let i = 0; i < t.length; i += 3) {
+    const x = t[i], z = t[i + 2];
+    out[i] = c * x + s * z; out[i + 1] = t[i + 1]; out[i + 2] = -s * x + c * z + 32;
+  }
+  return out;
+}
+const SLOPE = tiltedSlab(35);
+const slopeZ = (x) => 32 - Math.tan((35 * Math.PI) / 180) * x;   // underside height at x
+const sloped = (pattern) => wall(pattern, SLOPE, slopeZ(-30), slopeZ(30));
+
+function wall(pattern, tris = SLAB, z = 30, z2 = z) {
   const was = CUT.pattern;
   CUT.pattern = pattern;
   try {
-    const r = drawnWall([-30, 0, z], [30, 0, z], tris, 0);
+    const r = drawnWall([-30, 0, z], [30, 0, z2], tris, 0);
     assert(r.ok, `wall failed (${pattern}): ${r.reason}`);
     return r.tris;
   } finally { CUT.pattern = was; }
@@ -79,7 +97,7 @@ function winding(t, x, y, z) {
 }
 
 /** Sample the wall's mid-plane (y=0) on a grid: [row z][col x] -> material? */
-function midPlane(tris, step = 0.1) {
+function midPlane(tris, step = 0.15) {
   const parts = shells(tris);
   const boxes = parts.map((t) => {
     const lo = [Infinity, Infinity], hi = [-Infinity, -Infinity];
@@ -88,8 +106,9 @@ function midPlane(tris, step = 0.1) {
   });
   // offset the sample grid off the round numbers every edge sits on
   const xs = [], zs = [];
+  const zTop = Math.max(...tris.map((p) => p[2]));
   for (let x = -31 + step * 0.37; x < 31; x += step) xs.push(x);
-  for (let z = step * 0.41; z < 30; z += step) zs.push(z);
+  for (let z = step * 0.41; z < zTop; z += step) zs.push(z);
   const grid = zs.map((z) => xs.map((x) => {
     let w = 0;
     for (const b of boxes) {
@@ -101,7 +120,7 @@ function midPlane(tris, step = 0.1) {
 }
 
 Deno.test('cutout: every piece is a closed, outward-wound solid', () => {
-  for (const pattern of ['diamond', 'triangle', 'arch']) {
+  for (const pattern of ['diamond', 'triangle', 'arch', 'lattice']) {
     const tris = wall(pattern);
     assert(isClosed(tris), `${pattern}: not closed`);
     for (const s of shells(tris)) assert(volume(s) > 0, `${pattern}: a piece is wound inside-out`);
@@ -112,7 +131,7 @@ Deno.test('cutout: pattern off, and a wall too short for a hole, are unchanged',
   const solid = wall('none');
   CUT.pattern = 'none';
   assert(JSON.stringify(wall('none')) === JSON.stringify(solid), 'off is not deterministic');
-  for (const pattern of ['diamond', 'triangle', 'arch']) {
+  for (const pattern of ['diamond', 'triangle', 'arch', 'lattice']) {
     assert(JSON.stringify(wall(pattern, LOW, 6)) === JSON.stringify(wall('none', LOW, 6)),
       `${pattern}: a 6mm wall got cut`);
   }
@@ -120,7 +139,9 @@ Deno.test('cutout: pattern off, and a wall too short for a hole, are unchanged',
 
 // Mid-plane sampling is the slow part; share one pass per pattern.
 const solidPlane = midPlane(wall('none'));
-const planes = Object.fromEntries(['diamond', 'triangle', 'arch']
+const slopeSolid = midPlane(sloped('none'), 0.2);
+const slopeLattice = midPlane(sloped('lattice'), 0.2);
+const planes = Object.fromEntries(['diamond', 'triangle', 'arch', 'lattice']
   .map((p) => [p, midPlane(wall(p))]));
 
 Deno.test('cutout: stays inside the solid wall and removes real material', () => {
@@ -196,4 +217,28 @@ Deno.test('cutout: the setting reaches an Auto build through tunables', () => {
     fins.applyTunables({ cutout: 'bogus' });
     assert(CUT.pattern === 'diamond', 'an unknown pattern name was applied');
   } finally { CUT.pattern = was; }
+});
+
+Deno.test('cutout: on a sloped fin the lattice climbs the slope, and still never bridges', () => {
+  const { grid, xs } = slopeLattice;
+  let solid = 0, cut = 0, outside = 0;
+  grid.forEach((row, i) => row.forEach((m, j) => {
+    const s = slopeSolid.grid[i][j];
+    if (s) solid++;
+    if (m) cut++;
+    if (m && !s) outside++;
+  }));
+  assert(outside / solid < 0.002, `${outside} samples outside the solid fin`);
+  // the old per-cell lattice cut ~0% here: every cell was short at its low end
+  const saved = 1 - cut / solid;
+  assert(saved > 0.3, `only ${(saved * 100).toFixed(0)}% of the sloped fin removed`);
+  for (let i = 1; i < grid.length; i++) {
+    for (let j = 1; j < xs.length - 1; j++) {
+      if (!grid[i][j] || grid[i - 1][j]) continue;
+      assert(grid[i - 1][j - 1] || grid[i - 1][j + 1], `unsupported roof at x=${xs[j].toFixed(2)}`);
+    }
+  }
+  const tris = sloped('lattice');
+  assert(isClosed(tris), 'sloped lattice not closed');
+  for (const s of shells(tris)) assert(volume(s) > 0, 'a sloped lattice piece is inside-out');
 });

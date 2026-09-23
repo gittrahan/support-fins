@@ -89,7 +89,12 @@ welts.
   triangle or arch holes through the middle of *breakaway walls* only (`CUT` in
   `cutout.js`): the contact tip + a 1.2 mm rail, the foot + a 1.2 mm rail, and 2 mm end
   posts stay solid, webs between holes are 1.6 mm, and every hole roof rises at
-  ≥ 1.4:1 (~55°) so nothing bridges. Walls too short for a 3 mm hole stay solid. The
+  ≥ 1.4:1 (~55°) so nothing bridges. **Lattice** instead fills the wall's real outline (it follows a
+  sloped top, e.g. a fin under a tipped cube) with 6 mm-pitch diamonds in staggered rows
+  (1.2 mm struts at 1.5:1, ~56°). Diamonds at the edge are clipped to the outline; a
+  roof that clip leaves flatter than 45° is cut back to exactly 45° (a gable under a
+  level top), so every hole roof is ≥ 45° -- the same rule the tool's overhang check
+  applies to the part. Walls too short for a 3 mm hole stay solid. The
   tined side fins in `fins.js` are never cut -- their tines anchor across the whole
   blade.
 
