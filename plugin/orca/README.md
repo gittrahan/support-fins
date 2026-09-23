@@ -14,16 +14,19 @@ neither exposes both:
 | **OrcaSlicer** (Python) | ✅ `orca.host` returns `vertices()`/`triangles()` | ❌ host is **read-only** — "nothing here mutates the model" |
 
 So on Orca we can do the *smart* half Prusa can't — read the user's actual model and
-**auto-fit** fins to its overhangs — but we **cannot** place the result on the live
-plate. There is no add-object / import-mesh / make-primitive call anywhere in Orca's
-plugin surface (verified across `orca.host`, `orca.script`, `orca.slicing`). The
-honest ceiling: compute the fins in-Orca, write a finned `.3mf`, user does
-`File ▸ Import`. That still beats the Prusa plugin (real auto-fit, not hand-placed),
-it just isn't the "fins land on your plate automatically" the feature request imagined.
+**auto-fit** fins to its overhangs — but we **cannot** add an object to the plate.
+Verified in Orca's source (2026-09-22, `src/slic3r/plugin/host/`): the model graph is
+read-only, `Plater` exposes only `model()` and dirty flags, and no binding loads a file
+or adds/deletes an object.
 
-The one theoretical write-path is the slicing pipeline (`posSupportMaterial`, "mutate
-the live slicing graph") — but that emits support as *toolpaths*, not our contoured
-breakaway mesh fin. Different, deeper, lower-fidelity. Not the plan.
+**The way around it is the slicing pipeline.** A `slicing-pipeline` capability runs at
+`Step.posSlice` — right after Orca slices an object, before perimeters — and may edit
+each layer's region slices (`SurfaceCollection.set/append`, then `Layer.make_slices()`;
+see Orca's own `sandboxes/orca_inset_plugin_any.py`). So the plugin cuts the fins at
+every layer height and unions them into the object's slices: the same layers Orca would
+get from slicing the part+fins `.3mf`, with no import. The cost: fins appear in the
+sliced Preview, not in the 3D editor. The `.3mf` export stays as the second mode for
+when you want to see or edit the fins before slicing.
 
 ## Status
 
@@ -38,8 +41,30 @@ breakaway mesh fin. Different, deeper, lower-fidelity. Not the plan.
    change. Fins every part on the plate with the site's Auto-mode defaults and writes
    `<part>-fins.3mf` (byte-identical to the site's Export 3MF for the same pose) to
    `~/Downloads/support-fins/`.
-3. **Next:** read layer height from the active print preset; per-run options
-   (tines, coverage, bed pad); a threaded build so a big part doesn't freeze the UI.
+3. **Slice-time fins (`Support Fins — add fins when slicing`). Built, harness-tested,
+   not yet run in Orca.** Reads the layer height from the live print config.
+   `test_slicing.py` poses 4 dev parts plain / tilted+moved / mirrored against a stand-in
+   PrintObject built with Orca's frame rules and trimesh-cut layers: all 12 match
+   trimesh's cut of part+fins on every layer (0.00% area mismatch). Re-slice cost with
+   the fin cache warm: ~0.15–1.4 s per object.
+4. **Next:** a docked settings panel (`orca.host.ui.create_dock_panel`) shared by both
+   modes — mode, tines, tine density, coverage, bed pad.
+
+## Slice-time mode: the frame
+
+Layer slices are NOT in plate coordinates. From `PrintApply.cpp` / `PrintObject.cpp`:
+slices are cut from the mesh under `trafo_centered()` = `trafo()` (first instance's
+matrix with its XY translation zeroed; includes shrinkage compensation) followed by an
+XY shift of `-center_offset`, the XY centre of `ModelObject::raw_bounding_box()` (model
+parts under the instance matrix with no offset). The binding exposes `trafo()` but not
+the centre, so the plugin rebuilds it the same way — then cuts its own copy of the part
+at a mid layer and compares centroids with Orca's slice. Over 0.05 mm apart it adds
+**no** fins and says so (use the `.3mf` export), rather than guessing.
+
+Two cutter details that tests caught: the fin mesh is several closed solids that
+overlap/touch by design, so (1) an edge can be shared by four faces — chain segments
+through a multimap, never a one-successor dict — and (2) a reference cut must union
+body-by-body (cutting the whole soup at once even-odds overlaps into holes).
 
 ## How the plugin is built
 
@@ -47,7 +72,8 @@ breakaway mesh fin. Different, deeper, lower-fidelity. Not the plan.
 engine_glue.js            browser-API stand-ins + sfFinPart() entry point
 support_fins.template.py  the Orca plugin; @@ENGINE_JS@@ is spliced in
 build.py                  esbuild-bundles web/ -> dist/support_fins.py
-test_plugin.py            runs dist/ against a stand-in `orca` module
+test_plugin.py            runs dist/'s .3mf export against a stand-in `orca` module
+test_slicing.py           runs dist/'s slice-time mode against a stand-in PrintObject
 dist/support_fins.py      GENERATED (gitignored) — the file users install
 ```
 
@@ -56,7 +82,8 @@ Rebuild after **any** change to the engine modules in `web/`:
 own interpreter in a venv that has `numpy mini-racer trimesh networkx lxml`:
 `<venv>/bin/python plugin/orca/test_plugin.py web/dev-models/hub_corner.stl …` —
 it checks each .3mf opens as part + fins, a mirrored copy fins correctly, and that
-`execute()` opens no files besides its own output.
+`execute()` opens no files besides its own output. `test_slicing.py` (same venv plus
+`scipy`) checks every layer against trimesh's cut of part + fins.
 
 ## Sandbox rules learned the hard way
 
@@ -89,5 +116,8 @@ OrcaSlicer → **Plugins** → **Browse plugins ▸ Install local plugin** → p
 **Plugins ▸ Run** the probe; the report comes back in the result dialog (and stdout).
 
 Install `dist/support_fins.py` the same way. First install pulls `mini-racer` (~60 MB,
-a self-contained V8). Run **Support Fins — fit fins to the plate** from the Plugins
-dialog, then `File ▸ Import` each `<part>-fins.3mf` and delete the original part.
+a self-contained V8) and `shapely`. Then either:
+- **Slice-time:** Process settings (Advanced mode on) → **Others** → **Slicing Pipeline
+  Plugin** → add **Support Fins — add fins when slicing**. Slice; fins are in Preview.
+- **Export:** Plugins dialog → run **Support Fins — export finned .3mf**, then
+  `File ▸ Import` each `<part>-fins.3mf` and delete the original part.
