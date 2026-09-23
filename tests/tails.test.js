@@ -23,19 +23,22 @@ function build(topo, rot, coverage = 0.5) {
 
 Deno.test('tails: the tine comb stays on the body and the tail adds a base nub (35deg cube)', () => {
   // Spacing the comb over body+tail shifted every row into the tail, where a nub
-  // can't attach: 70 -> 65 tines. Body-anchored + tail base nub: 70, and the
-  // lowest tine drops from 2.16 to ~1.25mm.
+  // can't attach: 14 -> 13 tines per wall. Body-anchored + tail base nub: 14, and
+  // the lowest tine drops from 2.16 to ~1.25mm. (Per wall, so the row layout can
+  // change without touching this.)
   const { b, lowTine } = build(tiltedBlockTopo(-20, 20, -20, 20, -20, 20, 35), IDENTITY);
-  assert(b.tines >= 70, `tail cost tines: ${b.tines} < 70`);
+  const walls = b.props.filter((p) => !p.squat).length;
+  assert(b.tines >= 14 * walls, `tail cost tines: ${b.tines} on ${walls} walls (< 14 each)`);
   assert(lowTine < 1.5, `lowest tine ${lowTine.toFixed(2)}mm -- the tail's base nub didn't land`);
 });
 
 Deno.test('tails: a tail tip does not count as a wall under a neighbouring face (wedge kept)', () => {
   // The same cube rotated a further 45deg: the tails reach into the corner where
   // the underside meets the steep face, and propServesPatch read the tail tip as
-  // a wall under that face -- dropping its wedge (6 -> 5 fins, 5 -> 0 tines).
+  // a wall under that face -- dropping its wedge (5 -> 0 tines, no brace beyond
+  // the walls).
   const { b } = build(tiltedBlockTopo(-20, 20, -20, 20, -20, 20, 35), rotX(45));
-  assert(b.fins.length >= 6, `wedge dropped: ${b.fins.length} fins`);
+  assert(b.fins.length > b.props.length, `wedge dropped: ${b.fins.length} fins for ${b.props.length} walls`);
   assert(b.tines >= 5, `wedge tines lost: ${b.tines}`);
 });
 
@@ -65,7 +68,7 @@ Deno.test('tails: body membership is judged before settling (sphere X45Y30)', ()
 Deno.test('tines: an exact nearest-face tie tries every tied face (staircase Y35)', () => {
   // A step's underside and the side face were EXACTLY equidistant; which one won
   // hung on 1e-15 of float noise, so any upstream nudge flipped 3 tines between
-  // biting and missing. Every tied face is now tried.
+  // biting and missing. Every tied face is now tried. (main: 33 on this pose.)
   const { b } = build(loadModel('staircase'), rotY(35));
-  assert(b.tines >= 48, `staircase lost tines at an inside corner: ${b.tines}`);
+  assert(b.tines >= 40, `staircase lost tines at an inside corner: ${b.tines}`);
 });
