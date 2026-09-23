@@ -68,6 +68,9 @@ export const PROP = {
   footRatio: 0.12,  // foot half-width as a fraction of wall height
   minSpan: 7.0,     // a wall shorter than this is not worth the plate space
   minHeight: 1.5,   // nor is one this short
+  // A row whose walls carry less than this share of the stations it traced is
+  // re-tried a little to either side within its band (buildProps' row fallback).
+  rowFull: 0.7,
   // SQUAT BED SUPPORT. A flanged T-wall needs ~minHeight of headroom just to
   // exist (gap 0.2 + baseH 0.6 + a sliver of tip taper), so a bed overhang lower
   // than that gets NOTHING from the wall path -- its stations are trimmed as
@@ -2422,37 +2425,66 @@ export function buildProps(topo, result, rot, opts = {}) {
         return placed;
     };
 
-    const rowServed = new Set();
-    lines.forEach((line, i) => {
-      if (placeLine(line, skipped) && lines.rowOf) rowServed.add(lines.rowOf[i]);
-    });
-
-    // ROW FALLBACK. Rows sit at fixed offsets, and a row that lands where every
-    // track is rejected (a feature chops it into stubs, or it runs into the part)
-    // used to be simply dropped -- so ANY change to where rows land (edge-to-edge,
-    // the flush inset, the clear-gap count) reshuffled which rows survived and
-    // lost walls on some parts by pure position luck (hub_post_foot flat, dense:
-    // 20/20 rows stub -> no support at all). Instead, re-trace a rejected row a
-    // little to either side within its own band -- nearest first -- and keep the
-    // first position that lands a wall. A failed try is rolled back completely
-    // (triangles, props, tines, squat walls) so it leaves no trace.
-    if (lines.rows) {
+    // ROW FALLBACK. Rows sit at fixed offsets, and a row that lands where the
+    // part rejects its tracks (a feature chops it into stubs, or it runs into the
+    // part) used to be simply dropped -- so ANY change to where rows land
+    // (edge-to-edge, the flush inset, the clear-gap count) reshuffled which rows
+    // survived and lost walls on some parts by pure position luck (hub_post_foot
+    // flat, dense: 20/20 rows stub -> no support at all). A row that lands only a
+    // SHORT wall loses the same way: voron_filter_housing X45 went from one 99-
+    // station wall (main, y=-59.6) to two ~24-station walls on the edge rows
+    // either side of it. So a row whose walls cover less than rowFull of the
+    // track it traced is re-traced a little to either side within its own band,
+    // nearest first, and the position that carries the most wall wins (the
+    // nominal one keeps ties and must be beaten clearly). Every try is rolled
+    // back completely (triangles, props, tines, squat walls, skip tally) and
+    // only the winner is placed for real.
+    if (!lines.rows) {
+      for (const line of lines) placeLine(line, skipped);
+    } else {
+      const snap = () => ({ out: out.length, props: props.length, tines: tineTotal,
+                            served: new Set(servedRegions), skipped: { ...skipped } });
+      const restore = (s) => {
+        out.length = s.out; props.length = s.props; tineTotal = s.tines;
+        servedRegions.clear(); for (const g of s.served) servedRegions.add(g);
+        Object.assign(skipped, s.skipped);
+      };
+      // wall carried = stations under every wall this row placed, squat included
+      const carried = (from) => props.slice(from)
+        .reduce((a, p) => a + (p.line ? p.line.length : (p.stations || 0)), 0);
+      // a shifted try charges a scratch tally, so its misses never inflate stats
+      const placeAt = (d, own) => {
+        const tracks = d === 0 ? own : lines.traceRow(own.v0 + d);
+        const sk = d === 0 ? skipped : { ...skipped };
+        for (const t of tracks) placeLine(t, sk);
+      };
       lines.rows.forEach((row, r) => {
-        if (rowServed.has(r)) return;
+        const own = lines.filter((_, i) => lines.rowOf[i] === r);
+        own.v0 = row.v0;
+        const traced = own.reduce((a, t) => a + t.length, 0);
+        const s0 = snap();
+        placeAt(0, own);
+        const got = carried(s0.props);
+        if (traced && got >= PROP.rowFull * traced) return;
         const offs = [];
         for (const f of [0.25, 0.5, 0.75, 1]) {
           if (row.lo < 0) offs.push(row.lo * f);
           if (row.hi > 0) offs.push(row.hi * f);
         }
+        if (!offs.length) return;
+        let best = { d: 0, got };
         for (const d of offs) {
-          const snap = { out: out.length, props: props.length, tines: tineTotal,
-                         served: new Set(servedRegions) };
-          const scratch = { ...skipped };
-          let ok = false;
-          for (const t of lines.traceRow(row.v0 + d)) if (placeLine(t, scratch)) ok = true;
-          if (ok) { rowShifted++; break; }
-          out.length = snap.out; props.length = snap.props; tineTotal = snap.tines;
-          servedRegions.clear(); for (const g of snap.served) servedRegions.add(g);
+          restore(s0);
+          placeAt(d, own);
+          const g = carried(s0.props);
+          if (g > best.got * 1.2 + 2) best = { d, got: g };
+          if (traced && best.got >= PROP.rowFull * traced) break;
+        }
+        restore(s0);
+        placeAt(best.d, own);
+        if (best.d !== 0) {
+          rowShifted++;
+          for (let i = s0.props; i < props.length; i++) props[i].reseated = true;
         }
       });
     }

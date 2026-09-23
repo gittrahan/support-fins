@@ -86,9 +86,18 @@ Deno.test('tails: the squat pass only yields stations the built wall covers (tor
 
 Deno.test('tails: a tail never promotes a stub past minSpan (tube X25, sparse)', () => {
   // Counting the tail toward minSpan built a short wall that then "served" a
-  // face and dropped its wedge: 28 (main) -> 20 tines. minSpan measures the body only.
+  // face and dropped its wedge. minSpan measures the body only -- pinned directly
+  // now: the row fallback legitimately trades that wedge for real walls here
+  // (1 -> 4 walls, overhang coverage 51% -> 76%), so a tine count no longer
+  // tells a stub from a wall.
   const { b } = build(loadModel('tube'), rotX(25), 0);
-  assert(b.tines >= 28, `tube lost its wedge tines: ${b.tines}`);
+  const walls = b.props.filter((p) => p.line && !p.squat);
+  assert(walls.length >= 1, 'tube lost its walls');
+  for (const p of walls) {
+    const body = p.line.filter((q) => q[2] >= PROP.minHeight);
+    const span = body.length ? Math.hypot(body.at(-1)[0] - body[0][0], body.at(-1)[1] - body[0][1]) : 0;
+    assert(span >= PROP.minSpan - 1e-6, `tail promoted a stub: body span ${span.toFixed(2)} < ${PROP.minSpan}`);
+  }
 });
 
 Deno.test('tails: body membership is judged before settling (sphere X45Y30)', () => {
