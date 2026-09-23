@@ -14,6 +14,7 @@ import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
 import { suggestOrientations, suggestStrengthPose, loadAlignment, layerVerdict } from './orient.js';
 import { buildFins, FIN, PAD } from './fins.js';
 import { PROP } from './prop.js';
+import { CUT } from './cutout.js';
 import { findWallPatches } from './planes.js';
 import { drawnWall } from './draw.js';
 import { writeBinarySTL, download } from './stl.js';
@@ -1234,7 +1235,7 @@ function finOpts() {
            // applyMaterial and the gap fields set on this page's copy (fins.js
            // applyTunables). Without this, Auto mode always built PLA's numbers.
            tunables: { finGap: FIN.gap, tineBite: FIN.tineBite, padH: FIN.padH,
-                       padGrab: PAD.grab, propGap: PROP.gap } };
+                       padGrab: PAD.grab, propGap: PROP.gap, cutout: CUT.pattern } };
 }
 
 function makeFinWorker() {
@@ -1685,6 +1686,14 @@ function wireGap(id, obj, key, lo, hi) {
 }
 wireGap('gap', PROP, 'gap', 0.1, 0.4);
 wireGap('pad-grip', PAD, 'grab', -0.2, 0.3);
+
+// Wall cutouts (issue #34). CUT.pattern is read fresh by every wall sweep -- the
+// drawn walls here on the page, the auto walls in the Worker via tunables.
+el('cutout').addEventListener('change', () => {
+  CUT.pattern = el('cutout').value;
+  refreshFins();
+});
+CUT.pattern = el('cutout').value;   // a reload can keep the browser's last pick
 
 // Material profiles. PETG welds to a support far harder than the PLA every bite
 // number here was tuned on, so PETG needs more clearance in all four places at

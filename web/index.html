@@ -211,6 +211,19 @@
     Layer height <span class="mut">mm</span>
     <input type="number" id="layer-height" min="0.08" max="0.4" step="0.04" value="0.2">
   </label>
+  <!-- Cutouts (issue #34): holes through the middle of each breakaway wall to
+       save filament. Every hole has a pointed roof (>=45deg) so nothing bridges;
+       the contact top, foot and ends stay solid, and a wall too short for a hole
+       stays solid. Tined side fins are not cut -- their tines anchor all over. -->
+  <label class="fld" title="Cut holes through tall breakaway walls to save filament. The top edge that holds the part, the foot, and the wall's ends stay solid, and every hole has a pointed roof so it prints without bridging. Short walls stay solid.">
+    Cutouts
+    <select id="cutout">
+      <option value="none">None — solid walls</option>
+      <option value="diamond">Diamond</option>
+      <option value="triangle">Triangle</option>
+      <option value="arch">Arch</option>
+    </select>
+  </label>
   <label class="fld" title="Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.">
     Support gap <span class="mut">mm</span>
     <input type="number" id="gap" min="0.1" max="0.4" step="0.05" value="0.2">

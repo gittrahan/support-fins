@@ -28,6 +28,7 @@ import { insidePart, nearestPart, solidClearance } from './inside.js';
 import { faceAdjacency } from './planes.js';
 import { MIN_REGION_AREA } from './overhangs.js';
 import { ribbon, boxExtrude } from './solids.js';
+import { cutWall } from './cutout.js';
 
 export const PROP = {
   th: 1.0,          // wall thickness. 1.0 (two 0.5mm passes) not breakaway.py's
@@ -1250,7 +1251,7 @@ export function insertFloorStations(line) {
  * outline. Replaces the single cone-footed solid that read as a golf tee.
  */
 export function sweep(line, zBed, out, minH = PROP.minHeight) {
-  const wall = [], flange = [];
+  const wall = [], flange = [], st = [];
   for (let i = 0; i < line.length; i++) {
     const p = line[i];
     const a = line[Math.max(0, i - 1)];
@@ -1281,9 +1282,10 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
     flange.push([
       P(+foot, zBed), P(+foot, baseTop), P(-foot, baseTop), P(-foot, zBed),
     ]);
+    st.push({ p, sx, sy, top, ztip, bot: zBed, botTip: baseTop, taperBot: false });
   }
 
-  ribbon(wall, out);
+  if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
   ribbon(flange, out);
   return true;
 }
@@ -1633,7 +1635,7 @@ export function floorLine(topLine, tris, margin = 1.0) {
  * surface you could not have oriented away.
  */
 export function sweepBetween(topLine, botLine, out) {
-  const wall = [];
+  const wall = [], st = [];
   for (let i = 0; i < topLine.length; i++) {
     const p = topLine[i];
     const a = topLine[Math.max(0, i - 1)];
@@ -1660,9 +1662,10 @@ export function sweepBetween(topLine, botLine, out) {
       P(-PROP.tip / 2, top), P(-PROP.th / 2, zTopTip),
       P(-PROP.th / 2, zBotTip), P(-PROP.tip / 2, bot),
     ]);
+    st.push({ p, sx, sy, top, ztip: zTopTip, bot, botTip: zBotTip, taperBot: true });
   }
 
-  ribbon(wall, out);
+  if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
   return true;
 }
 

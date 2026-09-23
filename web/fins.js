@@ -30,6 +30,7 @@ import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js'
 import { BED_EPS } from './overhangs.js';
 import { insidePart } from './inside.js';
 import { buildProps, noProps, surfaceZAt, emitTines, tineStepFor, PROP } from './prop.js';
+import { CUT, CUTOUT_PATTERNS } from './cutout.js';
 
 export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
@@ -691,6 +692,8 @@ export function applyTunables(t) {
   // PETG profile never reached it -- not even on the main thread, where everything
   // else worked. One clearance, applied everywhere it is spelled.
   set(PERP, 'gap', t.propGap);
+  // Not a clearance, but module state with the same Worker problem.
+  if (CUTOUT_PATTERNS.includes(t.cutout)) CUT.pattern = t.cutout;
 }
 
 export const PAD = {
