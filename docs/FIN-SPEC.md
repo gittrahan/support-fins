@@ -96,7 +96,11 @@ hand-placed in Draw (three on one, five on the other). Both came out clean: the 
 **snapped off by hand**, the tines left **small bumps**, and the drift the braces exist
 to stop was gone. So the numbers below are the printed ones — change them only for the
 same kind of reason the rest of this file demands: something measured, not a hunch.
-(ASA has no material profile yet; the selector offers PLA and PETG.)
+
+Both prints used the **PLA profile with every setting left at its default** — gap 0.2,
+bite 0.3, tine spacing 6 mm, depth 15%, layer height 0.2 — so the PLA clearances
+release cleanly in ASA too. ASA has no profile of its own yet; two prints isn't enough
+to write one, but it is enough to say the PLA numbers are a safe starting point for it.
 
 | feature | value | rationale |
 |---|---|---|
