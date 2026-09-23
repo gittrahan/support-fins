@@ -1314,9 +1314,22 @@ export function buildFins(topo, result, rot, opts = {}) {
   if (!opts.sway?.on) return built;
   const sw = buildSwayBraces(topo, result, rot,
     { ...opts.sway, tines: opts.tines, layerHeight: opts.layerHeight });
+  // Each brace also gets a fin record: the Auto view draws and exports only the
+  // triangles some record claims (per-fin removal), so an unrecorded brace would
+  // be counted in the readout but never shown or written out.
+  const base = built.triangles.length;
+  const fins = built.fins ?? [];
+  let id = fins.reduce((m, f) => Math.max(m, (f.id ?? -1) + 1), fins.length);
+  const braces = sw.ribs.map((r) => ({
+    height: r.height, length: r.depth, tines: r.tines, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
+    id: id++, kind: 'sway',
+    triRanges: [[r.triRange[0] + base, r.triRange[1] + base]],
+    line: r.foot, span: r.depth,
+  }));
   return {
     ...built,
     triangles: [...built.triangles, ...sw.triangles],
+    fins: [...fins, ...braces],
     sway: { count: sw.count, tines: sw.tines, skipped: sw.skipped, reason: sw.reason },
   };
 }

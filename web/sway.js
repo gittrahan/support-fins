@@ -431,8 +431,9 @@ function columnsFor(p) {
  * different ways so it is held in both directions (FIN-SPEC's "two fins,
  * opposite sides", extended to both axes of a tall part).
  *
- * Returns { triangles, count, tines, skipped, reason } -- `reason` set when
- * nothing was placed, so the readout can say why.
+ * Returns { triangles, count, tines, skipped, ribs, reason } -- `reason` set when
+ * nothing was placed, so the readout can say why. Each rib carries `triRange`,
+ * its vertex range into `triangles`, so the UI can remove one brace by itself.
  */
 export function buildSwayBraces(topo, result, rot, opts = {}) {
   const none = (reason) => ({ triangles: [], count: 0, tines: 0, skipped: 0, reason });
@@ -473,12 +474,13 @@ export function buildSwayBraces(topo, result, rot, opts = {}) {
       }
       if (!placed) { skipped++; continue; }
       ribs.push(placed);
+      placed.triRange = [out.length, out.length + placed.tris.length];
       for (const v of placed.tris) out.push(v);
       tines += placed.tines;
     }
   }
   return {
-    triangles: out, count: ribs.length, tines, skipped,
+    triangles: out, count: ribs.length, tines, skipped, ribs,
     reason: ribs.length ? null : 'the upright sides are blocked by other parts of the model in this pose',
   };
 }

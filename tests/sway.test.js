@@ -172,3 +172,17 @@ Deno.test('sway: auto never stands two braces into each other', () => {
   assert(s.count >= 2, `expected braces, got ${s.count}`);
   assert(isClosed(s.triangles), 'not closed');
 });
+
+Deno.test('sway: auto braces carry fin records, so the per-fin filter keeps them', () => {
+  // The Auto view draws and exports only triangles some built.fins record claims
+  // (per-fin removal). A brace appended without a record vanished from both.
+  const { topo, res } = post(150);
+  const b = fins.buildFins(topo, res, ID, { mode: 'auto', bedPad: true, tines: true,
+    layerHeight: LAYER, sway: { on: true } });
+  const recs = b.fins.filter((f) => f.kind === 'sway');
+  assert(recs.length === b.sway.count && recs.length > 0, `${recs.length} sway records for ${b.sway.count} braces`);
+  const claimed = new Set();
+  for (const f of b.fins) for (const [lo, hi] of f.triRanges) for (let t = lo; t < hi; t++) claimed.add(t);
+  assert(claimed.size === b.triangles.length, `${b.triangles.length - claimed.size} vertices claimed by no fin`);
+  assert(new Set(b.fins.map((f) => f.id)).size === b.fins.length, 'fin ids collide');
+});
