@@ -88,3 +88,27 @@ function sfFinPart(pos, name, opts) {
     threemf: added.length ? base64(new Uint8Array(SF.writeThreeMF(partTris, added, name).parts[0])) : null,
   });
 }
+
+/**
+ * Fin one part for slice-time injection: same build as sfFinPart, but hands
+ * back the added solids (fins + pad) as a flat triangle soup in the CALLER's
+ * frame -- the engine's seating offset undone -- so Python can cut them at
+ * each layer height of Orca's own slice.
+ *
+ * @returns JSON string: counts + `tris` (9 floats per face; [] when nothing)
+ */
+function sfFinTris(pos, opts) {
+  const P = new Float32Array(pos);
+  const topo = SF.buildTopology({ getAttribute: (k) => (k === 'position' ? { array: P } : null) });
+  const res = SF.analyze(topo, SF.DEFAULT_THRESHOLD, SF.IDENTITY3);
+  const built = SF.buildFins(topo, res, SF.IDENTITY3, opts);
+  const { x: dx, y: dy, z: dz } = res.offset;
+  const tris = [];
+  for (const list of [built.triangles, built.padTriangles]) {
+    for (const p of list) tris.push(p[0] - dx, p[1] - dy, p[2] - dz);
+  }
+  return JSON.stringify({
+    regions: res.regions.length, fins: built.fins.length, tines: built.tines,
+    pad: built.padTriangles.length > 0, unserved: built.unserved, tris,
+  });
+}
