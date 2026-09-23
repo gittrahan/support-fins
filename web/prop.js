@@ -598,69 +598,90 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   };
 
 
-  // TWO LAYOUTS, keep the one that covers the face. Edge-to-edge is right for a
-  // face with real edges (the 40mm cube: main's centred rows left the outer 7mm
-  // and the corners cantilevered). On a ROUND face the "edge" is a tangent: an
-  // edge row there is an 8mm stub and the band inside it goes bare (cone X25
+  // CANDIDATE LAYOUTS, keep the one that covers the face. Edge-to-edge is right
+  // for a face with real edges (the 40mm cube: main's centred rows left the outer
+  // 7mm and the corners cantilevered). On a ROUND face the "edge" is a tangent:
+  // an edge row there is an 8mm stub and the band inside it goes bare (cone X25
   // sparse: main's two 41-station walls at x=+-13 became stubs at +-25.5 and
-  // coverage fell 98 -> 83%). So also lay the same number of rows centred in
-  // equal bands, and score both on the face itself: the share of its area within
-  // half a row span of a traced wall's face -- between two walls that is a bridge,
-  // past the outer wall a cantilever of at most half a span. Edge-to-edge wins
-  // ties, so a rectangular face is laid exactly as before.
-  const edgeVs = [], midVs = [];
+  // coverage fell 98 -> 83%) -- so the same rows CENTRED in equal bands are a
+  // candidate too. And the face's LOWEST point is where the overhang starts
+  // printing in mid-air, so a layout ANCHORED there (a row through it, the rest
+  // at the edge-to-edge pitch) is the third: pyramid Y35's corner sits between
+  // two centred rows and its lowest grip rose 1.25 -> 3.5mm.
+  //
+  // Choice, in order: area covered (the share of the face within half a row
+  // span of a traced wall's face -- a bridge between walls, a cantilever past
+  // the outer one), within 1% of the best; then the layout whose walls reach
+  // LOWEST on the face (within 0.1mm); then the listed order, edge-to-edge
+  // first -- so a rectangular face is laid exactly as before.
+  const pitch = single ? vExt : (vExt - PROP.th) / nBands;
+  let vLow = vLo + vExt / 2, zLow = Infinity;
+  for (const p of pts) if (p[2] < zLow) { zLow = p[2]; vLow = p[0] * vx + p[1] * vy; }
+  const lane = (v) => Math.min(vHi - inset, Math.max(vLo + inset, v));
+  const layouts = [];
   if (single) {
-    edgeVs.push(vLo + vExt * 0.5);
+    layouts.push({ vs: [vLo + vExt * 0.5], half: Math.max(0, (vExt - PROP.th) / 2), both: true });
+    layouts.push({ vs: [lane(vLow)], half: Math.max(0, (vExt - PROP.th) / 2), both: true });
   } else {
-    for (let w = 0; w <= nBands; w++) edgeVs.push(vLo + inset + ((vExt - PROP.th) * w) / nBands);
-    for (let w = 0; w <= nBands; w++) midVs.push(vLo + (vExt * (w + 0.5)) / (nBands + 1));
+    const edge = [], mid = [], anch = [];
+    for (let w = 0; w <= nBands; w++) edge.push(vLo + inset + pitch * w);
+    for (let w = 0; w <= nBands; w++) mid.push(vLo + (vExt * (w + 0.5)) / (nBands + 1));
+    const v0 = lane(vLow);
+    for (let k = Math.ceil((vLo + inset - v0) / pitch - 1e-9); v0 + k * pitch <= vHi - inset + 1e-9; k++) {
+      anch.push(v0 + k * pitch);
+    }
+    // edge rows only shift inward (outward is off the face); the others both ways
+    layouts.push({ vs: edge, half: pitch / 2, both: false });
+    layouts.push({ vs: mid, half: (vExt / (nBands + 1)) / 2, both: true });
+    layouts.push({ vs: anch, half: pitch / 2, both: true });
   }
-  let rowVs = edgeVs, centred = false;
-  if (!single) {
-    // measured from the wall FACE, like the clear-gap count: a 12mm clear bridge
-    // puts its midpoint 6.5mm from each wall's centreline, not 6. Judged at no
-    // more than the anti-sag cap even when the slider asks for sparser rows: at
-    // a 30mm span both layouts "reach" everything, and the tie laid the cone's
-    // edge rows on the tangent again.
-    const reach = Math.min(rowSpan, PROP.maxUnsupportedSpan) / 2 + PROP.th / 2;
-    const samples = faceSamples(patchTris, ux, uy, vx, vy);
-    const score = (vs) => {
-      const tracks = vs.flatMap((v0) => traceRow(v0).map((t) => {
-        const u = t.map((p) => p[0] * ux + p[1] * uy);
-        return [v0, Math.min(u[0], u.at(-1)), Math.max(u[0], u.at(-1))];
-      }));
-      let got = 0;
-      for (const [u, v, a] of samples) {
-        for (const [v0, u0, u1] of tracks) {
-          const du = Math.max(0, u0 - u, u - u1);
-          if (du * du + (v - v0) * (v - v0) <= reach * reach) { got += a; break; }
-        }
+
+  let pick = layouts[0];
+  // measured from the wall FACE, like the clear-gap count: a 12mm clear bridge
+  // puts its midpoint 6.5mm from each wall's centreline, not 6. Judged at no
+  // more than the anti-sag cap even when the slider asks for sparser rows: at
+  // a 30mm span every layout "reaches" everything, and the tie laid the cone's
+  // edge rows on the tangent again.
+  const reach = Math.min(rowSpan, PROP.maxUnsupportedSpan) / 2 + PROP.th / 2;
+  const samples = faceSamples(patchTris, ux, uy, vx, vy);
+  for (const L of layouts) {
+    const tracks = L.vs.flatMap((v0) => traceRow(v0).map((t) => {
+      const u = t.map((p) => p[0] * ux + p[1] * uy);
+      return [v0, Math.min(u[0], u.at(-1)), Math.max(u[0], u.at(-1)), Math.min(...t.map((p) => p[2]))];
+    }));
+    L.low = tracks.reduce((m, t) => Math.min(m, t[3]), Infinity);
+    L.area = 0;
+    for (const [u, v, a] of samples) {
+      for (const [v0, u0, u1] of tracks) {
+        const du = Math.max(0, u0 - u, u - u1);
+        if (du * du + (v - v0) * (v - v0) <= reach * reach) { L.area += a; break; }
       }
-      return got;
-    };
-    const eScore = score(edgeVs), mScore = score(midVs);
-    if (mScore > eScore * 1.01) { rowVs = midVs; centred = true; }
+    }
   }
+  const bestArea = Math.max(...layouts.map((L) => L.area));
+  for (const L of layouts) {
+    if (L.area < bestArea * 0.99) continue;
+    if (pick.area < bestArea * 0.99 || L.low < pick.low - 0.1) pick = L;
+  }
+  const rowVs = pick.vs;
 
   // Each row's BAND: how far it may shift and still be "that row" -- half the
   // way to each neighbour (an edge row only inward: outward is off the face).
-  // Used only when a row is rejected, see buildProps' row fallback.
-  // (Centred rows sit half a band in from each edge, so they may shift both ways.)
-  const half = single ? Math.max(0, (vExt - PROP.th) / 2)
-    : centred ? (vExt / (nBands + 1)) / 2 : ((vExt - PROP.th) / nBands) / 2;
+  // Used only when a row is rejected or short, see buildProps' row fallback.
   const kept = [];
   kept.rowOf = [];
+  const half = pick.half;
   kept.rows = rowVs.map((v0, r) => ({
     v0,
-    lo: single || centred ? -half : (r === 0 ? 0 : -half),
-    hi: single || centred ? half : (r === rowVs.length - 1 ? 0 : half),
+    lo: pick.both ? -half : (r === 0 ? 0 : -half),
+    hi: pick.both ? half : (r === rowVs.length - 1 ? 0 : half),
   }));
   kept.traceRow = traceRow;
   rowVs.forEach((v0, r) => {
     for (const t of traceRow(v0)) { kept.push(t); kept.rowOf.push(r); }
   });
-  kept.spacing = centred ? vExt / (nBands + 1) - PROP.th : clear;
-  kept.centred = centred;
+  kept.spacing = single ? 0 : pick === layouts[1] ? vExt / (nBands + 1) - PROP.th : clear;
+  kept.layout = single ? 'single' : ['edge', 'centred', 'anchored'][layouts.indexOf(pick)];
   return kept;
 }
 
