@@ -426,7 +426,6 @@ function readableEuler(q) {
 
 /** Point the camera at the part, backed off far enough to see all of it. */
 function frame(size) {
-  sizeMarkers(size);
   const reach = Math.max(size.x, size.y, size.z, 40);
   const dist = reach * 2.1;
   camera.position.set(dist * 0.62, -dist * 0.72, dist * 0.55);
@@ -773,9 +772,10 @@ const ghostMaterial = new THREE.MeshStandardMaterial({
 });
 let ghostMesh = null;
 
-// endpoint dot, cursor dot, and the rubber-band line between them. Base radius
-// 1mm; sizeMarkers() scales them to the part so they read on a 40mm cube and a
-// 300mm bracket alike.
+// endpoint dot, cursor dot, and the rubber-band line between them. Unit radius;
+// sizeMarkers() rescales them every frame to a fixed size ON SCREEN. They used to
+// be sized to the part in world mm, which meant zooming in blew the cursor up
+// until it hid the very edge you were trying to aim at.
 //
 // These are a UI overlay, so they draw with depthTest OFF and a high renderOrder:
 // the line and dots sit ON the part surface, and an opaque part face (or a fin)
@@ -786,7 +786,10 @@ let ghostMesh = null;
 const guideMat = (color) => new THREE.MeshBasicMaterial(
   { color, depthTest: false, transparent: true });
 const drawDot = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), guideMat(0x59d98e));
-const drawCursor = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), guideMat(0xcffbe4));
+// The cursor is see-through so the surface under it stays readable; the OS
+// crosshair is the precise aim point, this dot just shows the surface hit.
+const drawCursor = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14),
+  new THREE.MeshBasicMaterial({ color: 0xcffbe4, depthTest: false, transparent: true, opacity: 0.6 }));
 const bandGeom = new THREE.BufferGeometry()
   .setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
 const drawBand = new THREE.Line(bandGeom,
@@ -895,10 +898,15 @@ const drawActive = () => finsVisible && (finMode === 'draw' || drawAugment);
 const drawShown = () =>
   finsVisible && (finMode === 'draw' || (finMode === 'auto' && (drawAugment || drawnWalls.length > 0)));
 
-function sizeMarkers(size) {
-  const r = Math.max(0.7, Math.max(size.x, size.y, size.z) / 90);
-  drawDot.scale.setScalar(r);
-  drawCursor.scale.setScalar(r * 0.85);
+// Marker radii in CSS pixels, whatever the zoom.
+const DOT_PX = 5, CURSOR_PX = 4;
+/** Scale the draw markers so they keep a fixed on-screen size at any zoom. */
+function sizeMarkers() {
+  // World mm per CSS pixel at a point's depth, for the perspective camera.
+  const mmPerPx = (p) => 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)
+    * camera.position.distanceTo(p) / Math.max(1, viewport.clientHeight);
+  if (drawDot.visible) drawDot.scale.setScalar(DOT_PX * mmPerPx(drawDot.position));
+  if (drawCursor.visible) drawCursor.scale.setScalar(CURSOR_PX * mmPerPx(drawCursor.position));
 }
 
 /** The whole part in PRINT space (rotated + seated), rebuilt only when the
@@ -2618,6 +2626,7 @@ let frames = 0, last = performance.now();
 function tick(now) {
   requestAnimationFrame(tick);
   controls.update();
+  sizeMarkers();
   renderer.render(scene, camera);
   if (++frames >= 20) {
     fpsEl.textContent = `${Math.round((frames * 1000) / (now - last))} fps`;
