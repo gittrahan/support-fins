@@ -105,3 +105,19 @@ Deno.test('coverage: a narrow face still gets ONE centred wall, not two edge wal
   const b = fins.buildFins(topo, res, IDENTITY, { mode: 'auto', bedPad: true, tines: true, coverage: 0.5 });
   assert(b.fins.length <= 2, `narrow face got ${b.fins.length} fins -- expected ~1 centred wall`);
 });
+
+// Row count is set by the CLEAR gap (wall face to wall face -- what the part
+// bridges), not centre to centre. A 40mm cube face: (40 - 1) / 3 - 1 = 12.0mm with
+// 4 walls, exactly the 12mm cap, so 4 walls -- centre counting gave 5 (Matthew:
+// one too many). Pins the count and that the widest real bridge stays at the cap.
+Deno.test('coverage: row count follows the clear gap -- 40mm cube gets 4 walls, bridges <= cap', () => {
+  const topo = tiltedBlockTopo(-20, 20, -20, 20, -20, 20, 35);
+  const res = analyze(topo, 45, IDENTITY);
+  const b = fins.buildFins(topo, res, IDENTITY, { mode: 'auto', bedPad: true, tines: true, coverage: 0.5 });
+  const xs = b.props.filter((p) => !p.squat).map((p) => p.line[0][0]).sort((a, c) => a - c);
+  assert(xs.length === 4, `expected 4 walls on the 40mm cube, got ${xs.length}`);
+  for (let i = 1; i < xs.length; i++) {
+    const clear = xs[i] - xs[i - 1] - prop.PROP.th;
+    assert(clear <= prop.PROP.maxUnsupportedSpan + 0.15, `bridge ${clear.toFixed(2)}mm between walls exceeds the cap`);
+  }
+});

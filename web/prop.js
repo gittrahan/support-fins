@@ -556,30 +556,29 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // small part, so the clamp is gone and the caller warns (sagRisk) when the
   // resulting spacing actually exceeds the cap. Denser still only adds rows.
   const rowSpan = Math.max(1, span);
-  // CEIL, not round: the pitch (vExt / nBands) then never exceeds rowSpan, so a
-  // wide face is held at least as tight as the requested cap rather than a hair
-  // looser. nBands is the number of GAPS; a wide face gets nBands+1 rows, edge to
-  // edge (see below).
-  const nBands = Math.max(1, Math.ceil(vExt / rowSpan));
+  // A face narrower than one span keeps ONE centred wall, which bridges.
+  const single = Math.ceil(vExt / rowSpan) <= 1;
+  // A wider face gets walls EDGE TO EDGE: one on each outer edge, its outer face
+  // flush with the overhang edge (centred half a wall-thickness in, so its body
+  // sits on the face -- not on the razor edge, where half the wall hangs off and
+  // the clearance pass drops it), plus evenly spaced ones between.
+  //
+  // The count is set by the CLEAR gap -- wall face to wall face, the distance the
+  // part actually has to bridge -- not centre to centre: each wall occupies `th`
+  // of the span. Counting centres put a 40mm cube at ceil(40/12) = 4 gaps = 5
+  // walls; its real bridge is (40 - 1) / 3 - 1 = 12.0mm with 4 walls, exactly the
+  // cap, so 4 it is (Matthew: 5 read as one too many). The 1% slack keeps float
+  // noise in vExt from flipping a face that sits exactly on the cap.
+  const inset = PROP.th / 2;
+  const nBands = single ? 1
+    : Math.max(1, Math.ceil((vExt - PROP.th) / (rowSpan + PROP.th) - 0.01));
+  const clear = single ? 0 : (vExt - PROP.th) / nBands - PROP.th;
 
-  // Row v-offsets across the width. Narrow face (one band): a single centred wall,
-  // which bridges -- unchanged. Wide face: a wall on each outer EDGE plus evenly
-  // between, so the whole overhang incl. its edges/corners is held. The two edge
-  // rows sit HALF A WALL-THICKNESS in from the edge, so the wall's OUTER face is
-  // flush with the overhang edge (it reaches all the way out) while its body still
-  // sits on the face -- not centred on the razor edge, where half the wall hangs
-  // off and the clearance pass drops it. If a ragged edge still rejects the outer
-  // row, the next row in covers -- the loss is graceful, never a bare middle.
   const rowVs = [];
-  if (nBands <= 1) {
+  if (single) {
     rowVs.push(vLo + vExt * 0.5);
   } else {
-    const inset = PROP.th / 2;
-    for (let w = 0; w <= nBands; w++) {
-      let v0 = vLo + (vExt * w) / nBands;
-      if (w === 0) v0 += inset; else if (w === nBands) v0 -= inset;
-      rowVs.push(v0);
-    }
+    for (let w = 0; w <= nBands; w++) rowVs.push(vLo + inset + ((vExt - PROP.th) * w) / nBands);
   }
 
   const tracks = [];
@@ -598,10 +597,10 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
     if (cur.length) tracks.push(cur);
   }
   const kept = tracks.filter((t) => t.length >= PROP.minStations);
-  // The lateral gap between adjacent rows this face ended up with. The caller
-  // compares it to the anti-sag cap to decide whether to warn: only a face wide
-  // enough to want >1 row can actually sag, and only when its spacing exceeds cap.
-  kept.spacing = nBands > 1 ? vExt / nBands : 0;
+  // The CLEAR gap between adjacent walls this face ended up with -- what the part
+  // bridges. The caller compares it to the anti-sag cap to decide whether to warn:
+  // only a face with >1 row can sag, and only when that gap exceeds the cap.
+  kept.spacing = clear;
   return kept;
 }
 
