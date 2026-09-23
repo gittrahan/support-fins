@@ -29,7 +29,7 @@
 import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js';
 import { BED_EPS } from './overhangs.js';
 import { insidePart } from './inside.js';
-import { buildProps, noProps, surfaceZAt, emitTines, tineStepFor } from './prop.js';
+import { buildProps, noProps, surfaceZAt, emitTines, tineStepFor, PROP } from './prop.js';
 
 export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
@@ -1210,6 +1210,11 @@ function propServesPatch(p, props) {
   const m = 8;
   for (const q of props) {
     for (const pt of (q.line ?? [])) {
+      // A tall wall's low TAIL (prop.js withLowTails) runs down into the corner
+      // where this face may meet the one the wall serves; its sub-minHeight tip
+      // landing in the margin is not a wall under this face (it dropped the wedge
+      // on a steep cube face). Squat props are low by design and still count.
+      if (!q.squat && pt[2] < PROP.minHeight) continue;
       if (pt[0] >= xLo - m && pt[0] <= xHi + m && pt[1] >= yLo - m && pt[1] <= yHi + m) return true;
     }
   }
