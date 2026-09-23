@@ -195,6 +195,10 @@ export const PROP = {
   // stay dense end-to-end and the minGripTines floor is untouched.
   tineEdgeBand: 8.0,   // mm of dense comb held at each end of the run
   tineMidFactor: 2.0,  // interior spacing = requested step * this (2mm dense -> 4mm)
+  tineSlopeMin: 1.0,   // mm of rise end-to-end before a tail-less line counts as
+                       // running down to a bottom edge (anchored comb) vs level
+  tineTopClear: 0.5,   // mm kept bare at a wall's TOP end, where the overhang face
+                       // ends -- a nub jammed against it hangs past the part's edge
 };
 
 /**
@@ -1441,12 +1445,12 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
     s.push(s[i - 1] + Math.hypot(line[i][0] - line[i - 1][0],
                                  line[i][1] - line[i - 1][1]));
   }
-  // `body` = [i0, i1], the station range of a tall wall's full-height BODY. When
-  // given, the comb is laid over the body exactly as it was before walls grew low
-  // TAILS (withLowTails), and the tail only ADDS nubs below it (see the end). The
-  // first attempt spaced the comb over body+tail instead: every row shifted down
-  // into the tail, where a nub often can't attach, and grip dropped (5-10% of
-  // tines; all of them on some parts). Callers without a tail pass nothing.
+  // `body` = [i0, i1], the station range of a tall wall's full-height BODY (the
+  // rest is its low TAILS, withLowTails). It only sizes the spacing below: the
+  // minGripTines floor counts the body, as before walls grew tails, so a tail
+  // never thins the comb. The comb itself runs the whole wall, anchored at the
+  // lowest point a nub grips (see the end), so rows never land where a tail
+  // can't take one. Callers without a tail pass nothing.
   const s0 = body ? s[body[0]] : 0;
   const s1 = body ? s[body[1]] : s[s.length - 1];
   const total = s1 - s0;
@@ -1463,35 +1467,6 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
   // half the tine's WIDTH across the run -- one nozzle bead (PROP.tineW), NOT the
   // wall thickness. Building it th-wide made a 1mm divot, ~2x Slant3D's spec.
   const half = PROP.tineW / 2;
-
-  // EDGE-BIASED stations: dense (`step`) within tineEdgeBand of either end, thinned
-  // (`step * tineMidFactor`) across the middle, so the comb clusters at the run's
-  // ends/corners and stops marching across a visible flat face (PROP.tineEdgeBand).
-  // The step chosen for the NEXT gap depends on where we are now: still dense while
-  // the current station sits in either end band. A run <= 2*band is all-edge.
-  const band = Math.min(PROP.tineEdgeBand, total / 2);
-  // The interior step thins by tineMidFactor but never past the slider's OWN
-  // sparsest setting: edge-bias must not compound with a user who already dialed
-  // grip to light and starve the comb to a few scattered nubs. So when the
-  // requested step is already sparse, edge-bias adds no further thinning.
-  const midStep = Math.min(step * PROP.tineMidFactor, PROP.tineStepSparse);
-  const stations = [];
-  for (let d = step / 2; d < total; ) {
-    stations.push(d);
-    const inEndBand = Math.min(d, total - d) <= band;
-    d += inEndBand ? step : midStep;
-  }
-
-  // GRIP THE BASE. A run's ENDS are the wall's lowest points -- the part's bottom
-  // edge, where a tilted part peels off first (Slant3D's "dense low"). The comb
-  // above starts half a step IN from each end, so the lowest ~step/2 of the wall
-  // -- exactly the bottom band -- got no tine ("the fins don't reach the bottom of
-  // the part"). Add a nub hard against each end (one tine-width in, so it stays on
-  // the wall) below the first interior row. The minTop gate + a real part face at
-  // that height still decide whether it takes; on a run that tapers to a knife
-  // edge or a face too close to the plate it simply won't bite, which is honest.
-  const endIn = Math.min(half, total / 2);
-  if (total > 3 * half) { stations.unshift(endIn); stations.push(total - endIn); }
 
   let count = 0;
   // Place ONE tine at arc length d0 (relative to the body start s0); true if it
@@ -1566,21 +1541,62 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
     count++;
     return true;
   };
-  for (const d0 of stations) place(d0);
-  // TAIL nubs: continue the comb down each tail at the dense step, from the body
-  // end toward the wall's end, wherever a nub can actually attach (the per-station
-  // gates in place() decide -- a curved underside or sub-minTop wall just skips).
-  // Then one BASE nub per tail at the lowest point that grips: scan up from the
-  // tail's end a tine-width at a time (the lowest stretch is usually under minTop,
-  // or curls away on a curved part) and stop before the nearest nub above it.
-  if (body) {
-    const sEnd = s[s.length - 1] - s0;
-    let lowest = 0;                              // lowest landed d on the low tail
-    for (let d = -step; d >= -s0 + half; d -= step) if (place(d)) lowest = d;
-    for (let d = -s0 + half; d < lowest - step / 2; d += PROP.tineW) if (place(d)) break;
-    let highest = total;
-    for (let d = total + step; d <= sEnd - half; d += step) if (place(d)) highest = d;
-    for (let d = sEnd - half; d > highest + step / 2; d -= PROP.tineW) if (place(d)) break;
+  // ONE COMB, LAID UP FROM THE BOTTOM. The wall's LOW end is the part's bottom
+  // edge, where a tilted part peels off first (Slant3D's "dense low"), so the comb
+  // is anchored there: scan up from the low end a tine-width at a time for the
+  // lowest point a nub actually grips (the last stretch is often under minTop, or
+  // curls away on a curved part), then step up the WHOLE run (tail + body) at the
+  // regular spacing from that anchor. An earlier version stacked three passes --
+  // the body comb from half a step in, a forced nub against EACH end, and a tail
+  // pass below the body -- which bunched the bottom tines at uneven gaps (35deg
+  // cube: 0.8/2.1/2.8 then 2mm) and jammed a nub 0.5mm from the TOP end, where the
+  // overhang face ends and it hung past the part's edge. So: no nub within
+  // tineTopClear of the top end. That margin is fixed, not half a step, so a sparse
+  // comb doesn't lose its last nub to a 2.5mm dead zone. The anchor scan runs as far
+  // up as it must: capping it and falling back to an arbitrary phase let the whole
+  // comb straddle a narrow grippable stretch and miss it entirely.
+  //
+  // EDGE-BIASED spacing: dense (`step`) within tineEdgeBand of either end, thinned
+  // (`step * tineMidFactor`) across the middle, so the comb clusters at the run's
+  // ends/corners and stops marching across a visible flat face (PROP.tineEdgeBand).
+  // The step chosen for the NEXT gap depends on where we are now: still dense while
+  // the current station sits in either end band. A run <= 2*band is all-edge.
+  // The interior step thins by tineMidFactor but never past the slider's OWN
+  // sparsest setting: edge-bias must not compound with a user who already dialed
+  // grip to light and starve the comb to a few scattered nubs.
+  const S = s[s.length - 1];
+  const lowFirst = line[0][2] <= line[line.length - 1][2];
+  const at = (u) => place((lowFirst ? u : S - u) - s0);   // u = arc length from the LOW end
+  const band = Math.min(PROP.tineEdgeBand, S / 2);
+  const midStep = Math.min(step * PROP.tineMidFactor, PROP.tineStepSparse);
+  const uTop = S - Math.min(step / 2, PROP.tineTopClear);
+  const zLo = Math.min(line[0][2], line[line.length - 1][2]);
+  const zHi = Math.max(line[0][2], line[line.length - 1][2]);
+  if (!body && zHi - zLo < PROP.tineSlopeMin) {
+    // A LEVEL line with no tail (most wedges, squat walls): main's plain comb,
+    // unchanged -- it was already even, and a level line has no bottom edge to
+    // anchor. Re-phasing these moved nubs off the few grippable spots (dense
+    // wedges lost 10-20% of their tines). A SLOPED line, tail or not, runs down to
+    // the part's bottom edge and takes the bottom-anchored comb below.
+    for (let d = step / 2; d < S; ) {
+      place(d);
+      d += Math.min(d, S - d) <= band ? step : midStep;
+    }
+    return count;
+  }
+  // Start and scan scale down with the step on a very short run (a near-vertical
+  // wedge line can be 0.1mm long in XY, and step shrinks to fit minGripTines there).
+  const scan = Math.min(PROP.tineW, step / 2);
+  let u = Math.min(half, step / 2);
+  while (u <= uTop && !at(u)) u += scan;
+  // Dense while this nub OR the next sparse one sits in an end band: anchoring
+  // the comb lower shifts where it crosses into the top band, and judging only the
+  // current nub let one 4mm gap straddle the band edge and cost the top a nub.
+  for (;;) {
+    const dense = Math.min(u, S - u) <= band || S - (u + midStep) <= band;
+    u += dense ? step : midStep;
+    if (u > uTop) break;
+    at(u);
   }
   return count;
 }
