@@ -1232,6 +1232,40 @@ function propServesPatch(p, props) {
 }
 
 /**
+ * Overhang regions still unsupported once the wedges are in: neither served by a
+ * prop wall nor standing over any wedge. This used to be `unserved - wedged
+ * PATCHES` -- a patch count off a region count, two different segmentations --
+ * so wedges under one region hid others nothing supports (hub_corner X45: a
+ * 1025mm2 region with no support within reach reported "0 unserved";
+ * voron_filter_housing X25 hid two). Credit is SPATIAL, like propServesPatch and
+ * check_stl's coverage, because a wall-patch and a region don't share faces:
+ * a region counts when some wedge vertex sits within maxUnsupportedSpan of one
+ * of its faces in plan and 0..3mm below it. Dropped overhangs are surfaced.
+ */
+function unservedAfterWedges(topo, rot, result, servedRegions, wedgeTris) {
+  const { pos } = topo, o = result.offset, served = new Set(servedRegions);
+  const span2 = PROP.maxUnsupportedSpan * PROP.maxUnsupportedSpan;
+  let n = 0;
+  result.regions.forEach((g, i) => {
+    if (served.has(i)) return;
+    for (const f of g.faces) {
+      let cx = 0, cy = 0, cz = 0;
+      for (let j = 0; j < 3; j++) {
+        const x = pos[f * 9 + j * 3], y = pos[f * 9 + j * 3 + 1], z = pos[f * 9 + j * 3 + 2];
+        cx += (rot[0] * x + rot[3] * y + rot[6] * z + o.x) / 3;
+        cy += (rot[1] * x + rot[4] * y + rot[7] * z + o.y) / 3;
+        cz += (rot[2] * x + rot[5] * y + rot[8] * z + o.z) / 3;
+      }
+      for (const v of wedgeTris) {
+        if (v[2] > cz - 3 && v[2] < cz + 0.5 && (v[0] - cx) ** 2 + (v[1] - cy) ** 2 <= span2) return;
+      }
+    }
+    n++;
+  });
+  return n;
+}
+
+/**
  * Generate supports for the part in its current orientation.
  *
  * @param opts.mode     'prop' (the default: a vertical breakaway wall under
@@ -1283,7 +1317,8 @@ export function buildFins(topo, result, rot, opts = {}) {
     const patches = findWallPatches(topo, rot, result.offset);
     const wedgeTris = [];
     const wedgeRecs = [];   // per-wedge records, triRange into wedgeTris (pre-offset)
-    let wedgeTines = 0, wedgedPatches = 0;
+    let wedgeTines = 0;
+    let wedgedPatches = 0;
     for (const p of patches) {
       if (p.n.z >= -0.05) continue;                 // downward faces only
       if (p.area < PERP.minArea || (p.u1 - p.u0) < PERP.minWidth) continue; // broad faces only
@@ -1333,7 +1368,8 @@ export function buildFins(topo, result, rot, opts = {}) {
       // plain prop. Report the split so the stress harness / UI metrics keep working.
       braceCount: withTines ? fins.length : wedgeCount,
       propCount: withTines ? 0 : base.fins.length,
-      unserved: Math.max(0, (base.unserved ?? 0) - wedgedPatches),
+      unserved: wedgedPatches ? unservedAfterWedges(topo, rot, result, base.servedRegions ?? [], wedgeTris)
+                              : (base.unserved ?? 0),
     };
   }
 
