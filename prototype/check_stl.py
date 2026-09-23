@@ -24,6 +24,7 @@ import trimesh
 
 WALL_MIN_VOL = 20.0     # mm^3; below this a body is a tine, not a wall or base
 TINE_MAX_VOL = 5.0
+TINE_MAX_H = 0.45   # mm; a tine is one layer (tineH 0.2) -- two layers is already not a tine
 STANDOFF = 0.2
 # The project's own non-fusing clearance, same number as the breakaway gap: if
 # 0.2mm is enough for the part to bridge over the top without welding, it is
@@ -163,7 +164,13 @@ def check(case):
     pq = trimesh.proximity.ProximityQuery(part)
 
     walls = [b for b in added if b.volume > WALL_MIN_VOL]
-    tines = [b for b in added if b.volume < TINE_MAX_VOL]
+    # A tine is ONE LAYER tall by design (prop.js tineH) -- so small AND flat.
+    # Volume alone misread a short squat wall (a 5mm low-ledge wall is ~5mm3,
+    # ~1mm tall) as a tine that "bites nothing, detached from wall" (torus X45).
+    # Anything small but taller than a tine is wall-like: it joins `walls` for
+    # the grip test instead, and must stay out of the part like any wall.
+    tines = [b for b in added if b.volume < TINE_MAX_VOL and b.extents[2] <= TINE_MAX_H]
+    walls += [b for b in added if b.volume <= WALL_MIN_VOL and b not in tines]
     problems = []
 
     # A PROP has no tines by design: it stops short of the part so the part
