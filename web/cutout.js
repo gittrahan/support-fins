@@ -41,6 +41,7 @@ export const CUT = {
   latSlope: 1.5,  // strut rise per unit across (~56deg), steeper than `slope`
   roofMin: 1.0,   // a clipped lattice hole's roof may be as flat as 45deg, no flatter
   minArea: 3.0,   // smallest lattice hole worth cutting, mm2
+  minSaved: 0.10, // a wall whose holes open less of its face than this stays solid
 };
 
 /**
@@ -364,12 +365,23 @@ export function cutWall(st, full, out, wall) {
     }
   }
   if (!holes.length) return false;
+  // Not worth it for a hole or two: a wall whose holes would take out less than
+  // CUT.minSaved of its face stays solid -- the extra pieces cost triangles and
+  // overlap for next to no plastic saved.
+  let face = 0, open = 0;
+  for (let i = 0; i + 1 < st.length; i++) {
+    face += (s[i + 1] - s[i]) * ((st[i].top - st[i].bot) + (st[i + 1].top - st[i + 1].bot)) / 2;
+  }
+  for (const H of holes) open += polyArea(H);
+  if (open < CUT.minSaved * face) return false;
 
   // Bands: the top band reaches down to the zone's top edge, the bottom band up
   // to its bottom edge, station by station.
   const th = wall.th / 2, tp = wall.tip / 2;
+  // Only between the end posts: the posts are solid full height already, and a
+  // band running on under them would just be plastic counted twice.
   const top = [], bot = [];
-  for (let i = 0; i < st.length; i++) {
+  for (let i = edges[0]; i <= edges[edges.length - 1]; i++) {
     const q = st[i];
     const P = (o, z) => [q.p[0] + q.sx * o, q.p[1] + q.sy * o, z];
     // keep each band inside the wall's own profile

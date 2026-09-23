@@ -7,7 +7,7 @@
 //   - a wall too short for a hole comes out exactly as before, and so does every
 //     wall with the pattern off.
 
-import { WEB, block, prop, fins, buildTopology, analyze, isClosed, assert } from './_util.js';
+import { WEB, block, prop, fins, buildTopology, analyze, loadModel, isClosed, assert } from './_util.js';
 
 const { drawnWall } = await import(`${WEB}draw.js`);
 const { PROP } = prop;
@@ -241,4 +241,28 @@ Deno.test('cutout: on a sloped fin the lattice climbs the slope, and still never
   const tris = sloped('lattice');
   assert(isClosed(tris), 'sloped lattice not closed');
   for (const s of shells(tris)) assert(volume(s) > 0, 'a sloped lattice piece is inside-out');
+});
+
+Deno.test('cutout: on real parts no pattern throws, leaves a hole in the mesh, or ADDS plastic', () => {
+  // A wall where only a speck of a hole fits used to come out heavier than solid
+  // (bands overlapping the end posts outweighed the hole), so picking a cutout
+  // could raise the grams readout. Whatever the pattern, the support must be closed
+  // and never heavier than the solid build.
+  const cases = [['wedge', 'x', 60], ['lbracket', 'x', 60], ['tshape', 'x', 60], ['cylinder', 'y', 25]];
+  for (const [name, ax, deg] of cases) {
+    const topo = loadModel(name);
+    const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+    const rot = ax === 'x' ? [1, 0, 0, 0, c, s, 0, -s, c] : [c, 0, -s, 0, 1, 0, s, 0, c];
+    const res = analyze(topo, 45, rot);
+    const build = (p) => fins.buildFins(topo, res, rot,
+      { mode: 'auto', bedPad: true, tines: true, tunables: { cutout: p } }).triangles;
+    const solid = volume(build('none'));
+    for (const p of ['diamond', 'triangle', 'arch', 'lattice']) {
+      const t = build(p);
+      assert(isClosed(t), `${name} ${ax}${deg} ${p}: not closed`);
+      assert(volume(t) <= solid * 1.02 + 1,
+        `${name} ${ax}${deg} ${p}: ${volume(t).toFixed(0)} mm3 vs ${solid.toFixed(0)} solid`);
+    }
+  }
+  CUT.pattern = 'none';
 });
