@@ -8,7 +8,8 @@ the branch supports **less**.
 ```sh
 prototype/sweep/vs-base.sh                 # vs origin/main, incl. check_stl.py
 prototype/sweep/vs-base.sh <sha>           # vs any commit
-NOCHECK=1 prototype/sweep/vs-base.sh       # skip the check_stl pass (~2x faster)
+NOCHECK=1 prototype/sweep/vs-base.sh       # skip the check_stl pass (sweep alone: ~1 min)
+CHECK_TIMEOUT=300 prototype/sweep/vs-base.sh   # per-case check_stl limit (default 45s)
 KEEP=/some/dir prototype/sweep/vs-base.sh  # keep base/head JSON for digging
 ```
 
@@ -32,3 +33,8 @@ walls on others — nothing the one-part check or the unit tests could see.
 Files: `sweep.js` (run one engine, optionally export STLs) · `compare.js`
 (diff two runs) · `check_diff.py` (check_stl on both exports) · `vs-base.sh`
 (all of it against a git ref, in a throwaway worktree).
+
+`check_stl.py` checks every solid, so its cost scales with tine count (40mm
+cube ~1s; bigplate at dense ~200s). check_diff runs cases in parallel, one
+process each, with a per-case limit; a case that overruns is listed as **NOT
+checked** — never counted as a pass.
