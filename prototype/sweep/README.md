@@ -38,3 +38,9 @@ Files: `sweep.js` (run one engine, optionally export STLs) · `compare.js`
 cube ~1s; bigplate at dense ~200s). check_diff runs cases in parallel, one
 process each, with a per-case limit; a case that overruns is listed as **NOT
 checked** — never counted as a pass.
+
+**Memory:** each check loads the whole part into trimesh, so the pass runs 3 at
+a time (`CHECK_WORKERS`) and **skips bigplate + both voron parts by default** —
+8 parallel checks on those got the machine OOM-killed. The sweep itself still
+covers them. `CHECK_BIG=1` includes them; only do that on its own, not while
+you're working.

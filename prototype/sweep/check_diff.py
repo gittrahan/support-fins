@@ -19,7 +19,13 @@ COV_DROP = 2.0   # percentage points of overhang area
 # process (parallel, killable); one that overruns is REPORTED as unchecked, never
 # silently passed. Override with CHECK_TIMEOUT=<s>.
 TIMEOUT = float(os.environ.get('CHECK_TIMEOUT', 45))
-WORKERS = os.cpu_count() or 4
+# MEMORY, not CPU, is the limit: each check loads the whole part into trimesh's
+# proximity query, and 8 at once on the big dev models used several GB each and
+# got the whole machine OOM-killed (2026-09-22). Few workers, and the heavy
+# models are SKIPPED by default -- the sweep still covers them, only this
+# mesh-clearance pass doesn't. CHECK_BIG=1 includes them (run on its own).
+WORKERS = int(os.environ.get('CHECK_WORKERS', 3))
+HEAVY = ('bigplate__', 'voron_drive_frame__', 'voron_filter_housing__')
 
 # One case in a child process; prints (ok, cov, tot, last line) as JSON.
 CHILD = r"""
@@ -49,6 +55,11 @@ def judge_one(case):
 def judge(dirs):
     cases = [p[:-4] for d in dirs for p in sorted(glob.glob(f'{d}/*.stl'))
              if not p.endswith(('-fins.stl', '-pad.stl', '-part.stl'))]
+    if not os.environ.get('CHECK_BIG'):
+        heavy = [c for c in cases if os.path.basename(c).startswith(HEAVY)]
+        cases = [c for c in cases if c not in heavy]
+        if heavy:
+            print(f'  skipping {len(heavy)} heavy-model checks (bigplate/voron; CHECK_BIG=1 to include)', flush=True)
     out, t0, done = {}, time.time(), 0
     with ThreadPoolExecutor(WORKERS) as ex:
         for case, res in ex.map(judge_one, cases):
