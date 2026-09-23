@@ -5,6 +5,9 @@ node_modules/
 dist/
 *.stl
 !tests/fixtures/*.stl
+# test models the Deno suite loads (tests/_util.js MODELS); regenerate with
+# prototype/stress/gen.py. Committed so CI and fresh checkouts can run the tests.
 out/
 dev-models/
-prototype/stress/models/
+prototype/stress/models/*
+!prototype/stress/models/*.stl
