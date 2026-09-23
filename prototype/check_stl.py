@@ -208,9 +208,15 @@ def check(case):
     # patch has most of its area further away, which drags a median upward and
     # reports a defect that is not there. Closest approach is what "spaced 0.2mm
     # away" actually means.
-    gaps = []
+    # A base flange (the plate foot of a wall) has no standoff spec -- it only
+    # has to clear the part like a flank. Told apart by HEIGHT, as check_props
+    # does: this used to be `len(b.vertices) > 40`, which skipped every long
+    # wall and measured a short wall's 0.6mm flange as a wall instead (bar
+    # X30Y60: "standoff 30.9" was a flange 31mm below the part, wall at 0.17).
+    gaps, flanks = [], []
     for b in walls:
-        if len(b.vertices) > 40:        # the base ellipse, not a wall
+        if b.bounds[1][2] - b.bounds[0][2] <= FLANGE_MAX_H:
+            flanks.append(float(np.abs(pq.signed_distance(b.vertices)).min()))
             continue
         pts, _ = trimesh.sample.sample_surface(b, 6000)
         d = pq.signed_distance(pts)
@@ -219,6 +225,8 @@ def check(case):
     gap_txt = ', '.join(f'{g:.3f}' for g in gaps) if gaps else 'n/a'
     if gaps and any(abs(g - STANDOFF) > 0.05 for g in gaps):
         problems.append(f'standoff off spec ({gap_txt})')
+    if flanks and min(flanks) < FLANK_MIN:
+        problems.append(f'flange {min(flanks):.3f} < {FLANK_MIN} (would weld)')
 
     ok = not problems
     cov, tot = coverage(case, added)
