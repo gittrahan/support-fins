@@ -245,6 +245,17 @@
       <button class="btn sm" id="draw-clear">Clear all</button>
     </div>
   </div>
+  <!-- Per-fin removal (Auto only, shown via app.js syncRemoveUI). Arm a click-to-
+       remove mode: hover lights a fin red, click drops just that one. Restore all
+       brings every removed fin back. Each removal is one undo step. -->
+  <div id="remove-fins-controls" hidden>
+    <div class="draw-btns">
+      <button class="btn sm" id="remove-fins-toggle" hidden
+              title="Click a fin to remove just that one. Esc or right-click cancels.">Remove fins</button>
+      <button class="btn sm" id="restore-fins" hidden
+              title="Bring back every fin removed in this orientation.">Restore all</button>
+    </div>
+  </div>
 </aside>
 <div class="rail-spacer"></div>
 <!-- Bottom-right status card: the pose/fin FEEDBACK worth glancing at. It shares

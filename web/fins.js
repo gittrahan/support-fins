@@ -1161,8 +1161,9 @@ function buildPerpFins(p, topo, rot, offset, opts = {}) {
   const uDir = { x: p.u.x, y: p.u.y };            // horizontal, across the face (unit)
   const half = PERP.th / 2;
   const lo = p.u0 + PERP.inset, hi = p.u1 - PERP.inset;
-  if (hi - lo <= 0) return { triangles: [], tines: 0, count: 0 };
+  if (hi - lo <= 0) return { triangles: [], tines: 0, count: 0, wedges: [] };
   const out = [];
+  const wedges = [];   // per-wedge records: { triRange, line, height, span }
   let tineTotal = 0, count = 0;
 
   for (const uc of perpColumns(p, lo, hi, opts.pitch ?? PERP.pitch)) {
@@ -1187,9 +1188,18 @@ function buildPerpFins(p, topo, rot, offset, opts = {}) {
     extrudeRing(ring, uDir, half, out);
     emitFoot([top[0][0], top[0][1], 0], [top[top.length - 1][0], top[top.length - 1][1], 0], uDir, out);
     if (opts.tines !== false) tineTotal += emitTines(contact, null, topo, rot, offset, out, tineStepFor(opts.tineDensity));
-    if (out.length > before) count++;
+    if (out.length > before) {
+      count++;
+      // One wedge = ring + foot + its tines, all pushed contiguously since
+      // emitTines ran inside this loop iteration. Record the range so the UI
+      // can address/remove this individual wedge.
+      const hMax = Math.max(...top.map((q) => q[2]));
+      const sp = Math.hypot(contact[contact.length - 1][0] - contact[0][0],
+                           contact[contact.length - 1][1] - contact[0][1]);
+      wedges.push({ triRange: [before, out.length], line: contact, height: hMax, span: sp });
+    }
   }
-  return { triangles: out, tines: tineTotal, count };
+  return { triangles: out, tines: tineTotal, count, wedges };
 }
 
 /**
@@ -1272,20 +1282,47 @@ export function buildFins(topo, result, rot, opts = {}) {
     // already serve are left untouched, so the reachable parts don't change.
     const patches = findWallPatches(topo, rot, result.offset);
     const wedgeTris = [];
-    let wedgeTines = 0, wedgeCount = 0, wedgedPatches = 0;
+    const wedgeRecs = [];   // per-wedge records, triRange into wedgeTris (pre-offset)
+    let wedgeTines = 0, wedgedPatches = 0;
     for (const p of patches) {
       if (p.n.z >= -0.05) continue;                 // downward faces only
       if (p.area < PERP.minArea || (p.u1 - p.u0) < PERP.minWidth) continue; // broad faces only
       if (propServesPatch(p, base.props)) continue; // a prop already stands under it
       const w = buildPerpFins(p, topo, rot, result.offset, { tines: withTines, pitch: covPitch, tineDensity: opts.tineDensity });
       if (!w.count) continue;
+      // Offset each wedge's range from its per-call `out` into the merged
+      // wedgeTris array, so the range lands correctly in the final triangles.
+      const off = wedgeTris.length;
       for (const v of w.triangles) wedgeTris.push(v);
-      wedgeTines += w.tines; wedgeCount += w.count; wedgedPatches++;
+      for (const wd of w.wedges) {
+        wedgeRecs.push({ triRange: [wd.triRange[0] + off, wd.triRange[1] + off],
+                         line: wd.line, height: wd.height, span: wd.span });
+      }
+      wedgeTines += w.tines; wedgedPatches++;
     }
+    const wedgeCount = wedgeRecs.length;
 
-    const fins = [...base.fins];
-    for (let i = 0; i < wedgeCount; i++) {
-      fins.push({ height: 0, length: 0, tines: 0, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null });
+    // Unified per-fin array: each entry carries its triangle segment(s) into the
+    // final `built.triangles`, so the UI can address and remove an individual fin
+    // by its geometry. Prop ranges already index `base.triangles` (the prefix of
+    // the merged array); wedge ranges are offset past it by base.triangles.length.
+    // base.fins[i] is order-aligned with base.props[i] (it is built from it), so
+    // the existing stats fields carry over and only triRanges/id/kind are added.
+    const baseLen = base.triangles.length;
+    const fins = base.props.map((q, i) => ({
+      ...(base.fins[i] ?? {}),                     // existing stats (height/length/tines/...)
+      id: q.id ?? i, kind: 'prop',
+      triRanges: q.triRanges ?? [],
+      line: q.line, span: q.span, height: q.height,
+    }));
+    let wid = fins.length;
+    for (const wd of wedgeRecs) {
+      fins.push({
+        height: wd.height, length: wd.span, tines: 0, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
+        id: wid++, kind: 'wedge',
+        triRanges: [[wd.triRange[0] + baseLen, wd.triRange[1] + baseLen]],
+        line: wd.line, span: wd.span,
+      });
     }
     return {
       ...base, mode,
@@ -1323,9 +1360,15 @@ export function buildFins(topo, result, rot, opts = {}) {
       ? noProps() : buildProps(topo, result, rot, opts);
     return {
       triangles: built.triangles, padTriangles: padOut, pad, mode,
+      // Carry each prop's triangle range + identity up so per-fin removal can
+      // address an individual fin regardless of which mode produced it. The stats
+      // fields (height/length/tines/...) are preserved; triRanges/id/kind/line are
+      // additive on top of built.props (which already carry them).
       fins: built.props.map((q) => ({
         height: q.height, length: q.span, tines: 0, rows: 0,
         stilt: 0, lean: 0, bearing: 0, site: null,
+        id: q.id, kind: q.kind ?? 'prop',
+        triRanges: q.triRanges ?? [], line: q.line, span: q.span,
       })),
       props: built.props,
       volume: built.volume,
