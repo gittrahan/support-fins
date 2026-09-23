@@ -91,9 +91,12 @@ as they grow. Nothing overhangs, but the nozzle's drag and each layer shrinking 
 it cools push the top around, and every movement leaves a visible layer line. Off by
 default ("Sway braces (tall parts)" in the options panel).
 
-**Printed, 2026-09-22.** Two test prints, both clean, so the numbers below are the
-printed ones. Change them only for the same kind of reason the rest of this file
-demands: something measured, not a hunch.
+**Printed, 2026-09-22.** Two prints of the 249 mm fence-post cap in **ASA**, braces
+hand-placed in Draw (three on one, five on the other). Both came out clean: the braces
+**snapped off by hand**, the tines left **small bumps**, and the drift the braces exist
+to stop was gone. So the numbers below are the printed ones — change them only for the
+same kind of reason the rest of this file demands: something measured, not a hunch.
+(ASA has no material profile yet; the selector offers PLA and PETG.)
 
 | feature | value | rationale |
 |---|---|---|
