@@ -26,9 +26,9 @@
  * tines are horizontal and exactly one layer tall, the geometry is plain closed
  * solids unioned by the slicer, and a rib that can't be built says why.
  *
- * Tunables arrive in `opts` rather than being read from FIN/PROP, because the
- * build runs in a Worker with its own copy of those modules: whatever the page set
- * on them never reaches it.
+ * Gap and bite arrive in `opts` rather than being read from FIN/PROP, so this
+ * module depends on neither: the caller passes the material's numbers, whether it
+ * runs in the Worker (after fins.js applyTunables) or on the page (Draw).
  */
 import { findWallPatches, patchProbe, patchPoint, tAtZ } from './planes.js';
 import { insidePart } from './inside.js';

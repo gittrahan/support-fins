@@ -1336,9 +1336,8 @@ function finOpts() {
                        padGrab: PAD.grab, propGap: PROP.gap } };
 }
 
-/** The Sway braces settings. Gap and bite are passed explicitly (not read from
- *  FIN/PROP inside sway.js) because the build runs in a Worker, which never sees
- *  what applyMaterial / the gap field set on this page's copy of those modules. */
+/** The Sway braces settings. Gap and bite are passed explicitly -- sway.js takes
+ *  the material's numbers as options instead of reading FIN/PROP itself. */
 function swayOpts() {
   const num = (id, d) => (Number.isFinite(el(id).valueAsNumber) ? el(id).valueAsNumber : d);
   return { gripFrom: num('sway-from', 0),
