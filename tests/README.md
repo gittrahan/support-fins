@@ -45,6 +45,22 @@ no DOM), so a change to a verdict or a solver can't silently drift:
 - **`suggestStrengthPose`** lays an axial pull into the layer plane on a *seated*
   pose (never the needle-tower), and declines to turn an already in-plane load.
 
+**`cutout.test.js`** -- wall cutouts (issue #34), holes through tall breakaway walls
+(diamond / triangle / arch one per cell, and the staggered lattice):
+- every piece is a **closed, outward-wound** solid (the slicer unions them);
+- the cut wall **never reaches outside** the solid wall it replaces, and removes
+  real material (mid-plane sampled, winding number so overlapping pieces count once);
+- the **contact top, foot and end posts stay solid**;
+- **no hole roof is flatter than 45deg** -- nothing bridges open air (checked by
+  loosening `CUT.slope`: the arch then fails);
+- pattern off, or a wall too short for a hole, is **byte-identical** to before;
+- on a **sloped** fin (a tipped cube's underside) the lattice **climbs the slope**
+  (>30% removed; the first per-cell version cut ~one hole there) and still never bridges;
+- on **real parts** (stress models, Auto) no pattern leaves the support open or makes
+  it **heavier** than solid -- a wall where only a speck of a hole fits stays solid;
+- a **part-standing** wall cuts too, and the pick reaches an **Auto** build through
+  `opts.tunables` (the Worker has its own copy of `cutout.js`).
+
 **`threemf.test.js`** -- the 3MF container, both directions (the only tests here
 that aren't fin geometry, because the file format is equally part of the product):
 - our own export **round-trips** back to the same geometry, both bodies intact

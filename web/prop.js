@@ -27,6 +27,8 @@
 import { insidePart, nearestPart, solidClearance } from './inside.js';
 import { faceAdjacency } from './planes.js';
 import { MIN_REGION_AREA } from './overhangs.js';
+import { ribbon, boxExtrude } from './solids.js';
+import { cutWall } from './cutout.js';
 
 export const PROP = {
   th: 1.0,          // wall thickness. 1.0 (two 0.5mm passes) not breakaway.py's
@@ -1163,36 +1165,6 @@ export function longestRun(usable) {
 }
 
 /**
- * Bridge a run of cross-sections into one closed solid and push its triangles.
- * Each section is a ring of `k` vertices in the same order; consecutive rings
- * are joined with quads and the two ends are fan-capped. Caps assume the
- * section is convex, which both sections below are (a rectangle, and a
- * rectangle with a tapered top).
- *
- * Wound OUTWARD. Inherited from M3, where this emitted every triangle backwards:
- * the shell was closed and consistent -- euler 2, no boundary edges -- but its
- * volume came out NEGATIVE, so every normal faced into the solid. M3's own check
- * only asked whether the mesh was watertight, which it was, so this survived
- * being called validated. A slicer would read it as a hole rather than a wall.
- */
-function ribbon(secs, out) {
-  const k = secs[0].length;
-  const tri = (a, b, c) => out.push(a, c, b);
-  for (let i = 0; i < secs.length - 1; i++) {
-    for (let j = 0; j < k; j++) {
-      const j2 = (j + 1) % k;
-      tri(secs[i][j], secs[i][j2], secs[i + 1][j2]);
-      tri(secs[i][j], secs[i + 1][j2], secs[i + 1][j]);
-    }
-  }
-  for (let j = 1; j < k - 1; j++) {                        // end caps
-    tri(secs[0][0], secs[0][j + 1], secs[0][j]);
-    const e = secs[secs.length - 1];
-    tri(e[0], e[j], e[j + 1]);
-  }
-}
-
-/**
  * The stations a plate wall may occupy: the longest run of TALL stations
  * (`tall[k]`, >= minHeight) extended at each end through the contiguous LOW ones
  * (`low[k]`, >= minHeightSquat) -- the wall's tail running on down the slope.
@@ -1279,7 +1251,7 @@ export function insertFloorStations(line) {
  * outline. Replaces the single cone-footed solid that read as a golf tee.
  */
 export function sweep(line, zBed, out, minH = PROP.minHeight) {
-  const wall = [], flange = [];
+  const wall = [], flange = [], st = [];
   for (let i = 0; i < line.length; i++) {
     const p = line[i];
     const a = line[Math.max(0, i - 1)];
@@ -1310,33 +1282,12 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
     flange.push([
       P(+foot, zBed), P(+foot, baseTop), P(-foot, baseTop), P(-foot, zBed),
     ]);
+    st.push({ p, sx, sy, top, ztip, bot: zBed, botTip: baseTop, taperBot: false });
   }
 
-  ribbon(wall, out);
+  if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
   ribbon(flange, out);
   return true;
-}
-
-/**
- * Extrude a CCW polygon (in the a,b plane of the right-handed frame a,b,c) from
- * c = lo to c = hi, emitting outward-wound triangles as vertex triples. The twin
- * of fins.js's `extrude`, kept local so prop.js has no cross-import: the winding
- * only comes out consistently outward when (a,b,c) is right-handed, which every
- * caller below guarantees by construction.
- */
-function boxExtrude(poly, lo, hi, P, out) {
-  const n = poly.length;
-  const vlo = poly.map(([a, b]) => P(a, b, lo));
-  const vhi = poly.map(([a, b]) => P(a, b, hi));
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
-    out.push(vlo[i], vlo[j], vhi[j]);
-    out.push(vlo[i], vhi[j], vhi[i]);
-  }
-  for (let i = 1; i < n - 1; i++) {
-    out.push(vhi[0], vhi[i], vhi[i + 1]);
-    out.push(vlo[0], vlo[i + 1], vlo[i]);
-  }
 }
 
 /**
@@ -1684,7 +1635,7 @@ export function floorLine(topLine, tris, margin = 1.0) {
  * surface you could not have oriented away.
  */
 export function sweepBetween(topLine, botLine, out) {
-  const wall = [];
+  const wall = [], st = [];
   for (let i = 0; i < topLine.length; i++) {
     const p = topLine[i];
     const a = topLine[Math.max(0, i - 1)];
@@ -1711,9 +1662,10 @@ export function sweepBetween(topLine, botLine, out) {
       P(-PROP.tip / 2, top), P(-PROP.th / 2, zTopTip),
       P(-PROP.th / 2, zBotTip), P(-PROP.tip / 2, bot),
     ]);
+    st.push({ p, sx, sy, top, ztip: zTopTip, bot, botTip: zBotTip, taperBot: true });
   }
 
-  ribbon(wall, out);
+  if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
   return true;
 }
 

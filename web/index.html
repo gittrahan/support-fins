@@ -152,111 +152,165 @@
      a second row on narrower screens: the act of turning fins on moved every
      other control out from under the pointer. -->
 <aside id="fin-opts" hidden>
-  <!-- Material: PETG welds to a support far harder than the PLA the bite numbers
-       were tuned for, so it needs more clearance everywhere. PLA is the default and
-       keeps today's tight grip; PETG widens the support gap + fin-tine standoff,
-       halves the tine bite, thins the bed pad, and turns the pad's tack into a gap.
-       Applied in app.js (applyMaterial), which also re-syncs the tunables below. -->
-  <label class="fld" id="material-fld" title="The filament you'll print in. PETG fuses to supports much harder than PLA, so PETG loosens the gaps, shrinks the tine bite, and gives the bed pad a gap instead of a bite. PLA keeps the tighter grip.">
-    Material
-    <select id="material">
-      <option value="pla">PLA</option>
-      <option value="petg">PETG</option>
-    </select>
-  </label>
-  <label class="fld">
-    Placement
-    <select id="fin-mode" title="Who places the support.">
-      <!-- Two modes only, on purpose. AUTO (fins.js mode 'auto') is the default and
-           does everything: a tined combined fin on each overhang face steep and flat
-           enough to grip, a plain breakaway prop under the shallow/curved ones that
-           can't take a fin. DRAW lets you place a fin by hand. The old fins-only
-           "Combined fin" mode was dropped -- it built nothing (and said nothing) on
-           parts with no fin sites, which just read as broken. -->
-      <option value="auto">Auto — place supports for me</option>
-      <option value="draw">Draw — place them by hand</option>
-    </select>
-  </label>
-  <label class="check" title="A tilted part rests on an edge and peels off the plate without one.">
-    <input type="checkbox" id="bed-pad" checked>Add bed pad
-  </label>
+  <!-- Grouped into collapsible sections (issue #41): the flat list ran past the
+       bottom of a laptop screen and every feature lengthened it. Each section is a
+       plain <details>; app.js remembers which are open (localStorage, optional) and
+       fills the .sec-sum line so a collapsed section still says what's set. A
+       feature switch (Tines) lives in its section's header, so a disabled feature
+       costs one line. Fields that don't apply in the current mode stay hidden, as
+       before. Layout only: every control keeps its id, and nothing it builds moved. -->
+  <details class="sec" data-sec="setup" open>
+    <summary><span class="sec-title">Setup</span><span class="sec-sum" id="sum-setup"></span></summary>
+    <!-- Material: PETG welds to a support far harder than the PLA the bite numbers
+         were tuned for, so it needs more clearance everywhere. PLA is the default and
+         keeps today's tight grip; PETG widens the support gap + fin-tine standoff,
+         halves the tine bite, thins the bed pad, and turns the pad's tack into a gap.
+         Applied in app.js (applyMaterial), which also re-syncs the tunables below. -->
+    <label class="fld row" id="material-fld" title="The filament you'll print in. PETG fuses to supports much harder than PLA, so PETG loosens the gaps, shrinks the tine bite, and gives the bed pad a gap instead of a bite. PLA keeps the tighter grip.">
+      Material
+      <select id="material">
+        <option value="pla">PLA</option>
+        <option value="petg">PETG</option>
+      </select>
+    </label>
+    <label class="fld">
+      Placement
+      <select id="fin-mode" title="Who places the support.">
+        <!-- Two modes only, on purpose. AUTO (fins.js mode 'auto') is the default and
+             does everything: a tined combined fin on each overhang face steep and flat
+             enough to grip, a plain breakaway prop under the shallow/curved ones that
+             can't take a fin. DRAW lets you place a fin by hand. The old fins-only
+             "Combined fin" mode was dropped -- it built nothing (and said nothing) on
+             parts with no fin sites, which just read as broken. -->
+        <option value="auto">Auto — place supports for me</option>
+        <option value="draw">Draw — place them by hand</option>
+      </select>
+    </label>
+  </details>
+
   <!-- Combined support toggle: ON = horizontal tines fuse the support to the part
        so it grips (Slant3D combined support); OFF = the plain breakaway wall that
        just stands under the overhang and snaps off. Same fin, tines or no tines. -->
-  <label class="check" title="Tines fuse the support to the part so it grips instead of just propping. Off = plain breakaway wall.">
-    <input type="checkbox" id="tines" checked>Tines (grip the part)
-  </label>
-  <!-- Tine grip density: how tightly the horizontal tine comb is spaced along each
-       gripping support. Light = a loose comb (fewest marks, the default) — a per-wall
-       floor keeps at least a few tines so it still holds; Firm = a dense comb (max grip)
-       for a tippy or tall part, at the cost of more marks on the supported face.
-       Defaults Light so the part comes out cleanest; dial up only if it needs the grip.
-       Shown only when Tines is on. -->
-  <label class="fld" id="tinegrip-fld"
-         title="How tightly to space the grip tines. Light = fewest marks (default), a per-wall floor keeps grip; Firm = dense comb / max grip for a tippy or tall part.">
-    Tine grip <span class="mut">light ⟶ firm</span>
-    <input type="range" id="tine-density" min="0" max="100" step="5" value="0">
-  </label>
+  <details class="sec" data-sec="tines" open>
+    <summary>
+      <label class="check sec-title" title="Tines fuse the support to the part so it grips instead of just propping. Off = plain breakaway wall.">
+        <input type="checkbox" id="tines" checked>Tines <span class="mut">grip the part</span>
+      </label>
+      <span class="sec-sum" id="sum-tines"></span>
+    </summary>
+    <!-- Tine grip density: how tightly the horizontal tine comb is spaced along each
+         gripping support. Light = a loose comb (fewest marks, the default) — a per-wall
+         floor keeps at least a few tines so it still holds; Firm = a dense comb (max grip)
+         for a tippy or tall part, at the cost of more marks on the supported face.
+         Shown only when Tines is on. -->
+    <label class="fld" id="tinegrip-fld"
+           title="How tightly to space the grip tines. Light = fewest marks (default), a per-wall floor keeps grip; Firm = dense comb / max grip for a tippy or tall part.">
+      <span>Tine grip <span class="mut">light ⟶ firm</span></span>
+      <input type="range" id="tine-density" min="0" max="100" step="5" value="0">
+    </label>
+    <!-- Layer height: the grip tines are exactly ONE layer tall so they print as one
+         clean bead and BEND off instead of tearing. That only holds if this matches
+         the layer height you actually slice at -- set it wrong and the tines slice
+         into ~1.5 layers and leave welts. Shown only when Tines is on. -->
+    <label class="fld row" id="layerh-fld" title="Set this to the layer height you slice at. The grip tines are one layer tall so they snap off clean; if this doesn't match your slicer, the tines tear and leave marks. Default 0.2mm.">
+      <span>Layer height <span class="mut">mm</span></span>
+      <input type="number" id="layer-height" min="0.08" max="0.4" step="0.04" value="0.2">
+    </label>
+  </details>
+
   <!-- Contact/gap tuning: the default holds and breaks off for most parts, but the
        right clearance depends on the printer and the surface you care about, so it
        is exposed. Support gap = clearance between a support top and the part (bigger
        = cleaner surface / easier to remove, too big = stops holding the overhang).
        Pad grip = how far the bed pad bites into a tilted part to keep it on the
        plate (bigger = holds harder, too big = harder to snap off). -->
-  <!-- Layer height: the grip tines are exactly ONE layer tall so they print as one
-       clean bead and BEND off instead of tearing. That only holds if this matches
-       the layer height you actually slice at -- set it wrong and the tines slice
-       into ~1.5 layers and leave welts. Shown only when Tines is on. -->
-  <label class="fld" id="layerh-fld" title="Set this to the layer height you slice at. The grip tines are one layer tall so they snap off clean; if this doesn't match your slicer, the tines tear and leave marks. Default 0.2mm.">
-    Layer height <span class="mut">mm</span>
-    <input type="number" id="layer-height" min="0.08" max="0.4" step="0.04" value="0.2">
-  </label>
+  <details class="sec" data-sec="clearances">
+    <summary><span class="sec-title">Clearances</span><span class="sec-sum" id="sum-clearances"></span></summary>
+    <label class="fld row" title="Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.">
+      <span>Support gap <span class="mut">mm</span></span>
+      <input type="number" id="gap" min="0.1" max="0.4" step="0.05" value="0.2">
+    </label>
+    <label class="check" title="A tilted part rests on an edge and peels off the plate without one.">
+      <input type="checkbox" id="bed-pad" checked>Add bed pad
+    </label>
+    <label class="fld row" id="padgrip-fld" title="How the bed pad meets a tilted part. Positive = bites in to hold harder; 0 = flush; negative = a gap that snaps off cleaner (the PETG default, since PETG welds hard). Default 0.05mm on PLA.">
+      <span>Pad grip <span class="mut">mm</span></span>
+      <input type="number" id="pad-grip" min="-0.2" max="0.3" step="0.05" value="0.05">
+    </label>
+  </details>
+
   <!-- Sway braces (sway.js): for TALL parts that drift, sag or wobble as they grow.
        A tapered buttress rib stands edge-on to an upright side, tied to it by
        one-layer tines spaced evenly all the way up. Off by default; in Auto it
        braces the tallest sides, in Draw you click an upright side to add one.
-       The three settings below it show only while it is on. -->
-  <label class="check" title="Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows. In Draw, click an upright side to add one.">
-    <input type="checkbox" id="sway">Sway braces (tall parts)
-  </label>
-  <label class="fld" id="sway-from-fld" hidden title="Height the brace tines start at. 0 = grip the whole height; raise it to tie on only above where the part starts to move.">
-    Brace grip from <span class="mut">mm up</span>
-    <input type="number" id="sway-from" min="0" max="2000" step="5" value="0">
-  </label>
-  <label class="fld" id="sway-spacing-fld" hidden title="Vertical distance between brace tines. Smaller = held tighter, more marks on the side. Default 6mm.">
-    Brace tine spacing <span class="mut">mm</span>
-    <input type="number" id="sway-spacing" min="2" max="30" step="1" value="6">
-  </label>
-  <label class="fld" id="sway-depth-fld" hidden title="How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%.">
-    Brace depth <span class="mut">% of height</span>
-    <input type="number" id="sway-depth" min="5" max="50" step="1" value="15">
-  </label>
-  <label class="fld" title="Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.">
-    Support gap <span class="mut">mm</span>
-    <input type="number" id="gap" min="0.1" max="0.4" step="0.05" value="0.2">
-  </label>
-  <label class="fld" id="padgrip-fld" title="How the bed pad meets a tilted part. Positive = bites in to hold harder; 0 = flush; negative = a gap that snaps off cleaner (the PETG default, since PETG welds hard). Default 0.05mm on PLA.">
-    Pad grip <span class="mut">mm</span>
-    <input type="number" id="pad-grip" min="-0.2" max="0.3" step="0.05" value="0.05">
-  </label>
-  <!-- Wide-face row density: an overhang face too wide for one corner brace gets a
-       ROW of fins (a wide tilted plate would otherwise sag between two braces).
-       This sets the row pitch: Sparse = fewer fins / less plastic, Dense = more.
-       Defaults Sparse (fewest fins / least plastic); a floor keeps at least one brace
-       so a wide face is never left bare. Dial up only if a broad plate sags between
-       braces. Only bites on a broad face; narrow parts keep their 2-corner bracing. -->
-  <label class="fld" id="coverage-fld"
-         title="How densely to line a WIDE overhang face with fins. The middle is the anti-sag default; drag LEFT for fewer fins (a small part can go down to one — the readout warns if a broad face then risks sagging), RIGHT for more support. Narrow parts are unaffected.">
-    Wide-face coverage <span class="mut">sparse ⟶ dense</span>
-    <input type="range" id="coverage" min="0" max="100" step="5" value="50">
-  </label>
-  <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
-       Shown only in Suggest mode (toggled in app.js). -->
-  <button class="btn sm" id="augment-toggle" hidden
-          title="Place extra breakaway walls by hand, on top of the auto-placed ones.">+ Add walls by hand</button>
-  <!-- Draw controls: shown while placing by hand. Hint text is set per mode in
-       app.js (syncDrawControls): a support fin on a face in Draw, a two-point
-       wall in the Suggest "+ Add" augment. -->
+       The switch lives in the section header, like Tines, so leaving it off
+       costs one line. -->
+  <details class="sec" data-sec="sway">
+    <summary>
+      <label class="check sec-title" title="Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows. In Draw, click an upright side to add one.">
+        <input type="checkbox" id="sway">Sway braces <span class="mut">tall parts</span>
+      </label>
+      <span class="sec-sum" id="sum-sway"></span>
+    </summary>
+    <label class="fld row" id="sway-from-fld" title="Height the brace tines start at. 0 = grip the whole height; raise it to tie on only above where the part starts to move.">
+      <span>Brace grip from <span class="mut">mm up</span></span>
+      <input type="number" id="sway-from" min="0" max="2000" step="5" value="0">
+    </label>
+    <label class="fld row" id="sway-spacing-fld" title="Vertical distance between brace tines. Smaller = held tighter, more marks on the side. Default 6mm.">
+      <span>Brace tine spacing <span class="mut">mm</span></span>
+      <input type="number" id="sway-spacing" min="2" max="30" step="1" value="6">
+    </label>
+    <label class="fld row" id="sway-depth-fld" title="How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%.">
+      <span>Brace depth <span class="mut">% of height</span></span>
+      <input type="number" id="sway-depth" min="5" max="50" step="1" value="15">
+    </label>
+  </details>
+
+  <details class="sec" data-sec="walls" open>
+    <summary><span class="sec-title">Walls</span><span class="sec-sum" id="sum-walls"></span></summary>
+    <!-- Cutouts (issue #34): holes through the middle of each breakaway wall to
+         save filament. Every hole has a pointed roof (>=45deg) so nothing bridges;
+         the contact top, foot and ends stay solid, and a wall too short for a hole
+         stays solid. Tined side fins are not cut -- their tines anchor all over. -->
+    <label class="fld row" title="Cut holes through tall breakaway walls to save filament. The top edge that holds the part, the foot, and the wall's ends stay solid, and every hole has a pointed roof so it prints without bridging. Short walls stay solid.">
+      Cutouts
+      <select id="cutout">
+        <option value="none">None</option>
+        <option value="diamond">Diamond</option>
+        <option value="triangle">Triangle</option>
+        <option value="arch">Arch</option>
+        <option value="lattice">Lattice</option>
+      </select>
+    </label>
+    <!-- Wide-face row density: an overhang face too wide for one corner brace gets a
+         ROW of fins (a wide tilted plate would otherwise sag between two braces).
+         This sets the row pitch: Sparse = fewer fins / less plastic, Dense = more.
+         A floor keeps at least one brace so a wide face is never left bare. Only
+         bites on a broad face; narrow parts keep their 2-corner bracing. Auto only. -->
+    <label class="fld" id="coverage-fld"
+           title="How densely to line a WIDE overhang face with fins. The middle is the anti-sag default; drag LEFT for fewer fins (a small part can go down to one — the readout warns if a broad face then risks sagging), RIGHT for more support. Narrow parts are unaffected.">
+      <span>Wide-face coverage <span class="mut">sparse ⟶ dense</span></span>
+      <input type="range" id="coverage" min="0" max="100" step="5" value="50">
+    </label>
+    <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
+         Shown only in Suggest mode (toggled in app.js). Per-fin removal (Auto only,
+         shown via app.js syncRemoveUI): arm a click-to-remove mode, hover lights a
+         fin red, click drops just that one; Restore all brings every one back. -->
+    <button class="btn sm" id="augment-toggle" hidden
+            title="Place extra breakaway walls by hand, on top of the auto-placed ones.">+ Add walls by hand</button>
+    <div id="remove-fins-controls" hidden>
+      <div class="draw-btns">
+        <button class="btn sm" id="remove-fins-toggle" hidden
+                title="Click a fin to remove just that one. Esc or right-click cancels.">Remove fins</button>
+        <button class="btn sm" id="restore-fins" hidden
+                title="Bring back every fin removed in this orientation.">Restore all</button>
+      </div>
+    </div>
+  </details>
+
+  <!-- Draw controls: shown while placing by hand, outside the sections so the
+       hint and Undo can never be collapsed away mid-draw. Hint text is set per
+       mode in app.js (syncDrawControls). -->
   <div id="draw-controls" hidden>
     <p class="draw-hint" id="draw-hint">Click an <strong>overhang face</strong> — it lights
       up green when a fin can go there — to stand a support fin against it.</p>
@@ -265,17 +319,6 @@
               title="Remove the support you clicked (Delete or Backspace also works).">Remove selected</button>
       <button class="btn sm" id="draw-undo">Undo</button>
       <button class="btn sm" id="draw-clear">Clear all</button>
-    </div>
-  </div>
-  <!-- Per-fin removal (Auto only, shown via app.js syncRemoveUI). Arm a click-to-
-       remove mode: hover lights a fin red, click drops just that one. Restore all
-       brings every removed fin back. Each removal is one undo step. -->
-  <div id="remove-fins-controls" hidden>
-    <div class="draw-btns">
-      <button class="btn sm" id="remove-fins-toggle" hidden
-              title="Click a fin to remove just that one. Esc or right-click cancels.">Remove fins</button>
-      <button class="btn sm" id="restore-fins" hidden
-              title="Bring back every fin removed in this orientation.">Restore all</button>
     </div>
   </div>
 </aside>

@@ -14,6 +14,7 @@ import { buildTopology, analyze, DEFAULT_THRESHOLD } from './overhangs.js';
 import { suggestOrientations, suggestStrengthPose, loadAlignment, layerVerdict } from './orient.js';
 import { buildFins, FIN, PAD } from './fins.js';
 import { PROP } from './prop.js';
+import { CUT } from './cutout.js';
 import { findWallPatches } from './planes.js';
 import { drawnWall } from './draw.js';
 import { swayAtFace, faceIsUpright } from './sway.js';
@@ -427,7 +428,6 @@ function readableEuler(q) {
 
 /** Point the camera at the part, backed off far enough to see all of it. */
 function frame(size) {
-  sizeMarkers(size);
   const reach = Math.max(size.x, size.y, size.z, 40);
   const dist = reach * 2.1;
   camera.position.set(dist * 0.62, -dist * 0.72, dist * 0.55);
@@ -774,9 +774,10 @@ const ghostMaterial = new THREE.MeshStandardMaterial({
 });
 let ghostMesh = null;
 
-// endpoint dot, cursor dot, and the rubber-band line between them. Base radius
-// 1mm; sizeMarkers() scales them to the part so they read on a 40mm cube and a
-// 300mm bracket alike.
+// endpoint dot, cursor dot, and the rubber-band line between them. Unit radius;
+// sizeMarkers() rescales them every frame to a fixed size ON SCREEN. They used to
+// be sized to the part in world mm, which meant zooming in blew the cursor up
+// until it hid the very edge you were trying to aim at.
 //
 // These are a UI overlay, so they draw with depthTest OFF and a high renderOrder:
 // the line and dots sit ON the part surface, and an opaque part face (or a fin)
@@ -787,7 +788,10 @@ let ghostMesh = null;
 const guideMat = (color) => new THREE.MeshBasicMaterial(
   { color, depthTest: false, transparent: true });
 const drawDot = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), guideMat(0x59d98e));
-const drawCursor = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), guideMat(0xcffbe4));
+// The cursor is see-through so the surface under it stays readable; the OS
+// crosshair is the precise aim point, this dot just shows the surface hit.
+const drawCursor = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14),
+  new THREE.MeshBasicMaterial({ color: 0xcffbe4, depthTest: false, transparent: true, opacity: 0.6 }));
 const bandGeom = new THREE.BufferGeometry()
   .setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
 const drawBand = new THREE.Line(bandGeom,
@@ -896,10 +900,15 @@ const drawActive = () => finsVisible && (finMode === 'draw' || drawAugment);
 const drawShown = () =>
   finsVisible && (finMode === 'draw' || (finMode === 'auto' && (drawAugment || drawnWalls.length > 0)));
 
-function sizeMarkers(size) {
-  const r = Math.max(0.7, Math.max(size.x, size.y, size.z) / 90);
-  drawDot.scale.setScalar(r);
-  drawCursor.scale.setScalar(r * 0.85);
+// Marker radii in CSS pixels, whatever the zoom.
+const DOT_PX = 5, CURSOR_PX = 4;
+/** Scale the draw markers so they keep a fixed on-screen size at any zoom. */
+function sizeMarkers() {
+  // World mm per CSS pixel at a point's depth, for the perspective camera.
+  const mmPerPx = (p) => 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)
+    * camera.position.distanceTo(p) / Math.max(1, viewport.clientHeight);
+  if (drawDot.visible) drawDot.scale.setScalar(DOT_PX * mmPerPx(drawDot.position));
+  if (drawCursor.visible) drawCursor.scale.setScalar(CURSOR_PX * mmPerPx(drawCursor.position));
 }
 
 /** The whole part in PRINT space (rotated + seated), rebuilt only when the
@@ -1366,7 +1375,7 @@ function finOpts() {
            // applyMaterial and the gap fields set on this page's copy (fins.js
            // applyTunables). Without this, Auto mode always built PLA's numbers.
            tunables: { finGap: FIN.gap, tineBite: FIN.tineBite, padH: FIN.padH,
-                       padGrab: PAD.grab, propGap: PROP.gap } };
+                       padGrab: PAD.grab, propGap: PROP.gap, cutout: CUT.pattern } };
 }
 
 /** The Sway braces settings. Gap and bite are passed explicitly -- sway.js takes
@@ -1854,16 +1863,25 @@ el('layer-height').addEventListener('input', () => debouncedRefresh());
 el('coverage').addEventListener('input', () => debouncedRefresh());
 syncTineGrip();
 
-// Sway braces: the checkbox reveals its three settings, like Tines does its own.
-// The spacing only means anything with tines on, so it follows that toggle too.
+// Sway braces: the switch sits in its section header (like Tines), and its three
+// settings only show while it is on, so an unused feature costs one line. The two
+// tine settings additionally follow the global Tines toggle -- with tines off there
+// is no comb to space.
 function syncSway() {
   const on = el('sway').checked;
   el('sway-from-fld').hidden = !on || !el('tines').checked;
   el('sway-spacing-fld').hidden = !on || !el('tines').checked;
   el('sway-depth-fld').hidden = !on;
   syncDrawControls();
+  syncSectionSums();
 }
-el('sway').addEventListener('change', () => { syncSway(); refreshFins(); });
+el('sway').addEventListener('change', () => {
+  // Switching it on opens its section: the switch is in the header, so a collapsed
+  // section would otherwise turn the feature on and hide its settings in one click.
+  if (el('sway').checked) el('sway').closest('details').open = true;
+  syncSway();
+  refreshFins();
+});
 el('tines').addEventListener('change', syncSway);
 for (const id of ['sway-from', 'sway-spacing', 'sway-depth']) {
   el(id).addEventListener('input', () => debouncedRefresh());
@@ -1882,6 +1900,14 @@ function wireGap(id, obj, key, lo, hi) {
 }
 wireGap('gap', PROP, 'gap', 0.1, 0.4);
 wireGap('pad-grip', PAD, 'grab', -0.2, 0.3);
+
+// Wall cutouts (issue #34). CUT.pattern is read fresh by every wall sweep -- the
+// drawn walls here on the page, the auto walls in the Worker via tunables.
+el('cutout').addEventListener('change', () => {
+  CUT.pattern = el('cutout').value;
+  refreshFins();
+});
+CUT.pattern = el('cutout').value;   // a reload can keep the browser's last pick
 
 // Material profiles. PETG welds to a support far harder than the PLA every bite
 // number here was tuned on, so PETG needs more clearance in all four places at
@@ -1911,6 +1937,7 @@ function applyMaterial(name) {
   // material's baseline, not PLA's).
   el('gap').value = m.propGap;
   el('pad-grip').value = m.padGrab;
+  syncSectionSums();
 }
 
 el('material').addEventListener('change', () => {
@@ -1925,7 +1952,55 @@ function syncFinsToggleUI() {
   el('fins-toggle').classList.toggle('primary', finsVisible);
   el('fins-toggle').textContent = finsVisible ? 'Fins on' : 'Add fins';
   el('fin-opts').hidden = !finsVisible;
+  syncSectionSums();
 }
+
+// ------------------------------------------------------------ options sections
+//
+// The options panel is grouped into <details> sections (issue #41). Two jobs here:
+// remember which are open, and write each section's one-line recap so collapsing
+// it never hides what's set. Storage is a convenience only -- private windows and
+// blocked storage throw, and the panel then just opens in its default layout.
+const SEC_KEY = 'sf.sections';
+function loadSectionState() {
+  try { return JSON.parse(localStorage.getItem(SEC_KEY)) || {}; } catch { return {}; }
+}
+{
+  const saved = loadSectionState();
+  for (const d of document.querySelectorAll('#fin-opts details.sec')) {
+    if (d.dataset.sec in saved) d.open = !!saved[d.dataset.sec];
+    d.addEventListener('toggle', () => {
+      const state = loadSectionState();
+      state[d.dataset.sec] = d.open;
+      try { localStorage.setItem(SEC_KEY, JSON.stringify(state)); } catch { /* storage off */ }
+    });
+  }
+}
+// The Tines switch sits inside its section's <summary>; without this a click on it
+// would also fold the section open or shut.
+el('tines').closest('label').addEventListener('click', (e) => e.stopPropagation());
+// ...and the same for the Sway braces switch, which sits in its own section header.
+el('sway').closest('label').addEventListener('click', (e) => e.stopPropagation());
+
+/** Refill each section's collapsed recap from the controls' current values. */
+function syncSectionSums() {
+  const sel = (id) => el(id).selectedOptions[0]?.textContent.split(' —')[0] ?? '';
+  el('sum-setup').textContent = `${sel('material')} · ${sel('fin-mode')}`;
+  const grip = el('tine-density').valueAsNumber;
+  el('sum-tines').textContent = el('tines').checked
+    ? `${grip <= 20 ? 'light' : grip >= 80 ? 'firm' : 'medium'} grip · ${el('layer-height').value} mm`
+    : 'off';
+  el('sum-clearances').textContent =
+    `${el('gap').value} mm gap · pad ${el('bed-pad').checked ? 'on' : 'off'}`;
+  const cut = el('cutout').value;
+  el('sum-walls').textContent = cut === 'none' ? 'solid' : `${sel('cutout').toLowerCase()} cutouts`;
+  el('sum-sway').textContent = el('sway').checked
+    ? `${el('sway-spacing').value} mm tines · ${el('sway-depth').value}% deep`
+      + (el('sway-from').valueAsNumber > 0 ? ` · from ${el('sway-from').value} mm` : '')
+    : 'off';
+}
+el('fin-opts').addEventListener('input', syncSectionSums);
+el('fin-opts').addEventListener('change', syncSectionSums);
 
 el('fins-toggle').addEventListener('click', () => {
   histPush();
@@ -2846,6 +2921,7 @@ let frames = 0, last = performance.now();
 function tick(now) {
   requestAnimationFrame(tick);
   controls.update();
+  sizeMarkers();
   renderer.render(scene, camera);
   if (++frames >= 20) {
     fpsEl.textContent = `${Math.round((frames * 1000) / (now - last))} fps`;
