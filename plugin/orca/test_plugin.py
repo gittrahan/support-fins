@@ -54,6 +54,7 @@ def fake_orca(objects):
         success=lambda message="", data="": _Result("success", message),
         skipped=lambda message="": _Result("skipped", message))
     m.script = types.SimpleNamespace(ScriptPluginCapabilityBase=base)
+    m.slicing = types.SimpleNamespace(SlicingPipelineCapabilityBase=base)
     m.base, m.plugin, m.register_capability = base, (lambda c: c), (lambda c: None)
     objs = [Obj(n, V, T, M) for n, V, T, M in objects]
     m.host = types.SimpleNamespace(model=lambda: types.SimpleNamespace(objects=lambda: objs))
