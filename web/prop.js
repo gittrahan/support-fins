@@ -140,6 +140,11 @@ export const PROP = {
   // reads this value out of this file (MAX_UNSUPPORTED_SPAN) so the checker and
   // the generator cannot disagree about it.
   maxUnsupportedSpan: 12.0,
+  // mm in from a patch's lateral edge that a pinned wall sits when the user
+  // asks for 'near'/'far'/'both' alignment (opts.alignment). Centred rows
+  // (the default) are half a spacing in already; this only biases the chosen
+  // edge. ~3mm keeps a one-wall edge fin clear of its neighbour's foot.
+  edgeInset: 3.0,
 
   // --- TINES (the grip comb) ---------------------------------------------
   // A plain prop stops `gap` under the overhang and the part bridges over it:
@@ -399,6 +404,126 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
 }
 
 /**
+ * The lowest-surface polyline under a region, for ANY region -- the opt-in
+ * generalisation of `tubeLine` that drops the curvature prefilter. A part
+ * tipped on edge (a box or cube standing on a 45° edge) has a FLAT overhang
+ * face whose lowest points form a straight line for the length of the part;
+ * `tubeLine` refuses it (not curved enough) and it falls to `patchTracks`
+ * rows. With `opts.traceLowestLine` the user asks for ONE wall down that line
+ * instead, the way `tubeLine` props a curved tube -- so this is `tubeLine`'s
+ * tracing core without the deviant-fraction gate.
+ *
+ * The ring/bowl refusal STAYS: `straightness` still rejects a bowl's lowest
+ * points (a ring, not a line), and the resample still splits at bores/gaps.
+ * So the option only overrides rows where a straight lowest line genuinely
+ * exists; a refused region falls through to `splitRegion`/`patchTracks`
+ * unchanged, and the option can never strand an overhang.
+ */
+export function lowestLine(topo, faces, rot, pts, regionTris, step = PROP.stationStep) {
+  // Bbox of the region's own points -> a sample count for the rough line.
+  let dLo = [Infinity, Infinity], dHi = [-Infinity, -Infinity];
+  for (const p of pts) {
+    for (const a of [0, 1]) {
+      if (p[a] < dLo[a]) dLo[a] = p[a];
+      if (p[a] > dHi[a]) dHi[a] = p[a];
+    }
+  }
+  const diag = Math.hypot(dHi[0] - dLo[0], dHi[1] - dLo[1]);
+  const nSamples = Math.max(8, Math.min(400, Math.ceil(diag / step)));
+  const rough = contactLine(pts, regionTris, nSamples);
+  if (!rough || straightness(rough) > PROP.maxWander) return null;  // a ring/bowl, not a line
+
+  // Fit the XY axis through the ROUGH line's points -- the lowest-per-bucket
+  // samples -- so the wall runs along the lowest band, the way `tubeLine`
+  // props a curved tube. Fitting from the full `pts` cloud would centre the
+  // axis on the FACE (its centroid), dropping the wall onto the surface
+  // middle rather than its lowest line; the rough line IS the lowest band,
+  // so its centroid and PCA put the wall where the issue asks: "along the
+  // object's lowest points". This is `tubeLine`'s fit verbatim, kept after
+  // the curvature prefilter is dropped.
+  let cx = 0, cy = 0;
+  for (const p of rough) { cx += p[0]; cy += p[1]; }
+  cx /= rough.length; cy /= rough.length;
+  let sxx = 0, sxy = 0, syy = 0;
+  for (const p of rough) {
+    const dx = p[0] - cx, dy = p[1] - cy;
+    sxx += dx * dx; sxy += dx * dy; syy += dy * dy;
+  }
+  const tr2 = sxx + syy, det = sxx * syy - sxy * sxy;
+  const lam = tr2 / 2 + Math.sqrt(Math.max(0, (tr2 * tr2) / 4 - det));
+  let ux = sxy, uy = lam - sxx;
+  if (Math.hypot(ux, uy) < 1e-9) { ux = 1; uy = 0; }
+  const un = Math.hypot(ux, uy); ux /= un; uy /= un;
+  let uLo = Infinity, uHi = -Infinity;
+  for (const p of rough) {
+    const u = (p[0] - cx) * ux + (p[1] - cy) * uy;
+    if (u < uLo) uLo = u;
+    if (u > uHi) uHi = u;
+  }
+  if (uHi - uLo < 1e-6) return null;
+  const nSt = Math.max(2, Math.min(400, Math.ceil((uHi - uLo) / step)));
+
+  const lines = [];
+  let cur = [];
+  for (let k = 0; k <= nSt; k++) {
+    const u = uLo + ((uHi - uLo) * k) / nSt;
+    const x = cx + ux * u, y = cy + uy * u;
+    const z = surfaceZAt(regionTris, x, y);
+    if (z === null) {
+      if (cur.length) { lines.push(cur); cur = []; }
+    } else {
+      cur.push([x, y, z]);
+    }
+  }
+  if (cur.length) lines.push(cur);
+  return lines.filter((t) => t.length >= PROP.minStations);
+}
+
+/**
+ * Lateral v-positions of `nWalls` rows across [vLo, vHi] for an alignment
+ * choice. 'center' is the historical even-centred pattern (the unchanged
+ * default, bit-identical to the original `vLo + vExt*(w+0.5)/nWalls`);
+ * 'near'/'far' shift it half a spacing toward that edge so the outermost
+ * wall sits at the edge (less `inset`); 'both' pins walls to both edges --
+ * the "box standing on a 45° edge" case where a fin along each edge beats a
+ * row across the middle.
+ *
+ * `inset` keeps a pinned wall off the very margin, clamped to half the span so
+ * a tiny patch still gets a wall rather than a degenerate position.
+ */
+export function rowVs(nWalls, vLo, vHi, alignment, inset) {
+  const vExt = vHi - vLo;
+  if (nWalls <= 0 || vExt <= 0) return [];
+  const ins = Math.min(inset, vExt * 0.49);
+
+  if (alignment === 'both') {
+    const n = Math.max(2, nWalls);          // both edges needs at least two
+    const vs = [];
+    for (let w = 0; w < n; w++)
+      vs.push((vLo + ins) + (vExt - 2 * ins) * w / (n - 1));
+    return vs;
+  }
+  if (alignment === 'near' || alignment === 'far') {
+    // Shift the centred pattern by (half-spacing - inset) toward the edge, so
+    // the outermost wall lands at edge +/- inset. For nWalls===1 that puts the
+    // single wall on the chosen edge; for more it biases the whole row over.
+    const half = vExt / (2 * nWalls);
+    const shift = (alignment === 'near' ? -1 : 1) * (half - ins);
+    const lo = vLo + ins, hi = vHi - ins;
+    const vs = [];
+    for (let w = 0; w < nWalls; w++) {
+      const v = vLo + vExt * (w + 0.5) / nWalls + shift;
+      vs.push(v < lo ? lo : v > hi ? hi : v);
+    }
+    return vs;
+  }
+  // centre (default / unknown): unchanged from the original layout.
+  const vs = [];
+  for (let w = 0; w < nWalls; w++) vs.push(vLo + vExt * (w + 0.5) / nWalls);
+  return vs;
+}
+
+/**
  * The contact polylines for one locally-flat sub-patch: straight parallel
  * tracks sampled on the patch's own surface, spaced maxUnsupportedSpan apart,
  * split wherever the patch does not cover them.
@@ -439,7 +564,7 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
  * are stubs. The hole is load-bearing; never bridge across a null.
  */
 export function patchTracks(pts, patchTris, step = PROP.stationStep, support = null,
-                            span = PROP.maxUnsupportedSpan) {
+                            span = PROP.maxUnsupportedSpan, alignment = 'center') {
   if (!pts.length) return [];
 
   // The 2x2 XY covariance of the patch, plus its cross-terms with Z. This used to
@@ -554,11 +679,15 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // small part, so the clamp is gone and the caller warns (sagRisk) when the
   // resulting spacing actually exceeds the cap. Denser still only adds rows.
   const rowSpan = Math.max(1, span);
-  const nWalls = Math.max(1, Math.round(vExt / rowSpan));
+  let nWalls = Math.max(1, Math.round(vExt / rowSpan));
+  if (alignment === 'both') nWalls = Math.max(2, nWalls);   // both edges needs >=2
 
+  // Lateral v of each row. 'center' is the original even-centred pattern
+  // (bit-identical default); 'near'/'far'/'both' bias it toward an edge via
+  // rowVs. The v each wall runs at is the only thing alignment changes; the
+  // per-station surface sampling below is unchanged.
   const tracks = [];
-  for (let w = 0; w < nWalls; w++) {
-    const v0 = vLo + (vExt * (w + 0.5)) / nWalls;
+  for (const v0 of rowVs(nWalls, vLo, vHi, alignment, PROP.edgeInset)) {
     let cur = [];
     for (let k = 0; k <= nSt; k++) {
       const u = uLo + ((uHi - uLo) * k) / nSt;
@@ -2092,7 +2221,14 @@ export function buildProps(topo, result, rot, opts = {}) {
     // that line, the way breakaway.py props the shelter hubs. Only when the
     // region is flat, or its lowest points form a ring, does it go to
     // splitRegion for rows of tracks. See tubeLine.
-    const tube = tubeLine(topo, rFaces, rot, regionPts, regionTris, step);
+    //
+    // `opts.traceLowestLine` swaps `tubeLine` for `lowestLine` -- the same
+    // tracing core without the curvature prefilter -- so a FLAT overhang (a
+    // box tipped on edge) also gets one wall down its lowest line instead of
+    // parallel rows. A bowl/ring is still refused (straightness gate), so a
+    // refused region falls through to rows unchanged.
+    const tracer = opts.traceLowestLine ? lowestLine : tubeLine;
+    const tube = tracer(topo, rFaces, rot, regionPts, regionTris, step);
     if (tube && tube.length) {
       patches.push({ faces: rFaces, area: regionArea, region: ri,
                      tris: regionTris, lines: tube });
@@ -2132,7 +2268,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         }
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
-      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan);
+      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan, opts.alignment);
       // The user chose sub-cap spacing (wantSparse) AND this face actually landed a
       // multi-row gap wider than the cap. Flag it so the UI can warn (never blocks;
       // Matthew's call). Single-row faces (spacing 0) can't sag, so they don't warn.
