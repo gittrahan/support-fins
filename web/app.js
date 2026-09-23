@@ -1723,6 +1723,7 @@ function applyMaterial(name) {
   // material's baseline, not PLA's).
   el('gap').value = m.propGap;
   el('pad-grip').value = m.padGrab;
+  syncSectionSums();
 }
 
 el('material').addEventListener('change', () => {
@@ -1737,7 +1738,49 @@ function syncFinsToggleUI() {
   el('fins-toggle').classList.toggle('primary', finsVisible);
   el('fins-toggle').textContent = finsVisible ? 'Fins on' : 'Add fins';
   el('fin-opts').hidden = !finsVisible;
+  syncSectionSums();
 }
+
+// ------------------------------------------------------------ options sections
+//
+// The options panel is grouped into <details> sections (issue #41). Two jobs here:
+// remember which are open, and write each section's one-line recap so collapsing
+// it never hides what's set. Storage is a convenience only -- private windows and
+// blocked storage throw, and the panel then just opens in its default layout.
+const SEC_KEY = 'sf.sections';
+function loadSectionState() {
+  try { return JSON.parse(localStorage.getItem(SEC_KEY)) || {}; } catch { return {}; }
+}
+{
+  const saved = loadSectionState();
+  for (const d of document.querySelectorAll('#fin-opts details.sec')) {
+    if (d.dataset.sec in saved) d.open = !!saved[d.dataset.sec];
+    d.addEventListener('toggle', () => {
+      const state = loadSectionState();
+      state[d.dataset.sec] = d.open;
+      try { localStorage.setItem(SEC_KEY, JSON.stringify(state)); } catch { /* storage off */ }
+    });
+  }
+}
+// The Tines switch sits inside its section's <summary>; without this a click on it
+// would also fold the section open or shut.
+el('tines').closest('label').addEventListener('click', (e) => e.stopPropagation());
+
+/** Refill each section's collapsed recap from the controls' current values. */
+function syncSectionSums() {
+  const sel = (id) => el(id).selectedOptions[0]?.textContent.split(' —')[0] ?? '';
+  el('sum-setup').textContent = `${sel('material')} · ${sel('fin-mode')}`;
+  const grip = el('tine-density').valueAsNumber;
+  el('sum-tines').textContent = el('tines').checked
+    ? `${grip <= 20 ? 'light' : grip >= 80 ? 'firm' : 'medium'} grip · ${el('layer-height').value} mm`
+    : 'off';
+  el('sum-clearances').textContent =
+    `${el('gap').value} mm gap · pad ${el('bed-pad').checked ? 'on' : 'off'}`;
+  const cut = el('cutout').value;
+  el('sum-walls').textContent = cut === 'none' ? 'solid' : `${sel('cutout').toLowerCase()} cutouts`;
+}
+el('fin-opts').addEventListener('input', syncSectionSums);
+el('fin-opts').addEventListener('change', syncSectionSums);
 
 el('fins-toggle').addEventListener('click', () => {
   histPush();

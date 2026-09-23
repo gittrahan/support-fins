@@ -351,13 +351,67 @@ html, body {
   gap: 4px;
   color: var(--dim);
 }
-#fin-opts select {
+#fin-opts select,
+#fin-opts input[type=number] {
   padding: 4px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: var(--panel);
-  color: inherit;
+  color: var(--text);
+  font: inherit;
 }
+#fin-opts input[type=number] { width: 72px; }
+#fin-opts input[type=range] { width: 100%; margin: 0; accent-color: var(--accent); }
+/* A one-control field: label left, control right, one line instead of two. */
+#fin-opts .fld.row {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+#fin-opts .fld.row select { min-width: 0; max-width: 130px; }
+
+/* Collapsible sections (issue #41). */
+#fin-opts .sec { border-top: 1px solid var(--line); padding-top: 8px; }
+#fin-opts .sec:first-child { border-top: 0; padding-top: 0; }
+#fin-opts .sec > summary {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+#fin-opts .sec > summary::-webkit-details-marker { display: none; }
+#fin-opts .sec > summary::before {
+  content: "";
+  flex: none;
+  width: 0; height: 0;
+  align-self: center;
+  border-left: 4px solid var(--dim);
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  transition: transform 0.12s;
+}
+#fin-opts .sec[open] > summary::before { transform: rotate(90deg); }
+#fin-opts .sec-title { color: var(--text); font-weight: 600; white-space: nowrap; }
+#fin-opts label.sec-title { font-weight: 600; }
+#fin-opts .sec-title .mut { font-weight: 400; color: var(--dim); }
+#fin-opts .sec:not([open]) .sec-title .mut { display: none; }   /* room for the recap */
+/* The one-line recap of a section's values, only while it's collapsed. */
+#fin-opts .sec-sum {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
+  color: var(--dim);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#fin-opts .sec[open] > summary > .sec-sum { visibility: hidden; }
+#fin-opts .sec > :not(summary) { margin-top: 8px; }
+#fin-opts .sec[open] { display: flex; flex-direction: column; }
 .check {
   display: inline-flex;
   align-items: center;
