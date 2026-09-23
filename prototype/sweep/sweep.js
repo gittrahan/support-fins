@@ -94,7 +94,7 @@ for (const d of MODEL_DIRS) {
 // head are measured with one ruler.
 const { PROP: HERE_PROP } = await import(`${ROOT}web/prop.js`);
 const SPAN = HERE_PROP.maxUnsupportedSpan;
-const OVER_COS = Math.cos(Math.PI / 4) + 1e-4, BED_EPS = 0.35;
+const OVER_COS = Math.cos(Math.PI / 4) + 1e-4, BED_EPS = 0.35, SUB = 3;
 function coverage(part, sup) {
   let zmin = Infinity;
   for (const p of part) if (p[2] < zmin) zmin = p[2];
@@ -104,6 +104,15 @@ function coverage(part, sup) {
     const k = key(Math.floor(v[0] / cell), Math.floor(v[1] / cell));
     let a = grid.get(k); if (!a) grid.set(k, (a = [])); a.push(v);
   }
+  const servedAt = (cx, cy, cz) => {
+    const gi = Math.floor(cx / cell), gj = Math.floor(cy / cell);
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+      for (const v of grid.get(key(gi + di, gj + dj)) || []) {
+        if (v[2] > cz - 3 && v[2] < cz + 0.5 && Math.hypot(v[0] - cx, v[1] - cy) <= SPAN) return true;
+      }
+    }
+    return false;
+  };
   let total = 0, served = 0;
   for (let i = 0; i < part.length; i += 3) {
     const a = part[i], b = part[i + 1], c = part[i + 2];
@@ -113,17 +122,22 @@ function coverage(part, sup) {
     const len = Math.hypot(nx, ny, nz);
     if (len < 1e-12 || nz / len >= -OVER_COS) continue;
     if (Math.max(a[2], b[2], c[2]) - zmin < BED_EPS) continue;
-    const area = len / 2;
-    total += area;
-    const cx = (a[0] + b[0] + c[0]) / 3, cy = (a[1] + b[1] + c[1]) / 3, cz = (a[2] + b[2] + c[2]) / 3;
-    const gi = Math.floor(cx / cell), gj = Math.floor(cy / cell);
-    let hit = false;
-    for (let di = -1; di <= 1 && !hit; di++) for (let dj = -1; dj <= 1 && !hit; dj++) {
-      for (const v of grid.get(key(gi + di, gj + dj)) || []) {
-        if (v[2] > cz - 3 && v[2] < cz + 0.5 && Math.hypot(v[0] - cx, v[1] - cy) <= SPAN) { hit = true; break; }
+    // Judge the WHOLE face, not its centroid: a low-poly face is one huge
+    // triangle (bigplate's underside is two), and its centroid alone flipped
+    // bigplate Y35 sparse 100% -> 58% while the branch had MORE walls under it.
+    // Split into n x n sub-triangles (~SUB mm edges), each judged at its own
+    // centroid with its share of the area.
+    const n = Math.max(1, Math.ceil(Math.max(Math.hypot(ux, uy, uz), Math.hypot(vx, vy, vz),
+      Math.hypot(c[0] - b[0], c[1] - b[1], c[2] - b[2])) / SUB));
+    const piece = len / 2 / (n * n);
+    for (let i1 = 0; i1 < n; i1++) for (let j1 = 0; j1 < n - i1; j1++) {
+      // upright piece at (i1, j1), plus the inverted one beside it
+      for (const [s1, t1] of j1 < n - i1 - 1 ? [[i1 + 1 / 3, j1 + 1 / 3], [i1 + 2 / 3, j1 + 2 / 3]] : [[i1 + 1 / 3, j1 + 1 / 3]]) {
+        const cx = a[0] + (ux * s1 + vx * t1) / n, cy = a[1] + (uy * s1 + vy * t1) / n, cz = a[2] + (uz * s1 + vz * t1) / n;
+        total += piece;
+        if (servedAt(cx, cy, cz)) served += piece;
       }
     }
-    if (hit) served += area;
   }
   return total > 0 ? r2((100 * served) / total) : null;
 }
