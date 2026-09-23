@@ -21,9 +21,15 @@ const H = JSON.parse(Deno.readTextFileSync(headF));
 const LEN_MM = 5, LEN_FRAC = 0.05;            // wall length lost
 const TINE_N = 3, TINE_FRAC = 0.05;           // tines lost
 const LOWTINE_MM = 0.1;                       // lowest tine rising (base grip)
+// Overhang coverage (sweep.js `cov`, check_stl's metric) is what the proxies
+// above stand in for. Losing >2 points blocks (check_diff's rule). And when
+// coverage HELD (within COV_HELD of base, or better), lost tines / wall length
+// are a layout trade, not a loss -- tube X25 sparse gives up a wedge's tines for
+// real walls and covers 51% -> 76%. They are listed under info as a trade.
+const COV_PTS = 2, COV_HELD = 0.5;
 
-const blocking = { error: [], unserved: [], wallLen: [], tines: [], lowTine: [], vanished: [] };
-const info = { walls: [], squat: [], tinesUp: [], lenUp: [], lowTineDown: [], lowTopDown: [], grams: [] };
+const blocking = { error: [], unserved: [], cov: [], wallLen: [], tines: [], lowTine: [], vanished: [] };
+const info = { traded: [], covUp: [], walls: [], squat: [], tinesUp: [], lenUp: [], lowTineDown: [], lowTopDown: [], grams: [] };
 const changed = [];
 let identical = 0;
 const strip = (r) => JSON.stringify({ ...r, ms: 0 });
@@ -37,8 +43,13 @@ for (const k of Object.keys(B)) {
   if (b.error) continue;
   const lost = (x, y, n, f) => x - y > Math.max(n, f * x);
   if (h.unserved > b.unserved) blocking.unserved.push([k, `${b.unserved} -> ${h.unserved} unserved regions`]);
-  if (lost(b.wallLen, h.wallLen, LEN_MM, LEN_FRAC)) blocking.wallLen.push([k, `${b.wallLen} -> ${h.wallLen} mm`]);
-  if (lost(b.tines, h.tines, TINE_N, TINE_FRAC)) blocking.tines.push([k, `${b.tines} -> ${h.tines}`]);
+  const hasCov = b.cov != null && h.cov != null;
+  if (hasCov && b.cov - h.cov > COV_PTS) blocking.cov.push([k, `${b.cov} -> ${h.cov} %`]);
+  if (hasCov && h.cov - b.cov > COV_PTS) info.covUp.push([k, `${b.cov} -> ${h.cov} %`]);
+  const held = hasCov && h.cov >= b.cov - COV_HELD;
+  const proxy = (cat, d) => (held ? info.traded.push([k, `${d}, coverage ${b.cov} -> ${h.cov} %`]) : blocking[cat].push([k, d]));
+  if (lost(b.wallLen, h.wallLen, LEN_MM, LEN_FRAC)) proxy('wallLen', `wall ${b.wallLen} -> ${h.wallLen} mm`);
+  if (lost(b.tines, h.tines, TINE_N, TINE_FRAC)) proxy('tines', `tines ${b.tines} -> ${h.tines}`);
   if (b.lowTine != null && (h.lowTine == null || h.lowTine > b.lowTine + LOWTINE_MM)) {
     blocking.lowTine.push([k, `${b.lowTine} -> ${h.lowTine ?? 'none'} mm`]);
   }
@@ -56,10 +67,15 @@ const n = Object.keys(B).length;
 console.log(`${n} cases: ${identical} identical, ${changed.length} changed`);
 console.log(`totals  tines ${sum(B, 'tines')} -> ${sum(H, 'tines')}   wall length ${Math.round(sum(B, 'wallLen'))} -> ${Math.round(sum(H, 'wallLen'))} mm` +
             `   plastic ${Math.round(sum(B, 'grams'))} -> ${Math.round(sum(H, 'grams'))} g   time ${sum(B, 'ms')} -> ${sum(H, 'ms')} ms`);
+const both = Object.keys(B).filter((k) => B[k].cov != null && H[k]?.cov != null);
+const mean = (D) => (both.length ? (both.reduce((s, k) => s + D[k].cov, 0) / both.length).toFixed(1) : 'n/a');
+console.log(`mean overhang coverage ${mean(B)}% -> ${mean(H)}%  (${both.length} cases with overhangs)`);
 
 const LABEL = {
-  error: 'NEW CRASH', unserved: 'overhang region went UNSERVED', wallLen: 'wall length LOST',
-  tines: 'tines LOST', lowTine: 'lowest tine ROSE (base grip)', vanished: 'case missing',
+  error: 'NEW CRASH', unserved: 'overhang region went UNSERVED', cov: `overhang coverage LOST (>${COV_PTS} pts)`,
+  traded: 'tines/wall lost, coverage held (trade)', covUp: `overhang coverage gained (>${COV_PTS} pts)`,
+  wallLen: 'wall length LOST (coverage fell)',
+  tines: 'tines LOST (coverage fell)', lowTine: 'lowest tine ROSE (base grip)', vanished: 'case missing',
   walls: 'wall count changed', squat: 'squat walls changed', tinesUp: 'tines gained', lenUp: 'wall length gained',
   lowTineDown: 'lowest tine lowered', lowTopDown: 'walls reach lower', grams: 'plastic changed >0.5g',
 };
@@ -71,7 +87,10 @@ for (const [cat, rows] of Object.entries(blocking)) {
   for (const [k, d] of rows) console.log(`      ${k.padEnd(40)} ${d}`);
 }
 console.log('\ninfo:');
-for (const [cat, rows] of Object.entries(info)) console.log(`    ${LABEL[cat]}: ${rows.length}`);
+for (const [cat, rows] of Object.entries(info)) {
+  console.log(`    ${LABEL[cat]}: ${rows.length}`);
+  if (cat === 'traded' && Deno.args.includes('--trades')) for (const [k, d] of rows) console.log(`      ${k.padEnd(40)} ${d}`);
+}
 
 if (changedOut) Deno.writeTextFileSync(changedOut, JSON.stringify(changed));
 console.log(blocked ? `\n${blocked} blocking regression(s).` : '\nNo blocking regressions.');
