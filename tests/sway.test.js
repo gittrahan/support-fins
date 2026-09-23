@@ -186,3 +186,49 @@ Deno.test('sway: auto braces carry fin records, so the per-fin filter keeps them
   assert(claimed.size === b.triangles.length, `${b.triangles.length - claimed.size} vertices claimed by no fin`);
   assert(new Set(b.fins.map((f) => f.id)).size === b.fins.length, 'fin ids collide');
 });
+
+Deno.test('sway: a part too short to brace builds without throwing', () => {
+  // buildSwayBraces returns early here, and the caller maps over `ribs` to make
+  // its per-fin records -- so an early return with no `ribs` threw instead of
+  // quietly placing nothing.
+  const { topo, res } = post(20);
+  const built = fins.buildFins(topo, res, ID, { mode: 'auto', bedPad: true, tines: true,
+                                                layerHeight: LAYER, sway: { on: true } });
+  assert(built.sway.count === 0, `a 20mm part got ${built.sway.count} braces`);
+  assert(typeof built.sway.reason === 'string', 'no reason given');
+});
+
+Deno.test('sway: a brace never lands on a support that is already there', () => {
+  const { topo, res } = post();
+  const partTris = (() => {
+    const a = [];
+    for (let f = 0; f < topo.nFaces; f++) {
+      for (let i = 0; i < 3; i++) {
+        const o = f * 9 + i * 3;
+        a.push([topo.pos[o] + res.offset.x, topo.pos[o + 1] + res.offset.y, topo.pos[o + 2] + res.offset.z]);
+      }
+    }
+    return a;
+  })();
+  assert(partTris.length > 0, 'no part triangles');
+
+  // Stand one brace by hand, then lay a "wall" (a prop's centreline) right along
+  // its foot: a second brace there has to be refused, not fused to it.
+  const opts = { tines: true, layerHeight: LAYER };
+  let side = -1;
+  for (let f = 0; f < topo.nFaces; f++) if (topo.nrm[f * 3 + 1] < -0.9) { side = f; break; }
+  const first = sway.swayAtFace(topo, res, ID, side, [0, -15, 60], opts);
+  assert(first.ok, `first brace failed: ${first.reason}`);
+
+  const alongTheFoot = [first.foot[0], first.foot[1]];
+  assert(sway.swayClashesWall(first, [alongTheFoot]), 'a wall on its own foot did not read as a clash');
+
+  const blocked = sway.swayAtFace(topo, res, ID, side, [0, -15, 60], opts, { walls: [alongTheFoot] });
+  assert(!blocked.ok && /would fuse/.test(blocked.reason),
+         `a brace on top of a wall was not refused (${blocked.ok ? 'built' : blocked.reason})`);
+
+  // ...and a wall well away from the face leaves placement alone.
+  const farAway = [[200, 200, 0], [220, 200, 0]];
+  const fine = sway.swayAtFace(topo, res, ID, side, [0, -15, 60], opts, { walls: [farAway] });
+  assert(fine.ok, `a distant wall blocked a brace: ${fine.reason}`);
+});

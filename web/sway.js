@@ -75,6 +75,10 @@ export const SWAY = {
   nudges: [0, 3, -3, 6, -6, 10, -10],
   clearance: 1.0,     // mm of air two braces must keep between them
   levelStep: 10,      // mm between the heights a clash check compares
+  // Half-width to assume for a prop wall or wedge the braces must stay clear of.
+  // Their own records carry a centreline, not a footprint, so this is the widest
+  // foot either builds (PROP/PERP footHalf 3.0 + half a 1.2mm wall) rounded up.
+  wallHalf: 3.6,
 };
 
 const leanCut = () => Math.sin((SWAY.maxLeanDeg * Math.PI) / 180);
@@ -383,6 +387,45 @@ function levelAt(levels, z) {
   return { a: mix(A.a, B.a), b: mix(A.b, B.b) };
 }
 
+/**
+ * Would `rib` run into a support that is already there -- a prop wall or a wedge?
+ *
+ * Braces keep clear of the part and of each other, but the props and wedges Auto
+ * places are neither: a rib standing beside a prop under a ledge on the same side
+ * merges with it into one piece that no longer snaps off in two halves. Their
+ * records carry a centreline (`line`, world points), so this compares the rib's
+ * FOOT against that line in XY -- the bed is where both are widest, and a support
+ * that clears there is clear the whole way up, since both taper inward with height.
+ *
+ * @param walls  array of polylines ([[x, y, z], ...]), e.g. `built.fins[i].line`
+ */
+export function swayClashesWall(rib, walls) {
+  if (!walls?.length) return false;
+  const need = rib.halfW + SWAY.wallHalf + SWAY.clearance;
+  for (const line of walls) {
+    if (!Array.isArray(line) || line.length < 1) continue;
+    if (line.length === 1) {
+      const p = line[0];
+      if (segDist(rib.foot[0], rib.foot[1], p, p) < need) return true;
+      continue;
+    }
+    for (let i = 1; i < line.length; i++) {
+      if (segDist(rib.foot[0], rib.foot[1], line[i - 1], line[i]) < need) return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Everything a new brace has to avoid, from either shape of `avoid` argument: a
+ * plain array of braces (what the first version took), or { braces, walls }.
+ */
+function avoidance(avoid) {
+  if (!avoid) return { braces: [], walls: [] };
+  if (Array.isArray(avoid)) return { braces: avoid, walls: [] };
+  return { braces: avoid.braces ?? [], walls: avoid.walls ?? [] };
+}
+
 const clashes = swayClashes;
 
 /** How high the face reaches at `u` -- the tallest rib a column there could carry. */
@@ -436,7 +479,10 @@ function columnsFor(p) {
  * its vertex range into `triangles`, so the UI can remove one brace by itself.
  */
 export function buildSwayBraces(topo, result, rot, opts = {}) {
-  const none = (reason) => ({ triangles: [], count: 0, tines: 0, skipped: 0, reason });
+  // `ribs` is always an array, even when nothing was placed: callers map over it
+  // to build their own records, and an undefined here threw on the first part too
+  // short to brace.
+  const none = (reason) => ({ triangles: [], count: 0, tines: 0, skipped: 0, ribs: [], reason });
   const partTris = printTriangles(topo, rot, result.offset);
   let partTop = 0;
   for (let i = 2; i < partTris.length; i += 3) if (partTris[i] > partTop) partTop = partTris[i];
@@ -460,6 +506,9 @@ export function buildSwayBraces(topo, result, rot, opts = {}) {
     faces.push(c);
   }
 
+  // Auto has usually placed props and wedges before this runs, and a rib that
+  // merges with one of them is a support that no longer breaks away in pieces.
+  const { walls } = avoidance(opts.avoid);
   const ribs = [];
   const out = [];
   let tines = 0, skipped = 0;
@@ -470,7 +519,7 @@ export function buildSwayBraces(topo, result, rot, opts = {}) {
         const uc = u + du;
         if (uc < p.u0 || uc > p.u1) continue;
         const r = buildSwayRib(p, uc, partTris, topo, rot, result.offset, opts);
-        if (r.ok && !clashes(r, ribs)) { placed = r; break; }
+        if (r.ok && !clashes(r, ribs) && !swayClashesWall(r, walls)) { placed = r; break; }
       }
       if (!placed) { skipped++; continue; }
       ribs.push(placed);
@@ -519,17 +568,23 @@ export function swayAtFace(topo, result, rot, faceIndex, point, opts = {}, avoid
   const p = byFace.get(faceIndex);
   if (!p) return { ok: false, reason: 'that face is too small or curved to stand a brace against' };
   const u = point[0] * p.u.x + point[1] * p.u.y;
-  let last = null, clashed = false;
+  const { braces, walls } = avoidance(avoid);
+  let last = null, hitBrace = false, hitWall = false;
   for (const du of [0, 2, -2, 4, -4]) {
     const uc = Math.max(p.u0, Math.min(p.u1, u + du));
     const r = buildSwayRib(p, uc, partTris, topo, rot, result.offset, opts);
-    if (r.ok && swayClashes(r, avoid)) { clashed = true; continue; }
+    if (r.ok && swayClashes(r, braces)) { hitBrace = true; continue; }
+    if (r.ok && swayClashesWall(r, walls)) { hitWall = true; continue; }
     if (r.ok) return r;
     last = r;
   }
-  if (clashed) {
+  if (hitBrace) {
     return { ok: false, reason: 'it would run into another brace (on the facing wall, or right beside it) '
       + '— click a spot staggered from it' };
+  }
+  if (hitWall) {
+    return { ok: false, reason: 'a support already stands there, and the two would fuse into one piece '
+      + '— click a spot clear of it' };
   }
   return last;
 }

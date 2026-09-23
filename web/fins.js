@@ -1312,8 +1312,12 @@ export function buildFins(topo, result, rot, opts = {}) {
   // tall part still needs its overhangs held, and bracing its sides is a
   // separate job on separate faces.
   if (!opts.sway?.on) return built;
+  // Braces run LAST, so everything this mode placed is already on the plate: hand
+  // the props' and wedges' centrelines over as things to stand clear of. Fused to
+  // one of those, a brace is no longer a piece that snaps off by itself.
+  const walls = (built.fins ?? []).map((f) => f.line).filter((l) => Array.isArray(l) && l.length);
   const sw = buildSwayBraces(topo, result, rot,
-    { ...opts.sway, tines: opts.tines, layerHeight: opts.layerHeight });
+    { ...opts.sway, tines: opts.tines, layerHeight: opts.layerHeight, avoid: { walls } });
   // Each brace also gets a fin record: the Auto view draws and exports only the
   // triangles some record claims (per-fin removal), so an unrecorded brace would
   // be counted in the readout but never shown or written out.
@@ -1330,7 +1334,12 @@ export function buildFins(topo, result, rot, opts = {}) {
     ...built,
     triangles: [...built.triangles, ...sw.triangles],
     fins: [...fins, ...braces],
-    sway: { count: sw.count, tines: sw.tines, skipped: sw.skipped, reason: sw.reason },
+    sway: { count: sw.count, tines: sw.tines, skipped: sw.skipped, reason: sw.reason,
+            // The outlines travel back so a brace the user then clicks by hand can be
+            // checked against these: Auto builds in the Worker, so the page has no
+            // other way to know where they stand. Plain data, structured-cloneable.
+            braces: (sw.ribs ?? []).map((r) => ({ foot: r.foot, halfW: r.halfW, th: r.th,
+                                          height: r.height, levels: r.levels })) },
   };
 }
 

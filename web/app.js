@@ -947,7 +947,11 @@ function rebuildDrawn() {
                      layerHeight: el('layer-height').valueAsNumber,
                      topo: topology, rot: rotM3.elements, offset: lastResult.offset };
   const wa = new THREE.Vector3(), wb = new THREE.Vector3();
-  const braces = [];     // sway braces already standing, for the clash check
+  // Everything a hand-placed brace has to keep clear of: Auto's braces and walls
+  // (when Auto's supports are on screen), then each hand-placed brace as it is
+  // re-stood, so a rotation that brings two together is reported rather than fused.
+  const auto = autoSupports();
+  const braces = [...auto.braces];
   for (const w of drawnWalls) {
     // Each support remembers which triangles of the merged mesh are its own, so a
     // click on the mesh can be traced back to the support to select / remove.
@@ -958,7 +962,7 @@ function rebuildDrawn() {
       // stands upright, or now runs into an earlier brace).
       part.localToWorld(wa.copy(w.a));
       const r = swayAtFace(topology, lastResult, rotM3.elements, w.face,
-                           [wa.x, wa.y, wa.z], swayOpts(), braces);
+                           [wa.x, wa.y, wa.z], swayOpts(), { braces, walls: auto.walls });
       w.ok = r.ok;
       w.info = r;
       if (r.ok) { braces.push(r); for (const t of r.tris) drawnTris.push(t); }
@@ -1106,11 +1110,40 @@ function placeSecondPoint(hitPoint) {
   updateFit();
 }
 
+/**
+ * The supports Auto has ALREADY placed, as things a hand-placed brace must avoid.
+ *
+ * Auto builds in the Worker, so the page has no other way to know where its braces
+ * and walls stand: without this, a brace you click can land on top of an Auto one
+ * (or face it across a channel) and the two fuse into one piece that won't break
+ * away. Empty unless Auto's supports are actually on screen, and fins the user has
+ * removed are left out -- they aren't there to hit.
+ */
+function autoSupports() {
+  if (!finsVisible || finMode !== 'auto' || !lastBuilt) return { braces: [], walls: [] };
+  const outlines = lastBuilt.sway?.braces ?? [];
+  const braces = [], walls = [];
+  let k = 0;   // sway records and their outlines are emitted in the same order
+  for (const rec of lastBuilt.fins ?? []) {
+    const gone = removedIds.has(rec.id);
+    if (rec.kind === 'sway') {
+      const outline = outlines[k++];
+      if (outline && !gone) braces.push(outline);
+    } else if (!gone && Array.isArray(rec.line) && rec.line.length) {
+      walls.push(rec.line);
+    }
+  }
+  return { braces, walls };
+}
+
 /** Stand a sway brace on the upright face the user clicked. One click, no second point. */
 function placeSway(hit) {
-  const standing = drawnWalls.filter((w) => w.kind === 'sway' && w.ok).map((w) => w.info);
+  const auto = autoSupports();
+  const standing = [...auto.braces,
+                    ...drawnWalls.filter((w) => w.kind === 'sway' && w.ok).map((w) => w.info)];
   const r = swayAtFace(topology, lastResult, rotM3.elements, hit.faceIndex,
-                       [hit.point.x, hit.point.y, hit.point.z], swayOpts(), standing);
+                       [hit.point.x, hit.point.y, hit.point.z], swayOpts(),
+                       { braces: standing, walls: auto.walls });
   if (!r.ok) {
     drawMsg = `couldn’t place that brace: ${r.reason}`;
     updateReadout(lastBuilt);
