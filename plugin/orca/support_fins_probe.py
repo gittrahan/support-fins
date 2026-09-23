@@ -1,12 +1,12 @@
 # /// script
 # requires-python = ">=3.12"
-# dependencies = ["numpy"]
+# dependencies = ["numpy", "trimesh"]
 #
 # [tool.orcaslicer.plugin]
 # name = "Support Fins — Probe"
 # description = "Reads the loaded model and reports its overhangs at 45 deg. A spike that proves the printfins.com auto-fit can run inside OrcaSlicer's plugin sandbox."
 # author = "Matthew Trahan"
-# version = "0.1.0"
+# version = "0.1.1"
 # ///
 """
 SPIKE / PROBE — does OrcaSlicer's plugin sandbox give us what printfins.com needs?
@@ -77,9 +77,11 @@ def _probe_trimesh():
     """Report whether the fuller fin steps can lean on trimesh in this interpreter."""
     try:
         import trimesh  # noqa: F401
-        return f"trimesh {getattr(trimesh, '__version__', '?')} available"
+        return (f"[deps] trimesh {getattr(trimesh, '__version__', '?')} installed "
+                "-- port can reuse the website's fin code")
     except Exception as e:  # ImportError, or a broken partial install
-        return f"trimesh NOT available ({type(e).__name__}) -- port must reimplement its calls"
+        return (f"[deps] trimesh missing ({type(e).__name__}) even though it's "
+                "declared -- port must reimplement its calls in numpy")
 
 
 def _world_mesh(obj, vol):
