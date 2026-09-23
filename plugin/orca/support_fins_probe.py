@@ -6,7 +6,7 @@
 # name = "Support Fins — Probe"
 # description = "Reads the loaded model and reports its overhangs at 45 deg. A spike that proves the printfins.com auto-fit can run inside OrcaSlicer's plugin sandbox."
 # author = "Matthew Trahan"
-# version = "0.1.1"
+# version = "0.1.2"
 # ///
 """
 SPIKE / PROBE — does OrcaSlicer's plugin sandbox give us what printfins.com needs?
@@ -60,6 +60,19 @@ import math
 import orca
 import numpy as np
 
+# Import trimesh HERE, at module load, not inside execute(). Orca's audit hook is
+# inactive while plugins load but gates every file open during execute() -- and
+# trimesh reads its own resources/*.json + dist-info METADATA at import time, so
+# a lazy import inside execute() dies with PermissionError ([AUDIT BLOCKED] in
+# the Orca log) even though the package is installed. Same rule for the port:
+# any third-party package that reads its own data files gets imported up top.
+try:
+    import trimesh
+    _TRIMESH_ERR = None
+except Exception as e:  # ImportError, or a broken partial install
+    trimesh = None
+    _TRIMESH_ERR = e
+
 OVERHANG_DEG = 45.0
 OVERHANG_COS = math.cos(math.radians(OVERHANG_DEG))   # 0.70710678..., NOT 0.7071
 # A face at EXACTLY the threshold is self-supporting; 45 deg is the canonical
@@ -75,13 +88,11 @@ BED_EPS = 0.35                # mm; a face this close to the plate IS the bottom
 
 def _probe_trimesh():
     """Report whether the fuller fin steps can lean on trimesh in this interpreter."""
-    try:
-        import trimesh  # noqa: F401
+    if trimesh is not None:
         return (f"[deps] trimesh {getattr(trimesh, '__version__', '?')} installed "
                 "-- port can reuse the website's fin code")
-    except Exception as e:  # ImportError, or a broken partial install
-        return (f"[deps] trimesh missing ({type(e).__name__}) even though it's "
-                "declared -- port must reimplement its calls in numpy")
+    return (f"[deps] trimesh failed to import ({type(_TRIMESH_ERR).__name__}: "
+            f"{_TRIMESH_ERR}) -- port must reimplement its calls in numpy")
 
 
 def _world_mesh(obj, vol):
