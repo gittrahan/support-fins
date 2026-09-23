@@ -91,6 +91,10 @@ as they grow. Nothing overhangs, but the nozzle's drag and each layer shrinking 
 it cools push the top around, and every movement leaves a visible layer line. Off by
 default ("Sway braces (tall parts)" in the options panel).
 
+**Printed, 2026-09-22.** Two test prints, both clean, so the numbers below are the
+printed ones. Change them only for the same kind of reason the rest of this file
+demands: something measured, not a hunch.
+
 | feature | value | rationale |
 |---|---|---|
 | orientation | vertical rib, **edge-on** to an upright face (≤ 30° lean) | a plate lying flat against the face bends the easy way exactly when the part leans into it; edge-on is its stiff direction |

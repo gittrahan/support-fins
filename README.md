@@ -49,7 +49,7 @@ the way up (auto, or click an upright side in Draw), STL and 3MF import, STL and
 
 Still open: scale-aware fin profiles, and the bed pad on tilted exports.
 
-### Sway braces for tall parts (new, not yet test-printed)
+### Sway braces for tall parts
 
 Tall, slender parts have a problem the fins were never built for: nothing overhangs, but
 as the part grows, the nozzle's drag and each layer shrinking as it cools push the top
@@ -80,10 +80,10 @@ and spread out going up, leaving the top of a tall part, where the sway is, near
 untied. Every number and the reasoning behind it is in `docs/FIN-SPEC.md` ("Sway
 braces"); the code is `web/sway.js`, and `tests/sway.test.js` pins its behaviour.
 
-**Status:** first trialled on a 249 mm fence-post cap, where Auto placed 4 braces
-(about 20 g of support) and hand-placed braces followed its gable up to 225 mm. The
-defaults (depth, thickness, spacing) are first estimates until a physical print confirms
-the top stays still and the braces snap off clean.
+**Status: printed.** Developed on a 249 mm fence-post cap, where Auto places 4 braces
+(about 20 g of support) and hand-placed braces follow its gable up to 225 mm. Two test
+prints (2026-09-22) both came out clean, so the defaults below — depth, thickness and
+tine spacing — are the printed ones, not estimates.
 
 ### The "no config, geometry only" notice
 
