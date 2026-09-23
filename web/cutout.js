@@ -66,7 +66,7 @@ export const CUTOUT_PATTERNS = ['none', ...Object.keys(HOLES), 'lattice'];
  * bottom, top), or [] when none does. Tall cells stack holes with a `web` between
  * them rather than stretching one into a long thin slit.
  */
-function holesFor(kind, w, H) {
+export function holesFor(kind, w, H) {
   const shape = HOLES[kind];
   let a = (w - CUT.web) / 2;
   if (!shape || a < CUT.minHalf || H < CUT.minHole) return [];
@@ -78,8 +78,9 @@ function holesFor(kind, w, H) {
   const maxH = (h) => Math.max(minH(h), 2 * CUT.maxSlope * h);
   let n = Math.max(1, Math.ceil((H + CUT.web) / (maxH(a) + CUT.web)));
   let hh = (H - (n - 1) * CUT.web) / n;
-  if (hh < minH(a)) {                  // too squat for its width: narrow it
-    n = 1; hh = H;
+  if (hh < minH(a) && n > 1) {         // stacking made them squat: one fewer, full width
+    n--; hh = (H - (n - 1) * CUT.web) / n;   // (a bit over maxH -- only a steeper roof)
+  } else if (hh < minH(a)) {           // a lone hole too squat for its width: narrow it
     a = roof ? hh * roof / CUT.slope : (hh - CUT.minHole / 2) / CUT.slope;
     if (a < CUT.minHalf) return [];
   }

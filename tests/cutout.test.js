@@ -11,7 +11,7 @@ import { WEB, block, prop, fins, buildTopology, analyze, loadModel, isClosed, as
 
 const { drawnWall } = await import(`${WEB}draw.js`);
 const { PROP } = prop;
-const { CUT } = await import(`${WEB}cutout.js`);
+const { CUT, holesFor } = await import(`${WEB}cutout.js`);
 const IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
 // A floating slab: its underside at z=30 is a flat overhang with open air to the
@@ -265,4 +265,28 @@ Deno.test('cutout: on real parts no pattern throws, leaves a hole in the mesh, o
     }
   }
   CUT.pattern = 'none';
+});
+
+Deno.test('cutout: a hole never outgrows its cell, whatever the cell height', () => {
+  // PR #43 review: a narrow cell whose height sat just past a stacking threshold
+  // (w=8, H~19.3) fell back to ONE hole and "narrowed" it to a=6.89 -- a 13.8mm
+  // diamond in an 8mm cell. Neighbours overlapped, the webs vanished, and the top
+  // band was left bridging post to post.
+  for (const kind of ['diamond', 'triangle', 'arch']) {
+    for (let w = 4; w <= 16; w += 0.5) {
+      const aMax = (w - CUT.web) / 2;
+      for (let H = 1; H <= 80; H += 0.05) {
+        const holes = holesFor(kind, w, H);
+        for (const h of holes) {
+          assert(h.a <= aMax + 1e-9, `${kind} w=${w} H=${H.toFixed(2)}: a=${h.a.toFixed(2)} > ${aMax}`);
+          assert(h.z0 >= -1e-9 && h.z1 <= H + 1e-9, `${kind} w=${w} H=${H.toFixed(2)}: hole leaves the cell`);
+        }
+        for (let j = 1; j < holes.length; j++) {
+          assert(holes[j].z0 - holes[j - 1].z1 >= CUT.web - 1e-9, `${kind} w=${w} H=${H.toFixed(2)}: stacked holes touch`);
+        }
+      }
+    }
+  }
+  const [d] = holesFor('diamond', 8, 19.3);
+  assert(d && Math.abs(d.a - 3.2) < 1e-9, `w=8 H=19.3 should keep one full-width diamond, got ${JSON.stringify(d)}`);
 });
