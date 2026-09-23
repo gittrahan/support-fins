@@ -581,25 +581,41 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
     for (let w = 0; w <= nBands; w++) rowVs.push(vLo + inset + ((vExt - PROP.th) * w) / nBands);
   }
 
-  const tracks = [];
-  for (const v0 of rowVs) {
+  // Trace ONE row at offset v0: the straight track across the patch, split
+  // wherever the patch doesn't cover a station. Exposed on the result (traceRow)
+  // so buildProps can re-trace a REJECTED row a little to either side.
+  const traceRow = (v0) => {
+    const out = [];
     let cur = [];
     for (let k = 0; k <= nSt; k++) {
       const u = uLo + ((uHi - uLo) * k) / nSt;
       const x = ux * u + vx * v0, y = uy * u + vy * v0;
       const z = surfaceZAt(patchTris, x, y);
       if (z === null) {
-        if (cur.length) { tracks.push(cur); cur = []; }
+        if (cur.length) { out.push(cur); cur = []; }
       } else {
         cur.push([x, y, z]);
       }
     }
-    if (cur.length) tracks.push(cur);
-  }
-  const kept = tracks.filter((t) => t.length >= PROP.minStations);
-  // The CLEAR gap between adjacent walls this face ended up with -- what the part
-  // bridges. The caller compares it to the anti-sag cap to decide whether to warn:
-  // only a face with >1 row can sag, and only when that gap exceeds the cap.
+    if (cur.length) out.push(cur);
+    return out.filter((t) => t.length >= PROP.minStations);
+  };
+
+  // Each row's BAND: how far it may shift and still be "that row" -- half the
+  // way to each neighbour (an edge row only inward: outward is off the face).
+  // Used only when a row is rejected, see buildProps' row fallback.
+  const half = single ? Math.max(0, (vExt - PROP.th) / 2) : ((vExt - PROP.th) / nBands) / 2;
+  const kept = [];
+  kept.rowOf = [];
+  kept.rows = rowVs.map((v0, r) => ({
+    v0,
+    lo: single ? -half : (r === 0 ? 0 : -half),
+    hi: single ? half : (r === rowVs.length - 1 ? 0 : half),
+  }));
+  kept.traceRow = traceRow;
+  rowVs.forEach((v0, r) => {
+    for (const t of traceRow(v0)) { kept.push(t); kept.rowOf.push(r); }
+  });
   kept.spacing = clear;
   return kept;
 }
@@ -2084,6 +2100,7 @@ export function buildProps(topo, result, rot, opts = {}) {
   const zBed = 0;
   const off = result.offset;
   const withTines = opts.tines === true;
+  let rowShifted = 0;   // rejected rows the fallback re-seated
   let tineTotal = 0;
 
   const out = [];
@@ -2214,191 +2231,230 @@ export function buildProps(topo, result, rot, opts = {}) {
     }
     if (!lines.length) { skipped.noLine++; continue; }
 
-    for (const line of lines) {
-      // PART-ATTACHED first: if solid part sits below this overhang, a support
-      // must stand on THAT floor, not stilt to the plate through the part (the
-      // bug Matthew hit on a real hub). buildPartAttached declines on an ordinary
-      // bed overhang (floorLine ~0), so the plate path below is reached unchanged
-      // for the flagship parts. When there IS a floor but no safe wall fits (a
-      // bore, or side walls in the way) it says `floored` -- counted and skipped,
-      // never stilted through the part or scarred into a bore. Works on a COPY so
-      // the plate path's own `line` is untouched.
-      const tri0 = out.length;
-      const pa = buildPartAttached(line, partTris, topo, rot, off, out);
-      if (pa.ok) {
-        servedRegions.add(patch.region);
-        // pa.prop.line already carries the wall top (surface minus gap); add the
-        // gap back so emitTines reads it as the surface, like the plate path does.
-        if (withTines) {
-          const topLine = pa.prop.line.map((p) => [p[0], p[1], p[2] + PROP.gap]);
-          tineTotal += emitTines(topLine, partTris, topo, rot, off, out, tineStepEff, undefined, tineHeight);
-        }
-        // buildPartAttached pushed the wall starting at tri0; emitTines above pushed
-        // its tines right after, so wall + tines are contiguous -> one segment.
-        props.push({ ...pa.prop, area: patch.area,
-                     trimmed: line.length - pa.prop.stations,
-                     id: nextId++, kind: 'prop',
-                     triRanges: [[tri0, out.length]] });
-        continue;
-      }
-      if (pa.floored) { skipped.bore++; continue; }
-
-      // Finish the top against the WHOLE region, not just this patch: a track
-      // near a patch boundary can run under a sibling patch's faces, and
-      // clearance measured against patch-only triangles welded walls to
-      // geometry they could not see (gap 0.003mm, flank 0.011mm, hub_corner).
-      contourTop(line, regionTris);
-      lowerSag(line, regionTris);
-      // pin the wall's low end to the squat floor, not the nearest 1mm station
-      if (insertFloorStations(line).length) contourTop(line, regionTris);
-
-      // SQUAT BED PASS: hold the near-bed stations too low for the flanged wall
-      // below (which discards everything under minHeight as stub/blocked). It runs
-      // AFTER the tall wall (runSquat, on every exit path) so it can skip exactly
-      // the stations that wall's low tail covered (`claimed`) and nothing more.
-      // squatLine is a deep copy taken now, before the tall path's settleTop
-      // mutates the shared points, so the squat pass sees the contoured line.
-      const squatLine = line.map((p) => [p[0], p[1], p[2]]);
-      const claimed = line.map(() => false);
-      const runSquat = () => {
-        for (const sq of buildSquatBed(squatLine, regionTris, topo, rot, off, out, claimed)) {
-          // a squat wall's base is the thin brim, not the tall flange, so tines
-          // attach from squatBrimH up (the default minTop would skip every one).
-          const t0 = out.length;
-          if (withTines) tineTotal += emitTines(
-            sq.line.map((p) => [p[0], p[1], p[2] + PROP.gap]),
-            regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH, tineHeight);
+    // Place one track: part-attached, else squat + plate wall. True when a real
+    // (non-squat) wall landed. `sk` is the skip tally to charge -- the row
+    // fallback below passes a scratch one so its misses don't inflate the stats.
+    const placeLine = (line, sk) => {
+        // PART-ATTACHED first: if solid part sits below this overhang, a support
+        // must stand on THAT floor, not stilt to the plate through the part (the
+        // bug Matthew hit on a real hub). buildPartAttached declines on an ordinary
+        // bed overhang (floorLine ~0), so the plate path below is reached unchanged
+        // for the flagship parts. When there IS a floor but no safe wall fits (a
+        // bore, or side walls in the way) it says `floored` -- counted and skipped,
+        // never stilted through the part or scarred into a bore. Works on a COPY so
+        // the plate path's own `line` is untouched.
+        const tri0 = out.length;
+        const pa = buildPartAttached(line, partTris, topo, rot, off, out);
+        if (pa.ok) {
           servedRegions.add(patch.region);
-          // buildSquatBed pushed this wall (sq.triRange) BEFORE every squat wall's
-          // tines, so a fin's wall and its tines are NON-contiguous in `out` --
-          // track both segments so removing the fin takes wall AND tines together.
-          const segs = [sq.triRange];
-          if (out.length > t0) segs.push([t0, out.length]);
-          props.push({ ...sq, area: patch.area, id: nextId++, kind: 'prop', triRanges: segs });
-        }
-      };
-
-      // A track is straight in XY by construction, so this gate is a tripwire
-      // rather than the bowl-refusal it was for bucketed polylines -- bowls are
-      // now refused by their holes (see patchTracks). Keep it: anything that
-      // trips it means the frame fit itself went wrong.
-      if (straightness(line) > PROP.maxWander) { skipped.wanders++; runSquat(); continue; }
-
-      // Trim to the longest run that can actually carry a wall, rather than
-      // discarding the track over a local problem. See `longestRun`.
-      const clear = line.map((p, k) =>
-        p[2] - PROP.gap >= PROP.minHeightSquat && stationIsClear(line, k, topo, rot, off));
-      const usable = withLowTails(
-        line.map((p, k) => clear[k] && p[2] - PROP.gap >= PROP.minHeight), clear);
-      const run = longestRun(usable);
-      if (!run || run[1] - run[0] < PROP.minStations) { skipped.blocked++; runSquat(); continue; }
-      const sub = line.slice(run[0], run[1]);
-
-      const body = bodyMask(sub);               // before settleTop -- see bodyMask
-      if (tallSpan(sub, body) < PROP.minSpan) { skipped.stub++; runSquat(); continue; }
-
-      // Last, on the trimmed run only: put the closest approach exactly on spec.
-      // It runs here rather than earlier because trimming changes which part of
-      // the edge is closest, so settling before the trim settles the wrong
-      // thing.
-      settleTop(sub, regionTris);
-
-      // Settling can push a station that was only just tall enough below the
-      // floor, and `sweep` would then throw away the whole wall -- the same
-      // all-or-nothing failure the trim exists to prevent, reintroduced one step
-      // later. Re-trim against the settled line: on height, and on the measured
-      // clearance to everything settleTop could not see (stationCertified).
-      // Tall stations carry the wall; low ones may only extend it as its tail.
-      const lowA = sub.map((p, k) =>
-        p[2] - PROP.gap >= PROP.minHeightSquat && stationCertified(sub, k, topo, rot, off));
-      const tallA = sub.map((p, k) => lowA[k] && p[2] - PROP.gap >= PROP.minHeight);
-
-      // Sweep, then MEASURE the finished solid -- exact triangle-to-triangle
-      // clearance against the whole part (solidClearance), because the last
-      // welds this pipeline shipped sat between stations, where no per-station
-      // probe would ever look. A contact is a local problem like every other:
-      // trim the station that owns it and try again, up to a few rounds,
-      // rather than discarding a 90mm wall over one rib. A wall that cannot be
-      // cut clear is dropped -- "no prop" is a fixable disappointment, a fused
-      // prop is a ruined print.
-      let placed = false, reason = null;
-      for (let tries = 0; tries < 4 && !placed; tries++) {
-        const run2 = longestRun(withLowTails(tallA, lowA));
-        if (!run2 || run2[1] - run2[0] < PROP.minStations) { reason = 'blocked'; break; }
-        const settled = sub.slice(run2[0], run2[1]);
-        const span2 = Math.hypot(settled[settled.length - 1][0] - settled[0][0],
-                                 settled[settled.length - 1][1] - settled[0][1]);
-        const settledBody = body.slice(run2[0], run2[1]);
-        if (tallSpan(settled, settledBody) < PROP.minSpan) { reason = 'stub'; break; }
-
-        const before = out.length;
-        if (!sweep(settled, zBed, out, PROP.minHeightSquat)) {
-          out.length = before;
-          reason = 'degenerate';
-          break;
-        }
-
-        // 0.25 reach: the tightest threshold below is 0.205, and every extra
-        // tenth of reach widens the broad phase for nothing
-        const hit = solidClearance(topo, rot, off, out.slice(before), 0.25);
-        // Same acceptance as stationCertified: an approach from above is the
-        // breakaway interface, anything else is a flank. Interpenetration
-        // measures 0 and fails the flank test, which is what retires the old
-        // vertex-containment `buried` check -- crossing surfaces have
-        // distance 0 long before any vertex is inside.
-        if (hit && (hit.cosUp > 0.7 ? hit.d < PROP.gap - 0.065 : hit.d < 0.205)) {
-          out.length = before;
-          let kBest = 0, dBest = Infinity;
-          for (let k = 0; k < settled.length; k++) {
-            const dx = settled[k][0] - hit.x, dy = settled[k][1] - hit.y;
-            if (dx * dx + dy * dy < dBest) { dBest = dx * dx + dy * dy; kBest = k; }
+          // pa.prop.line already carries the wall top (surface minus gap); add the
+          // gap back so emitTines reads it as the surface, like the plate path does.
+          if (withTines) {
+            const topLine = pa.prop.line.map((p) => [p[0], p[1], p[2] + PROP.gap]);
+            tineTotal += emitTines(topLine, partTris, topo, rot, off, out, tineStepEff, undefined, tineHeight);
           }
-          const at = run2[0] + kBest;
-          for (const k of [Math.max(0, at - 1), at, Math.min(lowA.length - 1, at + 1)]) {
-            lowA[k] = false;
-            tallA[k] = false;
-          }
-          reason = 'weld';
-          continue;
+          // buildPartAttached pushed the wall starting at tri0; emitTines above pushed
+          // its tines right after, so wall + tines are contiguous -> one segment.
+          props.push({ ...pa.prop, area: patch.area,
+                       trimmed: line.length - pa.prop.stations,
+                       id: nextId++, kind: 'prop',
+                       triRanges: [[tri0, out.length]] });
+          return true;
         }
+        if (pa.floored) { sk.bore++; return false; }
 
-        // The TALLEST point, not the lowest: this is what the wall costs to
-        // print and how far it has to stand up on its own. `line` is
-        // deliberately not used here -- the wall only exists over `sub`.
-        const top = Math.max(...settled.map((p) => p[2])) - PROP.gap;
-        // signed volume of the emitted solid (divergence theorem over its
-        // triangles): the plastic this wall costs, which is the number the
-        // "less material than slicer supports" claim has to be measured against
-        let vol = 0;
-        for (let i = before; i < out.length; i += 3) {
-          const a = out[i], b = out[i + 1], c = out[i + 2];
-          vol += (a[0] * (b[1] * c[2] - b[2] * c[1])
-                + a[1] * (b[2] * c[0] - b[0] * c[2])
-                + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
+        // Finish the top against the WHOLE region, not just this patch: a track
+        // near a patch boundary can run under a sibling patch's faces, and
+        // clearance measured against patch-only triangles welded walls to
+        // geometry they could not see (gap 0.003mm, flank 0.011mm, hub_corner).
+        contourTop(line, regionTris);
+        lowerSag(line, regionTris);
+        // pin the wall's low end to the squat floor, not the nearest 1mm station
+        if (insertFloorStations(line).length) contourTop(line, regionTris);
+
+        // SQUAT BED PASS: hold the near-bed stations too low for the flanged wall
+        // below (which discards everything under minHeight as stub/blocked). It runs
+        // AFTER the tall wall (runSquat, on every exit path) so it can skip exactly
+        // the stations that wall's low tail covered (`claimed`) and nothing more.
+        // squatLine is a deep copy taken now, before the tall path's settleTop
+        // mutates the shared points, so the squat pass sees the contoured line.
+        const squatLine = line.map((p) => [p[0], p[1], p[2]]);
+        const claimed = line.map(() => false);
+        const runSquat = () => {
+          for (const sq of buildSquatBed(squatLine, regionTris, topo, rot, off, out, claimed)) {
+            // a squat wall's base is the thin brim, not the tall flange, so tines
+            // attach from squatBrimH up (the default minTop would skip every one).
+            const t0 = out.length;
+            if (withTines) tineTotal += emitTines(
+              sq.line.map((p) => [p[0], p[1], p[2] + PROP.gap]),
+              regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH, tineHeight);
+            servedRegions.add(patch.region);
+            // buildSquatBed pushed this wall (sq.triRange) BEFORE every squat wall's
+            // tines, so a fin's wall and its tines are NON-contiguous in `out` --
+            // track both segments so removing the fin takes wall AND tines together.
+            const segs = [sq.triRange];
+            if (out.length > t0) segs.push([t0, out.length]);
+            props.push({ ...sq, area: patch.area, id: nextId++, kind: 'prop', triRanges: segs });
+          }
+        };
+
+        // A track is straight in XY by construction, so this gate is a tripwire
+        // rather than the bowl-refusal it was for bucketed polylines -- bowls are
+        // now refused by their holes (see patchTracks). Keep it: anything that
+        // trips it means the frame fit itself went wrong.
+        if (straightness(line) > PROP.maxWander) { sk.wanders++; runSquat(); return false; }
+
+        // Trim to the longest run that can actually carry a wall, rather than
+        // discarding the track over a local problem. See `longestRun`.
+        const clear = line.map((p, k) =>
+          p[2] - PROP.gap >= PROP.minHeightSquat && stationIsClear(line, k, topo, rot, off));
+        const usable = withLowTails(
+          line.map((p, k) => clear[k] && p[2] - PROP.gap >= PROP.minHeight), clear);
+        const run = longestRun(usable);
+        if (!run || run[1] - run[0] < PROP.minStations) { sk.blocked++; runSquat(); return false; }
+        const sub = line.slice(run[0], run[1]);
+
+        const body = bodyMask(sub);               // before settleTop -- see bodyMask
+        if (tallSpan(sub, body) < PROP.minSpan) { sk.stub++; runSquat(); return false; }
+
+        // Last, on the trimmed run only: put the closest approach exactly on spec.
+        // It runs here rather than earlier because trimming changes which part of
+        // the edge is closest, so settling before the trim settles the wrong
+        // thing.
+        settleTop(sub, regionTris);
+
+        // Settling can push a station that was only just tall enough below the
+        // floor, and `sweep` would then throw away the whole wall -- the same
+        // all-or-nothing failure the trim exists to prevent, reintroduced one step
+        // later. Re-trim against the settled line: on height, and on the measured
+        // clearance to everything settleTop could not see (stationCertified).
+        // Tall stations carry the wall; low ones may only extend it as its tail.
+        const lowA = sub.map((p, k) =>
+          p[2] - PROP.gap >= PROP.minHeightSquat && stationCertified(sub, k, topo, rot, off));
+        const tallA = sub.map((p, k) => lowA[k] && p[2] - PROP.gap >= PROP.minHeight);
+
+        // Sweep, then MEASURE the finished solid -- exact triangle-to-triangle
+        // clearance against the whole part (solidClearance), because the last
+        // welds this pipeline shipped sat between stations, where no per-station
+        // probe would ever look. A contact is a local problem like every other:
+        // trim the station that owns it and try again, up to a few rounds,
+        // rather than discarding a 90mm wall over one rib. A wall that cannot be
+        // cut clear is dropped -- "no prop" is a fixable disappointment, a fused
+        // prop is a ruined print.
+        let placed = false, reason = null;
+        for (let tries = 0; tries < 4 && !placed; tries++) {
+          const run2 = longestRun(withLowTails(tallA, lowA));
+          if (!run2 || run2[1] - run2[0] < PROP.minStations) { reason = 'blocked'; break; }
+          const settled = sub.slice(run2[0], run2[1]);
+          const span2 = Math.hypot(settled[settled.length - 1][0] - settled[0][0],
+                                   settled[settled.length - 1][1] - settled[0][1]);
+          const settledBody = body.slice(run2[0], run2[1]);
+          if (tallSpan(settled, settledBody) < PROP.minSpan) { reason = 'stub'; break; }
+
+          const before = out.length;
+          if (!sweep(settled, zBed, out, PROP.minHeightSquat)) {
+            out.length = before;
+            reason = 'degenerate';
+            break;
+          }
+
+          // 0.25 reach: the tightest threshold below is 0.205, and every extra
+          // tenth of reach widens the broad phase for nothing
+          const hit = solidClearance(topo, rot, off, out.slice(before), 0.25);
+          // Same acceptance as stationCertified: an approach from above is the
+          // breakaway interface, anything else is a flank. Interpenetration
+          // measures 0 and fails the flank test, which is what retires the old
+          // vertex-containment `buried` check -- crossing surfaces have
+          // distance 0 long before any vertex is inside.
+          if (hit && (hit.cosUp > 0.7 ? hit.d < PROP.gap - 0.065 : hit.d < 0.205)) {
+            out.length = before;
+            let kBest = 0, dBest = Infinity;
+            for (let k = 0; k < settled.length; k++) {
+              const dx = settled[k][0] - hit.x, dy = settled[k][1] - hit.y;
+              if (dx * dx + dy * dy < dBest) { dBest = dx * dx + dy * dy; kBest = k; }
+            }
+            const at = run2[0] + kBest;
+            for (const k of [Math.max(0, at - 1), at, Math.min(lowA.length - 1, at + 1)]) {
+              lowA[k] = false;
+              tallA[k] = false;
+            }
+            reason = 'weld';
+            continue;
+          }
+
+          // The TALLEST point, not the lowest: this is what the wall costs to
+          // print and how far it has to stand up on its own. `line` is
+          // deliberately not used here -- the wall only exists over `sub`.
+          const top = Math.max(...settled.map((p) => p[2])) - PROP.gap;
+          // signed volume of the emitted solid (divergence theorem over its
+          // triangles): the plastic this wall costs, which is the number the
+          // "less material than slicer supports" claim has to be measured against
+          let vol = 0;
+          for (let i = before; i < out.length; i += 3) {
+            const a = out[i], b = out[i + 1], c = out[i + 2];
+            vol += (a[0] * (b[1] * c[2] - b[2] * c[1])
+                  + a[1] * (b[2] * c[0] - b[0] * c[2])
+                  + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
+          }
+          servedRegions.add(patch.region);
+          // The grip comb: nubs along this wall's settled top that bite into the
+          // part. `settled` carries the surface z; emitTines subtracts the gap.
+          if (withTines) tineTotal += emitTines(settled, regionTris, topo, rot, off, out, tineStepEff, undefined, tineHeight,
+                                                tallBody(settledBody));
+          props.push({
+            span: span2, height: top - zBed, area: patch.area,
+            stations: settled.length, trimmed: line.length - settled.length,
+            volume: Math.abs(vol),
+            // the centreline, so a coverage check can ask what this wall reaches
+            line: settled.map((p) => [p[0], p[1], p[2] - PROP.gap]),
+            id: nextId++, kind: 'prop',
+            // `before` (captured at the start of THIS try) marks where this wall's
+            // triangles begin in `out`; failed weld retries roll back to it, so on
+            // the successful try it points at this wall. emitTines just pushed its
+            // tines right after, so wall + tines are one contiguous segment.
+            triRanges: [[before, out.length]],
+          });
+          for (let k = run[0] + run2[0]; k < run[0] + run2[1]; k++) claimed[k] = true;
+          placed = true;
         }
-        servedRegions.add(patch.region);
-        // The grip comb: nubs along this wall's settled top that bite into the
-        // part. `settled` carries the surface z; emitTines subtracts the gap.
-        if (withTines) tineTotal += emitTines(settled, regionTris, topo, rot, off, out, tineStepEff, undefined, tineHeight,
-                                              tallBody(settledBody));
-        props.push({
-          span: span2, height: top - zBed, area: patch.area,
-          stations: settled.length, trimmed: line.length - settled.length,
-          volume: Math.abs(vol),
-          // the centreline, so a coverage check can ask what this wall reaches
-          line: settled.map((p) => [p[0], p[1], p[2] - PROP.gap]),
-          id: nextId++, kind: 'prop',
-          // `before` (captured at the start of THIS try, line ~2129) marks where
-          // this wall's triangles begin in `out`; failed weld retries roll back to
-          // it, so on the successful try it points at this wall. emitTines just
-          // pushed its tines right after, so wall + tines are one contiguous segment.
-          triRanges: [[before, out.length]],
-        });
-        for (let k = run[0] + run2[0]; k < run[0] + run2[1]; k++) claimed[k] = true;
-        placed = true;
-      }
-      if (!placed && reason) skipped[reason]++;
-      runSquat();
+        if (!placed && reason) sk[reason]++;
+        runSquat();
+        return placed;
+    };
+
+    const rowServed = new Set();
+    lines.forEach((line, i) => {
+      if (placeLine(line, skipped) && lines.rowOf) rowServed.add(lines.rowOf[i]);
+    });
+
+    // ROW FALLBACK. Rows sit at fixed offsets, and a row that lands where every
+    // track is rejected (a feature chops it into stubs, or it runs into the part)
+    // used to be simply dropped -- so ANY change to where rows land (edge-to-edge,
+    // the flush inset, the clear-gap count) reshuffled which rows survived and
+    // lost walls on some parts by pure position luck (hub_post_foot flat, dense:
+    // 20/20 rows stub -> no support at all). Instead, re-trace a rejected row a
+    // little to either side within its own band -- nearest first -- and keep the
+    // first position that lands a wall. A failed try is rolled back completely
+    // (triangles, props, tines, squat walls) so it leaves no trace.
+    if (lines.rows) {
+      lines.rows.forEach((row, r) => {
+        if (rowServed.has(r)) return;
+        const offs = [];
+        for (const f of [0.25, 0.5, 0.75, 1]) {
+          if (row.lo < 0) offs.push(row.lo * f);
+          if (row.hi > 0) offs.push(row.hi * f);
+        }
+        for (const d of offs) {
+          const snap = { out: out.length, props: props.length, tines: tineTotal,
+                         served: new Set(servedRegions) };
+          const scratch = { ...skipped };
+          let ok = false;
+          for (const t of lines.traceRow(row.v0 + d)) if (placeLine(t, scratch)) ok = true;
+          if (ok) { rowShifted++; break; }
+          out.length = snap.out; props.length = snap.props; tineTotal = snap.tines;
+          servedRegions.clear(); for (const g of snap.served) servedRegions.add(g);
+        }
+      });
     }
   }
 
@@ -2407,6 +2463,6 @@ export function buildProps(topo, result, rot, opts = {}) {
   // part with one region and three walls had "-2 unserved".
   return { triangles: out, props, skipped, served: servedRegions.size,
            servedRegions: [...servedRegions],
-           tines: tineTotal, sagRisk,
+           tines: tineTotal, sagRisk, rowShifted,
            volume: props.reduce((s, q) => s + q.volume, 0) };
 }
