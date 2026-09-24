@@ -87,3 +87,53 @@ Deno.test('pad: a negative grab (PETG) gives a thinner GAP pad, still watertight
     fins.PAD.grab = g0; fins.FIN.padH = h0;   // leave defaults untouched for later tests
   }
 });
+
+// The TINED pad (experimental, PAD.tines). The default pad prints as one merged
+// region with the part along the whole resting edge -- a same-layer weld. The tined
+// pad keeps an in-layer clearance from the part everywhere (including the cube's
+// vertical END faces, which nothing hangs over) and bridges it with one-layer tines,
+// so it tears off along a perforated line. These pin the clearance, the tines, and
+// that the mesh is still a closed oval.
+function tined() {
+  const topo = loadModel('cube');
+  const rot = rotX(45);
+  const res = analyze(topo, 45, rot);
+  fins.PAD.tines = true;
+  try { return fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true }); }
+  finally { fins.PAD.tines = false; }
+}
+
+Deno.test('pad (tined): places tines both ends of the edge, tighter at the ends', () => {
+  const b = tined();
+  assert(b.pad.tines >= 20, `only ${b.pad.tines} pad tines on a 40mm edge`);
+  // Each tine is a closed 12-triangle box appended after the disc.
+  const nDisc = b.padTriangles.length - b.pad.tines * 36;
+  const xs = [];
+  for (let i = nDisc; i < b.padTriangles.length; i += 36) {
+    let x = 0; for (let k = 0; k < 36; k++) x += b.padTriangles[i + k][0];
+    xs.push(x / 36);
+  }
+  const u = [...new Set(xs.map((x) => x.toFixed(2)))].map(Number).sort((a, c) => a - c);
+  const gaps = u.slice(1).map((x, i) => x - u[i]);
+  assert(Math.min(...u) < -19 && Math.max(...u) > 19, `tines don't reach the edge's ends (${u[0]}..${u.at(-1)})`);
+  assert(gaps[0] < gaps[Math.floor(gaps.length / 2)], 'tines are not denser at the ends than the middle');
+});
+
+Deno.test('pad (tined): the disc never shares a layer with the part near the edge', () => {
+  const b = tined();
+  const disc = b.padTriangles.slice(0, b.padTriangles.length - b.pad.tines * 36);
+  assert(isClosed(disc), 'tined pad disc is not closed');
+  // Cube on edge along X: in the layer at mid-height m, the part occupies |y| < m
+  // for |x| <= 20. The disc must be below m everywhere within tineGap of that --
+  // across the long side AND past the end faces.
+  const c = 0.15;   // of the 0.3mm tineGap; mesh sampling eats the rest
+  for (const m of [0.1, 0.3]) {
+    for (const v of disc) {
+      if (v[2] <= m) continue;
+      const nearSide = Math.abs(v[0]) <= 20 && Math.abs(v[1]) < m + c;
+      const nearEnd = Math.abs(v[0]) < 20 + c && Math.abs(v[1]) < m;
+      assert(!nearSide && !nearEnd,
+        `tined pad reaches layer ${m} at (${v[0].toFixed(2)}, ${v[1].toFixed(2)}), inside the clearance`);
+    }
+  }
+});
