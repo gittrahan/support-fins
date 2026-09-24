@@ -1204,8 +1204,19 @@ function extrudeRing(ring, uDir, half, out) {
   pushSolid(local, out);
 }
 
-/** A flat foot flange under the wedge's bed footprint (a -> b at z=0). */
-function emitFoot(a, b, uDir, out) {
+/**
+ * A flat foot flange under the wedge's bed footprint (a -> b at z=0).
+ *
+ * The flange reaches `footHalf` past both ends of the run, and past the LOW end
+ * that is under the part: a wedge under a cube stood on its edge ran its foot
+ * straight across the edge and under the far flank, so the slicer printed foot
+ * and part as one solid region for the foot's three layers -- a weld the wedge's
+ * breakaway gap and tines were meant to avoid. So when `partTris` is given the
+ * flange keeps only its longest stretch along the run where nothing of the part
+ * hangs lower than footH + gap over the flange's full width (plus the gap
+ * sideways): the same clearance the wedge keeps, applied to its foot.
+ */
+function emitFoot(a, b, uDir, out, partTris = null) {
   const sx = b[0] - a[0], sy = b[1] - a[1];
   const L = Math.hypot(sx, sy);
   if (L < 1e-6) return;
@@ -1213,7 +1224,35 @@ function emitFoot(a, b, uDir, out) {
   const hw = PERP.th / 2 + PERP.footHalf, hl = L / 2 + PERP.footHalf;
   const cx = (a[0] + b[0]) / 2, cy = (a[1] + b[1]) / 2;
   const P = (s, w, z) => [cx + ux * s + uDir.x * w, cy + uy * s + uDir.y * w, z];
-  const rect = [[-hl, -hw], [hl, -hw], [hl, hw], [-hl, hw]];
+  let s0 = -hl, s1 = hl;
+  if (partTris) {
+    const step = 0.1, need = PERP.footH + PERP.gap, reach = hw + PERP.gap;
+    const nS = Math.ceil((2 * hl) / step), nW = Math.ceil((2 * reach) / step);
+    const clearAt = (s) => {
+      for (let k = 0; k <= nW; k++) {
+        const [x, y] = P(s, -reach + (2 * reach * k) / nW, 0);
+        const low = surfaceZAt(partTris, x, y);
+        if (low !== null && low < need) return false;
+      }
+      return true;
+    };
+    let best = null, start = null;
+    for (let i = 0; i <= nS; i++) {
+      const s = -hl + (2 * hl * i) / nS;
+      const ok = clearAt(s);
+      if (ok && start === null) start = s;
+      if (start !== null && (!ok || i === nS)) {
+        const end = ok ? s : s - (2 * hl) / nS;
+        if (!best || end - start > best[1] - best[0]) best = [start, end];
+        start = null;
+      }
+    }
+    if (!best || best[1] - best[0] < PERP.th) return;   // nowhere to stand a flange
+    // Pull back one more sample so the kept edge is clear, not the last clear sample.
+    s0 = best[0] > -hl ? best[0] + PERP.gap : best[0];
+    s1 = best[1] < hl ? best[1] - PERP.gap : best[1];
+  }
+  const rect = [[s0, -hw], [s1, -hw], [s1, hw], [s0, hw]];
   const lo = rect.map(([s, w]) => P(s, w, 0)), hi = rect.map(([s, w]) => P(s, w, PERP.footH));
   const local = [];
   for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; local.push(lo[i], lo[j], hi[j], lo[i], hi[j], hi[i]); }
@@ -1293,6 +1332,7 @@ function buildPerpFins(p, topo, rot, offset, opts = {}) {
   const out = [];
   const wedges = [];   // per-wedge records: { triRange, line, height, span }
   let tineTotal = 0, count = 0;
+  let partTris = null;   // seated part, built on the first foot that needs it
 
   for (const uc of perpColumns(p, lo, hi, opts.pitch ?? PERP.pitch)) {
     // contact profile up the face at this u (stop at the first hole after starting)
@@ -1314,7 +1354,8 @@ function buildPerpFins(p, topo, rot, offset, opts = {}) {
                   [top[top.length - 1][0], top[top.length - 1][1], 0]];
     const before = out.length;
     extrudeRing(ring, uDir, half, out);
-    emitFoot([top[0][0], top[0][1], 0], [top[top.length - 1][0], top[top.length - 1][1], 0], uDir, out);
+    partTris ??= seatedPartTris(topo, rot, offset);
+    emitFoot([top[0][0], top[0][1], 0], [top[top.length - 1][0], top[top.length - 1][1], 0], uDir, out, partTris);
     if (opts.tines !== false) tineTotal += emitTines(contact, null, topo, rot, offset, out, tineStepFor(opts.tineDensity));
     if (out.length > before) {
       count++;

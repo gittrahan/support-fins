@@ -128,3 +128,32 @@ Deno.test('pad (brim): stands off the first-layer outline, but close enough to h
   // ...and it is a brim, not a moat: it comes back within ~2 cells of the gap.
   assert(nearest <= fins.PAD.brimGap + 0.2, `brim pad stands ${nearest.toFixed(2)}mm off -- too far to hold`);
 });
+
+// A wedge's foot flange used to reach footHalf past the wedge's LOW end too --
+// on the cube stood on its edge that ran the 0.6mm foot straight across the
+// edge and under the far flank, so the slicer printed foot and cube as one
+// solid region for three layers. The flange now stops where the part hangs
+// lower than footH + gap over it. The cube's underside is z = |y| for |x| <= 20.
+Deno.test('wedge foot: stays out from under the part it braces', () => {
+  const topo = loadModel('cube');
+  const rot = rotX(45);
+  const res = analyze(topo, 45, rot);
+  const b = fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: false, tines: true });
+  assert(b.fins.some((f) => f.kind === 'wedge'), 'expected a wedge on the cube on its edge');
+  const FOOT_H = 0.6, NEED = 0.8;   // PERP.footH, footH + gap
+  // Judge each triangle of the foot's top cap by the band it covers: its corners
+  // can all sit on open bed while the cap itself runs across the edge.
+  const t = b.triangles;
+  let tops = 0;
+  for (let i = 0; i < t.length; i += 3) {
+    const tri = [t[i], t[i + 1], t[i + 2]];
+    if (tri.some((v) => Math.abs(v[2] - FOOT_H) > 1e-9)) continue;
+    tops++;
+    const x0 = Math.min(...tri.map((v) => v[0])), x1 = Math.max(...tri.map((v) => v[0]));
+    const y0 = Math.min(...tri.map((v) => v[1])), y1 = Math.max(...tri.map((v) => v[1]));
+    if (x1 < -20.2 || x0 > 20.2) continue;        // past the cube's end: open bed
+    assert(y0 >= NEED - 1e-6 || y1 <= -NEED + 1e-6,
+      `foot top spans y ${y0.toFixed(2)}..${y1.toFixed(2)}, under the cube's edge (needs |y| >= ${NEED})`);
+  }
+  assert(tops > 0, 'found no foot top cap');
+});
