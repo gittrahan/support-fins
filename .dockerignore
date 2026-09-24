@@ -13,7 +13,7 @@ __pycache__/
 
 # Dev-only trees -- not part of the web artifact served by nginx.
 prototype/
-plugin/
+plugins/
 tests/
 docs/
 assets/

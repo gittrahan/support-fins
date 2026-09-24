@@ -9,7 +9,7 @@
 -- heights only, so it passed the version that flung the foot/tip/tines ~half the
 -- length off the blade -- the "scattered boxes" bug. Overlap is what catches it.
 --
---   Run:  cd plugin/tests && lua add_fin_test.lua
+--   Run:  cd plugins/prusa/tests && lua add_fin_test.lua
 
 package.path = "../com.printfins.support-fins/?.lua;" .. package.path
 

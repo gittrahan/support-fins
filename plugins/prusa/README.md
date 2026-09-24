@@ -35,7 +35,7 @@ set it under your overhang."*
 **Dev (no signing) — the fast loop:** copy the bundle directory into PrusaSlicer's data dir:
 
 ```
-cp -R .../plugin/com.printfins.support-fins "<data dir>/lua/"
+cp -R .../plugins/prusa/com.printfins.support-fins "<data dir>/lua/"
 ```
 
 `<data dir>` is the folder holding `PrusaSlicer.ini`. On the 3.0 alphas it is **not** the
@@ -72,7 +72,7 @@ inside a `com.printfins.support-fins/` folder), and importers need
    that bug is what the builder + the new overlap assertions in the test now rule out.
 5. Slice, print, bend the fin off — tines should snap clean and leave faint marks.
 
-**Lint / local checks:** run `./run-tests.sh` from the `plugin/` dir (needs `lua`/`luac`). It
+**Lint / local checks:** run `./run-tests.sh` from the `plugins/prusa/` dir (needs `lua`/`luac`). It
 covers syntax (`luac -p`), the manifest JSON, the slicer's **scan pass** on a bare engine, and
 the fin **arithmetic** against a mock api (`tests/add_fin_test.lua`) — whose mock now models the
 *real* semantics (corner-origin cubes; `other_volumes` translates **relative to the main mesh**)
