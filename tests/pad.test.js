@@ -88,52 +88,43 @@ Deno.test('pad: a negative grab (PETG) gives a thinner GAP pad, still watertight
   }
 });
 
-// The TINED pad (experimental, PAD.tines). The default pad prints as one merged
-// region with the part along the whole resting edge -- a same-layer weld. The tined
-// pad keeps an in-layer clearance from the part everywhere (including the cube's
-// vertical END faces, which nothing hangs over) and bridges it with one-layer tines,
-// so it tears off along a perforated line. These pin the clearance, the tines, and
-// that the mesh is still a closed oval.
-function tined() {
+// The BRIM-STYLE pad (experimental, PAD.brim). The default pad is 2-3 layers and
+// merges with the part on the first layers -- a weld. The brim-style pad is ONE
+// layer and stands brimGap off the part's first-layer outline (the cube's long
+// side AND its vertical end faces), like a slicer brim. These pin the thickness,
+// the gap, that it still reaches in close enough to hold, and a closed mesh.
+function brimCube(layerHeight) {
   const topo = loadModel('cube');
   const rot = rotX(45);
   const res = analyze(topo, 45, rot);
-  fins.PAD.tines = true;
-  try { return fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true }); }
-  finally { fins.PAD.tines = false; }
+  fins.PAD.brim = true;
+  try { return fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true, layerHeight }); }
+  finally { fins.PAD.brim = false; }
 }
 
-Deno.test('pad (tined): places tines both ends of the edge, tighter at the ends', () => {
-  const b = tined();
-  assert(b.pad.tines >= 20, `only ${b.pad.tines} pad tines on a 40mm edge`);
-  // Each tine is a closed 12-triangle box appended after the disc.
-  const nDisc = b.padTriangles.length - b.pad.tines * 36;
-  const xs = [];
-  for (let i = nDisc; i < b.padTriangles.length; i += 36) {
-    let x = 0; for (let k = 0; k < 36; k++) x += b.padTriangles[i + k][0];
-    xs.push(x / 36);
+Deno.test('pad (brim): one layer thick, whatever the layer height', () => {
+  for (const lh of [0.2, 0.28]) {
+    const b = brimCube(lh);
+    let top = 0; for (const v of b.padTriangles) top = Math.max(top, v[2]);
+    assert(Math.abs(top - lh) < 1e-6, `brim pad is ${top.toFixed(3)}mm tall at ${lh}mm layers`);
+    assert(isClosed(b.padTriangles), 'brim pad is not closed');
   }
-  const u = [...new Set(xs.map((x) => x.toFixed(2)))].map(Number).sort((a, c) => a - c);
-  const gaps = u.slice(1).map((x, i) => x - u[i]);
-  assert(Math.min(...u) < -19 && Math.max(...u) > 19, `tines don't reach the edge's ends (${u[0]}..${u.at(-1)})`);
-  assert(gaps[0] < gaps[Math.floor(gaps.length / 2)], 'tines are not denser at the ends than the middle');
 });
 
-Deno.test('pad (tined): the disc never shares a layer with the part near the edge', () => {
-  const b = tined();
-  const disc = b.padTriangles.slice(0, b.padTriangles.length - b.pad.tines * 36);
-  assert(isClosed(disc), 'tined pad disc is not closed');
-  // Cube on edge along X: in the layer at mid-height m, the part occupies |y| < m
-  // for |x| <= 20. The disc must be below m everywhere within tineGap of that --
-  // across the long side AND past the end faces.
-  const c = 0.15;   // of the 0.3mm tineGap; mesh sampling eats the rest
-  for (const m of [0.1, 0.3]) {
-    for (const v of disc) {
-      if (v[2] <= m) continue;
-      const nearSide = Math.abs(v[0]) <= 20 && Math.abs(v[1]) < m + c;
-      const nearEnd = Math.abs(v[0]) < 20 + c && Math.abs(v[1]) < m;
-      assert(!nearSide && !nearEnd,
-        `tined pad reaches layer ${m} at (${v[0].toFixed(2)}, ${v[1].toFixed(2)}), inside the clearance`);
-    }
+Deno.test('pad (brim): stands off the first-layer outline, but close enough to hold', () => {
+  const b = brimCube(0.2);
+  // Cube on edge along X: the first layer (mid-height 0.1) holds the part where
+  // |y| < 0.1 for |x| <= 20. No pad vertex that slices into that layer may sit
+  // within 0.05 of it -- on the long side or past the end faces.
+  const m = 0.1, c = 0.05;
+  let nearest = Infinity;
+  for (const v of b.padTriangles) {
+    if (v[2] <= m) continue;
+    const dx = Math.max(0, Math.abs(v[0]) - 20), dy = Math.max(0, Math.abs(v[1]) - m);
+    const d = Math.hypot(dx, dy);
+    assert(d >= c, `brim pad reaches the first layer at (${v[0].toFixed(2)}, ${v[1].toFixed(2)}), ${d.toFixed(3)}mm off the part`);
+    nearest = Math.min(nearest, d);
   }
+  // ...and it is a brim, not a moat: it comes back within ~2 cells of the gap.
+  assert(nearest <= fins.PAD.brimGap + 0.2, `brim pad stands ${nearest.toFixed(2)}mm off -- too far to hold`);
 });

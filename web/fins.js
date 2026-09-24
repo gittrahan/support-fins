@@ -688,7 +688,7 @@ export function applyTunables(t) {
   set(FIN, 'tineBite', t.tineBite);
   set(FIN, 'padH', t.padH);
   set(PAD, 'grab', t.padGrab);
-  if (typeof t.padTines === 'boolean') PAD.tines = t.padTines;
+  if (typeof t.padBrim === 'boolean') PAD.brim = t.padBrim;
   set(PROP, 'gap', t.propGap);
   // The wedge keeps its own copy of the clearance, so the Support gap field and the
   // PETG profile never reached it -- not even on the main thread, where everything
@@ -720,23 +720,21 @@ export const PAD = {
                     // the resting edge (where the underside drops to the plate) to
                     // hold it, while gapping off across the rest of the footprint.
 
-  // TINED pad (experimental, off by default). The tack above prints the pad and
-  // the part's first layers as ONE merged region along the whole resting edge --
-  // a same-layer weld, the strongest joint a slicer makes, which is why the pad
-  // is hard to get off. With `tines` on, the pad instead stands `tineGap` below
-  // the part's underside everywhere (so on every layer it stops short of the
-  // part's outline: at a 45deg underside, 0.25mm clear), and one-layer tines
-  // bridge that clearance at intervals -- a perforated tear-off line instead of
-  // a weld. The gap between pad and part is in-layer (horizontal) beside a
-  // tilted part's resting edge, which is the case FIN-SPEC says tines work for.
-  tines: false,
-  tineGap: 0.3,     // mm of in-layer clearance the tined pad keeps from the part
-  tineCell: 0.1,    // mm mesh spacing of the tined pad; the clearance is only as
-                    // true as the mesh that samples it (the 1.2mm oval cells
-                    // interpolate straight across the step and touch the part)
-  tinePitch: 3.0,   // mm between tines along the middle of the contact
-  tinePitchEnd: 1.5, // ... and near the two ends, where a tilted part peels first
-  tineEndZone: 4.0, // mm from each end that gets the tight pitch
+  // BRIM-STYLE pad (experimental, off by default). The default pad is 0.5mm (2-3
+  // layers) and tacks 0.05mm into the part, so the slicer merges pad + part into
+  // ONE region on the first layers and runs solid infill straight across the
+  // contact -- a weld. A slicer brim comes off easily for three reasons, and this
+  // copies them: it is ONE layer (only the first layer grips the bed, so more
+  // layers add stiffness and weld height, never adhesion); it stands a small gap
+  // off the part's first-layer outline, so the slicer keeps two regions and runs
+  // perimeters PARALLEL to the part (bead beside bead, not infill through); and
+  // first-layer squish closes that gap just enough to hold. A tilted part's
+  // flank still prints its second layer onto the pad's inner edge, but only a
+  // strip ~layer/tan(tilt) wide, since the pad is only one layer tall.
+  brim: false,
+  brimGap: 0.1,     // mm off the part's first-layer outline (Orca's brim-object gap)
+  brimCell: 0.1,    // mm mesh spacing; the gap is only as true as the mesh that
+                    // samples it (the 1.2mm oval cells interpolate across it)
 };
 
 /**
@@ -785,7 +783,7 @@ function seatedPartTris(topo, rot, offset) {
   return tris;
 }
 
-function buildPad(contact, partTris, out) {
+function buildPad(contact, partTris, out, layerH = FIN.tineH) {
   if (contact.length < 3) return null;
 
   let cx = 0, cy = 0;
@@ -837,7 +835,7 @@ function buildPad(contact, partTris, out) {
     // hold it, while gapping off across the rest of the footprint.
     return Math.max(0.05, Math.min(FIN.padH, low + PAD.grab));
   };
-  if (PAD.tines) return tinedPad(partTris, contact, { cx, cy, ax, ay, bx, by, r1, r2 }, out);
+  if (PAD.brim) return brimPad(partTris, contact, { cx, cy, ax, ay, bx, by, r1, r2 }, layerH, out);
   const nTheta = FIN.padSegs;
   const nRing = Math.max(2, Math.ceil(Math.max(r1, r2) / PAD.cell));
 
@@ -892,32 +890,37 @@ function buildPad(contact, partTris, out) {
 }
 
 /**
- * The TINED pad: the same oval, but it never touches the part -- it keeps
- * `PAD.tineGap` of clearance in every layer -- and one-layer tines cross that
- * clearance (padTines). Its top at a point is the lowest part underside within
- * tineGap of it, so the pad also backs off a vertical face beside it (the cube's
- * end faces), not just from what hangs overhead.
+ * The BRIM-STYLE pad (PAD.brim): the same oval, one layer tall, standing
+ * `brimGap` off the part's first-layer outline -- see PAD.brim for why.
+ *
+ * A slicer puts the part in the first layer wherever its underside is below the
+ * layer's mid-height. The pad's top at a point is therefore set from the lowest
+ * underside within brimGap of it: where that is above mid-height the pad is a
+ * full layer, and it falls away to 0.05 (below mid-height, so it slices to
+ * nothing) across the gap. Near the edge the top follows the underside linearly,
+ * so the slicer's mid-height contour lands on the gap line rather than wherever
+ * a cell boundary happens to fall.
  *
  * The mesh is columns across the oval's long axis, each running rim to rim with
- * the same number of rows, at `tineCell` spacing: fine enough that the
- * interpolated top cannot cut the clearance short, and the outline stays the
+ * the same number of rows, at `brimCell` spacing, so the outline stays the
  * smooth oval. The two tips close with a fan; the bottom is one flat fan (the
  * ellipse is convex).
  */
-function tinedPad(partTris, contact, e, out) {
+function brimPad(partTris, contact, e, layerH, out) {
   const { cx, cy, ax, ay, bx, by, r1, r2 } = e;
-  const c = PAD.tineGap;
+  const H = Number.isFinite(layerH) && layerH > 0.05 ? layerH : FIN.tineH;
+  const g = PAD.brimGap;
   const ring = [];
-  for (let k = 0; k < 8; k++) ring.push([c * Math.cos(k * Math.PI / 4), c * Math.sin(k * Math.PI / 4)]);
-  const conform = (x, y) => {
+  for (let k = 0; k < 16; k++) ring.push([g * Math.cos(k * Math.PI / 8), g * Math.sin(k * Math.PI / 8)]);
+  const top = (x, y) => {
     let low = surfaceZAt(partTris, x, y) ?? Infinity;
     for (const [dx, dy] of ring) low = Math.min(low, surfaceZAt(partTris, x + dx, y + dy) ?? Infinity);
-    return Math.max(0.05, Math.min(FIN.padH, low - 0.05));
+    return Math.max(0.05, Math.min(H, low));
   };
   const at = (s, t) => [cx + ax * s + bx * t, cy + ay * s + by * t];
-  const vert = (s, t) => { const [x, y] = at(s, t); return [x, y, conform(x, y)]; };
+  const vert = (s, t) => { const [x, y] = at(s, t); return [x, y, top(x, y)]; };
 
-  const h = PAD.tineCell;
+  const h = PAD.brimCell;
   const nS = Math.max(3, Math.ceil((2 * r1) / h) + 1);
   const nT = Math.max(2, Math.ceil((2 * r2) / h) + 1);
   const cols = [];                     // interior columns i = 1 .. nS-2
@@ -931,7 +934,6 @@ function tinedPad(partTris, contact, e, out) {
   const tipL = vert(-r1, 0), tipR = vert(r1, 0);
   const tris = [];
   const tri = (a, b, d) => tris.push(a, b, d);
-  // top
   for (let j = 0; j < nT - 1; j++) {
     tri(tipL, cols[0][j + 1], cols[0][j]);
     const L = cols[cols.length - 1];
@@ -960,91 +962,7 @@ function tinedPad(partTris, contact, e, out) {
   for (let i = 0; i < tris.length; i += 3) {
     if (vol < 0) out.push(tris[i], tris[i + 2], tris[i + 1]); else out.push(tris[i], tris[i + 1], tris[i + 2]);
   }
-
-  // Tine stations span the part's actual contact along the axis, not the
-  // centroid-symmetric extent (the contact vertices need not be evenly spread).
-  let s0 = Infinity, s1 = -Infinity;
-  for (const p of contact) {
-    const s = (p[0] - cx) * ax + (p[1] - cy) * ay;
-    if (s < s0) s0 = s; if (s > s1) s1 = s;
-  }
-  let maxTop = 0;
-  for (const col of cols) for (const v of col) if (v[2] > maxTop) maxTop = v[2];
-  const tines = padTines(partTris, conform, { ...e, s0, s1 }, out);
-  return { r1, r2, cells: cols.length * nT, height: maxTop, points: contact.length, oval: true, tines };
-}
-
-/**
- * The tines of a tined pad: one-layer bars that cross the in-layer clearance
- * between the pad and the part along the contact's long axis, on both sides.
- *
- * For each station s along the axis, each side, and each whole layer the pad is
- * tall enough for, march outward from the contact line: the part is present in
- * that layer while its underside is below the layer's mid-height (how a slicer
- * decides), the pad is present once its conformed top rises above it. A tine
- * spans from `tineBite` inside the part's edge to `tineGrip` into the pad. A
- * clearance wider than `tineSpanMax` is a bridge, not a tine, and is skipped.
- * Returns the number of tines placed.
- */
-function padTines(partTris, conform, e, out) {
-  const { cx, cy, ax, ay, bx, by, s0: sA, s1: sB, r1, r2 } = e;
-  const stations = [];
-  const len = sB - sA;
-  if (len < 1e-6) stations.push(sA);
-  else {
-    // Tight pitch near both ends, where a tilted part peels first, then the
-    // middle split evenly between the last end tines.
-    const end = Math.min(PAD.tineEndZone, len / 2);
-    let d = FIN.tineW / 2, last = d;
-    for (; d <= end + 1e-9; d += PAD.tinePitchEnd) { stations.push(sA + d, sB - d); last = d; }
-    const span = len - 2 * last;
-    const k = Math.max(1, Math.round(span / PAD.tinePitch));
-    for (let i = 1; i < k; i++) stations.push(sA + last + (span * i) / k);
-  }
-  const at = (s, t) => [cx + ax * s + bx * t, cy + ay * s + by * t];
-  const step = 0.02;
-  let n = 0;
-  for (const s of stations) {
-    const tEdge = r2 * Math.sqrt(Math.max(0, 1 - (s / r1) ** 2));   // pad rim here
-    for (let zl = 0; zl + FIN.tineH <= FIN.padH + 1e-6; zl += FIN.tineH) {
-      const mid = zl + FIN.tineH / 2;
-      const lowAt = (t) => { const [x, y] = at(s, t); return surfaceZAt(partTris, x, y); };
-      const l0 = lowAt(0);
-      if (l0 === null || l0 >= mid) continue;            // part not in this layer here
-      // Both sides of the contact line; where both reach, it is one bar across.
-      let lo = Infinity, hi = -Infinity;
-      for (const sg of [1, -1]) {
-        let t = 0;
-        while (t < tEdge) { const l = lowAt(sg * (t + step)); if (l === null || l >= mid) break; t += step; }
-        const tPart = t;
-        while (t < tEdge) { const [x, y] = at(s, sg * t); if (conform(x, y) > mid) break; t += step; }
-        if (t >= tEdge || t - tPart > FIN.tineSpanMax) continue;
-        const a = sg * (tPart - FIN.tineBite), b = sg * Math.min(tEdge, t + FIN.tineGrip);
-        lo = Math.min(lo, a, b); hi = Math.max(hi, a, b);
-      }
-      if (lo > hi) continue;
-      // Lift a stacked tine a hair off the one below so the two never share a
-      // face (coincident faces are not a manifold union); slicing is unchanged.
-      box(s - FIN.tineW / 2, s + FIN.tineW / 2, lo, hi, zl > 0 ? zl + 1e-3 : 0, zl + FIN.tineH);
-      n++;
-    }
-  }
-  return n;
-
-  // Axis-aligned box in the (axis, across, z) frame, wound outward.
-  function box(s0, s1, t0, t1, z0, z1) {
-    if (t1 < t0) [t0, t1] = [t1, t0];
-    const P = (s, t, z) => { const [x, y] = at(s, t); return [x, y, z]; };
-    const v = [P(s0, t0, z0), P(s1, t0, z0), P(s1, t1, z0), P(s0, t1, z0),
-               P(s0, t0, z1), P(s1, t0, z1), P(s1, t1, z1), P(s0, t1, z1)];
-    // (a, b) is right-handed or not depending on the contact's principal axis;
-    // flip the winding when it is left-handed so the normals face out.
-    const rh = ax * by - ay * bx > 0;
-    const q = (i, j, k, l) => rh
-      ? out.push(v[i], v[j], v[k], v[i], v[k], v[l])
-      : out.push(v[i], v[l], v[k], v[i], v[k], v[j]);
-    q(0, 3, 2, 1); q(4, 5, 6, 7); q(0, 1, 5, 4); q(2, 3, 7, 6); q(1, 2, 6, 5); q(0, 4, 7, 3);
-  }
+  return { r1, r2, cells: cols.length * nT, height: H, points: contact.length, oval: true, brim: true };
 }
 
 /**
@@ -1628,7 +1546,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     const contact = bedContact(topo, result, rot);
     const seating = seatingOf(result, contact.pts);
     const pad = (opts.bedPad ?? true) && result.bedArea < FIN.padMinArea
-      ? buildPad(contact.pts, seatedPartTris(topo, rot, result.offset), padOut) : null;
+      ? buildPad(contact.pts, seatedPartTris(topo, rot, result.offset), padOut, opts.layerHeight) : null;
     // A part seated on a POINT gets no props -- nothing standing on the plate
     // can hold a part that never touches it -- UNLESS the bed pad is on, in
     // which case the pad is what seats it and the walls have something to work
@@ -1763,7 +1681,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
 
   let pad = null;
   if ((opts.bedPad ?? true) && result.bedArea < FIN.padMinArea) {
-    pad = buildPad(contact, seatedPartTris(topo, rot, result.offset), padOut);
+    pad = buildPad(contact, seatedPartTris(topo, rot, result.offset), padOut, opts.layerHeight);
   }
 
   return {

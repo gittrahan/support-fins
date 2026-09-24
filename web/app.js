@@ -1376,7 +1376,7 @@ function finOpts() {
            // applyMaterial and the gap fields set on this page's copy (fins.js
            // applyTunables). Without this, Auto mode always built PLA's numbers.
            tunables: { finGap: FIN.gap, tineBite: FIN.tineBite, padH: FIN.padH,
-                       padGrab: PAD.grab, padTines: PAD.tines, propGap: PROP.gap,
+                       padGrab: PAD.grab, padBrim: PAD.brim, propGap: PROP.gap,
                        cutout: CUT.pattern } };
 }
 
@@ -1841,13 +1841,13 @@ el('fin-mode').addEventListener('change', (e) => {
   refreshFins();
 });
 el('bed-pad').addEventListener('change', refreshFins);
-// The tined pad keeps its own clearance, so Pad grip does nothing while it is on.
-function syncPadTines() {
-  PAD.tines = el('pad-tines').checked;
-  el('pad-grip').disabled = PAD.tines;
+// The brim-style pad keeps its own gap, so Pad grip does nothing while it is on.
+function syncPadBrim() {
+  PAD.brim = el('pad-brim').checked;
+  el('pad-grip').disabled = PAD.brim;
 }
-el('pad-tines').addEventListener('change', () => { syncPadTines(); refreshFins(); });
-syncPadTines();
+el('pad-brim').addEventListener('change', () => { syncPadBrim(); refreshFins(); });
+syncPadBrim();
 // A slider fires `input` on every pixel of a drag; on a big part one regenerate can
 // take a while, so re-running it per tick freezes the page mid-drag. Coalesce the
 // drag into a single rebuild once the value settles. `change` (fires on release) is
