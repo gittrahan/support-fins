@@ -1,0 +1,5 @@
+# Cloudflare static-asset headers. The STEP kernel (~2.9 MB brotli) never changes
+# under a given path -- its folder name carries the version, so upgrading it is a
+# new URL -- so browsers may keep it for a year instead of re-checking each visit.
+/vendor/occt-import-js-0.0.23/*
+  Cache-Control: public, max-age=31536000, immutable

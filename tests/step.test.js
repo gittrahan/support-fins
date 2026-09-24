@@ -19,7 +19,7 @@ import { WEB, fins, buildTopology, analyze, rotX, isClosed, assert, assertClose 
 const { isStep, stepObjects, STEP_PARAMS } = await import(`${WEB}step.js`);
 
 const FIX = new URL('./fixtures/', import.meta.url).pathname;
-const OCCT = `${WEB}vendor/occt-import-js/`;
+const OCCT = `${WEB}vendor/occt-import-js-0.0.23/`;
 
 const occtimportjs = createRequire(import.meta.url)(`${OCCT}occt-import-js.js`);
 const occt = await occtimportjs({ wasmBinary: Deno.readFileSync(`${OCCT}occt-import-js.wasm`) });

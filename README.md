@@ -186,8 +186,8 @@ MIT. The license covers this tool, not what you make with it — STLs you run th
 Fins are entirely yours, and the output carries no license obligation.
 
 STEP import uses [occt-import-js](https://github.com/kovacsv/occt-import-js) (Open CASCADE
-compiled to WebAssembly), vendored unmodified under `web/vendor/occt-import-js/` with its
-LGPL-2.1 license files. The browser downloads it only when you open a STEP file.
+compiled to WebAssembly), vendored unmodified under `web/vendor/occt-import-js-0.0.23/` with its
+LGPL-2.1 license files. The browser only downloads it when you go to import a file.
 
 ---
 

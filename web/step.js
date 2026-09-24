@@ -3,9 +3,10 @@
  *
  * STEP is exact B-rep geometry, not triangles, so reading it takes a real CAD
  * kernel: OpenCascade compiled to WASM (occt-import-js, vendored under
- * vendor/occt-import-js, LGPL-2.1). It is ~7.6 MB, so it is fetched only the
- * first time someone opens a STEP file, and it tessellates in a worker so a big
- * assembly doesn't freeze the page.
+ * vendor/occt-import-js-<version>, LGPL-2.1). It is ~7.6 MB (~2.9 MB brotli), so
+ * it is fetched only when someone reaches for a file (warmStep), cached for a
+ * year after that, and it tessellates in a worker so a big assembly doesn't
+ * freeze the page.
  *
  * The kernel hands back indexed meshes plus the file's assembly tree; this
  * module turns those into the same per-object triangle soups readThreeMF
@@ -109,18 +110,31 @@ export function stepObjects(result) {
 
 let worker = null;
 
+const stepWorker = () => (worker ??= new Worker(new URL('./stepworker.js', import.meta.url)));
+
 /**
- * Read a STEP file in the browser. Spins up the kernel worker on first use and
- * keeps it, so the WASM compiles once per page load.
+ * Start fetching and compiling the kernel before a STEP arrives -- called when
+ * the user opens the file dialog or drags a file over the page, so the ~3 MB
+ * download overlaps with them choosing the file. Harmless if it never gets used.
+ */
+export function warmStep() {
+  if (!worker) stepWorker().postMessage({ warm: true });
+}
+
+/**
+ * Read a STEP file in the browser. The kernel worker is kept after first use,
+ * so the WASM compiles once per page load; a failure drops it so the next
+ * attempt starts clean (e.g. after a network blip during the download).
  *
  * @param bytes  Uint8Array of the whole .step file
  */
 export async function readStep(bytes) {
-  worker ??= new Worker(new URL('./stepworker.js', import.meta.url));
+  const w = stepWorker();
   const result = await new Promise((resolve, reject) => {
-    worker.onmessage = (e) => (e.data.error ? reject(new Error(e.data.error)) : resolve(e.data));
-    worker.onerror = (e) => { worker = null; reject(new Error(e.message || 'the STEP reader failed to load')); };
-    worker.postMessage({ bytes, params: STEP_PARAMS });
+    const fail = (msg) => { w.terminate(); if (worker === w) worker = null; reject(new Error(msg)); };
+    w.onmessage = (e) => (e.data.error ? fail(e.data.error) : resolve(e.data));
+    w.onerror = (e) => fail(e.message || 'the STEP reader failed to load');
+    w.postMessage({ bytes, params: STEP_PARAMS });
   });
   return stepObjects(result);
 }

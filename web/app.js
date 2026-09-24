@@ -20,7 +20,7 @@ import { drawnWall } from './draw.js';
 import { swayAtFace, faceIsUpright } from './sway.js';
 import { writeBinarySTL, download } from './stl.js';
 import { writeThreeMF, readThreeMF } from './threemf.js';
-import { isStep, readStep } from './step.js';
+import { isStep, readStep, warmStep } from './step.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
@@ -2903,6 +2903,9 @@ async function loadFile(file) {
 }
 
 el('file').addEventListener('change', (e) => loadFile(e.target.files[0]));
+// Reaching for a file is the cue to start loading the STEP kernel: it downloads
+// while the user is still in the file dialog (or mid-drag), not after they drop.
+el('file').addEventListener('click', warmStep);
 
 /** Load a model that is already on the web (the sample model, a demo link). */
 async function loadURL(url) {
@@ -2921,6 +2924,7 @@ const drop = el('drop');
 let dragDepth = 0;
 addEventListener('dragenter', (e) => {
   e.preventDefault();
+  warmStep();
   if (dragDepth++ === 0) drop.classList.remove('hidden'), drop.classList.add('armed');
 });
 addEventListener('dragover', (e) => e.preventDefault());
