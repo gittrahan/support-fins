@@ -135,6 +135,13 @@ export const PROP = {
   // The patch path serves them correctly and always did. Real tube bands
   // measure 1,000+ mm2; 300 sits in the gap.
   tubeMinArea: 300,
+  // KEEL (keelLines, issue #25): a region lowest along a line across its width
+  keelDepth: 1.5,     // mm the surface must climb on BOTH sides of that line to count
+  keelDrift: 3.0,     // mm the lowest point may stray sideways from the line along its length
+  keelStraight: 1.0,  // mm the lowest line may bow away from straight along its length
+  keelCover: 0.995,   // share of the strip the keel's walls must reach, or it keeps its rows
+  keelReachSlack: 1.5, // mm past a span a side may reach and still need no extra wall
+                       // (the strip's edges sit at the 45deg threshold)
   // mm an overhang may bridge unsupported: the wall-to-wall spacing across a
   // wide patch, and the ONE dial M7b puts in front of the user. check_stl.py
   // reads this value out of this file (MAX_UNSUPPORTED_SPAN) so the checker and
@@ -276,6 +283,151 @@ export function splitRegion(topo, faces, rot) {
     patches.push({ faces: members, area: total });
   }
   return patches;
+}
+
+/**
+ * KEEL (issue #25): the walls for a region that is LOWEST ALONG A LINE -- the
+ * overhang strip under a tilted cylinder, too shallowly curved for tubeLine. The
+ * fin that matters stands on that line, where the overhang is greatest; rows
+ * spaced evenly across the strip straddle it and leave it bare. So: one wall down
+ * the lowest line, then walls outward every `span` only while a side of the strip
+ * reaches further than a span (+ keelReachSlack) from the last one.
+ *
+ * The line is found across the strip, not by lowest-vertex buckets (on a faceted
+ * strip those hop between the edges of its bottom facet): take the strip's long
+ * axis u, remove its slope along u (z ~ a + b u), and find the lateral offset d
+ * where what is left is lowest. It must climb keelDepth on BOTH sides -- a tilted
+ * flat face's lowest line is an edge, with the whole face to one side. Returns
+ * tracks like patchTracks (split at holes), or null when it isn't a keel.
+ */
+export function keelLines(pts, regionTris, step = PROP.stationStep, span = PROP.maxUnsupportedSpan) {
+  if (pts.length < 6) return null;
+  let cx = 0, cy = 0;
+  for (const p of pts) { cx += p[0]; cy += p[1]; }
+  cx /= pts.length; cy /= pts.length;
+  let sxx = 0, sxy = 0, syy = 0;
+  for (const p of pts) {
+    const dx = p[0] - cx, dy = p[1] - cy;
+    sxx += dx * dx; sxy += dx * dy; syy += dy * dy;
+  }
+  const tr2 = sxx + syy, det = sxx * syy - sxy * sxy;
+  const lam = tr2 / 2 + Math.sqrt(Math.max(0, (tr2 * tr2) / 4 - det));
+  let ux = sxy, uy = lam - sxx;
+  if (Math.hypot(ux, uy) < 1e-9) { ux = 1; uy = 0; }
+  const un = Math.hypot(ux, uy); ux /= un; uy /= un;
+  const vx = -uy, vy = ux;
+  const uv = pts.map((p) => [(p[0] - cx) * ux + (p[1] - cy) * uy, (p[0] - cx) * vx + (p[1] - cy) * vy, p[2]]);
+  // z ~ a + b u, least squares
+  let su = 0, sz = 0, suu = 0, suz = 0;
+  for (const [u, , z] of uv) { su += u; sz += z; suu += u * u; suz += u * z; }
+  const n = uv.length, den = n * suu - su * su;
+  if (Math.abs(den) < 1e-9) return null;
+  const b = (n * suz - su * sz) / den, a0 = (sz - b * su) / n;
+  // lowest residual by lateral bin
+  let dLo = Infinity, dHi = -Infinity, uLo = Infinity, uHi = -Infinity;
+  for (const [u, d] of uv) {
+    if (d < dLo) dLo = d; if (d > dHi) dHi = d;
+    if (u < uLo) uLo = u; if (u > uHi) uHi = u;
+  }
+  if (dHi - dLo < 2 * PROP.keelDepth || uHi - uLo < PROP.minSpan) return null;
+  const bin = 1.0, nb = Math.ceil((dHi - dLo) / bin) + 1;
+  const sum = new Array(nb).fill(0), cnt = new Array(nb).fill(0);
+  for (const [u, d, z] of uv) { const i = Math.floor((d - dLo) / bin); sum[i] += z - (a0 + b * u); cnt[i]++; }
+  const res = sum.map((v, i) => (cnt[i] ? v / cnt[i] : null));
+  let im = -1;
+  for (let i = 0; i < nb; i++) if (res[i] !== null && (im < 0 || res[i] < res[im])) im = i;
+  const left = res.slice(0, im).filter((v) => v !== null), right = res.slice(im + 1).filter((v) => v !== null);
+  if (!left.length || !right.length) return null;                                   // lowest at an edge
+  if (Math.max(...left) - res[im] < PROP.keelDepth || Math.max(...right) - res[im] < PROP.keelDepth) return null;
+  const d0 = dLo + (im + 0.5) * bin;
+  // A LINE, not a point: sampled down the length, the surface must be lowest at
+  // this same d at every station, and rise along it in a straight line -- the
+  // generator of a cylinder. A bowl (sphere, rounded hub corner) is lowest at one
+  // point and sags along any line through it; a keel there cost sphere X25 half
+  // its coverage.
+  const nChk = 7, sag = [];
+  for (let k = 1; k < nChk; k++) {
+    const u = uLo + ((uHi - uLo) * k) / nChk;
+    let best = null;
+    for (let d = dLo; d <= dHi; d += 0.5) {
+      const z = surfaceZAt(regionTris, cx + ux * u + vx * d, cy + uy * u + vy * d);
+      if (z !== null && (best === null || z < best[1])) best = [d, z];
+    }
+    if (!best || Math.abs(best[0] - d0) > PROP.keelDrift) return null;          // the low line wanders off
+    sag.push([u, best[1]]);
+  }
+  {
+    let su = 0, sz = 0, suu = 0, suz = 0;
+    for (const [u, z] of sag) { su += u; sz += z; suu += u * u; suz += u * z; }
+    const m = sag.length, dd = m * suu - su * su;
+    const bb = (m * suz - su * sz) / dd, aa = (sz - bb * su) / m;
+    if (Math.max(...sag.map(([u, z]) => Math.abs(z - (aa + bb * u)))) > PROP.keelStraight) return null;
+  }
+  // The strip's sample points, for the coverage check below.
+  const samples = [];
+  let zMin = Infinity;
+  for (let i = 0; i < regionTris.length; i += 9) {
+    const A = [regionTris[i], regionTris[i + 1], regionTris[i + 2]];
+    const B = [regionTris[i + 3], regionTris[i + 4], regionTris[i + 5]];
+    const C = [regionTris[i + 6], regionTris[i + 7], regionTris[i + 8]];
+    const edge = Math.max(Math.hypot(B[0] - A[0], B[1] - A[1], B[2] - A[2]), Math.hypot(C[0] - A[0], C[1] - A[1], C[2] - A[2]));
+    const m = Math.max(1, Math.ceil(edge / 3));
+    for (let p = 0; p < m; p++) for (let q = 0; q < m - p; q++) {
+      const f = (p + 1 / 3) / m, g = (q + 1 / 3) / m;
+      const X = [0, 1, 2].map((k) => A[k] + (B[k] - A[k]) * f + (C[k] - A[k]) * g);
+      samples.push(X);
+      if (X[2] < zMin) zMin = X[2];
+    }
+  }
+  const span2 = span * span;
+  const nSt = Math.max(2, Math.min(400, Math.ceil((uHi - uLo) / step)));
+  const tracksAt = (ds) => {
+    const tracks = [];
+    for (const d of ds) {
+      let cur = [];
+      for (let k = 0; k <= nSt; k++) {
+        const u = uLo + ((uHi - uLo) * k) / nSt;
+        const x = cx + ux * u + vx * d, y = cy + uy * u + vy * d;
+        const z = surfaceZAt(regionTris, x, y);
+        if (z === null) { if (cur.length) { tracks.push(cur); cur = []; } } else cur.push([x, y, z]);
+      }
+      if (cur.length) tracks.push(cur);
+    }
+    return tracks.filter((t) => t.length >= PROP.minStations);
+  };
+  // The keel, then walls outward every span while a side is out of reach -- and if
+  // that still leaves part of the strip unheld, one more wall each side, up to
+  // twice. It must hold what rows would: nearly every point of the strip within a
+  // span of a wall top in plan and 0..3mm above it (the sweep's own coverage rule),
+  // and reach down to the strip's lowest point. Failing that (a needle gripped 5mm
+  // higher, tubes left 3-4% bare) the region keeps its rows.
+  const reachL = d0 - dLo, reachR = dHi - d0, lim = span + PROP.keelReachSlack;
+  for (let extra = 0; extra <= 2; extra++) {
+    // Side walls every span out, but never past 2mm inside the strip's edge: on a
+    // strip a little under two spans wide the wall that holds its rising side
+    // stands near that edge, not a full span out beyond it.
+    const ds = [d0];
+    for (let k = 1; k <= extra || reachL - (k - 1) * span > lim; k++) {
+      const d = Math.max(d0 - k * span, dLo + 2);
+      if (d >= ds[0] - 4) break;
+      ds.unshift(d);
+    }
+    for (let k = 1; k <= extra || reachR - (k - 1) * span > lim; k++) {
+      const d = Math.min(d0 + k * span, dHi - 2);
+      if (d <= ds.at(-1) + 4) break;
+      ds.push(d);
+    }
+    const kept = tracksAt(ds);
+    if (!kept.length) return null;
+    let served = 0;
+    for (const X of samples) {
+      if (kept.some((t) => t.some((w) => w[2] - PROP.gap > X[2] - 3 && w[2] - PROP.gap < X[2] + 0.5
+          && (w[0] - X[0]) ** 2 + (w[1] - X[1]) ** 2 <= span2))) served++;
+    }
+    const low = Math.min(...kept.flatMap((t) => t.map((w) => w[2])));
+    if (served >= PROP.keelCover * samples.length && low <= zMin + PROP.keelDepth) return kept;
+  }
+  return null;
 }
 
 /**
@@ -2099,16 +2251,33 @@ export function buildProps(topo, result, rot, opts = {}) {
       continue;
     }
 
-    for (const p of splitRegion(topo, rFaces, rot)) {
-      if (p.area < MIN_REGION_AREA) { skipped.sliver++; continue; }
+    const split = () => splitRegion(topo, rFaces, rot).filter((p) => {
+      if (p.area < MIN_REGION_AREA) { skipped.sliver++; return false; }
       p.region = ri;
       p.tris = regionTris;
-      patches.push(p);
+      return true;
+    });
+    // Not curved enough for a tube, but lowest along a line with the surface
+    // rising on both sides (a tilted cylinder's underside): one keel wall down
+    // that line, the fin issue #25 asked for -- rows would straddle the lowest
+    // line and leave it bare. If the keel wall can't build, the region falls back
+    // to its rows (see the rollback below).
+    // (Not in a pocket: the same tubeMinArea bar tubeLine uses -- a small curved
+    // region is a bore or a fillet, and a keel in bore_bracket's bore displaced the
+    // wedges that gripped it from 1.2mm.)
+    const keel = regionArea >= PROP.tubeMinArea ? keelLines(regionPts, regionTris, step, rowSpan) : null;
+    if (keel && keel.length) {
+      patches.push({ faces: rFaces, area: regionArea, region: ri, tris: regionTris,
+                     lines: keel, fallback: split });
+      continue;
     }
+    patches.push(...split());
   }
   const servedRegions = new Set();
 
   for (const patch of patches) {
+    const snap = { out: out.length, props: props.length, skipped: { ...skipped }, nextId, tineTotal,
+                   sagRisk, served: servedRegions.has(patch.region), cap: globalThis.__TINECAP?.length };
     const regionTris = patch.tris;
     let lines;
     if (patch.lines) {
@@ -2325,6 +2494,16 @@ export function buildProps(topo, result, rot, opts = {}) {
       }
       if (!placed && reason) skipped[reason]++;
       runSquat();
+    }
+    // A keel wall can still be refused further down (a flank that won't clear, a
+    // floor under it). Then the keel's region is rolled back and built as rows,
+    // the way it was before the keel: never less support than rows gave.
+    if (patch.fallback && Object.keys(skipped).some((k) => skipped[k] > snap.skipped[k])) {
+      out.length = snap.out; props.length = snap.props; Object.assign(skipped, snap.skipped);
+      nextId = snap.nextId; tineTotal = snap.tineTotal; sagRisk = snap.sagRisk;
+      if (!snap.served) servedRegions.delete(patch.region);
+      if (globalThis.__TINECAP) globalThis.__TINECAP.length = snap.cap;
+      patches.push(...patch.fallback());
     }
   }
 
