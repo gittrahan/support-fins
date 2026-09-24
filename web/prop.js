@@ -136,7 +136,9 @@ export const PROP = {
   // measure 1,000+ mm2; 300 sits in the gap.
   tubeMinArea: 300,
   // KEEL (keelLines, issue #25): a region lowest along a line across its width
-  keelDepth: 1.5,     // mm the surface must climb on BOTH sides of that line to count
+  keelDepth: 1.5,     // mm the keel's walls may stop short of the strip's lowest point
+  keelRise: 0.3,      // mm the surface must climb on BOTH sides of that line to count
+                      // (a cylinder tipped 47deg climbs only ~0.6mm across its strip)
   keelDrift: 3.0,     // mm the lowest point may stray sideways from the line along its length
   keelStraight: 1.0,  // mm the lowest line may bow away from straight along its length
   keelCover: 0.995,   // share of the strip the keel's walls must reach, or it keeps its rows
@@ -296,7 +298,7 @@ export function splitRegion(topo, faces, rot) {
  * The line is found across the strip, not by lowest-vertex buckets (on a faceted
  * strip those hop between the edges of its bottom facet): take the strip's long
  * axis u, remove its slope along u (z ~ a + b u), and find the lateral offset d
- * where what is left is lowest. It must climb keelDepth on BOTH sides -- a tilted
+ * where what is left is lowest. It must climb keelRise on BOTH sides -- a tilted
  * flat face's lowest line is an edge, with the whole face to one side. Returns
  * tracks like patchTracks (split at holes), or null when it isn't a keel.
  */
@@ -314,6 +316,19 @@ export function keelLines(pts, regionTris, step = PROP.stationStep, span = PROP.
   const lam = tr2 / 2 + Math.sqrt(Math.max(0, (tr2 * tr2) / 4 - det));
   let ux = sxy, uy = lam - sxx;
   if (Math.hypot(ux, uy) < 1e-9) { ux = 1; uy = 0; }
+  // The line's direction is the way the strip RISES: its area-weighted normal
+  // leans along it, the sideways lean of its two flanks cancelling. The strip's
+  // outline (the axis above) is only a fallback for a strip lying level: its ends
+  // are cut by the part's end faces, which skewed that axis ~0.8deg off a tipped
+  // cylinder's -- enough for a side wall 10mm out to cross a facet crease halfway
+  // down and lose half its length.
+  let nx = 0, ny = 0, nz = 0;
+  for (let i = 0; i < regionTris.length; i += 9) {
+    const ax = regionTris[i + 3] - regionTris[i], ay = regionTris[i + 4] - regionTris[i + 1], az = regionTris[i + 5] - regionTris[i + 2];
+    const bx = regionTris[i + 6] - regionTris[i], by = regionTris[i + 7] - regionTris[i + 1], bz = regionTris[i + 8] - regionTris[i + 2];
+    nx += ay * bz - az * by; ny += az * bx - ax * bz; nz += ax * by - ay * bx;
+  }
+  if (Math.hypot(nx, ny) > 0.1 * Math.hypot(nx, ny, nz)) { ux = nx; uy = ny; }
   const un = Math.hypot(ux, uy); ux /= un; uy /= un;
   const vx = -uy, vy = ux;
   const uv = pts.map((p) => [(p[0] - cx) * ux + (p[1] - cy) * uy, (p[0] - cx) * vx + (p[1] - cy) * vy, p[2]]);
@@ -329,7 +344,7 @@ export function keelLines(pts, regionTris, step = PROP.stationStep, span = PROP.
     if (d < dLo) dLo = d; if (d > dHi) dHi = d;
     if (u < uLo) uLo = u; if (u > uHi) uHi = u;
   }
-  if (dHi - dLo < 2 * PROP.keelDepth || uHi - uLo < PROP.minSpan) return null;
+  if (dHi - dLo < 2 * PROP.keelRise || uHi - uLo < PROP.minSpan) return null;
   const bin = 1.0, nb = Math.ceil((dHi - dLo) / bin) + 1;
   const sum = new Array(nb).fill(0), cnt = new Array(nb).fill(0);
   for (const [u, d, z] of uv) { const i = Math.floor((d - dLo) / bin); sum[i] += z - (a0 + b * u); cnt[i]++; }
@@ -338,7 +353,7 @@ export function keelLines(pts, regionTris, step = PROP.stationStep, span = PROP.
   for (let i = 0; i < nb; i++) if (res[i] !== null && (im < 0 || res[i] < res[im])) im = i;
   const left = res.slice(0, im).filter((v) => v !== null), right = res.slice(im + 1).filter((v) => v !== null);
   if (!left.length || !right.length) return null;                                   // lowest at an edge
-  if (Math.max(...left) - res[im] < PROP.keelDepth || Math.max(...right) - res[im] < PROP.keelDepth) return null;
+  if (Math.max(...left) - res[im] < PROP.keelRise || Math.max(...right) - res[im] < PROP.keelRise) return null;
   const d0 = dLo + (im + 0.5) * bin;
   // A LINE, not a point: sampled down the length, the surface must be lowest at
   // this same d at every station, and rise along it in a straight line -- the
@@ -2240,38 +2255,40 @@ export function buildProps(topo, result, rot, opts = {}) {
       regionPts.push([gx / 3, gy / 3, gz / 3]);
     }
 
-    // Curved region whose lowest line is straight = a tube: ONE wall under
-    // that line, the way breakaway.py props the shelter hubs. Only when the
-    // region is flat, or its lowest points form a ring, does it go to
-    // splitRegion for rows of tracks. See tubeLine.
-    const tube = tubeLine(topo, rFaces, rot, regionPts, regionTris, step);
-    if (tube && tube.length) {
-      patches.push({ faces: rFaces, area: regionArea, region: ri,
-                     tris: regionTris, lines: tube });
-      continue;
-    }
-
     const split = () => splitRegion(topo, rFaces, rot).filter((p) => {
       if (p.area < MIN_REGION_AREA) { skipped.sliver++; return false; }
       p.region = ri;
       p.tris = regionTris;
       return true;
     });
-    // Not curved enough for a tube, but lowest along a line with the surface
-    // rising on both sides (a tilted cylinder's underside): one keel wall down
-    // that line, the fin issue #25 asked for -- rows would straddle the lowest
-    // line and leave it bare. If the keel wall can't build, the region falls back
-    // to its rows (see the rollback below).
+    // Curved region whose lowest line is straight = a tube: ONE wall under
+    // that line, the way breakaway.py props the shelter hubs. Only when the
+    // region is flat, or its lowest points form a ring, does it go to
+    // splitRegion for rows of tracks. See tubeLine.
+    const tube = tubeLine(topo, rFaces, rot, regionPts, regionTris, step);
+    const plain = () => (tube && tube.length
+      ? [{ faces: rFaces, area: regionArea, region: ri, tris: regionTris, lines: tube }]
+      : split());
+    // Lowest along a line with the surface rising on both sides (a tilted
+    // cylinder's underside, at ANY tilt): one keel wall down that line, the fin
+    // issue #25 asked for -- rows would straddle the lowest line and leave it bare.
+    // It beats a tube when it adds walls out to a strip's sides that one wall
+    // can't reach; the tube's lone wall left those sides to wedges (a cylinder
+    // lying at 80-85deg sprouted 2-3 stilts beside it). If
+    // the keel wall can't build, the region falls back to its tube or rows (see
+    // the rollback below).
     // (Not in a pocket: the same tubeMinArea bar tubeLine uses -- a small curved
     // region is a bore or a fillet, and a keel in bore_bracket's bore displaced the
     // wedges that gripped it from 1.2mm.)
+    // A tube's own wall is kept when the keel would be that one wall too: tubeLine
+    // fits its low end tighter (tube x60's lowest tine rose 0.95 -> 1.15mm).
     const keel = regionArea >= PROP.tubeMinArea ? keelLines(regionPts, regionTris, step, rowSpan) : null;
-    if (keel && keel.length) {
+    if (keel && keel.length && !(tube && tube.length && keel.length === 1)) {
       patches.push({ faces: rFaces, area: regionArea, region: ri, tris: regionTris,
-                     lines: keel, fallback: split });
+                     lines: keel, fallback: plain });
       continue;
     }
-    patches.push(...split());
+    patches.push(...plain());
   }
   const servedRegions = new Set();
 

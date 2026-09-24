@@ -72,3 +72,29 @@ Deno.test('keel: never in a pocket -- bore_bracket keeps the wedges that grip it
   globalThis.__TINECAP = undefined;
   assert(low < 2, `lowest tine at ${low.toFixed(1)}mm, want the wedges' 1.2mm`);
 });
+
+Deno.test('keel: at EVERY tilt from 46 to 85deg, a fin on the lowest line from the plate to the top', () => {
+  // Not just the tilts the picture used: at 45-49deg the strip is too shallow to
+  // climb a fixed 1.5mm (it fell to wedge stilts), past 75deg tubeLine took it and
+  // left the sides to stilts, and side walls laid on the strip's outline axis
+  // drifted across a facet crease and lost half their length.
+  const topo = loadModel('cylinder');
+  for (let d = 46; d <= 85; d += 3) {
+    const rot = rotX(d);
+    const b = fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode: 'auto', bedPad: true, tines: true });
+    assert(b.unserved === 0, `${d}deg: ${b.unserved} regions unserved`);
+    assert(b.fins.every((f) => f.kind === 'prop'), `${d}deg: wedge stilts beside the keel`);
+    const mid = (q) => q.line.reduce((a, p) => a + p[0], 0) / q.line.length;
+    const keel = b.props.find((q) => Math.abs(mid(q)) < 1.5);
+    assert(keel, `${d}deg: no wall on the lowest line`);
+    assert(Math.min(...keel.line.map((p) => p[2])) < 2, `${d}deg: the keel stops short of the plate`);
+    // side walls come in mirrored pairs, each the length of the keel's strip
+    const sides = b.props.filter((q) => q !== keel);
+    assert(sides.length % 2 === 0, `${d}deg: ${sides.length} side walls, not pairs`);
+    for (const q of sides) {
+      const ys = q.line.map((p) => p[1]), ks = keel.line.map((p) => p[1]);
+      assert(Math.max(...ys) - Math.min(...ys) > 0.8 * (Math.max(...ks) - Math.min(...ks)),
+        `${d}deg: side wall at x ${mid(q).toFixed(0)} runs ${(Math.max(...ys) - Math.min(...ys)).toFixed(0)}mm`);
+    }
+  }
+});
