@@ -29,7 +29,7 @@
 <header id="topbar">
   <span class="brand"><img src="favicon.svg" alt="" class="brand-mark">Support&nbsp;Fins</span>
   <label class="btn primary">
-    Open STL / 3MF<input type="file" id="file" accept=".stl,.3mf" hidden>
+    Import<input type="file" id="file" accept=".stl,.3mf,.step,.stp" hidden>
   </label>
   <label class="field">
     Build volume
@@ -355,7 +355,7 @@
       breakaway supports right into the STL. It prints the same on any machine, in any
       slicer, with supports turned off.</p>
     <ol class="steps">
-      <li><strong>Open an STL or 3MF.</strong> Drop it anywhere on this page.</li>
+      <li><strong>Import an STL, 3MF or STEP.</strong> Drop it anywhere on this page.</li>
       <li><strong>Rotate it.</strong> Red marks every surface that needs support.</li>
       <li><strong>Export.</strong> Fins come baked in — no slicer supports needed.</li>
     </ol>
@@ -371,13 +371,13 @@
   </div>
 </div>
 
-<!-- Object picker: a 3MF plate can hold several distinct objects (a Bambu/
+<!-- Object picker: a 3MF plate (or a STEP assembly) can hold several distinct objects (a Bambu/
      MakerWorld file often does), and this tool fins ONE part. Rather than merge
      a plate of unrelated bodies into one soup, we let the user choose. Shown
      only when a file has more than one object; single-object files skip it. -->
 <div id="picker" hidden>
   <div class="picker-panel" role="dialog" aria-modal="true" aria-labelledby="picker-title">
-    <h2 id="picker-title">This 3MF has several objects</h2>
+    <h2 id="picker-title">This file has several objects</h2>
     <p class="picker-sub">Pick the one to add fins to. Check more than one to merge
       them into a single part.</p>
     <ul id="picker-list"></ul>

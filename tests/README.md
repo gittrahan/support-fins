@@ -94,6 +94,18 @@ that aren't fin geometry, because the file format is equally part of the product
   face alone (dropping a partial one would shear the rest of the mesh), and a
   non-ZIP or mesh-free package throws rather than opening blank.
 
+**`step.test.js`** -- STEP import through the real vendored OpenCascade WASM (the
+same `stepObjects()` the app's worker output goes through):
+- a STEP is recognised by its **content** (the `ISO-10303-21;` magic), not its name;
+- a one-body file imports at the right **size and volume** and as a **closed** solid
+  (a missing or inside-out face shows up as a volume error, not just a bbox one);
+- curved faces are **finely faceted** (an 8 mm bore gets 60+ sides) -- these
+  triangles are what gets printed, so coarse tessellation is a quality bug;
+- several bodies come back as several **pickable objects**, named from the file;
+- a kernel failure or garbage file **throws**, never opens a blank part;
+- the imported part runs through `analyze` + `buildFins` and gets a fin.
+Fixtures (`tests/fixtures/*.step`) are made with FreeCAD.
+
 **`sway.test.js`** -- sway braces (`web/sway.js`) on a 150 mm post (plain blocks,
 no stress models needed):
 - a tall part gets braces, watertight, and the **rib never fuses** into the part;

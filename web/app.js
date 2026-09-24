@@ -20,6 +20,7 @@ import { drawnWall } from './draw.js';
 import { swayAtFace, faceIsUpright } from './sway.js';
 import { writeBinarySTL, download } from './stl.js';
 import { writeThreeMF, readThreeMF } from './threemf.js';
+import { isStep, readStep } from './step.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
@@ -135,7 +136,7 @@ const partMaterial = new THREE.MeshStandardMaterial({
 let part = null;
 let partName = '';
 let topology = null;      // welded adjacency, rebuilt only when the mesh changes
-let importNote = '';      // what the 3MF reader had to decide (merge, unit, skips)
+let importNote = '';      // what the 3MF/STEP reader had to decide (merge, unit, skips)
 let weldMs = 0;
 let analysisTiming = '';
 let lastSize = null;
@@ -2099,7 +2100,7 @@ function buildExportGeometry() {
   // whichever walls the live mode contributes -- hand-drawn in Draw, suggested
   // in Suggest -- plus the pad, all already in print space
   const finTris = [...activeAdded()];
-  const base = partName.replace(/\.(stl|3mf)$/i, '') || 'part';
+  const base = partName.replace(/\.(stl|3mf|step|stp)$/i, '') || 'part';
   return { partTris, finTris, base };
 }
 
@@ -2819,13 +2820,14 @@ function pickObjects(objects) {
 }
 
 /**
- * Bytes in, three.js geometry out, for either format (or null if the user
- * cancels the 3MF object picker). The 3MF reader hands back the same flat mm
+ * Bytes in, three.js geometry out, for any format (or null if the user cancels
+ * the object picker). The 3MF and STEP readers hand back the same flat mm
  * position array STLLoader produces, so everything downstream (setPart, the
  * weld, the whole engine) is unchanged.
  */
 async function parseModel(buffer) {
   importNote = '';
+  if (isStep(buffer)) return parseStep(buffer);
   if (!isZip(buffer)) return loader.parse(buffer);
 
   const { objects, unit, skipped } = await readThreeMF(new Uint8Array(buffer));
@@ -2855,6 +2857,38 @@ async function parseModel(buffer) {
   importNote = notes.length ? `3MF: ${notes.join('; ')}.` : '';
 
   return geometry;
+}
+
+/**
+ * STEP goes through the CAD kernel (lazy: the first STEP of a session pays for
+ * a ~7.6 MB download), then through the same picker as a multi-object 3MF.
+ */
+async function parseStep(buffer) {
+  const spinner = el('spinner');
+  const label = spinner.lastChild.textContent;
+  spinner.lastChild.textContent = 'reading STEP…';
+  spinner.classList.add('show');
+  let objects;
+  try {
+    ({ objects } = await readStep(new Uint8Array(buffer)));
+  } finally {
+    spinner.classList.remove('show');
+    spinner.lastChild.textContent = label;
+  }
+
+  let chosen = objects;
+  if (objects.length > 1) {
+    chosen = await pickObjects(objects);
+    if (!chosen) return null;
+  }
+  const notes = ['tessellated at 0.01 mm'];
+  if (objects.length > 1) {
+    notes.unshift(chosen.length === 1
+      ? `imported “${chosen[0].name}” of ${objects.length} objects`
+      : `merged ${chosen.length} of ${objects.length} objects into one part`);
+  }
+  importNote = `STEP: ${notes.join('; ')}.`;
+  return geometryFromPositions(mergeObjectPositions(chosen));
 }
 
 async function loadFile(file) {
