@@ -110,7 +110,8 @@ no stress models needed):
   a wider strip keeps it and adds a wall each side;
 - at **every tilt from 46° to 85°**: a fin on the lowest line reaching the plate, no
   wedge stilts beside it, and side walls in mirrored pairs, each nearly the strip's length;
-- never in a pocket: bore_bracket keeps the wedges that grip it from 1.2 mm.
+- never in a pocket: bore_bracket keeps the wedges that grip it from 1.2 mm (skipped
+  where `web/dev-models/` is absent, as in CI: those models are gitignored).
 
 See `docs/FIN-SPEC.md` for the spec these encode. `prototype/stress/run.js` is the
 broader sweep (all models × poses) for eyeballing; this suite is the pass/fail gate.

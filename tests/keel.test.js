@@ -61,17 +61,23 @@ Deno.test('keel: a wider strip keeps the fin on the lowest line and adds one eac
   assert(b.unserved === 0, `${b.unserved} regions unserved`);
 });
 
-Deno.test('keel: never in a pocket -- bore_bracket keeps the wedges that grip it low', () => {
+// bore_bracket lives in web/dev-models/, which is gitignored (private and third-party
+// parts), so CI skips this; it runs wherever the model is present, as the sweep does.
+const BORE = new URL('../web/dev-models/bore_bracket.stl', import.meta.url);
+let haveBore = true;
+try { Deno.statSync(BORE); } catch { haveBore = false; }
+
+Deno.test({ name: 'keel: never in a pocket -- bore_bracket keeps the wedges that grip it low', ignore: !haveBore, fn: () => {
   // A small curved region (a bore) is lowest along a line too; a keel there
   // displaced the wedges that gripped this part from 1.2mm up.
-  const pos = readSTL(Deno.readFileSync(new URL('../web/dev-models/bore_bracket.stl', import.meta.url)));
+  const pos = readSTL(Deno.readFileSync(BORE));
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   globalThis.__TINECAP = [];
   fins.buildFins(topo, analyze(topo, 45, rotX(45)), rotX(45), { mode: 'auto', bedPad: true, tines: true, coverage: 1 });
   const low = Math.min(...globalThis.__TINECAP.map((t) => t.z));
   globalThis.__TINECAP = undefined;
   assert(low < 2, `lowest tine at ${low.toFixed(1)}mm, want the wedges' 1.2mm`);
-});
+} });
 
 Deno.test('keel: at EVERY tilt from 46 to 85deg, a fin on the lowest line from the plate to the top', () => {
   // Not just the tilts the picture used: at 45-49deg the strip is too shallow to
