@@ -868,6 +868,7 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
   // to bite in a hair rather than stand off or weld deep. low+grab is always >= grab
   // (0.05mm) > 0, so every column has positive height and the mesh stays a valid,
   // watertight solid -- no cells to drop, no holes in the disc.
+  let sureGrab = PAD.grab;   // raised to >= 0 below when Light swaps to Sure hold
   const conform = (x, y) => {
     const low = surfaceZAt(partTris, x, y);
     if (low === null) return FIN.padH;
@@ -875,7 +876,7 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
     // positive -- the disc watertight, no dropped cells -- and so a gap pad still
     // kisses the part where its underside drops to the plate (the resting edge) to
     // hold it, while gapping off across the rest of the footprint.
-    return Math.max(0.05, Math.min(FIN.padH, low + PAD.grab));
+    return Math.max(0.05, Math.min(FIN.padH, low + sureGrab));
   };
   const frame = { cx, cy, ax, ay, bx, by, r1, r2 };
   const L1 = Number.isFinite(layerH) && layerH > 0.05 ? layerH : FIN.tineH;
@@ -897,6 +898,13 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
     return tag(brimPad(partTris, contact, frame, c.h, c.gap, c.grip, L1, outline.segs, out));
   }
   const autoSure = PAD.style === 'light';
+  // The swap exists to HOLD a part that barely touches the plate, so the pad must
+  // meet it. PETG's Sure hold stands a gap (grab -0.1) under the part to snap off
+  // clean; on a small foot that gap moved the pad ~0.7mm off a sphere's first-layer
+  // dot -- further than Light's gap -- so the swap changed the label and nothing
+  // else (Matthew, PETG sphere). Here the pad at least touches: flush or the
+  // material's tack, never a gap.
+  if (autoSure) sureGrab = Math.max(PAD.grab, 0);
   const nTheta = FIN.padSegs;
   const nRing = Math.max(2, Math.ceil(Math.max(r1, r2) / PAD.cell));
 

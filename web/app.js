@@ -1682,7 +1682,7 @@ function padNote(built) {
   const mm = p.outline < 1 ? 'under 1 mm' : `${p.outline.toFixed(0)} mm`;
   if (p.autoSure) {
     return `this part meets the plate on a small foot (${mm} of first-layer edge), too little for a `
-         + 'Light pad to grip, so the pad is Sure hold here';
+         + 'Light pad to grip, so the pad is Sure hold here, touching the part to hold it';
   }
   if (PAD.style === 'custom' && PAD.custom.gap > 0) {
     return `this part meets the plate on a small foot (${mm} of first-layer edge); a pad with a gap `

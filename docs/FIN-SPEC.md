@@ -121,6 +121,10 @@ hubs printed on the Sure hold pad. So when that outline is under `minGripOutline
 and why. On the stress set the split is clean: every round/point pose is ≤ 16.5 mm,
 every edge pose ≥ 24 mm. The 20 mm line is a judgement call, not a measurement.
 Custom is never swapped; with a gap on a small foot it gets a warning.
+The swapped pad always **meets** the part (grab ≥ 0, flush or the material's tack):
+PETG's Sure hold stands a 0.1 mm gap under the part, which on a sphere put the pad
+~0.7 mm off the first-layer dot -- two unconnected pieces on layer 1, holding nothing
+(Matthew's PETG sphere).
 **The gap must clear the slicer, not just exist.** PrusaSlicer, Orca and Bambu close any
 slice gap under 2 × `slice_closing_radius` (0.049) = 0.098 mm. The first Light pad aimed
 for 0.1 mm and printed well at exactly 45°, but on a cube at 40° the mesh gave 0.089 mm and

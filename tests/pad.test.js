@@ -244,3 +244,30 @@ Deno.test('pad: Light becomes Sure hold on a small foot, and only there', () => 
   const custom = build('cone', rotX(180), 'custom');
   assert(custom.style === 'custom' && !custom.autoSure && custom.smallFoot, 'Custom was swapped on a small foot');
 });
+
+// The swap has to change what HOLDS, not just the label. PETG's Sure hold stands
+// a gap under the part (grab -0.1) to snap off clean; on a sphere that left the
+// pad ~0.7mm off the first-layer dot -- two unconnected pieces on layer 1, a pad
+// that holds nothing (Matthew, PETG sphere). A swapped pad must meet the part.
+Deno.test('pad: the small-foot Sure hold meets the part even on PETG numbers', () => {
+  const topo = loadModel('sphere');
+  const rot = rotX(0);
+  const res = analyze(topo, 45, rot);
+  const g0 = fins.PAD.grab, h0 = fins.FIN.padH;
+  let b;
+  try {
+    fins.PAD.grab = -0.10; fins.FIN.padH = 0.30;          // the PETG profile
+    b = withStyle('light', () => fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true, layerHeight: 0.2 }));
+  } finally { fins.PAD.grab = g0; fins.FIN.padH = h0; }
+  assert(b.pad.autoSure, 'sphere did not swap to Sure hold');
+  const o = res.offset, part = [];
+  for (let f = 0; f < topo.nFaces * 3; f++) {
+    const x = topo.pos[f * 3], y = topo.pos[f * 3 + 1], z = topo.pos[f * 3 + 2];
+    part.push([rot[0] * x + rot[3] * y + rot[6] * z + o.x, rot[1] * x + rot[4] * y + rot[7] * z + o.y,
+               rot[2] * x + rot[5] * y + rot[8] * z + o.z]);
+  }
+  const ps = sectionSegs(part, 0.1), pad = sectionSegs(b.padTriangles, 0.1);
+  let min = Infinity;
+  for (const s of pad) for (const q of ps) min = Math.min(min, segDist(s, q));
+  assert(min < 0.05, `swapped pad stands ${min.toFixed(3)}mm off the sphere's first layer -- it holds nothing`);
+});
