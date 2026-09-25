@@ -8,7 +8,7 @@ import { el } from './dom.js';
 import { controls } from './scene.js';
 import { removedSigs, restoreRemovals, syncRemoveUI } from './remove.js';
 import { loadDir, replaceLoadDir, updateLoadArrowMesh, syncLoadUI } from './strength.js';
-import { setLayPlacing, setGizmo } from '../app.js';
+import { setLayPlacing, setGizmo } from './pose.js';
 import { part, shade } from './part.js';
 import {
   finMode, finsVisible, drawAugment, setFinMode, setFinsVisible, setDrawAugment,

@@ -11,7 +11,7 @@ import { histPush } from './history.js';
 import { removeMode, syncRemoveUI, cancelRemove } from './remove.js';
 import { setDrawMsg, clearPreview, syncDrawControls } from './walls.js';
 import { lastBuilt, refreshFins } from './finbuild.js';
-import { setGizmo } from '../app.js';
+import { setGizmo } from './pose.js';
 
 export let finsVisible = false;
 export function setFinsVisible(v) { finsVisible = v; }

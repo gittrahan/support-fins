@@ -15,7 +15,7 @@ import { resetLoad, updateLayerView, updateLoadReadout, syncLoadUI } from './str
 import { setDrawnWalls, setDrawMsg, markPrintTrisDirty, clearPreview } from './walls.js';
 import { activeAdded, refreshFins, markFinsStale } from './finbuild.js';
 import { finsVisible, setDrawAugment } from './settings.js';
-import { gizmo, hoverFace, setGizmo, setLayPlacing } from '../app.js';
+import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff, roughness: 0.62, metalness: 0.05,

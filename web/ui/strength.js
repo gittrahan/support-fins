@@ -8,7 +8,7 @@ import { el } from './dom.js';
 import { scene } from './scene.js';
 import { histPush } from './history.js';
 import { applySuggestion } from './suggest.js';
-import { setGizmo } from '../app.js';
+import { setGizmo } from './pose.js';
 import { part, topology, threshold } from './part.js';
 
 // ------------------------------------------------------------------- load arrow
