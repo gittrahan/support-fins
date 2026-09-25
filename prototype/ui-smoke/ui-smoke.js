@@ -404,6 +404,53 @@ try {
     for (let f = 0; f < sf.topo.nFaces; f++) { const s = -n[f * 3 + 1]; if (s > bv) { bv = s; b = f; } }
     return b; }`);
   await snap('row-after-lay');
+
+  // Hand-placed supports on a fresh page: with Sway on, one click on an upright
+  // side stands a brace; select a drawn wall and take it out with Remove selected,
+  // then with Delete; a right-click drops a half-drawn wall.
+  await page.goto(`${base}/?stl=${model}`, { waitUntil: 'load' });
+  await page.waitForFunction(() => window.__sf?.part, { timeout: 30000 });
+  await settle();
+  await click('rot-x'); await click('rot-y');
+  await click('fins-toggle'); await settle();
+  await setVal('fin-mode', 'draw'); await settle();
+  await setVal('sway', true);
+  // The biggest upright face turned toward the camera: room for a brace's tines.
+  await clickFace(`(sf) => { const n = sf.topo.nrm, g = sf.part.geometry.getAttribute('position');
+    const q = sf.part.quaternion, cam = sf.camera.position.clone().normalize();
+    const V = cam.constructor, v = new V(), a = new V(), b = new V(), c = new V();
+    let best = 0, bv = -Infinity;
+    for (let f = 0; f < sf.topo.nFaces; f++) {
+      v.set(n[f * 3], n[f * 3 + 1], n[f * 3 + 2]).applyQuaternion(q);
+      if (Math.abs(v.z) > 0.1 || v.dot(cam) < 0.3) continue;
+      a.fromBufferAttribute(g, f * 3); b.fromBufferAttribute(g, f * 3 + 1).sub(a);
+      c.fromBufferAttribute(g, f * 3 + 2).sub(a);
+      const area = b.cross(c).length();
+      if (area > bv) { bv = area; best = f; }
+    }
+    return best; }`);
+  await snap('hand-sway');
+  await setVal('sway', false);
+  await clickFace(extremeOverhang(1));
+  await clickFace(extremeOverhang(-1)); await snap('hand-wall');
+  const wallAt = () => screenOf(`
+    const cam = sf.camera.position, t = sf.drawnTris; let best = null, bd = Infinity;
+    for (let i = 0; i < t.length; i += 3) {
+      const c = [0, 1, 2].map((k) => (t[i][k] + t[i + 1][k] + t[i + 2][k]) / 3);
+      const d = Math.hypot(c[0] - cam.x, c[1] - cam.y, c[2] - cam.z);
+      if (d < bd) { bd = d; best = c; }
+    }
+    return best ?? [0, 0, 0];`);
+  let w = await wallAt();
+  await page.mouse.click(w.x, w.y); await snap('wall-selected');
+  await click('draw-remove'); await snap('wall-removed-button');
+  await click('undo'); await snap('wall-back');
+  w = await wallAt();
+  await page.mouse.click(w.x, w.y);
+  await page.keyboard.press('Delete'); await snap('wall-removed-key');
+  await clickFace(extremeOverhang(1)); await snap('half-wall');
+  const half = await screenOf('return [0, 0, 0];');
+  await page.mouse.click(half.x, half.y, { button: 'right' }); await snap('half-wall-rightclick');
 } catch (err) {
   errors.push(`harness: ${err.message}`);
 }
