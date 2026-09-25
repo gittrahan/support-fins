@@ -17,7 +17,7 @@ import {
   drawnTris, drawnMesh, drawMaterial, drawShown, clearPreview, rebuildDrawn,
 } from './walls.js';
 import { finsVisible, finMode } from './settings.js';
-import { topology, rotM3, lastResult, updateFit } from '../app.js';
+import { topology, rotM3, lastResult, updateFit } from './part.js';
 
 export let finMesh = null;
 let padMesh = null;

@@ -8,7 +8,7 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { readThreeMF } from '../threemf.js';
 import { isStep, readStep, warmStep } from '../step.js';
 import { el } from './dom.js';
-import { part, setPart } from '../app.js';
+import { part, setPart } from './part.js';
 
 export let importNote = '';   // what the 3MF/STEP reader had to decide (merge, unit, skips)
 

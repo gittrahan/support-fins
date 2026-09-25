@@ -4,7 +4,7 @@
  */
 import { el } from './dom.js';
 import { buildPlate } from './scene.js';
-import { part, shade } from '../app.js';
+import { part, shade } from './part.js';
 
 /**
  * Build volumes are listed by DIMENSION, never by printer name. This ships to

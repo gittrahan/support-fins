@@ -4,7 +4,7 @@
 import { writeBinarySTL, download } from '../stl.js';
 import { writeThreeMF } from '../threemf.js';
 import { el } from './dom.js';
-import { part, topology, lastResult, rotM3, partName } from '../app.js';
+import { part, topology, lastResult, rotM3, partName } from './part.js';
 import { activeAdded } from './finbuild.js';
 
 /**

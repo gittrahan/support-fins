@@ -9,7 +9,7 @@ import { drawnWalls, drawMsg, selectedWall, selectedNote, drawShown, drawMateria
 import {
   finMode, finsVisible, materialDensity, syncSectionSums,
 } from './settings.js';
-import { analysisTiming } from '../app.js';
+import { analysisTiming } from './part.js';
 import { activeAdded, finMaterial, padMaterial } from './finbuild.js';
 
 /**

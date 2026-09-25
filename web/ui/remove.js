@@ -9,7 +9,8 @@
 import * as THREE from 'three';
 import { el } from './dom.js';
 import { scene, renderer, camera, raycaster, pointer, meshFrom } from './scene.js';
-import { part, updateFit, setGizmo } from '../app.js';
+import { setGizmo } from '../app.js';
+import { part, updateFit } from './part.js';
 import { finsVisible, finMode, drawAugment, setDrawAugment, syncAugmentUI } from './settings.js';
 import { lastBuilt, finMesh, setFinTris } from './finbuild.js';
 import { clearPreview, syncDrawControls } from './walls.js';
