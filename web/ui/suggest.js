@@ -120,6 +120,13 @@ export function hideSuggestions() {
   el('suggest-body').hidden = false;
 }
 
+/** A manual turn (ring drag, 90° button, lay flat) moves the part off the pose the
+ *  highlighted row stands for, so drop the highlight. The ranking doesn't depend
+ *  on the pose, so the list stays and any row can still be clicked. */
+export function clearSuggestionMark() {
+  for (const r of el('suggest-list').children) r.classList.remove('active');
+}
+
 el('suggest-orient').addEventListener('click', () => {
   if (!part || !topology) return;
   const btn = el('suggest-orient');

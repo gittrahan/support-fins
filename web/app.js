@@ -27,7 +27,7 @@ import { histPush, undo, redo, resetHistory } from './ui/history.js';
 import { importNote, loadURL } from './ui/io.js';
 import { currentVolume, applyVolume } from './ui/volume.js';
 import { buildExportGeometry } from './ui/export.js';
-import { hideSuggestions } from './ui/suggest.js';
+import { hideSuggestions, clearSuggestionMark } from './ui/suggest.js';
 import { resetLoad, updateLayerView, updateLoadReadout, syncLoadUI } from './ui/strength.js';
 
 // ------------------------------------------------------------------- the part
@@ -50,10 +50,13 @@ const gizmo = new TransformControls(camera, renderer.domElement);
 gizmo.setMode('rotate');
 gizmo.setSize(0.85);
 scene.add(gizmo.getHelper ? gizmo.getHelper() : gizmo);
+const dragFrom = new THREE.Quaternion();   // pose at drag start: did the drag turn it?
 gizmo.addEventListener('dragging-changed', (e) => {
   controls.enabled = !e.value;
+  if (e.value && part) dragFrom.copy(part.quaternion);
   if (!e.value) {
     el('rot-delta').textContent = '';
+    if (part && !part.quaternion.equals(dragFrom)) clearSuggestionMark();
     // Drag released: reseat onto the plate now the pivot is allowed to move again
     // (shade() holds part.position steady WHILE dragging -- see the note there --
     // so this is the frame that actually drops the turned part back down).
@@ -1703,6 +1706,7 @@ function rotate90(name, axis) {
   const q = new THREE.Quaternion().setFromAxisAngle(axis, Math.PI / 2);
   part.quaternion.premultiply(q);   // premultiply = about the WORLD axis
   showDelta(name.toUpperCase(), Math.PI / 2);
+  clearSuggestionMark();
   shade();
 }
 
@@ -1861,6 +1865,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
             .applyQuaternion(part.quaternion);
   layQuat.setFromUnitVectors(faceNormal, DOWN);
   part.quaternion.premultiply(layQuat);
+  clearSuggestionMark();
   cancelLay();            // one-shot: disarm after a lay so the next click is safe
   shade();
 });
