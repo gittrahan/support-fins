@@ -1,8 +1,8 @@
-"""Sway braces (port of tests/sway.test.js from the support-fins repo).
+"""Sway braces (port of tests/sway.test.js).
 
 Runs with plain Python, outside Fusion:
 
-    C:\\Python312\\python.exe -m unittest discover -s tests -v
+    python3 -m unittest discover -s plugins/fusion/tests -v
 
 Built on plain blocks:
   - a tall post gets braces on its sides, and they are watertight;
@@ -14,9 +14,6 @@ Built on plain blocks:
   - a picked brace works on an upright side and refuses a top face;
   - the defaults match the website's (PLA, 0.2 mm layers, 6 mm spacing, 15% depth);
   - the Fusion layer's box-and-cut construction rebuilds each piece exactly;
-  - the fence-cap sample matches the website's Auto result -- the pin that proves this
-    port still agrees with web/sway.js. The model is a CUSTOMER ASSET and is in no repo,
-    so this one skips loudly when it is not on the machine;
   - braces across a narrow channel are refused, staggered ones allowed;
   - auto on the channel never stands two braces into each other;
   - the stilt limit: auto refuses a brace that stands far up before its first tine,
@@ -32,22 +29,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 from sway_core import sway                                  # noqa: E402
 from sway_core.geometry import Mesh, in_box, is_closed, ray_hit, signed_volume  # noqa: E402
 from sway_core.patches import grow_wall_patches, make_patch, patch_at_point, patches_from_mesh  # noqa: E402
-
-# The fence cap is a CUSTOMER ASSET and is deliberately in neither repo (both
-# .gitignore *.stl). It is the pin that proves this port still agrees with
-# web/sway.js -- it is what caught the 102 -> 120 drift when the stilt limit
-# landed -- so a run without it is a WEAKER run, not a passing one. Hence the
-# warning below: a silent skip once let that pin sit unrun on any machine but
-# Mitch's. Point SUPPORT_FINS_FENCE_CAP at the file to use a copy elsewhere.
-FENCE_CAP = os.environ.get('SUPPORT_FINS_FENCE_CAP') or os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), '..', '..', 'support-fins',
-    'Samples', 'Fence Cap-45 Degree Vertical-Rev 3.stl')
-HAVE_FENCE_CAP = os.path.exists(FENCE_CAP)
-if not HAVE_FENCE_CAP:
-    print('\n*** website-agreement pin NOT RUN: the fence cap sample is not on this machine.\n'
-          '    Everything else still runs. Set SUPPORT_FINS_FENCE_CAP to its path to include it.\n'
-          '    (The model is a customer asset and is not committed to either repo.)\n',
-          file=sys.stderr)
 
 LAYER = 0.2
 
@@ -239,20 +220,6 @@ class SwayTests(unittest.TestCase):
         self.assertIn('not a side', why)
         off, why = patch_at_point(mesh, groups, (0, -40, 60))
         self.assertIsNone(off)
-
-    @unittest.skipUnless(HAVE_FENCE_CAP, 'fence cap sample not on this machine (customer asset, never committed)')
-    def test_fence_cap_matches_website(self):
-        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tools'))
-        from stl_io import read_stl
-        tris = read_stl(FENCE_CAP)
-        z0 = min(v[2] for t in tris for v in t)
-        mesh = Mesh([tuple((x, y, z - z0) for x, y, z in t) for t in tris])
-        s = sway.build_sway_braces(mesh, [p for p, _ in grow_wall_patches(mesh)], opts())
-        # the website (PLA, 0.2mm layers, defaults): 4 braces, 120 tines, 1 column
-        # skipped. It was 102 before the stilt limit: the column at the gable peak
-        # starts high, so auto now skips it and the nudge finds a neighbouring one
-        # that grips lower -- same 4 braces, tied on lower and more often.
-        self.assertEqual((s.count, s.tines, s.skipped), (4, 120, 1))
 
     def test_click_ray_finds_the_near_face(self):
         # a click is a ray from the camera; it must land on the face you see

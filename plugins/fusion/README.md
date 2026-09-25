@@ -1,19 +1,24 @@
-# Support Fins for Autodesk Fusion
+# Support Fins — Autodesk Fusion add-in
 
-A Fusion add-in that puts print supports **in the model** instead of the slicer.
+A Fusion add-in that puts print supports **in the model** instead of the slicer. It's a
+companion to [printfins.com](https://printfins.com), by Mitch Milam.
 Phase 1 is **sway braces**. These are tapered buttress ribs that stand beside the tall sides of a
 part, tied to it with one-layer tines, so a tall, slender part doesn't drift or wobble as it prints.
 
-The brace maths is a port of `web/sway.js` from the Support Fins website
-([MitchMilam/support-fins](https://github.com/MitchMilam/support-fins), branch `sway-braces`).
-See [FUSION-ADDIN-HANDOFF.md](FUSION-ADDIN-HANDOFF.md) for the spec and background.
+The brace maths is a port of the website's [`web/sway.js`](../../web/sway.js); the numbers and
+reasoning are in [`docs/FIN-SPEC.md`](../../docs/FIN-SPEC.md), "Sway braces (tall parts)".
 
 ## Install
 
 1. Link (or copy) the `SupportFins` folder into Fusion's add-ins folder:
 
    ```powershell
+   # Windows
    New-Item -ItemType Junction -Path "$env:APPDATA\Autodesk\Autodesk Fusion 360\API\AddIns\SupportFins" -Target "$PWD\SupportFins"
+   ```
+   ```sh
+   # macOS
+   ln -s "$PWD/SupportFins" ~/Library/Application\ Support/Autodesk/Autodesk\ Fusion\ 360/API/AddIns/SupportFins
    ```
 
    You can also add the folder from inside Fusion: **Utilities › Add-Ins › Scripts and Add-Ins**,
@@ -77,34 +82,24 @@ SupportFins/                the add-in (this folder goes in Fusion's AddIns)
     patches.py              wall patches (port of web/planes.js)
     geometry.py             clipping, mesh containment, prisms
 tests/test_sway.py          unit tests (port of tests/sway.test.js, plus more)
-tools/check_stl.py          run Auto on an STL and compare with the website
-tools/make_icons.py         regenerates the toolbar icons
 ```
 
-Run the tests (plain Python, no Fusion needed):
+Run the tests from the repo root (plain Python, no Fusion needed):
 
-```powershell
-C:\Python312\python.exe -m unittest discover -s tests -v
+```sh
+python3 -m unittest discover -s plugins/fusion/tests -v
 ```
 
-Check against the website on a real part:
+The `SWAY` constants in `sway_core/sway.py` mirror `SWAY` in `web/sway.js`; change both
+together. Bump the manifest version with each Fusion-side change: the dialog shows it, so
+you can tell which build Fusion loaded (Stop/Run reloads the add-in's modules).
 
-```powershell
-C:\Python312\python.exe tools\check_stl.py "..\support-fins\Samples\Fence Cap-45 Degree Vertical-Rev 3.stl" --grow out.stl
-```
+## Status
 
-For the fence cap this gives **4 braces, 102 tines, 1 skipped**, the same as the website. The
-"g solid" figure is the braces' solid volume × density, so it's an upper bound; the slicer's
-estimate will be lower.
-
-The defaults (depth, thickness, spacing) are the named constants in `SWAY` in
-`sway_core/sway.py`. Change them there if the test print suggests new values.
-
-## Status and open items
-
-- The pure-Python core is tested, and it matches the website on the fence cap.
-- **The Fusion layer hasn't been run inside Fusion yet.** Check the dialog, the preview, parametric
-  vs direct designs, and parts inside sub-components.
-- Confirm the slicer merges the tines (separate bodies overlapping the part by the bite) with the
-  part.
-- Phase 2 (overhang fins via the website's JS engine in an HTML palette) hasn't been started.
+- The pure-Python core matches `web/sway.js` brace-for-brace on plain test parts.
+- Run in Fusion on Windows (Auto and picked faces, mesh bodies, Part Design documents).
+  Not yet tried: macOS, parts in sub-components, multi-component documents, a bed other
+  than the XY plane, curved faces.
+- Still to confirm: that the slicer merges the tines (separate bodies overlapping the part
+  by the bite) with the part.
+- Not ported: keeping clear of prop walls (`swayClashesWall`), since the add-in places none.
