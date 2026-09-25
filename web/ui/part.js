@@ -12,6 +12,7 @@ import { resetHistory } from './history.js';
 import { importNote } from './io.js';
 import { currentVolume } from './volume.js';
 import { resetLoad, updateLayerView, updateLoadReadout, syncLoadUI } from './strength.js';
+import { hideSuggestions } from './suggest.js';
 import { setDrawnWalls, setDrawMsg, markPrintTrisDirty, clearPreview } from './walls.js';
 import { activeAdded, refreshFins, markFinsStale } from './finbuild.js';
 import { finsVisible, setDrawAugment } from './settings.js';
@@ -95,8 +96,10 @@ export function setPart(geometry, filename) {
   setDrawMsg('');
   markPrintTrisDirty();
   clearPreview();
-  // A new part starts with no load direction either.
+  // A new part starts with no load direction either, and no Suggest ranking: the
+  // list and verdict were the OLD part's poses.
   resetLoad();
+  hideSuggestions();
   setLayPlacing(false);
   controls.enabled = true;
   syncLoadUI();
