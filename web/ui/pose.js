@@ -75,7 +75,14 @@ function showDelta(axis, radians) {
 
 export let layPlacing = false;     // true while "lay a face flat" is armed -- gated behind a
                             // button so a stray viewport click can't re-lay the part
-export function setLayPlacing(v) { layPlacing = v; }   // undo/redo disarms it directly
+/** Undo/redo and a new part disarm lay-flat directly (no setGizmo: they re-run it
+ *  themselves). Drops the hover highlight and cursor only if it WAS armed, so a
+ *  Draw crosshair is left alone, and puts the button back either way. */
+export function setLayPlacing(v) {
+  if (layPlacing && !v) { hoverFace.visible = false; renderer.domElement.style.cursor = ''; }
+  layPlacing = v;
+  syncLayUI();
+}
 
 /** "Lay a face flat" is armed: a face click lays the part on that face. Off by
  *  default so casual clicks orbit instead of silently re-laying the part. */
