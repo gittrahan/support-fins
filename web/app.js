@@ -3052,7 +3052,7 @@ frame(new THREE.Vector3(60, 60, 60));
 requestAnimationFrame(tick);
 
 // debug surface, used to cross-check against the Python probes
-window.__sf = { get part() { return part; }, get topo() { return topology; },
+window.__sf = { get part() { return part; }, camera, get topo() { return topology; },
                 analyze, get threshold() { return threshold; },
                 get rot() { return rotM3.elements; },
                 get result() { return lastResult; },
