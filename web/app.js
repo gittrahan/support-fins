@@ -1131,6 +1131,8 @@ function finOpts() {
            coverage: el('coverage').valueAsNumber / 100,
            // Auto places sway braces itself; in Draw they are clicked on by hand.
            sway: finMode === 'auto' && el('sway').checked ? { on: true, ...swayOpts() } : undefined,
+           alignment: el('fin-alignment').value,
+           traceLowestLine: el('trace-lowest-line').checked,
            // The clearances have to travel WITH the request: the build runs in a
            // Worker with its own copy of fins.js / prop.js, which never sees what
            // applyMaterial and the gap fields set on this page's copy (fins.js
@@ -1629,6 +1631,10 @@ el('fin-mode').addEventListener('change', (e) => {
   histPush();
   finMode = e.target.value;
   el('coverage-fld').hidden = finMode !== 'auto';  // row density only applies to Auto
+  // Alignment + Trace-lowest-line only apply to Auto (they bias the prop rows /
+  // lowest-line that Auto places); hide them alongside the coverage slider.
+  el('fin-alignment-fld').hidden = finMode !== 'auto';
+  el('trace-lowest-line-fld').hidden = finMode !== 'auto';
   drawAugment = false;      // start each mode with hand-placement off
   if (removeMode) cancelRemove();
   drawMsg = '';
@@ -1698,6 +1704,10 @@ el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); })
 el('tine-density').addEventListener('input', () => debouncedRefresh());
 el('layer-height').addEventListener('input', () => debouncedRefresh());
 el('coverage').addEventListener('input', () => debouncedRefresh());
+// Alignment + Trace-lowest-line are discrete toggles (a select + a checkbox),
+// not sliders, so rebuild immediately on change -- no debounce needed.
+el('fin-alignment').addEventListener('change', refreshFins);
+el('trace-lowest-line').addEventListener('change', refreshFins);
 syncTineGrip();
 syncPadStyle();
 

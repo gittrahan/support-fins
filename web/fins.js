@@ -29,7 +29,7 @@
 import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js';
 import { BED_EPS } from './overhangs.js';
 import { insidePart } from './inside.js';
-import { buildProps, noProps, surfaceZAt, emitTines, tineStepFor, PROP } from './prop.js';
+import { buildProps, noProps, surfaceZAt, emitTines, tineStepFor, PROP, rowVs } from './prop.js';
 import { buildSwayBraces } from './sway.js';
 import { CUT, CUTOUT_PATTERNS } from './cutout.js';
 
@@ -1424,7 +1424,7 @@ function columnClear(p, u) {
  * fin lands as two fins FLANKING the bore instead of one column dying at the void
  * (a tilted bore prints poorly and must not be finned -- rotate hole-up or draw).
  */
-export function perpColumns(p, lo, hi, pitch) {
+export function perpColumns(p, lo, hi, pitch, alignment = 'center') {
   const span = hi - lo;
   if (span <= 0) return [];
   const nS = Math.max(2, Math.ceil(span / 1.0));
@@ -1447,8 +1447,15 @@ export function perpColumns(p, lo, hi, pitch) {
   const cols = [];
   for (const [a, b] of bands) {
     const w = b - a;
-    const m = Math.max(1, Math.min(PERP.maxRow, Math.round(w / pitch)));
-    for (let k = 0; k < m; k++) cols.push(m === 1 ? (a + b) / 2 : a + (w * k) / (m - 1));
+    let m = Math.max(1, Math.min(PERP.maxRow, Math.round(w / pitch)));
+    if (alignment === 'both') m = Math.max(2, m);          // both edges needs >=2
+    // 'center' keeps the original even row (endpoints for m>1, midpoint for
+    // m=1); the edge options route through rowVs so a band's wall sits on an
+    // edge instead of the middle.
+    const vs = (alignment && alignment !== 'center')
+      ? rowVs(m, a, b, alignment, PERP.inset)
+      : (m === 1 ? [(a + b) / 2] : Array.from({ length: m }, (_, k) => a + (w * k) / (m - 1)));
+    for (const v of vs) cols.push(v);
   }
   return cols.slice(0, PERP.maxRow);
 }
@@ -1467,7 +1474,7 @@ function buildPerpFins(p, topo, rot, offset, opts = {}) {
   let tineTotal = 0, count = 0;
   let partTris = null;   // seated part, built on the first foot that needs it
 
-  for (const uc of perpColumns(p, lo, hi, opts.pitch ?? PERP.pitch)) {
+  for (const uc of perpColumns(p, lo, hi, opts.pitch ?? PERP.pitch, opts.alignment)) {
     // contact profile up the face at this u (stop at the first hole after starting)
     const contact = [];
     const nT = Math.max(2, Math.ceil((p.t1 - p.t0) / PERP.tStep));
@@ -1663,7 +1670,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
       if (p.n.z >= -0.05) continue;                 // downward faces only
       if (p.area < PERP.minArea || (p.u1 - p.u0) < PERP.minWidth) continue; // broad faces only
       if (propServesPatch(p, base.props)) continue; // a prop already stands under it
-      const w = buildPerpFins(p, topo, rot, result.offset, { tines: withTines, pitch: covPitch, tineDensity: opts.tineDensity });
+      const w = buildPerpFins(p, topo, rot, result.offset, { tines: withTines, pitch: covPitch, tineDensity: opts.tineDensity, alignment: opts.alignment });
       if (!w.count) continue;
       // Offset each wedge's range from its per-call `out` into the merged
       // wedgeTris array, so the range lands correctly in the final triangles.

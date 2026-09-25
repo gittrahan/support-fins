@@ -314,6 +314,30 @@
       <span>Wide-face coverage <span class="mut">sparse ⟶ dense</span></span>
       <input type="range" id="coverage" min="0" max="100" step="5" value="50">
     </label>
+    <!-- Alignment: where walls sit laterally across a wide flat overhang. Center
+         is the default (an even row, like the coverage rows above); Near/Far bias
+         the row toward that edge so the outermost wall sits on it; Both pins a wall
+         to each edge -- a box on a 45deg edge often wants a fin along each edge
+         rather than a row across the middle. Only bites where a face takes a ROW. Auto only. -->
+    <label class="fld row" id="fin-alignment-fld"
+           title="Where walls sit across a WIDE overhang face. Center = even row (default); Near/Far = bias the row toward that edge; Both = a fin along each edge (a box on a 45deg edge often wants this). Only bites on a wide face that takes a row.">
+      Alignment
+      <select id="fin-alignment">
+        <option value="center" selected>Center</option>
+        <option value="near">Near edge</option>
+        <option value="far">Far edge</option>
+        <option value="both">Both edges</option>
+      </select>
+    </label>
+    <!-- Trace one fin along the lowest line: instead of a row across a flat
+         overhang, ONE wall down its lowest points for the length of the part --
+         the "box on edge" lowest-line case. A bowl/ring is still refused
+         (straightness gate) and falls through to rows, so it never strands an
+         overhang. Auto only. -->
+    <label class="check" id="trace-lowest-line-fld"
+           title="Trace ONE fin along the overhang's lowest points for the length of the part, instead of parallel rows. Only where a straight lowest line exists; a bowl/ring is refused and falls back to rows.">
+      <input type="checkbox" id="trace-lowest-line">Trace lowest line
+    </label>
     <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
          Shown only in Suggest mode (toggled in app.js). Per-fin removal (Auto only,
          shown via app.js syncRemoveUI): arm a click-to-remove mode, hover lights a
