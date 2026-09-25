@@ -352,6 +352,15 @@ try {
   await click('export'); await click('export-3mf');
   await snap('exported');
   steps.at(-1).downloads = await page.evaluate(() => window.__dl);
+
+  // Strength arrow edge paths: Suggest-stronger twice (the second lands on "already
+  // about the strongest"), undo brings the load back, and a new part clears it.
+  await click('load-front'); await snap('load-front');
+  await click('load-suggest'); await snap('load-suggest-1');
+  await click('load-suggest'); await snap('load-suggest-2');
+  await click('load-clear'); await click('undo'); await snap('load-undo');
+  await importFile(join(MODELS, 'cone.stl'), 'cone.stl');
+  await snap('load-new-part');
 } catch (err) {
   errors.push(`harness: ${err.message}`);
 }
