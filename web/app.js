@@ -1673,8 +1673,18 @@ function updateDrawReadout(built, ms) {
  * Light. A Custom pad with a gap on such a foot gets a warning instead of a swap.
  */
 function padStatus(built) {
+  syncAutoLabel(built);
   if (!built.pad) return 'not needed';
   return built.pad.autoSure ? 'Sure hold (small foot)' : 'added';
+}
+// The Auto option names what it built, so the dropdown never claims Light while
+// the pad on screen is Sure hold.
+function syncAutoLabel(built) {
+  const opt = el('bed-pad').querySelector('option[value="auto"]');
+  const p = built?.pad;
+  opt.textContent = !p || PAD.style !== 'auto' ? 'Auto'
+    : p.style === 'sure' ? 'Auto (Sure hold)' : 'Auto (Light)';
+  syncSectionSums();
 }
 function padNote(built) {
   const p = built.pad;
@@ -1682,7 +1692,11 @@ function padNote(built) {
   const mm = p.outline < 1 ? 'under 1 mm' : `${p.outline.toFixed(0)} mm`;
   if (p.autoSure) {
     return `this part meets the plate on a small foot (${mm} of first-layer edge), too little for a `
-         + 'Light pad to grip, so the pad is Sure hold here, touching the part to hold it';
+         + 'Light pad to grip, so Auto made it Sure hold, touching the part to hold it';
+  }
+  if (PAD.style === 'light') {
+    return `this part meets the plate on a small foot (${mm} of first-layer edge); a Light pad has `
+         + 'almost nothing to grip. Auto or Sure hold holds it';
   }
   if (PAD.style === 'custom' && PAD.custom.gap > 0) {
     return `this part meets the plate on a small foot (${mm} of first-layer edge); a pad with a gap `
@@ -1874,6 +1888,8 @@ el('fin-mode').addEventListener('change', (e) => {
 // numbers that are known to print rather than from blanks.
 const PAD_FIELDS = { h: 'pad-h', gap: 'pad-gap', grip: 'pad-grip', margin: 'pad-margin' };
 function padPreset(style) {
+  // Auto starts Custom from whatever it last built.
+  if (style === 'auto') style = lastBuilt?.pad?.style === 'sure' ? 'sure' : 'light';
   return style === 'sure'
     ? { h: FIN.padH, gap: 0, grip: PAD.grab, margin: FIN.padMargin }
     : { h: el('layer-height').valueAsNumber || 0.2, gap: PAD.brimGap, grip: 0, margin: FIN.padMargin };
@@ -1919,7 +1935,7 @@ function syncTineGrip() {
   const on = el('tines').checked;
   el('tinegrip-fld').hidden = !on;
   // The Light pad is one layer tall, so it reads the layer height too.
-  el('layerh-fld').hidden = !on && el('bed-pad').value !== 'light';
+  el('layerh-fld').hidden = !on && !['light', 'auto'].includes(el('bed-pad').value);
 }
 el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); });
 el('tine-density').addEventListener('input', () => debouncedRefresh());

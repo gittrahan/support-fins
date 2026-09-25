@@ -41,8 +41,9 @@ fence around it.
   the slicers' 0.098 mm closing -- at X30, X40 and X45, while staying within about
   a bead of the part (a brim, not a moat). At 0.1 mm it welded shut at X40;
 - **Custom**'s thickness, spread and grip all reach the geometry;
-- Light becomes **Sure hold on a small foot** (cone tip, sphere, cylinder on its
-  rim) and only there -- a cube's edge keeps Light, and Custom is never swapped;
+- **Auto** (the default) is **Sure hold on a small foot** (cone tip, sphere,
+  cylinder on its rim) and Light elsewhere -- an explicit Light or Custom is never
+  swapped -- and the swapped pad meets the part even on PETG numbers;
 - a **wedge foot** never runs under the part it braces (fails on the old foot,
   which crossed a cube's edge).
 

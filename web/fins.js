@@ -688,7 +688,7 @@ export function applyTunables(t) {
   set(FIN, 'tineBite', t.tineBite);
   set(FIN, 'padH', t.padH);
   set(PAD, 'grab', t.padGrab);
-  if (['light', 'sure', 'custom'].includes(t.padStyle)) PAD.style = t.padStyle;
+  if (['auto', 'light', 'sure', 'custom'].includes(t.padStyle)) PAD.style = t.padStyle;
   if (t.padCustom) for (const k of Object.keys(PAD.custom)) set(PAD.custom, k, t.padCustom[k]);
   set(PROP, 'gap', t.propGap);
   // The wedge keeps its own copy of the clearance, so the Support gap field and the
@@ -733,13 +733,15 @@ export const PAD = {
   // flank still prints its second layer onto the pad's inner edge, but only a
   // strip ~layer/tan(tilt) wide, since the pad is only one layer tall.
   //
-  // Three pad styles, picked in the UI (Bed pad):
-  //   'light' -- the brim-style pad above: one layer, brimGap off the part. The
-  //              default; it held a PETG cube on its edge and came off clean.
+  // Pad styles, picked in the UI (Bed pad):
+  //   'auto'  -- the default: 'light', except on a small foot (a first-layer
+  //              outline under minGripOutline) where it builds 'sure' instead.
+  //   'light' -- the brim-style pad above: one layer, brimGap off the part. It
+  //              held a PETG cube on its edge and came off clean.
   //   'sure'  -- the original conforming pad: padH thick, tacked `grab` into the
   //              part. Holds harder, harder to remove.
   //   'custom'-- the brim-style mesh with every number the user's (PAD.custom).
-  style: 'light',
+  style: 'auto',
   custom: { h: 0.5, gap: 0.0, grip: 0.05, margin: 4.0 },
   brimGap: 0.12,    // mm off the part's first-layer outline. Orca's brim-object gap
                     // is 0.1, but a brim is generated from the slices; this pad is
@@ -886,18 +888,19 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
   // tip, the shelter hub's ball foot) the outline is a few mm and there is next
   // to nothing to squish against. Sure hold tacks under the whole low footprint,
   // and it is what the hubs printed with. So below PAD.minGripOutline of outline,
-  // Light becomes Sure hold and says so (pad.autoSure) for the readout. Custom is
-  // the user's explicit call and is left alone; `smallFoot` rides along so the UI
-  // can warn when a Custom pad has a gap.
+  // Auto builds Sure hold and says so (pad.autoSure); otherwise Light. An explicit
+  // Light or Custom is the user's call and is left alone; `smallFoot` rides along
+  // so the UI can warn when that pad has a gap.
   const outline = firstLayerOutline(partTris, L1 / 2);
   const smallFoot = outline.length < PAD.minGripOutline;
   const tag = (pad) => pad && Object.assign(pad, { smallFoot, outline: outline.length });
-  if (PAD.style === 'light' && !smallFoot) return tag(brimPad(partTris, contact, frame, L1, PAD.brimGap, 0, L1, outline.segs, out));
+  const light = PAD.style === 'light' || (PAD.style === 'auto' && !smallFoot);
+  if (light) return tag(brimPad(partTris, contact, frame, L1, PAD.brimGap, 0, L1, outline.segs, out));
   if (PAD.style === 'custom') {
     const c = PAD.custom;
     return tag(brimPad(partTris, contact, frame, c.h, c.gap, c.grip, L1, outline.segs, out));
   }
-  const autoSure = PAD.style === 'light';
+  const autoSure = PAD.style === 'auto';
   // The swap exists to HOLD a part that barely touches the plate, so the pad must
   // meet it. PETG's Sure hold stands a gap (grab -0.1) under the part to snap off
   // clean; on a small foot that gap moved the pad ~0.7mm off a sphere's first-layer
@@ -1091,7 +1094,8 @@ function brimPad(partTris, contact, e, h, g, grab, layerH, outline, out) {
   for (let i = 0; i < tris.length; i += 3) {
     if (vol < 0) out.push(tris[i], tris[i + 2], tris[i + 1]); else out.push(tris[i], tris[i + 1], tris[i + 2]);
   }
-  return { r1, r2, cells: cols.length * nT, height: H, points: contact.length, oval: true, style: PAD.style };
+  return { r1, r2, cells: cols.length * nT, height: H, points: contact.length, oval: true,
+           style: PAD.style === 'custom' ? 'custom' : 'light' };
 }
 
 /**

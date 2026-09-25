@@ -370,6 +370,9 @@ html, body {
   gap: 8px;
 }
 #fin-opts .fld.row select { min-width: 0; max-width: 130px; }
+/* Bed pad's Auto option names what it built ("Auto (Sure hold)"), which the
+   130px cap cut off -- the one label that must be read whole. */
+#fin-opts .fld.row select#bed-pad { max-width: 170px; }
 
 /* Collapsible sections (issue #41). */
 #fin-opts .sec { border-top: 1px solid var(--line); padding-top: 8px; }

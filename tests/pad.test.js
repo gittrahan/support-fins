@@ -108,8 +108,8 @@ function brimCube(layerHeight) {
   return withStyle('light', () => fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true, layerHeight }));
 }
 
-Deno.test('pad: Light is the default style', () => {
-  assert(fins.PAD.style === 'light', `default pad style is ${fins.PAD.style}`);
+Deno.test('pad: Auto is the default style', () => {
+  assert(fins.PAD.style === 'auto', `default pad style is ${fins.PAD.style}`);
 });
 
 // Custom runs the brim-style mesh on the user's numbers. Its thickness, grip and
@@ -225,22 +225,24 @@ Deno.test('wedge foot: stays out from under the part it braces', () => {
 });
 
 // Light grips by first-layer squish along the part's first-layer outline. On a
-// point or a small round foot there are only a few mm of it, so Light becomes
-// Sure hold there (pad.autoSure) -- a cube's 80mm edge keeps Light. Custom is the
-// user's explicit choice and is never swapped.
-Deno.test('pad: Light becomes Sure hold on a small foot, and only there', () => {
+// point or a small round foot there are only a few mm of it, so Auto builds Sure
+// hold there (pad.autoSure) -- a cube's 80mm edge gets Light. An explicit Light or
+// Custom is the user's choice and is never swapped.
+Deno.test('pad: Auto is Sure hold on a small foot and Light elsewhere; explicit styles never swap', () => {
   const build = (name, rot, style) => {
     const topo = loadModel(name);
     const res = analyze(topo, 45, rot);
     return withStyle(style, () => fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true, layerHeight: 0.2 })).pad;
   };
   for (const [name, rot] of [['cone', rotX(180)], ['sphere', rotX(0)], ['cylinder', rotX(45)]]) {
-    const p = build(name, rot, 'light');
+    const p = build(name, rot, 'auto');
     assert(p && p.style === 'sure' && p.autoSure && p.smallFoot,
-      `${name}: expected Light -> Sure hold on a small foot, got ${JSON.stringify(p && { style: p.style, outline: p.outline })}`);
+      `${name}: expected Auto -> Sure hold on a small foot, got ${JSON.stringify(p && { style: p.style, outline: p.outline })}`);
+    const lit = build(name, rot, 'light');
+    assert(lit.style === 'light' && !lit.autoSure && lit.smallFoot, `${name}: an explicit Light was swapped`);
   }
-  const edge = build('cube', rotX(45), 'light');
-  assert(edge.style === 'light' && !edge.autoSure && edge.outline > 40, `cube edge lost its Light pad (${edge.style}, ${edge.outline})`);
+  const edge = build('cube', rotX(45), 'auto');
+  assert(edge.style === 'light' && !edge.autoSure && edge.outline > 40, `cube edge: Auto did not pick Light (${edge.style}, ${edge.outline})`);
   const custom = build('cone', rotX(180), 'custom');
   assert(custom.style === 'custom' && !custom.autoSure && custom.smallFoot, 'Custom was swapped on a small foot');
 });
@@ -257,7 +259,7 @@ Deno.test('pad: the small-foot Sure hold meets the part even on PETG numbers', (
   let b;
   try {
     fins.PAD.grab = -0.10; fins.FIN.padH = 0.30;          // the PETG profile
-    b = withStyle('light', () => fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true, layerHeight: 0.2 }));
+    b = withStyle('auto', () => fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true, layerHeight: 0.2 }));
   } finally { fins.PAD.grab = g0; fins.FIN.padH = h0; }
   assert(b.pad.autoSure, 'sphere did not swap to Sure hold');
   const o = res.offset, part = [];

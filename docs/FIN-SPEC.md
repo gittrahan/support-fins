@@ -106,7 +106,8 @@ one wedge and the Light pad held for the whole print, and the pad came off clean
 
 | style | thickness | meets the part | why |
 |---|---|---|---|
-| **Light** (default) | **one layer** (the Layer height field) | **0.12 mm** sideways gap off the part's first-layer outline (its section at the first layer's mid-height) | a slicer brim: only the first layer grips the plate, so more layers add stiffness and weld height, never adhesion; the gap keeps pad and part as two regions, so perimeters run beside the part instead of solid infill through it |
+| **Auto** (default) | Light's, or Sure hold's on a small foot | as whichever it picked | the dropdown shows the pick -- "Auto (Light)" / "Auto (Sure hold)" -- so it never reads Light over a Sure hold pad |
+| **Light** | **one layer** (the Layer height field) | **0.12 mm** sideways gap off the part's first-layer outline (its section at the first layer's mid-height) | a slicer brim: only the first layer grips the plate, so more layers add stiffness and weld height, never adhesion; the gap keeps pad and part as two regions, so perimeters run beside the part instead of solid infill through it |
 | **Sure hold** | `padH` 0.5 mm (PETG 0.3) | tacked `grab` 0.05 mm into the underside (PETG −0.1) | the original pad; slices as one merged region with the part on its first layers -- holds hardest, hard to remove |
 | **Custom** | Pad thickness | Pad gap (sideways) + Pad grip (vertical) | the Light mesh on the user's numbers; the only style that shows them |
 
@@ -117,10 +118,10 @@ first-layer outline: a 40 mm cube's edge gives 80 mm of it. A part on a point or
 small round foot gives a few mm (cone or pyramid tip < 1 mm, sphere 8 mm, a cylinder
 on its rim 7–12 mm), which is next to nothing to hold, and the ball-footed shelter
 hubs printed on the Sure hold pad. So when that outline is under `minGripOutline`
-(20 mm) Light builds Sure hold instead, and the readout says "Sure hold (small foot)"
+(20 mm) Auto builds Sure hold instead, and the readout says "Sure hold (small foot)"
 and why. On the stress set the split is clean: every round/point pose is ≤ 16.5 mm,
 every edge pose ≥ 24 mm. The 20 mm line is a judgement call, not a measurement.
-Custom is never swapped; with a gap on a small foot it gets a warning.
+An explicit Light or Custom is never swapped; on a small foot (Custom: with a gap) it gets a warning.
 The swapped pad always **meets** the part (grab ≥ 0, flush or the material's tack):
 PETG's Sure hold stands a 0.1 mm gap under the part, which on a sphere put the pad
 ~0.7 mm off the first-layer dot -- two unconnected pieces on layer 1, holding nothing
