@@ -49,6 +49,16 @@ the way up (auto, or click an upright side in Draw), STL, 3MF and STEP import, S
 
 Still open: scale-aware fin profiles, and the bed pad on tilted exports.
 
+### A fin on the lowest line (the keel)
+
+An overhang that is lowest along a line, like the underside of a tipped cylinder, gets
+its fin **on** that line, where the overhang is greatest. You get one triangular fin from
+the plate to the top, plus a wall each side only when the strip is too wide for one fin
+to reach (about 60° of tilt and up, on a 40 mm cylinder). Before, evenly spaced rows
+straddled the line and left it bare. It holds at any tilt from 46° to 85°. Flat faces,
+bowls and bores never get one, and a keel that can't build cleanly falls back to the old
+walls. Rules and measurements: `docs/FIN-SPEC.md` ("Keel"). Asked for in issue #25.
+
 ### Sway braces for tall parts
 
 Tall, slender parts have a problem the fins were never built for: nothing overhangs, but

@@ -175,6 +175,43 @@ to write one, but it is enough to say the PLA numbers are a safe starting point 
 | auto placement | up to 4 faces with bearings ≥ 60° apart, a rib per ~100 mm of face width, at the face's **tallest** columns | holds both axes; a rib at a gable's low end braces the half that wasn't moving |
 | manual | Draw mode: one click on an upright side; click a placed support to select it, Delete / "Remove selected" to take it out | |
 
+## Keel — `keelLines` in `web/prop.js`
+
+Issue #25, request 1, with the reporter's picture: a tipped cylinder held by **one
+triangular fin from the plate to its top, standing on its lowest line**. The strip of
+overhang under a tilted cylinder is too shallowly curved for `tubeLine`, so it went to
+rows spread evenly across its width, which straddled the lowest line (where the
+overhang is greatest) and left it bare: 4–6 walls where one belongs.
+
+The line runs the way the strip **rises**: along its area-weighted normal's horizontal
+part (the two flanks' sideways lean cancels). The strip's outline axis is only the
+fallback for a strip lying level; the end caps skew it (~0.8° on the test cylinder),
+enough for a side wall 10 mm out to cross a facet crease and lose half its length.
+
+A region gets a keel when all of these hold; otherwise it keeps its tube wall or rows:
+
+| rule | value | the case |
+|---|---|---|
+| a trough | the surface, with its slope along the strip removed, is lowest at one lateral offset and climbs **≥ 0.3 mm** on **both** sides (`keelRise`) | a tilted flat face's lowest line is an edge, with the face all on one side. 1.5 mm missed a cylinder at 46–49°, whose strip climbs ~0.6 mm |
+| a line, not a point | down the strip the lowest point stays within **3 mm** of that line (`keelDrift`) and rises along it within **1 mm** of straight (`keelStraight`) | a bowl (sphere X25) is lowest at a point: 94% → 46% |
+| not a pocket | region ≥ **300 mm²** (`tubeMinArea`, the tube route's own bar) | a keel in bore_bracket's bore displaced the wedges that gripped it from 1.2 mm |
+| reach | walls outward every span only while a side is more than a span **+ 1.5 mm** from the last (`keelReachSlack`: the strip's edges sit at the 45° threshold), never past 2 mm inside its edge | |
+| holds the strip | its walls reach **≥ 99.5%** of the strip's points by the sweep's coverage rule (`keelCover`), else one more wall each side, up to twice | long tubes and needles lost 3–4% to a lone keel |
+| grips low | its lowest station within **1.5 mm** of the strip's lowest point (`keelDepth`) | a needle gripped 5 mm higher |
+| vs a tube | when `tubeLine` also takes the region, the keel wins only if it adds side walls | a cylinder at 78–85° got the tube's lone wall plus 2–3 wedge stilts beside it; a one-wall keel on tube X60 gripped 0.2 mm higher than the tube's |
+| builds | if any keel wall is refused further down, the region is rolled back to its tube wall or rows | |
+
+On the 40 × 60 mm test cylinder: tipped 46–55°, **one fin** (4–6 walls on main at 50–55°);
+60–85°, the fin plus **one full-length wall each side** (4–6 walls and stilts on main);
+nothing unserved. Exactly 45.0° has no overhang (side and cap both sit on the threshold),
+so it keeps main's wedges.
+
+**Measured** (sweep vs main, 837 cases, NOCHECK): coverage 80.3% → 80.7%, nothing
+unserved, no case loses coverage. **Two trades**: cylinder X30Y60 at default coverage
+goes from 8 scattered walls (99.5%, 51 tines) to the keel and two side walls (98.9%, 30
+tines); tube X60 at full coverage gets 5 full-length walls for 6 staggered ones, its
+lowest tine 0.95 → 1.15 mm (tine phase; the keel's wall reaches lower, 0.62 vs 0.71 mm).
+
 ## Naming
 
 Slant3D says "grip fins" once. Unrelated to the *grip fin* used elsewhere in Matthew's
