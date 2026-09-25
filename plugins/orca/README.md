@@ -19,7 +19,9 @@ So this plugin:
 1. reads the part as Orca slices it (`PrintObject.model_object()` volumes through
    `PrintObject.trafo()`),
 2. runs **the website's engine, unmodified** — `web/*.js` bundled with esbuild and
-   executed in an embedded V8 ([mini-racer](https://pypi.org/project/mini-racer/)),
+   executed in an embedded V8 ([mini-racer](https://pypi.org/project/mini-racer/)).
+   The bundle and its bridge are shared with the other plugins
+   ([`plugins/shared/`](../shared/README.md)),
 3. cross-sections the fin shells at every layer's `slice_z` and merges them into the
    layer (Orca's own `union_ex` fuses the tines into the part).
 
@@ -29,7 +31,7 @@ so the per-object support toggle picks fins vs Orca supports.
 
 ```
 python3 plugins/orca/build.py                   # -> build/support_fins_orca.py (one file, ~100 KB)
-deno test --allow-read tests/ plugins/orca/tests/
+deno test --allow-read tests/ plugins/shared/tests/
 python3 -m pytest -q plugins/orca/tests/        # needs numpy, trimesh, scipy, shapely, rtree, networkx, mini-racer
 ```
 
@@ -49,14 +51,15 @@ Install and turn on (OrcaSlicer 2.5 nightly):
 
 ### What the tests pin (offline)
 
-* `tests/entry.test.js` — the Orca path places the same fins as the website on the
-  same posed part, anywhere on the plate; watertight; walls clear the part; tines bite.
+* `plugins/shared/tests/entry.test.js` — the plugin entry places the same fins as the
+  website on the same posed part, anywhere on the plate; watertight; walls clear the
+  part; tines bite.
 * `tests/test_plugin.py` — against `tests/fake_orca.py` (same shapes/units as the real
   bindings): every layer's islands match an **independent** trimesh+shapely slice of
   part + fins, including off-centre placement and XY/Z shrinkage compensation;
   supports-on parts, other steps and a disabled config change nothing; errors come
   back as `RecoverableError`, never an exception mid-slice.
-* `ENGINE-SENSITIVITY.md` — an upstream engine finding (tine placement moves under
+* `plugins/shared/ENGINE-SENSITIVITY.md` — an upstream engine finding (tine placement moves under
   1e-13 mm of noise) and how the plugin neutralises it.
 
 ### Checked in a real Orca build (2.5.0-dev nightly, Windows, 2026-09-23)

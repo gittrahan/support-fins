@@ -1,15 +1,15 @@
-// Support Fins -- OrcaSlicer panel entry point.
+// Support Fins -- engine entry point for the plugins.
 //
-// The one function the Orca dock panel needs from the web engine: take a posed
-// part as triangle soup (exactly as it sits on Orca's plate, in mm) and return
-// the fin + bed-pad triangles to add under it.
+// The one function a plugin needs from the web engine: take a posed part as
+// triangle soup (exactly as it sits on the slicer's plate or in the CAD model, in
+// mm, z up) and return the fin + bed-pad triangles to add under it.
 //
 // Nothing here re-implements geometry. It calls the SAME analyze()/buildFins()
 // the website runs, with rot = identity because Orca has already applied the
-// user's rotation (the user poses the part with Orca's own rotate gizmo -- the
-// "you pick the rotation" rule is kept, it just happens in the slicer).
+// user's rotation (the user poses the part in the host app, e.g. Orca's rotate
+// gizmo -- the "you pick the rotation" rule is kept, it just happens there).
 //
-// FRAME CONTRACT (the slicing hook in support_fins_orca.py depends on this):
+// FRAME CONTRACT (plugins depend on this; e.g. Orca's slicing hook):
 //   analyze() seats the part with offset = (-cx, -cy, -minZ), i.e. the posed
 //   part's XY bounding-box centre moves to the origin and its lowest point to
 //   z = 0. buildFins() emits in that same seated frame. We return the triangles

@@ -1,4 +1,4 @@
-// The Orca panel entry must run the SAME engine as the website, and its output
+// The plugin entry must run the SAME engine as the website, and its output
 // must keep every promise the upstream suite pins.
 //
 // In Orca the user poses the part with Orca's own gizmo, so the plugin hands the
@@ -8,8 +8,8 @@
 //   2. Same promises: watertight, wall clears the part, tined fins placed, fins
 //      stand on the part's bed.
 //
-//   deno test --allow-read plugins/orca/tests/
-import { computeFins } from '../panel/fins_entry.js';
+//   deno test --allow-read plugins/shared/tests/
+import { computeFins } from '../engine/fins_entry.js';
 import { readSTL, MODELS, analyze, fins, rotX, rotY, assert, assertClose,
          isClosed, insideCount } from '../../../tests/_util.js';
 import { buildTopology, IDENTITY3 } from '../../../web/overhangs.js';

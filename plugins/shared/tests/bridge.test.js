@@ -1,7 +1,7 @@
 // The base64 bridge must round-trip bytes exactly and give the same fins as
 // calling the engine directly.
-import { b64ToBytes, bytesToB64, computeFinsB64 } from '../panel/engine_bridge.js';
-import { computeFins } from '../panel/fins_entry.js';
+import { b64ToBytes, bytesToB64, computeFinsB64 } from '../engine/bridge.js';
+import { computeFins } from '../engine/fins_entry.js';
 import { readSTL, MODELS, rotX, assert } from '../../../tests/_util.js';
 
 Deno.test('base64 round-trips every length mod 3', () => {

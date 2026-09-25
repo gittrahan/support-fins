@@ -11,7 +11,7 @@ fin mesh. The overhang analysis and the number of fins (`braceCount`) don't
 change. The difference is in the tine comb along the top of each fin.
 
 ```
-deno run --allow-read plugins/orca/tests/sensitivity_repro.js
+deno run --allow-read plugins/shared/tests/sensitivity_repro.js
 ```
 
 Re-run against current `main` (after the `plugins/` move):
@@ -48,7 +48,7 @@ axis-aligned faces, which makes grazing hits common.
 2. Make the keep/drop decisions robust: jitter the ray direction by a fixed
    irrational angle, or use a tolerance band and resolve ties deterministically.
 
-The Orca plugin does option 1 in `panel/fins_entry.js`: it re-centres the posed part
+The Orca plugin does option 1 in `plugins/shared/engine/fins_entry.js`: it re-centres the posed part
 in float64 and snaps it to a 1 nm grid before calling the engine. With the snap,
 a part's fins are identical wherever it sits on the plate
-(`tests/entry.test.js`, "moving a part around the plate never changes its fins").
+(`plugins/shared/tests/entry.test.js`, "moving a part around the plate never changes its fins").

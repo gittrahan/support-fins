@@ -1,9 +1,10 @@
-// Bridge between the Orca Python plugin and the fin engine.
+// Bridge between a plugin's Python and the fin engine.
 //
-// The slicing hook runs this bundle inside an embedded V8 (mini-racer). Plain V8
-// has no atob/btoa/TextDecoder, so geometry crosses the boundary as base64 of raw
-// little-endian bytes, decoded here by hand. That is ~20x smaller and much faster
-// than a JSON number array for a 100k-triangle part.
+// Python plugins (Orca today) run this bundle, built by plugins/shared/bundle.py,
+// inside an embedded V8 (mini-racer). Plain V8 has no atob/btoa/TextDecoder, so
+// geometry crosses the boundary as base64 of raw little-endian bytes, decoded here
+// by hand. That is ~20x smaller and much faster than a JSON number array for a
+// 100k-triangle part.
 //
 //   in : base64 float64 triangle soup (posed, mm) + JSON options
 //   out: JSON { triangles: base64 float32 soup (seated frame), offset, stats }
