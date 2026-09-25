@@ -223,7 +223,7 @@
        is exposed. Support gap = clearance between a support top and the part (bigger
        = cleaner surface / easier to remove, too big = stops holding the overhang).
        Bed pad = the pad under a part that barely touches the plate (PAD.style in
-       fins.js): Light is one layer standing 0.1mm off the part, like a slicer
+       fins.js): Light is one layer standing 0.12mm off the part, like a slicer
        brim; Sure hold is the thicker pad tacked into the part; Custom exposes
        every pad number and is the only style that shows them. -->
   <details class="sec" data-sec="clearances">
@@ -232,7 +232,7 @@
       <span>Support gap <span class="mut">mm</span></span>
       <input type="number" id="gap" min="0.1" max="0.4" step="0.05" value="0.2">
     </label>
-    <label class="fld row" title="A tilted part rests on an edge and peels off the plate without a pad. Light: one layer, 0.1mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove. Custom: set every number yourself.">
+    <label class="fld row" title="A tilted part rests on an edge and peels off the plate without a pad. Light: one layer, 0.12mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove. Custom: set every number yourself.">
       Bed pad
       <select id="bed-pad">
         <option value="off">Off</option>
@@ -245,9 +245,9 @@
       <span>Pad thickness <span class="mut">mm</span></span>
       <input type="number" id="pad-h" min="0.1" max="1.0" step="0.05" value="0.2">
     </label>
-    <label class="fld row" data-pad-custom hidden title="Sideways clearance between the pad and the part's first layer. 0.1mm lets first-layer squish just close it, the way a slicer brim holds; bigger comes off easier and holds less.">
+    <label class="fld row" data-pad-custom hidden title="Sideways clearance between the pad and the part's first layer. 0.12mm lets first-layer squish just close it, the way a slicer brim holds; bigger comes off easier and holds less. Under 0.1mm most slicers merge the gap and the pad welds on. 0 = no gap (Pad grip decides).">
       <span>Pad gap <span class="mut">mm</span></span>
-      <input type="number" id="pad-gap" min="0" max="0.5" step="0.05" value="0.1">
+      <input type="number" id="pad-gap" min="0" max="0.5" step="0.01" value="0.12">
     </label>
     <label class="fld row" data-pad-custom hidden title="Where the pad meets the part's underside. Positive bites in to hold harder; 0 is flush; negative leaves a gap that snaps off cleaner.">
       <span>Pad grip <span class="mut">mm</span></span>

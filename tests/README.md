@@ -36,9 +36,10 @@ fence around it.
 **`pad.test.js`** -- the bed pad styles (FIN-SPEC "Bed pad styles"):
 - **Sure hold** is a smooth oval that conforms under a tilted part's flank, stays
   watertight, and thins into a gap on PETG numbers;
-- **Light** is the default, **one layer** thick at any layer height, and stands
-  ≥ 0.05 mm off the first-layer outline (long side AND end faces) while coming back
-  within ~0.3 mm -- a brim, not a moat;
+- **Light** is the default, **one layer** thick at any layer height, and its
+  SLICED first-layer gap (pad vs part sections at mid-height) is > 0.1 mm -- past
+  the slicers' 0.098 mm closing -- at X30, X40 and X45, while staying within about
+  a bead of the part (a brim, not a moat). At 0.1 mm it welded shut at X40;
 - **Custom**'s thickness, spread and grip all reach the geometry;
 - a **wedge foot** never runs under the part it braces (fails on the old foot,
   which crossed a cube's edge).

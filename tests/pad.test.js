@@ -145,23 +145,55 @@ Deno.test('pad (brim): one layer thick, whatever the layer height', () => {
   }
 });
 
-Deno.test('pad (brim): stands off the first-layer outline, but close enough to hold', () => {
-  const b = brimCube(0.2);
-  // Cube on edge along X: the first layer (mid-height 0.1) holds the part where
-  // |y| < 0.1 for |x| <= 20. No pad vertex that slices into that layer may sit
-  // within 0.05 of it -- on the long side or past the end faces.
-  const m = 0.1, c = 0.05;
-  let nearest = Infinity;
-  for (const v of b.padTriangles) {
-    if (v[2] <= m) continue;
-    const dx = Math.max(0, Math.abs(v[0]) - 20), dy = Math.max(0, Math.abs(v[1]) - m);
-    const d = Math.hypot(dx, dy);
-    assert(d >= c, `brim pad reaches the first layer at (${v[0].toFixed(2)}, ${v[1].toFixed(2)}), ${d.toFixed(3)}mm off the part`);
-    nearest = Math.min(nearest, d);
+// What the SLICER sees: the pad's and the part's sections at the first layer's
+// mid-height. PrusaSlicer / Orca / Bambu merge any gap under 2 x 0.049mm, so the
+// sliced gap must clear 0.098 -- at every tilt, not just 45deg: 0.1mm through a
+// min-of-underside field came out at exactly 45deg and welded shut at 40deg.
+function sectionSegs(tris, z) {
+  const segs = [];
+  for (let i = 0; i < tris.length; i += 3) {
+    const pts = [];
+    for (let a = 0; a < 3; a++) {
+      const p = tris[i + a], q = tris[i + (a + 1) % 3];
+      const za = p[2] - z, zb = q[2] - z;
+      if ((za < 0) === (zb < 0)) continue;
+      const t = za / (za - zb);
+      pts.push([p[0] + t * (q[0] - p[0]), p[1] + t * (q[1] - p[1])]);
+    }
+    if (pts.length === 2) segs.push(pts);
   }
-  // ...and it is a brim, not a moat: it comes back within ~2 cells of the gap.
-  assert(nearest <= fins.PAD.brimGap + 0.2, `brim pad stands ${nearest.toFixed(2)}mm off -- too far to hold`);
-});
+  return segs;
+}
+function segDist([a, b], [c, d]) {
+  const pt = (p, [u, v]) => {
+    const dx = v[0] - u[0], dy = v[1] - u[1], l2 = dx * dx + dy * dy;
+    const t = l2 > 0 ? Math.max(0, Math.min(1, ((p[0] - u[0]) * dx + (p[1] - u[1]) * dy) / l2)) : 0;
+    return Math.hypot(u[0] + t * dx - p[0], u[1] + t * dy - p[1]);
+  };
+  return Math.min(pt(a, [c, d]), pt(b, [c, d]), pt(c, [a, b]), pt(d, [a, b]));
+}
+
+for (const deg of [45, 40, 30]) {
+  Deno.test(`pad (light): the sliced first-layer gap clears the slicer's closing at X${deg}`, () => {
+    const topo = loadModel('cube');
+    const rot = rotX(deg);
+    const res = analyze(topo, 45, rot);
+    const b = withStyle('light', () => fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true, layerHeight: 0.2 }));
+    const part = [];
+    const o = res.offset;
+    for (let f = 0; f < topo.nFaces * 3; f++) {
+      const x = topo.pos[f * 3], y = topo.pos[f * 3 + 1], z = topo.pos[f * 3 + 2];
+      part.push([rot[0] * x + rot[3] * y + rot[6] * z + o.x, rot[1] * x + rot[4] * y + rot[7] * z + o.y,
+                 rot[2] * x + rot[5] * y + rot[8] * z + o.z]);
+    }
+    const ps = sectionSegs(part, 0.1), pad = sectionSegs(b.padTriangles, 0.1);
+    let min = Infinity;
+    for (const s of pad) for (const q of ps) min = Math.min(min, segDist(s, q));
+    assert(min > 0.1, `sliced pad-part gap at X${deg} is ${min.toFixed(3)}mm -- a slicer closes that`);
+    // ...and it is a brim, not a moat: the pad comes back within ~a bead of the part.
+    assert(min < fins.PAD.brimGap + 0.05, `pad stands ${min.toFixed(3)}mm off at X${deg} -- too far to hold`);
+  });
+}
 
 // A wedge's foot flange used to reach footHalf past the wedge's LOW end too --
 // on the cube stood on its edge that ran the 0.6mm foot straight across the

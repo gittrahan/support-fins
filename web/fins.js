@@ -741,7 +741,12 @@ export const PAD = {
   //   'custom'-- the brim-style mesh with every number the user's (PAD.custom).
   style: 'light',
   custom: { h: 0.5, gap: 0.0, grip: 0.05, margin: 4.0 },
-  brimGap: 0.1,     // mm off the part's first-layer outline (Orca's brim-object gap)
+  brimGap: 0.12,    // mm off the part's first-layer outline. Orca's brim-object gap
+                    // is 0.1, but a brim is generated from the slices; this pad is
+                    // geometry, and PrusaSlicer / Orca / Bambu close any slice gap
+                    // under 2 x slice_closing_radius (0.049) = 0.098mm. At 0.1 the
+                    // gap came through at exactly 45deg and was welded shut at 40deg
+                    // (0.089mm) -- so it needs the margin.
   brimCell: 0.1,    // mm mesh spacing; the gap is only as true as the mesh that
                     // samples it (the 1.2mm oval cells interpolate across it)
 };
@@ -846,10 +851,11 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
     return Math.max(0.05, Math.min(FIN.padH, low + PAD.grab));
   };
   const frame = { cx, cy, ax, ay, bx, by, r1, r2 };
-  if (PAD.style === 'light') return brimPad(partTris, contact, frame, layerH, PAD.brimGap, 0, out);
+  const L1 = Number.isFinite(layerH) && layerH > 0.05 ? layerH : FIN.tineH;
+  if (PAD.style === 'light') return brimPad(partTris, contact, frame, L1, PAD.brimGap, 0, L1, out);
   if (PAD.style === 'custom') {
     const c = PAD.custom;
-    return brimPad(partTris, contact, frame, c.h, c.gap, c.grip, out);
+    return brimPad(partTris, contact, frame, c.h, c.gap, c.grip, L1, out);
   }
   const nTheta = FIN.padSegs;
   const nRing = Math.max(2, Math.ceil(Math.max(r1, r2) / PAD.cell));
@@ -910,28 +916,75 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
  * see PAD.style for why. `grab` raises (or, negative, lowers) its top against
  * the part's underside the way PAD.grab does for the 'sure' pad; 'light' uses 0.
  *
- * A slicer puts the part in the first layer wherever its underside is below the
- * layer's mid-height. The pad's top at a point is therefore set from the lowest
- * underside within brimGap of it: where that is above mid-height the pad is a
- * full layer, and it falls away to 0.05 (below mid-height, so it slices to
- * nothing) across the gap. Near the edge the top follows the underside linearly,
- * so the slicer's mid-height contour lands on the gap line rather than wherever
- * a cell boundary happens to fall.
+ * The gap has to come through the SLICER, which merges any slice gap under
+ * ~0.098mm, so it is held exactly on the first layer: the part's first-layer
+ * outline is its section at that layer's mid-height (what the slicer prints),
+ * and the pad's top there ramps LINEARLY with the true distance from that
+ * outline, crossing mid-height exactly at `g`. A linear ramp survives the mesh's
+ * linear interpolation; the earlier min-of-underside field stepped at vertical
+ * faces and let the sliced edge drift to 0.036mm off a cube's end face. The pad
+ * is also held below the lowest underside within `g` (plus `grab`), which keeps
+ * it clear of the part on any layer above the first (Custom thickness).
  *
  * The mesh is columns across the oval's long axis, each running rim to rim with
  * the same number of rows, at `brimCell` spacing, so the outline stays the
  * smooth oval. The two tips close with a fan; the bottom is one flat fan (the
  * ellipse is convex).
  */
-function brimPad(partTris, contact, e, h, g, grab, out) {
+function brimPad(partTris, contact, e, h, g, grab, layerH, out) {
   const { cx, cy, ax, ay, bx, by, r1, r2 } = e;
   const H = Number.isFinite(h) && h > 0.05 ? h : FIN.tineH;
+  const cell = PAD.brimCell;
+  const zc = layerH / 2;                 // first layer's mid-height: the slicer's cut
   const ring = [];
   if (g > 0) for (let k = 0; k < 16; k++) ring.push([g * Math.cos(k * Math.PI / 8), g * Math.sin(k * Math.PI / 8)]);
+
+  // The part's first-layer outline as segments (its section at zc), bucketed.
+  const B = 0.5, reach = Math.max(g, 0) + 2 * cell, bucket = new Map();
+  const key = (i, j) => i * 73856093 ^ j * 19349663;
+  for (let i = 0; i < partTris.length; i += 9) {
+    const pts = [];
+    for (let a = 0; a < 3; a++) {
+      const p = i + a * 3, q = i + ((a + 1) % 3) * 3;
+      const za = partTris[p + 2] - zc, zb = partTris[q + 2] - zc;
+      if ((za < 0) === (zb < 0)) continue;
+      const t = za / (za - zb);
+      pts.push([partTris[p] + t * (partTris[q] - partTris[p]), partTris[p + 1] + t * (partTris[q + 1] - partTris[p + 1])]);
+    }
+    if (pts.length !== 2) continue;
+    const [[x0, y0], [x1, y1]] = pts;
+    for (let bi = Math.floor((Math.min(x0, x1) - reach) / B); bi <= Math.floor((Math.max(x0, x1) + reach) / B); bi++) {
+      for (let bj = Math.floor((Math.min(y0, y1) - reach) / B); bj <= Math.floor((Math.max(y0, y1) + reach) / B); bj++) {
+        const k = key(bi, bj);
+        let arr = bucket.get(k); if (!arr) bucket.set(k, (arr = []));
+        arr.push(x0, y0, x1, y1);
+      }
+    }
+  }
+  // Signed distance to the outline, capped at `reach` (negative = inside it).
+  const dist = (x, y) => {
+    const arr = bucket.get(key(Math.floor(x / B), Math.floor(y / B)));
+    let d2 = reach * reach;
+    if (arr) for (let k = 0; k < arr.length; k += 4) {
+      const x0 = arr[k], y0 = arr[k + 1], dx = arr[k + 2] - x0, dy = arr[k + 3] - y0;
+      const l2 = dx * dx + dy * dy;
+      const t = l2 > 0 ? Math.max(0, Math.min(1, ((x - x0) * dx + (y - y0) * dy) / l2)) : 0;
+      const ex = x0 + t * dx - x, ey = y0 + t * dy - y;
+      d2 = Math.min(d2, ex * ex + ey * ey);
+    }
+    const d = Math.sqrt(d2);
+    const low = surfaceZAt(partTris, x, y);
+    return low !== null && low < zc ? -d : d;
+  };
+  // Ramp slope: one cell below the crossing is still above the 0.05 floor, so the
+  // two vertices around the crossing are never clamped and interpolate exactly.
+  const k = Math.max(0.01, zc - 0.05) / cell;
   const top = (x, y) => {
     let low = surfaceZAt(partTris, x, y) ?? Infinity;
     for (const [dx, dy] of ring) low = Math.min(low, surfaceZAt(partTris, x + dx, y + dy) ?? Infinity);
-    return Math.max(0.05, Math.min(H, low + grab));
+    // With no gap asked for (Custom gap 0) grip alone decides -- a bite is a bite.
+    const ramp = g > 0 ? zc + k * (dist(x, y) - g) : Infinity;
+    return Math.max(0.05, Math.min(H, low + grab, ramp));
   };
   const at = (s, t) => [cx + ax * s + bx * t, cy + ay * s + by * t];
   const vert = (s, t) => { const [x, y] = at(s, t); return [x, y, top(x, y)]; };
@@ -941,7 +994,6 @@ function brimPad(partTris, contact, e, h, g, grab, out) {
   // where the part comes within the pad's height -- the only place the top is
   // not flat -- found by a coarse scan, and 1.2mm apart elsewhere. A full fine
   // grid was ~87k triangles on a 40mm cube and scales with the whole oval.
-  const cell = PAD.brimCell;
   const nS = Math.max(3, Math.ceil((2 * r1) / cell) + 1);
   const half = (s) => r2 * Math.sqrt(Math.max(0, 1 - (s / r1) ** 2));
   let band = 0;

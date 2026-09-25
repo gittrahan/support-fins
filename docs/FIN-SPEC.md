@@ -106,13 +106,20 @@ one wedge and the Light pad held for the whole print, and the pad came off clean
 
 | style | thickness | meets the part | why |
 |---|---|---|---|
-| **Light** (default) | **one layer** (the Layer height field) | **0.1 mm** sideways gap off the part's first-layer outline | a slicer brim: only the first layer grips the plate, so more layers add stiffness and weld height, never adhesion; the gap keeps pad and part as two regions, so perimeters run beside the part instead of solid infill through it |
+| **Light** (default) | **one layer** (the Layer height field) | **0.12 mm** sideways gap off the part's first-layer outline (its section at the first layer's mid-height) | a slicer brim: only the first layer grips the plate, so more layers add stiffness and weld height, never adhesion; the gap keeps pad and part as two regions, so perimeters run beside the part instead of solid infill through it |
 | **Sure hold** | `padH` 0.5 mm (PETG 0.3) | tacked `grab` 0.05 mm into the underside (PETG −0.1) | the original pad; slices as one merged region with the part on its first layers -- holds hardest, hard to remove |
 | **Custom** | Pad thickness | Pad gap (sideways) + Pad grip (vertical) | the Light mesh on the user's numbers; the only style that shows them |
 
 All three spread `padMargin` (4 mm) past the contact; Custom exposes that as Pad spread.
-Light and Custom are meshed on a 0.1 mm grid only across the band where the part comes
-within the pad's height (1.2 mm elsewhere), so the gap is not lost to interpolation.
+**The gap must clear the slicer, not just exist.** PrusaSlicer, Orca and Bambu close any
+slice gap under 2 × `slice_closing_radius` (0.049) = 0.098 mm. The first Light pad aimed
+for 0.1 mm and printed well at exactly 45°, but on a cube at 40° the mesh gave 0.089 mm and
+the slicer merged the cube's first bead into the pad (Matthew, 2026-09-24). So the gap is
+0.12 mm, and it is held exactly: the pad's top ramps linearly with the true distance from
+the part's first-layer section, crossing mid-height at the gap, which the mesh's linear
+interpolation preserves. Sliced gap measures ≥ 0.12 mm along a cube's edge at 30–50°,
+≥ 0.107 mm at its rounded end corners. The mesh is 0.1 mm only across the band where the
+part comes within the pad's height (1.2 mm elsewhere).
 
 A **tined** pad (0.3 mm clearance bridged by one-layer tines) was tried first and
 dropped: on the first layer the slots were 0.1–0.3 mm, the perimeters around them
