@@ -13,9 +13,9 @@ import { removedIds } from './remove.js';
 import { histPush } from './history.js';
 import { updateReadout } from './readout.js';
 import {
-  part, topology, rotM3, lastResult, lastBuilt, finsVisible, finMode, drawAugment,
-  swayOpts, updateFit, pickFace,
+  part, topology, rotM3, lastResult, finsVisible, finMode, drawAugment, updateFit, pickFace,
 } from '../app.js';
+import { lastBuilt, swayOpts } from './finbuild.js';
 
 // ---- draw mode: the user places breakaway walls by hand --------------------
 // A drawn wall IS the same kind of support the auto-placer emits, so it shares

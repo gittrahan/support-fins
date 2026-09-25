@@ -12,8 +12,9 @@ import {
   part, finMode, finsVisible, drawAugment,
   setLayPlacing, setFinMode, setFinsVisible, setDrawAugment,
   syncFinsToggleUI, syncAugmentUI,
-  setGizmo, shade, refreshFins,
+  setGizmo, shade,
 } from '../app.js';
+import { refreshFins } from './finbuild.js';
 import { drawnWalls, setDrawnWalls, clearPreview, syncDrawControls } from './walls.js';
 import { hideSuggestions } from './suggest.js';
 

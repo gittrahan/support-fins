@@ -7,9 +7,9 @@ import { el } from './dom.js';
 import { removedIds } from './remove.js';
 import { drawnWalls, drawMsg, selectedWall, selectedNote, drawShown, drawMaterial } from './walls.js';
 import {
-  finMode, finsVisible, activeAdded, materialDensity, analysisTiming, syncSectionSums,
-  finMaterial, padMaterial,
+  finMode, finsVisible, materialDensity, analysisTiming, syncSectionSums,
 } from '../app.js';
+import { activeAdded, finMaterial, padMaterial } from './finbuild.js';
 
 /**
  * Why did this part get no fins, in terms the user can act on?
