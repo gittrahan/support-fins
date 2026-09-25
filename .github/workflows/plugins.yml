@@ -1,0 +1,110 @@
+name: plugins
+
+# Rebuild and test the plugins whenever something they use changes. Orca bundles
+# the site's engine (web/*.js) at build time, so a site change only reaches Orca
+# users through a rebuild: this makes that rebuild automatic, and makes a site
+# change that breaks a plugin fail the PR that made it.
+#
+#   PR:            build + test
+#   push to main:  build + test, then publish the builds to the rolling
+#                  `plugins-latest` pre-release (the site's future download links)
+#
+# Not here: the shared engine's Deno tests (plugins/shared/tests) already run in
+# test.yml. Onshape is published from its Onshape document, so there is nothing
+# to build.
+
+on:
+  pull_request:
+    paths:
+      - 'web/**'
+      - 'plugins/**'
+      - '.github/workflows/plugins.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'web/**'
+      - 'plugins/**'
+      - '.github/workflows/plugins.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  orca:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4     # npx fetches the pinned esbuild (plugins/shared/bundle.py)
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        # mini-racer pinned to the version the plugin's PEP 723 header asks Orca for
+        run: pip install pytest numpy trimesh scipy shapely rtree networkx mini-racer==0.14.1
+      - name: Build
+        run: python plugins/orca/build.py
+      - name: Test
+        run: python -m pytest -q plugins/orca/tests/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orca
+          path: plugins/orca/build/support_fins_orca.py
+          if-no-files-found: error
+
+  prusa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua
+        run: sudo apt-get update -q && sudo apt-get install -y -q lua5.4 && lua -v && luac -v
+      - name: Test
+        run: bash plugins/prusa/run-tests.sh
+      - name: Package
+        # the slicer loads the bundle folder, so ship the folder zipped
+        run: cd plugins/prusa && zip -qr "$GITHUB_WORKSPACE/support-fins-prusa.zip" com.printfins.support-fins
+      - uses: actions/upload-artifact@v4
+        with:
+          name: prusa
+          path: support-fins-prusa.zip
+          if-no-files-found: error
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [orca, prusa]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    concurrency:
+      group: plugins-publish
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: plugins-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Move the tag to this commit
+        run: |
+          git tag -f "$TAG"
+          git push -f origin "refs/tags/$TAG"
+      - name: Publish
+        run: |
+          notes="Built automatically from ${GITHUB_SHA::7} on main. Replaced on every push that touches web/ or plugins/.
+
+          - support_fins_orca.py: OrcaSlicer plugin (2.5 nightly), experimental
+          - support-fins-prusa.zip: PrusaSlicer 3.0 plugin bundle, placement by hand"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "Plugins (latest build)" --notes "$notes" --prerelease
+          else
+            gh release create "$TAG" --title "Plugins (latest build)" --notes "$notes" --prerelease --verify-tag
+          fi
+          gh release upload "$TAG" dist/* --clobber

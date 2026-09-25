@@ -21,3 +21,8 @@ deno test --allow-read plugins/shared/tests/
 
 Used by: [Orca](../orca/README.md) (inlines the bundle into its single-file plugin).
 Onshape (FeatureScript) and Prusa (Lua) can't run JavaScript, so they don't use this.
+
+CI: [`.github/workflows/plugins.yml`](../../.github/workflows/plugins.yml) rebuilds and tests
+the plugins on every PR and push that touches `web/` or `plugins/`, and on main publishes
+the builds to the [`plugins-latest`](https://github.com/gittrahan/support-fins/releases/tag/plugins-latest)
+pre-release.
