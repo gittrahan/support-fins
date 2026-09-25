@@ -223,3 +223,24 @@ Deno.test('wedge foot: stays out from under the part it braces', () => {
   }
   assert(tops > 0, 'found no foot top cap');
 });
+
+// Light grips by first-layer squish along the part's first-layer outline. On a
+// point or a small round foot there are only a few mm of it, so Light becomes
+// Sure hold there (pad.autoSure) -- a cube's 80mm edge keeps Light. Custom is the
+// user's explicit choice and is never swapped.
+Deno.test('pad: Light becomes Sure hold on a small foot, and only there', () => {
+  const build = (name, rot, style) => {
+    const topo = loadModel(name);
+    const res = analyze(topo, 45, rot);
+    return withStyle(style, () => fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true, layerHeight: 0.2 })).pad;
+  };
+  for (const [name, rot] of [['cone', rotX(180)], ['sphere', rotX(0)], ['cylinder', rotX(45)]]) {
+    const p = build(name, rot, 'light');
+    assert(p && p.style === 'sure' && p.autoSure && p.smallFoot,
+      `${name}: expected Light -> Sure hold on a small foot, got ${JSON.stringify(p && { style: p.style, outline: p.outline })}`);
+  }
+  const edge = build('cube', rotX(45), 'light');
+  assert(edge.style === 'light' && !edge.autoSure && edge.outline > 40, `cube edge lost its Light pad (${edge.style}, ${edge.outline})`);
+  const custom = build('cone', rotX(180), 'custom');
+  assert(custom.style === 'custom' && !custom.autoSure && custom.smallFoot, 'Custom was swapped on a small foot');
+});

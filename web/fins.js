@@ -747,6 +747,10 @@ export const PAD = {
                     // under 2 x slice_closing_radius (0.049) = 0.098mm. At 0.1 the
                     // gap came through at exactly 45deg and was welded shut at 40deg
                     // (0.089mm) -- so it needs the margin.
+  minGripOutline: 20.0, // mm of first-layer outline below which Light can't grip
+                    // (a point, a cone tip, a small nub): Light becomes Sure hold.
+                    // A judgement call, not a measurement -- the one print that
+                    // held had 80mm (a 40mm cube's edge, both sides).
   brimCell: 0.1,    // mm mesh spacing; the gap is only as true as the mesh that
                     // samples it (the 1.2mm oval cells interpolate across it)
 };
@@ -795,6 +799,29 @@ function seatedPartTris(topo, rot, offset) {
     }
   }
   return tris;
+}
+
+/**
+ * The part's first-layer outline: its section at the layer's mid-height (where a
+ * slicer cuts), as a flat [x0, y0, x1, y1, ...] segment list, plus its length.
+ */
+function firstLayerOutline(partTris, zc) {
+  const segs = [];
+  let length = 0;
+  for (let i = 0; i < partTris.length; i += 9) {
+    const pts = [];
+    for (let a = 0; a < 3; a++) {
+      const p = i + a * 3, q = i + ((a + 1) % 3) * 3;
+      const za = partTris[p + 2] - zc, zb = partTris[q + 2] - zc;
+      if ((za < 0) === (zb < 0)) continue;
+      const t = za / (za - zb);
+      pts.push([partTris[p] + t * (partTris[q] - partTris[p]), partTris[p + 1] + t * (partTris[q + 1] - partTris[p + 1])]);
+    }
+    if (pts.length !== 2) continue;
+    segs.push(pts[0][0], pts[0][1], pts[1][0], pts[1][1]);
+    length += Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]);
+  }
+  return { segs, length };
 }
 
 function buildPad(contact, partTris, out, layerH = FIN.tineH) {
@@ -852,11 +879,24 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
   };
   const frame = { cx, cy, ax, ay, bx, by, r1, r2 };
   const L1 = Number.isFinite(layerH) && layerH > 0.05 ? layerH : FIN.tineH;
-  if (PAD.style === 'light') return brimPad(partTris, contact, frame, L1, PAD.brimGap, 0, L1, out);
+  // The Light pad holds by first-layer squish along the part's first-layer
+  // OUTLINE, 0.12mm off. Along a cube's edge that is 80mm of contact and it held a
+  // PETG print; around a part balanced on a point or a small nub (a sphere, a cone
+  // tip, the shelter hub's ball foot) the outline is a few mm and there is next
+  // to nothing to squish against. Sure hold tacks under the whole low footprint,
+  // and it is what the hubs printed with. So below PAD.minGripOutline of outline,
+  // Light becomes Sure hold and says so (pad.autoSure) for the readout. Custom is
+  // the user's explicit call and is left alone; `smallFoot` rides along so the UI
+  // can warn when a Custom pad has a gap.
+  const outline = firstLayerOutline(partTris, L1 / 2);
+  const smallFoot = outline.length < PAD.minGripOutline;
+  const tag = (pad) => pad && Object.assign(pad, { smallFoot, outline: outline.length });
+  if (PAD.style === 'light' && !smallFoot) return tag(brimPad(partTris, contact, frame, L1, PAD.brimGap, 0, L1, outline.segs, out));
   if (PAD.style === 'custom') {
     const c = PAD.custom;
-    return brimPad(partTris, contact, frame, c.h, c.gap, c.grip, L1, out);
+    return tag(brimPad(partTris, contact, frame, c.h, c.gap, c.grip, L1, outline.segs, out));
   }
+  const autoSure = PAD.style === 'light';
   const nTheta = FIN.padSegs;
   const nRing = Math.max(2, Math.ceil(Math.max(r1, r2) / PAD.cell));
 
@@ -907,7 +947,8 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
     tri(tj, bjn, tjn);
   }
 
-  return { r1, r2, cells: nTheta * nRing, height: maxTop, points: contact.length, oval: true };
+  return { r1, r2, cells: nTheta * nRing, height: maxTop, points: contact.length, oval: true,
+           style: 'sure', autoSure, smallFoot, outline: outline.length };
 }
 
 /**
@@ -931,7 +972,7 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
  * smooth oval. The two tips close with a fan; the bottom is one flat fan (the
  * ellipse is convex).
  */
-function brimPad(partTris, contact, e, h, g, grab, layerH, out) {
+function brimPad(partTris, contact, e, h, g, grab, layerH, outline, out) {
   const { cx, cy, ax, ay, bx, by, r1, r2 } = e;
   const H = Number.isFinite(h) && h > 0.05 ? h : FIN.tineH;
   const cell = PAD.brimCell;
@@ -939,20 +980,11 @@ function brimPad(partTris, contact, e, h, g, grab, layerH, out) {
   const ring = [];
   if (g > 0) for (let k = 0; k < 16; k++) ring.push([g * Math.cos(k * Math.PI / 8), g * Math.sin(k * Math.PI / 8)]);
 
-  // The part's first-layer outline as segments (its section at zc), bucketed.
+  // The part's first-layer outline (firstLayerOutline, cut at zc), bucketed.
   const B = 0.5, reach = Math.max(g, 0) + 2 * cell, bucket = new Map();
   const key = (i, j) => i * 73856093 ^ j * 19349663;
-  for (let i = 0; i < partTris.length; i += 9) {
-    const pts = [];
-    for (let a = 0; a < 3; a++) {
-      const p = i + a * 3, q = i + ((a + 1) % 3) * 3;
-      const za = partTris[p + 2] - zc, zb = partTris[q + 2] - zc;
-      if ((za < 0) === (zb < 0)) continue;
-      const t = za / (za - zb);
-      pts.push([partTris[p] + t * (partTris[q] - partTris[p]), partTris[p + 1] + t * (partTris[q + 1] - partTris[p + 1])]);
-    }
-    if (pts.length !== 2) continue;
-    const [[x0, y0], [x1, y1]] = pts;
+  for (let i = 0; i < outline.length; i += 4) {
+    const x0 = outline[i], y0 = outline[i + 1], x1 = outline[i + 2], y1 = outline[i + 3];
     for (let bi = Math.floor((Math.min(x0, x1) - reach) / B); bi <= Math.floor((Math.max(x0, x1) + reach) / B); bi++) {
       for (let bj = Math.floor((Math.min(y0, y1) - reach) / B); bj <= Math.floor((Math.max(y0, y1) + reach) / B); bj++) {
         const k = key(bi, bj);

@@ -111,6 +111,16 @@ one wedge and the Light pad held for the whole print, and the pad came off clean
 | **Custom** | Pad thickness | Pad gap (sideways) + Pad grip (vertical) | the Light mesh on the user's numbers; the only style that shows them |
 
 All three spread `padMargin` (4 mm) past the contact; Custom exposes that as Pad spread.
+
+**Small feet get Sure hold.** Light grips by first-layer squish along the part's
+first-layer outline: a 40 mm cube's edge gives 80 mm of it. A part on a point or a
+small round foot gives a few mm (cone or pyramid tip < 1 mm, sphere 8 mm, a cylinder
+on its rim 7–12 mm), which is next to nothing to hold, and the ball-footed shelter
+hubs printed on the Sure hold pad. So when that outline is under `minGripOutline`
+(20 mm) Light builds Sure hold instead, and the readout says "Sure hold (small foot)"
+and why. On the stress set the split is clean: every round/point pose is ≤ 16.5 mm,
+every edge pose ≥ 24 mm. The 20 mm line is a judgement call, not a measurement.
+Custom is never swapped; with a gap on a small foot it gets a warning.
 **The gap must clear the slicer, not just exist.** PrusaSlicer, Orca and Bambu close any
 slice gap under 2 × `slice_closing_radius` (0.049) = 0.098 mm. The first Light pad aimed
 for 0.1 mm and printed well at exactly 45°, but on a cube at 40° the mesh gave 0.089 mm and

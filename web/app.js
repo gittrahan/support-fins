@@ -1612,7 +1612,7 @@ function updateDrawReadout(built, ms) {
   finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = false;
   finMaterial.opacity = padMaterial.opacity = drawMaterial.opacity = 1;
   const box = el('s-fins');
-  el('s-pad').textContent = built?.pad ? 'added' : built ? 'not needed' : '—';
+  el('s-pad').textContent = built ? padStatus(built) : '—';
 
   const ok = drawnWalls.filter((w) => w.ok);
   const bad = drawnWalls.length - ok.length;
@@ -1661,8 +1661,34 @@ function updateDrawReadout(built, ms) {
       ? 'this part balances on one point, so the bed pad is holding it. Print with the pad on'
       : 'this part balances on one point. Turn the bed pad on to seat it, or rotate until it sits down');
   }
+  if (built && padNote(built)) lead.push(padNote(built));
   setFinNote(lead, help);
   if (ms != null) el('s-time').textContent = `${analysisTiming} · pad ${ms.toFixed(0)} ms`;
+}
+
+/**
+ * The Light pad grips by first-layer squish along the part's first-layer outline.
+ * A part on a point or a small round foot has only a few mm of it, so fins.js
+ * builds Sure hold there instead (pad.autoSure) -- say so, since the user picked
+ * Light. A Custom pad with a gap on such a foot gets a warning instead of a swap.
+ */
+function padStatus(built) {
+  if (!built.pad) return 'not needed';
+  return built.pad.autoSure ? 'Sure hold (small foot)' : 'added';
+}
+function padNote(built) {
+  const p = built.pad;
+  if (!p?.smallFoot) return '';
+  const mm = p.outline < 1 ? 'under 1 mm' : `${p.outline.toFixed(0)} mm`;
+  if (p.autoSure) {
+    return `this part meets the plate on a small foot (${mm} of first-layer edge), too little for a `
+         + 'Light pad to grip, so the pad is Sure hold here';
+  }
+  if (PAD.style === 'custom' && PAD.custom.gap > 0) {
+    return `this part meets the plate on a small foot (${mm} of first-layer edge); a pad with a gap `
+         + 'has almost nothing to grip. Sure hold, or Pad gap 0, holds it';
+  }
+  return '';
 }
 
 function updateFinReadout(built, ms) {
@@ -1676,7 +1702,7 @@ function updateFinReadout(built, ms) {
     setFinNote([], []);
     return;
   }
-  el('s-pad').textContent = built.pad ? 'added' : 'not needed';
+  el('s-pad').textContent = padStatus(built);
   const n = built.fins.length;
   const kind = built.mode === 'prop' ? 'prop' : 'fin';
   // Hand-added walls (Suggest + Draw mix) count toward the tally too.
@@ -1761,6 +1787,7 @@ function updateFinReadout(built, ms) {
       ? 'this part balances on one point, so the bed pad is holding it. Print with the pad on'
       : 'this part balances on one point with nothing under it. Turn the bed pad on, or rotate until it sits down');
   }
+  if (padNote(built)) lead.push(padNote(built));
   if (built.sagRisk) {
     // The coverage slider is left of centre, so a broad flat overhang got rows
     // spaced wider than the 12mm anti-sag guide. That's allowed on purpose (fewer
