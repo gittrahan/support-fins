@@ -176,6 +176,9 @@ function setPart(geometry, filename) {
   // match a different model's fins, so they must NOT carry across parts -- clear
   // them here alongside the walls, or loading a new STL silently drops fins.
   resetRemovals();
+  // Nor does an armed remove mode: it hides the rotate rings and turns every click
+  // on the new part into a fin pick, so the part looked stuck until Esc.
+  if (removeMode) cancelRemove();
   drawAugment = false;
   drawMsg = '';
   printTrisDirty = true;

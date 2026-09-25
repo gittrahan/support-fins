@@ -264,6 +264,16 @@ try {
   await setVal('vx', '100', 'input'); await snap('vol-100');
   for (let i = 0; i < 6; i++) await click('undo');
   await snap('undo-x6');
+
+  // Import a second model through the file input while remove mode is armed: the
+  // new part must come in disarmed (rings back, clicks orbit), not stuck until Esc.
+  // Kept LAST so a base without this step still lines up with every step above.
+  const second = model.endsWith('/cone.stl') ? 'lbracket.stl' : 'cone.stl';
+  await click('remove-fins-toggle');
+  await (await page.$('#file')).uploadFile(join(MODELS, second));
+  await page.waitForFunction((n) => document.getElementById('s-name').textContent === n,
+    { timeout: 30000 }, second);
+  await snap('import-while-armed');
 } catch (err) {
   errors.push(`harness: ${err.message}`);
 }
