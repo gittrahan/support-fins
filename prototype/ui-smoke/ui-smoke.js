@@ -83,6 +83,9 @@ async function snap(name) {
         r.t = e.textContent.trim().replace(/\s+/g, ' ').slice(0, 400);
       }
       if (e.title && e.id === 's-fin-info') r.title = e.title;
+      if (e.id === 'suggest-list') {
+        r.active = [...e.children].findIndex((c) => c.classList.contains('active'));
+      }
       if (e.tagName === 'SELECT') r.opts = [...e.options].map((o) => o.textContent).join('|');
       dom[e.id] = r;
     }
@@ -379,6 +382,28 @@ try {
   await snap('suggest-best');
   await click('suggest-toggle'); await snap('suggest-closed');
   await click('suggest-toggle'); await snap('suggest-reopened');
+
+  // A manual turn drops the highlighted row (the list stays): a 90° button, a
+  // gizmo ring drag (driven through its own events), then a lay-flat.
+  const pickRow = (n) => page.evaluate((n) =>
+    document.querySelector(`#suggest-list button:nth-child(${n})`)?.click(), n);
+  await pickRow(2); await snap('row-picked');
+  await click('rot-x'); await snap('row-after-rot90');
+  await pickRow(2);
+  await page.evaluate(() => {
+    let g = null;
+    window.__sf.part.parent.traverse((o) => { if (o.isTransformControlsRoot) g = o.controls; });
+    g.dispatchEvent({ type: 'dragging-changed', value: true });
+    window.__sf.part.rotateZ(Math.PI / 6);
+    g.dispatchEvent({ type: 'dragging-changed', value: false });
+  });
+  await snap('row-after-drag');
+  await pickRow(2);
+  await click('lay-face');
+  await clickFace(`(sf) => { const n = sf.topo.nrm; let b = 0, bv = -Infinity;
+    for (let f = 0; f < sf.topo.nFaces; f++) { const s = -n[f * 3 + 1]; if (s > bv) { bv = s; b = f; } }
+    return b; }`);
+  await snap('row-after-lay');
 } catch (err) {
   errors.push(`harness: ${err.message}`);
 }
