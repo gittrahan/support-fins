@@ -1,8 +1,8 @@
 /**
  * Undo / redo.
  *
- * Until the walls, load arrow and modes have their own modules, their state
- * lives in app.js and restoring a snapshot writes it through app.js setters.
+ * Restoring a snapshot writes each piece of state through its owner's setters
+ * (walls.js, strength.js, settings.js, pose.js); history never assigns to them.
  */
 import { el } from './dom.js';
 import { controls } from './scene.js';

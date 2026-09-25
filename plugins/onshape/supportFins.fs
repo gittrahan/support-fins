@@ -433,7 +433,7 @@ export const supportFins = defineFeature(function(context is Context, id is Id, 
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-/** Material clearances, mirroring web/app.js MATERIAL. */
+/** Material clearances, mirroring web/ui/settings.js MATERIAL. */
 function resolveConfig(definition is map) returns map
 {
     var cfg = {

@@ -1,10 +1,9 @@
 /**
  * Per-fin removal (Auto): click a fin to drop just that one.
  *
- * Until the fin build has its own module, the fin mesh, the modes and the
- * readout still live in app.js, so this reaches back there for them. Everything
+ * The fin mesh lives in finbuild.js and the modes in settings.js. Everything
  * the removal feature itself owns -- records, signatures, the hover overlay,
- * remove mode -- lives here, and app.js only reads it.
+ * remove mode -- lives here, and the other modules only read it.
  */
 import * as THREE from 'three';
 import { el } from './dom.js';

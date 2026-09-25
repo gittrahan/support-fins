@@ -65,7 +65,7 @@ To work on the code instead, make a copy of the document, or paste
 2. **Support-Fins FS** → select the part.
 3. **Print settings** → set **Layer height** to the slicer's layer height (each tine is one
    layer, snapped to the layer grid) and pick **PLA** or **PETG** (the `MATERIAL` profiles
-   from `web/app.js`).
+   from `web/ui/settings.js`).
 4. Optionally turn on **Side bracing fins** for a part balanced on an edge or corner.
 5. Select the part and all its orange supports → **Export** → STL, as one file.
 

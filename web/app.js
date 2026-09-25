@@ -1,5 +1,8 @@
 /**
- * Support Fins - M0: load an STL, orbit it, see it sitting on the plate.
+ * Support Fins: the page's entry point. Every feature lives in web/ui/ (one
+ * module each: part, pose, settings, finbuild, walls, readout, remove, strength,
+ * suggest, history, io, volume, export, scene). What stays here is the wiring:
+ * the pointer and keyboard dispatch between the modes, startup, and window.__sf.
  *
  * COORDINATES: Z up, millimetres, bed plane at z = 0, plate centred on the
  * origin in XY. This is the printer's frame and the same one the Python
@@ -32,11 +35,7 @@ import { initSettings } from './ui/settings.js';
 import { part, topology, rotM3, lastResult, threshold } from './ui/part.js';
 import { gizmo, hoverFace, layActive, cancelLay, layHover, layClick } from './ui/pose.js';
 
-// ------------------------------------------------------------------- the part
-
-// ------------------------------------------------------------------- printers
-
-// ----------------------------------------------------------------------- fins
+// ------------------------------------------------------------------ keyboard
 
 // Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z (or Ctrl+Y) redoes. Ignored while typing
 // in a field so it never eats a text-edit undo.
@@ -55,7 +54,8 @@ addEventListener('keydown', (e) => {
   else if (k === 'y') { e.preventDefault(); redo(); }
 });
 
-// ---------------------------------------------------------------- orientation
+// ---------------------------------------------------------- pointer dispatch
+// One set of viewport listeners, routed by mode: remove, then draw, then lay flat.
 
 let pressAt = null;
 renderer.domElement.addEventListener('pointermove', (ev) => {

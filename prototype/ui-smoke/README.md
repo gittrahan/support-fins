@@ -2,7 +2,7 @@
 
 The Deno suite and the sweep only cover the engine (`fins.js`, `prop.js`, …).
 Nothing else exercises `web/app.js` and `web/ui/`. This covers them: it drives
-the real page in headless Chrome through a fixed script of about 50 steps and
+the real page in headless Chrome through a fixed script of 85 steps and
 records everything visible after each step, then diffs that against a base
 build.
 
