@@ -336,6 +336,22 @@ try {
   await page.waitForFunction(() => document.getElementById('s-name').textContent === 'plate-again.3mf',
     { timeout: 60000 });
   await snap('3mf-loaded');
+
+  // Back to a preset build volume (the remembered choice is part of the step),
+  // then both export buttons, capturing each download's name and byte size.
+  await setVal('volume', '220 × 220 × 250 mm'); await snap('vol-preset');
+  steps.at(-1).stored = await page.evaluate(() => localStorage.getItem('sf.volume'));
+  await page.evaluate(() => {
+    window.__dl = [];
+    const make = URL.createObjectURL;
+    URL.createObjectURL = (b) => { window.__dlSize = b.size; return make.call(URL, b); };
+    HTMLAnchorElement.prototype.click = function () {
+      if (this.download) window.__dl.push({ name: this.download, size: window.__dlSize });
+    };
+  });
+  await click('export'); await click('export-3mf');
+  await snap('exported');
+  steps.at(-1).downloads = await page.evaluate(() => window.__dl);
 } catch (err) {
   errors.push(`harness: ${err.message}`);
 }
