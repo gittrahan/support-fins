@@ -1,7 +1,7 @@
 /**
  * Hand-placed supports: the breakaway walls drawn in Draw mode (or the Suggest
  * "+ Add" augment) and sway braces stood with one click, their preview markers,
- * selecting one to remove it, and the Draw Undo / Clear buttons. app.js's pointer
+ * selecting one to remove it, and the Draw Clear button. app.js's pointer
  * dispatch calls drawHover / drawClick while drawActive().
  */
 import * as THREE from 'three';
@@ -338,7 +338,7 @@ function placeSway(hit) {
   updateFit();
 }
 
-/** Show the Draw controls (hint + Undo/Clear) only while hand-placement is live,
+/** Show the Draw controls (hint + Clear) only while hand-placement is live,
  *  and word the hint for what the click does: a support fin in Draw, a two-point
  *  wall in the Suggest "+ Add" augment. */
 export function syncDrawControls() {
@@ -351,18 +351,8 @@ export function syncDrawControls() {
     + '<kbd>Esc</kbd> or right-click cancels.';
 }
 
-// Undo/Clear act on the hand-drawn breakaway walls -- the thing both Draw and the
-// Suggest "+ Add" augment now place.
-el('draw-undo').addEventListener('click', () => {
-  if (!drawnWalls.length) return;
-  histPush();
-  drawnWalls.pop();
-  drawMsg = '';
-  clearPreview();
-  rebuildDrawn();
-  updateReadout(lastBuilt);
-  updateFit();
-});
+// Clear acts on the hand-drawn breakaway walls -- the thing both Draw and the
+// Suggest "+ Add" augment now place. Undo is the sidebar's (and Ctrl-Z).
 el('draw-clear').addEventListener('click', () => {
   if (!drawnWalls.length) return;
   histPush();
