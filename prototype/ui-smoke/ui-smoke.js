@@ -79,7 +79,7 @@ async function snap(name) {
         r.v = e.type === 'checkbox' ? e.checked : e.value;
       }
       if (e.children.length === 0 || e.id.startsWith('s-') || e.id.endsWith('-note')
-          || e.id === 'suggest-list') {
+          || e.id === 'suggest-list' || e.id === 'picker-list') {
         r.t = e.textContent.trim().replace(/\s+/g, ' ').slice(0, 400);
       }
       if (e.title && e.id === 's-fin-info') r.title = e.title;
@@ -157,6 +157,30 @@ async function clickFace(pick) {
   await sleep(60);
   await page.mouse.click(p.x, p.y);
 }
+/** Binary STL → [[x, y, z], ...] (three per triangle), for building test files. */
+function readSTL(path) {
+  const b = Deno.readFileSync(path), v = new DataView(b.buffer, b.byteOffset);
+  const n = v.getUint32(80, true), out = [];
+  for (let i = 0; i < n; i++) {
+    for (let k = 0; k < 3; k++) {
+      const o = 84 + i * 50 + 12 + k * 12;
+      out.push([v.getFloat32(o, true), v.getFloat32(o + 4, true), v.getFloat32(o + 8, true)]);
+    }
+  }
+  return out;
+}
+
+/** Import `path` through the real file input and wait until `name` is loaded. */
+async function importFile(path, name) {
+  await (await page.$('#file')).uploadFile(path);
+  if (name) {
+    await page.waitForFunction((n) => document.getElementById('s-name').textContent === n,
+      { timeout: 60000 }, name);
+  }
+}
+const pickerOpen = () => page.waitForFunction(
+  () => !document.getElementById('picker').hidden, { timeout: 60000 });
+
 /** The overhang face furthest along ±x in world space (spans a drawn wall). */
 const extremeOverhang = (sign) => `(sf) => {
   const kept = sf.result.kept, g = sf.part.geometry.getAttribute('position');
@@ -270,10 +294,48 @@ try {
   // Kept LAST so a base without this step still lines up with every step above.
   const second = model.endsWith('/cone.stl') ? 'lbracket.stl' : 'cone.stl';
   await click('remove-fins-toggle');
-  await (await page.$('#file')).uploadFile(join(MODELS, second));
-  await page.waitForFunction((n) => document.getElementById('s-name').textContent === n,
-    { timeout: 30000 }, second);
+  await importFile(join(MODELS, second), second);
   await snap('import-while-armed');
+
+  // STEP with two bodies: the picker opens with the larger pre-ticked; tick the
+  // other too and "Merge 2 & load".
+  await importFile(join(ROOT, 'tests/fixtures/two-bodies.step'));
+  await pickerOpen(); await snap('step-picker');
+  await page.evaluate(() => document.querySelector('#picker-list input:not(:checked)').click());
+  await snap('step-picker-both');
+  await click('picker-load');
+  await page.waitForFunction(() => document.getElementById('s-name').textContent === 'two-bodies.step',
+    { timeout: 60000 });
+  await snap('step-merged');
+
+  // A two-object 3MF: Cancel keeps the current part; importing again and taking
+  // the pre-selected largest loads it. Written with the app's own writer, which
+  // makes ONE object (part + fins as components); the build is rewritten to place
+  // the two meshes as separate items, the way a slicer plate lists them.
+  const { writeThreeMF } = await import(join(ROOT, 'web/threemf.js'));
+  const { unzip, zipStore } = await import(join(ROOT, 'web/zip.js'));
+  const shift = (tris, dx) => tris.map(([x, y, z]) => [x + dx, y, z]);
+  const written = await unzip(new Uint8Array(await writeThreeMF(
+    readSTL(join(MODELS, 'cone.stl')), shift(readSTL(join(MODELS, 'lbracket.stl')), 120),
+    'plate').arrayBuffer()));
+  const entries = [...written].map(([name, data]) => ({ name, data: name.endsWith('.model')
+    ? new TextDecoder().decode(data).replace(/<build>.*<\/build>/s,
+    '<build><item objectid="1"/><item objectid="2"/></build>') : data }));
+  const plate = join(Deno.makeTempDirSync(), 'plate.3mf');
+  Deno.writeFileSync(plate, new Uint8Array(await zipStore(entries).arrayBuffer()));
+  await importFile(plate);
+  await pickerOpen(); await snap('3mf-picker');
+  await click('picker-cancel'); await snap('3mf-cancelled');
+  // A second copy under another name: re-picking the SAME file fires no `change`
+  // on the input (known: the app never clears it), so nothing would happen.
+  const again = join(Deno.makeTempDirSync(), 'plate-again.3mf');
+  Deno.copyFileSync(plate, again);
+  await importFile(again);
+  await pickerOpen();
+  await click('picker-load');
+  await page.waitForFunction(() => document.getElementById('s-name').textContent === 'plate-again.3mf',
+    { timeout: 60000 });
+  await snap('3mf-loaded');
 } catch (err) {
   errors.push(`harness: ${err.message}`);
 }
