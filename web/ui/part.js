@@ -13,9 +13,11 @@ import { importNote } from './io.js';
 import { currentVolume } from './volume.js';
 import { resetLoad, updateLayerView, updateLoadReadout, syncLoadUI } from './strength.js';
 import { hideSuggestions } from './suggest.js';
-import { setDrawnWalls, setDrawMsg, markPrintTrisDirty, clearPreview } from './walls.js';
+import {
+  setDrawnWalls, setDrawMsg, markPrintTrisDirty, clearPreview, syncDrawControls,
+} from './walls.js';
 import { activeAdded, refreshFins, markFinsStale } from './finbuild.js';
-import { finsVisible, setDrawAugment } from './settings.js';
+import { finsVisible, setDrawAugment, syncAugmentUI } from './settings.js';
 import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
@@ -96,6 +98,8 @@ export function setPart(geometry, filename) {
   setDrawMsg('');
   markPrintTrisDirty();
   clearPreview();
+  syncAugmentUI();       // "+ Add" is off now: the button and the Draw hint say so
+  syncDrawControls();
   // A new part starts with no load direction either, and no Suggest ranking: the
   // list and verdict were the OLD part's poses.
   resetLoad();
