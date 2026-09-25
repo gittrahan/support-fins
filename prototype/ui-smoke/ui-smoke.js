@@ -361,6 +361,24 @@ try {
   await click('load-clear'); await click('undo'); await snap('load-undo');
   await importFile(join(MODELS, 'cone.stl'), 'cone.stl');
   await snap('load-new-part');
+
+  // Suggest orientation on more shapes (different verdict lines), taking the Best
+  // row, then collapse and re-expand the results.
+  const ranked = () => page.waitForFunction(() => {
+    const b = document.getElementById('suggest-orient');
+    return !b.disabled && b.textContent === 'Suggest orientation';
+  }, { timeout: 60000 });
+  for (const m of ['tube', 'sphere', 'needle']) {
+    await importFile(join(MODELS, `${m}.stl`), `${m}.stl`);
+    await snap(`${m}-loaded`);
+    await click('suggest-orient'); await sleep(100); await ranked(); await snap(`${m}-suggest`);
+  }
+  await importFile(join(MODELS, 'tube.stl'), 'tube.stl');
+  await click('suggest-orient'); await sleep(100); await ranked();
+  await page.evaluate(() => document.querySelector('#suggest-list button')?.click());
+  await snap('suggest-best');
+  await click('suggest-toggle'); await snap('suggest-closed');
+  await click('suggest-toggle'); await snap('suggest-reopened');
 } catch (err) {
   errors.push(`harness: ${err.message}`);
 }
