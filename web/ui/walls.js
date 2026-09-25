@@ -12,9 +12,8 @@ import { viewport, renderer, scene, camera, meshFrom, raycaster, pointer } from 
 import { removedIds } from './remove.js';
 import { histPush } from './history.js';
 import { updateReadout } from './readout.js';
-import {
-  part, topology, rotM3, lastResult, finsVisible, finMode, drawAugment, updateFit, pickFace,
-} from '../app.js';
+import { part, topology, rotM3, lastResult, updateFit, pickFace } from '../app.js';
+import { finsVisible, finMode, drawAugment } from './settings.js';
 import { lastBuilt, swayOpts } from './finbuild.js';
 
 // ---- draw mode: the user places breakaway walls by hand --------------------

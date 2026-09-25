@@ -7,8 +7,9 @@ import { el } from './dom.js';
 import { removedIds } from './remove.js';
 import { drawnWalls, drawMsg, selectedWall, selectedNote, drawShown, drawMaterial } from './walls.js';
 import {
-  finMode, finsVisible, materialDensity, analysisTiming, syncSectionSums,
-} from '../app.js';
+  finMode, finsVisible, materialDensity, syncSectionSums,
+} from './settings.js';
+import { analysisTiming } from '../app.js';
 import { activeAdded, finMaterial, padMaterial } from './finbuild.js';
 
 /**

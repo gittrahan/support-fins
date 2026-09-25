@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { suggestOrientations, layerVerdict } from '../orient.js';
 import { el } from './dom.js';
 import { histPush } from './history.js';
-import { part, topology, threshold, materialDensity, shade } from '../app.js';
+import { part, topology, threshold, shade } from '../app.js';
+import { materialDensity } from './settings.js';
 import { lastBuilt } from './finbuild.js';
 import { fmtGrams } from './readout.js';
 

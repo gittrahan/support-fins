@@ -8,12 +8,11 @@ import { el } from './dom.js';
 import { controls } from './scene.js';
 import { removedSigs, restoreRemovals, syncRemoveUI } from './remove.js';
 import { loadDir, replaceLoadDir, updateLoadArrowMesh, syncLoadUI } from './strength.js';
+import { part, setLayPlacing, setGizmo, shade } from '../app.js';
 import {
-  part, finMode, finsVisible, drawAugment,
-  setLayPlacing, setFinMode, setFinsVisible, setDrawAugment,
+  finMode, finsVisible, drawAugment, setFinMode, setFinsVisible, setDrawAugment,
   syncFinsToggleUI, syncAugmentUI,
-  setGizmo, shade,
-} from '../app.js';
+} from './settings.js';
 import { refreshFins } from './finbuild.js';
 import { drawnWalls, setDrawnWalls, clearPreview, syncDrawControls } from './walls.js';
 import { hideSuggestions } from './suggest.js';
