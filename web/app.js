@@ -16,11 +16,9 @@ import { CUT } from './cutout.js';
 import { findWallPatches } from './planes.js';
 import { drawnWall } from './draw.js';
 import { swayAtFace, faceIsUpright } from './sway.js';
-import { writeBinarySTL, download } from './stl.js';
-import { writeThreeMF } from './threemf.js';
 import { el } from './ui/dom.js';
 import {
-  viewport, renderer, scene, camera, controls, buildPlate, frame, meshFrom, raycaster, pointer, resize,
+  viewport, renderer, scene, camera, controls, frame, meshFrom, raycaster, pointer, resize,
 } from './ui/scene.js';
 import {
   removeMode, removedIds, removeActive, syncRemoveUI, cancelRemove, clearFinHover,
@@ -28,24 +26,8 @@ import {
 } from './ui/remove.js';
 import { histPush, undo, redo, resetHistory } from './ui/history.js';
 import { importNote, loadURL } from './ui/io.js';
-
-/**
- * Build volumes are listed by DIMENSION, never by printer name. This ships to
- * strangers: a model name is a brand claim we would have to maintain, it dates
- * badly, and nobody has to recognise a name to type in three numbers. Custom
- * covers everything not listed, and the choice is remembered.
- */
-const VOLUMES = [
-  { x: 180, y: 180, z: 180 },
-  { x: 220, y: 220, z: 250 },
-  { x: 250, y: 220, z: 270 },
-  { x: 256, y: 256, z: 256 },
-  { x: 300, y: 300, z: 300 },
-  { x: 350, y: 350, z: 350 },
-];
-const DEFAULT_VOLUME = { x: 250, y: 220, z: 270 };
-const VOLUME_STORE = 'sf.volume';
-const volLabel = (v) => `${v.x} × ${v.y} × ${v.z} mm`;
+import { currentVolume, applyVolume } from './ui/volume.js';
+import { buildExportGeometry } from './ui/export.js';
 
 // ------------------------------------------------------------------- the part
 
@@ -54,8 +36,8 @@ const partMaterial = new THREE.MeshStandardMaterial({
   vertexColors: true, side: THREE.DoubleSide,
 });
 export let part = null;
-let partName = '';
-let topology = null;      // welded adjacency, rebuilt only when the mesh changes
+export let partName = '';
+export let topology = null;      // welded adjacency, rebuilt only when the mesh changes
 let weldMs = 0;
 let analysisTiming = '';
 let lastSize = null;
@@ -205,7 +187,7 @@ export function setPart(geometry, filename) {
  * gizmo drag -- the expensive weld already happened in setPart(), and rotation
  * cannot invalidate it.
  */
-const rotM3 = new THREE.Matrix3();
+export const rotM3 = new THREE.Matrix3();
 const rotM4 = new THREE.Matrix4();
 
 // Overhangs in the AS-LOADED (identity) orientation. For an exported STL that is
@@ -405,7 +387,7 @@ export function updateFit() {
 
 // ----------------------------------------------------------------------- fins
 
-let lastResult = null;
+export let lastResult = null;
 export let finsVisible = false;
 export function setFinsVisible(v) { finsVisible = v; }
 // The wall is the default support and the fin is the Brace OPTION, not the
@@ -833,7 +815,7 @@ function removeSelected() {
 }
 
 /** The walls + pad the CURRENT mode contributes to the export and the fit check. */
-function activeAdded() {
+export function activeAdded() {
   // Both auto modes bake their geometry into finTris (refreshFins' else branch):
   // Suggest → gripping fins + fallback props, Combined fin → gripping fins only.
   // Only Draw leaves it empty and exports the hand-drawn walls instead.
@@ -1885,64 +1867,6 @@ el('draw-clear').addEventListener('click', () => {
   updateFit();
 });
 
-/**
- * Export the part AS ORIENTED, seated on the plate, with the fins as extra
- * solids in the same file. The whole promise of the tool is that the STL prints
- * the same way for whoever opens it, so the orientation has to be baked in --
- * exporting the original frame and hoping the user re-rotates defeats the point.
- */
-/**
- * The part geometry AS ORIENTED and seated on the plate, plus the fins, kept in
- * two separate lists. STL flattens them into one solid; 3MF keeps them distinct.
- * Returns null when there is nothing to export.
- */
-function buildExportGeometry() {
-  if (!part || !topology || !lastResult) return null;
-  const rot = rotM3.elements;
-  const dz = lastResult.offset.z;
-  const dx = lastResult.offset.x, dy = lastResult.offset.y;
-  const { pos, nFaces } = topology;
-
-  const partTris = new Array(nFaces * 3);
-  for (let f = 0; f < nFaces; f++) {
-    for (let i = 0; i < 3; i++) {
-      const o = f * 9 + i * 3;
-      const x = pos[o], y = pos[o + 1], z = pos[o + 2];
-      partTris[f * 3 + i] = [
-        rot[0] * x + rot[3] * y + rot[6] * z + dx,
-        rot[1] * x + rot[4] * y + rot[7] * z + dy,
-        rot[2] * x + rot[5] * y + rot[8] * z + dz,
-      ];
-    }
-  }
-  // whichever walls the live mode contributes -- hand-drawn in Draw, suggested
-  // in Suggest -- plus the pad, all already in print space
-  const finTris = [...activeAdded()];
-  const base = partName.replace(/\.(stl|3mf|step|stp)$/i, '') || 'part';
-  return { partTris, finTris, base };
-}
-
-/**
- * Export the part AS ORIENTED, seated on the plate, with the fins as extra
- * solids in the same file. The whole promise of the tool is that the file prints
- * the same way for whoever opens it, so the orientation has to be baked in --
- * exporting the original frame and hoping the user re-rotates defeats the point.
- */
-el('export').addEventListener('click', () => {
-  const g = buildExportGeometry();
-  if (!g) return;
-  download(writeBinarySTL([...g.partTris, ...g.finTris], g.base), `${g.base}-fins.stl`);
-});
-
-// 3MF keeps the fins as a separate object and states millimeters, so the file
-// opens correctly oriented and support-free in Bambu Studio, OrcaSlicer, or
-// PrusaSlicer without a re-scale or a re-rotate.
-el('export-3mf').addEventListener('click', () => {
-  const g = buildExportGeometry();
-  if (!g) return;
-  download(writeThreeMF(g.partTris, g.finTris, g.base), `${g.base}-fins.3mf`);
-});
-
 // Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z (or Ctrl+Y) redoes. Ignored while typing
 // in a field so it never eats a text-edit undo.
 addEventListener('keydown', (e) => {
@@ -2385,51 +2309,6 @@ thrInput.addEventListener('input', () => {
   computeFlatBaseline();   // the flat baseline moves with the overhang threshold
   shade();
 });
-
-const volumeSelect = el('volume');
-const customRow = el('custom-vol');
-const customInputs = ['vx', 'vy', 'vz'].map(el);
-
-for (const v of VOLUMES) volumeSelect.add(new Option(volLabel(v), volLabel(v)));
-volumeSelect.add(new Option('Custom…', 'custom'));
-
-let volume = { ...DEFAULT_VOLUME };
-try {
-  const saved = JSON.parse(localStorage.getItem(VOLUME_STORE) || 'null');
-  if (saved && saved.x > 0 && saved.y > 0 && saved.z > 0) volume = saved;
-} catch { /* corrupt or unavailable storage is not worth failing over */ }
-
-const isPreset = (v) => VOLUMES.some((p) => volLabel(p) === volLabel(v));
-volumeSelect.value = isPreset(volume) ? volLabel(volume) : 'custom';
-customInputs.forEach((inp, i) => { inp.value = String([volume.x, volume.y, volume.z][i]); });
-
-const currentVolume = () => volume;
-
-function applyVolume() {
-  customRow.hidden = volumeSelect.value !== 'custom';
-  buildPlate(volume.x, volume.y, volume.z);
-  try {
-    localStorage.setItem(VOLUME_STORE, JSON.stringify(volume));
-  } catch { /* private mode; the app still works, it just forgets */ }
-  if (part) shade();
-}
-
-volumeSelect.addEventListener('change', () => {
-  if (volumeSelect.value !== 'custom') {
-    volume = VOLUMES.find((v) => volLabel(v) === volumeSelect.value) ?? volume;
-    customInputs.forEach((inp, i) => {
-      inp.value = String([volume.x, volume.y, volume.z][i]);
-    });
-  }
-  applyVolume();
-});
-
-for (const inp of customInputs) {
-  inp.addEventListener('input', () => {
-    const [x, y, z] = customInputs.map((n) => Number(n.value));
-    if (x > 0 && y > 0 && z > 0) { volume = { x, y, z }; applyVolume(); }
-  });
-}
 
 // ----------------------------------------------------------------- main loop
 
