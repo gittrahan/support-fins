@@ -196,7 +196,12 @@ async function loadFile(file) {
   }
 }
 
-el('file').addEventListener('change', (e) => loadFile(e.target.files[0]));
+// Clear the input once the file is taken: otherwise choosing the SAME file again
+// (after cancelling its object picker, say) changes nothing and fires no change.
+el('file').addEventListener('change', (e) => {
+  loadFile(e.target.files[0]);
+  e.target.value = '';
+});
 // Reaching for a file is the cue to start loading the STEP kernel: it downloads
 // while the user is still in the file dialog (or mid-drag), not after they drop.
 el('file').addEventListener('click', warmStep);
