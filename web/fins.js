@@ -668,7 +668,7 @@ function buildFin(p0, out, span, topo, rot, offset, opts = {}) {
 /**
  * Apply the page's clearance settings to FIN / PROP / PAD.
  *
- * WHY THIS IS A PARAMETER AND NOT JUST A MODULE EDIT. app.js sets these objects
+ * WHY THIS IS A PARAMETER AND NOT JUST A MODULE EDIT. ui/settings.js sets these objects
  * directly (applyMaterial for the PLA/PETG profiles, the Support gap and Pad grip
  * fields) and that works for anything it builds itself. But the real build runs in
  * finworker.js, a module Worker with its OWN instance of fins.js and prop.js: module

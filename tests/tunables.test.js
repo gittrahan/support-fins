@@ -1,6 +1,6 @@
 // The clearance settings reaching the BUILD, wherever it runs.
 //
-// app.js sets FIN / PROP / PAD directly for the PLA/PETG profiles and the Support gap
+// ui/settings.js sets FIN / PROP / PAD directly for the PLA/PETG profiles and the Support gap
 // and Pad grip fields, but the build runs in a module Worker with its own copy of those
 // modules, so none of it arrived: Auto mode always built PLA's numbers while the panel
 // said PETG. They now travel with the request as `opts.tunables` and are applied by

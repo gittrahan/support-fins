@@ -250,7 +250,7 @@ html, body {
   margin: 9px 0;
 }
 
-/* legend swatches, keyed to the shading colours in app.js */
+/* legend swatches, keyed to the shading colours in ui/part.js */
 .sw {
   display: inline-block;
   width: 8px; height: 8px;

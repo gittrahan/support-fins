@@ -154,7 +154,7 @@
 <aside id="fin-opts" hidden>
   <!-- Grouped into collapsible sections (issue #41): the flat list ran past the
        bottom of a laptop screen and every feature lengthened it. Each section is a
-       plain <details>; app.js remembers which are open (localStorage, optional) and
+       plain <details>; ui/settings.js remembers which are open (localStorage, optional) and
        fills the .sec-sum line so a collapsed section still says what's set. A
        feature switch (Tines) lives in its section's header, so a disabled feature
        costs one line. Fields that don't apply in the current mode stay hidden, as
@@ -165,7 +165,7 @@
          were tuned for, so it needs more clearance everywhere. PLA is the default and
          keeps today's tight grip; PETG widens the support gap + fin-tine standoff,
          halves the tine bite, thins the bed pad, and turns the pad's tack into a gap.
-         Applied in app.js (applyMaterial), which also re-syncs the tunables below. -->
+         Applied in ui/settings.js (applyMaterial), which also re-syncs the tunables below. -->
     <label class="fld row" id="material-fld" title="The filament you'll print in. PETG fuses to supports much harder than PLA, so PETG loosens the gaps, shrinks the tine bite, and gives the bed pad a gap instead of a bite. PLA keeps the tighter grip.">
       Material
       <select id="material">
@@ -315,8 +315,8 @@
       <input type="range" id="coverage" min="0" max="100" step="5" value="50">
     </label>
     <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
-         Shown only in Suggest mode (toggled in app.js). Per-fin removal (Auto only,
-         shown via app.js syncRemoveUI): arm a click-to-remove mode, hover lights a
+         Shown only in Suggest mode (toggled in ui/settings.js). Per-fin removal (Auto only,
+         shown via ui/remove.js syncRemoveUI): arm a click-to-remove mode, hover lights a
          fin red, click drops just that one; Restore all brings every one back. -->
     <button class="btn sm" id="augment-toggle" hidden
             title="Place extra breakaway walls by hand, on top of the auto-placed ones.">+ Add walls by hand</button>
@@ -332,7 +332,7 @@
 
   <!-- Draw controls: shown while placing by hand, outside the sections so the
        hint and Undo can never be collapsed away mid-draw. Hint text is set per
-       mode in app.js (syncDrawControls). -->
+       mode in ui/walls.js (syncDrawControls). -->
   <div id="draw-controls" hidden>
     <p class="draw-hint" id="draw-hint">Click an <strong>overhang face</strong> — it lights
       up green when a fin can go there — to stand a support fin against it.</p>

@@ -12,7 +12,7 @@
  * draws is straight in XY by construction; there is nothing left to snap.
  *
  * Geometry only. The interaction (picking the two endpoints, live preview, undo)
- * lives in app.js; this module turns two surface points plus the part's triangles
+ * lives in ui/walls.js; this module turns two surface points plus the part's triangles
  * into a watertight wall, reusing prop.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */

@@ -16,7 +16,7 @@ function build() {
   return fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true });
 }
 
-/** Flatten one fin's triRanges into a vertex list (mirrors app.js filteredTriangles
+/** Flatten one fin's triRanges into a vertex list (mirrors ui/remove.js filteredTriangles
  *  for a single record). */
 function finVerts(triangles, fin) {
   const out = [];
@@ -71,7 +71,7 @@ Deno.test('per-fin: filtering out one fin excludes exactly its triangles and no 
   const k = Math.min(1, b.fins.length - 1);
   const removed = b.fins[k];
   const removedSet = new Set([removed.id]);
-  // Replicate app.js filteredTriangles: walk records, skip removed, keep the rest.
+  // Replicate ui/remove.js filteredTriangles: walk records, skip removed, keep the rest.
   const kept = [];
   const removedVerts = new Set();
   for (let i = 0; i < b.fins.length; i++) {
