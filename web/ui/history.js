@@ -9,11 +9,12 @@ import { controls } from './scene.js';
 import { removedSigs, restoreRemovals, syncRemoveUI } from './remove.js';
 import { loadDir, replaceLoadDir, updateLoadArrowMesh, syncLoadUI } from './strength.js';
 import {
-  part, drawnWalls, finMode, finsVisible, drawAugment,
-  setDrawnWalls, setLayPlacing, setFinMode, setFinsVisible, setDrawAugment,
-  clearPreview, syncFinsToggleUI, syncAugmentUI,
-  syncDrawControls, setGizmo, shade, refreshFins,
+  part, finMode, finsVisible, drawAugment,
+  setLayPlacing, setFinMode, setFinsVisible, setDrawAugment,
+  syncFinsToggleUI, syncAugmentUI,
+  setGizmo, shade, refreshFins,
 } from '../app.js';
+import { drawnWalls, setDrawnWalls, clearPreview, syncDrawControls } from './walls.js';
 import { hideSuggestions } from './suggest.js';
 
 // A whole-state snapshot stack, not a command log. The undoable state is small

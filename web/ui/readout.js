@@ -5,10 +5,10 @@
 import { PAD } from '../fins.js';
 import { el } from './dom.js';
 import { removedIds } from './remove.js';
+import { drawnWalls, drawMsg, selectedWall, selectedNote, drawShown, drawMaterial } from './walls.js';
 import {
-  finMode, finsVisible, drawnWalls, drawMsg, selectedWall, selectedNote, drawShown,
-  activeAdded, materialDensity, analysisTiming, syncSectionSums,
-  finMaterial, padMaterial, drawMaterial,
+  finMode, finsVisible, activeAdded, materialDensity, analysisTiming, syncSectionSums,
+  finMaterial, padMaterial,
 } from '../app.js';
 
 /**

@@ -11,8 +11,9 @@ import { el } from './dom.js';
 import { scene, renderer, camera, raycaster, pointer, meshFrom } from './scene.js';
 import {
   part, lastBuilt, finMesh, finsVisible, finMode, drawAugment, setDrawAugment, setFinTris,
-  updateFit, setGizmo, clearPreview, syncAugmentUI, syncDrawControls,
+  updateFit, setGizmo, syncAugmentUI,
 } from '../app.js';
+import { clearPreview, syncDrawControls } from './walls.js';
 import { updateReadout } from './readout.js';
 import { histPush } from './history.js';
 
