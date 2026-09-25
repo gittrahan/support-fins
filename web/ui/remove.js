@@ -11,8 +11,9 @@ import { el } from './dom.js';
 import { scene, renderer, camera, raycaster, pointer, meshFrom } from './scene.js';
 import {
   part, lastBuilt, finMesh, finsVisible, finMode, drawAugment, setDrawAugment, setFinTris,
-  histPush, updateReadout, updateFit, setGizmo, clearPreview, syncAugmentUI, syncDrawControls,
+  updateReadout, updateFit, setGizmo, clearPreview, syncAugmentUI, syncDrawControls,
 } from '../app.js';
+import { histPush } from './history.js';
 
 // Auto fins are a flat triangle soup in ONE mesh, but each fin record now carries
 // its triangle segment(s) (built.fins[i].triRanges, vertex-indexed into

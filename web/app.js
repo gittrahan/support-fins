@@ -25,9 +25,10 @@ import {
   viewport, renderer, scene, camera, controls, buildPlate, frame, meshFrom, raycaster, pointer, resize,
 } from './ui/scene.js';
 import {
-  removeMode, removedSigs, removedIds, removeActive, syncRemoveUI, cancelRemove, clearFinHover,
-  hoverRemove, clickRemove, adoptFins, forgetFins, resetRemovals, restoreRemovals,
+  removeMode, removedIds, removeActive, syncRemoveUI, cancelRemove, clearFinHover,
+  hoverRemove, clickRemove, adoptFins, forgetFins, resetRemovals,
 } from './ui/remove.js';
+import { histPush, undo, redo, resetHistory } from './ui/history.js';
 
 /**
  * Build volumes are listed by DIMENSION, never by printer name. This ships to
@@ -193,9 +194,7 @@ function setPart(geometry, filename) {
   setGizmo();
 
   // Undo history does not carry across parts.
-  undoStack = [];
-  redoStack = [];
-  syncHistButtons();
+  resetHistory();
 
   const size = shade();
   frame(size);
@@ -223,7 +222,7 @@ function computeFlatBaseline() {
   flatRegions = topology ? analyze(topology, threshold, IDENTITY3).regions.length : null;
 }
 
-function shade() {
+export function shade() {
   if (!part || !topology) return new THREE.Vector3();
   rotM3.setFromMatrix4(rotM4.makeRotationFromQuaternion(part.quaternion));
 
@@ -410,6 +409,7 @@ export function updateFit() {
 
 let lastResult = null;
 export let finsVisible = false;
+export function setFinsVisible(v) { finsVisible = v; }
 // The wall is the default support and the fin is the Brace OPTION, not the
 // other way around -- flipped at M5c. Measured over the dev matrix, the fin
 // covers 4% of overhang area (it braces against toppling; it holds nothing up)
@@ -422,6 +422,7 @@ export let finsVisible = false;
 // is the by-hand path. ('prop' still exists internally -- Draw calls it for the
 // bed pad + seating verdict, and it is the geometry Auto props with.)
 export let finMode = 'auto';
+export function setFinMode(v) { finMode = v; }
 // Suggest + Draw mix: when true, the pointer places hand-drawn walls ON TOP of the
 // auto-placed ones (for when auto misses a spot). It only gates the pointer; the
 // drawn walls themselves stay shown/exported after placing until Clear all.
@@ -527,7 +528,8 @@ const padMaterial = new THREE.MeshStandardMaterial({
 // straight. Endpoints are stored in the part's LOCAL frame so a wall tracks the
 // part through later rotations, the same way the auto fins are rebuilt each time
 // the orientation changes.
-let drawnWalls = [];        // committed walls: { a: Vector3(local), b: Vector3(local), ok, info }
+export let drawnWalls = [];        // committed walls: { a: Vector3(local), b: Vector3(local), ok, info }
+export function setDrawnWalls(w) { drawnWalls = w; }
 let drawnMesh = null;
 let drawnTris = [];
 let drawStart = null;       // Vector3 (local) -- first click of a wall in progress
@@ -589,9 +591,13 @@ for (const o of [drawDot, drawCursor, drawBand]) {
 // a bare direction keeps the UI honest: the arrow is drawn through the part's
 // centre so no spot on the surface looks load-bearing when it isn't.) Local so it
 // rotates and re-seats with the part; parenting the helper to `part` gives that.
-let loadDir = null;         // THREE.Vector3 unit direction in local space, or null
-let layPlacing = false;     // true while "lay a face flat" is armed -- gated behind a
+export let loadDir = null;         // THREE.Vector3 unit direction in local space, or null
+export let layPlacing = false;     // true while "lay a face flat" is armed -- gated behind a
                             // button so a stray viewport click can't re-lay the part
+/** Undo/redo put these back directly (setLoadDir below is the user action, with
+ *  its own undo step). */
+export function replaceLoadDir(v) { loadDir = v; }
+export function setLayPlacing(v) { layPlacing = v; }
 const loadArrowHelper = new THREE.ArrowHelper(
   new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 10, 0xffb454, 4, 2.6);
 loadArrowHelper.visible = false;
@@ -956,7 +962,7 @@ export function setGizmo() {
  * is drawn THROUGH that centre -- it reads as "the part is pulled this way", not
  * as a force pinned to some spot, which is the honest picture for the pull model.
  */
-function updateLoadArrowMesh() {
+export function updateLoadArrowMesh() {
   if (!loadDir || !part) { loadArrowHelper.visible = false; return; }
   if (loadArrowHelper.parent !== part) part.add(loadArrowHelper);
   const bb = part.geometry.boundingBox;
@@ -1038,7 +1044,7 @@ function clearLoad() {
 /** Show Clear once a load is set, and light the pad button whose world direction the
  *  arrow currently points along. Stateless -- recomputed from the live pose, so the
  *  highlight clears itself when you rotate the part off that axis. */
-function syncLoadUI() {
+export function syncLoadUI() {
   const has = !!loadDir;
   let activeKey = null;
   if (has && part) {
@@ -1181,7 +1187,7 @@ function supersedeBuild() {
   finBusy = false;
 }
 
-function refreshFins() {
+export function refreshFins() {
   if (!finsVisible || !lastResult || !topology) {
     supersedeBuild();                  // no build wanted now: drop any in-flight one so it can't re-add fins
     clearSpinner();
@@ -1778,7 +1784,7 @@ applyMaterial(el('material').value);   // sync density + tunables to the initial
 
 /** The fins-toggle button's appearance for the current finsVisible. Factored out
  *  so undo/redo can re-sync it after restoring the flag. */
-function syncFinsToggleUI() {
+export function syncFinsToggleUI() {
   el('fins-toggle').classList.toggle('primary', finsVisible);
   el('fins-toggle').textContent = finsVisible ? 'Fins on' : 'Add fins';
   el('fin-opts').hidden = !finsVisible;
@@ -1938,85 +1944,6 @@ el('export-3mf').addEventListener('click', () => {
   if (!g) return;
   download(writeThreeMF(g.partTris, g.finTris, g.base), `${g.base}-fins.3mf`);
 });
-
-// ------------------------------------------------------------- undo / redo
-// A whole-state snapshot stack, not a command log. The undoable state is small
-// -- orientation plus the hand-drawn walls -- and restoring it re-runs the same
-// shade + refreshFins the rest of the app already uses, so there is no separate
-// inverse-operation path to keep correct. Every mutation calls histPush() first;
-// undo/redo swap snapshots between the two stacks.
-let undoStack = [];
-let redoStack = [];
-
-function snapshot() {
-  const q = part.quaternion;
-  return {
-    quat: [q.x, q.y, q.z, q.w],
-    walls: drawnWalls.map((w) => ({ kind: w.kind, face: w.face, a: w.a.clone(), b: w.b?.clone() })),
-    load: loadDir ? loadDir.clone() : null,
-    finMode, finsVisible, drawAugment,
-    removedSigs: [...removedSigs],
-  };
-}
-
-/** Capture state BEFORE a mutation. A fresh action invalidates the redo stack. */
-export function histPush() {
-  if (!part) return;
-  undoStack.push(snapshot());
-  if (undoStack.length > 100) undoStack.shift();
-  redoStack.length = 0;
-  syncHistButtons();
-}
-
-function restoreState(s) {
-  part.quaternion.set(s.quat[0], s.quat[1], s.quat[2], s.quat[3]);
-  drawnWalls = s.walls.map((w) => ({ kind: w.kind, face: w.face, a: w.a.clone(), b: w.b?.clone(),
-                                     ok: false, info: null }));
-  loadDir = s.load ? s.load.clone() : null;
-  restoreRemovals(s.removedSigs);
-  layPlacing = false;
-  controls.enabled = true;
-  updateLoadArrowMesh();
-  syncLoadUI();
-  finMode = s.finMode;
-  finsVisible = s.finsVisible;
-  drawAugment = s.drawAugment ?? false;
-  drawStart = null;
-  clearPreview();
-  // Re-sync every control that mirrors the restored state, then rebuild the
-  // scene the same way a normal edit would.
-  el('fin-mode').value = finMode;
-  syncFinsToggleUI();
-  syncAugmentUI();
-  syncDrawControls();
-  syncRemoveUI();
-  setGizmo();
-  el('rot-delta').textContent = '';
-  hideSuggestions();
-  shade();
-  refreshFins();
-  syncHistButtons();
-}
-
-function undo() {
-  if (!undoStack.length) return;
-  redoStack.push(snapshot());
-  restoreState(undoStack.pop());
-}
-
-function redo() {
-  if (!redoStack.length) return;
-  undoStack.push(snapshot());
-  restoreState(redoStack.pop());
-}
-
-function syncHistButtons() {
-  el('undo').disabled = !undoStack.length;
-  el('redo').disabled = !redoStack.length;
-}
-
-el('undo').addEventListener('click', undo);
-el('redo').addEventListener('click', redo);
 
 // Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z (or Ctrl+Y) redoes. Ignored while typing
 // in a field so it never eats a text-edit undo.
@@ -2343,7 +2270,7 @@ function renderSuggestions() {
 /** Clear the suggestion results entirely (new part, or a manual turn that
  *  invalidates the ranking). The disclosure chevron does NOT come through here --
  *  it only collapses/expands what's already there. */
-function hideSuggestions() {
+export function hideSuggestions() {
   el('suggest-list').hidden = true;
   el('suggest-list').replaceChildren();
   const note = el('suggest-note');
