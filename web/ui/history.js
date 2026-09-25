@@ -7,10 +7,11 @@
 import { el } from './dom.js';
 import { controls } from './scene.js';
 import { removedSigs, restoreRemovals, syncRemoveUI } from './remove.js';
+import { loadDir, replaceLoadDir, updateLoadArrowMesh, syncLoadUI } from './strength.js';
 import {
-  part, drawnWalls, loadDir, finMode, finsVisible, drawAugment,
-  setDrawnWalls, replaceLoadDir, setLayPlacing, setFinMode, setFinsVisible, setDrawAugment,
-  updateLoadArrowMesh, syncLoadUI, clearPreview, syncFinsToggleUI, syncAugmentUI,
+  part, drawnWalls, finMode, finsVisible, drawAugment,
+  setDrawnWalls, setLayPlacing, setFinMode, setFinsVisible, setDrawAugment,
+  clearPreview, syncFinsToggleUI, syncAugmentUI,
   syncDrawControls, setGizmo, hideSuggestions, shade, refreshFins,
 } from '../app.js';
 
