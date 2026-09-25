@@ -6,7 +6,8 @@ import * as THREE from 'three';
 import { suggestOrientations, layerVerdict } from '../orient.js';
 import { el } from './dom.js';
 import { histPush } from './history.js';
-import { part, topology, threshold, lastBuilt, materialDensity, fmtGrams, shade } from '../app.js';
+import { part, topology, threshold, lastBuilt, materialDensity, shade } from '../app.js';
+import { fmtGrams } from './readout.js';
 
 const _sm4 = new THREE.Matrix4();
 let suggestions = [];

@@ -11,8 +11,9 @@ import { el } from './dom.js';
 import { scene, renderer, camera, raycaster, pointer, meshFrom } from './scene.js';
 import {
   part, lastBuilt, finMesh, finsVisible, finMode, drawAugment, setDrawAugment, setFinTris,
-  updateReadout, updateFit, setGizmo, clearPreview, syncAugmentUI, syncDrawControls,
+  updateFit, setGizmo, clearPreview, syncAugmentUI, syncDrawControls,
 } from '../app.js';
+import { updateReadout } from './readout.js';
 import { histPush } from './history.js';
 
 // Auto fins are a flat triangle soup in ONE mesh, but each fin record now carries
