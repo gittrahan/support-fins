@@ -132,8 +132,13 @@ function makeFinWorker() {
     applyBuilt(e.data.built);
   };
   // A worker-level error must not leave the UI wedged (spinner up, fins greyed):
-  // drop to inline for next time and release the in-flight state now.
-  w.onerror = () => { finWorker = null; finBusy = false; clearSpinner(); };
+  // drop to inline for good, and rebuild the request it dropped inline now --
+  // otherwise the panel sits on "generating supports…" until the next change.
+  w.onerror = () => {
+    const dropped = finBusy;
+    finWorker = null; finBusy = false; clearSpinner();
+    if (dropped) refreshFins();
+  };
   return w;
 }
 
