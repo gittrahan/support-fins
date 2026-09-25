@@ -12,8 +12,9 @@ import {
   part, drawnWalls, finMode, finsVisible, drawAugment,
   setDrawnWalls, setLayPlacing, setFinMode, setFinsVisible, setDrawAugment,
   clearPreview, syncFinsToggleUI, syncAugmentUI,
-  syncDrawControls, setGizmo, hideSuggestions, shade, refreshFins,
+  syncDrawControls, setGizmo, shade, refreshFins,
 } from '../app.js';
+import { hideSuggestions } from './suggest.js';
 
 // A whole-state snapshot stack, not a command log. The undoable state is small
 // -- orientation plus the hand-drawn walls -- and restoring it re-runs the same

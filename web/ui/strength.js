@@ -7,7 +7,8 @@ import { loadAlignment, suggestStrengthPose } from '../orient.js';
 import { el } from './dom.js';
 import { scene } from './scene.js';
 import { histPush } from './history.js';
-import { part, topology, threshold, setGizmo, applySuggestion } from '../app.js';
+import { applySuggestion } from './suggest.js';
+import { part, topology, threshold, setGizmo } from '../app.js';
 
 // ------------------------------------------------------------------- load arrow
 //
