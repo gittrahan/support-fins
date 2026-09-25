@@ -222,23 +222,40 @@
        right clearance depends on the printer and the surface you care about, so it
        is exposed. Support gap = clearance between a support top and the part (bigger
        = cleaner surface / easier to remove, too big = stops holding the overhang).
-       Pad grip = how far the bed pad bites into a tilted part to keep it on the
-       plate (bigger = holds harder, too big = harder to snap off). -->
+       Bed pad = the pad under a part that barely touches the plate (PAD.style in
+       fins.js): Light is one layer standing 0.1mm off the part, like a slicer
+       brim; Sure hold is the thicker pad tacked into the part; Custom exposes
+       every pad number and is the only style that shows them. -->
   <details class="sec" data-sec="clearances">
     <summary><span class="sec-title">Clearances</span><span class="sec-sum" id="sum-clearances"></span></summary>
     <label class="fld row" title="Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.">
       <span>Support gap <span class="mut">mm</span></span>
       <input type="number" id="gap" min="0.1" max="0.4" step="0.05" value="0.2">
     </label>
-    <label class="check" title="A tilted part rests on an edge and peels off the plate without one.">
-      <input type="checkbox" id="bed-pad" checked>Add bed pad
+    <label class="fld row" title="A tilted part rests on an edge and peels off the plate without a pad. Light: one layer, 0.1mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove. Custom: set every number yourself.">
+      Bed pad
+      <select id="bed-pad">
+        <option value="off">Off</option>
+        <option value="light" selected>Light</option>
+        <option value="sure">Sure hold</option>
+        <option value="custom">Custom</option>
+      </select>
     </label>
-    <label class="check" title="Experimental. A one-layer pad that stands 0.1mm off the part, like a slicer brim, so it peels off instead of welding on. Replaces Pad grip.">
-      <input type="checkbox" id="pad-brim">Brim-style pad (experimental)
+    <label class="fld row" data-pad-custom hidden title="How tall the pad is. Only the first layer grips the plate; more layers make it stiffer and harder to peel.">
+      <span>Pad thickness <span class="mut">mm</span></span>
+      <input type="number" id="pad-h" min="0.1" max="1.0" step="0.05" value="0.2">
     </label>
-    <label class="fld row" id="padgrip-fld" title="How the bed pad meets a tilted part. Positive = bites in to hold harder; 0 = flush; negative = a gap that snaps off cleaner (the PETG default, since PETG welds hard). Default 0.05mm on PLA.">
+    <label class="fld row" data-pad-custom hidden title="Sideways clearance between the pad and the part's first layer. 0.1mm lets first-layer squish just close it, the way a slicer brim holds; bigger comes off easier and holds less.">
+      <span>Pad gap <span class="mut">mm</span></span>
+      <input type="number" id="pad-gap" min="0" max="0.5" step="0.05" value="0.1">
+    </label>
+    <label class="fld row" data-pad-custom hidden title="Where the pad meets the part's underside. Positive bites in to hold harder; 0 is flush; negative leaves a gap that snaps off cleaner.">
       <span>Pad grip <span class="mut">mm</span></span>
-      <input type="number" id="pad-grip" min="-0.2" max="0.3" step="0.05" value="0.05">
+      <input type="number" id="pad-grip" min="-0.2" max="0.3" step="0.05" value="0">
+    </label>
+    <label class="fld row" data-pad-custom hidden title="How far the pad spreads past the part's contact with the plate. More spread = more plate grip.">
+      <span>Pad spread <span class="mut">mm</span></span>
+      <input type="number" id="pad-margin" min="1" max="12" step="0.5" value="4">
     </label>
   </details>
 

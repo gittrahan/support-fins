@@ -1364,7 +1364,7 @@ function clearSpinner() {
 
 function finOpts() {
   return { mode: finMode === 'draw' ? 'prop' : finMode,
-           bedPad: el('bed-pad').checked,
+           bedPad: el('bed-pad').value !== 'off',
            tines: el('tines').checked,
            tineDensity: el('tine-density').valueAsNumber / 100,
            layerHeight: el('layer-height').valueAsNumber,
@@ -1376,7 +1376,8 @@ function finOpts() {
            // applyMaterial and the gap fields set on this page's copy (fins.js
            // applyTunables). Without this, Auto mode always built PLA's numbers.
            tunables: { finGap: FIN.gap, tineBite: FIN.tineBite, padH: FIN.padH,
-                       padGrab: PAD.grab, padBrim: PAD.brim, propGap: PROP.gap,
+                       padGrab: PAD.grab, padStyle: PAD.style, padCustom: { ...PAD.custom },
+                       propGap: PROP.gap,
                        cutout: CUT.pattern } };
 }
 
@@ -1840,14 +1841,40 @@ el('fin-mode').addEventListener('change', (e) => {
   setGizmo();
   refreshFins();
 });
-el('bed-pad').addEventListener('change', refreshFins);
-// The brim-style pad keeps its own gap, so Pad grip does nothing while it is on.
-function syncPadBrim() {
-  PAD.brim = el('pad-brim').checked;
-  el('pad-grip').disabled = PAD.brim;
+// Bed pad style (PAD.style in fins.js). Only Custom shows the pad's numbers; the
+// presets keep theirs fixed (Sure hold's follow the material profile). Switching
+// to Custom starts it from whichever preset was showing, so a tweak begins from
+// numbers that are known to print rather than from blanks.
+const PAD_FIELDS = { h: 'pad-h', gap: 'pad-gap', grip: 'pad-grip', margin: 'pad-margin' };
+function padPreset(style) {
+  return style === 'sure'
+    ? { h: FIN.padH, gap: 0, grip: PAD.grab, margin: FIN.padMargin }
+    : { h: el('layer-height').valueAsNumber || 0.2, gap: PAD.brimGap, grip: 0, margin: FIN.padMargin };
 }
-el('pad-brim').addEventListener('change', () => { syncPadBrim(); refreshFins(); });
-syncPadBrim();
+let padShown = el('bed-pad').value;
+function syncPadStyle() {
+  const v = el('bed-pad').value;
+  if (v === 'custom' && padShown !== 'custom') {
+    const p = padPreset(padShown);
+    for (const [k, id] of Object.entries(PAD_FIELDS)) el(id).value = +p[k].toFixed(2);
+    readPadCustom();
+  }
+  if (v !== 'off') PAD.style = v;
+  padShown = v;
+  for (const f of document.querySelectorAll('[data-pad-custom]')) f.hidden = v !== 'custom';
+  syncTineGrip();
+  syncSectionSums();
+}
+function readPadCustom() {
+  for (const [k, id] of Object.entries(PAD_FIELDS)) {
+    const input = el(id), v = input.valueAsNumber;
+    if (Number.isFinite(v)) PAD.custom[k] = Math.min(+input.max, Math.max(+input.min, v));
+  }
+}
+el('bed-pad').addEventListener('change', () => { syncPadStyle(); refreshFins(); });
+for (const id of Object.values(PAD_FIELDS)) {
+  el(id).addEventListener('input', () => { readPadCustom(); debouncedRefresh(); });
+}
 // A slider fires `input` on every pixel of a drag; on a big part one regenerate can
 // take a while, so re-running it per tick freezes the page mid-drag. Coalesce the
 // drag into a single rebuild once the value settles. `change` (fires on release) is
@@ -1864,13 +1891,15 @@ function debouncedRefresh(ms = 180) {
 function syncTineGrip() {
   const on = el('tines').checked;
   el('tinegrip-fld').hidden = !on;
-  el('layerh-fld').hidden = !on;
+  // The Light pad is one layer tall, so it reads the layer height too.
+  el('layerh-fld').hidden = !on && el('bed-pad').value !== 'light';
 }
 el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); });
 el('tine-density').addEventListener('input', () => debouncedRefresh());
 el('layer-height').addEventListener('input', () => debouncedRefresh());
 el('coverage').addEventListener('input', () => debouncedRefresh());
 syncTineGrip();
+syncPadStyle();
 
 // Sway braces: the switch sits in its section header (like Tines), and its three
 // settings only show while it is on, so an unused feature costs one line. The two
@@ -1908,7 +1937,6 @@ function wireGap(id, obj, key, lo, hi) {
   });
 }
 wireGap('gap', PROP, 'gap', 0.1, 0.4);
-wireGap('pad-grip', PAD, 'grab', -0.2, 0.3);
 
 // Wall cutouts (issue #34). CUT.pattern is read fresh by every wall sweep -- the
 // drawn walls here on the page, the auto walls in the Worker via tunables.
@@ -1945,7 +1973,6 @@ function applyMaterial(name) {
   // screen match what will actually print (and a later hand-tweak starts from the
   // material's baseline, not PLA's).
   el('gap').value = m.propGap;
-  el('pad-grip').value = m.padGrab;
   syncSectionSums();
 }
 
@@ -2000,7 +2027,7 @@ function syncSectionSums() {
     ? `${grip <= 20 ? 'light' : grip >= 80 ? 'firm' : 'medium'} grip · ${el('layer-height').value} mm`
     : 'off';
   el('sum-clearances').textContent =
-    `${el('gap').value} mm gap · pad ${el('bed-pad').checked ? 'on' : 'off'}`;
+    `${el('gap').value} mm gap · pad ${el('bed-pad').selectedOptions[0].textContent.toLowerCase()}`;
   const cut = el('cutout').value;
   el('sum-walls').textContent = cut === 'none' ? 'solid' : `${sel('cutout').toLowerCase()} cutouts`;
   el('sum-sway').textContent = el('sway').checked

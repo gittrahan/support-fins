@@ -98,6 +98,30 @@ welts.
   tined side fins in `fins.js` are never cut -- their tines anchor across the whole
   blade.
 
+## Bed pad styles — `PAD.style` in `web/fins.js`
+
+The pad goes under a part whose bed contact is under `padMinArea` (60 mm²), which is
+nearly every tilted part. **Printed, 2026-09-24:** a cube on its edge in **PETG** with
+one wedge and the Light pad held for the whole print, and the pad came off clean.
+
+| style | thickness | meets the part | why |
+|---|---|---|---|
+| **Light** (default) | **one layer** (the Layer height field) | **0.1 mm** sideways gap off the part's first-layer outline | a slicer brim: only the first layer grips the plate, so more layers add stiffness and weld height, never adhesion; the gap keeps pad and part as two regions, so perimeters run beside the part instead of solid infill through it |
+| **Sure hold** | `padH` 0.5 mm (PETG 0.3) | tacked `grab` 0.05 mm into the underside (PETG −0.1) | the original pad; slices as one merged region with the part on its first layers -- holds hardest, hard to remove |
+| **Custom** | Pad thickness | Pad gap (sideways) + Pad grip (vertical) | the Light mesh on the user's numbers; the only style that shows them |
+
+All three spread `padMargin` (4 mm) past the contact; Custom exposes that as Pad spread.
+Light and Custom are meshed on a 0.1 mm grid only across the band where the part comes
+within the pad's height (1.2 mm elsewhere), so the gap is not lost to interpolation.
+
+A **tined** pad (0.3 mm clearance bridged by one-layer tines) was tried first and
+dropped: on the first layer the slots were 0.1–0.3 mm, the perimeters around them
+squished together, and it still sliced as one fused piece.
+
+**Wedge feet** follow the same rule: the 0.6 mm flange stops where the part hangs less
+than footH + gap (0.8 mm) above it. It used to reach 3 mm past the wedge's low end,
+straight across a cube's edge, and fused with the part for three layers.
+
 ## Sway braces (tall parts) — `web/sway.js`
 
 Not from the video; an extension for tall, slender parts that drift, sag or wobble

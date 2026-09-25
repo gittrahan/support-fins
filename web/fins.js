@@ -688,7 +688,8 @@ export function applyTunables(t) {
   set(FIN, 'tineBite', t.tineBite);
   set(FIN, 'padH', t.padH);
   set(PAD, 'grab', t.padGrab);
-  if (typeof t.padBrim === 'boolean') PAD.brim = t.padBrim;
+  if (['light', 'sure', 'custom'].includes(t.padStyle)) PAD.style = t.padStyle;
+  if (t.padCustom) for (const k of Object.keys(PAD.custom)) set(PAD.custom, k, t.padCustom[k]);
   set(PROP, 'gap', t.propGap);
   // The wedge keeps its own copy of the clearance, so the Support gap field and the
   // PETG profile never reached it -- not even on the main thread, where everything
@@ -731,7 +732,15 @@ export const PAD = {
   // first-layer squish closes that gap just enough to hold. A tilted part's
   // flank still prints its second layer onto the pad's inner edge, but only a
   // strip ~layer/tan(tilt) wide, since the pad is only one layer tall.
-  brim: false,
+  //
+  // Three pad styles, picked in the UI (Bed pad):
+  //   'light' -- the brim-style pad above: one layer, brimGap off the part. The
+  //              default; it held a PETG cube on its edge and came off clean.
+  //   'sure'  -- the original conforming pad: padH thick, tacked `grab` into the
+  //              part. Holds harder, harder to remove.
+  //   'custom'-- the brim-style mesh with every number the user's (PAD.custom).
+  style: 'light',
+  custom: { h: 0.5, gap: 0.0, grip: 0.05, margin: 4.0 },
   brimGap: 0.1,     // mm off the part's first-layer outline (Orca's brim-object gap)
   brimCell: 0.1,    // mm mesh spacing; the gap is only as true as the mesh that
                     // samples it (the 1.2mm oval cells interpolate across it)
@@ -810,7 +819,8 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
     e1 = Math.max(e1, Math.abs(dx * ax + dy * ay));
     e2 = Math.max(e2, Math.abs(dx * bx + dy * by));
   }
-  const r1 = e1 + FIN.padMargin, r2 = e2 + FIN.padMargin;
+  const margin = PAD.style === 'custom' ? PAD.custom.margin : FIN.padMargin;
+  const r1 = e1 + margin, r2 = e2 + margin;
 
   // A CONFORMING ELLIPTICAL DISC, not a boxy grid. Matthew wanted the pad to read
   // as a clean oval, but it still has to duck under a tilted part's flank the way
@@ -835,7 +845,12 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
     // hold it, while gapping off across the rest of the footprint.
     return Math.max(0.05, Math.min(FIN.padH, low + PAD.grab));
   };
-  if (PAD.brim) return brimPad(partTris, contact, { cx, cy, ax, ay, bx, by, r1, r2 }, layerH, out);
+  const frame = { cx, cy, ax, ay, bx, by, r1, r2 };
+  if (PAD.style === 'light') return brimPad(partTris, contact, frame, layerH, PAD.brimGap, 0, out);
+  if (PAD.style === 'custom') {
+    const c = PAD.custom;
+    return brimPad(partTris, contact, frame, c.h, c.gap, c.grip, out);
+  }
   const nTheta = FIN.padSegs;
   const nRing = Math.max(2, Math.ceil(Math.max(r1, r2) / PAD.cell));
 
@@ -890,8 +905,10 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
 }
 
 /**
- * The BRIM-STYLE pad (PAD.brim): the same oval, one layer tall, standing
- * `brimGap` off the part's first-layer outline -- see PAD.brim for why.
+ * The BRIM-STYLE pad (PAD.style 'light', and 'custom'): the same oval, `H` tall
+ * (one layer for 'light'), standing `g` off the part's first-layer outline --
+ * see PAD.style for why. `grab` raises (or, negative, lowers) its top against
+ * the part's underside the way PAD.grab does for the 'sure' pad; 'light' uses 0.
  *
  * A slicer puts the part in the first layer wherever its underside is below the
  * layer's mid-height. The pad's top at a point is therefore set from the lowest
@@ -906,30 +923,50 @@ function buildPad(contact, partTris, out, layerH = FIN.tineH) {
  * smooth oval. The two tips close with a fan; the bottom is one flat fan (the
  * ellipse is convex).
  */
-function brimPad(partTris, contact, e, layerH, out) {
+function brimPad(partTris, contact, e, h, g, grab, out) {
   const { cx, cy, ax, ay, bx, by, r1, r2 } = e;
-  const H = Number.isFinite(layerH) && layerH > 0.05 ? layerH : FIN.tineH;
-  const g = PAD.brimGap;
+  const H = Number.isFinite(h) && h > 0.05 ? h : FIN.tineH;
   const ring = [];
-  for (let k = 0; k < 16; k++) ring.push([g * Math.cos(k * Math.PI / 8), g * Math.sin(k * Math.PI / 8)]);
+  if (g > 0) for (let k = 0; k < 16; k++) ring.push([g * Math.cos(k * Math.PI / 8), g * Math.sin(k * Math.PI / 8)]);
   const top = (x, y) => {
     let low = surfaceZAt(partTris, x, y) ?? Infinity;
     for (const [dx, dy] of ring) low = Math.min(low, surfaceZAt(partTris, x + dx, y + dy) ?? Infinity);
-    return Math.max(0.05, Math.min(H, low));
+    return Math.max(0.05, Math.min(H, low + grab));
   };
   const at = (s, t) => [cx + ax * s + bx * t, cy + ay * s + by * t];
   const vert = (s, t) => { const [x, y] = at(s, t); return [x, y, top(x, y)]; };
 
-  const h = PAD.brimCell;
-  const nS = Math.max(3, Math.ceil((2 * r1) / h) + 1);
-  const nT = Math.max(2, Math.ceil((2 * r2) / h) + 1);
+  // Rows are FRACTIONS of each column's half-width, shared by every column so
+  // the grid stays structured. They are fine (brimCell) only across the band
+  // where the part comes within the pad's height -- the only place the top is
+  // not flat -- found by a coarse scan, and 1.2mm apart elsewhere. A full fine
+  // grid was ~87k triangles on a 40mm cube and scales with the whole oval.
+  const cell = PAD.brimCell;
+  const nS = Math.max(3, Math.ceil((2 * r1) / cell) + 1);
+  const half = (s) => r2 * Math.sqrt(Math.max(0, 1 - (s / r1) ** 2));
+  let band = 0;
+  for (let s = -r1 + 0.25; s < r1; s += 0.5) {
+    const te = half(s);
+    if (te < cell) continue;
+    for (let t = 0; t <= te; t += cell) {
+      for (const sg of [1, -1]) {
+        const [x, y] = at(s, sg * t);
+        if (top(x, y) < H - 1e-9) band = Math.max(band, t / te);
+      }
+    }
+  }
+  const fine = cell / r2, coarse = Math.max(fine, 1.2 / r2);
+  const edge = Math.min(1, band + 2 * fine);
+  const fr = new Set([-1, 1]);
+  for (let f = 0; f <= edge + 1e-12; f += fine) { fr.add(+Math.min(f, 1).toFixed(9)); fr.add(-Math.min(+f.toFixed(9), 1)); }
+  for (let f = edge + coarse; f < 1; f += coarse) { fr.add(+f.toFixed(9)); fr.add(-(+f.toFixed(9))); }
+  const rows = [...fr].sort((a, b) => a - b);
+  const nT = rows.length;
   const cols = [];                     // interior columns i = 1 .. nS-2
   for (let i = 1; i < nS - 1; i++) {
     const s = -r1 + (2 * r1 * i) / (nS - 1);
-    const te = r2 * Math.sqrt(Math.max(0, 1 - (s / r1) ** 2));
-    const col = [];
-    for (let j = 0; j < nT; j++) col.push(vert(s, -te + (2 * te * j) / (nT - 1)));
-    cols.push(col);
+    const te = half(s);
+    cols.push(rows.map((f) => vert(s, te * f)));
   }
   const tipL = vert(-r1, 0), tipR = vert(r1, 0);
   const tris = [];
@@ -962,7 +999,7 @@ function brimPad(partTris, contact, e, layerH, out) {
   for (let i = 0; i < tris.length; i += 3) {
     if (vol < 0) out.push(tris[i], tris[i + 2], tris[i + 1]); else out.push(tris[i], tris[i + 1], tris[i + 2]);
   }
-  return { r1, r2, cells: cols.length * nT, height: H, points: contact.length, oval: true, brim: true };
+  return { r1, r2, cells: cols.length * nT, height: H, points: contact.length, oval: true, style: PAD.style };
 }
 
 /**

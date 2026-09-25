@@ -5,10 +5,18 @@
 
 import { loadModel, analyze, fins, isClosed, rotX, assert } from './_util.js';
 
+// Build with a pad style set for this call only (PAD.style is module state).
+function withStyle(style, fn) {
+  const s0 = fins.PAD.style;
+  fins.PAD.style = style;
+  try { return fn(); } finally { fins.PAD.style = s0; }
+}
+
+// These first tests pin the 'sure' pad (the conforming radial oval).
 function padOf(name, rot) {
   const topo = loadModel(name);
   const res = analyze(topo, 45, rot);
-  const built = fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true });
+  const built = withStyle('sure', () => fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true }));
   assert(built.padTriangles.length > 0, `expected a bed pad on ${name}`);
   return built;
 }
@@ -66,7 +74,7 @@ Deno.test('pad: watertight, and flagged as the oval mesh', () => {
 Deno.test('pad: a negative grab (PETG) gives a thinner GAP pad, still watertight', () => {
   const topo = loadModel('cube');
   const res = analyze(topo, 45, rotX(45));
-  const build = () => fins.buildFins(topo, res, rotX(45), { mode: 'auto', bedPad: true, tines: true });
+  const build = () => withStyle('sure', () => fins.buildFins(topo, res, rotX(45), { mode: 'auto', bedPad: true, tines: true }));
 
   // Highest point of the pad = its outboard rim (open-bed columns rise to padH).
   // The flat bottom sits at z=0, so isClosed carries the "every column positive"
@@ -88,7 +96,7 @@ Deno.test('pad: a negative grab (PETG) gives a thinner GAP pad, still watertight
   }
 });
 
-// The BRIM-STYLE pad (experimental, PAD.brim). The default pad is 2-3 layers and
+// The LIGHT pad (PAD.style 'light', the default): brim-style. The default pad is 2-3 layers and
 // merges with the part on the first layers -- a weld. The brim-style pad is ONE
 // layer and stands brimGap off the part's first-layer outline (the cube's long
 // side AND its vertical end faces), like a slicer brim. These pin the thickness,
@@ -97,10 +105,36 @@ function brimCube(layerHeight) {
   const topo = loadModel('cube');
   const rot = rotX(45);
   const res = analyze(topo, 45, rot);
-  fins.PAD.brim = true;
-  try { return fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true, layerHeight }); }
-  finally { fins.PAD.brim = false; }
+  return withStyle('light', () => fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true, layerHeight }));
 }
+
+Deno.test('pad: Light is the default style', () => {
+  assert(fins.PAD.style === 'light', `default pad style is ${fins.PAD.style}`);
+});
+
+// Custom runs the brim-style mesh on the user's numbers. Its thickness, grip and
+// spread must all reach the geometry -- a field the math ignores is a lie.
+Deno.test('pad (custom): thickness, spread and grip all reach the pad', () => {
+  const topo = loadModel('cube');
+  const rot = rotX(45);
+  const res = analyze(topo, 45, rot);
+  const c0 = { ...fins.PAD.custom };
+  const build = (c) => {
+    Object.assign(fins.PAD.custom, c);
+    try { return withStyle('custom', () => fins.buildFins(topo, res, rot, { mode: 'prop', bedPad: true })); }
+    finally { Object.assign(fins.PAD.custom, c0); }
+  };
+  const top = (b) => { let m = 0; for (const v of b.padTriangles) m = Math.max(m, v[2]); return m; };
+  // Highest pad point within 0.3mm of the edge line (the cube's underside z = |y|).
+  const nearTop = (b) => { let m = 0; for (const v of b.padTriangles) if (Math.abs(v[0]) < 19 && Math.abs(v[1]) < 0.3) m = Math.max(m, v[2]); return m; };
+  const base = { h: 0.5, gap: 0, grip: 0.05, margin: 4 };
+  const a = build(base), thick = build({ ...base, h: 0.8 }), wide = build({ ...base, margin: 8 });
+  const bite = build({ ...base, grip: 0.2 });
+  assert(isClosed(a.padTriangles), 'custom pad is not closed');
+  assert(Math.abs(top(a) - 0.5) < 1e-6 && Math.abs(top(thick) - 0.8) < 1e-6, `thickness ignored (${top(a)}, ${top(thick)})`);
+  assert(wide.pad.r2 - a.pad.r2 > 3.9, `spread ignored (r2 ${a.pad.r2} -> ${wide.pad.r2})`);
+  assert(nearTop(bite) > nearTop(a) + 0.1, `grip ignored (${nearTop(a).toFixed(2)} -> ${nearTop(bite).toFixed(2)})`);
+});
 
 Deno.test('pad (brim): one layer thick, whatever the layer height', () => {
   for (const lh of [0.2, 0.28]) {

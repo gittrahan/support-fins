@@ -33,6 +33,16 @@ fence around it.
 - added geometry is **watertight**;
 - a tilted part gets a **tined, gripping** fin.
 
+**`pad.test.js`** -- the bed pad styles (FIN-SPEC "Bed pad styles"):
+- **Sure hold** is a smooth oval that conforms under a tilted part's flank, stays
+  watertight, and thins into a gap on PETG numbers;
+- **Light** is the default, **one layer** thick at any layer height, and stands
+  ≥ 0.05 mm off the first-layer outline (long side AND end faces) while coming back
+  within ~0.3 mm -- a brim, not a moat;
+- **Custom**'s thickness, spread and grip all reach the geometry;
+- a **wedge foot** never runs under the part it braces (fails on the old foot,
+  which crossed a cube's edge).
+
 **`orient.test.js`** -- the orientation/strength logic behind the left rail (pure,
 no DOM), so a change to a verdict or a solver can't silently drift:
 - **`layerVerdict`** buckets a pose's posture -- tall = weak, flat = strong, on its
