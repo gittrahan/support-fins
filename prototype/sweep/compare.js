@@ -9,6 +9,11 @@
  * shows. A deliberate trade (e.g. fewer walls on purpose) still shows up here and
  * has to be explained in the PR; that's the point. `--changed` writes the keys of
  * every case that differs, for vs-base.sh to export and run check_stl.py on.
+ *
+ * Mesh identity is reported on its own line: `hash` (sweep.js) is left out of the
+ * metric comparison, so a base swept before hashes existed still compares on the
+ * metrics. A case whose metrics match but whose mesh differs counts as changed
+ * (the check_stl pass looks at it) and is listed under info.
  */
 const [baseF, headF] = Deno.args.filter((a) => !a.startsWith('--'));
 const ci = Deno.args.indexOf('--changed');
@@ -29,15 +34,21 @@ const LOWTINE_MM = 0.1;                       // lowest tine rising (base grip)
 const COV_PTS = 2, COV_HELD = 0.5;
 
 const blocking = { error: [], unserved: [], cov: [], wallLen: [], tines: [], lowTine: [], vanished: [] };
-const info = { traded: [], covUp: [], walls: [], squat: [], tinesUp: [], lenUp: [], lowTineDown: [], lowTopDown: [], grams: [] };
+const info = { mesh: [], traded: [], covUp: [], walls: [], squat: [], tinesUp: [], lenUp: [], lowTineDown: [], lowTopDown: [], grams: [] };
 const changed = [];
 let identical = 0;
-const strip = (r) => JSON.stringify({ ...r, ms: 0 });
+let hashed = 0, sameMesh = 0;
+const strip = (r) => JSON.stringify({ ...r, ms: 0, hash: undefined });
 
 for (const k of Object.keys(B)) {
   const b = B[k], h = H[k];
   if (!h) { blocking.vanished.push([k, 'case missing from head']); continue; }
-  if (strip(b) === strip(h)) { identical++; continue; }
+  const meshDiffers = b.hash != null && h.hash != null && b.hash !== h.hash;
+  if (b.hash != null && h.hash != null) { hashed++; if (!meshDiffers) sameMesh++; }
+  if (strip(b) === strip(h)) {
+    if (!meshDiffers) { identical++; continue; }
+    info.mesh.push([k, `${b.hash} -> ${h.hash}`]);
+  }
   changed.push(k);
   if (h.error && !b.error) { blocking.error.push([k, h.error]); continue; }
   if (b.error) continue;
@@ -65,6 +76,7 @@ for (const k of Object.keys(B)) {
 const sum = (D, f) => Object.values(D).reduce((s, r) => s + (r[f] || 0), 0);
 const n = Object.keys(B).length;
 console.log(`${n} cases: ${identical} identical, ${changed.length} changed`);
+console.log(hashed ? `meshes  ${sameMesh}/${hashed} byte-identical to base` : 'meshes  not compared (base run has no mesh hash)');
 console.log(`totals  tines ${sum(B, 'tines')} -> ${sum(H, 'tines')}   wall length ${Math.round(sum(B, 'wallLen'))} -> ${Math.round(sum(H, 'wallLen'))} mm` +
             `   plastic ${Math.round(sum(B, 'grams'))} -> ${Math.round(sum(H, 'grams'))} g   time ${sum(B, 'ms')} -> ${sum(H, 'ms')} ms`);
 const both = Object.keys(B).filter((k) => B[k].cov != null && H[k]?.cov != null);
@@ -72,6 +84,7 @@ const mean = (D) => (both.length ? (both.reduce((s, k) => s + D[k].cov, 0) / bot
 console.log(`mean overhang coverage ${mean(B)}% -> ${mean(H)}%  (${both.length} cases with overhangs)`);
 
 const LABEL = {
+  mesh: 'mesh changed, metrics identical',
   error: 'NEW CRASH', unserved: 'overhang region went UNSERVED', cov: `overhang coverage LOST (>${COV_PTS} pts)`,
   traded: 'tines/wall lost, coverage held (trade)', covUp: `overhang coverage gained (>${COV_PTS} pts)`,
   wallLen: 'wall length LOST (coverage fell)',
@@ -89,7 +102,7 @@ for (const [cat, rows] of Object.entries(blocking)) {
 console.log('\ninfo:');
 for (const [cat, rows] of Object.entries(info)) {
   console.log(`    ${LABEL[cat]}: ${rows.length}`);
-  if (cat === 'traded' && Deno.args.includes('--trades')) for (const [k, d] of rows) console.log(`      ${k.padEnd(40)} ${d}`);
+  if (cat === 'mesh' || (cat === 'traded' && Deno.args.includes('--trades'))) for (const [k, d] of rows) console.log(`      ${k.padEnd(40)} ${d}`);
 }
 
 if (changedOut) Deno.writeTextFileSync(changedOut, JSON.stringify(changed));

@@ -26,6 +26,12 @@ nothing, or loses >2 points of overhang coverage.
 
 **Info only:** wall count, squat walls, gains, plastic.
 
+**Mesh identity:** each case records a hash of its exact support mesh, and the
+report prints `meshes N/837 byte-identical to base`. A change that should alter
+nothing (moving code between modules) must show 837/837. A case whose metrics
+match but whose mesh moved is listed under info and still gets the check_stl
+pass.
+
 Why it exists: on 2026-09-22 a fix that looked perfect on the 35° cube was
 found (by an ad-hoc version of this) to cost tines on most parts and drop
 walls on others — nothing the one-part check or the unit tests could see.

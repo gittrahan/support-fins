@@ -12,6 +12,10 @@
  * cases; this looks at all of them. `--web` points at ANY checkout's web/ dir, so
  * the same script runs the base and the branch (vs-base.sh does both).
  *
+ * Each case also records `hash`, a fingerprint of the exact support mesh, so a
+ * refactor that should change nothing (moving code between modules) can prove it:
+ * compare.js reports how many meshes are byte-identical to the base.
+ *
  * Nothing here imports tests/_util.js: that resolves web/ relative to its own
  * checkout, which would silently run the branch's engine for the base.
  */
@@ -36,6 +40,24 @@ function readSTL(bytes) {
   }
   return pos;
 }
+// FNV-1a over the exact float64 bits of every vertex coordinate, in order. Any
+// change to the emitted mesh -- one vertex nudged by 1e-12, one triangle added or
+// reordered -- changes it, so a pure code move shows up as every case identical.
+const HASH_BUF = new DataView(new ArrayBuffer(8));
+function meshHash(...lists) {
+  let h = 0x811c9dc5;
+  for (const tris of lists) {
+    for (const v of tris) {
+      for (let k = 0; k < 3; k++) {
+        HASH_BUF.setFloat64(0, v[k]);
+        for (let b = 0; b < 8; b++) h = Math.imul(h ^ HASH_BUF.getUint8(b), 0x01000193);
+      }
+    }
+    h = Math.imul(h ^ 0xff, 0x01000193);          // list boundary: [a][b] != [a, b]
+  }
+  return (h >>> 0).toString(16).padStart(8, '0');
+}
+
 function writeSTL(tris) {                     // tris: flat list of [x,y,z] vertices
   const n = tris.length / 3;
   const buf = new ArrayBuffer(84 + n * 50);
@@ -180,6 +202,7 @@ for (const [name, pos] of models) {
           tris: b.triangles.length / 3,
           grams: r2(Math.abs(b.volume ?? 0) * 1.24 / 1000),
           cov: coverage(part, b.triangles),
+          hash: meshHash(b.triangles, b.padTriangles || []),
         };
         if (args.export) {
           // check_stl.py naming: <case>.stl (part+added), -part, -fins, -pad
