@@ -35,18 +35,18 @@ FLANK_MIN = 0.20
 OVERHANG_COS = np.cos(np.radians(45)) + 1e-4
 BED_EPS = 0.35
 # One dial, one owner: the generator's PROP.maxUnsupportedSpan is the value,
-# read out of prop.js so the checker cannot drift from it. The literal here is
+# read out of web/prop/config.js (PROP) so the checker cannot drift from it. The literal here is
 # only the fallback if the parse ever fails (and it warns when that happens).
 def _span_from_generator():
     import re, pathlib
-    prop_js = pathlib.Path(__file__).resolve().parent.parent / 'web' / 'prop.js'
+    prop_js = pathlib.Path(__file__).resolve().parent.parent / 'web' / 'prop' / 'config.js'
     try:
         m = re.search(r'maxUnsupportedSpan:\s*([0-9.]+)', prop_js.read_text())
         if m:
             return float(m.group(1))
     except OSError:
         pass
-    print('  ! could not read maxUnsupportedSpan from web/prop.js; using 12.0')
+    print('  ! could not read maxUnsupportedSpan from web/prop/config.js; using 12.0')
     return 12.0
 
 MAX_UNSUPPORTED_SPAN = _span_from_generator()   # mm; the dial M7b exposes
@@ -54,14 +54,14 @@ MAX_UNSUPPORTED_SPAN = _span_from_generator()   # mm; the dial M7b exposes
 
 def _baseh_from_generator():
     import re, pathlib
-    prop_js = pathlib.Path(__file__).resolve().parent.parent / 'web' / 'prop.js'
+    prop_js = pathlib.Path(__file__).resolve().parent.parent / 'web' / 'prop' / 'config.js'
     try:
         m = re.search(r'baseH:\s*([0-9.]+)', prop_js.read_text())
         if m:
             return float(m.group(1))
     except OSError:
         pass
-    print('  ! could not read baseH from web/prop.js; using 1.0')
+    print('  ! could not read baseH from web/prop/config.js; using 1.0')
     return 1.0
 
 
