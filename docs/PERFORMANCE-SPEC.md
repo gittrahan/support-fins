@@ -12,9 +12,10 @@ is pure mesh math (no DOM/three.js), so it profiles and runs headless with Deno.
 
 - `web/fins.js` — `buildFins()` entry; auto mode recurses to `mode:'prop'`, then
   adds wedges (`buildPerpFins`) and the bed pad (`buildPad`).
-- `web/prop.js` — `buildProps()` and the per-wall pipeline: `splitRegion`,
-  `patchTracks`, `sweep`, `settleTop`/`contourTop`/`lowerSag`, `stationIsClear`,
-  `stationCertified`, `emitTines`, `surfaceZAt` (already grid-accelerated).
+- `web/prop.js` — `buildProps()`, which drives the per-wall pipeline in `web/prop/`:
+  `splitRegion`/`patchTracks` (tracks.js), `sweep` (sweep.js),
+  `settleTop`/`contourTop`/`lowerSag` (contact.js), `stationIsClear`/`stationCertified`
+  (clearance.js), `emitTines` (tines.js), `surfaceZAt` (surface.js, already grid-accelerated).
 - `web/inside.js` — `insidePart`, `nearestPart` (both grid-accelerated, 64² YZ grid).
 
 Run headless: `deno run --allow-read <script.js>` (see profiling harness below).
