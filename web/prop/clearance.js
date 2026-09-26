@@ -42,7 +42,8 @@ export function stationIsClear(line, k, topo, rot, offset) {
   //
   // fins.js already learned this exact lesson -- "two fins came out 0.005mm from
   // a neighbouring feature: outside the part, so containment passed, and close
-  // enough to weld" -- and grew `wallIsClear` for it. Prop never got the
+  // enough to weld" -- and grew `wallIsClear` for it (since removed with the old
+  // leaning fin). Prop never got the
   // equivalent, so it is here: probe at the wall's half-width PLUS a margin, and
   // if the part is inside THAT, the station cannot carry a wall.
   //

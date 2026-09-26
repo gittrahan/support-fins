@@ -37,7 +37,7 @@ export function ribbon(secs, out) {
 /**
  * Extrude a CCW polygon (in the a,b plane of the right-handed frame a,b,c) from
  * c = lo to c = hi, emitting outward-wound triangles as vertex triples. The twin
- * of fins.js's `extrude`: the winding
+ * of the old fins.js `extrude` (since removed): the winding
  * only comes out consistently outward when (a,b,c) is right-handed, which every
  * caller below guarantees by construction.
  */

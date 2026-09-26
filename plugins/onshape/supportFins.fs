@@ -1378,7 +1378,8 @@ function propTineAt(context is Context, env is map, plan is map, c is ValueWithU
     return { "ok" : false };
 }
 
-// ─── Stabilize fins (web/fins.js buildFin, web/planes.js) ─────────────────────
+// ─── Stabilize fins (port of the old web/fins.js buildFin, since removed from
+//     the web engine; web/planes.js) ─────────────────────────────────────────
 
 /**
  * A fin stands BESIDE the part, parallel to a flat near-upright face and a gap

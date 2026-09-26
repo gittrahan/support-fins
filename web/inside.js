@@ -3,7 +3,8 @@
  * call while dragging.
  *
  * WHY THIS EXISTS. Fin placement searches with a proximity test: does any part
- * surface cross the slab the fin sweeps (fins.js `chooseSpan`). That is cheap
+ * surface cross the slab the fin sweeps (the old fins.js `chooseSpan`, since
+ * removed; prop/clearance.js is the caller now). That is cheap
  * and it is what lets the search consider thousands of windows. It is also not
  * quite the same question as "is this fin inside the part", and the gap between
  * the two showed up as a wall buried 2.6mm into a Voron housing that every
