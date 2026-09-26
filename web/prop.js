@@ -135,6 +135,18 @@ export const PROP = {
   // The patch path serves them correctly and always did. Real tube bands
   // measure 1,000+ mm2; 300 sits in the gap.
   tubeMinArea: 300,
+  // ...except a CONVEX band (a pipe, peg or chimney on its side), which takes
+  // the tube route down to this size -- the patch path shatters small curved
+  // bands into slivers and serves nothing. Concave pockets stay out: see
+  // convexAbout. tubeConvexFrac: share of the off-line area that must tilt
+  // away from the lowest line.
+  tubeSmallMinArea: 12,
+  // A small tube is short by nature (a 5 mm chimney is 7 mm long), and the one
+  // wall under it is its only support: minSpan's "not worth the plate space"
+  // would drop the whole feature. Such a wall may be this short.
+  minSpanTube: 3.0,
+  tubeConvexFrac: 0.7,
+  tubeTwoSidedFrac: 0.25,  // least share of the off-line area on either side
   // mm an overhang may bridge unsupported: the wall-to-wall spacing across a
   // wide patch, and the ONE dial M7b puts in front of the user. check_stl.py
   // reads this value out of this file (MAX_UNSUPPORTED_SPAN) so the checker and
@@ -310,7 +322,14 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
 
   let regionArea = 0;
   for (const f of faces) regionArea += area[f];
-  if (regionArea < PROP.tubeMinArea) return null;  // a pocket, not a tube
+  // Below tubeMinArea only a CONVEX tube may take this route (a pipe, peg or
+  // chimney lying on its side, checked once the lowest line is known below):
+  // the pockets tubeMinArea keeps out are concave, and a small convex band
+  // has no other way in -- splitRegion's 15-degree cut shatters it into facet
+  // strips under MIN_REGION_AREA, every strip is dropped as a sliver, and the
+  // region goes unserved (3DBenchy's chimney on its side: 28 mm2, 0 walls).
+  const small = regionArea < PROP.tubeMinArea;
+  if (small && regionArea < PROP.tubeSmallMinArea) return null;
 
   // area-weighted mean normal, in print space
   let mx = 0, my = 0, mz = 0, A = 0;
@@ -352,7 +371,10 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
   }
   const diag = Math.hypot(dHi[0] - dLo[0], dHi[1] - dLo[1]);
   const nSamples = Math.max(8, Math.min(400, Math.ceil(diag / step)));
-  const rough = contactLine(pts, regionTris, nSamples);
+  // A small tube is often meshed as a few long strips (a CAD export's cylinder:
+  // every facet runs end to end), so its vertices sit only at the two ends and
+  // the per-bucket lowest point zigzags across the line. Sample the edges too.
+  const rough = contactLine(small ? edgePoints(regionTris, pts, step / 2) : pts, regionTris, nSamples);
   if (!rough || straightness(rough) > PROP.maxWander) return null;  // a ring, not a tube
 
   // So RESAMPLE it the way patchTracks samples a track: fit the XY axis
@@ -380,6 +402,7 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
     if (u > uHi) uHi = u;
   }
   if (uHi - uLo < 1e-6) return null;
+  if (small && !convexAbout(rn, regionTris, cx, cy, ux, uy)) return null;  // a pocket
   const nSt = Math.max(2, Math.min(400, Math.ceil((uHi - uLo) / step)));
 
   const lines = [];
@@ -396,6 +419,59 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
   }
   if (cur.length) lines.push(cur);
   return lines.filter((t) => t.length >= PROP.minStations);
+}
+
+/** `pts` plus points every <= `gap` mm along every edge of `tris`. */
+function edgePoints(tris, pts, gap) {
+  const out = pts.slice();
+  for (let t = 0; t < tris.length; t += 9) {
+    for (let e = 0; e < 3; e++) {
+      const a = t + e * 3, b = t + ((e + 1) % 3) * 3;
+      const len = Math.hypot(tris[b] - tris[a], tris[b + 1] - tris[a + 1], tris[b + 2] - tris[a + 2]);
+      const n = Math.ceil(len / gap);
+      for (let k = 1; k < n; k++) {
+        const u = k / n;
+        out.push([tris[a] + (tris[b] - tris[a]) * u, tris[a + 1] + (tris[b + 1] - tris[a + 1]) * u,
+                  tris[a + 2] + (tris[b + 2] - tris[a + 2]) * u]);
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * Is this curved band the underside of a small TUBE -- a pipe, peg or chimney
+ * lying on its side? Two tests, both area-weighted over the faces off the line
+ * so a few odd facets can't flip them:
+ *
+ *  - CONVEX: seen across the line in plan, a pipe's faces tilt away from its
+ *    lowest line; a pocket's ceiling (concave) tilts back toward it.
+ *  - TWO-SIDED: a pipe's underside wraps the line, with band on both sides of
+ *    it. A rounded EDGE (a roof's front, a fillet) is convex too, but its lowest
+ *    line runs along the band's lower border, with the band all on one side and
+ *    the part's own face carrying on down past it. A wall under that line meets
+ *    that face, not air (3DBenchy at Y35: a new wall under the cabin roof's
+ *    edge fused 0.09 mm into the part before this test).
+ *
+ * rn: [[normal, area], ...] in print space, in the same order as regionTris.
+ * (cx, cy, ux, uy): a point on the lowest line and its unit direction in plan.
+ */
+function convexAbout(rn, regionTris, cx, cy, ux, uy) {
+  const wx = -uy, wy = ux;                 // across the line, in plan
+  let away = 0, toward = 0, left = 0, right = 0;
+  for (let k = 0; k < rn.length; k++) {
+    const t = k * 9;
+    const gx = (regionTris[t] + regionTris[t + 3] + regionTris[t + 6]) / 3;
+    const gy = (regionTris[t + 1] + regionTris[t + 4] + regionTris[t + 7]) / 3;
+    const d = (gx - cx) * wx + (gy - cy) * wy;     // which side, how far
+    if (Math.abs(d) < 0.05) continue;              // on the line: no vote
+    const [n, a] = rn[k];
+    const s = (n[0] * wx + n[1] * wy) * Math.sign(d);
+    if (s > 0) away += a; else toward += a;
+    if (d > 0) left += a; else right += a;
+  }
+  return away > PROP.tubeConvexFrac * (away + toward)
+      && Math.min(left, right) > PROP.tubeTwoSidedFrac * (left + right);
 }
 
 /**
@@ -2095,7 +2171,7 @@ export function buildProps(topo, result, rot, opts = {}) {
     const tube = tubeLine(topo, rFaces, rot, regionPts, regionTris, step);
     if (tube && tube.length) {
       patches.push({ faces: rFaces, area: regionArea, region: ri,
-                     tris: regionTris, lines: tube });
+                     tris: regionTris, lines: tube, smallTube: regionArea < PROP.tubeMinArea });
       continue;
     }
 
@@ -2151,6 +2227,17 @@ export function buildProps(topo, result, rot, opts = {}) {
       // the plate path's own `line` is untouched.
       const tri0 = out.length;
       const pa = buildPartAttached(line, partTris, topo, rot, off, out);
+      if (pa.ok && patch.smallTube) {
+        // A small tube's line is new to this path, so hold its wall to the same
+        // measured clearance the plate path demands (see the sweep below): on
+        // 3DBenchy at Y35 an unchecked one fused 0.09 mm into the cabin roof.
+        const hit = solidClearance(topo, rot, off, out.slice(tri0), 0.25);
+        if (hit && (hit.cosUp > 0.7 ? hit.d < PROP.gap - 0.065 : hit.d < 0.205)) {
+          out.length = tri0;
+          skipped.weld++;
+          continue;
+        }
+      }
       if (pa.ok) {
         servedRegions.add(patch.region);
         // pa.prop.line already carries the wall top (surface minus gap); add the
@@ -2221,7 +2308,7 @@ export function buildProps(topo, result, rot, opts = {}) {
       const sub = line.slice(run[0], run[1]);
 
       const body = bodyMask(sub);               // before settleTop -- see bodyMask
-      if (tallSpan(sub, body) < PROP.minSpan) { skipped.stub++; runSquat(); continue; }
+      if (tallSpan(sub, body) < (patch.smallTube ? PROP.minSpanTube : PROP.minSpan)) { skipped.stub++; runSquat(); continue; }
 
       // Last, on the trimmed run only: put the closest approach exactly on spec.
       // It runs here rather than earlier because trimming changes which part of
@@ -2255,7 +2342,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         const span2 = Math.hypot(settled[settled.length - 1][0] - settled[0][0],
                                  settled[settled.length - 1][1] - settled[0][1]);
         const settledBody = body.slice(run2[0], run2[1]);
-        if (tallSpan(settled, settledBody) < PROP.minSpan) { reason = 'stub'; break; }
+        if (tallSpan(settled, settledBody) < (patch.smallTube ? PROP.minSpanTube : PROP.minSpan)) { reason = 'stub'; break; }
 
         const before = out.length;
         if (!sweep(settled, zBed, out, PROP.minHeightSquat)) {

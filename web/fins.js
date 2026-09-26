@@ -27,7 +27,7 @@
  * flat in a leaning frame is not flat in z.
  */
 import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js';
-import { BED_EPS } from './overhangs.js';
+import { BED_EPS, floatingPieces } from './overhangs.js';
 import { insidePart } from './inside.js';
 import { buildProps, noProps, surfaceZAt, emitTines, tineStepFor, PROP } from './prop.js';
 import { buildSwayBraces } from './sway.js';
@@ -1577,6 +1577,14 @@ function unservedAfterWedges(topo, rot, result, servedRegions, wedgeTris) {
  * @param opts.bedPad   add the pad when bed contact is too small to hold
  */
 export function buildFins(topo, result, rot, opts = {}) {
+  const built = buildFinsAndBraces(topo, result, rot, opts);
+  // A piece of the part that starts in mid-air (a cut clean through, a loose
+  // body) needs saying no matter what was placed: see floatingPieces.
+  built.floating = floatingPieces(topo, result, rot);
+  return built;
+}
+
+function buildFinsAndBraces(topo, result, rot, opts = {}) {
   applyTunables(opts.tunables);
   const built = buildFinsCore(topo, result, rot, opts);
   // Sway braces are an optional ADD-ON to whatever the mode placed (sway.js): a
