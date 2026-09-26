@@ -28,7 +28,7 @@ TINE_MAX_H = 0.45   # mm; a tine is one layer (tineH 0.2) -- two layers is alrea
 STANDOFF = 0.2
 # The project's own non-fusing clearance, same number as the breakaway gap: if
 # 0.2mm is enough for the part to bridge over the top without welding, it is
-# enough beside a flank. prop.js targets 0.35 so there is margin to lose.
+# enough beside a flank. PROP.sideClear targets 0.35 so there is margin to lose.
 FLANK_MIN = 0.20
 
 # Mirrors web/overhangs.js constant-for-constant, same as spike_overhangs.py.
@@ -164,7 +164,7 @@ def check(case):
     pq = trimesh.proximity.ProximityQuery(part)
 
     walls = [b for b in added if b.volume > WALL_MIN_VOL]
-    # A tine is ONE LAYER tall by design (prop.js tineH) -- so small AND flat.
+    # A tine is ONE LAYER tall by design (PROP.tineH) -- so small AND flat.
     # Volume alone misread a short squat wall (a 5mm low-ledge wall is ~5mm3,
     # ~1mm tall) as a tine that "bites nothing, detached from wall" (torus X45).
     # Anything small but taller than a tine is wall-like: it joins `walls` for

@@ -1,5 +1,5 @@
 /**
- * Closed-solid emitters shared by the wall builders (prop.js) and the wall
+ * Closed-solid emitters shared by the wall builders (web/prop/) and the wall
  * cutouts (cutout.js). Pure mesh math: each takes cross-sections or a polygon
  * and pushes outward-wound triangles, as vertex triples, onto `out`.
  */

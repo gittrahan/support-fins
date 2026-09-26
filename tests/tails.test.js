@@ -1,5 +1,5 @@
 // Low TAILS: a tall wall now runs on down the slope to the squat floor instead of
-// stopping at the first station >= minHeight (see prop.js withLowTails). That fix
+// stopping at the first station >= minHeight (see prop/clearance.js withLowTails). That fix
 // reached the part's bottom edge on the first try, but a sweep of every model x
 // pose x coverage against the pre-tail build turned up six side effects -- each
 // pinned here so it can't creep back. Values are what the pre-tail build did; the

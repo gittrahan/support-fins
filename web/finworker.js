@@ -1,6 +1,6 @@
 // Off-main-thread support generation.
 //
-// buildFins -- and everything it imports (prop.js, inside.js, planes.js,
+// buildFins -- and everything it imports (prop.js + web/prop/, inside.js, planes.js,
 // overhangs.js) -- is pure mesh math with no DOM or three.js dependency; that is
 // exactly why prototype/verify_fins.js can run it headless. So the whole build
 // moves into a Worker. On a large or badly-posed part a single build can take a

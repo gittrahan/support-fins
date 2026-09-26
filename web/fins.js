@@ -37,7 +37,7 @@ export const FIN = {
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
   gap: 0.2,           // standoff from the part face
   tineH: 0.2,         // = slicer layer height: a tine must be ONE layer so it prints
-                      // as a single continuous bead (see prop.js tineH / FIN-SPEC)
+                      // as a single continuous bead (see prop/config.js tineH / FIN-SPEC)
   tineW: 0.5,         // between one nozzle pass (0.4) and out-and-back (0.8)
   baseH: 1.0,         // base disc thickness
   rowsLow: 8,         // tine rows in the dense zone -- "7 or 8 low down"
@@ -1522,7 +1522,7 @@ function propServesPatch(p, props) {
   const m = 8;
   for (const q of props) {
     for (const pt of (q.line ?? [])) {
-      // A tall wall's low TAIL (prop.js withLowTails) runs down into the corner
+      // A tall wall's low TAIL (prop/clearance.js withLowTails) runs down into the corner
       // where this face may meet the one the wall serves; its sub-minHeight tip
       // landing in the margin is not a wall under this face (it dropped the wedge
       // on a steep cube face). Squat props are low by design and still count.

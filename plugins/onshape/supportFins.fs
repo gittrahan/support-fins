@@ -174,7 +174,7 @@ const BED_EPS         = 0.35 * millimeter;        // a face this close to the pl
 const MIN_REGION_AREA = 12.0 * millimeter ^ 2;    // ignore slivers
 const ANGLE_EPS       = 1e-4;                     // a face exactly on the threshold is self-supporting
 
-// Overhang prop -- web/prop.js PROP
+// Overhang prop -- web/prop/config.js PROP
 const PROP_TH           = 1.0 * millimeter;       // stem thickness
 const PROP_TIP          = 0.6 * millimeter;       // contact tip thickness
 const PROP_TIP_H        = 1.5 * millimeter;       // height of the necked tip

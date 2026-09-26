@@ -1,7 +1,7 @@
 /**
  * WALL CUTOUTS (issue #34) -- holes through a breakaway wall to save filament.
  *
- * prop.js sweeps each wall as per-station cross-sections and hands them here;
+ * prop/sweep.js sweeps each wall as per-station cross-sections and hands them here;
  * cutWall either emits the wall with holes or returns false, and the caller
  * emits it solid as before. Everything is in the wall's own (s, z) plane: s runs
  * along the wall, z up. The pattern choice lives here (CUT.pattern), set by the
@@ -313,7 +313,7 @@ function stripSolid(s0, s1, zb, zt, obst) {
  * Emit `st` (per-station wall data from sweep / sweepBetween) as a wall with
  * CUT.pattern holes, or return false to have the caller emit its solid ribbon.
  * `full` is the caller's solid sections, reused for the end posts; `wall` the
- * wall's own numbers (prop.js PROP: th, tip, minStations).
+ * wall's own numbers (prop/config.js PROP: th, tip, minStations).
  */
 export function cutWall(st, full, out, wall) {
   const kind = CUT.pattern;
