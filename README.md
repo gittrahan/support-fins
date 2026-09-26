@@ -166,7 +166,7 @@ yet. Kept in the repo for reference only. Use the browser app instead. See `plug
 
 ```
 web/         the browser app (live at printfins.com)
-plugins/     slicer/CAD integrations (PrusaSlicer, OrcaSlicer, Onshape)
+plugins/     slicer/CAD integrations (PrusaSlicer, OrcaSlicer, Onshape, Autodesk Fusion)
 prototype/   Python/trimesh proof of concept the engine was ported from
 docs/        FIN-SPEC.md — the verified fin geometry, with sources
 tests/       offline geometry regression suite

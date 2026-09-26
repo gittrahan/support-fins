@@ -12,3 +12,10 @@ dev-models/
 prototype/stress/models/*
 !prototype/stress/models/*.stl
 plugins/orca/build/
+# Fusion add-in: its saved settings and VS Code files are per machine
+plugins/fusion/SupportFins/settings.json
+plugins/fusion/SupportFins/.env
+plugins/fusion/SupportFins/.vscode/
+plugins/fusion/build/
+plugins/fusion/SupportFins/engine/
+plugins/fusion/SupportFins/lib/

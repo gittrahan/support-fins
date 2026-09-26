@@ -1,0 +1,13 @@
+{
+	"autodeskProduct": "Fusion",
+	"type": "addin",
+	"id": "6f0c3a52-8e7b-4d3e-9a51-2b7c1f4e9d10",
+	"author": "Mitch Milam, MorbidJ-hub",
+	"description": {
+		"": "printfins.com supports that live in the model. Insert Support Fins: the website's breakaway fins and bed pad under a part's overhangs. Insert Sway Brace: tapered buttress ribs, tied on with one-layer tines, that keep tall parts from swaying as they print."
+	},
+	"version": "0.4.6",
+	"runOnStartup": false,
+	"supportedOS": "windows|mac",
+	"editEnabled": true
+}
