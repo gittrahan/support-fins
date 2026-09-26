@@ -10,23 +10,6 @@ import { insidePart } from '../inside.js';
 import { boxExtrude } from '../solids.js';
 import { PROP } from './config.js';
 
-/**
- * Lay a comb of grip tines along a placed wall's top, biting a hair into the
- * part, and return how many actually landed.
- *
- * `line` is the wall's settled TOP contour (each station's z is the part surface
- * directly above it; the wall's own top sits `gap` under that). A tine is one
- * layer-tall nub that reaches horizontally off the wall top into the part. The
- * direction is chosen, not assumed: the part material adjacent to the top lies
- * DOWN-slope (where the underside is lower, the wall-top height is already inside
- * the solid), so the emitter tries both run directions and keeps whichever puts
- * the nub's tip inside the part -- and emits nothing where neither does, which is
- * the honest "this face is too shallow to grip" case a horizontal tine has by
- * nature (fins.js's tineSpanMax rule, expressed as a containment test here).
- *
- * Nubs are the wall's own thickness wide and overlap back into it, so the slicer
- * unions them onto the wall the same way every other solid here is unioned.
- */
 /** Squared distance from point p to triangle (a,b,c). Ericson closest-point. */
 function ptTriDist2(p, a, b, c) {
   const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];
@@ -106,6 +89,23 @@ export function tineStepFor(density) {
   return PROP.tineStepSparse - d * (PROP.tineStepSparse - PROP.tineStep);
 }
 
+/**
+ * Lay a comb of grip tines along a placed wall's top, biting a hair into the
+ * part, and return how many actually landed.
+ *
+ * `line` is the wall's settled TOP contour (each station's z is the part surface
+ * directly above it; the wall's own top sits `gap` under that). A tine is one
+ * layer-tall nub that reaches horizontally off the wall top into the part. The
+ * direction is chosen, not assumed: the part material adjacent to the top lies
+ * DOWN-slope (where the underside is lower, the wall-top height is already inside
+ * the solid), so the emitter tries both run directions and keeps whichever puts
+ * the nub's tip inside the part -- and emits nothing where neither does, which is
+ * the honest "this face is too shallow to grip" case a horizontal tine has by
+ * nature (fins.js's tineSpanMax rule, expressed as a containment test here).
+ *
+ * Nubs are the wall's own thickness wide and overlap back into it, so the slicer
+ * unions them onto the wall the same way every other solid here is unioned.
+ */
 export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
                           minTop = PROP.baseH + 0.2, tineH = PROP.tineH, body = null) {
   if (line.length < 2) return 0;

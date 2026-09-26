@@ -23,6 +23,22 @@
  * watertight) and then retired for the wrong reason. What is new here is the
  * judgement around it: a prop is only emitted where the wall can actually reach
  * the plate through open air.
+ *
+ * LAYOUT. This file is the entry point: `buildProps` (the auto-placer's whole
+ * pass over a part), `noProps`, `coverRowSpan`, and re-exports of everything
+ * fins.js, draw.js, ui/ and the tests import. The pieces live in web/prop/:
+ *
+ *   config.js     PROP, every number a wall is built from
+ *   surface.js    seat a vertex; part surface height(s) above (x, y)
+ *   contact.js    the contact line under an overhang, settled to exactly `gap`
+ *   sweep.js      the wall solid: the upside-down T, and a part-attached wall
+ *   clearance.js  which stations can carry a wall (reach, certification, runs)
+ *   tines.js      the grip comb along a wall's top
+ *   tracks.js     where Suggest puts walls: straight patches, tracks, tube line
+ *   attached.js   walls that stand on the part instead of the plate
+ *   squat.js      brimmed squat walls for the near-bed band
+ *
+ * Each module imports only modules above it in this list and never prop.js.
  */
 import { solidClearance } from './inside.js';
 import { MIN_REGION_AREA } from './overhangs.js';
@@ -36,8 +52,7 @@ import { sweep } from './prop/sweep.js';
 import { emitTines, tineStepFor } from './prop/tines.js';
 import { patchTracks, splitRegion, tubeLine } from './prop/tracks.js';
 
-// Moved into web/prop/ (one module per concern); re-exported here so every
-// importer of prop.js is unchanged.
+// Re-exported so fins.js, draw.js, ui/ and the tests import from prop.js alone.
 export { PROP } from './prop/config.js';
 export { splitRegion, tubeLine, patchTracks } from './prop/tracks.js';
 export { straightness, contactLine, lowerSag, contourTop, settleTop } from './prop/contact.js';
