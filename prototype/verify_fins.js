@@ -50,7 +50,7 @@ function rotX(deg) {
 
 const path = Deno.args[0];
 const tilt = Number(Deno.args[1] ?? 30);
-const mode = Deno.args[3] ?? 'stabilize';
+const mode = Deno.args[3] ?? 'auto';
 const pos = readBinarySTL(Deno.readFileSync(path));
 
 // the browser hands buildTopology a three.js BufferGeometry; it only ever reads

@@ -1,7 +1,8 @@
 /**
  * PROTOTYPE (render-and-look): the "combined support" Matthew wants -- a thin
  * wall that follows a sloped OVERHANG face 0.2mm off, with horizontal tines
- * fusing it to the part. This is the wall+tines core of fins.js buildFin, but
+ * fusing it to the part. This is the wall+tines core of the old fins.js buildFin
+ * (since removed; git history has it), but
  * gate-free and driven off the overhang faces directly, so I can SEE the shape
  * on a tilted part before wiring it into the tool. Not shipping code.
  */
