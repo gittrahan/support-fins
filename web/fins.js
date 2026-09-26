@@ -27,11 +27,11 @@
  * flat in a leaning frame is not flat in z.
  */
 import { findWallPatches, patchProbe, patchPoint, zAt } from './planes.js';
-import { BED_EPS } from './overhangs.js';
 import { buildProps, noProps, surfaceZAt, emitTines, tineStepFor, PROP } from './prop.js';
 import { buildSwayBraces } from './sway.js';
 import { CUT, CUTOUT_PATTERNS } from './cutout.js';
 import { FIN } from './fins/config.js';
+import { bedContact, seatedPartTris, seatingOf } from './fins/seating.js';
 
 // Moved into web/fins/ (one module per concern); re-exported here so every
 // importer of fins.js is unchanged.
@@ -142,6 +142,29 @@ export const PAD = {
 };
 
 /**
+ * The part's first-layer outline: its section at the layer's mid-height (where a
+ * slicer cuts), as a flat [x0, y0, x1, y1, ...] segment list, plus its length.
+ */
+function firstLayerOutline(partTris, zc) {
+  const segs = [];
+  let length = 0;
+  for (let i = 0; i < partTris.length; i += 9) {
+    const pts = [];
+    for (let a = 0; a < 3; a++) {
+      const p = i + a * 3, q = i + ((a + 1) % 3) * 3;
+      const za = partTris[p + 2] - zc, zb = partTris[q + 2] - zc;
+      if ((za < 0) === (zb < 0)) continue;
+      const t = za / (za - zb);
+      pts.push([partTris[p] + t * (partTris[q] - partTris[p]), partTris[p + 1] + t * (partTris[q + 1] - partTris[p + 1])]);
+    }
+    if (pts.length !== 2) continue;
+    segs.push(pts[0][0], pts[0][1], pts[1][0], pts[1][1]);
+    length += Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]);
+  }
+  return { segs, length };
+}
+
+/**
  * A breakaway pad under the part's bed contact.
  *
  * Not a nicety: a part tilted into a strong orientation rests on an EDGE, so its
@@ -165,51 +188,6 @@ export const PAD = {
  * tack that connects without the deep weld. The disc is one watertight solid (top
  * cap + flat bottom + side wall), so there are no cells to drop and no holes.
  */
-/**
- * The whole part, seated into print space, as a flat triangle array -- what
- * `surfaceZAt` needs to know how low the part hangs over each pad cell. Built
- * only when a pad is actually wanted (small bed contact), so the full-mesh pass
- * is not paid on every well-seated part.
- */
-function seatedPartTris(topo, rot, offset) {
-  const { pos, nFaces } = topo;
-  const { x: ox, y: oy, z: oz } = offset;
-  const tris = new Float64Array(nFaces * 9);
-  for (let f = 0; f < nFaces; f++) {
-    for (let i = 0; i < 3; i++) {
-      const o = f * 9 + i * 3;
-      const x = pos[o], y = pos[o + 1], z = pos[o + 2];
-      tris[o] = rot[0] * x + rot[3] * y + rot[6] * z + ox;
-      tris[o + 1] = rot[1] * x + rot[4] * y + rot[7] * z + oy;
-      tris[o + 2] = rot[2] * x + rot[5] * y + rot[8] * z + oz;
-    }
-  }
-  return tris;
-}
-
-/**
- * The part's first-layer outline: its section at the layer's mid-height (where a
- * slicer cuts), as a flat [x0, y0, x1, y1, ...] segment list, plus its length.
- */
-function firstLayerOutline(partTris, zc) {
-  const segs = [];
-  let length = 0;
-  for (let i = 0; i < partTris.length; i += 9) {
-    const pts = [];
-    for (let a = 0; a < 3; a++) {
-      const p = i + a * 3, q = i + ((a + 1) % 3) * 3;
-      const za = partTris[p + 2] - zc, zb = partTris[q + 2] - zc;
-      if ((za < 0) === (zb < 0)) continue;
-      const t = za / (za - zb);
-      pts.push([partTris[p] + t * (partTris[q] - partTris[p]), partTris[p + 1] + t * (partTris[q + 1] - partTris[p + 1])]);
-    }
-    if (pts.length !== 2) continue;
-    segs.push(pts[0][0], pts[0][1], pts[1][0], pts[1][1]);
-    length += Math.hypot(pts[1][0] - pts[0][0], pts[1][1] - pts[0][1]);
-  }
-  return { segs, length };
-}
-
 function buildPad(contact, partTris, out, layerH = FIN.tineH) {
   if (contact.length < 3) return null;
 
@@ -500,70 +478,6 @@ export function gripPatches(topo, result, rot) {
   const faceMap = new Map();
   for (const p of patches) for (const f of p.faces) if (!faceMap.has(f)) faceMap.set(f, p);
   return { patches, faceMap };
-}
-
-/**
- * The part's bed-contact points and its area-weighted centre of mass.
- *
- * Contact comes from VERTICES under BED_EPS, not from bed-flagged faces: a part
- * tilted onto an edge has no face on the plate at all, which is exactly the case
- * the bed pad exists for.
- */
-function bedContact(topo, result, rot) {
-  const { pos, nFaces, area } = topo;
-  const { x: ox, y: oy, z: oz } = result.offset;
-  let mx = 0, my = 0, mw = 0;
-  const pts = [];
-  for (let f = 0; f < nFaces; f++) {
-    let gx = 0, gy = 0;
-    for (let i = 0; i < 3; i++) {
-      const o = f * 9 + i * 3;
-      const x = pos[o], y = pos[o + 1], z = pos[o + 2];
-      const wx = rot[0] * x + rot[3] * y + rot[6] * z + ox;
-      const wy = rot[1] * x + rot[4] * y + rot[7] * z + oy;
-      const wz = rot[2] * x + rot[5] * y + rot[8] * z + oz;
-      gx += wx; gy += wy;
-      if (wz < BED_EPS) pts.push([wx, wy]);
-    }
-    mx += (gx / 3) * area[f]; my += (gy / 3) * area[f]; mw += area[f];
-  }
-  if (mw > 0) { mx /= mw; my /= mw; }
-  return { pts, mx, my };
-}
-
-/**
- * HOW the part meets the plate: on a face, on an edge, or on a single point.
- *
- * This is the question neither support mode was asking, and it is the one that
- * explains hub_post_foot. That part has 0.0 mm^2 of bed contact at EVERY tilt
- * from 0 to 165 degrees -- it balances on the tip of its own tapered foot -- so
- * every overhang on it sits 70-100mm in the air. Stabilize finds nothing to grip
- * and Prop wants a 100mm scaffold, and both then reported some local reason
- * ("no flat face", "part in the way") that sent the user off tuning the wrong
- * thing. The actionable truth is upstream of both: nothing you add to a part
- * balanced on a point will hold it, because the support has nothing to work
- * against. Rotate it until it sits down.
- *
- * A tilted-onto-an-EDGE part is the flagship Stabilize case and must not be
- * caught by this -- it also has ~0 bed area, but its contact is a long line, not
- * a dot. So the discriminator is the footprint's extent, not its area.
- */
-const POINT_FOOTPRINT = 2.0;      // mm; contact narrower than this is a point
-
-function seatingOf(result, contactPts) {
-  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-  for (const [x, y] of contactPts) {
-    if (x < minX) minX = x; if (x > maxX) maxX = x;
-    if (y < minY) minY = y; if (y > maxY) maxY = y;
-  }
-  const span = contactPts.length
-    ? Math.hypot(maxX - minX, maxY - minY) : 0;
-  // Area decides `face`, because a part can sit on a wide footprint of many
-  // separate little pads; extent decides point-vs-edge, because those two differ
-  // in shape at the same (~zero) area.
-  const kind = result.bedArea >= FIN.padMinArea ? 'face'
-    : span < POINT_FOOTPRINT ? 'point' : 'edge';
-  return { kind, span, bedArea: result.bedArea };
 }
 
 /**
