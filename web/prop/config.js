@@ -111,6 +111,18 @@ export const PROP = {
   // The patch path serves them correctly and always did. Real tube bands
   // measure 1,000+ mm2; 300 sits in the gap.
   tubeMinArea: 300,
+  // ...except a CONVEX band (a pipe, peg or chimney on its side), which takes
+  // the tube route down to this size -- the patch path shatters small curved
+  // bands into slivers and serves nothing. Concave pockets stay out: see
+  // convexAbout. tubeConvexFrac: share of the off-line area that must tilt
+  // away from the lowest line.
+  tubeSmallMinArea: 12,
+  // A small tube is short by nature (a 5 mm chimney is 7 mm long), and the one
+  // wall under it is its only support: minSpan's "not worth the plate space"
+  // would drop the whole feature. Such a wall may be this short.
+  minSpanTube: 3.0,
+  tubeConvexFrac: 0.7,
+  tubeTwoSidedFrac: 0.25,  // least share of the off-line area on either side
   // mm an overhang may bridge unsupported: the wall-to-wall spacing across a
   // wide patch, and the ONE dial M7b puts in front of the user. check_stl.py
   // reads this value out of this file (MAX_UNSUPPORTED_SPAN) so the checker and

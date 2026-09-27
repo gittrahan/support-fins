@@ -208,7 +208,7 @@ export function buildProps(topo, result, rot, opts = {}) {
     const tube = tubeLine(topo, rFaces, rot, regionPts, regionTris, step);
     if (tube && tube.length) {
       patches.push({ faces: rFaces, area: regionArea, region: ri,
-                     tris: regionTris, lines: tube });
+                     tris: regionTris, lines: tube, smallTube: regionArea < PROP.tubeMinArea });
       continue;
     }
 
@@ -264,6 +264,17 @@ export function buildProps(topo, result, rot, opts = {}) {
       // the plate path's own `line` is untouched.
       const tri0 = out.length;
       const pa = buildPartAttached(line, partTris, topo, rot, off, out);
+      if (pa.ok && patch.smallTube) {
+        // A small tube's line is new to this path, so hold its wall to the same
+        // measured clearance the plate path demands (see the sweep below): on
+        // 3DBenchy at Y35 an unchecked one fused 0.09 mm into the cabin roof.
+        const hit = solidClearance(topo, rot, off, out.slice(tri0), 0.25);
+        if (hit && (hit.cosUp > 0.7 ? hit.d < PROP.gap - 0.065 : hit.d < 0.205)) {
+          out.length = tri0;
+          skipped.weld++;
+          continue;
+        }
+      }
       if (pa.ok) {
         servedRegions.add(patch.region);
         // pa.prop.line already carries the wall top (surface minus gap); add the
@@ -334,7 +345,7 @@ export function buildProps(topo, result, rot, opts = {}) {
       const sub = line.slice(run[0], run[1]);
 
       const body = bodyMask(sub);               // before settleTop -- see bodyMask
-      if (tallSpan(sub, body) < PROP.minSpan) { skipped.stub++; runSquat(); continue; }
+      if (tallSpan(sub, body) < (patch.smallTube ? PROP.minSpanTube : PROP.minSpan)) { skipped.stub++; runSquat(); continue; }
 
       // Last, on the trimmed run only: put the closest approach exactly on spec.
       // It runs here rather than earlier because trimming changes which part of
@@ -368,7 +379,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         const span2 = Math.hypot(settled[settled.length - 1][0] - settled[0][0],
                                  settled[settled.length - 1][1] - settled[0][1]);
         const settledBody = body.slice(run2[0], run2[1]);
-        if (tallSpan(settled, settledBody) < PROP.minSpan) { reason = 'stub'; break; }
+        if (tallSpan(settled, settledBody) < (patch.smallTube ? PROP.minSpanTube : PROP.minSpan)) { reason = 'stub'; break; }
 
         const before = out.length;
         if (!sweep(settled, zBed, out, PROP.minHeightSquat)) {
