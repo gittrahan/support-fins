@@ -37,6 +37,7 @@
  *   tracks.js     where Suggest puts walls: straight patches, tracks, tube line
  *   attached.js   walls that stand on the part instead of the plate
  *   squat.js      brimmed squat walls for the near-bed band
+ *   rival.js      a small tube against the patch path: the region keeps the better
  *
  * Each module imports only modules above it in this list and never prop.js.
  */
@@ -46,6 +47,7 @@ import { buildPartAttached } from './prop/attached.js';
 import { bodyMask, insertFloorStations, longestRun, stationCertified, stationIsClear, tallBody, tallSpan, withLowTails } from './prop/clearance.js';
 import { PROP } from './prop/config.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
+import { tubeRivalry } from './prop/rival.js';
 import { buildSquatBed } from './prop/squat.js';
 import { seat } from './prop/surface.js';
 import { sweep } from './prop/sweep.js';
@@ -119,11 +121,11 @@ export function buildProps(topo, result, rot, opts = {}) {
   // warning there is just noise. So gate on the REQUESTED pitch, not the rounded
   // result.
   const wantSparse = rowSpan > PROP.maxUnsupportedSpan + 0.5;
-  let sagRisk = false;   // the user chose sub-cap spacing AND a real row landed wide
   const zBed = 0;
   const off = result.offset;
   const withTines = opts.tines === true;
-  let tineTotal = 0;
+  // tines emitted; sagRisk: the user chose sub-cap spacing AND a real row landed wide
+  const tally = { tines: 0, sagRisk: false };
 
   const out = [];
   const props = [];
@@ -208,7 +210,7 @@ export function buildProps(topo, result, rot, opts = {}) {
     // A SMALL tube (under tubeMinArea, see tubeLine) is a new claim on a region
     // the patch path used to own, so it keeps the region's split too: the tube is
     // built first, the patches then compete for the same region, and the one that
-    // holds more of it stays (see `rival` below).
+    // holds more of it stays (see web/prop/rival.js).
     const tube = tubeLine(topo, rFaces, rot, regionPts, regionTris, step);
     const small = regionArea < PROP.tubeMinArea;
     const split = small || !tube?.length ? splitRegion(topo, rFaces, rot) : null;
@@ -227,87 +229,13 @@ export function buildProps(topo, result, rot, opts = {}) {
   }
   const servedRegions = new Set();
 
-  // Everything the patch loop accumulates, so a small tube and its region's
-  // patches can each be built from the same starting point and one undone.
-  const snapshot = () => ({ out: out.length, props: props.length, tines: tineTotal,
-                            skipped: { ...skipped }, sagRisk, served: new Set(servedRegions) });
-  const restore = (m) => {
-    out.length = m.out; props.length = m.props; tineTotal = m.tines; sagRisk = m.sagRisk;
-    Object.assign(skipped, m.skipped);
-    servedRegions.clear(); for (const r of m.served) servedRegions.add(r);
-  };
-  // Undo the region's patches and put its tube's walls back instead, moved to
-  // the end of `out` (so every triRange shifts by the same amount).
-  const keepTube = (r) => {
-    const t = r.tube;
-    if (r.start) restore(r.start);
-    const shift = out.length - t.mark.out;
-    for (const tri of t.tris) out.push(tri);
-    for (const q of t.props) props.push({ ...q, triRanges: q.triRanges.map(([a, b]) => [a + shift, b + shift]) });
-    tineTotal += t.end.tines - t.mark.tines;
-    for (const k in skipped) skipped[k] += t.end.skipped[k] - t.mark.skipped[k];
-    sagRisk ||= t.end.sagRisk;
-    if (t.props.length) servedRegions.add(r.region);
-    else skipped.sliver += r.slivers;    // nothing either way: dropped, as before
-  };
-  // Overhang area held by support triangles out[from..], judged over EVERY
-  // overhang face within reach of the region, not just the region's own: a wall
-  // under one band holds its neighbours too, and the sweep's coverage counts
-  // them all. Same rule as that coverage (a support vertex within
-  // maxUnsupportedSpan in plan and 0-3 mm below the face), so the pick agrees
-  // with the gate that judges it.
-  let overFaces = null;               // [cx, cy, cz, area] of every overhang face
-  const heldArea = (r, tris, from) => {
-    const span = PROP.maxUnsupportedSpan;
-    if (!overFaces) {
-      overFaces = [];
-      for (const g of result.regions) {
-        for (const f of g.faces) {
-          const t = f * 9;
-          overFaces.push([(partTris[t] + partTris[t + 3] + partTris[t + 6]) / 3,
-                          (partTris[t + 1] + partTris[t + 4] + partTris[t + 7]) / 3,
-                          (partTris[t + 2] + partTris[t + 5] + partTris[t + 8]) / 3, topo.area[f]]);
-        }
-      }
-    }
-    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (let k = 0; k < r.tris.length; k += 3) {
-      x0 = Math.min(x0, r.tris[k]); x1 = Math.max(x1, r.tris[k]);
-      y0 = Math.min(y0, r.tris[k + 1]); y1 = Math.max(y1, r.tris[k + 1]);
-    }
-    const reach = 2 * span;             // a wall under the region, then its span
-    let held = 0;
-    for (const [cx, cy, cz, a] of overFaces) {
-      if (cx < x0 - reach || cx > x1 + reach || cy < y0 - reach || cy > y1 + reach) continue;
-      for (let i = from; i < tris.length; i++) {
-        const v = tris[i];
-        if (v[2] > cz - 3 && v[2] < cz + 0.5 && Math.hypot(v[0] - cx, v[1] - cy) <= span) {
-          held += a;
-          break;
-        }
-      }
-    }
-    return held;
-  };
-
-  // A small tube's region is settled once its last patch is done, however that
-  // patch exits (most of its skips `continue`); its patches' output is then the
-  // tail of `out`, since they were queued together and ran back to back.
-  let lastPatch = null;
-  const settle = (p) => {
-    const r = p?.rival;
-    if (!r || p !== r.last) return;
-    if (r.tube.held > heldArea(r, out, r.start.out) + 1e-6) keepTube(r);
-    else skipped.sliver += r.slivers;
-  };
+  // A small tube competes with its region's patches: see web/prop/rival.js.
+  const rivalry = tubeRivalry({ out, props, skipped, served: servedRegions, tally },
+                              topo, result, partTris);
 
   for (const patch of patches) {
     const regionTris = patch.tris;
-    // A small tube and its region's patches each start from here: see `rival`.
-    settle(lastPatch);
-    lastPatch = patch;
-    if (patch.rival && !patch.rival.start) patch.rival.start = snapshot();
-    const mark = patch.smallTube ? snapshot() : null;
+    const mark = rivalry.begin(patch);  // a small tube undoes to here
     let lines;
     if (patch.lines) {
       // A tube's lowest-line track(s), fitted and resampled by tubeLine.
@@ -334,7 +262,7 @@ export function buildProps(topo, result, rot, opts = {}) {
       // The user chose sub-cap spacing (wantSparse) AND this face actually landed a
       // multi-row gap wider than the cap. Flag it so the UI can warn (never blocks;
       // Matthew's call). Single-row faces (spacing 0) can't sag, so they don't warn.
-      if (wantSparse && lines.length && lines.spacing > PROP.maxUnsupportedSpan) sagRisk = true;
+      if (wantSparse && lines.length && lines.spacing > PROP.maxUnsupportedSpan) tally.sagRisk = true;
     }
     if (!lines.length) { skipped.noLine++; continue; }
 
@@ -366,7 +294,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         // gap back so emitTines reads it as the surface, like the plate path does.
         if (withTines) {
           const topLine = pa.prop.line.map((p) => [p[0], p[1], p[2] + PROP.gap]);
-          tineTotal += emitTines(topLine, partTris, topo, rot, off, out, tineStepEff, undefined, tineHeight);
+          tally.tines += emitTines(topLine, partTris, topo, rot, off, out, tineStepEff, undefined, tineHeight);
         }
         // buildPartAttached pushed the wall starting at tri0; emitTines above pushed
         // its tines right after, so wall + tines are contiguous -> one segment.
@@ -400,7 +328,7 @@ export function buildProps(topo, result, rot, opts = {}) {
           // a squat wall's base is the thin brim, not the tall flange, so tines
           // attach from squatBrimH up (the default minTop would skip every one).
           const t0 = out.length;
-          if (withTines) tineTotal += emitTines(
+          if (withTines) tally.tines += emitTines(
             sq.line.map((p) => [p[0], p[1], p[2] + PROP.gap]),
             regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH, tineHeight);
           servedRegions.add(patch.region);
@@ -514,7 +442,7 @@ export function buildProps(topo, result, rot, opts = {}) {
         servedRegions.add(patch.region);
         // The grip comb: nubs along this wall's settled top that bite into the
         // part. `settled` carries the surface z; emitTines subtracts the gap.
-        if (withTines) tineTotal += emitTines(settled, regionTris, topo, rot, off, out, tineStepEff, undefined, tineHeight,
+        if (withTines) tally.tines += emitTines(settled, regionTris, topo, rot, off, out, tineStepEff, undefined, tineHeight,
                                               tallBody(settledBody));
         props.push({
           span: span2, height: top - zBed, area: patch.area,
@@ -535,37 +463,15 @@ export function buildProps(topo, result, rot, opts = {}) {
       if (!placed && reason) skipped[reason]++;
       runSquat();
     }
-    if (patch.smallTube) {
-      // (A tube patch always gets here: its lines are never empty, the one
-      // `continue` above.) Take the tube's walls back out and let the region's patches have a go.
-      // A small tube is new here and does WORSE on some regions the patch path
-      // served (bore_bracket flat: 98 -> 52%, its weld check rejects the only
-      // wall; voron_drive_frame x45y30: 36 -> 32%, one band's patches held two
-      // long walls where its tube line sat off to one side), and better on others
-      // (drive frame x60: 22 -> 34%). So each region gets the better of the two.
-      const tube = { mark, end: snapshot(), tris: out.slice(mark.out), props: props.slice(mark.props),
-                     held: heldArea(patch, out, mark.out) };
-      restore(mark);
-      const rivals = patch.smallTube.filter((p) => p.area >= MIN_REGION_AREA);
-      // slivers count only if the patch path keeps the region, as they did before
-      const rival = { last: rivals[rivals.length - 1], tube, faces: patch.faces, tris: regionTris,
-                      slivers: patch.smallTube.length - rivals.length, region: patch.region, start: null };
-      if (!rivals.length) keepTube(rival);
-      for (const p of rivals) {
-        p.region = patch.region;
-        p.tris = regionTris;
-        p.rival = rival;
-        patches.push(p);                 // for...of reaches patches pushed mid-loop
-      }
-    }
+    if (patch.smallTube) rivalry.tubeDone(patch, mark, patches);
   }
-  settle(lastPatch);
+  rivalry.finish();
 
   // `served` counts REGIONS with at least one wall, because a region can now
   // yield several -- subtracting a prop count from a region count would say a
   // part with one region and three walls had "-2 unserved".
   return { triangles: out, props, skipped, served: servedRegions.size,
            servedRegions: [...servedRegions],
-           tines: tineTotal, sagRisk,
+           tines: tally.tines, sagRisk: tally.sagRisk,
            volume: props.reduce((s, q) => s + q.volume, 0) };
 }
