@@ -4,7 +4,7 @@
  * the overhang threshold. Owns part / topology / rotM3 / lastResult.
  */
 import * as THREE from 'three';
-import { buildTopology, analyze, DEFAULT_THRESHOLD } from '../overhangs.js';
+import { buildTopology, analyze, DEFAULT_THRESHOLD, MIN_REGION_AREA } from '../overhangs.js';
 import { el } from './dom.js';
 import { scene, controls, frame } from './scene.js';
 import { removeMode, cancelRemove, resetRemovals } from './remove.js';
@@ -181,21 +181,23 @@ export function shade() {
   if (dropped) {
     const sw = document.createElement('i');
     sw.className = 'sw sw-small';
+    sw.title = `Amber: overhangs under ${MIN_REGION_AREA} mm², too small for a fin`;
     sOver.append(' (+', sw, `${dropped} sliver${dropped === 1 ? '' : 's'})`);
   }
   sOver.classList.toggle('good', res.regions.length === 0 && !dropped);
 
   // Overhang warning (bottom-right card). The tool builds support for the big
-  // overhang REGIONS but drops the small ones -- hole ceilings, slot roofs, bore
-  // tops -- as slivers. Those are exactly what prints rough by surprise, so name
-  // them out loud instead of leaving the maker to find out at the printer. Only
-  // fires when this pose actually has overhangs to support (a clean/flat pose says
-  // its piece via s-flat-note); the fix is almost always a better orientation.
+  // overhang REGIONS but drops the small ones -- hole ceilings, slot roofs, a
+  // slotted peg's underside -- as slivers. Those are exactly what prints rough by
+  // surprise, so they shade amber and this card says what amber means, whenever
+  // there are any (a clean pose too: the amber faces still need a name).
   const warn = el('over-warn');
-  if (res.regions.length > 0 && dropped > 0) {
-    warn.textContent = `⚠ ${dropped} small overhang${dropped === 1 ? '' : 's'} `
-      + `(hole ceilings, slots, bore tops) print unsupported this way up and may come `
-      + `out rough. Try Suggest orientation to point them up.`;
+  if (dropped > 0) {
+    const one = dropped === 1;
+    warn.textContent = `⚠ ${dropped} overhang${one ? '' : 's'} shaded amber ${one ? 'is' : 'are'} `
+      + `too small for a fin (under ${MIN_REGION_AREA} mm² each), so ${one ? 'it prints' : 'they print'} `
+      + `unsupported this way up and may come out rough. Try Suggest orientation to point `
+      + `${one ? 'it' : 'them'} up.`;
   } else {
     warn.textContent = '';
   }
@@ -208,7 +210,7 @@ export function shade() {
   // loaded, the overhangs on screen are self-inflicted by rotating.
   const flat = el('s-flat-note');
   if (res.regions.length === 0) {
-    flat.textContent = 'No supports needed this way up.';
+    flat.textContent = dropped ? 'Nothing big enough for a fin this way up.' : 'No supports needed this way up.';
     flat.className = 'note good';
   } else if (flatRegions === 0) {
     flat.textContent = 'This prints clean lying flat. You only need fins if you’re '
