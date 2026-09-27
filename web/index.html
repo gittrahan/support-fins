@@ -47,8 +47,19 @@
   </label>
   <span class="spacer"></span>
   <button class="btn" id="fins-toggle">Add fins</button>
-  <button class="btn" id="export">Export STL</button>
-  <button class="btn" id="export-3mf" title="Opens oriented and support-free in Bambu Studio, OrcaSlicer, or PrusaSlicer. Bambu/PrusaSlicer may note 'no config, geometry only' — expected; the part still comes in correct.">Export 3MF</button>
+  <!-- One Export button, three formats. A menu, not a <select>: an export is an
+       action, and a <select> won't re-fire when the same format is picked twice. -->
+  <span class="menu-wrap">
+    <button class="btn" id="export" aria-haspopup="menu" aria-expanded="false"
+            aria-controls="export-menu">Export&nbsp;▾</button>
+    <div class="menu" id="export-menu" role="menu" hidden>
+      <button role="menuitem" id="export-stl"
+              title="Part and fins merged into one solid.">STL</button>
+      <button role="menuitem" id="export-3mf" title="Part and fins as separate objects. Opens oriented and support-free in Bambu Studio, OrcaSlicer, or PrusaSlicer. Bambu/PrusaSlicer may note 'no config, geometry only' — expected; the part still comes in correct.">3MF</button>
+      <button role="menuitem" id="export-fins"
+              title="Just the fins and pad, in the part's print position, so they line up if imported beside it.">Fins only (STL)</button>
+    </div>
+  </span>
   <a class="btn gh" href="https://github.com/gittrahan/support-fins" target="_blank" rel="noopener"
      title="Source code on GitHub. Runs entirely in your browser; no file ever leaves your machine."
      aria-label="Support Fins on GitHub"><svg viewBox="0 0 16 16" width="16" height="16"

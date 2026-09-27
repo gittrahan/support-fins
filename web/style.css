@@ -75,8 +75,9 @@ html, body {
 
 #topbar {
   position: fixed;
-  z-index: 3;                /* above the empty-state scrim, or the controls read
-                                as disabled on the one screen that must invite a click */
+  z-index: 4;                /* above the empty-state scrim, or the controls read
+                                as disabled on the one screen that must invite a click;
+                                and above #right-rail (3), which the Export menu drops over */
   top: 0; left: 0; right: 0;
   display: flex;
   align-items: center;
@@ -133,6 +134,36 @@ html, body {
   box-shadow: none;
 }
 .btn:disabled:hover { border-color: var(--btn-line); color: var(--text); background: var(--btn); }
+/* Export menu: a small panel dropped under its button, items styled as rows. */
+.menu-wrap { position: relative; }
+.menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  min-width: 100%;
+  padding: 4px;
+  border: 1px solid var(--btn-line);
+  border-radius: 6px;
+  background: var(--btn);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+.menu[hidden] { display: none; }
+.menu button {
+  padding: 5px 10px;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.menu button:hover, .menu button:focus-visible { background: var(--btn-hi); color: var(--accent); outline: none; }
+.menu button:disabled { opacity: 0.4; cursor: default; background: none; color: var(--text); }
 .btn.primary {
   border-color: var(--accent);
   color: #06121f;
