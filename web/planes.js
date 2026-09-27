@@ -228,8 +228,8 @@ function worldVertex(pos, o, rot, offset, out) {
  *      and a tine's width lies in the layer plane no matter how the part leans
  *   t  up the face, n x u, which always has a positive z component
  *
- * (n, u, t) is orthonormal and right-handed, which is what lets the extruder in
- * fins.js emit consistent outward winding without a per-solid orientation check.
+ * (n, u, t) is orthonormal and right-handed, which is what let the old leaning-fin
+ * extruder emit consistent outward winding without a per-solid orientation check.
  */
 function fitPatch(topo, g, rn, rot, offset, stats = null) {
   const { pos, area } = topo;

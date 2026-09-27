@@ -95,8 +95,8 @@ welts.
   roof that clip leaves flatter than 45° is cut back to exactly 45° (a gable under a
   level top), so every hole roof is ≥ 45° -- the same rule the tool's overhang check
   applies to the part. Walls too short for a 3 mm hole stay solid. The
-  tined side fins in `fins.js` are never cut -- their tines anchor across the whole
-  blade.
+  tined side fins (the Onshape port's; the web tool no longer builds them) are never
+  cut -- their tines anchor across the whole blade.
 
 ## Bed pad styles — `PAD.style` in `web/fins.js`
 

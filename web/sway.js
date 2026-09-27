@@ -180,7 +180,8 @@ function frameOf(p) {
  * The lowest z at which any part triangle crosses the volume the rib would
  * occupy, or Infinity. Exact per triangle: clip to the rib's slab across the
  * face, then against the rib's own (s, z) outline -- the same "does anything
- * cross the volume" question fins.js asks of its walls, for a tapered outline.
+ * cross the volume" question the old fins.js leaning fin asked of its walls, for
+ * a tapered outline.
  */
 function lowestHit(tris, fr, uLo, uHi, outline) {
   let best = Infinity;
@@ -238,9 +239,9 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   let th = thFor(H);
 
   // Seat the rib's inner edge on the outermost point of the face INSIDE its own
-  // slab, as fins.js does per window: the patch plane touches the patch's global
-  // high point, which may be elsewhere on the face, and the gap has to be a floor
-  // here, not somewhere else on the same side.
+  // slab, as the old fins.js leaning fin did per window: the patch plane touches
+  // the patch's global high point, which may be elsewhere on the face, and the gap
+  // has to be a floor here, not somewhere else on the same side.
   const shiftIn = (half) => {
     let m = -Infinity;
     for (let i = 0; i < p.tris.length; i += 9) {

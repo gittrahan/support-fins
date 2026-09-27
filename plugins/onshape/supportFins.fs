@@ -200,7 +200,7 @@ const TINE_TOP_CLEAR    = 0.5 * millimeter;       // bare zone at a sloped wall'
 const TINE_SLOPE_MIN    = 1.0 * millimeter;       // rise before a wall counts as sloped
 const MIN_GRIP_TINES    = 3;                      // grip floor per wall
 
-// Stabilize fin -- web/fins.js FIN, web/planes.js
+// Stabilize fin -- the old web/fins.js FIN fields (since removed), web/planes.js
 const FIN_TH            = 1.2 * millimeter;       // wall thickness
 const FIN_BASE_H        = 1.0 * millimeter;       // base ellipse thickness
 const FIN_ROWS_LOW      = 8;                      // "7 or 8 low down"
@@ -1378,8 +1378,7 @@ function propTineAt(context is Context, env is map, plan is map, c is ValueWithU
     return { "ok" : false };
 }
 
-// ─── Stabilize fins (port of the old web/fins.js buildFin, since removed from
-//     the web engine; web/planes.js) ─────────────────────────────────────────
+// ─── Stabilize fins (port of the old web/fins.js buildFin; web/planes.js) ─────
 
 /**
  * A fin stands BESIDE the part, parallel to a flat near-upright face and a gap

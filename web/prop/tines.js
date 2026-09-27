@@ -101,7 +101,7 @@ export function tineStepFor(density) {
  * the solid), so the emitter tries both run directions and keeps whichever puts
  * the nub's tip inside the part -- and emits nothing where neither does, which is
  * the honest "this face is too shallow to grip" case a horizontal tine has by
- * nature (fins.js's tineSpanMax rule, expressed as a containment test here).
+ * nature (the old fins.js tineSpanMax rule, expressed as a containment test here).
  *
  * Nubs are the wall's own thickness wide and overlap back into it, so the slicer
  * unions them onto the wall the same way every other solid here is unioned.

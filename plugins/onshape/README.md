@@ -19,8 +19,8 @@ parts beside it (the original part is never modified):
   one-layer horizontal tines that fuse into the part. This is the web app's current default
   support.
 - **Side bracing fins.** Round-topped walls standing a gap off a flat side of a part tipped
-  onto an edge or corner, gripping it with rows of tines (the `fins.js` geometry). Off by
-  default. Auto picks up to N faces facing apart, or you select the faces.
+  onto an edge or corner, gripping it with rows of tines (ported from the old `fins.js`
+  geometry, since removed from the web tool). Off by default. Auto picks up to N faces facing apart, or you select the faces.
 - **Bed pad.** A thin oval under a part that touches the bed only along an edge or at a
   point, the same height as the rib flanges so the two merge flush.
 
