@@ -2,7 +2,7 @@
 // a piece that starts in mid-air (a cut clean through a wall, a loose body)
 // printed onto nothing with no word from the readout. floatingPieces finds it.
 import { buildTopology, analyze, fins, assert } from './_util.js';
-import { floatingPieces } from '../web/overhangs.js';
+import { floatingPieces } from '../web/pieces.js';
 
 const quad = (a, b, c, d) => [a, b, c, a, c, d];
 function block(x0, x1, y0, y1, z0, z1) {

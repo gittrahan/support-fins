@@ -28,7 +28,7 @@
  *
  * Each module imports only modules above it in this list and never fins.js.
  */
-import { floatingPieces } from './overhangs.js';
+import { floatingPieces } from './pieces.js';
 import { findWallPatches } from './planes.js';
 import { buildProps, noProps, PROP } from './prop.js';
 import { buildSwayBraces } from './sway.js';
