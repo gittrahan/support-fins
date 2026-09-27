@@ -80,7 +80,7 @@ change; re-run before believing it.
 
 - `hub_post_foot` at 0/25/40 — the part has **0.0 mm² of bed contact at every
   tilt from 0° to 165°**; it balances on the tip of its own tapered foot.
-  Nothing you add can hold it. `seatingOf()` in `fins.js` classifies this as
+  Nothing you add can hold it. `seatingOf()` in `fins/seating.js` classifies this as
   `point` and the UI says so. Not a bug.
 - `voron_drive_frame` at 0° — its only overhangs are two 25 mm² regions sitting
   0.5 mm off the plate with a 5.1 mm span. Correctly not worth a wall.

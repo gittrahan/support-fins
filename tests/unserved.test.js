@@ -1,7 +1,7 @@
 // UNSERVED must count dropped overhangs, not hide them. buildFins used to report
 // `unserved - wedged PATCHES`: a patch count off a region count (two different
 // segmentations), so wedges under one region hid others that nothing supports.
-// Credit is spatial now (fins.js unservedAfterWedges): a region is served when a
+// Credit is spatial now (fins/wedges.js unservedAfterWedges): a region is served when a
 // wall stands under it or a wedge vertex sits just under one of its faces.
 import { loadModel, analyze, fins, assert, rotX, rotY } from './_util.js';
 

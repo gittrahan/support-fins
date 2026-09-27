@@ -11,7 +11,8 @@ Repo: `~/projects/support-fins` (product **Support Fins**). The generation engin
 is pure mesh math (no DOM/three.js), so it profiles and runs headless with Deno.
 
 - `web/fins.js` — `buildFins()` entry; auto mode recurses to `mode:'prop'`, then
-  adds wedges (`buildPerpFins`) and the bed pad (`buildPad`).
+  adds wedges (`buildPerpFins`, `web/fins/wedges.js`) and the bed pad (`buildPad`,
+  `web/fins/pad.js`).
 - `web/prop.js` — `buildProps()`, which drives the per-wall pipeline in `web/prop/`:
   `splitRegion`/`patchTracks` (tracks.js), `sweep` (sweep.js),
   `settleTop`/`contourTop`/`lowerSag` (contact.js), `stationIsClear`/`stationCertified`

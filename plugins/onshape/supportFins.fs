@@ -225,7 +225,7 @@ const FIN_WIDE_AREA     = 1500 * millimeter ^ 2;
 const FIN_ROW_PITCH     = 55.0 * millimeter;
 const FIN_ROW_MAX       = 20;
 
-// Bed pad -- web/fins.js buildPad
+// Bed pad -- web/fins/pad.js buildPad
 const PAD_MARGIN        = 4.0 * millimeter;       // grip spread past the contact
 const PAD_MIN_AREA      = 60.0 * millimeter ^ 2;  // above this much bed contact no pad is needed
 const PAD_SEGS          = 48;
@@ -1856,7 +1856,7 @@ function buildFinAt(context is Context, fid is Id, env is map, s is map, win is 
     return { "ok" : true, "tines" : count };
 }
 
-// ─── Bed pad (web/fins.js buildPad) ───────────────────────────────────────────
+// ─── Bed pad (web/fins/pad.js buildPad) ───────────────────────────────────────
 
 /**
  * A part tilted onto an edge has near-zero bed contact and peels before any fin

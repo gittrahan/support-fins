@@ -1,14 +1,9 @@
 /**
- * Fin generation -- M4. The fin stands BESIDE the part on a flat upright face,
- * held off by a standoff, and horizontal tines fuse across that gap into the
- * part. See planes.js for why M3's sweep-under-the-overhang geometry had to be
- * abandoned, and docs/FIN-SPEC.md for where every number below comes from.
- *
- * A fin is three kinds of solid that overlap and get unioned by the slicer -- no
- * boolean kernel anywhere, the same approach the rest of the project uses:
- *   1. the WALL, a thin round-topped blade standing off the part face;
- *   2. the BASE, a wide flat ellipse that keeps the wall stuck to the plate;
- *   3. the TINES, tiny horizontal nubs bridging the standoff into the part.
+ * Combined support -- the entry point the app, the Worker and the plugins call.
+ * `buildFins` builds the tined breakaway walls (prop.js) under the overhangs,
+ * adds angled wedges under the broad downward faces no wall reached, lays a bed
+ * pad under a part that barely touches the plate, and runs sway braces last.
+ * docs/FIN-SPEC.md is where every number comes from.
  *
  * The tines are the point. A wall with only a gap constrains the part in one
  * direction and it falls away sideways -- Slant3D demos a cube doing exactly
@@ -21,10 +16,17 @@
  * a retraction each. Horizontal tines also lie in the plane of the layer lines,
  * which is what lets you BEND them to snap clean instead of tearing them out.
  *
- * Everything about the wall is built in the patch's frame (planes.js), so a fin
- * serving a leaning face leans with it. The tines are the exception: they are
- * built in world axes, because a tine must occupy ONE layer, and a box that is
- * flat in a leaning frame is not flat in z.
+ * LAYOUT. This file is the entry point: `buildFins`, `buildFinsCore` (auto and
+ * prop), `applyTunables`, `coverPitch`, and re-exports of everything app.js,
+ * orient.js, finworker.js, ui/, the plugins and the tests import. The pieces
+ * live in web/fins/:
+ *
+ *   config.js     FIN, the tine, pad and coverage numbers the UI shares
+ *   seating.js    how the part sits on the plate: contact, face/edge/point
+ *   pad.js        PAD and the bed pad (conforming oval, or the brim-style one)
+ *   wedges.js     angled wedges where no wall reaches; gripPatches for Draw
+ *
+ * Each module imports only modules above it in this list and never fins.js.
  */
 import { findWallPatches } from './planes.js';
 import { buildProps, noProps, PROP } from './prop.js';
@@ -90,9 +92,9 @@ export function applyTunables(t) {
  * Generate supports for the part in its current orientation.
  *
  * @param opts.mode     'prop' (the default: a vertical breakaway wall under
- *                      each overhang), 'stabilize' (the Brace: a tined fin
- *                      against toppling; docs/FIN-SPEC.md), or 'auto' (props for
- *                      the overhangs PLUS bracing fins if the part would topple)
+ *                      each overhang, no tines) or 'auto' (tined walls PLUS
+ *                      wedges under the faces no wall reached). 'stabilize' is
+ *                      an old name for 'auto'; any other mode builds 'prop'.
  * @param opts.bedPad   add the pad when bed contact is too small to hold
  */
 export function buildFins(topo, result, rot, opts = {}) {

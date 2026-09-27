@@ -207,7 +207,7 @@ function updateDrawReadout(built, ms) {
 
 /**
  * The Light pad grips by first-layer squish along the part's first-layer outline.
- * A part on a point or a small round foot has only a few mm of it, so fins.js
+ * A part on a point or a small round foot has only a few mm of it, so fins/pad.js
  * builds Sure hold there instead (pad.autoSure) -- say so, since the user picked
  * Light. A Custom pad with a gap on such a foot gets a warning instead of a swap.
  */

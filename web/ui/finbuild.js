@@ -220,8 +220,8 @@ export function refreshFins() {
 // reply and the inline fallback. buildFins runs in BOTH modes: in Suggest it
 // places the walls; in Draw it is called only for the bed pad + seating verdict
 // (a tilted part rests on an edge and needs a pad however its walls are placed,
-// and that logic lives in fins.js), so Draw ignores the suggested walls and shows
-// the hand-drawn ones instead.
+// and that logic lives in fins/pad.js + fins/seating.js), so Draw ignores the
+// suggested walls and shows the hand-drawn ones instead.
 function applyBuilt(built) {
   finBusy = false;
   clearSpinner();

@@ -55,7 +55,7 @@ el('fin-mode').addEventListener('change', (e) => {
   setGizmo();
   refreshFins();
 });
-// Bed pad style (PAD.style in fins.js). Only Custom shows the pad's numbers; the
+// Bed pad style (PAD.style in fins/pad.js). Only Custom shows the pad's numbers; the
 // presets keep theirs fixed (Sure hold's follow the material profile). Switching
 // to Custom starts it from whichever preset was showing, so a tweak begins from
 // numbers that are known to print rather than from blanks.
