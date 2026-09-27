@@ -34,7 +34,7 @@ S['bridge_span']= U(at(box([8, 20, 40]), x=-40, z=20), at(box([8, 20, 40]), x=40
 S['bowl']       = D(icosphere(4, 30), U(icosphere(4, 27), at(box([80, 80, 40]), z=20)))  # lower half-shell
 S['bowl']       = U(S['bowl'], at(cylinder(10, 3, sections=64), z=-29))           # foot ring
 S['dome_ceiling']= U(  # post under a half-sphere cap: curved ceiling
-                     at(cylinder(6, 50, sections=48), z=25),
+                     at(cylinder(6, 52, sections=48), z=26),              # 2 mm into the cap
                      D(at(icosphere(4, 25), z=75), at(box([80, 80, 60]), z=105)))
 S['hook']       = U(at(box([8, 12, 40]), z=20),
                     D(at(rot(torus(15, 4, major_sections=96, minor_sections=32), 90, [1, 0, 0]), x=15, z=40),
@@ -49,14 +49,18 @@ torso = at(capsule(8, 3.8, count=[24, 24]), z=18)
 head  = at(icosphere(3, 3.2), z=27.5)
 armR  = at(rot(capsule(9, 1.3, count=[16, 16]), 90, [0, 1, 0]), x=8.5, z=21)              # straight out: flat overhang
 armL  = at(rot(capsule(8, 1.3, count=[16, 16]), 50, [0, 1, 0]), x=-6.5, z=19)             # angled down
-sword = at(rot(box([1.0, 2.2, 18]), -70, [0, 1, 0]), x=17, z=22)                           # blade out past the hand
+sword = at(rot(box([1.0, 2.2, 18]), -80, [0, 1, 0]), x=22.4, z=19.4)                        # grip end at the hand (13.5, 21)
 hat   = at(cylinder(6.5, 0.8, sections=64), z=30.2)                                         # thin brim: curved-in-plan ledge
 S['mini_figure'] = U(base, legs, torso, head, armR, armL, sword, hat)
-cape = D(at(cylinder(6, 14, sections=64), z=18), at(cylinder(5.2, 16, sections=64), z=18))
-cape = D(cape, at(box([14, 8, 16]), y=4, z=18))                                            # half shell behind
-S['mini_cape'] = U(base, legs, torso, head, at(rot(cape, 25, [1, 0, 0]), y=-2.5, z=17.5))
+# a half shell behind the torso, built at the origin, tilted 50deg so its hem
+# flares out (the overhang), then sunk into the torso's back
+cape = D(cylinder(4.6, 14, sections=64), cylinder(3.4, 16, sections=64))
+cape = D(cape, at(box([14, 8, 16]), y=4))
+S['mini_cape'] = U(base, legs, torso, head, at(rot(cape, 50, [1, 0, 0]), y=-0.5, z=18))
 S['mini_dragon_wing'] = U(at(cylinder(10, 3, sections=64), z=1.5),
                           at(capsule(10, 3, count=[24, 24]), z=10),
                           *[at(rot(rot(box([14, 0.9, 7]), s*15, [0, 0, 1]), s*30, [1, 0, 0]), x=s*8, z=17)
                             for s in (-1, 1)])
-for k, m in S.items(): save(k, m)
+for k, m in S.items():
+    assert len(m.split(only_watertight=False)) == 1, f'{k} is not one piece'
+    save(k, m)

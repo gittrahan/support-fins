@@ -13,5 +13,7 @@ prototype/stress/models/*
 !prototype/stress/models/*.stl
 plugins/orca/build/
 
-# Thingi10K examples: third-party licenses, fetched locally (fetch_thingi.py)
+# example models: the generated ones are committed (gen.py); Thingi10K ones keep
+# third-party licenses, so they're fetched locally (fetch_thingi.py), never committed
+!prototype/examples/models/*.stl
 prototype/examples/real/
