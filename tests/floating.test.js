@@ -41,3 +41,45 @@ Deno.test('floating: over bare plate the drop is the height; one piece or a stac
   assert(floatingPieces(stack, analyze(stack, 45, I), I).length === 0,
     'a piece 0.1 mm over another rests on it (print-in-place gap)');
 });
+
+// the six faces of a block wound INWARD: the wall of a sealed cavity
+const cavity = (...b) => {
+  const t = block(...b);
+  for (let i = 0; i < t.length; i += 3) [t[i + 1], t[i + 2]] = [t[i + 2], t[i + 1]];
+  return t;
+};
+
+Deno.test('floating: a hollow part is one piece -- its sealed void is not flagged', () => {
+  // a 30 mm box with a 20 mm void: two shells, but the inner one faces inward
+  const hollow = topoOf([...block(-15, 15, -15, 15, 0, 30), ...cavity(-10, 10, -10, 10, 5, 25)]);
+  const f = floatingPieces(hollow, analyze(hollow, 45, I), I);
+  assert(f.length === 0, `hollow box flagged as floating: ${JSON.stringify(f)}`);
+});
+
+Deno.test('floating: a loose piece inside a void is still found', () => {
+  // the same hollow box with a block hanging 3 mm over the void's floor
+  const topo = topoOf([...block(-15, 15, -15, 15, 0, 30), ...cavity(-10, 10, -10, 10, 5, 25),
+                       ...block(-4, 4, -4, 4, 8, 14)]);
+  const f = floatingPieces(topo, analyze(topo, 45, I), I);
+  assert(f.length === 1 && Math.abs(f[0].drop - 3) < 1e-6, `loose piece: ${JSON.stringify(f)}`);
+});
+
+Deno.test('floating: 1,800 stacked pieces check in well under a second', () => {
+  // a 60 x 30 grid of posts, each carrying a cap 0.1 mm above it: 3,600 pieces,
+  // 1,800 of them lifted, none floating. Testing every lifted piece against every
+  // triangle took ~1.5 s here (8 s on an 800-piece, 1M-triangle part).
+  const tris = [];
+  for (let i = 0; i < 60; i++) {
+    for (let j = 0; j < 30; j++) {
+      const x = i * 3, y = j * 3;
+      tris.push(...block(x, x + 2, y, y + 2, 0, 4), ...block(x, x + 2, y, y + 2, 4.1, 5));
+    }
+  }
+  const topo = topoOf(tris);
+  const res = analyze(topo, 45, I);
+  const t0 = performance.now();
+  const f = floatingPieces(topo, res, I);
+  const ms = performance.now() - t0;
+  assert(f.length === 0, `${f.length} caps flagged`);
+  assert(ms < 500, `floatingPieces took ${ms.toFixed(0)} ms`);
+});
