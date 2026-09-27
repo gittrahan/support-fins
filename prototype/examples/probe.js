@@ -5,6 +5,7 @@
  * below it. Also reports bed-to-part stilt height (what branching would save).
  *
  *   deno run -A prototype/examples/probe.js [model ...]
+ *   deno run -A prototype/examples/probe.js --real [model ...]   # real/ (fetch_thingi.py)
  */
 const WEB = new URL('../../web/', import.meta.url).pathname;
 const { buildTopology, analyze } = await import(`${WEB}overhangs.js`);
@@ -29,13 +30,14 @@ const rotX = (d) => { const r = d * Math.PI / 180, c = Math.cos(r), s = Math.sin
 const vol = (t) => { let v = 0; for (let i = 0; i < t.length; i += 3) { const [a, b, c] = [t[i], t[i + 1], t[i + 2]];
   v += a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0]); } return Math.abs(v) / 6; };
 
-const dir = new URL('./models/', import.meta.url).pathname;
+const dir = new URL(Deno.args.includes('--real') ? './real/' : './models/', import.meta.url).pathname;
 const want = Deno.args.filter((a) => !a.startsWith('-'));
 const files = [...Deno.readDirSync(dir)].map((f) => f.name).filter((n) => n.endsWith('.stl'))
   .filter((n) => !want.length || want.includes(n.replace('.stl', ''))).sort();
 const R = PROP.maxUnsupportedSpan / 2;
 const pad = (s, n) => String(s).padEnd(n);
-console.log(pad('model', 18) + pad('pose', 6) + pad('ovh mm2', 9) + pad('held%', 7) + pad('walls', 6) + pad('onPart', 7)
+const W = Math.max(18, ...files.map((f) => f.length - 2));
+console.log(pad('model', W) + pad('pose', 6) + pad('ovh mm2', 9) + pad('held%', 7) + pad('walls', 6) + pad('onPart', 7)
   + pad('stilt mm', 9) + pad('g', 6) + 'skipped');
 for (const f of files) {
   const pos = readSTL(Deno.readFileSync(dir + f));
@@ -59,7 +61,7 @@ for (const f of files) {
     const stilt = walls.filter((w) => !w.partAttached).reduce((s, w) => s + (w.height ?? 0), 0);
     const g = (vol(b.triangles) + vol(b.padTriangles)) * 1.24 / 1000;
     const sk = Object.entries(b.skipped ?? {}).filter(([, n]) => n).map(([k, n]) => `${k}:${n}`).join(' ');
-    console.log(pad(f.replace('.stl', ''), 18) + pad(pose, 6) + pad(area.toFixed(0), 9)
+    console.log(pad(f.replace('.stl', ''), W) + pad(pose, 6) + pad(area.toFixed(0), 9)
       + pad(area ? (100 * held / area).toFixed(0) : '-', 7) + pad(walls.length, 6) + pad(onPart, 7)
       + pad(stilt.toFixed(0), 9) + pad(g.toFixed(1), 6) + sk);
   }

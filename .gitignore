@@ -12,3 +12,6 @@ dev-models/
 prototype/stress/models/*
 !prototype/stress/models/*.stl
 plugins/orca/build/
+
+# Thingi10K examples: third-party licenses, fetched locally (fetch_thingi.py)
+prototype/examples/real/

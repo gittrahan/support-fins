@@ -9,6 +9,15 @@ there and scores 15% here.
     deno run -A prototype/examples/probe.js      # every model, upright and tilted 30deg
     deno run -A prototype/examples/probe.js bowl mushroom
 
+    pip install thingi10k
+    python3 prototype/examples/fetch_thingi.py   # real/: 19 Thingiverse files (~10 GB first download)
+    deno run -A prototype/examples/probe.js --real
+
+`real/` is git-ignored: each file keeps its own Thingiverse license (listed in
+`real/CREDITS.md`), so they're fetched for local testing, never committed. They were
+picked by eye from a contact sheet (whole, upright objects, not kit pieces); miniatures
+are also written scaled to 32 mm tall.
+
 Families:
 - **tall / high ceiling** (`mushroom`, `table`, `shelf`, `bridge_span`): held fine, but
   every wall runs from the plate. `stilt mm` is the total bed-to-part wall height, which
