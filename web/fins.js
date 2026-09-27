@@ -68,7 +68,6 @@ function coverPitch(coverage) {
 export function applyTunables(t) {
   if (!t) return;
   const set = (obj, key, v) => { if (Number.isFinite(v)) obj[key] = v; };
-  set(FIN, 'gap', t.finGap);
   set(FIN, 'tineBite', t.tineBite);
   set(FIN, 'padH', t.padH);
   set(PAD, 'grab', t.padGrab);
