@@ -90,6 +90,10 @@ export function computeFins(positions, options = {}) {
       braces: built.braceCount ?? 0,
       tines: built.tines ?? 0,
       unserved: built.unserved ?? null,
+      // pieces that start in mid-air (see overhangs.js floatingPieces), with the
+      // drop of the first: the plugins' readouts say so, as the site's does
+      floating: built.floating?.length ?? 0,
+      floatingDrop: built.floating?.[0]?.drop ?? 0,
     },
   };
 }

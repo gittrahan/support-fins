@@ -28,6 +28,7 @@
  *
  * Each module imports only modules above it in this list and never fins.js.
  */
+import { floatingPieces } from './overhangs.js';
 import { findWallPatches } from './planes.js';
 import { buildProps, noProps, PROP } from './prop.js';
 import { buildSwayBraces } from './sway.js';
@@ -98,6 +99,14 @@ export function applyTunables(t) {
  * @param opts.bedPad   add the pad when bed contact is too small to hold
  */
 export function buildFins(topo, result, rot, opts = {}) {
+  const built = buildFinsAndBraces(topo, result, rot, opts);
+  // A piece of the part that starts in mid-air (a cut clean through, a loose
+  // body) needs saying no matter what was placed: see floatingPieces.
+  built.floating = floatingPieces(topo, result, rot);
+  return built;
+}
+
+function buildFinsAndBraces(topo, result, rot, opts = {}) {
   applyTunables(opts.tunables);
   const built = buildFinsCore(topo, result, rot, opts);
   // Sway braces are an optional ADD-ON to whatever the mode placed (sway.js): a

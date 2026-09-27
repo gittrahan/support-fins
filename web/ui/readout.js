@@ -341,6 +341,15 @@ function updateFinReadout(built, ms) {
       : 'this part balances on one point with nothing under it. Turn the bed pad on, or rotate until it sits down');
   }
   if (padNote(built)) lead.push(padNote(built));
+  if (built.floating?.length) {
+    // A piece not joined to the rest stands on its supports alone, and is almost
+    // always a modelling slip (a bore wider than the wall it cuts). Must-see.
+    const f = built.floating.length;
+    lead.push(`${f === 1 ? 'one piece' : `${f} pieces`} of this part ${f === 1 ? 'isn’t' : 'aren’t'} `
+            + `joined to the rest: ${f === 1 ? 'it starts' : 'the first starts'} `
+            + `${built.floating[0].drop.toFixed(1)} mm up, held only by supports. Check the model `
+            + `is one piece (a hole or cut may go right through)`);
+  }
   if (built.sagRisk) {
     // The coverage slider is left of centre, so a broad flat overhang got rows
     // spaced wider than the 12mm anti-sag guide. That's allowed on purpose (fewer

@@ -196,3 +196,79 @@ export function analyze(topo, thresholdDeg = DEFAULT_THRESHOLD, rot = IDENTITY3)
     size: { x: maxX - minX, y: maxY - minY, z: maxZ - minZ },
   };
 }
+
+/**
+ * Pieces of the part that start in mid-air.
+ *
+ * A mesh can hold more than one closed piece: a multi-body export, a print-in-
+ * place assembly, or a cut that went clean through (a bore wider than the wall
+ * around it). A piece that neither touches the plate nor sits on another piece
+ * stands on its supports alone -- and is nearly always a modelling slip (a
+ * bore wider than the wall it cuts). The overhang pass cannot see this: a
+ * severed piece's lowest surface can be a hole's ceiling, which it rightly
+ * leaves to bridge, so the piece would hang in air. It is checked here, once,
+ * for the readout to say out loud.
+ *
+ * A piece counts as resting when a ray straight down from its lowest point meets
+ * another piece within RESTS_ON (a stacked print-in-place part), or when it
+ * reaches the plate (BED_EPS).
+ *
+ * @returns [{ faces, lowest: [x, y, z], drop }] in the seated frame of `result`,
+ *          `drop` = how far the lowest point hangs over whatever is below it
+ *          (Infinity over the bare plate is reported as its height).
+ */
+export function floatingPieces(topo, result, rot = IDENTITY3) {
+  const { pos, nFaces, adjA, adjB } = topo;
+  const RESTS_ON = 0.3;
+  const off = result.offset;
+  const parent = new Int32Array(nFaces);
+  for (let f = 0; f < nFaces; f++) parent[f] = f;
+  const find = (x) => {
+    while (parent[x] !== x) x = parent[x] = parent[parent[x]];
+    return x;
+  };
+  for (let e = 0; e < adjA.length; e++) {
+    const ra = find(adjA[e]), rb = find(adjB[e]);
+    if (ra !== rb) parent[ra] = rb;
+  }
+  const seat = (p) => [
+    rot[0] * pos[p] + rot[3] * pos[p + 1] + rot[6] * pos[p + 2] + off.x,
+    rot[1] * pos[p] + rot[4] * pos[p + 1] + rot[7] * pos[p + 2] + off.y,
+    rot[2] * pos[p] + rot[5] * pos[p + 1] + rot[8] * pos[p + 2] + off.z,
+  ];
+  const pieces = new Map();
+  for (let f = 0; f < nFaces; f++) {
+    const r = find(f);
+    let g = pieces.get(r);
+    if (!g) pieces.set(r, (g = { faces: 0, lowest: null }));
+    g.faces++;
+    for (let i = 0; i < 3; i++) {
+      const v = seat(f * 9 + i * 3);
+      if (!g.lowest || v[2] < g.lowest[2]) g.lowest = v;
+    }
+  }
+  if (pieces.size < 2) return [];
+
+  const out = [];
+  for (const [root, g] of pieces) {
+    const [px, py, pz] = g.lowest;
+    if (pz < BED_EPS) continue;                       // on the plate
+    // highest surface of ANOTHER piece straight below the lowest point
+    let below = -Infinity;
+    for (let f = 0; f < nFaces; f++) {
+      if (find(f) === root) continue;
+      const a = seat(f * 9), b = seat(f * 9 + 3), c = seat(f * 9 + 6);
+      const d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1]);
+      if (Math.abs(d) < 1e-12) continue;
+      const l1 = ((b[1] - c[1]) * (px - c[0]) + (c[0] - b[0]) * (py - c[1])) / d;
+      const l2 = ((c[1] - a[1]) * (px - c[0]) + (a[0] - c[0]) * (py - c[1])) / d;
+      const l3 = 1 - l1 - l2;
+      if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
+      const z = l1 * a[2] + l2 * b[2] + l3 * c[2];
+      if (z <= pz + 1e-6 && z > below) below = z;
+    }
+    const drop = below === -Infinity ? pz : pz - below;
+    if (drop > RESTS_ON) out.push({ faces: g.faces, lowest: g.lowest, drop });
+  }
+  return out;
+}
