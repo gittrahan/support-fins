@@ -34,6 +34,9 @@ let lastSize = null;
 const SHADE = {
   plain: new THREE.Color().setHex(0xb9c2d0, THREE.SRGBColorSpace),
   over: new THREE.Color().setHex(0xff5a4d, THREE.SRGBColorSpace),
+  // an overhang too small to support (a sliver analyze drops): it prints
+  // unsupported, so it must still show -- amber, like the over-warn card
+  small: new THREE.Color().setHex(0xffb454, THREE.SRGBColorSpace),
   bed: new THREE.Color().setHex(0x3f7fd0, THREE.SRGBColorSpace),
 };
 
@@ -160,7 +163,7 @@ export function shade() {
   const colors = part.geometry.getAttribute('color');
   const arr = colors.array;
   for (let f = 0; f < topology.nFaces; f++) {
-    const c = res.kept[f] ? SHADE.over : res.onBed[f] ? SHADE.bed : SHADE.plain;
+    const c = res.kept[f] ? SHADE.over : res.over[f] ? SHADE.small : res.onBed[f] ? SHADE.bed : SHADE.plain;
     for (let i = 0; i < 3; i++) {
       const o = f * 9 + i * 3;
       arr[o] = c.r; arr[o + 1] = c.g; arr[o + 2] = c.b;
@@ -169,11 +172,18 @@ export function shade() {
   colors.needsUpdate = true;
 
   const dropped = res.rawRegionCount - res.regions.length;
-  el('s-over').textContent = res.regions.length === 0
+  // The slivers keep their own amber swatch, so the amber faces have a name even
+  // when this pose has no region the tool supports.
+  const sOver = el('s-over');
+  sOver.textContent = res.regions.length === 0
     ? 'none'
-    : `${res.regions.length} region${res.regions.length === 1 ? '' : 's'}` +
-      (dropped ? ` (+${dropped} sliver${dropped === 1 ? '' : 's'})` : '');
-  el('s-over').classList.toggle('good', res.regions.length === 0);
+    : `${res.regions.length} region${res.regions.length === 1 ? '' : 's'}`;
+  if (dropped) {
+    const sw = document.createElement('i');
+    sw.className = 'sw sw-small';
+    sOver.append(' (+', sw, `${dropped} sliver${dropped === 1 ? '' : 's'})`);
+  }
+  sOver.classList.toggle('good', res.regions.length === 0 && !dropped);
 
   // Overhang warning (bottom-right card). The tool builds support for the big
   // overhang REGIONS but drops the small ones -- hole ceilings, slot roofs, bore

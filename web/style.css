@@ -290,6 +290,7 @@ html, body {
   vertical-align: baseline;
 }
 .sw-over { background: #ff5a4d; }
+.sw-small { background: #ffb454; margin: 0 3px 0 0; }
 .sw-bed  { background: #3f7fd0; }
 .sw-fin  { background: #59d98e; }
 .sw-pad  { background: #e8b64c; }
