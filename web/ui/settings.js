@@ -12,6 +12,7 @@ import { removeMode, syncRemoveUI, cancelRemove } from './remove.js';
 import { setDrawMsg, clearPreview, syncDrawControls } from './walls.js';
 import { lastBuilt, refreshFins } from './finbuild.js';
 import { setGizmo } from './pose.js';
+import { shade } from './part.js';
 
 export let finsVisible = false;
 export function setFinsVisible(v) { finsVisible = v; }
@@ -227,6 +228,18 @@ el('tines').closest('label').addEventListener('click', (e) => e.stopPropagation(
 // ...and the same for the Sway braces switch, which sits in its own section header.
 el('sway').closest('label').addEventListener('click', (e) => e.stopPropagation());
 
+// Display: amber shading + over-warn card for the slivers too small for a fin.
+// On by default; the choice is remembered (storage optional, like the sections).
+const SMALL_KEY = 'sf.showSmall';
+export let showSmall = true;
+try { showSmall = localStorage.getItem(SMALL_KEY) !== '0'; } catch { /* storage off */ }
+el('show-small').checked = showSmall;
+el('show-small').addEventListener('change', (e) => {
+  showSmall = e.target.checked;
+  try { localStorage.setItem(SMALL_KEY, showSmall ? '1' : '0'); } catch { /* storage off */ }
+  shade();
+});
+
 /** Refill each section's collapsed recap from the controls' current values. */
 export function syncSectionSums() {
   const sel = (id) => el(id).selectedOptions[0]?.textContent.split(' —')[0] ?? '';
@@ -243,6 +256,7 @@ export function syncSectionSums() {
     ? `${el('sway-spacing').value} mm tines · ${el('sway-depth').value}% deep`
       + (el('sway-from').valueAsNumber > 0 ? ` · from ${el('sway-from').value} mm` : '')
     : 'off';
+  el('sum-display').textContent = el('show-small').checked ? 'small overhangs shown' : 'small overhangs hidden';
 }
 el('fin-opts').addEventListener('input', syncSectionSums);
 el('fin-opts').addEventListener('change', syncSectionSums);

@@ -341,6 +341,18 @@
     </div>
   </details>
 
+  <!-- Display: how the part is drawn, not what gets built. "Show small overhangs"
+       shades the slivers too small for a fin amber and explains them in the
+       over-warn card; off hides both. The readout keeps its sliver count either
+       way, so turning it off never hides that they exist. Remembered in
+       localStorage (optional). -->
+  <details class="sec" data-sec="display">
+    <summary><span class="sec-title">Display</span><span class="sec-sum" id="sum-display"></span></summary>
+    <label class="check" title="Shade overhangs too small for a fin amber, with a card saying they print unsupported. Off hides the shading and the card; the readout still counts them.">
+      <input type="checkbox" id="show-small" checked>Show small overhangs
+    </label>
+  </details>
+
   <!-- Draw controls: shown while placing by hand, outside the sections so the
        hint and Clear can never be collapsed away mid-draw. Hint text is set per
        mode in ui/walls.js (syncDrawControls). -->

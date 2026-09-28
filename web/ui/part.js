@@ -17,7 +17,7 @@ import {
   setDrawnWalls, setDrawMsg, markPrintTrisDirty, clearPreview, syncDrawControls,
 } from './walls.js';
 import { activeAdded, refreshFins, markFinsStale } from './finbuild.js';
-import { finsVisible, setDrawAugment, syncAugmentUI } from './settings.js';
+import { finsVisible, setDrawAugment, showSmall, syncAugmentUI } from './settings.js';
 import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
@@ -163,7 +163,7 @@ export function shade() {
   const colors = part.geometry.getAttribute('color');
   const arr = colors.array;
   for (let f = 0; f < topology.nFaces; f++) {
-    const c = res.kept[f] ? SHADE.over : res.over[f] ? SHADE.small : res.onBed[f] ? SHADE.bed : SHADE.plain;
+    const c = res.kept[f] ? SHADE.over : res.over[f] && showSmall ? SHADE.small : res.onBed[f] ? SHADE.bed : SHADE.plain;
     for (let i = 0; i < 3; i++) {
       const o = f * 9 + i * 3;
       arr[o] = c.r; arr[o + 1] = c.g; arr[o + 2] = c.b;
@@ -191,8 +191,10 @@ export function shade() {
   // slotted peg's underside -- as slivers. Those are exactly what prints rough by
   // surprise, so they shade amber and this card says what amber means, whenever
   // there are any (a clean pose too: the amber faces still need a name).
+  // Settings > Display > "Show small overhangs" off hides the shading and this
+  // card; the sliver count in the readout above stays.
   const warn = el('over-warn');
-  if (dropped > 0) {
+  if (dropped > 0 && showSmall) {
     const one = dropped === 1;
     warn.textContent = `⚠ ${dropped} overhang${one ? '' : 's'} shaded amber ${one ? 'is' : 'are'} `
       + `too small for a fin (under ${MIN_REGION_AREA} mm² each), so ${one ? 'it prints' : 'they print'} `
