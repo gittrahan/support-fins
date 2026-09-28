@@ -4,6 +4,7 @@
 // and `raster: false` builds the normal pass alone. The short-wall last resort
 // (fins/shortwalls.js) is off throughout: it fills what raster:false leaves bare.
 import { buildTopology, analyze, fins, prop, assert, readSTL, rotX, loadModel } from './_util.js';
+import { gripRise } from '../web/prop/raster.js';
 
 const FIXTURES = new URL('./fixtures/', import.meta.url).pathname;   // gen_curved.py
 const example = (name) => {
@@ -55,8 +56,9 @@ Deno.test('raster: raster:false builds the normal pass alone', () => {
 
 Deno.test('raster: a swap never raises the lowest grip or drops a wedge (bore_bracket-like)', () => {
   // Every pose: the lowest tine with raster on may not sit above the one with it
-  // off (compare.js's 0.1 mm base-grip rule), and no wedge disappears. The curved
-  // fixtures plus the stress models that swap (sphere, torus) or wedge (tube, portal).
+  // off by more than gripRise (0.1 mm near the bed, 5% of its height up high --
+  // compare.js's base-grip rule), and no wedge disappears. The curved fixtures
+  // plus the stress models that swap (sphere, torus) or wedge (tube, portal).
   const shapes = [...['bowl', 'dome_ceiling', 'torus_flat'].map((n) => [n, () => example(n)]),
                   ...['sphere', 'torus', 'tube', 'portal'].map((n) => [n, () => loadModel(n)])];
   for (const [name, load] of shapes) {
@@ -71,7 +73,7 @@ Deno.test('raster: a swap never raises the lowest grip or drops a wedge (bore_br
                  wedges: b.fins.filter((f) => f.kind === 'wedge').length };
       };
       const off = low(false), on = low(true);
-      assert(on.z <= off.z + 0.1, `${name} X${deg}: lowest tine rose ${off.z} -> ${on.z}`);
+      assert(on.z <= off.z + gripRise(off.z), `${name} X${deg}: lowest tine rose ${off.z} -> ${on.z}`);
       assert(on.wedges >= off.wedges, `${name} X${deg}: wedges ${off.wedges} -> ${on.wedges}`);
     }
   }

@@ -40,8 +40,14 @@ export const RACE_ABS = 5.0;
 export const RASTER_SKIP_HELD = 0.95;
 // A swap may not raise a region's lowest grip by more than this (mm): the
 // lowest tine is what holds the part while it is still short and least stable,
-// and prototype/sweep/compare.js blocks on it rising 0.1 mm.
+// and prototype/sweep/compare.js blocks on it rising the same amount.
 export const GRIP_RISE = 0.1;
+// ...or by this fraction of the grip's height, whichever is more. The 0.1 mm
+// matters near the bed; a grip 40 mm up already stands on 40 mm of printed
+// part, and bear/gree/dome lost a raster wall holding 2-3x the area over a
+// 0.2-2.4 mm rise there (Matthew, 2026-09-28).
+export const GRIP_RISE_REL = 0.05;
+export const gripRise = (z) => Math.max(GRIP_RISE, GRIP_RISE_REL * z);
 
 /**
  * The raster tracks for one region: parallel straight tracks at `rowSpan`
@@ -247,7 +253,7 @@ function nearRegion(faces, ri) {
  * they do. Torus X45: the raster rows missed a low ledge the normal pass's squat
  * wall held (69 mm2); bore_bracket X45: they dropped the wall whose tines gripped
  * 1.2 mm off the bed for one gripping from 22.9 mm. The swap must trade neither.
- * If the region's lowest grip still rises past GRIP_RISE, no swap.
+ * If the region's lowest grip still rises past gripRise, no swap.
  */
 function keepers(qa, qb, near) {
   const kept = [...qb], extra = [];
@@ -264,7 +270,8 @@ function keepers(qa, qb, near) {
     kept.push(q);
     for (let i = bare.length - 1; i >= 0; i--) if (heldBy([bare[i]], q.line)) bare.splice(i, 1);
   }
-  return gripZ(kept) > gripZ(qa) + GRIP_RISE ? null : extra;
+  const za = gripZ(qa);
+  return gripZ(kept) > za + gripRise(za) ? null : extra;
 }
 
 /**

@@ -26,6 +26,7 @@ const H = JSON.parse(Deno.readTextFileSync(headF));
 const LEN_MM = 5, LEN_FRAC = 0.05;            // wall length lost
 const TINE_N = 3, TINE_FRAC = 0.05;           // tines lost
 const LOWTINE_MM = 0.1;                       // lowest tine rising (base grip)
+const LOWTINE_REL = 0.05;                     // ...or 5% of its height (web/prop/raster.js gripRise)
 // Overhang coverage (sweep.js `cov`, check_stl's metric) is what the proxies
 // above stand in for. Losing >2 points blocks (check_diff's rule). And when
 // coverage HELD (within COV_HELD of base, or better), lost tines / wall length
@@ -61,7 +62,7 @@ for (const k of Object.keys(B)) {
   const proxy = (cat, d) => (held ? info.traded.push([k, `${d}, coverage ${b.cov} -> ${h.cov} %`]) : blocking[cat].push([k, d]));
   if (lost(b.wallLen, h.wallLen, LEN_MM, LEN_FRAC)) proxy('wallLen', `wall ${b.wallLen} -> ${h.wallLen} mm`);
   if (lost(b.tines, h.tines, TINE_N, TINE_FRAC)) proxy('tines', `tines ${b.tines} -> ${h.tines}`);
-  if (b.lowTine != null && (h.lowTine == null || h.lowTine > b.lowTine + LOWTINE_MM)) {
+  if (b.lowTine != null && (h.lowTine == null || h.lowTine > b.lowTine + Math.max(LOWTINE_MM, LOWTINE_REL * b.lowTine))) {
     blocking.lowTine.push([k, `${b.lowTine} -> ${h.lowTine ?? 'none'} mm`]);
   }
   if (h.walls !== b.walls) info.walls.push([k, `${b.walls} -> ${h.walls}`]);
