@@ -81,6 +81,8 @@ export function applyTunables(t) {
   if (['auto', 'light', 'sure', 'custom'].includes(t.padStyle)) PAD.style = t.padStyle;
   if (t.padCustom) for (const k of Object.keys(PAD.custom)) set(PAD.custom, k, t.padCustom[k]);
   set(PROP, 'gap', t.propGap);
+  set(PROP, 'sideClear', t.sideClear);
+  set(PROP, 'bottomGap', t.bottomGap);
   // The wedge keeps its own copy of the clearance, so the Support gap field and the
   // PETG profile never reached it -- not even on the main thread, where everything
   // else worked. One clearance, applied everywhere it is spelled.
