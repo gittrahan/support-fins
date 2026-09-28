@@ -36,7 +36,7 @@ import { CUT, CUTOUT_PATTERNS } from './cutout.js';
 import { FIN } from './fins/config.js';
 import { buildPad, PAD } from './fins/pad.js';
 import { bedContact, seatedPartTris, seatingOf } from './fins/seating.js';
-import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges } from './fins/wedges.js';
+import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
 
 // Moved into web/fins/ (one module per concern); re-exported here so every
 // importer of fins.js is unchanged.
@@ -174,7 +174,14 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // tests/coverage.test.js.
     const coverage = Math.max(0, Math.min(1, opts.coverage ?? FIN.coverDefault));
     const covPitch = coverPitch(coverage);
-    const base = buildFinsCore(topo, result, rot, { ...opts, mode: 'prop', tines: withTines });
+    // The wedge candidates: broad down-facing patches. Found before the props so
+    // a raster wall can be kept off the ones the normal pass leaves to a wedge
+    // (wedgeVeto).
+    const wedgeable = findWallPatches(topo, rot, result.offset).filter((p) =>
+      p.n.z < -0.05 && p.area >= PERP.minArea && (p.u1 - p.u0) >= PERP.minWidth);
+    const wedgeOpts = { tines: withTines, pitch: covPitch, tineDensity: opts.tineDensity };
+    const base = buildFinsCore(topo, result, rot, { ...opts, mode: 'prop', tines: withTines,
+      rasterVeto: wedgeVeto(wedgeable, topo, rot, result.offset, wedgeOpts) });
 
     // Add ANGLED WEDGES on grippable down-facing patches that NO prop wall
     // reached -- the wide/long leaning face where a vertical wall is blocked by
@@ -182,16 +189,13 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // patch's footprint), not by face-index, because a wall-patch and an overhang
     // region grow from different seeds and don't share a face set. Patches props
     // already serve are left untouched, so the reachable parts don't change.
-    const patches = findWallPatches(topo, rot, result.offset);
     const wedgeTris = [];
     const wedgeRecs = [];   // per-wedge records, triRange into wedgeTris (pre-offset)
     let wedgeTines = 0;
     let wedgedPatches = 0;
-    for (const p of patches) {
-      if (p.n.z >= -0.05) continue;                 // downward faces only
-      if (p.area < PERP.minArea || (p.u1 - p.u0) < PERP.minWidth) continue; // broad faces only
+    for (const p of wedgeable) {                    // downward, broad faces only
       if (propServesPatch(p, base.props)) continue; // a prop already stands under it
-      const w = buildPerpFins(p, topo, rot, result.offset, { tines: withTines, pitch: covPitch, tineDensity: opts.tineDensity });
+      const w = buildPerpFins(p, topo, rot, result.offset, wedgeOpts);
       if (!w.count) continue;
       // Offset each wedge's range from its per-call `out` into the merged
       // wedgeTris array, so the range lands correctly in the final triangles.

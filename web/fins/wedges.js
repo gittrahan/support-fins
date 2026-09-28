@@ -287,6 +287,28 @@ export function propServesPatch(p, props) {
 }
 
 /**
+ * The veto buildProps applies to raster walls (web/prop/raster.js) in auto mode:
+ * a raster wall may not stand under a patch the normal pass's walls leave to a
+ * WEDGE, because the wedge's tines grip from the bed. bore_bracket X45: a raster
+ * wall under the leaning face dropped its wedge and the part's lowest grip rose
+ * 1.2 -> 22.9 mm. Only patches where a wedge actually builds count -- a veto on
+ * every broad down-facing patch also refused the dome and bowl their raster walls.
+ * `patches` = the wedge candidates (down-facing, broad), as buildFins filters
+ * them; `wedgeOpts` = buildPerpFins's options there.
+ */
+export function wedgeVeto(patches, topo, rot, offset, wedgeOpts) {
+  let seen = null, open = [];
+  return (q, normalProps) => {
+    if (normalProps !== seen) {          // once per build: the patches left to wedges
+      seen = normalProps;
+      open = patches.filter((p) => !propServesPatch(p, normalProps)
+                                && buildPerpFins(p, topo, rot, offset, wedgeOpts).count > 0);
+    }
+    return open.some((p) => propServesPatch(p, [q]));
+  };
+}
+
+/**
  * Overhang regions still unsupported once the wedges are in: neither served by a
  * prop wall nor standing over any wedge. This used to be `unserved - wedged
  * PATCHES` -- a patch count off a region count, two different segmentations --
