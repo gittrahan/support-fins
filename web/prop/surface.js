@@ -78,27 +78,37 @@ function buildZGrid(tris) {
   return g;
 }
 
-export function surfaceZAt(tris, x, y) {
-  if (tris.length === 0) return null;
-  const g = buildZGrid(tris);
+// The grid cell's candidate triangles for column (x, y), or null outside the grid.
+function cellOf(g, x, y) {
   if (x < g.minX || x > g.maxX || y < g.minY || y > g.maxY) return null;
   const a = Math.min(ZGRID - 1, Math.max(0, Math.floor((x - g.minX) * g.sx)));
   const b = Math.min(ZGRID - 1, Math.max(0, Math.floor((y - g.minY) * g.sy)));
-  const c = a * ZGRID + b;
+  return a * ZGRID + b;
+}
+
+// Height of triangle `i` of `tris` at column (x, y), or null if the column misses it.
+function zOn(tris, i, x, y) {
+  const ax = tris[i], ay = tris[i + 1], az = tris[i + 2];
+  const bx = tris[i + 3], by = tris[i + 4], bz = tris[i + 5];
+  const cx = tris[i + 6], cy = tris[i + 7], cz = tris[i + 8];
+  const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
+  if (Math.abs(den) < 1e-12) return null;
+  const l1 = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / den;
+  const l2 = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / den;
+  const l3 = 1 - l1 - l2;
+  if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) return null;
+  return l1 * az + l2 * bz + l3 * cz;
+}
+
+export function surfaceZAt(tris, x, y) {
+  if (tris.length === 0) return null;
+  const g = buildZGrid(tris);
+  const c = cellOf(g, x, y);
+  if (c === null) return null;
   let best = Infinity;
   for (let k = g.start[c]; k < g.start[c + 1]; k++) {
-    const i = g.items[k];
-    const ax = tris[i], ay = tris[i + 1], az = tris[i + 2];
-    const bx = tris[i + 3], by = tris[i + 4], bz = tris[i + 5];
-    const cx = tris[i + 6], cy = tris[i + 7], cz = tris[i + 8];
-    const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
-    if (Math.abs(den) < 1e-12) continue;
-    const l1 = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / den;
-    const l2 = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / den;
-    const l3 = 1 - l1 - l2;
-    if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
-    const z = l1 * az + l2 * bz + l3 * cz;
-    if (z < best) best = z;
+    const z = zOn(tris, g.items[k], x, y);
+    if (z !== null && z < best) best = z;
   }
   return best === Infinity ? null : best;
 }
@@ -113,18 +123,17 @@ export function surfaceZAt(tris, x, y) {
  * floorLine and the draw path measure the part identically.
  */
 export function surfaceZsAt(tris, x, y) {
+  // Through the same XY grid as surfaceZAt: floorLine queries the WHOLE part
+  // three times a station, and a linear scan there was 60% of a raster build
+  // (gree X30). Only the order of the heights can differ from a full scan.
   const zs = [];
-  for (let i = 0; i < tris.length; i += 9) {
-    const ax = tris[i], ay = tris[i + 1], az = tris[i + 2];
-    const bx = tris[i + 3], by = tris[i + 4], bz = tris[i + 5];
-    const cx = tris[i + 6], cy = tris[i + 7], cz = tris[i + 8];
-    const den = (by - cy) * (ax - cx) + (cx - bx) * (ay - cy);
-    if (Math.abs(den) < 1e-12) continue;
-    const l1 = ((by - cy) * (x - cx) + (cx - bx) * (y - cy)) / den;
-    const l2 = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / den;
-    const l3 = 1 - l1 - l2;
-    if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
-    zs.push(l1 * az + l2 * bz + l3 * cz);
+  if (tris.length === 0) return zs;
+  const g = buildZGrid(tris);
+  const c = cellOf(g, x, y);
+  if (c === null) return zs;
+  for (let k = g.start[c]; k < g.start[c + 1]; k++) {
+    const z = zOn(tris, g.items[k], x, y);
+    if (z !== null) zs.push(z);
   }
   return zs;
 }
