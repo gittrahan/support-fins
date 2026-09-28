@@ -152,7 +152,7 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out) {
   const subFloor = floor.slice(run[0], run[1]);
   const span = Math.hypot(subTop[subTop.length - 1][0] - subTop[0][0],
                           subTop[subTop.length - 1][1] - subTop[0][1]);
-  if (span < PROP.minSpan) return { floored: 'stub' };
+  if (span < PROP.minSpanPart) return { floored: 'stub' };
 
   const before = out.length;
   const mold = moldLine(subTop, partTris);

@@ -136,6 +136,9 @@ export const PROP = {
   // wall under it is its only support: minSpan's "not worth the plate space"
   // would drop the whole feature. Such a wall may be this short.
   minSpanTube: 3.0,
+  // A wall standing on the part costs no plate space, so minSpan's reason doesn't
+  // apply there either: a 4 mm ledge over a mini's body is served by a 4 mm wall.
+  minSpanPart: 3.0,
   tubeConvexFrac: 0.7,
   tubeTwoSidedFrac: 0.25,  // least share of the off-line area on either side
   // mm an overhang may bridge unsupported: the wall-to-wall spacing across a
