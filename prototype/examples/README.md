@@ -13,6 +13,10 @@ there and scores 15% here.
     python3 prototype/examples/fetch_thingi.py   # real/: 19 Thingiverse files (~10 GB first download)
     deno run -A prototype/examples/probe.js --real
 
+    # one model, raster placement off vs on (web/prop/raster.js), as a picture
+    deno run -A prototype/examples/compare.js prototype/examples/models/torus_flat.stl 30 /tmp/t.json
+    python3 prototype/examples/render.py /tmp/t.json /tmp/t.png
+
 `real/` is git-ignored: each file keeps its own Thingiverse license (listed in
 `real/CREDITS.md`), so they're fetched for local testing, never committed. They were
 picked by eye from a contact sheet (whole, upright objects, not kit pieces); miniatures
