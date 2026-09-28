@@ -113,9 +113,10 @@ export function coverRowSpan(coverage) {
  * @returns {{triangles, props, skipped, served, sagRisk}}
  */
 export function buildProps(topo, result, rot, opts = {}) {
+  const capFrom = globalThis.__TINECAP?.length ?? 0;    // tests' tine capture: see withRaster
   const normal = buildPass(topo, result, rot, opts, null);
   if (opts.raster === false) return normal;
-  return withRaster(topo, result, rot, opts, normal,
+  return withRaster(topo, result, rot, opts, normal, capFrom,
                     (regions) => buildPass(topo, result, rot, opts, regions));
 }
 
@@ -143,7 +144,7 @@ function buildPass(topo, result, rot, opts, raster) {
   const off = result.offset;
   const withTines = opts.tines === true;
   // tines emitted; sagRisk: the user chose sub-cap spacing AND a real row landed wide
-  const tally = { tines: 0, sagRisk: false };
+  const tally = { tines: 0, sagRisk: false, sagRegions: new Set() };
 
   const out = [];
   const props = [];
@@ -235,8 +236,9 @@ function buildPass(topo, result, rot, opts, raster) {
       if (!raster.has(ri)) continue;
       const lines = rasterTracks(regionPts, regionTris, partTris, step, rowSpan,
                                  { topo, rot, offset: off });
+      // the sparse-coverage sag warning, per region: it only counts if this region swaps
+      if (wantSparse && lines.spacing > PROP.maxUnsupportedSpan) tally.sagRegions.add(ri);
       if (lines.length) patches.push({ faces: rFaces, area: regionArea, region: ri, tris: regionTris, lines });
-      else skipped.noLine++;
       continue;
     }
 
@@ -401,7 +403,7 @@ function buildPass(topo, result, rot, opts, raster) {
       const usable = withLowTails(
         line.map((p, k) => clear[k] && p[2] - PROP.gap >= PROP.minHeight), clear);
       const run = longestRun(usable);
-      if (!run || run[1] - run[0] < PROP.minStations) { if (!line.rest) skipped.blocked++; runSquat(); continue; }
+      if (!run || run[1] - run[0] < PROP.minStations) { skipped.blocked++; runSquat(); continue; }
       if (raster) {
         for (const rest of rasterRest(line, run)) {
           lines.push(rest);
@@ -531,5 +533,6 @@ function buildPass(topo, result, rot, opts, raster) {
   return { triangles: out, props, skipped, served: servedRegions.size,
            servedRegions: [...servedRegions],
            tines: tally.tines, sagRisk: tally.sagRisk,
+           ...(raster ? { sagRegions: tally.sagRegions } : {}),
            volume: props.reduce((s, q) => s + q.volume, 0) };
 }

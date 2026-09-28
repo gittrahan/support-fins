@@ -53,7 +53,9 @@ export const GRIP_RISE = 0.1;
  */
 export function rasterTracks(regionPts, regionTris, partTris, step, rowSpan, support) {
   const lines = [];
-  for (const t of patchTracks(regionPts, regionTris, step, support, rowSpan)) {
+  const tracks = patchTracks(regionPts, regionTris, step, support, rowSpan);
+  lines.spacing = tracks.spacing;       // row pitch, for the sparse-coverage sag warning
+  for (const t of tracks) {
     // floorLine's plate/part split, the same test buildPartAttached counts with
     const floor = floorLine(t, partTris);
     let cur = [], cls = null;
@@ -74,17 +76,15 @@ export function rasterTracks(regionPts, regionTris, partTris, step, rowSpan, sup
 /**
  * A raster track crosses the part and other obstacles, so its longest usable
  * run is rarely all of it: the pieces either side of `run` get their own try.
- * Returns them (each at least minStations long), marked `rest` so a piece that
- * turns out unusable is not counted as a second skip for the same track, and
- * with `from`, the index its first station had in `line` -- the caller claims
- * those stations off `line`'s squat pass, since the piece runs its own.
+ * Returns them (each at least minStations long), each with `from`, the index its
+ * first station had in `line` -- the caller claims those stations off `line`'s
+ * squat pass, since the piece runs its own.
  */
 export function rasterRest(line, run) {
   const rest = [];
   for (const [a, b] of [[0, run[0]], [run[1], line.length]]) {
     if (b - a < PROP.minStations) continue;
     const piece = line.slice(a, b);
-    piece.rest = true;
     piece.from = a;
     rest.push(piece);
   }
@@ -181,9 +181,12 @@ const byRegion = (props) => {
  *
  * The tests' tine capture (globalThis.__TINECAP, see tines.js) must end up
  * holding the KEPT walls' tines only: each pass captures into its own array,
- * every wall records its slice (`caps`), and the kept slices go back.
+ * every wall records its slice (`caps`), and the kept slices go back after
+ * whatever was captured before buildProps began (`capFrom`). The veto runs with
+ * the capture still swapped out: it builds candidate wedges, whose tines the
+ * wedge loop in fins.js emits again for real.
  */
-export function withRaster(topo, result, rot, opts, normal, rasterPass) {
+export function withRaster(topo, result, rot, opts, normal, capFrom, rasterPass) {
   const faces = overhangFaces(topo, result, rot);
   const want = rasterWanted(faces, result, normal);
   if (!want.size) return normal;
@@ -191,13 +194,13 @@ export function withRaster(topo, result, rot, opts, normal, rasterPass) {
   const capNormal = cap ? cap.slice() : null;
   if (cap) globalThis.__TINECAP = [];
   const raster = rasterPass(want);
+  if (opts.rasterVeto) raster.props = raster.props.filter((q) => !opts.rasterVeto(q, normal.props));
   const capRaster = globalThis.__TINECAP;
   globalThis.__TINECAP = cap;
-  if (opts.rasterVeto) raster.props = raster.props.filter((q) => !opts.rasterVeto(q, normal.props));
   const raced = raceRegions(faces, result, normal, raster);
   if (!raced.rasterRegions) return normal;
   if (cap) {
-    cap.length = 0;
+    cap.length = capFrom;
     for (const q of raced.props) if (q.caps) cap.push(...(q.raster ? capRaster : capNormal).slice(...q.caps));
   }
   return raced;
@@ -301,7 +304,7 @@ function raceRegions(faces, result, a, b) {
     }
     if (!extra) { for (const q of qa) take(a, q); continue; }
     swapped++;
-    sagRisk ||= b.sagRisk;
+    sagRisk ||= b.sagRegions?.has(ri) ?? false;
     for (const q of qb) take(b, q);
     for (const q of extra) take(a, q);
   }
