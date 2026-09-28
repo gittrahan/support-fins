@@ -76,7 +76,7 @@ export function noProps() {
   return {
     triangles: [], props: [], served: 0, volume: 0,
     skipped: { noLine: 0, wanders: 0, stub: 0, blocked: 0,
-               degenerate: 0, buried: 0, weld: 0, sliver: 0, bore: 0 },
+               degenerate: 0, buried: 0, weld: 0, sliver: 0 },
   };
 }
 
@@ -154,7 +154,7 @@ function buildPass(topo, result, rot, opts, raster) {
   // within a generation.
   let nextId = 0;
   const skipped = { noLine: 0, wanders: 0, stub: 0, blocked: 0,
-                    degenerate: 0, buried: 0, weld: 0, sliver: 0, bore: 0 };
+                    degenerate: 0, buried: 0, weld: 0, sliver: 0 };
   const v = [0, 0, 0];
 
   // The whole part, seated once, for the part-attached floor probe: the floor a
@@ -313,9 +313,10 @@ function buildPass(topo, result, rot, opts, raster) {
       // must stand on THAT floor, not stilt to the plate through the part (the
       // bug Matthew hit on a real hub). buildPartAttached declines on an ordinary
       // bed overhang (floorLine ~0), so the plate path below is reached unchanged
-      // for the flagship parts. When there IS a floor but no safe wall fits (a
-      // bore, or side walls in the way) it says `floored` -- counted and skipped,
-      // never stilted through the part or scarred into a bore. Works on a COPY so
+      // for the flagship parts. When there IS a floor but no safe wall fits (side
+      // walls in the way, a buried column, too short) it says `floored` with the
+      // reason -- counted and skipped, never stilted through the part. A bore is
+      // no longer a refusal: its wall is built and flagged inBore. Works on a COPY so
       // the plate path's own `line` is untouched.
       const tri0 = out.length;
       const pa = buildPartAttached(line, partTris, topo, rot, off, out);
@@ -350,7 +351,7 @@ function buildPass(topo, result, rot, opts, raster) {
                      triRanges: [[tri0, out.length]] });
         continue;
       }
-      if (pa.floored) { skipped.bore++; continue; }
+      if (pa.floored) { skipped[pa.floored]++; continue; }
 
       // Finish the top against the WHOLE region, not just this patch: a track
       // near a patch boundary can run under a sibling patch's faces, and

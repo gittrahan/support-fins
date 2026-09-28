@@ -1,9 +1,9 @@
 /**
  * Part-attached walls: an overhang above another part of the part stands its
  * wall on that floor (`floorLine`) instead of stilting to the plate through it,
- * and refuses a column inside a bore or slot (`enclosedFloor`) or one a side
- * wall cuts through (`clearBetween`). `buildPartAttached` is the verdict the
- * auto-placer acts on.
+ * and refuses a buried column (`buriedColumn`) or one a side wall cuts through
+ * (`clearBetween`). A wall inside a bore is built and flagged `inBore`.
+ * `buildPartAttached` is the verdict the auto-placer acts on.
  *
  * Split out of prop.js, which re-exports the public names.
  */
@@ -68,21 +68,27 @@ const BORE = {
   step: 0.5,       // mm along each ray
 };
 
+const zMidAt = (top, floor, k) => (floor[k][2] + (top[k][2] - PROP.gap)) / 2;
+
+/** A column whose own centreline is inside the part is buried, not standable. */
+function buriedColumn(top, floor, k, topo, rot, offset) {
+  return insidePart(topo, rot, offset, top[k][0], top[k][1], zMidAt(top, floor, k));
+}
+
 /**
- * Is the support column at station `k` enclosed by part walls -- i.e. standing
- * inside a bore or narrow slot? A support there SCARS an internal surface you
- * cannot clean (worse than a little sag), so [[project_support_fin_quality_first]]
- * says refuse it: a hole is an ORIENTATION problem, not a support one.
+ * Is the support column at station `k` enclosed by part walls -- standing inside
+ * a bore or narrow slot? Cast `dirs` horizontal rays out from the column's
+ * centreline at mid-height and count how many strike part within `radius`: an
+ * open ledge-over-base has air on some sides, a bore is walled nearly all round.
  *
- * Cast `dirs` horizontal rays out from the column's centreline at mid-height and
- * count how many strike part material within `radius`. An open ledge-over-base
- * has air on at least some sides (few walled); a blind bore is walled all round.
+ * This USED to refuse the wall. Matthew's print tests (2026-09-27) reversed that:
+ * a bore gets supported, and the wall runs along the bore (the contact line under
+ * a bore's ceiling follows its axis) so it pulls out an open end. Now it only
+ * labels the wall `inBore`, which Suggest orientation weighs as a mild preference
+ * for poses that point the holes up.
  */
-function enclosedFloor(top, floor, k, topo, rot, offset) {
-  const p = top[k];
-  const zMid = (floor[k][2] + (top[k][2] - PROP.gap)) / 2;
-  // A column whose own centreline is inside the part is buried, not standable.
-  if (insidePart(topo, rot, offset, p[0], p[1], zMid)) return true;
+function enclosedColumn(top, floor, k, topo, rot, offset) {
+  const p = top[k], zMid = zMidAt(top, floor, k);
   let walled = 0;
   for (let d = 0; d < BORE.dirs; d++) {
     const ang = (d / BORE.dirs) * 2 * Math.PI;
@@ -129,10 +135,12 @@ function clearBetween(top, floor, k, topo, rot, offset) {
  * Try to stand a PART-ATTACHED wall under `line` (the overhang contact polyline,
  * seated). Returns one of three verdicts:
  *   { ok: true, prop }   -- a part-attached wall was built into `out`.
- *   { floored: true }    -- there IS a floor here (an over-the-part overhang) but
- *                           no safe wall fits (a bore, or side walls in the way);
- *                           the caller must NOT then stilt to the plate through
- *                           the part -- it counts this and moves on.
+ *   { floored: why }     -- there IS a floor here (an over-the-part overhang) but
+ *                           no safe wall fits; the caller must NOT then stilt to
+ *                           the plate through the part -- it counts this under
+ *                           `why` (the plate path's own skip names: 'buried',
+ *                           'blocked' = side walls in the way, 'stub' = too short
+ *                           or too low, 'degenerate') and moves on.
  *   { }                  -- no floor beneath the overhang; an ordinary bed
  *                           overhang. The caller falls through to the plate path
  *                           UNCHANGED, so the flagship parts don't change.
@@ -140,8 +148,9 @@ function clearBetween(top, floor, k, topo, rot, offset) {
  * This is the auto-placer's version of what draw.js does by hand: settle a BANDED
  * top so the overhang isn't dragged onto its own floor, read the floor with
  * floorLine, and bridge the two with sweepBetween. It only claims a line when a
- * real floor sits under MOST of it, refuses bores (enclosedFloor), and refuses to
- * pierce side walls (clearBetween).
+ * real floor sits under MOST of it, refuses a buried column (buriedColumn), and
+ * refuses to pierce side walls (clearBetween). A wall inside a bore is built and
+ * flagged `inBore` (enclosedColumn).
  */
 export function buildPartAttached(line, partTris, topo, rot, offset, out) {
   const top = line.map((p) => [p[0], p[1], p[2]]);
@@ -157,23 +166,39 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out) {
   for (const f of floor) if (f[2] > PROP.gap + 0.5) real++;
   if (real < Math.max(PROP.minStations, Math.ceil(floor.length * 0.5))) return {};
 
+  // Why each station failed, so a refusal is counted under its real reason (the
+  // one count used to be `bore` for all of them; most were short runs).
+  const why = [];
   const ok = top.map((p, k) => {
     if (floor[k][2] <= PROP.gap + 0.5) return false;               // no real floor
-    if ((p[2] - PROP.gap) - floor[k][2] < PROP.minHeight) return false;
-    if (enclosedFloor(top, floor, k, topo, rot, offset)) return false;
-    return clearBetween(top, floor, k, topo, rot, offset);
+    if ((p[2] - PROP.gap) - floor[k][2] < PROP.minHeight) { why.push('stub'); return false; }
+    if (buriedColumn(top, floor, k, topo, rot, offset)) { why.push('buried'); return false; }
+    if (clearBetween(top, floor, k, topo, rot, offset)) return true;
+    why.push('blocked');
+    return false;
   });
   const run = longestRun(ok);
-  if (!run || run[1] - run[0] < PROP.minStations) return { floored: true };
+  if (!run || run[1] - run[0] < PROP.minStations) {
+    // Mostly-failing stations name the refusal; a clear run that is merely short is a stub.
+    const n = {};
+    for (const w of why) n[w] = (n[w] ?? 0) + 1;
+    const worst = Object.keys(n).sort((a, b) => n[b] - n[a])[0];
+    return { floored: why.length * 2 >= floor.length && worst ? worst : 'stub' };
+  }
 
   const subTop = top.slice(run[0], run[1]);
   const subFloor = floor.slice(run[0], run[1]);
   const span = Math.hypot(subTop[subTop.length - 1][0] - subTop[0][0],
                           subTop[subTop.length - 1][1] - subTop[0][1]);
-  if (span < PROP.minSpan) return { floored: true };
+  if (span < PROP.minSpan) return { floored: 'stub' };
 
   const before = out.length;
-  if (!sweepBetween(subTop, subFloor, out)) { out.length = before; return { floored: true }; }
+  if (!sweepBetween(subTop, subFloor, out)) { out.length = before; return { floored: 'degenerate' }; }
+
+  // In a bore when most of the kept run is walled all round.
+  let walled = 0;
+  for (let k = run[0]; k < run[1]; k++) if (enclosedColumn(top, floor, k, topo, rot, offset)) walled++;
+  const inBore = walled * 2 > run[1] - run[0];
 
   let height = 0, vol = 0;
   for (let i = 0; i < subTop.length; i++) {
@@ -188,7 +213,7 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out) {
     ok: true,
     prop: {
       span, height, stations: subTop.length, volume: Math.abs(vol),
-      partAttached: true,
+      partAttached: true, inBore,
       line: subTop.map((p) => [p[0], p[1], p[2] - PROP.gap]),
     },
   };
