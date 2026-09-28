@@ -38,6 +38,7 @@
  *   attached.js   walls that stand on the part instead of the plate
  *   squat.js      brimmed squat walls for the near-bed band
  *   rival.js      a small tube against the patch path: the region keeps the better
+ *   raster.js     walls across a region's whole footprint, raced against the rest
  *
  * Each module imports only modules above it in this list and never prop.js.
  */
@@ -47,6 +48,7 @@ import { buildPartAttached } from './prop/attached.js';
 import { bodyMask, insertFloorStations, longestRun, stationCertified, stationIsClear, tallBody, tallSpan, withLowTails } from './prop/clearance.js';
 import { PROP } from './prop/config.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
+import { rasterRest, rasterTracks, withRaster } from './prop/raster.js';
 import { tubeRivalry } from './prop/rival.js';
 import { buildSquatBed } from './prop/squat.js';
 import { seat } from './prop/surface.js';
@@ -103,9 +105,25 @@ export function coverRowSpan(coverage) {
 /**
  * Build a breakaway prop under every overhang region that can take one.
  *
+ * Two passes: the normal one (tube line or split patches per region), then a
+ * raster pass over the regions it left partly bare, and each region keeps the
+ * pass that holds more of it -- see web/prop/raster.js. `opts.raster === false`
+ * runs the normal pass alone.
+ *
  * @returns {{triangles, props, skipped, served, sagRisk}}
  */
 export function buildProps(topo, result, rot, opts = {}) {
+  const normal = buildPass(topo, result, rot, opts, null);
+  if (opts.raster === false) return normal;
+  return withRaster(topo, result, rot, opts, normal,
+                    (regions) => buildPass(topo, result, rot, opts, regions));
+}
+
+/**
+ * One placement pass. `raster` null = the normal placement for every region;
+ * a Set of region indices = raster tracks (rasterTracks) for those regions only.
+ */
+function buildPass(topo, result, rot, opts, raster) {
   const { pos } = topo;
   const step = opts.step ?? PROP.stationStep;
   // Wide-face coverage (0 sparse .. 1 dense) sets the row spacing via coverRowSpan:
@@ -171,6 +189,15 @@ export function buildProps(topo, result, rot, opts = {}) {
   // continuous bead and tears on removal (welts) instead of bending off. So it
   // tracks the user's real layer height (default 0.2mm) -- see the UI's Layer height.
   const tineHeight = opts.layerHeight ?? PROP.tineH;
+  // where the tests' tine capture stands (see buildProps); null when off
+  const capAt = () => globalThis.__TINECAP?.length ?? null;
+  // The lowest tine vertex in out[from..] -- where a wall's grip starts, which
+  // the raster race must not raise (prop/raster.js gripZ). Infinity: no tines.
+  const gripFrom = (from) => {
+    let z = Infinity;
+    for (let i = from; i < out.length; i++) if (out[i][2] < z) z = out[i][2];
+    return z;
+  };
 
   // The support unit is the locally-straight sub-patch, not the connected
   // region -- see splitRegion. Fragments too small to be worth a wall are
@@ -201,6 +228,16 @@ export function buildProps(topo, result, rot, opts = {}) {
         gx += v[0]; gy += v[1]; gz += v[2];
       }
       regionPts.push([gx / 3, gy / 3, gz / 3]);
+    }
+
+    // Raster pass: the whole footprint's tracks, no tube route, no split.
+    if (raster) {
+      if (!raster.has(ri)) continue;
+      const lines = rasterTracks(regionPts, regionTris, partTris, step, rowSpan,
+                                 { topo, rot, offset: off });
+      if (lines.length) patches.push({ faces: rFaces, area: regionArea, region: ri, tris: regionTris, lines });
+      else skipped.noLine++;
+      continue;
     }
 
     // Curved region whose lowest line is straight = a tube: ONE wall under
@@ -266,7 +303,10 @@ export function buildProps(topo, result, rot, opts = {}) {
     }
     if (!lines.length) { skipped.noLine++; continue; }
 
-    for (const line of lines) {
+    // An index loop, not for...of over a copy: a raster track's leftover pieces
+    // are appended to `lines` mid-loop (rasterRest).
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
       // PART-ATTACHED first: if solid part sits below this overhang, a support
       // must stand on THAT floor, not stilt to the plate through the part (the
       // bug Matthew hit on a real hub). buildPartAttached declines on an ordinary
@@ -290,15 +330,19 @@ export function buildProps(topo, result, rot, opts = {}) {
       }
       if (pa.ok) {
         servedRegions.add(patch.region);
+        let nT = 0;
+        const c0 = capAt(), g0 = out.length;
         // pa.prop.line already carries the wall top (surface minus gap); add the
         // gap back so emitTines reads it as the surface, like the plate path does.
         if (withTines) {
           const topLine = pa.prop.line.map((p) => [p[0], p[1], p[2] + PROP.gap]);
-          tally.tines += emitTines(topLine, partTris, topo, rot, off, out, tineStepEff, undefined, tineHeight);
+          nT = emitTines(topLine, partTris, topo, rot, off, out, tineStepEff, undefined, tineHeight);
+          tally.tines += nT;
         }
         // buildPartAttached pushed the wall starting at tri0; emitTines above pushed
         // its tines right after, so wall + tines are contiguous -> one segment.
-        props.push({ ...pa.prop, area: patch.area,
+        props.push({ ...pa.prop, area: patch.area, region: patch.region, tines: nT,
+                     caps: c0 === null ? undefined : [c0, capAt()], grip: gripFrom(g0),
                      trimmed: line.length - pa.prop.stations,
                      id: nextId++, kind: 'prop',
                      triRanges: [[tri0, out.length]] });
@@ -327,17 +371,20 @@ export function buildProps(topo, result, rot, opts = {}) {
         for (const sq of buildSquatBed(squatLine, regionTris, topo, rot, off, out, claimed)) {
           // a squat wall's base is the thin brim, not the tall flange, so tines
           // attach from squatBrimH up (the default minTop would skip every one).
-          const t0 = out.length;
-          if (withTines) tally.tines += emitTines(
+          const t0 = out.length, c0 = capAt();
+          const nT = withTines ? emitTines(
             sq.line.map((p) => [p[0], p[1], p[2] + PROP.gap]),
-            regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH, tineHeight);
+            regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH, tineHeight) : 0;
+          tally.tines += nT;
           servedRegions.add(patch.region);
           // buildSquatBed pushed this wall (sq.triRange) BEFORE every squat wall's
           // tines, so a fin's wall and its tines are NON-contiguous in `out` --
           // track both segments so removing the fin takes wall AND tines together.
           const segs = [sq.triRange];
           if (out.length > t0) segs.push([t0, out.length]);
-          props.push({ ...sq, area: patch.area, id: nextId++, kind: 'prop', triRanges: segs });
+          props.push({ ...sq, area: patch.area, region: patch.region, tines: nT,
+                       caps: c0 === null ? undefined : [c0, capAt()], grip: gripFrom(t0),
+                       id: nextId++, kind: 'prop', triRanges: segs });
         }
       };
 
@@ -354,7 +401,14 @@ export function buildProps(topo, result, rot, opts = {}) {
       const usable = withLowTails(
         line.map((p, k) => clear[k] && p[2] - PROP.gap >= PROP.minHeight), clear);
       const run = longestRun(usable);
-      if (!run || run[1] - run[0] < PROP.minStations) { skipped.blocked++; runSquat(); continue; }
+      if (!run || run[1] - run[0] < PROP.minStations) { if (!line.rest) skipped.blocked++; runSquat(); continue; }
+      if (raster) {
+        for (const rest of rasterRest(line, run)) {
+          lines.push(rest);
+          // the piece runs its own squat pass; this line's must not double it
+          for (let k = rest.from; k < rest.from + rest.length; k++) claimed[k] = true;
+        }
+      }
       const sub = line.slice(run[0], run[1]);
 
       const body = bodyMask(sub);               // before settleTop -- see bodyMask
@@ -442,9 +496,13 @@ export function buildProps(topo, result, rot, opts = {}) {
         servedRegions.add(patch.region);
         // The grip comb: nubs along this wall's settled top that bite into the
         // part. `settled` carries the surface z; emitTines subtracts the gap.
-        if (withTines) tally.tines += emitTines(settled, regionTris, topo, rot, off, out, tineStepEff, undefined, tineHeight,
-                                              tallBody(settledBody));
+        const c0 = capAt(), g0 = out.length;
+        const nT = withTines ? emitTines(settled, regionTris, topo, rot, off, out, tineStepEff, undefined, tineHeight,
+                                         tallBody(settledBody)) : 0;
+        tally.tines += nT;
         props.push({
+          region: patch.region, tines: nT,
+          caps: c0 === null ? undefined : [c0, capAt()], grip: gripFrom(g0),
           span: span2, height: top - zBed, area: patch.area,
           stations: settled.length, trimmed: line.length - settled.length,
           volume: Math.abs(vol),

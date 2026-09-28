@@ -43,8 +43,10 @@ const topoOf = (tris) => {
   return buildTopology({ getAttribute: (k) => (k === 'position' ? { array: arr } : null) });
 };
 const I = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+// raster: false -- these tests pin the tube-vs-patch race inside the normal
+// pass; the raster pass (web/prop/raster.js) would add walls to both sides.
 const build = (topo) => fins.buildFins(topo, analyze(topo, 45, I), I,
-  { mode: 'auto', bedPad: true, tines: true, coverage: 0.5 });
+  { mode: 'auto', bedPad: true, tines: true, coverage: 0.5, raster: false });
 
 // A 30x20x24 block with a 5 mm peg sticking 8 mm out of its +Y face, 14 mm up:
 // the chimney in miniature. The peg overlaps the block by 1 mm, as a modelled
