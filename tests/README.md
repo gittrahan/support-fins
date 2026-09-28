@@ -25,6 +25,16 @@ fence around it.
   because its block put the run tangent *into* the part by construction;
 - an overhang a tooth cannot reach into gets **no tine** (no gripping air).
 
+**`raster.test.js`** -- raster placement (`web/prop/raster.js`), raced per region:
+- a curved underside the tube route left bare (flat torus at X30: 4%) gets **held**;
+- a swap **never raises the lowest tine** (the part's base grip) past 0.1 mm and
+  **never drops a wedge** -- bore_bracket X45 lost its bed-gripping wedge to a raster
+  wall once (1.2 -> 22.9 mm) before `wedgeVeto`;
+- `raster: false` builds the normal pass alone;
+- tines sit **square to their wall** (along its run or straight across); an angled
+  tine is only the fallback where no square one reaches the part (raster torus X30
+  had 12 of 22 diagonal).
+
 **`supports.test.js`** -- `buildFins` on the stress models, tilted so they place fins:
 - the fin **wall never fuses into the STL** (it clears the part by the breakaway
   gap; only tines bite in);
