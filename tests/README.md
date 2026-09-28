@@ -40,6 +40,8 @@ fence around it.
 - tines sit **square to their wall** (along its run or straight across); an angled
   tine is only the fallback where no square one reaches the part (raster torus X30
   had 12 of 22 diagonal).
+Shapes: curved fixtures `tests/fixtures/{bowl,dome_ceiling,torus_flat}.stl`
+(`gen_curved.py`), plus stress models sphere/torus (they swap) and tube/portal (wedges).
 
 **`supports.test.js`** -- `buildFins` on the stress models, tilted so they place fins:
 - the fin **wall never fuses into the STL** (it clears the part by the breakaway

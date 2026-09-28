@@ -1,11 +1,11 @@
 /**
- * Area coverage on the example models: what fraction of overhang AREA sits within
+ * Area coverage on the real example models (real/, fetch_thingi.py): what fraction of overhang AREA sits within
  * reach of a wall top, not just "did the region get a wall". A face counts as held
  * when a wall-top point lies within maxUnsupportedSpan/2 in plan and 0..1.5 mm
  * below it. Also reports bed-to-part stilt height (what branching would save).
  *
  *   deno run -A prototype/examples/probe.js [model ...]
- *   deno run -A prototype/examples/probe.js --real [model ...]   # real/ (fetch_thingi.py)
+ *   deno run -A prototype/examples/probe.js --fixtures [model ...]   # tests/fixtures/ curved shapes
  */
 const WEB = new URL('../../web/', import.meta.url).pathname;
 const { buildTopology, analyze } = await import(`${WEB}overhangs.js`);
@@ -30,7 +30,7 @@ const rotX = (d) => { const r = d * Math.PI / 180, c = Math.cos(r), s = Math.sin
 const vol = (t) => { let v = 0; for (let i = 0; i < t.length; i += 3) { const [a, b, c] = [t[i], t[i + 1], t[i + 2]];
   v += a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0]); } return Math.abs(v) / 6; };
 
-const dir = new URL(Deno.args.includes('--real') ? './real/' : './models/', import.meta.url).pathname;
+const dir = new URL(Deno.args.includes('--fixtures') ? '../../tests/fixtures/' : './real/', import.meta.url).pathname;
 const want = Deno.args.filter((a) => !a.startsWith('-'));
 const files = [...Deno.readDirSync(dir)].map((f) => f.name).filter((n) => n.endsWith('.stl'))
   .filter((n) => !want.length || want.includes(n.replace('.stl', ''))).sort();

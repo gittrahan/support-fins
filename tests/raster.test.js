@@ -2,11 +2,11 @@
 // raced per region against the normal pass. Pinned: it wins where it should (a
 // curved underside the tube route gave nothing), it never costs grip or wedges,
 // and `raster: false` builds the normal pass alone.
-import { buildTopology, analyze, fins, prop, assert, readSTL, rotX } from './_util.js';
+import { buildTopology, analyze, fins, prop, assert, readSTL, rotX, loadModel } from './_util.js';
 
-const EXAMPLES = new URL('../prototype/examples/models/', import.meta.url).pathname;
+const FIXTURES = new URL('./fixtures/', import.meta.url).pathname;   // gen_curved.py
 const example = (name) => {
-  const pos = readSTL(Deno.readFileSync(`${EXAMPLES}${name}.stl`));
+  const pos = readSTL(Deno.readFileSync(`${FIXTURES}${name}.stl`));
   return buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
 };
 const build = (topo, rot, raster) =>
@@ -41,11 +41,11 @@ Deno.test('raster: a flat torus tilted 30deg gets its underside held (tube route
 });
 
 Deno.test('raster: raster:false builds the normal pass alone', () => {
-  const topo = example('mini_figure'), rot = rotX(30);
+  const topo = example('torus_flat'), rot = rotX(30);
   const res = analyze(topo, 45, rot);
   const a = prop.buildProps(topo, res, rot, { tines: true, raster: false });
   const b = prop.buildProps(topo, res, rot, { tines: true, raster: true });
-  assert(b.rasterRegions > 0, 'mini_figure X30 should swap a region to raster');
+  assert(b.rasterRegions > 0, 'torus_flat X30 should swap a region to raster');
   assert(a.rasterRegions === undefined, 'raster:false ran the race');
   assert(b.props.some((q) => q.raster), 'the swapped region has no raster wall');
   assert(a.props.length !== b.props.length || a.triangles.length !== b.triangles.length,
@@ -53,11 +53,14 @@ Deno.test('raster: raster:false builds the normal pass alone', () => {
 });
 
 Deno.test('raster: a swap never raises the lowest grip or drops a wedge (bore_bracket-like)', () => {
-  // Every example pose: the lowest tine with raster on may not sit above the one
-  // with it off (compare.js's 0.1 mm base-grip rule), and no wedge disappears.
-  for (const name of ['bowl', 'dome_ceiling', 'hook', 'mini_figure', 'mushroom', 'table', 'torus_flat', 'vase_flare']) {
+  // Every pose: the lowest tine with raster on may not sit above the one with it
+  // off (compare.js's 0.1 mm base-grip rule), and no wedge disappears. The curved
+  // fixtures plus the stress models that swap (sphere, torus) or wedge (tube, portal).
+  const shapes = [...['bowl', 'dome_ceiling', 'torus_flat'].map((n) => [n, () => example(n)]),
+                  ...['sphere', 'torus', 'tube', 'portal'].map((n) => [n, () => loadModel(n)])];
+  for (const [name, load] of shapes) {
     for (const deg of [0, 30, 45]) {       // most swaps happen at 45 and steeper
-      const topo = example(name), rot = rotX(deg);
+      const topo = load(), rot = rotX(deg);
       const low = (raster) => {
         globalThis.__TINECAP = [];
         const b = build(topo, rot, raster);

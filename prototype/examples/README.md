@@ -1,35 +1,30 @@
 # Example models for the support logic
 
-Shapes chosen because the engine struggles with them today, plus a probe that scores
-how much overhang AREA is actually held up. The stress set (`prototype/stress/`) calls
-a case OK once any wall is placed, so a curved ceiling with one wall under it passes
-there and scores 15% here.
-
-    python3 prototype/examples/gen.py            # regenerate models/ (trimesh + manifold3d)
-    deno run -A prototype/examples/probe.js      # every model, upright and tilted 30deg
-    deno run -A prototype/examples/probe.js bowl mushroom
+Real models the engine struggles with, plus a probe that scores how much overhang
+AREA is actually held up. The stress set (`prototype/stress/`) calls a case OK once
+any wall is placed, so a curved ceiling with one wall under it passes there and
+scores 15% here.
 
     pip install thingi10k
     python3 prototype/examples/fetch_thingi.py   # real/: 19 Thingiverse files (~10 GB first download)
-    deno run -A prototype/examples/probe.js --real
+    deno run -A prototype/examples/probe.js      # every real model, upright and tilted 30deg
+    deno run -A prototype/examples/probe.js curved_two_headed_bunny_64957
+    deno run -A prototype/examples/probe.js --fixtures   # the curved test shapes in tests/fixtures/
 
     # one model, raster placement off vs on (web/prop/raster.js), as a picture
-    deno run -A prototype/examples/compare.js prototype/examples/models/torus_flat.stl 30 /tmp/t.json
+    deno run -A prototype/examples/compare.js tests/fixtures/torus_flat.stl 30 /tmp/t.json
     python3 prototype/examples/render.py /tmp/t.json /tmp/t.png
 
 `real/` is git-ignored: each file keeps its own Thingiverse license (listed in
 `real/CREDITS.md`), so they're fetched for local testing, never committed. They were
 picked by eye from a contact sheet (whole, upright objects, not kit pieces); miniatures
-are also written scaled to 32 mm tall.
+are also written scaled to 32 mm tall. File names carry the family: `mini_`, `curved_`,
+`tall_`.
 
-Families:
-- **tall / high ceiling** (`mushroom`, `table`, `shelf`, `bridge_span`): held fine, but
-  every wall runs from the plate. `stilt mm` is the total bed-to-part wall height, which
-  branching supports (issue #8) would cut.
-- **curved** (`bowl`, `dome_ceiling`, `hook`, `vase_flare`, `torus_flat`): undersides
-  that curve in plan and/or section.
-- **miniature** (`mini_figure`, `mini_cape`, `mini_dragon_wing`): ~30 mm figures with
-  small, fine overhangs near the engine's size floors.
+The generated shapes that used to live in `models/` were dropped (2026-09-28): the
+figures were nothing like real miniatures. The three curved ones the raster tests use
+(`bowl`, `dome_ceiling`, `torus_flat`) are test fixtures now, made by
+`tests/fixtures/gen_curved.py`.
 
 ## What the probe measures
 Auto path, called like the app: `analyze(topo, 45, rot)` then
