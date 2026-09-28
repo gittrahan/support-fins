@@ -366,16 +366,6 @@ function updateFinReadout(built, ms) {
             + 'too shallow for a fin this way up. Tilt the part steeper so a fin can '
             + 'follow it (try Suggest orientation), or add a wall by hand.');
   }
-  if (built.skipped?.bore) {
-    // A support standing INSIDE a bore or slot scars a surface you can't clean --
-    // worse than a little sag. The tool refuses those on purpose; the honest fix
-    // is to rotate the hole so it faces out and prints clean with no support.
-    const b = built.skipped.bore;
-    help.push(`${b} overhang${b === 1 ? ' sits' : 's sit'} inside a bore or slot, `
-            + `where a support would leave a mark you can’t reach. The tool leaves `
-            + `${b === 1 ? 'it' : 'them'} alone, so turn the hole upward to print `
-            + `${b === 1 ? 'it' : 'them'} clean.`);
-  }
   // Sway braces were asked for, so say what they did -- and why, if nothing.
   if (sw) {
     if (!sw.count) lead.push(`no sway braces: ${sw.reason}`);

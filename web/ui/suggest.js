@@ -27,11 +27,10 @@ export function applySuggestion(rot) {
   shade();
 }
 
-// Overhangs the CURRENT pose refuses to support inside a bore/slot (scarring a fit
-// surface) — the count buildFins reports as skipped.bore. We only celebrate a pose
-// for CLEARING the bore when the current one actually has that problem, so the
-// "points the holes up" verdict never fires on a part with no bores. Set before
-// renderSuggestions runs.
+// Walls the CURRENT pose stands inside a bore/slot (props flagged inBore). They
+// print fine but have to be pulled out of the hole, so we celebrate a pose for
+// CLEARING the bores only when the current one has any -- the "points the holes
+// up" verdict never fires on a part with no bores. Set before renderSuggestions runs.
 let suggestCurBore = 0;
 
 /**
@@ -41,8 +40,8 @@ let suggestCurBore = 0;
  *               A leftover rough sliver (c.holes) is a cosmetic caveat, not a
  *               support cost, so it's mentioned but doesn't disqualify the win.
  *   holeclean — it still needs external fins, but every bore prints support-free,
- *               so nothing ever stands inside a hole and scars a fit surface. This
- *               is the "point the bore up" win (bore_bracket: 5 in-bore → 0).
+ *               so there is nothing to pull out of a hole afterwards. This is the
+ *               "point the bore up" win.
  * Returns null for an ordinary supported pose, so the caller falls back to the
  * normal confidence line.
  */
@@ -63,7 +62,7 @@ function noSupportVerdict(c) {
   if ((c.bore ?? 0) === 0 && suggestCurBore > 0) {
     const grams = (c.volume ?? 0) * materialDensity / 1000;
     return { tier: 'holeclean', badge: 'Bores clean',
-      note: `This way up the bores point up, so no support sits inside a hole to scar it `
+      note: `This way up the bores point up, so there's no support to pull out of a hole `
           + `(${fmtGrams(grams)} g of fins, all on the outside).` };
   }
   return null;
@@ -78,9 +77,9 @@ function renderSuggestions() {
     const point = c.seating === 'point';
     const overs = c.walls === 0 ? 'no fins' : `${c.walls} fin${c.walls === 1 ? '' : 's'}`;
     // Rough holes = the small hole/slot/bore-top overhangs this pose leaves
-    // unsupported (dropped slivers + bore-refused). Showing it is what makes a
-    // hole-friendly pose legible: "Best · 12 rough" over "#3 · 561".
-    const rough = (c.holes ?? 0) + (c.bore ?? 0);
+    // unsupported (dropped slivers). Showing it is what makes a hole-friendly
+    // pose legible: "Best · 12 rough" over "#3 · 561".
+    const rough = c.holes ?? 0;
     const roughTxt = rough ? ` · ${rough} rough` : '';
     // A support-free pose is the headline outcome, not a footnote — badge it green
     // instead of letting it read as a dull "no overhangs → 0 fins".
@@ -139,9 +138,9 @@ el('suggest-orient').addEventListener('click', () => {
     try {
       const { candidates, confidence } = suggestOrientations(topology, { top: 3, threshold });
       suggestions = candidates;
-      // In-bore overhangs the current pose refuses (would scar a fit surface) — the
-      // baseline the "points the bores up" verdict measures its win against.
-      suggestCurBore = lastBuilt?.skipped?.bore ?? 0;
+      // Walls the current pose stands inside a bore -- the baseline the "points
+      // the bores up" verdict measures its win against.
+      suggestCurBore = (lastBuilt?.props ?? []).filter((q) => q.inBore).length;
       // Fresh results always land expanded, with the collapse chevron available.
       const tog = el('suggest-toggle');
       tog.hidden = false;

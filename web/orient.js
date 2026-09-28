@@ -160,14 +160,13 @@ export function suggestOrientations(topo, { top = 3, threshold = 45 } = {}) {
     const nReg = s.a.regions.length;
     const coverage = nReg ? (nReg - (b.unserved ?? nReg)) / nReg : 1;
     const point = b.seating?.kind === 'point';
-    // Holes/slots/bore tops in overhang (the dropped slivers) print rough; ones
-    // inside a bore (b.skipped.bore) can't even be supported, only oriented away.
-    // Penalise both so a pose that points the holes UP -- the one-click answer to
-    // the bore/rough-overhang warning -- ranks above one that buries them under
-    // an overhang. Weighted below the plastic/height terms so it tips near-ties,
-    // not so hard it chases a few slivers into a worse-supported pose.
+    // Holes/slots/bore tops in overhang (the dropped slivers) print rough.
+    // Walls inside a bore are supported (Matthew's print tests, 2026-09-27) but
+    // still have to be pulled out of the hole, so a pose that points the holes UP
+    // stays mildly preferred. Both weighted below the plastic/height terms so they
+    // tip near-ties, not so hard they chase a few holes into a worse-supported pose.
     const holes = s.a.rawRegionCount - s.a.regions.length;
-    const bore = b.skipped?.bore ?? 0;
+    const bore = (b.props ?? []).filter((q) => q.inBore).length;
     // Printability cost, lower is better: the overhang that needs supporting at
     // all dominates; then the plastic the fins themselves cost, a height penalty
     // (layers = time, and tall = tippy), a bed-adhesion bonus, and the rough-hole
@@ -178,7 +177,7 @@ export function suggestOrientations(topo, { top = 3, threshold = 45 } = {}) {
       + s.a.size.z * 3
       + Math.max(0, 300 - s.a.bedArea) * 0.5
       + holes * 2
-      + bore * 25
+      + bore * 5
       + (point ? 1e6 : 0);
     return {
       rot: s.rot,

@@ -174,8 +174,8 @@ function columnClear(p, u) {
  * The u positions to stand wedges at across [lo, hi]. With no hole this is the
  * old even row (round(span/pitch) columns). A bore/slot splits the standable u's
  * into BANDS on either side of it; each band gets its own row, so a drawn or auto
- * fin lands as two fins FLANKING the bore instead of one column dying at the void
- * (a tilted bore prints poorly and must not be finned -- rotate hole-up or draw).
+ * fin lands as two fins FLANKING the bore instead of one column dying at the void.
+ * (The bore's own ceiling is a separate overhang; a part-attached wall serves it.)
  */
 export function perpColumns(p, lo, hi, pitch) {
   const span = hi - lo;
