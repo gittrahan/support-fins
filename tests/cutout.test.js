@@ -267,6 +267,30 @@ Deno.test('cutout: on real parts no pattern throws, leaves a hole in the mesh, o
   CUT.pattern = 'none';
 });
 
+Deno.test('cutout: a cube on its edge (held by wedges) is cut too', () => {
+  // At X45 the cube's two flanks get wedges, not prop walls, and wedges were
+  // always extruded solid -- so picking a pattern did nothing there.
+  const topo = loadModel('cube');
+  const a = Math.PI / 4, c = Math.cos(a), s = Math.sin(a);
+  const rot = [1, 0, 0, 0, c, s, 0, -s, c];
+  const res = analyze(topo, 45, rot);
+  const build = (cutout) => fins.buildFins(topo, res, rot,
+    { mode: 'auto', bedPad: true, tines: true, tunables: { cutout } });
+  const solid = build('none');
+  assert(solid.fins.some((f) => f.kind === 'wedge'), 'expected wedges on the cube at X45');
+  for (const p of ['diamond', 'triangle', 'arch', 'lattice']) {
+    const b = build(p);
+    assert(isClosed(b.triangles), `X45 ${p}: not closed`);
+    for (const sh of shells(b.triangles)) assert(volume(sh) > 0, `X45 ${p}: a piece is inside-out`);
+    assert(b.tines === solid.tines, `X45 ${p}: tines ${solid.tines} -> ${b.tines}`);
+    if (p === 'lattice' || p === 'diamond') {
+      assert(volume(b.triangles) < volume(solid.triangles) * 0.95,
+        `X45 ${p}: wedges not cut (${volume(b.triangles).toFixed(0)} vs ${volume(solid.triangles).toFixed(0)} mm3)`);
+    }
+  }
+  CUT.pattern = 'none';
+});
+
 Deno.test('cutout: a hole never outgrows its cell, whatever the cell height', () => {
   // PR #43 review: a narrow cell whose height sat just past a stacking threshold
   // (w=8, H~19.3) fell back to ONE hole and "narrowed" it to a=6.89 -- a 13.8mm

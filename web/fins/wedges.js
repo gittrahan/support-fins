@@ -7,6 +7,7 @@
  *
  * Split out of fins.js, which re-exports the public names.
  */
+import { cutWall } from '../cutout.js';
 import { findWallPatches, patchPoint, patchProbe, zAt } from '../planes.js';
 import { emitTines, PROP, surfaceZAt, tineStepFor } from '../prop.js';
 import { seatedPartTris } from './seating.js';
@@ -88,6 +89,38 @@ function extrudeRing(ring, uDir, half, out) {
     local.push(hi[0], hi[i], hi[i + 1], lo[0], lo[i + 1], lo[i]);
   }
   pushSolid(local, out);
+}
+
+/**
+ * The wedge's blade, with the Cutouts pattern through it when one is picked.
+ *
+ * A cube stood on its edge at 45deg is held by wedges, not prop walls, so a
+ * wedge that only ever extruded solid left Cutouts doing nothing there. The
+ * blade is a flat-topped section per contact station handed to cutWall, the same
+ * as a prop wall's: the top band keeps the contact and the tines solid, the
+ * bottom band sits over the foot flange, and cutWall's end posts hold the two
+ * ends. When cutWall declines (pattern off, too small to be worth it) the blade
+ * is the solid extrusion it always was.
+ */
+const CUT_TOP = 0.05;
+function emitBlade(top, ring, uDir, half, out) {
+  const st = [], full = [];
+  for (let i = 0; i < top.length; i++) {
+    const a = top[Math.max(0, i - 1)], b = top[Math.min(top.length - 1, i + 1)];
+    let rx = b[0] - a[0], ry = b[1] - a[1];
+    const rn = Math.hypot(rx, ry);
+    if (rn < 1e-9) { st.length = 0; break; }   // a vertical step: no (s, z) plane to cut in
+    rx /= rn; ry /= rn;
+    const sx = ry, sy = -rx;                    // across the blade, as prop/sweep.js
+    const p = top[i], z = p[2];
+    const P = (o, zz) => [p[0] + sx * o, p[1] + sy * o, zz];
+    full.push([P(+half, 0), P(+half, z), P(-half, z), P(-half, 0)]);
+    // the blade's top is flat, not a tip: ztip a hair under it keeps the top
+    // band's section free of repeated corners
+    st.push({ p, sx, sy, top: z, ztip: z - CUT_TOP, bot: 0, botTip: PERP.footH, taperBot: false });
+  }
+  if (st.length && cutWall(st, full, out, { th: PERP.th, tip: PERP.th, minStations: 3 })) return;
+  extrudeRing(ring, uDir, half, out);
 }
 
 /**
@@ -239,7 +272,7 @@ export function buildPerpFins(p, topo, rot, offset, opts = {}) {
     const ring = [[top[0][0], top[0][1], 0], ...top,
                   [top[top.length - 1][0], top[top.length - 1][1], 0]];
     const before = out.length;
-    extrudeRing(ring, uDir, half, out);
+    emitBlade(top, ring, uDir, half, out);
     partTris ??= seatedPartTris(topo, rot, offset);
     emitFoot([top[0][0], top[0][1], 0], [top[top.length - 1][0], top[top.length - 1][1], 0], uDir, out, partTris);
     if (opts.tines !== false) tineTotal += emitTines(contact, null, topo, rot, offset, out, tineStepFor(opts.tineDensity));
