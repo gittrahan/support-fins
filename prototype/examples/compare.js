@@ -3,7 +3,7 @@
  * both, seated, for render.py: the part, every wall (tagged raster or not) and
  * each overhang face's held flag (probe.js's rule).
  *
- *   deno run -A prototype/examples/compare.js <model.stl> [xdeg] out.json
+ *   deno run -A prototype/examples/compare.js <model.stl> <xdeg> <out.json>
  *   python3 prototype/examples/render.py out.json out.png
  */
 const WEB = new URL('../../web/', import.meta.url).pathname;

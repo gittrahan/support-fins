@@ -46,14 +46,17 @@ Deno.test('raster: raster:false builds the normal pass alone', () => {
   const a = prop.buildProps(topo, res, rot, { tines: true, raster: false });
   const b = prop.buildProps(topo, res, rot, { tines: true, raster: true });
   assert(b.rasterRegions > 0, 'mini_figure X30 should swap a region to raster');
-  assert(!a.props.some((q) => q.raster), 'raster:false built a raster wall');
+  assert(a.rasterRegions === undefined, 'raster:false ran the race');
+  assert(b.props.some((q) => q.raster), 'the swapped region has no raster wall');
+  assert(a.props.length !== b.props.length || a.triangles.length !== b.triangles.length,
+    'raster:false built the same supports as the race');
 });
 
 Deno.test('raster: a swap never raises the lowest grip or drops a wedge (bore_bracket-like)', () => {
   // Every example pose: the lowest tine with raster on may not sit above the one
   // with it off (compare.js's 0.1 mm base-grip rule), and no wedge disappears.
   for (const name of ['bowl', 'dome_ceiling', 'hook', 'mini_figure', 'mushroom', 'table', 'torus_flat', 'vase_flare']) {
-    for (const deg of [0, 30]) {
+    for (const deg of [0, 30, 45]) {       // most swaps happen at 45 and steeper
       const topo = example(name), rot = rotX(deg);
       const low = (raster) => {
         globalThis.__TINECAP = [];
