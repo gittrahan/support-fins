@@ -17,7 +17,7 @@ import {
   setDrawnWalls, setDrawMsg, markPrintTrisDirty, clearPreview, syncDrawControls,
 } from './walls.js';
 import { activeAdded, refreshFins, markFinsStale } from './finbuild.js';
-import { finsVisible, setDrawAugment, showSmall, syncAugmentUI } from './settings.js';
+import { finsVisible, highlightSmall, setDrawAugment, syncAugmentUI } from './settings.js';
 import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
@@ -141,29 +141,17 @@ function computeFlatBaseline() {
   flatRegions = topology ? analyze(topology, threshold, IDENTITY3).regions.length : null;
 }
 
-export function shade() {
-  if (!part || !topology) return new THREE.Vector3();
-  rotM3.setFromMatrix4(rotM4.makeRotationFromQuaternion(part.quaternion));
-
-  const t0 = performance.now();
-  const res = analyze(topology, threshold, rotM3.elements);
-  const ms = performance.now() - t0;
-
-  // Drop the rotated part back onto the plate, centred over it -- but NOT mid-drag.
-  // The rotate gizmo turns the part about part.position, so re-seating it every
-  // frame slides the pivot out from under the pointer and the ring reads as jumpy /
-  // jittery. While a drag is live we hold the pre-drag seat and let the part swing
-  // about that fixed point; the drag-end handler re-seats once, on release. The
-  // face SHADING below still updates live either way, so the diagnosis never stalls.
-  if (!gizmo.dragging) part.position.set(res.offset.x, res.offset.y, res.offset.z);
-
-  const size = new THREE.Vector3(res.size.x, res.size.y, res.size.z);
-  report(partName, size);
-
+/**
+ * Face colours, the Overhangs readout line and the over-warn card for `res`.
+ * Split from shade() so the Display toggle can repaint without re-analysing
+ * (and without rebuilding the fins, which shade() also does).
+ */
+export function paintOverhangs(res = lastResult) {
+  if (!part || !topology || !res) return;
   const colors = part.geometry.getAttribute('color');
   const arr = colors.array;
   for (let f = 0; f < topology.nFaces; f++) {
-    const c = res.kept[f] ? SHADE.over : res.over[f] && showSmall ? SHADE.small : res.onBed[f] ? SHADE.bed : SHADE.plain;
+    const c = res.kept[f] ? SHADE.over : res.over[f] && highlightSmall ? SHADE.small : res.onBed[f] ? SHADE.bed : SHADE.plain;
     for (let i = 0; i < 3; i++) {
       const o = f * 9 + i * 3;
       arr[o] = c.r; arr[o + 1] = c.g; arr[o + 2] = c.b;
@@ -191,10 +179,10 @@ export function shade() {
   // slotted peg's underside -- as slivers. Those are exactly what prints rough by
   // surprise, so they shade amber and this card says what amber means, whenever
   // there are any (a clean pose too: the amber faces still need a name).
-  // Settings > Display > "Show small overhangs" off hides the shading and this
+  // Settings > Display > "Highlight small overhangs" off hides the shading and this
   // card; the sliver count in the readout above stays.
   const warn = el('over-warn');
-  if (dropped > 0 && showSmall) {
+  if (dropped > 0 && highlightSmall) {
     const one = dropped === 1;
     warn.textContent = `⚠ ${dropped} overhang${one ? '' : 's'} shaded amber ${one ? 'is' : 'are'} `
       + `too small for a fin (under ${MIN_REGION_AREA} mm² each), so ${one ? 'it prints' : 'they print'} `
@@ -203,6 +191,29 @@ export function shade() {
   } else {
     warn.textContent = '';
   }
+}
+
+export function shade() {
+  if (!part || !topology) return new THREE.Vector3();
+  rotM3.setFromMatrix4(rotM4.makeRotationFromQuaternion(part.quaternion));
+
+  const t0 = performance.now();
+  const res = analyze(topology, threshold, rotM3.elements);
+  const ms = performance.now() - t0;
+
+  // Drop the rotated part back onto the plate, centred over it -- but NOT mid-drag.
+  // The rotate gizmo turns the part about part.position, so re-seating it every
+  // frame slides the pivot out from under the pointer and the ring reads as jumpy /
+  // jittery. While a drag is live we hold the pre-drag seat and let the part swing
+  // about that fixed point; the drag-end handler re-seats once, on release. The
+  // face SHADING below still updates live either way, so the diagnosis never stalls.
+  if (!gizmo.dragging) part.position.set(res.offset.x, res.offset.y, res.offset.z);
+
+  const size = new THREE.Vector3(res.size.x, res.size.y, res.size.z);
+  report(partName, size);
+
+  paintOverhangs(res);
+  const dropped = res.rawRegionCount - res.regions.length;
   el('s-overarea').textContent = `${res.overArea.toFixed(0)} mm²`;
   el('s-bed').textContent = `${res.bedArea.toFixed(0)} mm²`;
   el('s-bed').classList.toggle('warn', res.bedArea < 1);
