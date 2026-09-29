@@ -208,9 +208,11 @@ export function strutPatches(topo, rot, groups, seated, step, region, regionTris
     const axis = longAxis(pts);
     const tube = tubeLine(topo, faces, rot, pts, tris, step);
     if (tube?.length) {
-      // raced against its split patches (rival.js), as a standalone small tube is
-      const split = splitRegion(topo, faces, rot).map((p) => Object.assign(p, { strut: true, axis }));
-      patches.push({ faces, area, region, tris: regionTris, lines: tube, smallTube: split, strut: true });
+      // raced against its split patches (rival.js) when small, as a standalone
+      // small tube is; over tubeMinArea it is a plain tube, as a standalone one is
+      const small = area < PROP.tubeMinArea;
+      const split = small ? splitRegion(topo, faces, rot).map((p) => Object.assign(p, { strut: true, axis })) : null;
+      patches.push({ faces, area, region, tris: regionTris, reach: tris, lines: tube, smallTube: split, strut: true });
       continue;
     }
     // Not a tube: the WHOLE strut is one patch. splitRegion's 15-degree cut is

@@ -67,10 +67,13 @@ export function tubeRivalry(acc, topo, result, partTris) {
         }
       }
     }
+    // within reach of the region's own faces: a lattice strut's (`reach`), not
+    // the whole net's triangles its walls finish against (prop/lattice.js)
+    const own = r.reach ?? r.tris;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-    for (let k = 0; k < r.tris.length; k += 3) {
-      x0 = Math.min(x0, r.tris[k]); x1 = Math.max(x1, r.tris[k]);
-      y0 = Math.min(y0, r.tris[k + 1]); y1 = Math.max(y1, r.tris[k + 1]);
+    for (let k = 0; k < own.length; k += 3) {
+      x0 = Math.min(x0, own[k]); x1 = Math.max(x1, own[k]);
+      y0 = Math.min(y0, own[k + 1]); y1 = Math.max(y1, own[k + 1]);
     }
     const reach = 2 * span;             // a wall under the region, then its span
     let held = 0;
@@ -117,7 +120,7 @@ export function tubeRivalry(acc, topo, result, partTris) {
       restore(mark);
       const rivals = patch.smallTube.filter((p) => p.area >= MIN_REGION_AREA);
       // slivers count only if the patch path keeps the region, as they did before
-      const rival = { last: rivals[rivals.length - 1], tube, faces: patch.faces, tris: patch.tris,
+      const rival = { last: rivals[rivals.length - 1], tube, faces: patch.faces, tris: patch.tris, reach: patch.reach,
                       slivers: patch.smallTube.length - rivals.length, region: patch.region, start: null };
       if (!rivals.length) keepTube(rival);
       for (const p of rivals) {
