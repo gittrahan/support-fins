@@ -147,28 +147,47 @@ export function latticeStruts(topo, faces, seated) {
   }
   if (branches < 2) return null;
 
-  // --- every footprint cell to its nearest branch, through the footprint ----
-  let front = [];
-  for (let k = 0; k < W * H; k++) if (label[k] >= 0) front.push(k);
-  while (front.length) {
-    const next = [];
-    for (const c of front) for (const d of N8) {
-      const n = c + d;
-      if (fp[n] && label[n] < 0) { label[n] = label[c]; next.push(n); }
-    }
-    front = next;
-  }
-
-  // --- faces by the branch under their centroid ----------------------------
-  const groups = Array.from({ length: branches }, () => []);
-  faces.forEach((f, n) => {
+  // --- every footprint cell to its nearest live branch, through the footprint,
+  // then faces by the branch under their centroid. A branch whose faces come to
+  // under tubeSmallMinArea (a thinning spur at a strut's corner or a wide node)
+  // is dropped and the flood rerun, so its cells go to the real struts beside
+  // it instead of taking their faces down with it.
+  const seed = label.slice();
+  const centre = faces.map((f, n) => {
     const t = tri[n];
     const [i, j] = cellOf((t[0][0] + t[1][0] + t[2][0]) / 3, (t[0][1] + t[1][1] + t[2][1]) / 3);
-    const b = label[idx(i, j)];
-    if (b >= 0) groups[b].push(f);
+    return idx(i, j);
   });
-  const sized = groups.filter((g) => g.reduce((s, f) => s + topo.area[f], 0) >= PROP.tubeSmallMinArea);
-  return sized.length >= MIN_STRUTS ? sized : null;
+  const dead = new Uint8Array(branches);
+  let groups;
+  for (;;) {
+    let front = [];
+    for (let k = 0; k < W * H; k++) {
+      label[k] = seed[k] >= 0 && !dead[seed[k]] ? seed[k] : -1;
+      if (label[k] >= 0) front.push(k);
+    }
+    while (front.length) {
+      const next = [];
+      for (const c of front) for (const d of N8) {
+        const n = c + d;
+        if (fp[n] && label[n] < 0) { label[n] = label[c]; next.push(n); }
+      }
+      front = next;
+    }
+    groups = Array.from({ length: branches }, () => []);
+    faces.forEach((f, n) => { const b = label[centre[n]]; if (b >= 0) groups[b].push(f); });
+    let pruned = false;
+    groups.forEach((g, b) => {
+      if (g.length && g.reduce((s, f) => s + topo.area[f], 0) < PROP.tubeSmallMinArea) { dead[b] = 1; pruned = true; }
+    });
+    if (!pruned) break;
+  }
+  const sized = groups.filter((g) => g.length);
+  if (sized.length < MIN_STRUTS) return null;
+  // Faces no live branch reaches (an island of footprint with no strut of its
+  // own) get no wall: counted as the caller's slivers, not silently dropped.
+  sized.lost = faces.length - sized.reduce((s, g) => s + g.length, 0);
+  return sized;
 }
 
 /**

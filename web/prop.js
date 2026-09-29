@@ -253,6 +253,7 @@ function buildPass(topo, result, rot, opts, raster) {
       const seated = (f) => [0, 1, 2].map((i) => seat(pos, f * 9 + i * 3, rot, off, [0, 0, 0]));
       const struts = latticeStruts(topo, rFaces, seated);
       if (struts) {
+        if (struts.lost) skipped.sliver++;   // faces no strut reached: dropped, so counted
         patches.push(...strutPatches(topo, rot, struts, seated, step, ri, regionTris));
         continue;
       }
