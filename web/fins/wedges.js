@@ -3,7 +3,7 @@
  * no prop wall reached. `buildPerpFins` tiles wedges along a patch
  * (`perpColumns` picks the stations, `emitFoot` the plate foot), `gripPatches`
  * lists the faces a wedge can stand under, `propServesPatch` skips faces a prop
- * already holds, and `unservedAfterWedges` recounts what is still red.
+ * already holds, and `unservedAfterWedges` / `bareAfterWedges` recount what is still red.
  *
  * Split out of fins.js, which re-exports the public names.
  */
@@ -353,9 +353,14 @@ export function wedgeVeto(patches, topo, rot, offset, wedgeOpts) {
  * of its faces in plan and 0..3mm below it. Dropped overhangs are surfaced.
  */
 export function unservedAfterWedges(topo, rot, result, servedRegions, wedgeTris) {
+  return bareAfterWedges(topo, rot, result, servedRegions, wedgeTris).length;
+}
+
+/** The regions unservedAfterWedges counts, as indices into result.regions. */
+export function bareAfterWedges(topo, rot, result, servedRegions, wedgeTris) {
   const { pos } = topo, o = result.offset, served = new Set(servedRegions);
   const span2 = PROP.maxUnsupportedSpan * PROP.maxUnsupportedSpan;
-  let n = 0;
+  const bare = [];
   result.regions.forEach((g, i) => {
     if (served.has(i)) return;
     for (const f of g.faces) {
@@ -370,7 +375,7 @@ export function unservedAfterWedges(topo, rot, result, servedRegions, wedgeTris)
         if (v[2] > cz - 3 && v[2] < cz + 0.5 && (v[0] - cx) ** 2 + (v[1] - cy) ** 2 <= span2) return;
       }
     }
-    n++;
+    bare.push(i);
   });
-  return n;
+  return bare;
 }

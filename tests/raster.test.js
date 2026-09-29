@@ -1,7 +1,8 @@
 // Raster placement (web/prop/raster.js): walls across a region's whole footprint,
 // raced per region against the normal pass. Pinned: it wins where it should (a
 // curved underside the tube route gave nothing), it never costs grip or wedges,
-// and `raster: false` builds the normal pass alone.
+// and `raster: false` builds the normal pass alone. The short-wall last resort
+// (fins/shortwalls.js) is off throughout: it fills what raster:false leaves bare.
 import { buildTopology, analyze, fins, prop, assert, readSTL, rotX, loadModel } from './_util.js';
 
 const FIXTURES = new URL('./fixtures/', import.meta.url).pathname;   // gen_curved.py
@@ -10,7 +11,7 @@ const example = (name) => {
   return buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
 };
 const build = (topo, rot, raster) =>
-  fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode: 'auto', bedPad: true, tines: true, raster });
+  fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode: 'auto', bedPad: true, tines: true, raster, lastResort: false });
 
 // Overhang area within reach of a wall top: prototype/examples/probe.js's rule.
 function heldFrac(topo, rot, b) {

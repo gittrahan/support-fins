@@ -45,6 +45,16 @@ export const PROP = {
   footMin: 1.6,
   footRatio: 0.12,  // foot half-width as a fraction of wall height
   minSpan: 7.0,     // a wall shorter than this is not worth the plate space
+  // ...unless nothing else holds the region and the wall is LOW. A lattice (issue
+  // #121, a headset's ring-and-strut shell) is all 4-6 mm strut undersides: at 7 mm
+  // every one was a stub and half the red printed into air. A short wall is fine
+  // while it stays stocky, so in the LAST-RESORT pass (web/fins/shortwalls.js: only
+  // regions no wall or wedge reached) one down to minSpanShort is kept when its
+  // height is at most maxShortAspect x its length (4.4 mm long x 22 mm tall passes;
+  // 5 mm x 126 mm, a toothpick, does not). Last resort, because a short wall that
+  // "serves" a face stands a wedge or a raster row down (tests/tails.test.js).
+  minSpanShort: 4.0,
+  maxShortAspect: 6.0,
   minHeight: 1.5,   // nor is one this short
   // SQUAT BED SUPPORT. A flanged T-wall needs ~minHeight of headroom just to
   // exist (gap 0.2 + baseH 0.6 + a sliver of tip taper), so a bed overhang lower

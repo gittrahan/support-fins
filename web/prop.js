@@ -45,7 +45,7 @@
 import { solidClearance } from './inside.js';
 import { MIN_REGION_AREA } from './overhangs.js';
 import { buildPartAttached } from './prop/attached.js';
-import { bodyMask, insertFloorStations, longestRun, stationCertified, stationIsClear, tallBody, tallSpan, withLowTails } from './prop/clearance.js';
+import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified, stationIsClear, tallBody, tallSpan, withLowTails } from './prop/clearance.js';
 import { PROP } from './prop/config.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
 import { rasterRest, rasterTracks, withRaster } from './prop/raster.js';
@@ -121,6 +121,15 @@ export function buildProps(topo, result, rot, opts = {}) {
 }
 
 /**
+ * The last-resort pass (web/fins/shortwalls.js): the normal placement for `regions`
+ * only (a Set of region indices), with the short-wall floor (minSpanFor `short`).
+ * No raster race -- these are regions every other pass already left bare.
+ */
+export function buildShortWalls(topo, result, rot, opts, regions) {
+  return buildPass(topo, result, rot, { ...opts, onlyRegions: regions, shortWalls: true }, null);
+}
+
+/**
  * One placement pass. `raster` null = the normal placement for every region;
  * a Set of region indices = raster tracks (rasterTracks) for those regions only.
  */
@@ -143,6 +152,7 @@ function buildPass(topo, result, rot, opts, raster) {
   const zBed = 0;
   const off = result.offset;
   const withTines = opts.tines === true;
+  const only = opts.onlyRegions ?? null, short = opts.shortWalls === true;
   // tines emitted; sagRisk: the user chose sub-cap spacing AND a real row landed wide
   const tally = { tines: 0, sagRisk: false, sagRegions: new Set() };
 
@@ -206,6 +216,7 @@ function buildPass(topo, result, rot, opts, raster) {
   // exactly how M5's scoreboard lied.
   const patches = [];
   for (let ri = 0; ri < result.regions.length; ri++) {
+    if (only && !only.has(ri)) continue;
     const rFaces = result.regions[ri].faces;
     // Seat the WHOLE region's triangles once, shared by all its sub-patches.
     // The polyline each wall follows comes from its own sub-patch, but the
@@ -415,7 +426,7 @@ function buildPass(topo, result, rot, opts, raster) {
       const sub = line.slice(run[0], run[1]);
 
       const body = bodyMask(sub);               // before settleTop -- see bodyMask
-      if (tallSpan(sub, body) < (patch.smallTube ? PROP.minSpanTube : PROP.minSpan)) { skipped.stub++; runSquat(); continue; }
+      if (tallSpan(sub, body) < minSpanFor(sub, body, !!patch.smallTube, short)) { skipped.stub++; runSquat(); continue; }
 
       // Last, on the trimmed run only: put the closest approach exactly on spec.
       // It runs here rather than earlier because trimming changes which part of
@@ -449,7 +460,7 @@ function buildPass(topo, result, rot, opts, raster) {
         const span2 = Math.hypot(settled[settled.length - 1][0] - settled[0][0],
                                  settled[settled.length - 1][1] - settled[0][1]);
         const settledBody = body.slice(run2[0], run2[1]);
-        if (tallSpan(settled, settledBody) < (patch.smallTube ? PROP.minSpanTube : PROP.minSpan)) { reason = 'stub'; break; }
+        if (tallSpan(settled, settledBody) < minSpanFor(settled, settledBody, !!patch.smallTube, short)) { reason = 'stub'; break; }
 
         const before = out.length;
         if (!sweep(settled, zBed, out, PROP.minHeightSquat)) {

@@ -219,6 +219,22 @@ export function tallSpan(pts, mask) {
 }
 
 /**
+ * The least body span (tallSpan) a run needs to be a wall: minSpan, or minSpanTube
+ * for a small tube. With `short` (the last-resort pass, see web/fins/shortwalls.js)
+ * it relaxes down to minSpanShort for a LOW wall: height (tallest body top, less the
+ * gap, over a plate at z 0) at most maxShortAspect x the span. The tallest station
+ * is what tips, so that is what is measured.
+ */
+export function minSpanFor(pts, mask, smallTube = false, short = false) {
+  if (smallTube) return PROP.minSpanTube;
+  const r = short ? tallBody(mask) : null;
+  if (!r) return PROP.minSpan;
+  let h = 0;
+  for (let k = r[0]; k <= r[1]; k++) h = Math.max(h, pts[k][2] - PROP.gap);
+  return Math.min(PROP.minSpan, Math.max(PROP.minSpanShort, h / PROP.maxShortAspect));
+}
+
+/**
  * Where a line's END dips under the squat floor, insert one station exactly AT
  * the floor (top = minHeightSquat), linearly between the first station above it
  * and the last below (an edge row's track can run past the knife edge, so

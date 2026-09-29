@@ -25,6 +25,7 @@
  *   seating.js    how the part sits on the plate: contact, face/edge/point
  *   pad.js        PAD and the bed pad (conforming oval, or the brim-style one)
  *   wedges.js     angled wedges where no wall reaches; gripPatches for Draw
+ *   shortwalls.js the last resort: short, stocky walls where nothing else reached
  *
  * Each module imports only modules above it in this list and never fins.js.
  */
@@ -36,6 +37,7 @@ import { CUT, CUTOUT_PATTERNS } from './cutout.js';
 import { FIN } from './fins/config.js';
 import { buildPad, PAD } from './fins/pad.js';
 import { bedContact, seatedPartTris, seatingOf } from './fins/seating.js';
+import { lastResortWalls } from './fins/shortwalls.js';
 import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
 
 // Moved into web/fins/ (one module per concern); re-exported here so every
@@ -209,6 +211,12 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     }
     const wedgeCount = wedgeRecs.length;
 
+    // LAST RESORT: short walls under the regions no wall or wedge reached (issue
+    // #121's strut lattice). Only bare regions, so a served part is unchanged.
+    // `lastResort: false` skips it, like `raster: false` (the tests' baselines).
+    const short = opts.lastResort === false ? { triangles: [], props: [], served: [], tines: 0 } : lastResortWalls(topo, result, rot, { ...opts, tines: withTines, coverage },
+                                  base.servedRegions ?? [], wedgeTris, [...base.triangles, ...wedgeTris]);
+
     // Unified per-fin array: each entry carries its triangle segment(s) into the
     // final `built.triangles`, so the UI can address and remove an individual fin
     // by its geometry. Prop ranges already index `base.triangles` (the prefix of
@@ -231,17 +239,29 @@ function buildFinsCore(topo, result, rot, opts = {}) {
         line: wd.line, span: wd.span,
       });
     }
+    const shortAt = baseLen + wedgeTris.length;
+    for (const q of short.props) {
+      fins.push({
+        height: q.height, length: q.span, tines: q.tines ?? 0, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
+        id: wid++, kind: 'prop', short: true,
+        triRanges: q.triRanges.map(([a, b]) => [a + shortAt, b + shortAt]),
+        line: q.line, span: q.span,
+      });
+    }
+    const servedRegions = [...(base.servedRegions ?? []), ...short.served];
     return {
       ...base, mode,
-      triangles: [...base.triangles, ...wedgeTris],
+      triangles: [...base.triangles, ...wedgeTris, ...short.triangles],
+      props: [...base.props, ...short.props],
+      servedRegions,
       fins,
-      tines: (base.tines ?? 0) + wedgeTines,
+      tines: (base.tines ?? 0) + wedgeTines + short.tines,
       // A tined rib/wedge IS the combined support (a "brace"); a tineless one is a
       // plain prop. Report the split so the stress harness / UI metrics keep working.
       braceCount: withTines ? fins.length : wedgeCount,
-      propCount: withTines ? 0 : base.fins.length,
-      unserved: wedgedPatches ? unservedAfterWedges(topo, rot, result, base.servedRegions ?? [], wedgeTris)
-                              : (base.unserved ?? 0),
+      propCount: withTines ? 0 : base.fins.length + short.props.length,
+      unserved: wedgedPatches ? unservedAfterWedges(topo, rot, result, servedRegions, wedgeTris)
+                              : (base.unserved ?? 0) - short.served.length,
     };
   }
 
