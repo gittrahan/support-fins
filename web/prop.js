@@ -39,6 +39,7 @@
  *   squat.js      brimmed squat walls for the near-bed band
  *   rival.js      a small tube against the patch path: the region keeps the better
  *   raster.js     walls across a region's whole footprint, raced against the rest
+ *   lattice.js    a net of struts cut back into struts (the raster slot's contender for a net)
  *
  * Each module imports only modules above it in this list and never prop.js.
  */
@@ -48,6 +49,7 @@ import { buildPartAttached } from './prop/attached.js';
 import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified, stationIsClear, tallBody, tallSpan, withLowTails } from './prop/clearance.js';
 import { PROP } from './prop/config.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
+import { latticeStruts, strutPatches } from './prop/lattice.js';
 import { rasterRest, rasterTracks, withRaster } from './prop/raster.js';
 import { tubeRivalry } from './prop/rival.js';
 import { buildSquatBed } from './prop/squat.js';
@@ -245,6 +247,15 @@ function buildPass(topo, result, rot, opts, raster) {
     // Raster pass: the whole footprint's tracks, no tube route, no split.
     if (raster) {
       if (!raster.has(ri)) continue;
+      // A lattice net (issue #121): its struts, each routed as a standalone strut
+      // region would be, stand in for the raster tracks -- parallel rows across a
+      // net land in its holes. See prop/lattice.js.
+      const seated = (f) => [0, 1, 2].map((i) => seat(pos, f * 9 + i * 3, rot, off, [0, 0, 0]));
+      const struts = latticeStruts(topo, rFaces, seated);
+      if (struts) {
+        patches.push(...strutPatches(topo, rot, struts, seated, step, ri, regionTris));
+        continue;
+      }
       const lines = rasterTracks(regionPts, regionTris, partTris, step, rowSpan,
                                  { topo, rot, offset: off });
       // the sparse-coverage sag warning, per region: it only counts if this region swaps
@@ -308,7 +319,7 @@ function buildPass(topo, result, rot, opts, raster) {
         }
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
-      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan);
+      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan, patch.axis ?? null);
       // The user chose sub-cap spacing (wantSparse) AND this face actually landed a
       // multi-row gap wider than the cap. Flag it so the UI can warn (never blocks;
       // Matthew's call). Single-row faces (spacing 0) can't sag, so they don't warn.
@@ -416,7 +427,7 @@ function buildPass(topo, result, rot, opts, raster) {
         line.map((p, k) => clear[k] && p[2] - PROP.gap >= PROP.minHeight), clear);
       const run = longestRun(usable);
       if (!run || run[1] - run[0] < PROP.minStations) { skipped.blocked++; runSquat(); continue; }
-      if (raster) {
+      if (raster && !patch.strut) {       // a strut takes one wall, as it would standing alone
         for (const rest of rasterRest(line, run)) {
           lines.push(rest);
           // the piece runs its own squat pass; this line's must not double it

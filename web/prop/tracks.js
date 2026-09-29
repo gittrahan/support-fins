@@ -310,9 +310,16 @@ function convexAbout(rn, regionTris, cx, cy, ux, uy) {
  * on its own against minStations/minSpan. That is what keeps refusing the bowl:
  * its ring only ever covers short chords of a straight line, and short chords
  * are stubs. The hole is load-bearing; never bridge across a null.
+ *
+ * `axis` ([ux, uy]) overrides the run direction. A lattice strut passes its own
+ * long axis (prop/lattice.js): a strut running AROUND a dome slopes across its
+ * 4 mm width, so down-slope runs across it and every track is a stub, while the
+ * same strut running down the dome got a wall -- identical struts, different
+ * support. A lone strut's long axis is clean; the drift below is a messy
+ * region's.
  */
 export function patchTracks(pts, patchTris, step = PROP.stationStep, support = null,
-                            span = PROP.maxUnsupportedSpan) {
+                            span = PROP.maxUnsupportedSpan, axis = null) {
   if (!pts.length) return [];
 
   // The 2x2 XY covariance of the patch, plus its cross-terms with Z. This used to
@@ -344,7 +351,9 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // robust and part-aligned -- so the walls run parallel to a real edge instead
   // of at an angle the part never suggested.
   let ux, uy;
-  if (slope >= PROP.contourSlopeMin) {
+  if (axis) {
+    [ux, uy] = axis;
+  } else if (slope >= PROP.contourSlopeMin) {
     // run each wall DOWN the slope (steepest descent). When a part is tilted into
     // a strong pose it is usually tipped about its SHORT axis, so down-slope is
     // the LONG direction: long walls, the flagship's 96mm wall rather than the
