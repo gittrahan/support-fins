@@ -48,6 +48,22 @@ Deno.test('short walls: a low short strut gets a wall', () => {
   assert(w.every((p) => p.height <= PROP.maxShortAspect * p.span + 1e-6), 'no wall past the aspect cap');
 });
 
+Deno.test('short walls: props ranges index the merged triangles (compare.js reads them)', () => {
+  // plus a long ledge on -X that the normal pass walls, so the short wall's
+  // triangles sit AFTER other walls' in the merged array
+  const topo = topoOf(block(-4, 4, -4, 4, 0, 16), block(4, 10, -2, 2, 12, 15), block(-24, -4, -6, 6, 12, 15));
+  const b = fins.buildFins(topo, analyze(topo, 45, I), I, { mode: 'auto', bedPad: true });
+  const short = b.props.filter((p) => p.short);
+  assert(short.length >= 1 && b.props.length > short.length, 'a normal wall and a short wall');
+  for (const p of short) {
+    const f = b.fins.find((x) => x.short && x.line === p.line);
+    assert(JSON.stringify(f.triRanges) === JSON.stringify(p.triRanges), 'prop and fin ranges agree');
+    const xs = p.line.map((q) => q[0]), lo = Math.min(...xs) - 3, hi = Math.max(...xs) + 3;
+    for (const [a, e] of p.triRanges) for (let i = a; i < e; i++)
+      assert(b.triangles[i][0] >= lo && b.triangles[i][0] <= hi, `vertex ${i} is off its wall: x ${b.triangles[i][0]}`);
+  }
+});
+
 Deno.test('short walls: a tall short strut is still refused (no toothpicks)', () => {
   assert(walls(strut(80)).length === 0, 'a 6 mm wall 80 mm tall must not be built');
 });

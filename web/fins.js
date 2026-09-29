@@ -214,7 +214,10 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // LAST RESORT: short walls under the regions no wall or wedge reached (issue
     // #121's strut lattice). Only bare regions, so a served part is unchanged.
     // `lastResort: false` skips it, like `raster: false` (the tests' baselines).
-    const short = opts.lastResort === false ? { triangles: [], props: [], served: [], tines: 0 } : lastResortWalls(topo, result, rot, { ...opts, tines: withTines, coverage },
+    // A point-seated part with the pad off gets no walls (the prop-mode gate below);
+    // the last resort must not build them back.
+    const noShort = opts.lastResort === false || (base.seating?.kind === 'point' && !base.pad);
+    const short = noShort ? { triangles: [], props: [], served: [], tines: 0 } : lastResortWalls(topo, result, rot, { ...opts, tines: withTines, coverage },
                                   base.servedRegions ?? [], wedgeTris, [...base.triangles, ...wedgeTris]);
 
     // Unified per-fin array: each entry carries its triangle segment(s) into the
@@ -240,11 +243,14 @@ function buildFinsCore(topo, result, rot, opts = {}) {
       });
     }
     const shortAt = baseLen + wedgeTris.length;
-    for (const q of short.props) {
+    // Into the merged triangles, for fins AND props (prototype/examples/compare.js
+    // reads props' ranges against result.triangles).
+    const shortProps = short.props.map((q) => ({ ...q, triRanges: q.triRanges.map(([a, b]) => [a + shortAt, b + shortAt]) }));
+    for (const q of shortProps) {
       fins.push({
         height: q.height, length: q.span, tines: q.tines ?? 0, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
         id: wid++, kind: 'prop', short: true,
-        triRanges: q.triRanges.map(([a, b]) => [a + shortAt, b + shortAt]),
+        triRanges: q.triRanges,
         line: q.line, span: q.span,
       });
     }
@@ -252,7 +258,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     return {
       ...base, mode,
       triangles: [...base.triangles, ...wedgeTris, ...short.triangles],
-      props: [...base.props, ...short.props],
+      props: [...base.props, ...shortProps],
       servedRegions,
       fins,
       tines: (base.tines ?? 0) + wedgeTines + short.tines,
