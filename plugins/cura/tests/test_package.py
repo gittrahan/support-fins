@@ -29,10 +29,51 @@ def test_each_platform_knows_itself_and_refuses_the_others(tmp_path, wheel):
 
 def test_machine_names_as_each_os_spells_them():
     assert platform_check.here("darwin", "arm64") == ("darwin", "arm64")
+    assert platform_check.here("darwin", "x86_64") == ("darwin", "x86_64")   # Rosetta: the process
     assert platform_check.here("darwin", "x86_64") == ("darwin", "x86_64")
     assert platform_check.here("win32", "AMD64") == ("win32", "amd64")
     assert platform_check.here("linux", "aarch64") == ("linux", "aarch64")
     assert platform_check.here("linux", "arm64") == ("linux", "aarch64")
+
+
+def test_x64_cura_on_an_arm_windows_pc_takes_the_x64_package(tmp_path, monkeypatch):
+    # Python 3.12's platform.machine() reports the CPU (ARM64); the process is x64
+    monkeypatch.setattr(platform_check.platform, "machine", lambda: "ARM64")
+    monkeypatch.setattr(platform_check.sysconfig, "get_platform", lambda: "win-amd64")
+    assert platform_check.here("win32") == ("win32", "amd64")
+    (tmp_path / "platform.json").write_text(json.dumps(
+        {"wheel": "win_amd64", "name": "Windows (64-bit)", "os": "win32", "machine": "amd64"}))
+    assert platform_check.mismatch(tmp_path, "win32") is None
+
+
+def test_the_message_names_a_real_download_page(tmp_path):
+    (tmp_path / "platform.json").write_text(json.dumps(
+        {"wheel": "win_amd64", "name": "Windows (64-bit)", "os": "win32", "machine": "amd64"}))
+    assert platform_check.RELEASE in platform_check.mismatch(tmp_path, "darwin", "arm64")
+
+
+def test_the_vendored_v8_loads_on_its_own(tmp_path):
+    """The V8 library the package ships, not pip's: a fresh interpreter without
+    site-packages (V8 starts once per process), vendor/ on the path as __init__.py
+    puts it, host_engine pointed at it as SupportFins.engine() does."""
+    import subprocess
+    import sys
+    built = HERE.parent / "build" / "SupportFins"
+    if not (built / "vendor" / "py_mini_racer").exists():
+        pytest.skip("run plugins/cura/build.py first")
+    mine = platform_check.mismatch(built)
+    if mine:
+        pytest.skip(f"build/SupportFins is another platform's: {mine}")
+    code = (
+        "import sys; sys.path[:0] = [{v!r}, {b!r}]\n"
+        "import supportfins_host as h\n"
+        "ctx = h.host_engine(open({js!r}).read(), vendor_dir={v!r})\n"
+        "import py_mini_racer; assert py_mini_racer.__file__.startswith({v!r}), py_mini_racer.__file__\n"
+        "print(len(h.host_schema(ctx)['options']))\n"
+    ).format(v=str(built / "vendor"), b=str(built), js=str(built / "fins_engine.js"))
+    out = subprocess.run([sys.executable, "-S", "-c", code], capture_output=True, text=True, timeout=120)
+    assert out.returncode == 0, out.stderr[-2000:]
+    assert int(out.stdout.strip()) >= 10
 
 
 def test_a_dev_build_without_platform_json_is_not_checked(tmp_path):
@@ -63,7 +104,7 @@ def test_a_package_is_what_curas_installer_reads(pkg):
     assert info["display_name"] and info["author"]["author_id"]
     # the platform in the name, in platform.json and in the library all agree
     suffix, label, os_name, machine = build.PLATFORMS[plat["wheel"]]
-    assert pkg.name.endswith(f"-{suffix}.curapackage") and label in info["description"]
+    assert pkg.name == f"SupportFins-{suffix}.curapackage" and label in info["description"]
     assert (plat["os"], plat["machine"]) == (os_name, machine)
     lib = f"files/plugins/SupportFins/vendor/py_mini_racer/{LIB[os_name]}"
     assert lib in names, f"{pkg.name} has no {LIB[os_name]}"

@@ -3,7 +3,7 @@
 
   python3 plugins/cura/build.py              # -> plugins/cura/build/SupportFins/ (this machine)
   python3 plugins/cura/build.py win_amd64    # the folder for another platform
-  python3 plugins/cura/build.py --package    # + build/SupportFins-<ver>-<platform>.curapackage
+  python3 plugins/cura/build.py --package    # + build/SupportFins-<platform>.curapackage
   python3 plugins/cura/build.py --all        # a .curapackage for every platform in PLATFORMS
 
 1. Copies SupportFins/ and the shared Python host (plugins/shared/py/supportfins_host.py).
@@ -95,8 +95,9 @@ def build(plat):
 
 def package(plat):
     """Zip the built folder as a .curapackage: package.json at the root, the plugin
-    under files/plugins/SupportFins/ (Cura installs it to plugins/SupportFins/), and the
-    licence, which Cura shows before it installs."""
+    under files/plugins/SupportFins/ (Cura moves files/plugins to plugins/<package_id>,
+    so it lands in plugins/SupportFins/SupportFins/, the usual layout), and the licence.
+    The file name carries no version, so the release's download links stay put."""
     meta = json.loads((HERE / "SupportFins" / "plugin.json").read_text(encoding="utf-8"))
     suffix, label, _, _ = PLATFORMS[plat]
     info = {
@@ -111,9 +112,11 @@ def package(plat):
                    "website": "https://printfins.com"},
         "tags": ["support", "supports", "breakaway"],
     }
-    target = OUT / f"SupportFins-{meta['version']}-{suffix}.curapackage"
+    target = OUT / f"SupportFins-{suffix}.curapackage"
     with zipfile.ZipFile(target, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("package.json", json.dumps(info, indent=2) + "\n")
+        entry = zipfile.ZipInfo("package.json", date_time=(2026, 1, 1, 0, 0, 0))
+        entry.external_attr = 0o644 << 16
+        z.writestr(entry, json.dumps(info, indent=2) + "\n", zipfile.ZIP_DEFLATED)
         z.write(ROOT / "LICENSE", "LICENSE")
         for f in sorted(PLUGIN.rglob("*")):
             if f.is_file() and "__pycache__" not in f.parts:
@@ -122,7 +125,15 @@ def package(plat):
 
 
 def main():
+    flags = {a for a in sys.argv[1:] if a.startswith("--")}
+    if flags - {"--package", "--all"}:
+        sys.exit(f"unknown option {', '.join(sorted(flags - {'--package', '--all'}))}; "
+                 "use --package or --all")
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    if args and "--all" in flags:
+        sys.exit("--all builds every platform; leave out the platform")
+    for old in OUT.glob("SupportFins-*.curapackage") if "--all" in flags else ():
+        old.unlink()                     # no stale packages next to fresh ones
     here = wheel_platform()
     # --all: this machine's platform last, so build/SupportFins ends up runnable here
     plats = (sorted(PLATFORMS, key=lambda t: t == here) if "--all" in sys.argv

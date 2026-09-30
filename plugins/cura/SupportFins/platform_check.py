@@ -8,6 +8,9 @@ import json
 import os
 import platform
 import sys
+import sysconfig
+
+RELEASE = "https://github.com/gittrahan/support-fins/releases/tag/plugins-latest"
 
 # what platform.machine() says on each OS -> build.py's names
 _MACHINE = {"x86_64": "x86_64", "amd64": "amd64", "arm64": "arm64", "aarch64": "aarch64"}
@@ -17,6 +20,11 @@ _OS_NAME = {"darwin": "macOS", "win32": "Windows", "linux": "Linux"}
 def here(os_name=None, machine=None):
     """(sys.platform, machine) for this process, in build.py's spelling."""
     os_name = os_name or sys.platform
+    if machine is None and os_name == "win32":
+        # The PROCESS's architecture, not the CPU's: Python 3.12's platform.machine()
+        # asks Windows for the native CPU, so x64 Cura emulated on an ARM PC says ARM64
+        # while it loads x64 libraries fine. sysconfig says "win-amd64" there.
+        machine = sysconfig.get_platform().split("-", 1)[-1]
     machine = (machine or platform.machine()).lower()
     machine = _MACHINE.get(machine, machine)
     if os_name == "darwin" and machine == "aarch64":
@@ -40,4 +48,4 @@ def mismatch(plugin_dir, os_name=None, machine=None):
         return None
     mine = f"{_OS_NAME.get(now[0], now[0])} ({now[1]})"
     return (f"This Support Fins package is for {built['name']}, but Cura is running on {mine}. "
-            "Download the package for your computer from the printfins.com plugin downloads.")
+            f"Download the package for your computer from {RELEASE}")

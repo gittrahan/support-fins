@@ -19,20 +19,24 @@ Download the package for your computer from the
 
 | Computer | File |
 |---|---|
-| Mac with Apple silicon (M1 and later) | `SupportFins-<version>-mac-arm64.curapackage` |
-| Mac with Intel | `SupportFins-<version>-mac-x64.curapackage` |
-| Windows | `SupportFins-<version>-windows-x64.curapackage` |
-| Linux (x86-64 / ARM64) | `SupportFins-<version>-linux-x64.curapackage` / `-linux-arm64` |
+| Mac with Apple silicon (M1 and later) | `SupportFins-mac-arm64.curapackage` |
+| Mac with Intel | `SupportFins-mac-x64.curapackage` |
+| Windows (also Windows on ARM, which runs Cura as x64) | `SupportFins-windows-x64.curapackage` |
+| Linux x86-64 | `SupportFins-linux-x64.curapackage` |
+| Linux ARM64 (untested: UltiMaker ships no ARM Linux Cura) | `SupportFins-linux-arm64.curapackage` |
 
-**Drag it onto Cura's window**, accept the licence, and restart Cura. Each package carries the
+**Drag it onto Cura's window** and restart Cura when it says so. Each package carries the
 embedded JavaScript engine (V8) for one platform, 15–22 MB; installed on the wrong computer the
 plugin says which one to download instead.
+
+If you linked a development build into Cura's plugins folder (below), **delete that link first**:
+Cura's installer can't replace a link, and keeps loading the linked build.
 
 From source:
 
 ```sh
 python3 plugins/cura/build.py             # -> plugins/cura/build/SupportFins/  (this machine; needs esbuild via npx, and pip)
-python3 plugins/cura/build.py --package   # + build/SupportFins-<version>-<platform>.curapackage
+python3 plugins/cura/build.py --package   # + build/SupportFins-<platform>.curapackage
 python3 plugins/cura/build.py --all       # a package for every platform (CI does this)
 ```
 
