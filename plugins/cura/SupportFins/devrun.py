@@ -1,0 +1,117 @@
+"""Developer smoke test in the real Cura. Inert unless dev_autorun.json sits next to
+this file:
+
+    {"rotate_x": 35, "slice": true}
+
+Then every model opened (e.g. `open -a "UltiMaker Cura" part.stl`) is tilted, gets
+fins, and is put through re-run / undo / remove / undo; each step goes to
+dev_log.jsonl, and with "slice" the sliced G-code to dev_plate<N>.gcode. Used to check
+the plugin end to end without clicking (plugins/cura/README.md, "Developing").
+"""
+import json
+import math
+import os
+import time
+
+from PyQt6.QtCore import QTimer
+
+from cura.CuraApplication import CuraApplication
+from UM.Math.Quaternion import Quaternion
+from UM.Math.Vector import Vector
+from UM.Scene.SceneNode import SceneNode
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+CONFIG = os.path.join(HERE, "dev_autorun.json")
+LOG = os.path.join(HERE, "dev_log.jsonl")
+
+
+def hook(ext):
+    if os.path.exists(CONFIG):
+        with open(CONFIG) as f:
+            _Run(ext, json.load(f))
+
+
+def log(**kw):
+    kw["t"] = time.strftime("%H:%M:%S")
+    with open(LOG, "a") as f:
+        f.write(json.dumps(kw, default=str) + "\n")
+
+
+class _Run:
+    _alive = []   # keep the runner alive: Uranium's signals hold slots weakly
+
+    def __init__(self, ext, cfg):
+        self.ext, self.cfg = ext, cfg
+        self._alive.append(self)
+        CuraApplication.getInstance().fileCompleted.connect(self.on_file)
+        log(step="dev_autorun", cfg=cfg)
+
+    def on_file(self, name):
+        QTimer.singleShot(1500, self.start)
+
+    def start(self):
+        app = CuraApplication.getInstance()
+        root = app.getController().getScene().getRoot()
+        self.part = [n for n in root.getChildren() if n.callDecoration("isSliceable")][-1]
+        rx = float(self.cfg.get("rotate_x", 0))
+        if rx:
+            self.part.rotate(Quaternion.fromAngleAxis(math.radians(rx), Vector.Unit_X),
+                             SceneNode.TransformSpace.World)
+        self.steps = [self.add, self.readd, self.undo, self.remove, self.undo, self.slice]
+        QTimer.singleShot(1500, self.next)
+
+    def fins(self):
+        return [c for c in self.part.getChildren() if c.getName() == "Support Fins"]
+
+    def next(self):
+        if self.ext._job is not None:           # wait for the engine
+            QTimer.singleShot(300, self.next)
+            return
+        if self.steps:
+            self.steps.pop(0)()
+            QTimer.singleShot(800, self.next)
+
+    def report(self, step):
+        f = self.fins()
+        b = f[0].getBoundingBox() if f else None
+        log(step=step, fins_children=len(f),
+            fins_bbox=[round(v, 3) for v in (b.left, b.bottom, b.back, b.right, b.top, b.front)] if b else None,
+            fins_triangles=(f[0].getMeshData().getFaceCount() if f else 0),
+            report=self.ext.last_report)
+
+    def add(self):
+        t = time.time()
+        self.ext.addTo([self.part])
+        self.t0 = t
+        self.steps.insert(0, lambda: self.report("added (%.1f s)" % (time.time() - self.t0)))
+
+    def readd(self):
+        self.ext.addTo([self.part])
+        self.steps.insert(0, lambda: self.report("re-added: still one fins object"))
+
+    def undo(self):
+        CuraApplication.getInstance().getOperationStack().undo()
+        self.report("after undo")
+
+    def remove(self):
+        from UM.Scene.Selection import Selection
+        Selection.clear()
+        Selection.add(self.part)
+        self.ext.removeFromSelection()
+        self.report("after remove")
+
+    def slice(self):
+        if not self.cfg.get("slice"):
+            return
+        backend = CuraApplication.getInstance().getBackend()
+        backend.backendDone.connect(self.dump)
+        backend.forceSlice()
+
+    def dump(self):
+        scene = CuraApplication.getInstance().getController().getScene()
+        for plate, chunks in getattr(scene, "gcode_dict", {}).items():
+            path = os.path.join(HERE, "dev_plate%s.gcode" % plate)
+            with open(path, "w") as f:
+                f.write("".join(chunks))
+            text = "".join(chunks)
+            log(step="sliced", path=path, fins_layers=text.count(";MESH:Support Fins"))

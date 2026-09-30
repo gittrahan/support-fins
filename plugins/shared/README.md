@@ -23,7 +23,8 @@ deno test --allow-read plugins/shared/tests/
 python3 -m pytest -q plugins/shared/py/tests/   # needs numpy + mini-racer==0.14.1
 ```
 
-Used by: [Orca](../orca/README.md) (inlines the bundle into its single-file plugin).
+Used by: [Orca](../orca/README.md) (inlines the bundle into its single-file plugin) and
+[Cura](../cura/README.md) (ships the bundle and the Python host next to the plugin).
 Onshape (FeatureScript) and Prusa (Lua) can't run JavaScript, so they don't use this.
 
 CI: [`.github/workflows/plugins.yml`](../../.github/workflows/plugins.yml) rebuilds and tests

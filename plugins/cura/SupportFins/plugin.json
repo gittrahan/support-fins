@@ -1,0 +1,9 @@
+{
+    "name": "Support Fins",
+    "author": "printfins.com",
+    "version": "0.1.0",
+    "description": "Breakaway support fins from printfins.com under a part's overhangs, added as an object on the plate. Runs the website's own engine.",
+    "api": 8,
+    "supported_sdk_versions": ["8.0.0"],
+    "i18n-catalog": "cura"
+}

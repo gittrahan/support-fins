@@ -82,6 +82,26 @@ jobs:
           path: plugins/fusion/build/SupportFins.zip
           if-no-files-found: error
 
+  cura:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4     # npx fetches the pinned esbuild (plugins/shared/bundle.py)
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        run: pip install pytest numpy mini-racer==0.14.1
+      - name: Build
+        # vendors mini-racer for the runner's platform; a Mac build is `python3 plugins/cura/build.py`
+        # on a Mac (per-platform packages are the next Cura PR)
+        run: python plugins/cura/build.py
+      - name: Test
+        run: python -m pytest -q plugins/cura/tests/
+
   prusa:
     runs-on: ubuntu-latest
     timeout-minutes: 5

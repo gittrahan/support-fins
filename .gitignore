@@ -22,3 +22,5 @@ plugins/fusion/SupportFins/.env
 plugins/fusion/SupportFins/.vscode/
 plugins/fusion/SupportFins/palette/fins_engine.js
 plugins/fusion/build/
+plugins/cura/build/
+plugins/cura/SupportFins/dev_*
