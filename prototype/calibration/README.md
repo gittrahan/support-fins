@@ -7,7 +7,9 @@ by the engine's own code so the print tests what the app actually makes:
     python3 prototype/calibration/<name>/gen.py      # the part -> out/coupon_part.stl
     deno run -A prototype/calibration/<name>/build.js  # walls on it -> out/<name>-coupon.3mf
 
-`out/` is git-ignored. Record each print's result below, with the date and the
+`out/` is git-ignored. The files actually printed are committed in `<name>/print/`
+(.3mf with the part and walls as separate objects, one merged .stl, a render), so a
+coupon can be reprinted as-is even after the engine moves on. Record each print's result below, with the date and the
 setting it decided; the number itself goes in `web/prop/config.js` with a pointer here.
 
 ## Coupons
@@ -21,7 +23,7 @@ Slab + spine + ledges; one part-attached wall per ledge at h 15/25/40 mm x 2/3/5
 
 ### foot/ -- how should a wall on the part meet the part?
 Six ledges 15 mm up, a 12 mm wall under each, 1 mm in from the free edge. Ledge k
-carries k dots: 1 welded (the old default), 2 gap 0.2, 3 gap 0.3, 4 teeth every 3 mm,
+carries k dots (`print/` is the as-printed build, from commit a2e5a80 which still had teeth): 1 welded (the old default), 2 gap 0.2, 3 gap 0.3, 4 teeth every 3 mm,
 5 teeth every 5 mm, 6 teeth every 3 mm + gap 0.2. Knobs: `PROP.footGap` / `footTeeth`.
 - **2026-09-30, PLA:** only 1 (welded) scarred. 2, 3, 4, 6 printed clean. 5 had a
   failure mid-print but recovered -- possibly chance, since 4 and 6 (tighter teeth) were fine.
