@@ -134,11 +134,13 @@ export function sweepBetween(topLine, botLine, out) {
     if (top - bot + PROP.footGap < PROP.minHeight) return false;
     // a lifted bottom tilts with the floor under each side (floorLine's
     // sideFloors); welded, or with no side floors, it is level at `bot`
-    const bN = welded || botLine[i].length < 5 ? bot : botLine[i][3] + PROP.footGap;
-    const bP = welded || botLine[i].length < 5 ? bot : botLine[i][4] + PROP.footGap;
+    // (a molded side can sit above `bot`: never within 0.5 of the top, which the
+    // headroom check above keeps >= 0.8 over the plain floor + gap)
+    const side = (k) => (welded || botLine[i].length < 5 ? bot
+      : Math.min(botLine[i][k] + PROP.footGap, top - 0.5));
+    const bN = side(3), bP = side(4);
     const bHi = Math.max(bN, bP);
     const h = top - bHi;
-    if (h < 0.3) return false;
     const taper = Math.min(PROP.tipH, welded ? h / 2 : h); // tapers meet in the middle if short
     const zBotTip = welded ? bot + taper : bHi;
     const zTopTip = top - taper;

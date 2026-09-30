@@ -69,7 +69,7 @@ export { stationIsClear, stationCertified, pathToPlateIsClear, longestRun,
   withLowTails, insertFloorStations } from './prop/clearance.js';
 export { tineStepFor, emitTines } from './prop/tines.js';
 export { PART_BAND } from './prop/attached.js';
-export { floorLine } from './prop/mold.js';
+export { floorLine, moldLine } from './prop/mold.js';
 export { sweepSquat, buildSquatBed } from './prop/squat.js';
 
 /**

@@ -13,7 +13,7 @@ import { insidePart } from '../inside.js';
 import { longestRun } from './clearance.js';
 import { PROP } from './config.js';
 import { contourTop, lowerSag, settleTop } from './contact.js';
-import { floorLine } from './mold.js';
+import { floorLine, moldLine } from './mold.js';
 import { sweepBetween } from './sweep.js';
 
 // How far below the clicked/probed overhang a settle pass may still pull the top
@@ -155,7 +155,8 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out) {
   if (span < PROP.minSpan) return { floored: 'stub' };
 
   const before = out.length;
-  if (!sweepBetween(subTop, subFloor, out)) { out.length = before; return { floored: 'degenerate' }; }
+  const mold = moldLine(subTop, partTris);
+  if (!sweepBetween(mold.top, mold.floor, out)) { out.length = before; return { floored: 'degenerate' }; }
 
   // In a bore when most of the kept run is walled all round.
   let walled = 0;

@@ -16,7 +16,7 @@
  * into a watertight wall, reusing prop/sweep.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
-import { PROP, PART_BAND, sweep, sweepBetween, floorLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
+import { PROP, PART_BAND, sweep, sweepBetween, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
 
 /**
  * Every surface height directly above (x, y), as a list.
@@ -114,7 +114,8 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     const floor = floorLine(topPA, tris);
     let floorMax = 0;
     for (const p of floor) if (p[2] > floorMax) floorMax = p[2];
-    if (floorMax > PROP.gap + 0.5 && sweepBetween(topPA, floor, out)) {
+    const mold = floorMax > PROP.gap + 0.5 ? moldLine(topPA, tris) : null;
+    if (mold && sweepBetween(mold.top, mold.floor, out)) {
       let height = 0;
       for (let i = 0; i < topPA.length; i++) {
         height = Math.max(height, (topPA[i][2] - PROP.gap) - floor[i][2]);

@@ -125,3 +125,51 @@ Deno.test('part foot: a ridge between the two sides lifts the bottom clear of it
   const bottom = Math.min(...r.tris.map((p) => p[2]));
   assert(bottom >= 10 + PROP.footGap - 1e-3, `bottom at ${bottom.toFixed(3)} dips below the crest + gap`);
 });
+
+// A rounded bump under the wall, rising along it (gree's leg): stations 1 mm apart
+// bridged its curve with straight edges that cut into it between stations. The
+// bottom must MOLD to it: clear it everywhere, along every edge, and hug it.
+function bumpFloor(R = 6, y0 = -3, y1 = 3) {
+  const zAt = (x) => (Math.abs(x) < R ? 5 + Math.sqrt(R * R - x * x) : 5);
+  const xs = [];
+  for (let x = -40; x <= 40 + 1e-9; x += 0.25) xs.push(+x.toFixed(4));
+  const t = [];
+  const P = (x, y, z) => [x, y, z];
+  for (let i = 0; i + 1 < xs.length; i++) {
+    const a = xs[i], b = xs[i + 1], za = zAt(a), zb = zAt(b);
+    t.push(...quad(P(a, y0, za), P(a, y1, za), P(b, y1, zb), P(b, y0, zb)));   // top
+    t.push(...quad(P(a, y0, 0), P(b, y0, 0), P(b, y1, 0), P(a, y1, 0)));       // bottom
+    t.push(...quad(P(a, y0, 0), P(a, y0, za), P(b, y0, zb), P(b, y0, 0)));     // -y side
+    t.push(...quad(P(a, y1, 0), P(b, y1, 0), P(b, y1, zb), P(a, y1, za)));     // +y side
+  }
+  const e0 = xs[0], e1 = xs[xs.length - 1];
+  t.push(...quad(P(e0, y0, 0), P(e0, y1, 0), P(e0, y1, 5), P(e0, y0, 5)));
+  t.push(...quad(P(e1, y0, 0), P(e1, y0, 5), P(e1, y1, 5), P(e1, y1, 0)));
+  return { tris: t.flat(), zAt };
+}
+
+Deno.test('part foot: the bottom molds to a rounded bump -- clear along every edge, and close', () => {
+  const { tris: floor, zAt } = bumpFloor();
+  const tris = new Float32Array([...floor, ...block(-40, 40, -10, 10, 35, 39)]);
+  const r = drawnWall([-30, 0, 35], [30, 0, 35], tris, 0);
+  assert(r.ok, `wall failed: ${r.reason}`);
+  let lo = Infinity, hugging = 0, onBump = 0;
+  for (let i = 0; i < r.tris.length; i += 3) {
+    const T = [r.tris[i], r.tris[i + 1], r.tris[i + 2]];
+    if (Math.max(...T.map((p) => p[2])) > 14) continue;       // bottom region only
+    for (let e = 0; e < 3; e++) {
+      const a = T[e], b = T[(e + 1) % 3];
+      for (let k = 0; k <= 8; k++) {                            // along the edge, not just its ends
+        const u = k / 8, x = a[0] + (b[0] - a[0]) * u, z = a[2] + (b[2] - a[2]) * u;
+        lo = Math.min(lo, z - zAt(x));
+      }
+    }
+    for (const p of T) {
+      if (Math.abs(p[0]) > 5 || p[2] - zAt(p[0]) > 3) continue;  // bottom vertices on the bump
+      onBump++;
+      if (p[2] - zAt(p[0]) < 0.6) hugging++;
+    }
+  }
+  assert(lo > 0.15, `bottom comes ${lo.toFixed(3)} mm from the bump (straight down), expected ~${PROP.footGap}`);
+  assert(onBump > 30 && hugging / onBump > 0.8, `bottom hugs the bump at ${hugging}/${onBump} vertices`);
+});
