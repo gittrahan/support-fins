@@ -53,6 +53,8 @@ jobs:
         run: python plugins/orca/build.py
       - name: Test
         run: python -m pytest -q plugins/orca/tests/
+      - name: Test the shared Python host
+        run: python -m pytest -q plugins/shared/py/tests/
       - uses: actions/upload-artifact@v4
         with:
           name: orca

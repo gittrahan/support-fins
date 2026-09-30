@@ -5,7 +5,8 @@
 
 1. Bundles the printfins.com engine (web/*.js, untouched) plus the shared plugin
    bridge (plugins/shared/engine/bridge.js) into one IIFE (plugins/shared/bundle.py).
-2. Inlines that bundle into src/support_fins_orca.py as ENGINE_JS.
+2. Inlines that bundle into src/support_fins_orca.py as ENGINE_JS, and the shared
+   Python host (plugins/shared/py/supportfins_host.py) at its marker line.
 
 The result is ONE .py file: drop it into OrcaSlicer (Plugins > Install local
 plugin, or <data_dir>/orca_plugins/). Orca installs numpy and mini-racer itself
@@ -20,6 +21,8 @@ import sys
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE / "build"
 PLACEHOLDER = '"__FINS_ENGINE_JS__"'
+HOST = HERE.parent / "shared" / "py" / "supportfins_host.py"
+HOST_MARKER = "# __SUPPORTFINS_HOST__"
 
 sys.path.insert(0, str(HERE.parent / "shared"))
 from bundle import bundle_engine  # noqa: E402
@@ -30,8 +33,14 @@ def main():
     src = (HERE / "src" / "support_fins_orca.py").read_text(encoding="utf-8")
     if src.count(PLACEHOLDER) != 1:
         sys.exit("placeholder for the engine bundle not found exactly once in src/support_fins_orca.py")
+    lines = src.splitlines(keepends=True)
+    at = [i for i, line in enumerate(lines) if line.startswith(HOST_MARKER)]
+    if len(at) != 1:
+        sys.exit(f"{HOST_MARKER} not found exactly once in src/support_fins_orca.py")
+    host = HOST.read_text(encoding="utf-8")
+    lines[at[0]] = f"# --- inlined from plugins/shared/py/supportfins_host.py ---\n{host}# --- end supportfins_host ---\n"
     # json.dumps yields a valid Python string literal (ASCII, escaped).
-    out = src.replace(PLACEHOLDER, json.dumps(js))
+    out = "".join(lines).replace(PLACEHOLDER, json.dumps(js))
     target = OUT / "support_fins_orca.py"
     target.write_text(out, encoding="utf-8")
     print(f"built {target.relative_to(HERE.parent.parent)} "

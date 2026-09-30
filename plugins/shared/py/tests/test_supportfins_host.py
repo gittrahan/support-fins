@@ -1,0 +1,94 @@
+"""Tests for the shared Python host (plugins/shared/py/supportfins_host.py).
+
+    pip install pytest numpy mini-racer==0.14.1
+    python3 -m pytest -q plugins/shared/py/tests/
+
+Needs esbuild for the bundle (plugins/shared/bundle.py fetches it with npx).
+"""
+import json
+import math
+import os
+import pathlib
+import subprocess
+import sys
+
+import numpy as np
+import pytest
+
+HERE = pathlib.Path(__file__).resolve().parent
+PY = HERE.parent
+ROOT = PY.parent.parent.parent
+sys.path.insert(0, str(PY))
+sys.path.insert(0, str(PY.parent))
+from bundle import bundle_engine  # noqa: E402
+import supportfins_host as host  # noqa: E402
+
+
+@pytest.fixture(scope="session")
+def bundle_path(tmp_path_factory):
+    path = tmp_path_factory.mktemp("engine") / "fins_engine.js"
+    bundle_engine(path)
+    return path
+
+
+@pytest.fixture(scope="session")
+def ctx(bundle_path):
+    return host.host_engine(bundle_path.read_text(encoding="utf-8"))
+
+
+def lbracket_35():
+    """web/dev-models/lbracket.stl tilted 35 deg about X, the plugins' reference part."""
+    data = (ROOT / "web" / "dev-models" / "lbracket.stl").read_bytes()
+    n = int(np.frombuffer(data, dtype="<u4", count=1, offset=80)[0])
+    rec = np.frombuffer(data, dtype=np.dtype([("n", "<f4", 3), ("v", "<f4", (3, 3)), ("a", "<u2")]),
+                        count=n, offset=84)
+    v = rec["v"].astype(np.float64)
+    c, s = math.cos(math.radians(35)), math.sin(math.radians(35))
+    y, z = v[..., 1].copy(), v[..., 2].copy()
+    v[..., 1], v[..., 2] = y * c - z * s, y * s + z * c
+    return v
+
+
+def test_same_fins_as_the_site(ctx):
+    # the counts the website and node give lbracket @35 X at 0.2 mm (015 spike, Node ref)
+    fins, stats = host.host_compute(ctx, lbracket_35(), {"layerHeight": 0.2})
+    assert stats["braces"] == 4 and stats["tines"] == 20
+    assert fins.shape == (stats["finTriangles"] + stats["padTriangles"], 3, 3)
+    assert fins.dtype == np.float64
+
+
+def test_fins_come_back_in_the_callers_frame(ctx):
+    soup = lbracket_35()
+    fins0, stats0 = host.host_compute(ctx, soup, {"layerHeight": 0.2})
+    shift = np.array([137.25, -42.5, 5.0])      # parked somewhere on a plate, lifted
+    fins1, stats1 = host.host_compute(ctx, soup + shift, {"layerHeight": 0.2})
+    assert stats1 == stats0
+    # the engine returns float32; a shift of this size moves points by < 1e-4 mm
+    assert np.abs((fins1 - shift) - fins0).max() < 1e-4
+    # the pad sits where the part meets the bed
+    assert abs(fins1[..., 2].min() - (soup[..., 2].min() + shift[2])) < 1e-4
+
+
+def test_options_reach_the_engine(ctx):
+    _, on = host.host_compute(ctx, lbracket_35(), {"layerHeight": 0.2})
+    _, off = host.host_compute(ctx, lbracket_35(), {"layerHeight": 0.2, "bedPad": False, "tines": False})
+    assert on["padTriangles"] > 0 and off["padTriangles"] == 0
+    assert off["tines"] == 0
+
+
+def test_vendor_dir_under_a_pyinstaller_app(bundle_path):
+    """Cura is a PyInstaller app: mini-racer then looks in sys._MEIPASS. host_engine
+    must find the vendored copy anyway and give the app its _MEIPASS back."""
+    import py_mini_racer
+    vendor = pathlib.Path(py_mini_racer.__file__).resolve().parent.parent
+    code = f"""
+import sys, json
+sys._MEIPASS = "/nonexistent/app/bundle"
+sys.path.insert(0, {str(PY)!r})
+import supportfins_host as host
+ctx = host.host_engine(open({str(bundle_path)!r}).read(), vendor_dir={str(vendor)!r})
+print(json.dumps([sys._MEIPASS, ctx.eval("typeof SupportFinsEngine.computeFinsB64")]))
+"""
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
+    assert out.returncode == 0, out.stderr
+    assert json.loads(out.stdout.strip().splitlines()[-1]) == ["/nonexistent/app/bundle", "function"]

@@ -8,6 +8,9 @@ A fix on the site reaches a plugin the next time it is built.
 engine/fins_entry.js    posed triangle soup in (mm, z up) -> fin + bed-pad triangles out
 engine/bridge.js        base64 in/out for Python hosts running the bundle in V8 (mini-racer)
 bundle.py               esbuild: bridge.js + web/*.js -> one IIFE, global SupportFinsEngine
+py/supportfins_host.py  Python side for plugins that run the bundle in mini-racer: start V8
+                        (host_engine), run the engine on a soup and map the fins back to
+                        the caller's frame (host_compute). Orca inlines it at build time
 tests/                  Deno tests: same fins as the website, anywhere on the plate;
                         the base64 bridge round-trips exactly
 ENGINE-SENSITIVITY.md   engine note: tine placement moves under 1e-13 mm of noise, and
@@ -17,6 +20,7 @@ ENGINE-SENSITIVITY.md   engine note: tine placement moves under 1e-13 mm of nois
 ```
 python3 plugins/shared/bundle.py out.js     # needs esbuild (npx fetches it on demand)
 deno test --allow-read plugins/shared/tests/
+python3 -m pytest -q plugins/shared/py/tests/   # needs numpy + mini-racer==0.14.1
 ```
 
 Used by: [Orca](../orca/README.md) (inlines the bundle into its single-file plugin).

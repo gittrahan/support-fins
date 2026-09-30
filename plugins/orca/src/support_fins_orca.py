@@ -43,8 +43,6 @@ LIMITS (spike)
   * The slicing-pipeline API is marked research/experimental by Orca.
   * One fin set per print object (all instances of an object share it).
 """
-import atexit
-import base64
 import json
 import os
 import time
@@ -70,7 +68,8 @@ _DEFAULTS = {
 # ---------------------------------------------------------------------------------
 # Engine
 # ---------------------------------------------------------------------------------
-_engine = None
+# __SUPPORTFINS_HOST__ (build.py inlines plugins/shared/py/supportfins_host.py here:
+# host_engine() starts V8 with the bundle, host_compute() runs it on a soup)
 
 
 def _engine_ctx():
@@ -78,34 +77,18 @@ def _engine_ctx():
 
     Started at module load (see the bottom of this section), because Orca's audit
     hook is off while plugins load but gates every file open during slicing, and V8
-    reads its ICU data file when it starts. On macOS V8 runs --jitless: mini-racer's
-    JIT hits SIGTRAP there, and a hardened app may refuse JIT memory anyway. Both
-    are lessons from gittrahan's feat/orca-plugin branch.
+    reads its ICU data file when it starts.
     """
-    global _engine
-    if _engine is None:
-        import sys
-        from py_mini_racer import MiniRacer, init_mini_racer
-        if ENGINE_JS.startswith("__FINS_ENGINE"):
-            raise RuntimeError("fin engine bundle missing -- run plugins/orca/build.py")
-        flags = ["--single-threaded"]
-        if sys.platform == "darwin":
-            flags.append("--jitless")
-        init_mini_racer(flags=flags, ignore_duplicate_init=True)
-        ctx = MiniRacer()
-        ctx.eval(ENGINE_JS)
-        # mini-racer never tears V8 down by itself: without an explicit close(), the
-        # interpreter hangs forever at exit (seen in pytest on macOS, any V8 flags).
-        atexit.register(ctx.close)
-        _engine = ctx
-    return _engine
+    if ENGINE_JS.startswith("__FINS_ENGINE"):
+        raise RuntimeError("fin engine bundle missing -- run plugins/orca/build.py")
+    return host_engine(ENGINE_JS)
 
 
 if not ENGINE_JS.startswith("__FINS_ENGINE"):
     try:
         _engine_ctx()
     except Exception:  # pragma: no cover - retried (and reported) on first slice
-        _engine = None
+        pass
 
 
 def compute_fins(soup, layer_height, cfg):
@@ -114,26 +97,14 @@ def compute_fins(soup, layer_height, cfg):
     soup: (M,3,3) float64 triangles, mm, in whatever frame the caller likes.
     Returns (fins (K,3,3) float64 in the SAME frame as `soup`, stats dict).
     """
-    soup = np.ascontiguousarray(soup, dtype=np.float64)
-    opts = {
+    return host_compute(_engine_ctx(), soup, {
         "mode": "auto",
         "bedPad": bool(cfg["bed_pad"]),
         "tines": bool(cfg["tines"]),
         "tineDensity": float(cfg["tine_density"]),
         "coverage": float(cfg["coverage"]),
         "layerHeight": float(layer_height),
-    }
-    raw = _engine_ctx().call(
-        "SupportFinsEngine.computeFinsB64",
-        base64.b64encode(soup.tobytes()).decode("ascii"),
-        json.dumps(opts),
-    )
-    out = json.loads(raw)
-    seated = np.frombuffer(base64.b64decode(out["triangles"]), dtype=np.float32)
-    seated = seated.astype(np.float64).reshape(-1, 3, 3)
-    off = out["offset"]  # seated = input + offset
-    fins = seated - np.array([off["x"], off["y"], off["z"]], dtype=np.float64)
-    return fins, out["stats"]
+    })
 
 
 # ---------------------------------------------------------------------------------
