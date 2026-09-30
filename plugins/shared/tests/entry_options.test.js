@@ -117,6 +117,12 @@ Deno.test('pad style: Light and Sure hold build different pads, the fins stay pu
   } finally { resetPla(); }
 });
 
+Deno.test('pad style Off is bedPad: false', () => {
+  const off = computeFins(PART, { ...OPTS, padStyle: 'off' });
+  assert(off.stats.padTriangles === 0, 'Off still built a pad');
+  assert(same(off.triangles, computeFins(PART, { ...OPTS, bedPad: false }).triangles), 'Off differs from bedPad: false');
+});
+
 Deno.test('cutout: holes in the walls, still closed solids', () => {
   try {
     const solid = computeFins(PART, OPTS);

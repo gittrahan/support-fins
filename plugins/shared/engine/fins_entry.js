@@ -19,22 +19,26 @@ import { buildTopology, analyze, DEFAULT_THRESHOLD, IDENTITY3 } from '../../../w
 import { buildFins } from '../../../web/fins.js';
 import { MATERIAL } from '../../../web/materials.js';
 import { CUTOUT_PATTERNS } from '../../../web/cutout.js';
+import SCHEMA from './options.json' with { type: 'json' };
 
+// The dialog settings (options.json) are the one source of their defaults: every
+// plugin's dialog is built from the same file, so the entry can't disagree with it.
+const OPTION = Object.fromEntries(SCHEMA.options.map((o) => [o.key, o]));
 // The site's Bed pad choices minus Custom (a plugin dialog shows presets, not the
-// four custom numbers). bedPad: false is the site's Off.
-const PAD_STYLES = ['auto', 'light', 'sure'];
+// four custom numbers). 'off' is the site's Off, the same as bedPad: false.
+const PAD_STYLES = OPTION.padStyle.choices.map((c) => c.value);
 
 export const ENGINE_DEFAULTS = Object.freeze({
   mode: 'auto',        // the website's default fin mode
-  bedPad: true,
-  tines: true,
-  tineDensity: 0,      // website slider default (0..1)
-  coverage: 0.5,       // website slider default (0..1)
+  bedPad: true,        // older hosts' switch; padStyle 'off' turns the pad off too
+  tines: OPTION.tines.default,
+  tineDensity: OPTION.tineDensity.default,   // 0..1 (the site's slider / 100)
+  coverage: OPTION.coverage.default,         // 0..1 (the site's slider / 100)
   layerHeight: 0.2,    // overridden with the active Orca preset's layer height
   threshold: DEFAULT_THRESHOLD,
-  material: 'pla',     // key of web/materials.js MATERIAL: the site's Material select
-  padStyle: 'auto',    // one of PAD_STYLES: the site's Bed pad select (its Off is bedPad: false)
-  cutout: 'none',      // one of web/cutout.js CUTOUT_PATTERNS: the site's Wall cutouts select
+  material: OPTION.material.default,   // key of web/materials.js MATERIAL
+  padStyle: OPTION.padStyle.default,   // one of PAD_STYLES
+  cutout: OPTION.cutout.default,       // one of web/cutout.js CUTOUT_PATTERNS
   // Sway braces (web/sway.js), off by default exactly as on the website. Pass
   // { on: true } to brace the tall sides, plus any of gripFrom / tineSpacing /
   // reach / gap / bite to match the host's own settings. Without this a plugin
@@ -64,7 +68,8 @@ export function computeFins(positions, options = {}) {
   // leak into the next PLA run.
   const tunables = {
     tineBite: mat.tineBite, padH: mat.padH, padGrab: mat.padGrab, propGap: mat.propGap,
-    padStyle: pick('padStyle', opts.padStyle, PAD_STYLES),
+    // Off builds no pad, so which style it carries doesn't matter; Auto keeps it valid.
+    padStyle: pick('padStyle', opts.padStyle, PAD_STYLES) === 'off' ? 'auto' : opts.padStyle,
     cutout: pick('cutout', opts.cutout, CUTOUT_PATTERNS),
   };
   const input = (positions instanceof Float32Array || positions instanceof Float64Array)
@@ -100,7 +105,7 @@ export function computeFins(positions, options = {}) {
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   const result = analyze(topo, opts.threshold, IDENTITY3);
   const built = buildFins(topo, result, IDENTITY3, {
-    mode: opts.mode, bedPad: opts.bedPad, tines: opts.tines,
+    mode: opts.mode, bedPad: opts.bedPad && opts.padStyle !== 'off', tines: opts.tines,
     tineDensity: opts.tineDensity, layerHeight: opts.layerHeight, coverage: opts.coverage,
     // `sway` is forwarded whole, so a host passes the same object the website's
     // options panel builds; buildFins ignores it unless `on` is set. Like the site
