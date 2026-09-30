@@ -31,7 +31,7 @@ re-slice, and the fins follow. Parts with Orca's **Enable support** on are skipp
 so the per-object support toggle picks fins vs Orca supports.
 
 ```
-python3 plugins/orca/build.py                   # -> build/support_fins_orca.py (one file, ~100 KB)
+python3 plugins/orca/build.py                   # -> build/support_fins_orca.py (one file, ~110 KB)
 deno test --allow-read tests/ plugins/shared/tests/
 python3 -m pytest -q plugins/orca/tests/ plugins/shared/py/tests/   # needs numpy, trimesh, scipy, shapely, rtree, networkx, mini-racer
 ```

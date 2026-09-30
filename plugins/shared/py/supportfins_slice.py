@@ -11,7 +11,7 @@ shells with each other and with the part itself.
 
 How each plugin gets this file:
   Orca     inlined into the single-file plugin by plugins/orca/build.py
-  others   copied next to the plugin by its build and imported
+  others   none yet; a plugin that needs it copies it in at build time, as Cura does the host
 """
 try:  # Orca installs numpy from the plugin's PEP 723 header and reports a failed install itself
     import numpy as np
