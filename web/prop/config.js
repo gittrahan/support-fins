@@ -131,6 +131,18 @@ export const PROP = {
   // wall under it is its only support: minSpan's "not worth the plate space"
   // would drop the whole feature. Such a wall may be this short.
   minSpanTube: 3.0,
+  // HOW A WALL ON THE PART MEETS THE PART (local issue 009: every wall on the
+  // slenderness coupon left a scar line, the bottom tip welds on purpose). Both
+  // off = the welded 0.6 mm tip. footGap: the bottom stops this far above the
+  // floor, a slicer's "bottom Z distance" -- the first layer sags onto the part
+  // instead of fusing, and the wall keeps its full th there so that layer is two
+  // lines wide. footTeeth: pitch (mm) of little teeth that alone reach down, the
+  // wall bridging between them toothH up -- a row of dots instead of a line.
+  // Coupon: prototype/foot/. Defaults stay welded until it prints.
+  footGap: 0,
+  footTeeth: 0,
+  toothLen: 1.0,
+  toothH: 1.0,
   tubeConvexFrac: 0.7,
   tubeTwoSidedFrac: 0.25,  // least share of the off-line area on either side
   // mm an overhang may bridge unsupported: the wall-to-wall spacing across a
