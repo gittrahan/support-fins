@@ -33,7 +33,7 @@ export const ENGINE_DEFAULTS = Object.freeze({
   layerHeight: 0.2,    // overridden with the active Orca preset's layer height
   threshold: DEFAULT_THRESHOLD,
   material: 'pla',     // key of web/materials.js MATERIAL: the site's Material select
-  padStyle: 'auto',    // one of PAD_STYLES: the site's Bed pad select
+  padStyle: 'auto',    // one of PAD_STYLES: the site's Bed pad select (its Off is bedPad: false)
   cutout: 'none',      // one of web/cutout.js CUTOUT_PATTERNS: the site's Wall cutouts select
   // Sway braces (web/sway.js), off by default exactly as on the website. Pass
   // { on: true } to brace the tall sides, plus any of gripFrom / tineSpacing /
@@ -54,7 +54,7 @@ export const ENGINE_DEFAULTS = Object.freeze({
 export function computeFins(positions, options = {}) {
   const opts = { ...ENGINE_DEFAULTS, ...options };
   const pick = (name, value, allowed) => {
-    if (!allowed.includes(value)) throw new Error(`${name} must be one of ${allowed.join(', ')}, got ${value}`);
+    if (!allowed.includes(value)) throw new Error(`${name} must be one of ${allowed.join(', ')}, got ${JSON.stringify(value)}`);
     return value;
   };
   const mat = MATERIAL[pick('material', opts.material, Object.keys(MATERIAL))];
@@ -105,8 +105,11 @@ export function computeFins(positions, options = {}) {
     // `sway` is forwarded whole, so a host passes the same object the website's
     // options panel builds; buildFins ignores it unless `on` is set. Like the site
     // (ui/finbuild.js swayOpts), braces take the material's gap and bite unless the
-    // host sets its own.
-    sway: opts.sway ? { gap: mat.propGap, bite: mat.tineBite, ...opts.sway } : undefined,
+    // host sets its own. A null from the host (Python None) counts as unset, or it
+    // would drop sway.js back to PLA's numbers under PETG.
+    sway: opts.sway ? { gap: mat.propGap, bite: mat.tineBite,
+                        ...Object.fromEntries(Object.entries(opts.sway).filter(([, v]) => v != null)) }
+                    : undefined,
     tunables,
   });
   const fin = flatten(built.triangles);
