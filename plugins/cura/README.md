@@ -14,20 +14,34 @@ Status: **0.1, experimental.** Tested in Cura 5.13 on an Apple-silicon Mac.
 
 ## Install
 
+Download the package for your computer from the
+[`plugins-latest`](https://github.com/gittrahan/support-fins/releases/tag/plugins-latest) release:
+
+| Computer | File |
+|---|---|
+| Mac with Apple silicon (M1 and later) | `SupportFins-<version>-mac-arm64.curapackage` |
+| Mac with Intel | `SupportFins-<version>-mac-x64.curapackage` |
+| Windows | `SupportFins-<version>-windows-x64.curapackage` |
+| Linux (x86-64 / ARM64) | `SupportFins-<version>-linux-x64.curapackage` / `-linux-arm64` |
+
+**Drag it onto Cura's window**, accept the licence, and restart Cura. Each package carries the
+embedded JavaScript engine (V8) for one platform, 15–22 MB; installed on the wrong computer the
+plugin says which one to download instead.
+
+From source:
+
 ```sh
-python3 plugins/cura/build.py     # -> plugins/cura/build/SupportFins/  (needs esbuild via npx, and pip)
+python3 plugins/cura/build.py             # -> plugins/cura/build/SupportFins/  (this machine; needs esbuild via npx, and pip)
+python3 plugins/cura/build.py --package   # + build/SupportFins-<version>-<platform>.curapackage
+python3 plugins/cura/build.py --all       # a package for every platform (CI does this)
 ```
 
-Copy (or link) `build/SupportFins` into Cura's plugins folder, then restart Cura. To find the
-folder: **Help › Show Configuration Folder**, then open `plugins/`. On macOS:
+Or link the built folder into Cura's plugins folder (**Help › Show Configuration Folder**, then
+`plugins/`) and restart Cura. On macOS:
 
 ```sh
 ln -s "$PWD/plugins/cura/build/SupportFins" ~/Library/Application\ Support/cura/5.13/plugins/SupportFins
 ```
-
-The build vendors mini-racer for the machine it runs on (Cura's Python can't install packages):
-about 64 MB unpacked. `python3 plugins/cura/build.py win_amd64` (or `macosx_10_9_x86_64`,
-`manylinux_2_27_x86_64`) builds for another platform.
 
 ## Use
 

@@ -41,6 +41,7 @@ from UM.Scene.Selection import Selection
 from UM.Settings.SettingInstance import SettingInstance
 
 from . import frames
+from . import platform_check
 from . import settings
 from . import supportfins_host as host
 
@@ -64,6 +65,9 @@ _ctx = None
 def engine():
     global _ctx
     if _ctx is None:
+        wrong = platform_check.mismatch(HERE)
+        if wrong:
+            raise RuntimeError(wrong)
         with open(os.path.join(HERE, "fins_engine.js"), encoding="utf-8") as f:
             _ctx = host.host_engine(f.read(), vendor_dir=os.path.join(HERE, "vendor"))
     return _ctx

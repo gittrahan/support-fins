@@ -95,12 +95,17 @@ jobs:
           node-version: '22'
       - name: Install test dependencies
         run: pip install pytest numpy mini-racer==0.14.1
-      - name: Build
-        # vendors mini-racer for the runner's platform; a Mac build is `python3 plugins/cura/build.py`
-        # on a Mac (per-platform packages are the next Cura PR)
-        run: python plugins/cura/build.py
+      - name: Build a .curapackage per platform
+        # pip fetches each platform's mini-racer wheel, so one Linux runner builds all five;
+        # this runner's own (linux-x64) is built last and is what the tests run against
+        run: python plugins/cura/build.py --all
       - name: Test
         run: python -m pytest -q plugins/cura/tests/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cura
+          path: plugins/cura/build/*.curapackage
+          if-no-files-found: error
 
   prusa:
     runs-on: ubuntu-latest
@@ -122,7 +127,7 @@ jobs:
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [orca, fusion, prusa]
+    needs: [orca, fusion, cura, prusa]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -149,6 +154,7 @@ jobs:
 
           - support_fins_orca.py: OrcaSlicer plugin (2.5 nightly), experimental
           - SupportFins.zip: Autodesk Fusion add-in, experimental (run on Windows and macOS)
+          - SupportFins-<version>-<platform>.curapackage: UltiMaker Cura 5 plugin, experimental; pick your computer's (mac-arm64, mac-x64, windows-x64, linux-x64, linux-arm64) and drag it onto Cura
           - support-fins-prusa.zip: PrusaSlicer 3.0 plugin bundle, placement by hand"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "Plugins (latest build)" --notes "$notes" --prerelease
