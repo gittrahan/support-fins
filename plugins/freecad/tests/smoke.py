@@ -38,6 +38,14 @@ def check(name, ok, detail=""):
     json.dump(results, open(OUT, "w"), indent=1)
 
 
+def world_bbox(fins):
+    """The fins' bounding box in document coordinates, wherever the object sits."""
+    import Mesh
+    m = Mesh.Mesh(fins.Mesh)
+    m.Placement = fins.getGlobalPlacement()
+    return m.BoundBox
+
+
 def rot_x(deg, at=(0, 0, 0)):
     return App.Placement(App.Vector(*at), App.Rotation(App.Vector(1, 0, 0), deg))
 
@@ -68,7 +76,8 @@ try:
     doc.recompute()
     check("fins follow a tilt", fins.Report != "" and fins.Mesh.CountFacets > 0, fins.Report)
 
-    # Auto update off: keeps the last fins, says so; Update recomputes
+    # Auto update off: keeps the last fins, says so; Update recomputes; settings still
+    # show and hide at once
     fins.AutoUpdate = False
     doc.recompute()
     kept = fins.Mesh.CountFacets
@@ -79,6 +88,12 @@ try:
     sf.update([fins])
     check("Update recomputes with auto update off",
           fins.Mesh.CountFacets != kept and not fins.Report.startswith(sf.OUT_OF_DATE), fins.Report)
+    fins.Tines = False
+    check("auto update off: Tines off still hides Tine grip now", "Hidden" in fins.getEditorMode("TineGrip"),
+          fins.getEditorMode("TineGrip"))
+    fins.Tines = True
+    check("auto update off: Tines on shows Tine grip again", "Hidden" not in fins.getEditorMode("TineGrip"),
+          fins.getEditorMode("TineGrip"))
     fins.AutoUpdate = True
 
     # settings reach the engine; the ones it ignores are hidden
@@ -151,9 +166,60 @@ try:
     container.Placement = App.Placement(App.Vector(400, 0, 0), App.Rotation())
     ifin = sf.make(inner)
     doc.recompute()
-    ib = ifin.Mesh.BoundBox
+    ib = world_bbox(ifin)
     check("App::Part placement is applied", 380 < (ib.XMin + ib.XMax) / 2 < 460, ib)
     check("placed part = same fins as unplaced", ifin.Report == mfin.Report, (ifin.Report, mfin.Report))
+    container.Placement = App.Placement(App.Vector(700, 0, 0), App.Rotation())
+    doc.recompute()
+    ib = world_bbox(ifin)
+    check("moving the container moves the fins", 680 < (ib.XMin + ib.XMax) / 2 < 760, ib)
+
+    # an App::Link (the Assembly workbench is built on them), with its own placement
+    link = doc.addObject("App::Link", "BoxLink")
+    link.LinkedObject = inner
+    link.Placement = rot_x(50, (0, -300, 30))
+    doc.recompute()
+    check("a Link is a part to fin", sf.source_for(link) is link, sf.source_for(link))
+    lfin = sf.make(link)
+    doc.recompute()
+    lb = world_bbox(lfin)
+    check("Link fins: computed, same as the box", lfin.Report == mfin.Report, (lfin.Report, lfin.State))
+    check("Link fins sit under the Link", -330 < (lb.YMin + lb.YMax) / 2 < -270, lb)
+
+    # fins dropped into a placed group still draw under their part
+    holder = doc.addObject("App::Part", "Holder")
+    holder.Placement = App.Placement(App.Vector(0, 0, 90), App.Rotation())
+    holder.addObject(mfin)
+    mfin.Proxy._force = True
+    mfin.touch()
+    doc.recompute()
+    # (FreeCAD pulls the fins' Source into the group with them, so the part moved too:
+    # compare in document coordinates)
+    hb, part_zmin = world_bbox(mfin), float(sf.part_soup(mfin.Source)[..., 2].min())
+    check("fins in a placed group still sit on the part's lowest point", abs(hb.ZMin - part_zmin) < 1e-3,
+          (hb.ZMin, part_zmin))
+
+    # a failed compute says so in Report (the old mesh stays on screen)
+    efin = sf.make(box)
+    doc.recompute()
+    efin.LayerHeight = -1.0                      # the one number with no editor limit
+    doc.recompute()
+    check("a failed compute puts the error in Report", efin.Report.startswith("Error:"), (efin.Report, efin.State))
+    efin.Overhang = 85.0
+    check("bounded settings are clamped to the engine's range", efin.Overhang == 70.0, efin.Overhang)
+    doc.removeObject(efin.Name)
+
+    # Update while the part fails doesn't leave the next recompute forced
+    fins.AutoUpdate = False
+    bad = doc.addObject("Part::Box", "Bad")
+    fins.Source = bad
+    bad.Length = -5                              # an invalid box: its recompute fails
+    sf.update([fins])
+    check("Update never leaves _force stuck", not getattr(fins.Proxy, "_force", False), fins.Proxy._force)
+    fins.Source = box
+    fins.AutoUpdate = True
+    doc.removeObject("Bad")
+    doc.recompute()
 
     # no Source: an error on the object, not a crash
     orphan = doc.addObject("Mesh::FeaturePython", "Orphan")

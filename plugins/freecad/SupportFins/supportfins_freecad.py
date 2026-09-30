@@ -18,11 +18,12 @@ import sys
 
 import FreeCAD as App
 
-import props
+import supportfins_props as props
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCHEMA = json.load(open(os.path.join(HERE, "options.json"), encoding="utf-8"))
 SPECS = props.specs(SCHEMA)
+SETTING_NAMES = {s["name"] for s in SPECS}
 # the site's STEP tessellation (web/step.js STEP_PARAMS): 0.01 mm chord, 0.1 rad
 LINEAR_DEFLECTION, ANGULAR_DEFLECTION = 0.01, 0.1
 FIN_COLOR = (0.15, 0.45, 0.95)
@@ -50,29 +51,59 @@ def is_fins(obj):
 
 def source_for(obj):
     """What a selection means: a feature inside a PartDesign Body is that Body (so the
-    fins follow the Body's tip), anything else with a shape or a mesh is itself."""
+    fins follow the Body's tip), anything else with a shape (a Link's included) or a
+    mesh is itself."""
+    import Part
     parent = obj.getParentGeoFeatureGroup() if hasattr(obj, "getParentGeoFeatureGroup") else None
     if parent is not None and parent.isDerivedFrom("PartDesign::Body"):
         return parent
     if is_fins(obj):
         return None
-    if obj.isDerivedFrom("Mesh::Feature") or (hasattr(obj, "Shape") and not obj.Shape.isNull()):
+    if obj.isDerivedFrom("Mesh::Feature"):
         return obj
-    return None
+    try:
+        return None if Part.getShape(obj).isNull() else obj
+    except Exception:                          # noqa: BLE001 -- not a shape: not a part
+        return None
+
+
+def parent_placement(obj):
+    """Where obj's container puts it in the document (identity at the top level).
+    Not obj's own placement: that's in its shape already."""
+    parent = obj.getParentGeoFeatureGroup() if hasattr(obj, "getParentGeoFeatureGroup") else None
+    return parent.getGlobalPlacement() if parent is not None else App.Placement()
+
+
+def containers(obj):
+    """The groups (App::Part, Body, ...) above obj, innermost first: moving any of them
+    moves the part, so the fins depend on them too."""
+    out, parent = [], obj.getParentGeoFeatureGroup() if hasattr(obj, "getParentGeoFeatureGroup") else None
+    while parent is not None and parent not in out:
+        out.append(parent)
+        parent = parent.getParentGeoFeatureGroup()
+    return out
+
+
+def where(fins):
+    """Where the fins' part sits in the document, and where the fins' own group does:
+    if either moves, the fins are stale."""
+    return (str(parent_placement(fins.Source)), str(parent_placement(fins)))
 
 
 def part_soup(src):
     """The part's triangles in document coordinates, (M,3,3) float64, mm."""
     import numpy as np
     import Mesh
-    pl = src.getGlobalPlacement()
     if src.isDerivedFrom("Mesh::Feature"):
         mesh = Mesh.Mesh(src.Mesh)
-        mesh.Placement = pl
+        mesh.Placement = src.getGlobalPlacement()
     else:
         import MeshPart
-        shape = src.Shape.copy()
-        shape.Placement = pl
+        import Part
+        # getShape carries the object's own placement (a Link's placement too, which
+        # getGlobalPlacement can't give); its containers' placements go on top
+        shape = Part.getShape(src, "", needSubElement=False, transform=True).copy()
+        shape.Placement = parent_placement(src).multiply(shape.Placement)
         mesh = MeshPart.meshFromShape(Shape=shape, LinearDeflection=LINEAR_DEFLECTION,
                                       AngularDeflection=ANGULAR_DEFLECTION, Relative=False)
     pts, tris = mesh.Topology
@@ -110,11 +141,39 @@ class SupportFins:
         add("App::PropertyString", "Report", props.GROUP,
             "What the engine placed, and what it couldn't reach")
         obj.setEditorMode("Report", 1)            # read-only
-        for s in SPECS:
-            add(s["type"], s["name"], s["group"], s["tooltip"], s["default"], s.get("labels"))
+        add("App::PropertyLinkListHidden", "Containers", props.GROUP,
+            "The groups the part sits in: moving one moves the part, so the fins follow")
+        self._adding = True
+        try:
+            for s in SPECS:
+                add(s["type"], s["name"], s["group"], s["tooltip"], s["default"], s.get("labels"))
+        finally:
+            self._adding = False
 
     def onDocumentRestored(self, obj):
         self.add_properties(obj)
+
+    def onChanged(self, obj, prop):
+        if getattr(self, "_adding", False) or "Restore" in obj.State:
+            return
+        if prop == "Source":
+            self.follow_containers(obj)
+        elif prop in SETTING_NAMES:
+            # show/hide at once, even with Auto update off or after a failed compute
+            try:
+                self.show_relevant(obj)
+            except Exception:                  # noqa: BLE001 -- never block editing a value
+                pass
+
+    def mustExecute(self, obj):
+        """Moving a group the part sits in changes no shape, so FreeCAD reruns nothing
+        downstream: recompute when the part, or these fins, moved since the last run."""
+        return obj.Source is not None and getattr(self, "_placed", None) not in (None, where(obj))
+
+    def follow_containers(self, obj):
+        want = [c for c in containers(obj.Source) if obj not in c.OutListRecursive] if obj.Source else []
+        if list(obj.Containers) != want:
+            obj.Containers = want
 
     def execute(self, obj):
         forced, self._force = getattr(self, "_force", False), False
@@ -122,17 +181,29 @@ class SupportFins:
             if not obj.Report.startswith(OUT_OF_DATE):
                 obj.Report = OUT_OF_DATE + obj.Report
             return
-        if obj.Source is None:
-            raise ValueError("pick the part these fins hold up (Source)")
-        h, ctx = host()
-        values = props.dialog_values(SCHEMA, lambda name: getattr(obj, name))
-        options = h.host_options(ctx, values)
-        fins, stats = h.host_compute(ctx, part_soup(obj.Source), options)
+        try:
+            if obj.Source is None:
+                raise ValueError("pick the part these fins hold up (Source)")
+            self.follow_containers(obj)
+            h, ctx = host()
+            values = props.dialog_values(SCHEMA, lambda name: getattr(obj, name))
+            options = h.host_options(ctx, values)
+            fins, stats = h.host_compute(ctx, part_soup(obj.Source), options)
+        except Exception as e:
+            # the old mesh stays on screen: say it's not this result
+            obj.Report = f"Error: {e}"
+            App.Console.PrintError(f"Support Fins ({obj.Label}): {e}\n")
+            raise
         import Mesh
         mesh = Mesh.Mesh()
         if len(fins):
             mesh.addFacets(fins.tolist())
+            # the fins are in document coordinates; if this object sits in a placed group,
+            # undo the group's placement so it draws where the part is. (Its own
+            # Placement needs nothing: assigning Mesh resets it to the mesh's, identity.)
+            mesh.transform(parent_placement(obj).inverse().toMatrix())
         obj.Mesh = mesh
+        self._placed = where(obj)
         obj.Report = h.host_report(stats)
         App.Console.PrintMessage(f"Support Fins ({obj.Source.Label}): {obj.Report}\n")
         self.show_relevant(obj, values)
@@ -191,5 +262,11 @@ def update(objs):
         obj.Proxy._force = True
         obj.touch()
         docs.add(obj.Document)
-    for doc in docs:
-        doc.recompute()
+    try:
+        for doc in docs:
+            doc.recompute()
+    finally:
+        # if the part failed to recompute, execute never ran: don't leave the next,
+        # unrelated recompute forced past Auto update
+        for obj in objs:
+            obj.Proxy._force = False
