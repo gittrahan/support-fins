@@ -146,6 +146,21 @@ export const PROP = {
   // reads this value out of this file (MAX_UNSUPPORTED_SPAN) so the checker and
   // the generator cannot disagree about it.
   maxUnsupportedSpan: 12.0,
+  // A FREE edge (the overhang ends in air) gets its outermost row this far in --
+  // flush: the 1 mm wall's face 0.1 mm inside the edge (not ON it: a wall face in
+  // the plane of the part's side face made inside-tests along that plane
+  // ambiguous -- lbracket Y20 read 266 wall verts "inside" on the Orca path). Rows used to sit mid-strip, so the
+  // lip past the last one ran to half a spacing, and on the slenderness coupon
+  // (prototype/calibration/slender/) a 4 mm lip past a mid-ledge wall curled on
+  // every ledge. Between two rows the first layer is a bridge; past the last one
+  // it is a cantilever. An ATTACHED edge (the part carries on) keeps its bridge.
+  edgeInset: 0.6,
+  // ...but only under a near-FLAT underside: the curl is a first layer printed
+  // as a sheet over air past the last wall. A steeper face steps out only
+  // layerH / tan(angle) per layer -- 0.2 mm at 45deg, nothing to curl -- and a
+  // flush wall there is just plastic (a cube on its default pose went 3 -> 5
+  // walls). Up to this slope from horizontal: 30deg, ~0.35 mm a layer, a line width.
+  edgeFlatDeg: 30,
 
   // --- TINES (the grip comb) ---------------------------------------------
   // A plain prop stops `gap` under the overhang and the part bridges over it:

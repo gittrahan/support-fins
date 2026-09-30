@@ -436,11 +436,14 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // small part, so the clamp is gone and the caller warns (sagRisk) when the
   // resulting spacing actually exceeds the cap. Denser still only adds rows.
   const rowSpan = Math.max(1, span);
-  const nWalls = Math.max(1, Math.round(vExt / rowSpan));
+  // (free-edge rows only under a near-flat underside -- see PROP.edgeFlatDeg)
+  const flat = slope <= Math.tan((PROP.edgeFlatDeg * Math.PI) / 180);
+  const rows = rowOffsets(vLo, vHi, rowSpan, support && flat && {
+    support, patchTris, ux, uy, vx, vy, uLo, uHi,
+  });
 
   const tracks = [];
-  for (let w = 0; w < nWalls; w++) {
-    const v0 = vLo + (vExt * (w + 0.5)) / nWalls;
+  for (const v0 of rows) {
     let cur = [];
     for (let k = 0; k <= nSt; k++) {
       const u = uLo + ((uHi - uLo) * k) / nSt;
@@ -458,6 +461,72 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // The lateral gap between adjacent rows this face ended up with. The caller
   // compares it to the anti-sag cap to decide whether to warn: only a face wide
   // enough to want >1 row can actually sag, and only when its spacing exceeds cap.
-  kept.spacing = nWalls > 1 ? vExt / nWalls : 0;
+  kept.spacing = rows.spacing;
   return kept;
+}
+
+/**
+ * Where the rows go across a patch (v, perpendicular to the walls), with the
+ * widest gap between two rows as `.spacing` (0 for one row). The old layout puts
+ * each row mid-strip (vExt / n apart, half that from each edge), which leaves a
+ * lip of up to half a pitch past the last row; on a FREE edge (air past it, see
+ * freeEdge) that lip is a cantilever, and on the slenderness coupon a 4 mm one
+ * curled on every ledge. So a free edge ALSO gets a row at the end, flush
+ * (PROP.edgeInset), unless the old outermost row is already that close. The old
+ * rows all stay: moving the outer one out instead cost coverage wherever the
+ * edge isn't parallel to the rows (sparse lbracket X25 100 -> 97, tshape Y35 93).
+ * With no free edge, no part to probe, or a steep underside (`probe` null; see
+ * PROP.edgeFlatDeg), the old layout exactly.
+ */
+function rowOffsets(vLo, vHi, rowSpan, probe) {
+  const vExt = vHi - vLo, e = PROP.edgeInset;
+  const n = Math.max(1, Math.round(vExt / rowSpan));
+  const rows = Array.from({ length: n }, (_, w) => vLo + (vExt * (w + 0.5)) / n);
+  const near = 2 * e;                        // an old row this close already sits at the end
+  if (probe && vExt > 2 * near) {
+    if (rows[0] - vLo > near && freeEdge(probe, vLo, -1)) rows.unshift(vLo + e);
+    if (vHi - rows[rows.length - 1] > near && freeEdge(probe, vHi, +1)) rows.push(vHi - e);
+  }
+  let widest = 0;
+  for (let i = 1; i < rows.length; i++) widest = Math.max(widest, rows[i] - rows[i - 1]);
+  rows.spacing = rows.length > 1 ? widest : 0;
+  return rows;
+}
+
+/**
+ * Does the patch end in AIR along its edge at v = `vEdge` (`dir` -1 for the low
+ * side, +1 for the high)? Probed at five points along the edge: the underside
+ * just inside the edge gives the height, and a point 0.8 mm past the edge from
+ * 2 mm below to 2 mm above that height is tested for part. Part there -- a spine
+ * the ledge hangs off, the same overhang carrying on into the next sub-patch, or
+ * an upright the underside meets -- makes the edge attached. Free only when most
+ * probes that found an underside found air, and nothing stands in the column the
+ * flush row would fill (either face, down to the bed).
+ */
+function freeEdge(probe, vEdge, dir) {
+  const { support, patchTris, ux, uy, vx, vy, uLo, uHi } = probe;
+  let air = 0, part = 0;
+  for (const t of [0.1, 0.3, 0.5, 0.7, 0.9]) {
+    const u = uLo + (uHi - uLo) * t;
+    const at = (v) => [ux * u + vx * v, uy * u + vy * v];
+    const [ix, iy] = at(vEdge - dir * 0.3);
+    const z = surfaceZAt(patchTris, ix, iy);
+    if (z === null) continue;
+    const [ox, oy] = at(vEdge + dir * 0.8);
+    const solid = [-2, -1, -0.3, 0.3, 1, 2].some((dz) => insidePart(support.topo, support.rot, support.offset, ox, oy, z + dz));
+    if (solid) { part++; continue; }
+    // the flush row's whole column must be clear too: just outside its outer
+    // face, from the underside down to the bed (lbracket Y20: the side under the
+    // edge leans out, and a flush wall stood in it lower down)
+    // (both faces: a deck overhanging its leg by less than a wall stands the
+    // flush row against the leg -- bridge, sparse: blocked and buried)
+    for (const side of [+1, -1]) {
+      const [cx, cy] = at(vEdge - dir * PROP.edgeInset + side * dir * (PROP.th / 2 + PROP.sideClear));
+      for (let zz = z - 0.5; zz > 0.3; zz -= 1) {
+        if (insidePart(support.topo, support.rot, support.offset, cx, cy, zz)) return false;
+      }
+    }
+    air++;
+  }
+  return air >= 2 && air > part;
 }

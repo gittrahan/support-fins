@@ -56,11 +56,13 @@ Deno.test('lattice: a strut net is cut into struts; a plate and a lone bar are n
 
 // The net tilted 20 degrees about X: its struts along X now slope ACROSS their
 // 4 mm width -- the headset's struts running around the dome.
-Deno.test('lattice: a tilted net gets a wall along each strut (the normal pass gave none)', () => {
+Deno.test('lattice: a tilted net gets a wall along each strut (the normal pass gives almost none)', () => {
   const topo = net(), rot = rotX(20), res = analyze(topo, 45, rot);
   const build = (raster) => fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true, raster });
   const before = build(false), after = build(true);
-  assert(before.props.length === 0, `normal pass changed: ${before.props.length} walls`);
+  // the normal pass gets at most a couple (flush rows at the struts' free edges,
+  // PROP.edgeInset); the raster pass is what gives every strut its wall
+  assert(before.props.length <= 2, `normal pass changed: ${before.props.length} walls`);
   assert(after.props.length >= 16, `the struts should get walls: ${after.props.length}`);
   // every wall runs ALONG a strut (X or Y), never across one
   const dir = (q) => { const a = q.line[0], b = q.line[q.line.length - 1]; return Math.abs(b[0] - a[0]) > Math.abs(b[1] - a[1]) ? 'x' : 'y'; };
