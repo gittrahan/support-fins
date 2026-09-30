@@ -17,6 +17,12 @@
 //   them back onto the part: fin_world = fin_seated - offset.
 import { buildTopology, analyze, DEFAULT_THRESHOLD, IDENTITY3 } from '../../../web/overhangs.js';
 import { buildFins } from '../../../web/fins.js';
+import { MATERIAL } from '../../../web/materials.js';
+import { CUTOUT_PATTERNS } from '../../../web/cutout.js';
+
+// The site's Bed pad choices minus Custom (a plugin dialog shows presets, not the
+// four custom numbers). bedPad: false is the site's Off.
+const PAD_STYLES = ['auto', 'light', 'sure'];
 
 export const ENGINE_DEFAULTS = Object.freeze({
   mode: 'auto',        // the website's default fin mode
@@ -26,6 +32,9 @@ export const ENGINE_DEFAULTS = Object.freeze({
   coverage: 0.5,       // website slider default (0..1)
   layerHeight: 0.2,    // overridden with the active Orca preset's layer height
   threshold: DEFAULT_THRESHOLD,
+  material: 'pla',     // key of web/materials.js MATERIAL: the site's Material select
+  padStyle: 'auto',    // one of PAD_STYLES: the site's Bed pad select
+  cutout: 'none',      // one of web/cutout.js CUTOUT_PATTERNS: the site's Wall cutouts select
   // Sway braces (web/sway.js), off by default exactly as on the website. Pass
   // { on: true } to brace the tall sides, plus any of gripFrom / tineSpacing /
   // reach / gap / bite to match the host's own settings. Without this a plugin
@@ -44,6 +53,20 @@ export const ENGINE_DEFAULTS = Object.freeze({
  */
 export function computeFins(positions, options = {}) {
   const opts = { ...ENGINE_DEFAULTS, ...options };
+  const pick = (name, value, allowed) => {
+    if (!allowed.includes(value)) throw new Error(`${name} must be one of ${allowed.join(', ')}, got ${value}`);
+    return value;
+  };
+  const mat = MATERIAL[pick('material', opts.material, Object.keys(MATERIAL))];
+  // The clearances, exactly as the site's build request sends them (ui/finbuild.js).
+  // ALWAYS the full set: buildFins applies them to module state, and a plugin's V8
+  // context lives across calls, so a partial set would let a PETG run's clearances
+  // leak into the next PLA run.
+  const tunables = {
+    tineBite: mat.tineBite, padH: mat.padH, padGrab: mat.padGrab, propGap: mat.propGap,
+    padStyle: pick('padStyle', opts.padStyle, PAD_STYLES),
+    cutout: pick('cutout', opts.cutout, CUTOUT_PATTERNS),
+  };
   const input = (positions instanceof Float32Array || positions instanceof Float64Array)
     ? positions : Float64Array.from(positions);
   if (input.length === 0 || input.length % 9 !== 0) {
@@ -80,8 +103,11 @@ export function computeFins(positions, options = {}) {
     mode: opts.mode, bedPad: opts.bedPad, tines: opts.tines,
     tineDensity: opts.tineDensity, layerHeight: opts.layerHeight, coverage: opts.coverage,
     // `sway` is forwarded whole, so a host passes the same object the website's
-    // options panel builds; buildFins ignores it unless `on` is set.
-    sway: opts.sway ?? undefined,
+    // options panel builds; buildFins ignores it unless `on` is set. Like the site
+    // (ui/finbuild.js swayOpts), braces take the material's gap and bite unless the
+    // host sets its own.
+    sway: opts.sway ? { gap: mat.propGap, bite: mat.tineBite, ...opts.sway } : undefined,
+    tunables,
   });
   const fin = flatten(built.triangles);
   const pad = flatten(built.padTriangles || []);
