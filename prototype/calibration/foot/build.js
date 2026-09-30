@@ -3,9 +3,9 @@
  * coupon with the engine's own buildPartAttached, each with its ledge's
  * PROP.footGap / footTeeth, and write the 3MF to print.
  *
- *   deno run -A prototype/foot/build.js     # -> out/foot-coupon.3mf + .stl
+ *   deno run -A prototype/calibration/foot/build.js     # -> out/foot-coupon.3mf + .stl
  */
-const WEB = new URL('../../web/', import.meta.url).pathname;
+const WEB = new URL('../../../web/', import.meta.url).pathname;
 const OUT = new URL('./out/', import.meta.url).pathname;
 const { buildTopology, analyze } = await import(`${WEB}overhangs.js`);
 const { PROP } = await import(`${WEB}prop.js`);

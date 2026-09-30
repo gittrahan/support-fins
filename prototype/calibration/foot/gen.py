@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Foot coupon (local issue 009): how should a wall standing ON THE PART meet it?
 
-ONE solid piece, like prototype/slender/: a slab, a spine, and six 8 mm ledges
+ONE solid piece, like prototype/calibration/slender/: a slab, a spine, and six 8 mm ledges
 15 mm up, three per side. build.js stands one part-attached wall under each ledge
 with a different foot (VARIANTS). Ledge k carries k dots on top so you can tell
 them apart. Each wall sits 1 mm in from the ledge's free edge so the free-edge
 curl from the slenderness print doesn't muddy the scar.
 
-    python3 prototype/foot/gen.py && deno run -A prototype/foot/build.js
+    python3 prototype/calibration/foot/gen.py && deno run -A prototype/calibration/foot/build.js
 """
 import json, numpy as np, trimesh
 from trimesh.creation import box

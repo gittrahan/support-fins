@@ -138,7 +138,7 @@ export const PROP = {
   // instead of fusing, and the wall keeps its full th there so that layer is two
   // lines wide. footTeeth: pitch (mm) of little teeth that alone reach down, the
   // wall bridging between them toothH up -- a row of dots instead of a line.
-  // Coupon: prototype/foot/. Defaults stay welded until it prints.
+  // Coupon: prototype/calibration/foot/. Defaults stay welded until it prints.
   footGap: 0,
   footTeeth: 0,
   toothLen: 1.0,
