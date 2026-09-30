@@ -25,9 +25,7 @@ five small downloads beat one ~300 MB-installed universal package (Matthew,
 """
 import json
 import pathlib
-import platform
 import shutil
-import subprocess
 import sys
 import zipfile
 
@@ -35,46 +33,15 @@ HERE = pathlib.Path(__file__).resolve().parent
 SHARED = HERE.parent / "shared"
 OUT = HERE / "build"
 PLUGIN = OUT / "SupportFins"
-MINI_RACER = "mini-racer==0.14.1"   # same pin as the Orca plugin's header
 ROOT = HERE.parent.parent
-
-# wheel platform tag -> (package name suffix, what users call it, sys.platform, machine)
-PLATFORMS = {
-    "macosx_11_0_arm64": ("mac-arm64", "macOS (Apple silicon)", "darwin", "arm64"),
-    "macosx_10_9_x86_64": ("mac-x64", "macOS (Intel)", "darwin", "x86_64"),
-    "win_amd64": ("windows-x64", "Windows (64-bit)", "win32", "amd64"),
-    "manylinux_2_27_x86_64": ("linux-x64", "Linux (x86-64)", "linux", "x86_64"),
-    "manylinux_2_27_aarch64": ("linux-arm64", "Linux (ARM64)", "linux", "aarch64"),
-}
 
 sys.path.insert(0, str(SHARED))
 from bundle import bundle_engine  # noqa: E402
-
-
-def wheel_platform():
-    if sys.platform == "darwin":
-        return "macosx_11_0_arm64" if platform.machine() == "arm64" else "macosx_10_9_x86_64"
-    if sys.platform == "win32":
-        return "win_amd64"
-    return "manylinux_2_27_aarch64" if platform.machine() in ("aarch64", "arm64") else "manylinux_2_27_x86_64"
+from vendor import PLATFORMS, wheel_platform, vendor_mini_racer as _vendor  # noqa: E402,F401
 
 
 def vendor_mini_racer(dest, plat):
-    wheels = OUT / "wheels" / plat
-    if not list(wheels.glob("*.whl")):
-        subprocess.run([sys.executable, "-m", "pip", "download", "--quiet", "--no-deps",
-                        "--only-binary=:all:", "--platform", plat, "-d", str(wheels), MINI_RACER],
-                       check=True)
-    (whl,) = wheels.glob("*.whl")
-    with zipfile.ZipFile(whl) as z:
-        for name in z.namelist():
-            # mini_racer-X.data/purelib/py_mini_racer/<file>
-            head, sep, rel = name.partition("/purelib/")
-            if sep and rel.startswith("py_mini_racer/"):
-                target = dest / rel
-                target.parent.mkdir(parents=True, exist_ok=True)
-                target.write_bytes(z.read(name))
-    return whl.name
+    return _vendor(dest, plat, OUT / "wheels")
 
 
 def build(plat):

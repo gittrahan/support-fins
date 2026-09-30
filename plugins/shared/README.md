@@ -17,6 +17,8 @@ engine/options.json     the settings every plugin dialog is built from: key, typ
 engine/report.js        the one-line result (walls, tines, overhangs not reached, floating
                         pieces) for JS hosts (the CLI); Python hosts' host_report says
                         the same words
+vendor.py               mini-racer vendored into a plugin folder, per platform, for hosts
+                        that can't pip-install (Cura, FreeCAD): their build.py uses it
 bundle.py               esbuild: bridge.js + web/*.js -> one IIFE, global SupportFinsEngine
 py/supportfins_host.py  Python side for plugins that run the bundle in mini-racer: start V8
                         (host_engine), run the engine on a soup and map the fins back to
