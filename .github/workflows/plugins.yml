@@ -107,6 +107,27 @@ jobs:
           path: plugins/cura/build/*.curapackage
           if-no-files-found: error
 
+  freecad:
+    # The add-on's settings mapping, and that it builds (engine bundle + this runner's
+    # mini-racer). FreeCAD itself isn't installable here: plugins/freecad/tests/smoke.py
+    # runs the real thing locally. Packaging and a release zip come later (local issue 016).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4     # npx fetches the pinned esbuild (plugins/shared/bundle.py)
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        run: pip install pytest
+      - name: Build
+        run: python plugins/freecad/build.py
+      - name: Test
+        run: python -m pytest -q plugins/freecad/tests/test_props.py
+
   prusa:
     runs-on: ubuntu-latest
     timeout-minutes: 5
