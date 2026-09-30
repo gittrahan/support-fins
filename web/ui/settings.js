@@ -6,6 +6,7 @@
 import { FIN, PAD } from '../fins.js';
 import { PROP } from '../prop.js';
 import { CUT } from '../cutout.js';
+import { MATERIAL } from '../materials.js';
 import { el } from './dom.js';
 import { histPush } from './history.js';
 import { removeMode, syncRemoveUI, cancelRemove } from './remove.js';
@@ -159,18 +160,9 @@ el('cutout').addEventListener('change', () => {
   refreshFins();
 });
 
-// Material profiles. PETG welds to a support far harder than the PLA every bite
-// number here was tuned on, so PETG needs more clearance in all three places at
-// once: how far each tine sinks into the part (FIN.tineBite), the plain breakaway
-// prop's clearance (PROP.gap), and the bed pad -- thinner (FIN.padH) with a gap
-// instead of a tack (PAD.grab < 0). PLA is exactly today's numbers, so switching
-// to PLA (or never touching this) leaves existing prints unchanged. These objects
-// are read fresh on every build, so applying a profile + rebuilding is all it
-// takes. density is g/cm^3 for the grams receipt.
-const MATERIAL = {
-  pla:  { tineBite: 0.30, padH: 0.5, padGrab:  0.05, propGap: 0.2,  density: 1.24 },
-  petg: { tineBite: 0.15, padH: 0.3, padGrab: -0.10, propGap: 0.3,  density: 1.27 },
-};
+// Material profiles (PLA/PETG clearances) live in ../materials.js, shared with the
+// plugins' engine entry. These objects are read fresh on every build, so applying a
+// profile + rebuilding is all it takes.
 export let materialDensity = MATERIAL.pla.density;
 
 function applyMaterial(name) {
