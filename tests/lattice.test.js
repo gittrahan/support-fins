@@ -72,5 +72,8 @@ Deno.test('lattice: a tilted net gets a wall along each strut (the normal pass g
   // identical struts, the same support: both directions get their walls
   const nx = after.props.filter((q) => dir(q) === 'x').length, ny = after.props.length - nx;
   assert(nx >= 8 && ny >= 8, `struts along X got ${nx} walls, along Y ${ny}`);
-  assert(after.props.every((q) => q.span >= prop.PROP.minSpan), 'strut walls keep minSpan');
+  // no stubs from the cut: a plate wall keeps minSpan, one on the part minSpanPart
+  // (#116: one strut wall here stands on the net, 6.98 mm)
+  const least = (q) => (q.partAttached ? prop.PROP.minSpanPart : prop.PROP.minSpan);
+  assert(after.props.every((q) => q.span >= least(q)), 'strut walls keep minSpan / minSpanPart');
 });
