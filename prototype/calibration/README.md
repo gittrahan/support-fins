@@ -27,3 +27,12 @@ carries k dots (`print/` is the as-printed build, from commit a2e5a80 which stil
 5 teeth every 5 mm, 6 teeth every 3 mm + gap 0.2. Knobs: `PROP.footGap` / `footTeeth`.
 - **2026-09-30, PLA:** only 1 (welded) scarred. 2, 3, 4, 6 printed clean. 5 had a
   failure mid-print but recovered -- possibly chance, since 4 and 6 (tighter teeth) were fine.
+
+### lip/ -- how far may an overhang run past its last wall?
+Six ledges 10 mm up off a spine, each with one wall on the slab 3 mm from the spine
+(the same short bridge on every ledge); the ledges get deeper so the lip past the
+wall's outer face grows. Ledge k carries k dots: 1 lip 0.1 (flush), 2 lip 1, 3 lip 2,
+4 lip 3, 5 lip 4, 6 lip 6 mm. Sets when a row moves out to a free edge (PROP.edgeInset,
+local issue 009's free-edge rule).
+- **waiting on print.**
+
