@@ -141,7 +141,10 @@ export function sweepBetween(topLine, botLine, out) {
     const bN = side(3), bP = side(4);
     const bHi = Math.max(bN, bP);
     const h = top - bHi;
-    const taper = Math.min(PROP.tipH, welded ? h / 2 : h); // tapers meet in the middle if short
+    // tapers meet in the middle if short; lifted, the top taper stops 0.1 above
+    // the bottom's high side -- ending ON it collapsed a section edge into
+    // zero-area slivers (ssdMounts X30Y60: short part walls, 4 per wall)
+    const taper = Math.min(PROP.tipH, welded ? h / 2 : h - 0.1);
     const zBotTip = welded ? bot + taper : bHi;
     const zTopTip = top - taper;
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
