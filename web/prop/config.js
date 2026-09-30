@@ -93,6 +93,11 @@ export const PROP = {
   // 0.4 nozzle for the same reason. Set to 0.15 first, which put the closest
   // approach on the flank instead of the top on 4 of 6 walls.
   sideClear: 0.35,
+  // Part-attached walls normally touch the lower surface along their full
+  // length. Optional relief lifts the body while retaining narrow floor feet.
+  bottomGap: 0.0,
+  bottomAnchorStep: 6.0,
+  bottomAnchorHalf: 0.55,
   maxWander: 0.10,  // RMS deviation / chord: above this there is no line to sweep
   // Run direction: at or above this underside slope (rise/run) the walls run down
   // the slope -- a robust, part-aligned axis. Flatter than this there is no slope

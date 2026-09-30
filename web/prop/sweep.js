@@ -105,13 +105,24 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
  * under the overhang (the part bridges the `gap`), and the bottom tip is the only
  * thing that welds to the part below, kept as narrow as the top so it leaves the
  * smallest possible witness mark and snaps off cleanly. There is no `gap` at the
- * bottom on purpose: an air gap at both ends would make the support a floating
- * island the slicer cannot anchor, so the support grows UP from the floor (the
- * only printable topology) and the single scar it can leave is on an internal
- * surface you could not have oriented away.
+ * bottom by default. With bottomGap > 0, narrow periodic feet still reach the
+ * floor so the relieved body does not start as a floating island.
  */
 export function sweepBetween(topLine, botLine, out) {
   const wall = [], st = [];
+  const along = [0];
+  for (let i = 1; i < topLine.length; i++) {
+    along[i] = along[i - 1] + Math.hypot(topLine[i][0] - topLine[i - 1][0],
+                                         topLine[i][1] - topLine[i - 1][1]);
+  }
+  const totalAlong = along[along.length - 1] || 0;
+  const anchorAt = (d) => {
+    if (!(PROP.bottomGap > 0)) return true;
+    const step = Math.max(2.0, PROP.bottomAnchorStep);
+    const half = Math.max(0.2, PROP.bottomAnchorHalf);
+    const phase = ((d + step / 2) % step) - step / 2;
+    return Math.abs(phase) <= half || d <= half || totalAlong - d <= half;
+  };
   for (let i = 0; i < topLine.length; i++) {
     const p = topLine[i];
     const a = topLine[Math.max(0, i - 1)];
@@ -123,7 +134,8 @@ export function sweepBetween(topLine, botLine, out) {
     const sx = ry, sy = -rx;                 // horizontal, across the wall
 
     const top = p[2] - PROP.gap;
-    const bot = botLine[i][2];
+    const floor = botLine[i][2];
+    const bot = floor + (anchorAt(along[i]) ? 0 : PROP.bottomGap);
     const h = top - bot;
     if (h < PROP.minHeight) return false;
     const taper = Math.min(PROP.tipH, h / 2); // tapers meet in the middle if short
