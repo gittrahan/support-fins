@@ -37,8 +37,8 @@ def ctx(bundle_path):
 
 
 def lbracket_35():
-    """web/dev-models/lbracket.stl tilted 35 deg about X, the plugins' reference part."""
-    data = (ROOT / "web" / "dev-models" / "lbracket.stl").read_bytes()
+    """lbracket.stl tilted 35 deg about X, the plugins' reference part."""
+    data = (ROOT / "prototype" / "stress" / "models" / "lbracket.stl").read_bytes()
     n = int(np.frombuffer(data, dtype="<u4", count=1, offset=80)[0])
     rec = np.frombuffer(data, dtype=np.dtype([("n", "<f4", 3), ("v", "<f4", (3, 3)), ("a", "<u2")]),
                         count=n, offset=84)
