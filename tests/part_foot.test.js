@@ -1,10 +1,11 @@
 // A WALL STANDING ON THE PART stops PROP.footGap above it (local issue 009): the
 // welded bottom tip scarred the part on every wall of the slenderness coupon, and
 // the foot coupon (prototype/calibration/foot/) printed a 0.2 gap clean.
-import { WEB, block, prop, assert } from './_util.js';
+import { WEB, block, prop, isClosed, assert } from './_util.js';
 
 const { drawnWall } = await import(`${WEB}draw.js`);
 const { PROP } = prop;
+const { CUT } = await import(`${WEB}cutout.js`);
 
 // an L: a base block the wall stands on (top z=5), and a shelf 30 mm above it
 const L = new Float32Array([...block(-40, 40, -10, 10, 0, 5), ...block(-40, 40, -10, 10, 35, 39)]);
@@ -46,9 +47,11 @@ Deno.test('part foot: footGap 0 still welds, as before', () => {
   assert(Math.abs(z - 5) < 1e-6, `lowest point ${z}, expected 5 (on the part)`);
 });
 
-// A floor sloping ACROSS the wall (56deg here). The lifted bottom is th wide, not
-// the welded tip's width, so the floor must be read across th and footGap past
-// it: read across the tip only, the bottom's outer edge sat 0.1 mm INSIDE the slope.
+// A floor sloping ACROSS the wall (56deg here). The lifted bottom is th wide, so
+// the floor is read across th and footGap past it (read across the tip only, the
+// bottom's outer edge sat 0.1 mm INSIDE the slope), and it TILTS with the floor:
+// level, its downhill side hung 2 mm off the slope (gree: up to 2.6 mm, nothing
+// to grip). Straight down is the gap that matters -- a slicer's bottom Z distance.
 const quad = (a, b, c, d) => [a, b, c, a, c, d];
 function ramp(x0, x1, y0, y1, zAt) {       // a block whose top is z = zAt(y)
   const v = [[x0, y0, 0], [x1, y0, 0], [x1, y1, 0], [x0, y1, 0],
@@ -57,15 +60,68 @@ function ramp(x0, x1, y0, y1, zAt) {       // a block whose top is z = zAt(y)
           ...quad(v[2], v[3], v[7], v[6]), ...quad(v[1], v[2], v[6], v[5]), ...quad(v[0], v[4], v[7], v[3])].flat();
 }
 
-Deno.test('part foot: on a floor sloping across the wall, the bottom clears it by footGap', () => {
+Deno.test('part foot: on a floor sloping across the wall, the bottom follows it footGap above', () => {
   const zAt = (y) => 10 + 1.5 * y;
   const tris = new Float32Array([...ramp(-40, 40, -3, 3, zAt), ...block(-40, 40, -10, 10, 35, 39)]);
   const r = drawnWall([-30, 0, 35], [30, 0, 35], tris, 0);
   assert(r.ok, `wall failed: ${r.reason}`);
-  // distance SQUARE to the slope, not straight down: read across th alone the
-  // bottom cleared it by 0.2 vertically but ~0.1 square to it (the first layer
-  // sits beside the rising slope)
-  let worst = Infinity;
-  for (const p of r.tris) if (p[2] < 20) worst = Math.min(worst, (p[2] - zAt(p[1])) / Math.hypot(1, 1.5));
-  assert(worst > PROP.footGap - 0.05, `bottom clears the slope by ${worst.toFixed(3)} mm, expected ~${PROP.footGap}`);
+  let lo = Infinity, hi = -Infinity;
+  for (const p of r.tris) {
+    if (p[2] > 16) continue;                        // the bottom, not the top
+    const d = p[2] - zAt(p[1]);
+    lo = Math.min(lo, d); hi = Math.max(hi, d);
+  }
+  const g = PROP.footGap;
+  assert(lo > g - 1e-3, `bottom ${lo.toFixed(3)} mm above the slope, expected >= ${g}`);
+  // uphill it clears the slope footGap past the wall's side too: 0.2 + 1.5 x 0.2
+  assert(hi < g + 1.5 * g + 1e-3, `bottom hangs ${hi.toFixed(3)} mm off the slope, expected <= ${g + 1.5 * g}`);
+});
+
+Deno.test('part foot: a cut-out wall keeps the tilted bottom and stays closed', () => {
+  const zAt = (y) => 10 + 1.5 * y;
+  const tris = new Float32Array([...ramp(-40, 40, -3, 3, zAt), ...block(-40, 40, -10, 10, 35, 39)]);
+  const build = (pattern) => {
+    const was = CUT.pattern;
+    CUT.pattern = pattern;
+    try {
+      const r = drawnWall([-30, 0, 35], [30, 0, 35], tris, 0);
+      assert(r.ok, `wall failed (${pattern}): ${r.reason}`);
+      return r.tris;
+    } finally { CUT.pattern = was; }
+  };
+  // each side's lowest point at every x along the wall
+  const lows = (t) => {
+    const m = new Map();
+    for (const p of t) {
+      if (Math.abs(Math.abs(p[1]) - PROP.th / 2) > 1e-3) continue;
+      const k = `${p[0].toFixed(3)}|${Math.sign(p[1])}`;
+      m.set(k, Math.min(m.get(k) ?? Infinity, p[2]));
+    }
+    return m;
+  };
+  const cut = build('diamond'), solid = lows(build('none'));
+  assert(isClosed(cut), 'cut wall on a slope is not closed');
+  assert(cut.length !== build('none').length, 'no holes were cut -- the test proves nothing');
+  let shared = 0;
+  for (const [k, z] of lows(cut)) {
+    if (!solid.has(k)) continue;
+    shared++;
+    assert(Math.abs(z - solid.get(k)) < 1e-6, `cut bottom at ${k} is ${z.toFixed(3)}, solid ${solid.get(k).toFixed(3)}`);
+  }
+  assert(shared > 20, `only ${shared} bottom points compared`);
+});
+
+Deno.test('part foot: a ridge between the two sides lifts the bottom clear of it', () => {
+  // the part bulges up under the middle of the wall: a straight bottom through
+  // the two sides' floors would cut the crest
+  const up = (y) => 10 + 1.5 * y, down = (y) => 10 - 1.5 * y;
+  const tris = new Float32Array([...ramp(-40, 40, -3, 0, up), ...ramp(-40, 40, 0, 3, down),
+                                 ...block(-40, 40, -10, 10, 35, 39)]);
+  const r = drawnWall([-30, 0, 35], [30, 0, 35], tris, 0);
+  assert(r.ok, `wall failed: ${r.reason}`);
+  let lo = Infinity;
+  for (const p of r.tris) if (p[2] < 16) lo = Math.min(lo, p[2] - Math.min(up(p[1]), down(p[1])));
+  assert(lo > PROP.footGap - 1e-3, `bottom ${lo.toFixed(3)} mm above the ridge, expected >= ${PROP.footGap}`);
+  const bottom = Math.min(...r.tris.map((p) => p[2]));
+  assert(bottom >= 10 + PROP.footGap - 1e-3, `bottom at ${bottom.toFixed(3)} dips below the crest + gap`);
 });

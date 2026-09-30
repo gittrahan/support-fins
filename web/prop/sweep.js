@@ -129,12 +129,18 @@ export function sweepBetween(topLine, botLine, out) {
 
     const top = p[2] - PROP.gap;
     const bot = botLine[i][2] + PROP.footGap;
-    const h = top - bot;
     // judged on the headroom, not the lifted wall: the gap must not change
     // WHICH walls exist (hub_corner X60 lost a 31 mm wall to a 1.6 mm station)
-    if (h + PROP.footGap < PROP.minHeight) return false;
+    if (top - bot + PROP.footGap < PROP.minHeight) return false;
+    // a lifted bottom tilts with the floor under each side (floorLine's
+    // sideFloors); welded, or with no side floors, it is level at `bot`
+    const bN = welded || botLine[i].length < 5 ? bot : botLine[i][3] + PROP.footGap;
+    const bP = welded || botLine[i].length < 5 ? bot : botLine[i][4] + PROP.footGap;
+    const bHi = Math.max(bN, bP);
+    const h = top - bHi;
+    if (h < 0.3) return false;
     const taper = Math.min(PROP.tipH, welded ? h / 2 : h); // tapers meet in the middle if short
-    const zBotTip = welded ? bot + taper : bot;
+    const zBotTip = welded ? bot + taper : bHi;
     const zTopTip = top - taper;
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
 
@@ -146,10 +152,10 @@ export function sweepBetween(topLine, botLine, out) {
       P(-PROP.tip / 2, top), P(-PROP.th / 2, zTopTip),
       P(-PROP.th / 2, zBotTip), P(-PROP.tip / 2, bot),
     ] : [
-      P(+PROP.th / 2, bot), P(+PROP.th / 2, zTopTip), P(+PROP.tip / 2, top),
-      P(-PROP.tip / 2, top), P(-PROP.th / 2, zTopTip), P(-PROP.th / 2, bot),
+      P(+PROP.th / 2, bP), P(+PROP.th / 2, zTopTip), P(+PROP.tip / 2, top),
+      P(-PROP.tip / 2, top), P(-PROP.th / 2, zTopTip), P(-PROP.th / 2, bN),
     ]);
-    st.push({ p, sx, sy, top, ztip: zTopTip, bot, botTip: zBotTip, taperBot: welded });
+    st.push({ p, sx, sy, top, ztip: zTopTip, bot: bHi, botTip: zBotTip, taperBot: welded, botN: bN, botP: bP });
   }
 
   if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);

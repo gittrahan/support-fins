@@ -392,7 +392,7 @@ export function cutWall(st, full, out, wall) {
               P(-tp, q.top), P(-th, q.ztip), P(-th, ct)]);
     bot.push(q.taperBot
       ? [P(+tp, q.bot), P(+th, q.botTip), P(+th, cb), P(-th, cb), P(-th, q.botTip), P(-tp, q.bot)]
-      : [P(+th, q.bot), P(+th, cb), P(-th, cb), P(-th, q.bot)]);
+      : [P(+th, q.botP ?? q.bot), P(+th, cb), P(-th, cb), P(-th, q.botN ?? q.bot)]);  // a tilted lifted bottom (sweepBetween)
   }
   ribbon(top, out);
   ribbon(bot, out);
