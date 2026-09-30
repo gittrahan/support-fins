@@ -1,79 +1,32 @@
 {
-  "$comment": "The settings every plugin dialog is built from (plugins/shared/README.md). Each `key` is an option of fins_entry.js computeFins, dotted for a nested one (sway.on -> {sway: {on}}); `default`/`min`/`max`/`step` are in the ENTRY's units, and `percent: true` means show value x 100 (the site's sliders read 0-100). `showIf` names a bool key the control is hidden without. `site` is the matching control id in web/index.html: plugins/shared/tests/options.test.js pins every default, range and choice to it. Not here on purpose: layer height (the host's own setting), placement mode (plugins run Auto), and the site's Custom pad and Support gap fields (hand-typed numbers; the material sets the clearances).",
+  "$comment": [
+    "The settings every plugin dialog is built from (plugins/shared/README.md).",
+    "key: an option of fins_entry.js computeFins, dotted for a nested one (sway.on -> {sway: {on}}). Hosts never assemble that object themselves: pass the dialog's {key: value} to optionsFromDialog() (fins_entry.js), which nests, clamps, checks choices and drops sway when it is off.",
+    "default/min/max/step: in the ENTRY's units. percent: true = show value x 100 (the site's sliders read 0-100) and round to step for display. slider: a range control rather than a number field. hint: the site's muted text after the label (units live here).",
+    "showIf: the control is shown only when EVERY item holds; an item is a bool key (on), {key, in: [values]}, or {any: [items]}. Evaluate with optionVisible() (fins_entry.js); hidden values may still be sent, the engine ignores them.",
+    "hostSupplied: 'slicer' = a slicer plugin reads this from the slicer's own settings and leaves it out of its dialog; CAD hosts show it.",
+    "site: the matching control id in web/index.html; plugins/shared/tests/options.test.js pins defaults, ranges and choices to it, and lists every site control this file leaves out on purpose (placement mode: plugins run Auto; Custom pad and Support gap: hand-typed numbers, the material sets the clearances)."
+  ],
   "version": 1,
   "sections": [
-    { "id": "setup", "label": "Setup" },
-    { "id": "tines", "label": "Tines" },
-    { "id": "clearances", "label": "Clearances" },
-    { "id": "sway", "label": "Sway braces" },
-    { "id": "walls", "label": "Walls" }
+    {"id": "setup", "label": "Setup"},
+    {"id": "tines", "label": "Tines"},
+    {"id": "clearances", "label": "Clearances"},
+    {"id": "sway", "label": "Sway braces"},
+    {"id": "walls", "label": "Walls"}
   ],
   "options": [
-    {
-      "key": "material", "section": "setup", "site": "material",
-      "type": "choice", "default": "pla",
-      "choices": [ { "value": "pla", "label": "PLA" }, { "value": "petg", "label": "PETG" } ],
-      "label": "Material",
-      "tooltip": "The filament you'll print in. PETG fuses to supports much harder than PLA, so PETG loosens the gaps, shrinks the tine bite, and gives the bed pad a gap instead of a bite. PLA keeps the tighter grip."
-    },
-    {
-      "key": "tines", "section": "tines", "site": "tines",
-      "type": "bool", "default": true,
-      "label": "Tines", "hint": "grip the part",
-      "tooltip": "Tines fuse the support to the part so it grips instead of just propping. Off = plain breakaway wall."
-    },
-    {
-      "key": "tineDensity", "section": "tines", "site": "tine-density", "showIf": "tines",
-      "type": "number", "default": 0, "min": 0, "max": 1, "step": 0.05, "percent": true, "slider": true,
-      "label": "Tine grip", "hint": "light ⟶ firm",
-      "tooltip": "How tightly to space the grip tines. Light = fewest marks (default), a per-wall floor keeps grip; Firm = dense comb / max grip for a tippy or tall part."
-    },
-    {
-      "key": "padStyle", "section": "clearances", "site": "bed-pad",
-      "type": "choice", "default": "auto",
-      "choices": [ { "value": "off", "label": "Off" }, { "value": "auto", "label": "Auto" },
-                   { "value": "light", "label": "Light" }, { "value": "sure", "label": "Sure hold" } ],
-      "label": "Bed pad",
-      "tooltip": "A tilted part rests on an edge and peels off the plate without a pad. Auto: Light, or Sure hold when the part meets the plate on a point or a small round foot. Light: one layer, 0.12mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove."
-    },
-    {
-      "key": "sway.on", "section": "sway", "site": "sway",
-      "type": "bool", "default": false,
-      "label": "Sway braces", "hint": "tall parts",
-      "tooltip": "Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows."
-    },
-    {
-      "key": "sway.gripFrom", "section": "sway", "site": "sway-from", "showIf": "sway.on",
-      "type": "number", "default": 0, "min": 0, "max": 2000, "step": 5, "unit": "mm",
-      "label": "Brace grip from", "hint": "mm up",
-      "tooltip": "Height the brace tines start at. 0 = grip the whole height; raise it to tie on only above where the part starts to move."
-    },
-    {
-      "key": "sway.tineSpacing", "section": "sway", "site": "sway-spacing", "showIf": "sway.on",
-      "type": "number", "default": 6, "min": 2, "max": 30, "step": 1, "unit": "mm",
-      "label": "Brace tine spacing",
-      "tooltip": "Vertical distance between brace tines. Smaller = held tighter, more marks on the side. Default 6mm."
-    },
-    {
-      "key": "sway.reach", "section": "sway", "site": "sway-depth", "showIf": "sway.on",
-      "type": "number", "default": 0.15, "min": 0.05, "max": 0.5, "step": 0.01, "percent": true,
-      "label": "Brace depth", "hint": "% of height",
-      "tooltip": "How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%."
-    },
-    {
-      "key": "cutout", "section": "walls", "site": "cutout",
-      "type": "choice", "default": "none",
-      "choices": [ { "value": "none", "label": "None" }, { "value": "diamond", "label": "Diamond" },
-                   { "value": "triangle", "label": "Triangle" }, { "value": "arch", "label": "Arch" },
-                   { "value": "lattice", "label": "Lattice" } ],
-      "label": "Cutouts",
-      "tooltip": "Cut holes through tall breakaway walls to save filament. The top edge that holds the part, the foot, and the wall's ends stay solid, and every hole has a pointed roof so it prints without bridging. Short walls stay solid."
-    },
-    {
-      "key": "coverage", "section": "walls", "site": "coverage",
-      "type": "number", "default": 0.5, "min": 0, "max": 1, "step": 0.05, "percent": true, "slider": true,
-      "label": "Wide-face coverage", "hint": "sparse ⟶ dense",
-      "tooltip": "How densely to line a WIDE overhang face with fins. The middle is the anti-sag default; drag LEFT for fewer fins (a small part can go down to one — the readout warns if a broad face then risks sagging), RIGHT for more support. Narrow parts are unaffected."
-    }
+    {"key": "material", "section": "setup", "site": "material", "type": "choice", "default": "pla", "choices": [{"value": "pla", "label": "PLA"}, {"value": "petg", "label": "PETG"}], "label": "Material", "tooltip": "The filament you'll print in. PETG fuses to supports much harder than PLA, so PETG loosens the gaps, shrinks the tine bite, and gives the bed pad a gap instead of a bite. PLA keeps the tighter grip."},
+    {"key": "threshold", "section": "setup", "site": "thr", "type": "number", "default": 45, "min": 30, "max": 70, "step": 1, "slider": true, "label": "Overhang", "hint": "°", "tooltip": "Surface angle from the plate below which a face needs support."},
+    {"key": "tines", "section": "tines", "site": "tines", "type": "bool", "default": true, "label": "Tines", "hint": "grip the part", "tooltip": "Tines fuse the support to the part so it grips instead of just propping. Off = plain breakaway wall."},
+    {"key": "tineDensity", "section": "tines", "site": "tine-density", "showIf": ["tines"], "type": "number", "default": 0, "min": 0, "max": 1, "step": 0.05, "percent": true, "slider": true, "label": "Tine grip", "hint": "light ⟶ firm", "tooltip": "How tightly to space the grip tines. Light = fewest marks (default), a per-wall floor keeps grip; Firm = dense comb / max grip for a tippy or tall part."},
+    {"key": "layerHeight", "section": "tines", "site": "layer-height", "hostSupplied": "slicer", "showIf": [{"any": ["tines", {"key": "padStyle", "in": ["light", "auto"]}]}], "type": "number", "default": 0.2, "min": 0.08, "max": 0.4, "step": 0.04, "label": "Layer height", "hint": "mm", "tooltip": "Set this to the layer height you slice at. The grip tines are one layer tall so they snap off clean; if this doesn't match your slicer, the tines tear and leave marks. Default 0.2mm."},
+    {"key": "padStyle", "section": "clearances", "site": "bed-pad", "type": "choice", "default": "auto", "choices": [{"value": "off", "label": "Off"}, {"value": "auto", "label": "Auto"}, {"value": "light", "label": "Light"}, {"value": "sure", "label": "Sure hold"}], "label": "Bed pad", "tooltip": "A tilted part rests on an edge and peels off the plate without a pad. Auto: Light, or Sure hold when the part meets the plate on a point or a small round foot. Light: one layer, 0.12mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove."},
+    {"key": "sway.on", "section": "sway", "site": "sway", "type": "bool", "default": false, "label": "Sway braces", "hint": "tall parts", "tooltip": "Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows."},
+    {"key": "sway.gripFrom", "section": "sway", "site": "sway-from", "showIf": ["sway.on", "tines"], "type": "number", "default": 0, "min": 0, "max": 2000, "step": 5, "label": "Brace grip from", "hint": "mm up", "tooltip": "Height the brace tines start at. 0 = grip the whole height; raise it to tie on only above where the part starts to move."},
+    {"key": "sway.tineSpacing", "section": "sway", "site": "sway-spacing", "showIf": ["sway.on", "tines"], "type": "number", "default": 6, "min": 2, "max": 30, "step": 1, "label": "Brace tine spacing", "tooltip": "Vertical distance between brace tines. Smaller = held tighter, more marks on the side. Default 6mm.", "hint": "mm"},
+    {"key": "sway.reach", "section": "sway", "site": "sway-depth", "showIf": ["sway.on"], "type": "number", "default": 0.15, "min": 0.05, "max": 0.5, "step": 0.01, "percent": true, "label": "Brace depth", "hint": "% of height", "tooltip": "How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%."},
+    {"key": "cutout", "section": "walls", "site": "cutout", "type": "choice", "default": "none", "choices": [{"value": "none", "label": "None"}, {"value": "diamond", "label": "Diamond"}, {"value": "triangle", "label": "Triangle"}, {"value": "arch", "label": "Arch"}, {"value": "lattice", "label": "Lattice"}], "label": "Cutouts", "tooltip": "Cut holes through tall breakaway walls to save filament. The top edge that holds the part, the foot, and the wall's ends stay solid, and every hole has a pointed roof so it prints without bridging. Short walls stay solid."},
+    {"key": "coverage", "section": "walls", "site": "coverage", "type": "number", "default": 0.5, "min": 0, "max": 1, "step": 0.05, "percent": true, "slider": true, "label": "Wide-face coverage", "hint": "sparse ⟶ dense", "tooltip": "How densely to line a WIDE overhang face with fins. The middle is the anti-sag default; drag LEFT for fewer fins (a small part can go down to one — the readout warns if a broad face then risks sagging), RIGHT for more support. Narrow parts are unaffected."}
   ]
 }

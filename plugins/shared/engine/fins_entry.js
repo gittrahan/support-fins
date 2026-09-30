@@ -26,7 +26,7 @@ import SCHEMA from './options.json' with { type: 'json' };
 const OPTION = Object.fromEntries(SCHEMA.options.map((o) => [o.key, o]));
 // The site's Bed pad choices minus Custom (a plugin dialog shows presets, not the
 // four custom numbers). 'off' is the site's Off, the same as bedPad: false.
-const PAD_STYLES = OPTION.padStyle.choices.map((c) => c.value);
+const PAD_STYLES = ['off', 'auto', 'light', 'sure'];
 
 export const ENGINE_DEFAULTS = Object.freeze({
   mode: 'auto',        // the website's default fin mode
@@ -34,8 +34,8 @@ export const ENGINE_DEFAULTS = Object.freeze({
   tines: OPTION.tines.default,
   tineDensity: OPTION.tineDensity.default,   // 0..1 (the site's slider / 100)
   coverage: OPTION.coverage.default,         // 0..1 (the site's slider / 100)
-  layerHeight: 0.2,    // overridden with the active Orca preset's layer height
-  threshold: DEFAULT_THRESHOLD,
+  layerHeight: OPTION.layerHeight.default,   // a slicer host passes its own
+  threshold: DEFAULT_THRESHOLD,              // degrees; options.json's default is pinned to it
   material: OPTION.material.default,   // key of web/materials.js MATERIAL
   padStyle: OPTION.padStyle.default,   // one of PAD_STYLES
   cutout: OPTION.cutout.default,       // one of web/cutout.js CUTOUT_PATTERNS
@@ -46,6 +46,50 @@ export const ENGINE_DEFAULTS = Object.freeze({
   // so anything absent from it never arrives at buildFins.
   sway: null,
 });
+
+/**
+ * A plugin dialog's values -> computeFins options. Every host goes through this
+ * instead of assembling the object itself, so a dotted key, a percent or an
+ * out-of-range number can't go wrong differently per host.
+ *
+ * @param {object} values  {options.json key: value}, in the entry's units (a percent
+ *        control's value / 100). Keys left out take the engine defaults.
+ * @returns {object} options for computeFins; sway only when sway.on is set
+ */
+export function optionsFromDialog(values = {}) {
+  const out = {};
+  for (const [key, raw] of Object.entries(values)) {
+    const o = OPTION[key];
+    if (!o) throw new Error(`unknown dialog option ${key}`);
+    let v = raw;
+    if (o.type === 'bool') v = Boolean(raw);
+    else if (o.type === 'number') {
+      v = Number(raw);
+      if (!Number.isFinite(v)) throw new Error(`${key} must be a number, got ${JSON.stringify(raw)}`);
+      v = Math.min(o.max, Math.max(o.min, v));
+    } else if (!o.choices.some((c) => c.value === raw)) {
+      throw new Error(`${key} must be one of ${o.choices.map((c) => c.value).join(', ')}, got ${JSON.stringify(raw)}`);
+    }
+    const [head, sub] = key.split('.');
+    if (sub) (out[head] ??= {})[sub] = v; else out[head] = v;
+  }
+  if (out.sway && !out.sway.on) delete out.sway;
+  return out;
+}
+
+/**
+ * Whether a dialog shows the control for `key`, given the current values (keys left
+ * out read as their defaults) -- options.json's showIf, evaluated once for every host.
+ */
+export function optionVisible(key, values = {}) {
+  const get = (k) => (k in values ? values[k] : OPTION[k].default);
+  const holds = (c) => (typeof c === 'string' ? get(c) === true
+    : c.any ? c.any.some(holds)
+    : c.in.includes(get(c.key)));
+  return (OPTION[key].showIf || []).every(holds);
+}
+
+export { SCHEMA as OPTIONS_SCHEMA };
 
 /**
  * @param {Float64Array|Float32Array|number[]} positions  triangle soup, 9 per face, mm,

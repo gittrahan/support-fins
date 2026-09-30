@@ -8,9 +8,11 @@ A fix on the site reaches a plugin the next time it is built.
 engine/fins_entry.js    posed triangle soup in (mm, z up) -> fin + bed-pad triangles out
 engine/bridge.js        base64 in/out for Python hosts running the bundle in V8 (mini-racer)
 engine/options.json     the settings every plugin dialog is built from: key, type, default,
-                        range or choices, label, tooltip, section. Pinned to the website's
-                        controls (web/index.html) and to the entry by tests/options.test.js;
-                        fins_entry.js takes its defaults from it
+                        range or choices, label, tooltip, section, when it shows. Defaults,
+                        ranges and choices are pinned to the website's controls (web/index.html)
+                        by tests/options.test.js; fins_entry.js takes its defaults from it.
+                        A host builds its dialog from it and passes the values through
+                        optionsFromDialog() (and optionVisible() for show/hide), never by hand
 bundle.py               esbuild: bridge.js + web/*.js -> one IIFE, global SupportFinsEngine
 py/supportfins_host.py  Python side for plugins that run the bundle in mini-racer: start V8
                         (host_engine), run the engine on a soup and map the fins back to

@@ -8,7 +8,7 @@
 //
 //   in : base64 float64 triangle soup (posed, mm) + JSON options
 //   out: JSON { triangles: base64 float32 soup (seated frame), offset, stats }
-import { computeFins, ENGINE_DEFAULTS } from './fins_entry.js';
+import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from './fins_entry.js';
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const LOOKUP = new Uint8Array(256);
@@ -55,4 +55,5 @@ export function computeFinsB64(soupB64, optionsJson) {
   return JSON.stringify({ triangles: bytesToB64(tri), offset: res.offset, stats: res.stats });
 }
 
-export { computeFins, ENGINE_DEFAULTS };
+// optionsFromDialog / optionVisible / OPTIONS_SCHEMA: what a host's settings dialog needs
+export { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA };

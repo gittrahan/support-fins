@@ -4,7 +4,8 @@
 // no dialog control the math ignores).
 //
 //   deno test --allow-read plugins/shared/tests/
-import { computeFins, ENGINE_DEFAULTS } from '../engine/fins_entry.js';
+import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible } from '../engine/fins_entry.js';
+import { DEFAULT_THRESHOLD } from '../../../web/overhangs.js';
 import { readSTL, MODELS, rotY, assert } from '../../../tests/_util.js';
 import { MATERIAL } from '../../../web/materials.js';
 import { CUTOUT_PATTERNS } from '../../../web/cutout.js';
@@ -18,9 +19,9 @@ const close = (a, b) => Math.abs(a - b) < 1e-9;
 
 // The site's control for an id: its tag attributes, and for a <select> its options.
 function siteControl(id) {
-  const m = HTML.match(new RegExp(`<(input|select)\\b[^>]*\\bid="${id}"[^>]*>`));
+  const m = HTML.match(new RegExp(`<(input|select)\\b[^>]*(?<![\\w-])id="${id}"[^>]*>`));
   assert(m, `no control #${id} in web/index.html`);
-  const attr = (name) => m[0].match(new RegExp(`\\b${name}="([^"]*)"`))?.[1];
+  const attr = (name) => m[0].match(new RegExp(`(?<![\\w-])${name}="([^"]*)"`))?.[1];
   const ctl = { tag: m[1], type: attr('type'), checked: /\bchecked\b/.test(m[0]),
                 value: attr('value'), min: attr('min'), max: attr('max'), step: attr('step') };
   if (ctl.tag === 'select') {
@@ -34,15 +35,35 @@ function siteControl(id) {
 const fromSite = (o, v) => (o.percent ? Number(v) / 100 : Number(v));
 // Options the site shows that a plugin dialog deliberately leaves out (options.json $comment).
 const SITE_ONLY_CHOICES = { padStyle: ['custom'] };
+// Every site control that is NOT in options.json, and why. A new control on the site
+// fails the test below until it is added to the schema or listed here.
+const SITE_EXCLUDED = {
+  'file': 'loading a model is the host\'s job', 'volume': 'site build-volume preview',
+  'vx': 'site build-volume preview', 'vy': 'site build-volume preview', 'vz': 'site build-volume preview',
+  'show-layers': 'site display', 'highlight-small': 'site display',
+  'fin-mode': 'plugins run Auto; Draw needs the site\'s canvas',
+  'gap': 'hand-typed clearance; the material sets it',
+  'pad-h': 'Custom pad', 'pad-gap': 'Custom pad', 'pad-grip': 'Custom pad', 'pad-margin': 'Custom pad',
+};
 
 Deno.test('options.json is well formed', () => {
   const sections = new Set(SCHEMA.sections.map((s) => s.id));
+  assert(OPTS.length >= 10, `only ${OPTS.length} options`);
   assert(new Set(OPTS.map((o) => o.key)).size === OPTS.length, 'duplicate key');
+  const checkCond = (key, c) => {
+    if (typeof c === 'string') assert(byKey[c]?.type === 'bool', `${key}: showIf ${c} is not a bool option`);
+    else if (c.any) c.any.forEach((x) => checkCond(key, x));
+    else {
+      assert(byKey[c.key]?.type === 'choice', `${key}: showIf ${c.key} is not a choice option`);
+      for (const v of c.in) assert(byKey[c.key].choices.some((ch) => ch.value === v), `${key}: showIf ${c.key} has no ${v}`);
+    }
+  };
   for (const o of OPTS) {
     assert(sections.has(o.section), `${o.key}: unknown section ${o.section}`);
     assert(['bool', 'number', 'choice'].includes(o.type), `${o.key}: unknown type ${o.type}`);
     assert(o.label && o.tooltip, `${o.key}: needs a label and a tooltip`);
-    if (o.showIf) assert(byKey[o.showIf]?.type === 'bool', `${o.key}: showIf ${o.showIf} is not a bool option`);
+    if (o.showIf) { assert(Array.isArray(o.showIf), `${o.key}: showIf must be a list`); o.showIf.forEach((c) => checkCond(o.key, c)); }
+    if (o.hostSupplied) assert(o.hostSupplied === 'slicer', `${o.key}: unknown hostSupplied ${o.hostSupplied}`);
     if (o.type === 'number') assert(o.min <= o.default && o.default <= o.max, `${o.key}: default out of range`);
     if (o.type === 'choice') assert(o.choices.some((c) => c.value === o.default), `${o.key}: default not a choice`);
   }
@@ -70,10 +91,24 @@ Deno.test('every default, range and choice is the website\'s', () => {
   }
 });
 
+Deno.test('every site control is in the schema or left out on purpose', () => {
+  const ids = [...HTML.matchAll(/<(?:input|select)\b[^>]*(?<![\w-])id="([^"]*)"/g)].map((m) => m[1]);
+  assert(ids.length > 20, `found only ${ids.length} site controls`);
+  const inSchema = new Set(OPTS.map((o) => o.site));
+  for (const id of ids) assert(inSchema.has(id) || id in SITE_EXCLUDED, `#${id} is on the site but neither in options.json nor SITE_EXCLUDED`);
+  for (const id of Object.keys(SITE_EXCLUDED)) assert(ids.includes(id), `SITE_EXCLUDED lists #${id}, which the site no longer has`);
+});
+
 Deno.test('the choices are exactly what the engine knows', () => {
   const values = (k) => byKey[k].choices.map((c) => c.value);
   assert(values('material').join() === Object.keys(MATERIAL).join(), 'material choices vs web/materials.js');
   assert(values('cutout').join() === CUTOUT_PATTERNS.join(), 'cutout choices vs web/cutout.js');
+  // and the entry takes every choice offered (pad styles are the entry's own list)
+  const cube = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}cube.stl`)));
+  for (const o of OPTS.filter((x) => x.type === 'choice')) {
+    for (const c of o.choices) computeFins(cube, optionsFromDialog({ [o.key]: c.value }));
+  }
+  computeFins(cube, {});
 });
 
 Deno.test('the entry\'s defaults are the schema\'s; sway\'s are sway.js\'s', () => {
@@ -86,6 +121,41 @@ Deno.test('the entry\'s defaults are the schema\'s; sway\'s are sway.js\'s', () 
   assert(byKey['sway.tineSpacing'].default === SWAY.tineSpacing, 'sway.tineSpacing vs SWAY');
   assert(byKey['sway.reach'].default === SWAY.reach, 'sway.reach vs SWAY');
   assert(byKey['sway.gripFrom'].default === 0, 'sway.gripFrom: sway.js defaults it to 0');
+  assert(byKey.threshold.default === DEFAULT_THRESHOLD, 'threshold vs web/overhangs.js DEFAULT_THRESHOLD');
+});
+
+Deno.test('optionVisible hides exactly what the site hides (web/ui/settings.js)', () => {
+  const shown = (key, values) => optionVisible(key, values);
+  assert(shown('tineDensity', {}) && !shown('tineDensity', { tines: false }), 'tine grip follows Tines');
+  // layer height: tines on, or a pad that is one layer tall (Light, or Auto's Light)
+  assert(shown('layerHeight', { tines: false, padStyle: 'auto' }), 'layer height with the Auto pad');
+  assert(shown('layerHeight', { tines: false, padStyle: 'light' }), 'layer height with the Light pad');
+  assert(!shown('layerHeight', { tines: false, padStyle: 'sure' }), 'layer height with Sure hold, no tines');
+  assert(!shown('layerHeight', { tines: false, padStyle: 'off' }), 'layer height with no pad, no tines');
+  assert(shown('layerHeight', { tines: true, padStyle: 'off' }), 'layer height with tines');
+  for (const k of ['sway.gripFrom', 'sway.tineSpacing', 'sway.reach']) assert(!shown(k, {}), `${k} while sway is off`);
+  assert(shown('sway.reach', { 'sway.on': true, tines: false }), 'brace depth needs only sway');
+  for (const k of ['sway.gripFrom', 'sway.tineSpacing']) {
+    assert(shown(k, { 'sway.on': true }) && !shown(k, { 'sway.on': true, tines: false }), `${k} follows sway AND tines`);
+  }
+  for (const k of ['material', 'threshold', 'padStyle', 'cutout', 'coverage', 'tines', 'sway.on']) assert(shown(k, {}), `${k} always shown`);
+});
+
+Deno.test('optionsFromDialog: nests, clamps, checks, drops sway when off', () => {
+  const o = optionsFromDialog({ material: 'petg', 'sway.on': true, 'sway.reach': 0.9, coverage: '0.25', tines: 1 });
+  assert(o.material === 'petg' && o.coverage === 0.25 && o.tines === true, JSON.stringify(o));
+  assert(o.sway.on === true && o.sway.reach === 0.5, `sway not nested/clamped: ${JSON.stringify(o.sway)}`);
+  assert(!('sway' in optionsFromDialog({ 'sway.on': false, 'sway.reach': 0.2 })), 'sway sent while off');
+  for (const bad of [{ 'sway-on': true }, { padStyle: 'custom' }, { coverage: 'lots' }]) {
+    let threw = false;
+    try { optionsFromDialog(bad); } catch { threw = true; }
+    assert(threw, `accepted ${JSON.stringify(bad)}`);
+  }
+  // every default through the dialog path builds exactly the engine's defaults
+  const defaults = Object.fromEntries(OPTS.map((x) => [x.key, x.default]));
+  const cube = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}cube.stl`)));
+  const a = computeFins(cube, optionsFromDialog(defaults)).triangles, b = computeFins(cube, {}).triangles;
+  assert(a.length === b.length && a.every((v, i) => v === b[i]), 'dialog defaults differ from engine defaults');
 });
 
 // Each option, set to each other value it offers, until one moves the fins.
