@@ -1,10 +1,10 @@
 {
   "$comment": [
     "The settings every plugin dialog is built from (plugins/shared/README.md).",
-    "key: an option of fins_entry.js computeFins, dotted for a nested one (sway.on -> {sway: {on}}). Hosts never assemble that object themselves: pass the dialog's {key: value} to optionsFromDialog() (fins_entry.js), which nests, clamps, checks choices and drops sway when it is off.",
+    "key: an option of fins_entry.js computeFins, dotted for a nested one (sway.on -> {sway: {on}}). Hosts never assemble that object themselves: pass the dialog's {key: value} -- in the ENTRY's units, so a percent control's value / 100 -- to optionsFromDialog() (fins_entry.js; Python: supportfins_host.host_options), which nests, checks and drops sway when it is off. It refuses a value out of range rather than guess; null or '' means the default.",
     "default/min/max/step: in the ENTRY's units. percent: true = show value x 100 (the site's sliders read 0-100) and round to step for display. slider: a range control rather than a number field. hint: the site's muted text after the label (units live here).",
     "showIf: the control is shown only when EVERY item holds; an item is a bool key (on), {key, in: [values]}, or {any: [items]}. Evaluate with optionVisible() (fins_entry.js); hidden values may still be sent, the engine ignores them.",
-    "hostSupplied: 'slicer' = a slicer plugin reads this from the slicer's own settings and leaves it out of its dialog; CAD hosts show it.",
+    "hostSupplied: 'slicer' = a slicer plugin reads this from the slicer's own settings and leaves it out of its dialog; CAD hosts show it. Its range is the dialog's, not a limit: the host's own value is used as is. threshold is NOT a slicer's support angle: it is measured from the plate, where Cura's is from vertical.",
     "site: the matching control id in web/index.html; plugins/shared/tests/options.test.js pins defaults, ranges and choices to it, and lists every site control this file leaves out on purpose (placement mode: plugins run Auto; Custom pad and Support gap: hand-typed numbers, the material sets the clearances)."
   ],
   "version": 1,

@@ -141,22 +141,49 @@ Deno.test('optionVisible hides exactly what the site hides (web/ui/settings.js)'
   for (const k of ['material', 'threshold', 'padStyle', 'cutout', 'coverage', 'tines', 'sway.on']) assert(shown(k, {}), `${k} always shown`);
 });
 
-Deno.test('optionsFromDialog: nests, clamps, checks, drops sway when off', () => {
-  const o = optionsFromDialog({ material: 'petg', 'sway.on': true, 'sway.reach': 0.9, coverage: '0.25', tines: 1 });
-  assert(o.material === 'petg' && o.coverage === 0.25 && o.tines === true, JSON.stringify(o));
-  assert(o.sway.on === true && o.sway.reach === 0.5, `sway not nested/clamped: ${JSON.stringify(o.sway)}`);
+Deno.test('optionsFromDialog: nests, checks, drops sway when off', () => {
+  const o = optionsFromDialog({ material: 'petg', 'sway.on': 'True', 'sway.reach': 0.2, coverage: '0.25', tines: 'false' });
+  assert(o.material === 'petg' && o.coverage === 0.25 && o.tines === false, JSON.stringify(o));
+  assert(o.sway.on === true && o.sway.reach === 0.2, `sway not nested: ${JSON.stringify(o.sway)}`);
   assert(!('sway' in optionsFromDialog({ 'sway.on': false, 'sway.reach': 0.2 })), 'sway sent while off');
-  for (const bad of [{ 'sway-on': true }, { padStyle: 'custom' }, { coverage: 'lots' }]) {
+  assert(!('sway' in optionsFromDialog({ 'sway.on': 'false', 'sway.reach': 0.2 })), '"false" turned sway on');
+  // null / '' = the default: the key is simply not sent
+  const unset = optionsFromDialog({ layerHeight: '', tines: null, 'sway.on': true, 'sway.tineSpacing': null });
+  assert(!('layerHeight' in unset) && !('tines' in unset) && !('tineSpacing' in unset.sway), JSON.stringify(unset));
+  // a slicer's own layer height is used as is, even outside the dialog's range
+  assert(optionsFromDialog({ layerHeight: 0.06 }).layerHeight === 0.06, 'host layer height clamped');
+  for (const bad of [{ 'sway-on': true }, { toString: 1 }, { padStyle: 'custom' }, { coverage: 'lots' },
+                     { coverage: 50 }, { tineDensity: 20 }, { 'sway.reach': 15 }, { threshold: true },
+                     { tines: 1 }, { tines: 'no' }, { layerHeight: 0 }, { layerHeight: [] }]) {
     let threw = false;
     try { optionsFromDialog(bad); } catch { threw = true; }
     assert(threw, `accepted ${JSON.stringify(bad)}`);
   }
-  // every default through the dialog path builds exactly the engine's defaults
-  const defaults = Object.fromEntries(OPTS.map((x) => [x.key, x.default]));
-  const cube = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}cube.stl`)));
-  const a = computeFins(cube, optionsFromDialog(defaults)).triangles, b = computeFins(cube, {}).triangles;
-  assert(a.length === b.length && a.every((v, i) => v === b[i]), 'dialog defaults differ from engine defaults');
 });
+
+Deno.test('dialog defaults build exactly the engine defaults', () => {
+  const defaults = Object.fromEntries(OPTS.map((x) => [x.key, x.default]));
+  const same = (a, b) => a.length > 0 && a.length === b.length && a.every((v, i) => v === b[i]);
+  const lbracket = posedLbracket(), bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));
+  assert(same(computeFins(lbracket, optionsFromDialog(defaults)).triangles, computeFins(lbracket, {}).triangles),
+         'lbracket: dialog defaults differ from engine defaults');
+  const swayOn = { ...defaults, 'sway.on': true };
+  assert(same(computeFins(bar, optionsFromDialog(swayOn)).triangles, computeFins(bar, { sway: { on: true } }).triangles),
+         'bar: dialog sway defaults differ from sway.js defaults');
+});
+
+// lbracket tilted 35 deg about Y: gets walls, tines and a pad, so every option shows.
+function posedLbracket() {
+  const pos = readSTL(Deno.readFileSync(`${MODELS}lbracket.stl`)), m = rotY(35);
+  const out = new Float64Array(pos.length);
+  for (let i = 0; i < pos.length; i += 3) {
+    const x = pos[i], y = pos[i + 1], z = pos[i + 2];
+    out[i] = m[0] * x + m[3] * y + m[6] * z;
+    out[i + 1] = m[1] * x + m[4] * y + m[7] * z;
+    out[i + 2] = m[2] * x + m[5] * y + m[8] * z;
+  }
+  return out;
+}
 
 // Each option, set to each other value it offers, until one moves the fins.
 function changesFins(part, o, base, build) {
@@ -168,14 +195,7 @@ function changesFins(part, o, base, build) {
 }
 
 Deno.test('every option reaches the geometry (no dead dialog control)', () => {
-  const pos = readSTL(Deno.readFileSync(`${MODELS}lbracket.stl`)), m = rotY(35);
-  const lbracket = new Float64Array(pos.length);
-  for (let i = 0; i < pos.length; i += 3) {
-    const x = pos[i], y = pos[i + 1], z = pos[i + 2];
-    lbracket[i] = m[0] * x + m[3] * y + m[6] * z;
-    lbracket[i + 1] = m[1] * x + m[4] * y + m[7] * z;
-    lbracket[i + 2] = m[2] * x + m[5] * y + m[8] * z;
-  }
+  const lbracket = posedLbracket();
   const bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));  // upright: braced
   try {
     const plain = computeFins(lbracket, {}).triangles;

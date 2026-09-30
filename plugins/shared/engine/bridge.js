@@ -55,5 +55,11 @@ export function computeFinsB64(soupB64, optionsJson) {
   return JSON.stringify({ triangles: bytesToB64(tri), offset: res.offset, stats: res.stats });
 }
 
+// A Python host's settings dialog, as JSON strings like computeFinsB64 (supportfins_host
+// host_schema / host_options / host_visible).
+export const optionsSchemaJson = () => JSON.stringify(OPTIONS_SCHEMA);
+export const optionsFromDialogJson = (valuesJson) => JSON.stringify(optionsFromDialog(JSON.parse(valuesJson)));
+export const optionVisibleJson = (key, valuesJson) => optionVisible(key, JSON.parse(valuesJson));
+
 // optionsFromDialog / optionVisible / OPTIONS_SCHEMA: what a host's settings dialog needs
 export { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA };

@@ -8,6 +8,7 @@ reads the host's mesh and adds the result back.
 
     ctx = host_engine(ENGINE_JS)                  # once per process
     fins, stats = host_compute(ctx, soup, {"layerHeight": 0.2, "coverage": 0.5})
+    options = host_options(ctx, dialog_values)    # a settings dialog's values (options.json)
 
 How each plugin gets this file:
   Orca     inlined into the single-file plugin by plugins/orca/build.py
@@ -87,6 +88,26 @@ def host_compute(ctx, soup, options):
     off = out["offset"]  # seated = input + offset
     fins = seated - np.array([off["x"], off["y"], off["z"]], dtype=np.float64)
     return fins, out["stats"]
+
+
+def host_schema(ctx):
+    """options.json, the settings a plugin dialog is built from (as bundled)."""
+    return json.loads(ctx.call("SupportFinsEngine.optionsSchemaJson"))
+
+
+def host_options(ctx, values):
+    """A dialog's {options.json key: value} -> engine options for host_compute.
+
+    Always go through this rather than building the options by hand: it nests the
+    sway keys, checks every value and refuses a bad one (a percent control sends
+    value / 100; None or '' means the default). Raises on a bad value.
+    """
+    return json.loads(ctx.call("SupportFinsEngine.optionsFromDialogJson", json.dumps(values)))
+
+
+def host_visible(ctx, key, values):
+    """Whether the dialog shows the control for `key` given the current values."""
+    return bool(ctx.call("SupportFinsEngine.optionVisibleJson", key, json.dumps(values)))
 
 
 def host_report(stats):

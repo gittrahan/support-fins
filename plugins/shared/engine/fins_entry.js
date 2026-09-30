@@ -49,26 +49,38 @@ export const ENGINE_DEFAULTS = Object.freeze({
 
 /**
  * A plugin dialog's values -> computeFins options. Every host goes through this
- * instead of assembling the object itself, so a dotted key, a percent or an
- * out-of-range number can't go wrong differently per host.
+ * instead of assembling the object itself, so a dotted key, a percent or a bad
+ * value can't go wrong differently per host. Strict on purpose: a dialog built from
+ * options.json can't produce a bad value, so one means a host bug, and guessing
+ * (clamping 50 to 1 when the host forgot the /100) would print the wrong fins.
  *
- * @param {object} values  {options.json key: value}, in the entry's units (a percent
- *        control's value / 100). Keys left out take the engine defaults.
+ * @param {object} values  {options.json key: value}, in the ENTRY's units: a percent
+ *        control's value / 100. A key left out, null or '' takes the engine default.
+ *        Bools may be true/false or "true"/"false" (settings stores hand back strings).
  * @returns {object} options for computeFins; sway only when sway.on is set
  */
 export function optionsFromDialog(values = {}) {
   const out = {};
   for (const [key, raw] of Object.entries(values)) {
-    const o = OPTION[key];
-    if (!o) throw new Error(`unknown dialog option ${key}`);
+    const o = option(key);
+    if (raw === null || raw === undefined || raw === '') continue;
+    const bad = (why) => new Error(`${key} ${why}, got ${JSON.stringify(raw)}`);
     let v = raw;
-    if (o.type === 'bool') v = Boolean(raw);
-    else if (o.type === 'number') {
-      v = Number(raw);
-      if (!Number.isFinite(v)) throw new Error(`${key} must be a number, got ${JSON.stringify(raw)}`);
-      v = Math.min(o.max, Math.max(o.min, v));
+    if (o.type === 'bool') {
+      v = asBool(raw);
+      if (v === undefined) throw bad('must be true or false');
+    } else if (o.type === 'number') {
+      v = typeof raw === 'number' ? raw : typeof raw === 'string' ? Number(raw) : NaN;
+      if (!Number.isFinite(v)) throw bad('must be a number');
+      if (o.hostSupplied) {
+        // The host's own setting (a slicer's layer height): used as is, like the site
+        // does, since a clamped value would size the tines for the wrong layer.
+        if (!(v > 0)) throw bad('must be positive');
+      } else if (v < o.min || v > o.max) {
+        throw bad(`must be ${o.min}..${o.max}${o.percent ? ' (a percent control\'s value / 100)' : ''}`);
+      }
     } else if (!o.choices.some((c) => c.value === raw)) {
-      throw new Error(`${key} must be one of ${o.choices.map((c) => c.value).join(', ')}, got ${JSON.stringify(raw)}`);
+      throw bad(`must be one of ${o.choices.map((c) => c.value).join(', ')}`);
     }
     const [head, sub] = key.split('.');
     if (sub) (out[head] ??= {})[sub] = v; else out[head] = v;
@@ -79,14 +91,29 @@ export function optionsFromDialog(values = {}) {
 
 /**
  * Whether a dialog shows the control for `key`, given the current values (keys left
- * out read as their defaults) -- options.json's showIf, evaluated once for every host.
+ * out, null or '' read as their defaults) -- options.json's showIf, evaluated once
+ * for every host. Takes values the way optionsFromDialog does.
  */
 export function optionVisible(key, values = {}) {
-  const get = (k) => (k in values ? values[k] : OPTION[k].default);
+  const get = (k) => {
+    const v = Object.hasOwn(values, k) ? values[k] : null;
+    if (v === null || v === undefined || v === '') return option(k).default;
+    return option(k).type === 'bool' ? asBool(v) : v;
+  };
   const holds = (c) => (typeof c === 'string' ? get(c) === true
     : c.any ? c.any.some(holds)
     : c.in.includes(get(c.key)));
-  return (OPTION[key].showIf || []).every(holds);
+  return (option(key).showIf || []).every(holds);
+}
+
+function option(key) {
+  if (!Object.hasOwn(OPTION, key)) throw new Error(`unknown dialog option ${key}`);
+  return OPTION[key];
+}
+function asBool(v) {
+  if (v === true || v === false) return v;
+  if (typeof v === 'string' && /^(true|false)$/i.test(v)) return v.toLowerCase() === 'true';
+  return undefined;
 }
 
 export { SCHEMA as OPTIONS_SCHEMA };

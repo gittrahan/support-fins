@@ -12,11 +12,14 @@ engine/options.json     the settings every plugin dialog is built from: key, typ
                         ranges and choices are pinned to the website's controls (web/index.html)
                         by tests/options.test.js; fins_entry.js takes its defaults from it.
                         A host builds its dialog from it and passes the values through
-                        optionsFromDialog() (and optionVisible() for show/hide), never by hand
+                        optionsFromDialog() (and optionVisible() for show/hide; from Python,
+                        host_options / host_visible), never by hand
 bundle.py               esbuild: bridge.js + web/*.js -> one IIFE, global SupportFinsEngine
 py/supportfins_host.py  Python side for plugins that run the bundle in mini-racer: start V8
                         (host_engine), run the engine on a soup and map the fins back to
-                        the caller's frame (host_compute). Orca inlines it at build time
+                        the caller's frame (host_compute); a settings dialog's values to
+                        engine options (host_schema, host_options, host_visible). Orca inlines it
+                        at build time
 py/supportfins_slice.py mesh -> per-layer polygons (split_shells, slice_soup, group_loops),
                         for hosts whose API takes layer polygons, not a mesh. Pure numpy.
                         Orca inlines it at build time
