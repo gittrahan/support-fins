@@ -14,6 +14,9 @@ engine/options.json     the settings every plugin dialog is built from: key, typ
                         A host builds its dialog from it and passes the values through
                         optionsFromDialog() (and optionVisible() for show/hide; from Python,
                         host_options / host_visible), never by hand
+engine/report.js        the one-line result (walls, tines, overhangs not reached, floating
+                        pieces) for JS hosts (the CLI); Python hosts' host_report says
+                        the same words
 bundle.py               esbuild: bridge.js + web/*.js -> one IIFE, global SupportFinsEngine
 py/supportfins_host.py  Python side for plugins that run the bundle in mini-racer: start V8
                         (host_engine), run the engine on a soup and map the fins back to
