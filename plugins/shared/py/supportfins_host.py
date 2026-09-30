@@ -87,3 +87,26 @@ def host_compute(ctx, soup, options):
     off = out["offset"]  # seated = input + offset
     fins = seated - np.array([off["x"], off["y"], off["z"]], dtype=np.float64)
     return fins, out["stats"]
+
+
+def host_report(stats):
+    """The one-line result every plugin shows, from the engine's stats.
+
+    Says what was placed, and -- quality first -- what wasn't: overhangs too shallow
+    for a fin this way up, and pieces that start in mid-air. Same facts as the
+    website's readout (web/ui/readout.js), shorter.
+    """
+    walls, tines = stats.get("braces", 0), stats.get("tines", 0)
+    parts = [f"{walls} wall{'' if walls == 1 else 's'}, {tines} tine{'' if tines == 1 else 's'}"]
+    unserved = stats.get("unserved") or 0
+    if unserved:
+        parts.append(f"{unserved} overhang{' is' if unserved == 1 else 's are'} too shallow "
+                     "for a fin this way up (tilt the part steeper)")
+    floating = stats.get("floating") or 0
+    if floating:
+        drop = float(stats.get("floatingDrop") or 0)
+        parts.append((f"one piece isn't joined to the rest: it starts {drop:.1f} mm up"
+                      if floating == 1 else
+                      f"{floating} pieces aren't joined to the rest: the first starts {drop:.1f} mm up")
+                     + ", held only by supports")
+    return "; ".join(parts)

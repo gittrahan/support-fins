@@ -92,3 +92,11 @@ print(json.dumps([sys._MEIPASS, ctx.eval("typeof SupportFinsEngine.computeFinsB6
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
     assert out.returncode == 0, out.stderr
     assert json.loads(out.stdout.strip().splitlines()[-1]) == ["/nonexistent/app/bundle", "function"]
+
+
+def test_report_says_what_was_not_reached():
+    assert host.host_report({"braces": 1, "tines": 1}) == "1 wall, 1 tine"
+    line = host.host_report({"braces": 3, "tines": 12, "unserved": 2, "floating": 1, "floatingDrop": 4.25})
+    assert line.startswith("3 walls, 12 tines; 2 overhangs are too shallow for a fin this way up")
+    assert "one piece isn't joined to the rest: it starts 4.2 mm up, held only by supports" in line
+    assert "the first starts 1.0 mm up" in host.host_report({"floating": 2, "floatingDrop": 1})
