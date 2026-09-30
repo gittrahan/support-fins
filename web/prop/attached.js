@@ -21,9 +21,9 @@ import { sweepBetween } from './sweep.js';
  *
  * This is the exact mirror of `contourTop`. contourTop looks UP across the tip
  * and takes the LOWEST hit, so the tip stops `gap` under the overhang; floorLine
- * looks DOWN across the tip and takes the HIGHEST hit below the overhang, so the
+ * looks DOWN across the bottom and takes the HIGHEST hit below the overhang, so the
  * support lands on the part instead of driving to z=0. Taking the highest hit
- * across the tip's width (not just the centre) means the bottom rests ON the
+ * across the bottom's width (not just the centre) means the bottom rests ON the
  * floor and never digs into it -- the same reasoning contourTop uses to keep the
  * top out of the part.
  *
@@ -34,7 +34,15 @@ import { sweepBetween } from './sweep.js';
  * cased -- the current all-to-plate behaviour is just the everywhere-0 case.
  */
 export function floorLine(topLine, tris, margin = 1.0) {
-  const half = PROP.tip / 2;
+  // Across the bottom's REAL width: the welded tip, or -- for a bottom lifted by
+  // footGap (sweepBetween) -- the full th plus footGap past each side. Read across
+  // the tip only, a th-wide bottom dug into a floor sloping across the wall; read
+  // across th only, it cleared the slope by 0.2 straight down but ~0.05 sideways
+  // on a steep one (lbracket X30Y60), close enough to fuse the first layer.
+  const g = PROP.footGap, w = PROP.th / 2;
+  const offs = g > 0
+    ? [-w - g, -w, -PROP.tip / 2, 0, PROP.tip / 2, w, w + g]
+    : [-PROP.tip / 2, 0, PROP.tip / 2];
   const bot = [];
   for (let i = 0; i < topLine.length; i++) {
     const a = topLine[Math.max(0, i - 1)];
@@ -44,7 +52,7 @@ export function floorLine(topLine, tris, margin = 1.0) {
     const sx = ry / rn, sy = -rx / rn;      // across the wall
     const ceil = topLine[i][2] - margin;
     let z = 0;                               // plate fallback
-    for (const o of [-half, 0, half]) {
+    for (const o of offs) {
       for (const zz of surfaceZsAt(tris, topLine[i][0] + sx * o, topLine[i][1] + sy * o)) {
         if (zz < ceil && zz > z) z = zz;     // highest surface below the overhang
       }
