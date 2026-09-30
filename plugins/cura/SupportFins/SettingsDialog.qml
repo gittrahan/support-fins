@@ -140,8 +140,12 @@ UM.Dialog
                             implicitHeight: UM.Theme.getSize("setting_control").height
                             text: opt.value
                             selectByMouse: true
-                            validator: DoubleValidator { bottom: opt.min; top: opt.max; notation: DoubleValidator.StandardNotation }
-                            onEditingFinished: manager.setValue(opt.key, parseFloat(text))
+                            // Digits with a point OR a comma, whatever the system locale:
+                            // settings.py reads both. Written on every keystroke (not on
+                            // editingFinished, which a click on Save doesn't trigger on
+                            // macOS), and a value out of range is refused by name on Save.
+                            validator: RegularExpressionValidator { regularExpression: /^\d*([.,]\d*)?$/ }
+                            onTextEdited: manager.setValue(opt.key, text)
                         }
                     }
                 }

@@ -64,6 +64,7 @@ def main():
     shutil.copytree(HERE / "SupportFins", PLUGIN,
                     ignore=shutil.ignore_patterns("__pycache__", "dev_*"))
     shutil.copy2(SHARED / "py" / "supportfins_host.py", PLUGIN / "supportfins_host.py")
+    shutil.copy2(SHARED / "engine" / "options.json", PLUGIN / "options.json")   # the dialog reads it without V8
     js = bundle_engine(PLUGIN / "fins_engine.js")
     whl = vendor_mini_racer(PLUGIN / "vendor", plat)
     size = sum(p.stat().st_size for p in PLUGIN.rglob("*") if p.is_file())

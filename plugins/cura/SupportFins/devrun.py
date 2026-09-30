@@ -87,6 +87,8 @@ class _Run:
         f = self.fins()
         b = f[0].getBoundingBox() if f else None
         log(step=step, fins_children=len(f),
+            extruders=[self.part.callDecoration("getActiveExtruderPosition"),
+                       f[0].callDecoration("getActiveExtruderPosition") if f else None],
             fins_bbox=[round(v, 3) for v in (b.left, b.bottom, b.back, b.right, b.top, b.front)] if b else None,
             fins_triangles=(f[0].getMeshData().getFaceCount() if f else 0),
             report=self.ext.last_report)
@@ -142,20 +144,39 @@ class _Run:
     def dialog_edits(self):
         self.ext.setValue("tines", False)
         log(step="dialog: tines off", visible=list(self.ext.visible))
-        self.ext.setValue("coverage", 500)           # a percent field typed out of range
-        log(step="dialog: bad coverage", saved=self.ext.save(), error=self.ext.error)
+        self.ext.setValue("sway.reach", "70")        # a percent field typed out of range
+        log(step="dialog: brace depth 70", saved=self.ext.save(), error=self.ext.error)
+        self.ext.setValue("sway.reach", "15")
+        self.ext.setValue("sway.tineSpacing", "7,5")   # a decimal comma
+        from . import settings
+        saved = self.ext.save()
+        stored = settings.load(self.ext.schema(), CuraApplication.getInstance().getPreferences().getValue(settings.PREF))
+        log(step="dialog: tine spacing 7,5", saved=saved, stored=stored.get("sway.tineSpacing"))
         if self.ext._dialog is not None:
             self.ext._dialog.close()
 
+    def stale(self):
+        m = getattr(self.part, "support_fins_stale", None)
+        return m is not None and m.visible
+
     def rotate(self):
+        # a turn about Cura's vertical (Y): the fins still fit, no prompt
+        self.part.rotate(Quaternion.fromAngleAxis(math.radians(30), Vector.Unit_Y),
+                         SceneNode.TransformSpace.World)
+        log(step="turned 30 deg on the plate", stale=self.stale())
+        # a tilt about a horizontal axis: prompt; closed with X, a further tilt prompts again
         self.part.rotate(Quaternion.fromAngleAxis(math.radians(10), Vector.Unit_Z),
                          SceneNode.TransformSpace.World)
-        self.report("rotated 10 deg: stale message shown=%s" % (id(self.part) in self.ext._stale))
+        log(step="tilted 10 deg", stale=self.stale())
+        self.part.support_fins_stale.hide(send_signal=False)       # what the X does
+        self.part.rotate(Quaternion.fromAngleAxis(math.radians(5), Vector.Unit_Z),
+                         SceneNode.TransformSpace.World)
+        self.report("closed with X, tilted 5 more: stale=%s" % self.stale())
 
     def update(self):
-        msg = self.ext._stale.get(id(self.part))
+        msg = getattr(self.part, "support_fins_stale", None)
         if msg is None:
             log(step="update: no stale message to press")
             return
         self.ext._onStaleAction(msg, "update")
-        self.steps.insert(0, lambda: self.report("updated: stale=%s" % (id(self.part) in self.ext._stale)))
+        self.steps.insert(0, lambda: self.report("updated: stale=%s" % self.stale()))

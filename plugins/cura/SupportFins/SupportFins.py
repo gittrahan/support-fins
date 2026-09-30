@@ -16,6 +16,7 @@ Tines touch the part rather than bite into it: Cura's "Remove Mesh Intersection"
 (global, on by default) trims the overlap between the part and the fins object.
 That's kept on purpose -- the tines snap off cleanly (local issue 015).
 """
+import json
 import os
 import threading
 
@@ -54,7 +55,8 @@ def is_fins(node):
 
 
 # One V8 context per Cura process, shared by the Job (worker thread) and the dialog
-# (UI thread). V8 isn't safe to enter from two threads at once: every use holds LOCK.
+# (UI thread). Every use holds LOCK. The UI thread never WAITS for it: a compute holds
+# it for seconds, so the dialog tries it and, when busy, catches up after the Job.
 LOCK = threading.Lock()
 _ctx = None
 
@@ -76,10 +78,15 @@ class FinsJob(Job):
         self._values = values   # per part: {options.json key: value}, checked by host_options
 
     def run(self):
+        global _ctx
         with LOCK:
-            ctx = engine()
-            self.setResult([host.host_compute(ctx, soup, host.host_options(ctx, values))
-                            for soup, values in zip(self._soups, self._values)])
+            try:
+                ctx = engine()
+                self.setResult([host.host_compute(ctx, soup, host.host_options(ctx, values))
+                                for soup, values in zip(self._soups, self._values)])
+            except Exception:
+                _ctx = None      # a failed V8 (out of memory, say) must not break every later run
+                raise
 
 
 class SupportFins(QObject, Extension):
@@ -99,8 +106,7 @@ class SupportFins(QObject, Extension):
         self._rows = []
         self._visible = []
         self._error = ""
-        self._watched = set()      # ids of parts whose transformationChanged we listen to
-        self._stale = {}           # id(part) -> its "Fins are out of date" Message
+        self._visible_pending = False
         self.last_report = []
         CuraApplication.getInstance().getPreferences().addPreference(settings.PREF, "")
         from . import devrun
@@ -123,6 +129,8 @@ class SupportFins(QObject, Extension):
         root = CuraApplication.getInstance().getController().getScene().getRoot()
         pool = [c for p in parts for c in p.getChildren()] if parts else list(DepthFirstIterator(root))
         doomed = [n for n in pool if is_fins(n)]
+        for n in doomed:
+            self._clear_stale(n.getParent())
         if not doomed:
             return
         op = GroupedOperation()
@@ -161,6 +169,8 @@ class SupportFins(QObject, Extension):
     def _finished(self, job):
         parts, poses, notes = self._pending
         self._job = self._pending = None
+        if self._visible_pending:
+            self._update_visible()       # the dialog changed while the engine was busy
         if self._progress:
             self._progress.hide()
             self._progress = None
@@ -183,7 +193,7 @@ class SupportFins(QObject, Extension):
                     op.addOperation(RemoveSceneNodeOperation(old))
             self._clear_stale(part)
             if len(fins):
-                node = self._fins_node(fins)
+                node = self._fins_node(fins, part)
                 node.support_fins_pose = settings.pose(pose)
                 self._watch(part)
                 # Add at the root in world space, then parent: SetParentOperation keeps
@@ -199,7 +209,7 @@ class SupportFins(QObject, Extension):
         self.last_report = lines
         Message("\n".join(lines), title=TITLE).show()
 
-    def _fins_node(self, fins):
+    def _fins_node(self, fins, part):
         verts, idx, centre = frames.fins_mesh(fins)
         node = CuraSceneNode()
         node.setName(FINS_NAME)
@@ -210,6 +220,11 @@ class SupportFins(QObject, Extension):
         plate = CuraApplication.getInstance().getMultiBuildPlateModel().activeBuildPlate
         node.addDecorator(BuildPlateDecorator(plate))
         node.addDecorator(SliceableObjectDecorator())
+        # Print the fins with the part's extruder: its material is the one "Match Cura"
+        # read, and a new node would otherwise take extruder 1.
+        extruder = part.callDecoration("getActiveExtruder")
+        if extruder:
+            node.callDecoration("setActiveExtruder", extruder)
         # The engine's fins are separate closed shells that overlap on purpose and
         # expect the slicer to union them. Cura's default already does; pin it.
         stack = node.callDecoration("getStack")
@@ -242,44 +257,60 @@ class SupportFins(QObject, Extension):
         return stack.material.getMetaDataEntry("material") if stack else None
 
     # -- stale fins ------------------------------------------------------------------
+    # State lives ON the part (support_fins_*), not in dicts keyed by id(): ids are
+    # reused once a part is freed, and a new part would inherit an old one's state.
     def _watch(self, part):
-        if id(part) not in self._watched:
-            self._watched.add(id(part))
+        if not getattr(part, "support_fins_watched", False):
+            part.support_fins_watched = True
             part.transformationChanged.connect(self._onPartTransformed)
 
     def _onPartTransformed(self, node):
-        # The part re-emits its children's changes too; only its own pose matters.
-        fins = [c for c in node.getChildren() if is_fins(c)] if node is not None else []
-        if not fins or id(node) in self._stale:
+        """Re-checked on every change (the part re-emits its children's too): shows the
+        prompt when the fins stop fitting, and takes it down when they fit again (an
+        undo) or are gone."""
+        if node is None or is_fins(node):
             return
-        if not settings.is_stale(getattr(fins[0], "support_fins_pose", None),
-                                 node.getWorldTransformation().getData()):
-            return
-        msg = Message(f"{node.getName()} was rotated or scaled, so its fins no longer fit it.",
-                      title="Fins are out of date", lifetime=0)
-        msg.addAction("update", "Update", "", "Compute the fins again for the new pose")
-        msg.actionTriggered.connect(self._onStaleAction)
-        msg.support_fins_part = node
-        self._stale[id(node)] = msg
-        msg.show()
+        fins = [c for c in node.getChildren() if is_fins(c)]
+        stale = bool(fins) and settings.is_stale(getattr(fins[0], "support_fins_pose", None),
+                                                 node.getWorldTransformation().getData())
+        msg = getattr(node, "support_fins_stale", None)
+        if not stale:
+            self._clear_stale(node)
+        elif msg is None or not msg.visible:     # closed with X: prompt again
+            msg = Message(f"{node.getName()} was tilted or scaled, so its fins no longer fit it.",
+                          title="Fins are out of date", lifetime=0)
+            msg.addAction("update", "Update", "", "Compute the fins again for the new pose")
+            msg.actionTriggered.connect(self._onStaleAction)
+            msg.support_fins_part = node
+            node.support_fins_stale = msg
+            msg.show()
 
     def _onStaleAction(self, msg, action):
         part = msg.support_fins_part
-        msg.hide()
-        self._stale.pop(id(part), None)
-        if action == "update" and part.getParent() is not None and self._job is None:
+        if action != "update":
+            return
+        if self._job is not None:
+            Message("Still computing the last fins. Press Update again when they're done.",
+                    title=TITLE).show()
+            return                                # the prompt stays up
+        self._clear_stale(part)
+        # the part may be gone, or its fins removed since (an undo): nothing to update
+        if part.getParent() is not None and any(is_fins(c) for c in part.getChildren()):
             self.addTo([part])
 
     def _clear_stale(self, part):
-        msg = self._stale.pop(id(part), None)
-        if msg:
+        msg = getattr(part, "support_fins_stale", None) if part is not None else None
+        if msg is not None:
+            part.support_fins_stale = None
             msg.hide()
 
     # -- the settings dialog ---------------------------------------------------------
     def schema(self):
+        """options.json as shipped next to the plugin (build.py copies it): read without
+        V8, so Add never starts the engine on the UI thread."""
         if self._schema is None:
-            with LOCK:
-                self._schema = host.host_schema(engine())
+            with open(os.path.join(HERE, "options.json"), encoding="utf-8") as f:
+                self._schema = json.load(f)
         return self._schema
 
     def showSettings(self):
@@ -320,6 +351,7 @@ class SupportFins(QObject, Extension):
     @pyqtSlot(str, "QVariant")
     def setValue(self, key, shown):
         self._draft[key] = settings.from_dialog(self.schema(), key, shown)
+        self._set_error("")
         self._update_visible()
 
     @pyqtSlot(result=bool)
@@ -327,12 +359,16 @@ class SupportFins(QObject, Extension):
         """Check the draft with the engine (same check as a run), then keep it."""
         app = CuraApplication.getInstance()
         layer = app.getGlobalContainerStack().getProperty("layer_height", "value")
-        try:
-            with LOCK:
-                host.host_options(engine(), settings.engine_values(self._draft, None, layer)[0])
-        except Exception as e:  # the engine names the bad setting
-            self._set_error(f"Not saved: {e}")
+        if not LOCK.acquire(blocking=False):
+            self._set_error("Still computing fins. Save again in a moment.")
             return False
+        try:
+            host.host_options(engine(), settings.engine_values(self._draft, None, layer)[0])
+        except Exception as e:  # the engine names the bad setting
+            self._set_error("Not saved: " + settings.friendly_error(self.schema(), str(e)))
+            return False
+        finally:
+            LOCK.release()
         app.getPreferences().setValue(settings.PREF, settings.dump(self._draft))
         self._set_error("")
         return True
@@ -341,9 +377,18 @@ class SupportFins(QObject, Extension):
         values = dict(self._draft)
         if values.get("material") == settings.MATCH_CURA:
             values.pop("material")   # not an engine value; visibility never depends on it
-        with LOCK:
+        if not LOCK.acquire(blocking=False):
+            self._visible_pending = True          # a compute is running: catch up after it
+            return
+        try:
             ctx = engine()
             self._visible = [r["key"] for r in self._rows if host.host_visible(ctx, r["key"], values)]
+            self._visible_pending = False
+        except Exception as e:
+            self._set_error(f"The fin engine didn't start: {e}")
+            return
+        finally:
+            LOCK.release()
         self.visibleChanged.emit()
 
     def _set_error(self, text):

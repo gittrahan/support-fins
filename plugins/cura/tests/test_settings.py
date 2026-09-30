@@ -49,8 +49,15 @@ def test_a_broken_or_old_preference_falls_back_to_defaults():
     ("PLA", "pla", "PLA (Cura has PLA)"),
     ("Tough PLA", "pla", "PLA (Cura has Tough PLA)"),
     ("PETG", "petg", "PETG (Cura has PETG)"),
+    ("CPE", "petg", "PETG (Cura has CPE)"),          # copolyesters weld like PETG
+    ("CPE+", "petg", "PETG (Cura has CPE+)"),
+    ("PET CF", "petg", "PETG (Cura has PET CF)"),
+    ("PCTG", "petg", "PETG (Cura has PCTG)"),
+    ("PLA-Wood", "pla", "PLA (Cura has PLA-Wood)"),
     ("ABS", "pla", "no profile"),
+    ("PEBA", "pla", "no profile"),                   # PE... but not a copolyester
     (None, "pla", "no material"),
+    ("empty", "pla", "no material"),
 ])
 def test_match_cura_follows_the_loaded_filament(cura, material, says):
     got, note = settings.cura_material(cura)
@@ -75,6 +82,21 @@ def test_dialog_rows_show_percents_and_curas_material():
     assert settings.rows(SCHEMA, {}, "ABS")[0]["choices"][0]["label"] == "Match Cura (now PLA, no profile for ABS)"
     assert settings.from_dialog(SCHEMA, "coverage", 50) == 0.5
     assert settings.from_dialog(SCHEMA, "threshold", 40) == 40
+    assert settings.from_dialog(SCHEMA, "sway.tineSpacing", "12,5") == 12.5   # decimal comma
+    assert settings.from_dialog(SCHEMA, "sway.reach", "20") == 0.2
+    assert settings.from_dialog(SCHEMA, "sway.tineSpacing", "") is None       # emptied: default
+    assert settings.from_dialog(SCHEMA, "sway.tineSpacing", "1x") == "1x"     # Save refuses it
+
+
+def test_save_errors_speak_the_dialogs_language(host):
+    mod, ctx = host
+    def refusal(values):
+        with pytest.raises(ValueError) as e:
+            mod.host_options(ctx, values)
+        return settings.friendly_error(SCHEMA, str(e.value))
+    assert refusal({"sway.reach": 0.9}) == "Brace depth must be a number from 5 to 50%"
+    assert refusal({"sway.tineSpacing": 40}) == "Brace tine spacing must be a number from 2 to 30 mm"
+    assert refusal({"sway.gripFrom": "1x"}) == "Brace grip from must be a number from 0 to 2000"
 
 
 def test_each_section_heading_appears_once():
@@ -82,17 +104,25 @@ def test_each_section_heading_appears_once():
     assert heads == [s["label"] for s in SCHEMA["sections"]]
 
 
-def test_moving_keeps_fins_rotating_or_scaling_makes_them_stale():
-    def world(rot=np.eye(3), scale=1.0, move=(0, 0, 0)):
+def test_tilting_or_scaling_makes_fins_stale_moving_turning_mirroring_doesnt():
+    def world(m3, move=(0, 0, 0)):
         m = np.eye(4)
-        m[:3, :3] = rot * scale
+        m[:3, :3] = m3
         m[:3, 3] = move
         return m
-    then = settings.pose(world(rot_x(35)))
-    assert not settings.is_stale(then, world(rot_x(35), move=(40, 0, -12)))
-    assert settings.is_stale(then, world(rot_x(40)))
-    assert settings.is_stale(then, world(rot_x(35), scale=1.1))
-    assert not settings.is_stale(None, world())            # no fins yet: nothing to be stale
+    def rot_y(deg):   # Cura's vertical axis
+        c, s = math.cos(math.radians(deg)), math.sin(math.radians(deg))
+        return np.array([[c, 0, s], [0, 1, 0], [-s, 0, c]])
+    tilted = rot_x(35)
+    then = settings.pose(world(tilted))
+    assert not settings.is_stale(then, world(tilted, move=(40, 0, -12)))      # moved
+    assert not settings.is_stale(then, world(rot_y(70) @ tilted))             # turned on the plate
+    assert not settings.is_stale(then, world(np.diag([-1, 1, 1]) @ tilted))   # mirrored in X
+    assert settings.is_stale(then, world(rot_x(40)))                          # tilted further
+    assert settings.is_stale(then, world(tilted * 1.1))                       # scaled
+    assert settings.is_stale(then, world(tilted @ np.diag([1, 1, 1.2])))      # scaled on one axis
+    assert not settings.is_stale(then, world(tilted + 1e-9))                  # float noise
+    assert not settings.is_stale(None, world(np.eye(3)))   # no fins yet: nothing to be stale
 
 
 def test_saved_settings_reach_the_engine(host):

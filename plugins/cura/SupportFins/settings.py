@@ -7,8 +7,9 @@ options.json (the site's settings); this file only adds what is Cura's:
     asked, so it can't disagree with what Cura slices.
   * Material gets a first choice, "Match Cura": PLA or PETG follow the filament loaded
     for the part, anything else falls back to PLA and the readout says so.
-  * Stale fins: rotating or scaling a part after its fins were added makes them wrong
-    (they're a child object, so they rotate and scale WITH the part); moving doesn't.
+  * Stale fins: tilting or scaling a part after its fins were added makes them wrong
+    (they're a child object, so they tilt and scale WITH the part). Moving it, turning
+    it about the vertical, or mirroring it doesn't: the fins follow and still fit.
 
 Values are kept in the ENTRY's units ({options.json key: value}); the dialog shows a
 percent option x 100. They go to the engine through host_options, which checks them.
@@ -46,6 +47,8 @@ def _stored(o, v, default):
             return v
         return {"true": True, "false": False}.get(str(v).lower(), default)
     if o["type"] == "number":
+        if isinstance(v, bool):
+            return default
         try:
             n = float(v)
         except (TypeError, ValueError):
@@ -64,16 +67,22 @@ def shown_options(schema):
     return [o for o in schema["options"] if o.get("hostSupplied") != "slicer"]
 
 
+# Copolyesters weld to a support like PETG (web/materials.js), so they get PETG's
+# wider clearances: PLA's would bite in and weld. Cura's bundled profiles call them
+# PETG, PET, PET CF, CPE, CPE+, GFF CPE, CFF CPE; third parties add PCTG.
+_PETG_LIKE = ("PETG", "PET", "CPE", "PCTG")
+
+
 def cura_material(material_type):
-    """Cura's material type (its 'material' metadata: "PLA", "Tough PLA", "PETG", "ABS",
-    ...) -> (engine material, what the readout says)."""
-    t = (material_type or "").upper()
-    if "PETG" in t:
-        return "petg", f"PETG (Cura has {material_type})"
+    """Cura's material type (its 'material' metadata: "PLA", "Tough PLA", "PETG", "CPE",
+    "ABS", ...) -> (engine material, what the readout says)."""
+    name = material_type if material_type and material_type.lower() != "empty" else None
+    t = (name or "").upper()
+    if any(w in t.replace("+", " ").split() or t.startswith(w) for w in _PETG_LIKE):
+        return "petg", f"PETG (Cura has {name})"
     if "PLA" in t:
-        return "pla", f"PLA (Cura has {material_type})"
-    shown = material_type or "no material"
-    return "pla", f"PLA (Cura has {shown}, which fins have no profile for yet)"
+        return "pla", f"PLA (Cura has {name})"
+    return "pla", f"PLA (Cura has {name or 'no material'}, which fins have no profile for yet)"
 
 
 def engine_values(values, material_type, layer_height):
@@ -121,11 +130,34 @@ def rows(schema, values, material_type):
 
 
 def from_dialog(schema, key, shown):
-    """A control's value as the dialog holds it -> the entry's units."""
+    """A control's value as the dialog holds it -> the entry's units. A number field's
+    text may use a decimal comma. Text that isn't a number is kept as typed, so Save
+    refuses it by name instead of the field quietly saving something else."""
     o = next(o for o in schema["options"] if o["key"] == key)
-    if o["type"] == "number":
-        return float(shown) / (100 if o.get("percent") else 1)
-    return shown
+    if o["type"] != "number":
+        return shown
+    if isinstance(shown, str):
+        text = shown.strip().replace(",", ".")
+        if text == "":
+            return None                    # an emptied field: the default
+        try:
+            shown = float(text)
+        except ValueError:
+            return shown
+    return float(shown) / (100 if o.get("percent") else 1)
+
+
+def friendly_error(schema, message):
+    """The engine's refusal ("sway.reach must be 0.05..0.5 (a percent control's value /
+    100), got 0.9") in the dialog's own words and units: "Brace depth must be 5 to 50"."""
+    for o in schema["options"]:
+        if message.startswith(o["key"] + " "):
+            if o["type"] == "number":
+                k = 100 if o.get("percent") else 1
+                unit = "%" if o.get("percent") else (" " + o["hint"] if o.get("hint") in ("mm", "°") else "")
+                return f"{o['label']} must be a number from {_display(o['min'] * k):g} to {_display(o['max'] * k):g}{unit}"
+            return f"{o['label']}: {message[len(o['key']) + 1:]}"
+    return message
 
 
 def _display(x):
@@ -134,12 +166,18 @@ def _display(x):
 
 
 def pose(matrix):
-    """The part of a world transform that changes the fins (rotation + scale): its
-    upper 3x3, as a plain tuple so it can be kept on the fins node."""
-    return tuple(round(float(matrix[i][j]), 6) for i in range(3) for j in range(3))
+    """What in a part's world transform decides its fins, as a plain tuple to keep on
+    the fins node: which way is UP in the part's own frame (row 1 of the upper 3x3:
+    Cura is Y-up), and its scale and shear (M^T M). A move, a turn about the vertical
+    and a mirror leave both alone, and the fins (the part's child) still fit."""
+    m = [[float(matrix[i][j]) for j in range(3)] for i in range(3)]
+    up = m[1]
+    gram = [sum(m[k][i] * m[k][j] for k in range(3)) for i in range(3) for j in range(i, 3)]
+    return tuple(up + gram)
 
 
-def is_stale(pose_then, matrix_now):
-    """True when the part was rotated or scaled since its fins were computed.
-    Moving it (translation only) keeps the fins right: they're its child."""
-    return pose_then is not None and pose(matrix_now) != tuple(pose_then)
+def is_stale(pose_then, matrix_now, tol=1e-6):
+    """True when the part was tilted or scaled since its fins were computed."""
+    if pose_then is None:
+        return False
+    return any(abs(a - b) > tol for a, b in zip(pose(matrix_now), pose_then))
