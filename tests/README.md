@@ -126,6 +126,13 @@ that aren't fin geometry, because the file format is equally part of the product
   face alone (dropping a partial one would shear the rest of the mesh), and a
   non-ZIP or mesh-free package throws rather than opening blank.
 
+**`stl.test.js`** -- the STL reader in `web/stl.js` (the command line and these tests
+use it; the site parses with three.js's `STLLoader`):
+- our own binary export **reads back** as the same triangles, and ASCII does too;
+- binary is decided by **size**, not by a leading `solid`: CAD exporters (SolidWorks)
+  start binary headers with it, and reading one as text opens an empty part;
+- a **truncated, empty or non-STL** file throws instead of opening blank.
+
 **`step.test.js`** -- STEP import through the real vendored OpenCascade WASM (the
 same `stepObjects()` the app's worker output goes through):
 - a STEP is recognised by its **content** (the `ISO-10303-21;` magic), not its name;

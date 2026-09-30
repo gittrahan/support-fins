@@ -1,5 +1,5 @@
 /**
- * Binary STL writer.
+ * STL reader + binary STL writer.
  *
  * Written here rather than pulled in, because the export is the product: it has
  * to emit the part in its CHOSEN ORIENTATION, seated on the plate, with the fins
@@ -60,6 +60,54 @@ export function writeBinarySTL(tris, name = 'Support Fins') {
   }
 
   return new Blob([buf], { type: 'model/stl' });
+}
+
+/**
+ * Binary or ASCII STL -> flat triangle soup (9 floats per face, as the file has
+ * them). The site itself parses with three.js's STLLoader (ui/io.js); this one is
+ * for the command line and the tests, where there is no three.js.
+ *
+ * Binary is decided by SIZE, not by the "solid" prefix: plenty of CAD exporters
+ * (SolidWorks among them) start a binary file's header with "solid", and reading
+ * one as text gives an empty part instead of an error.
+ *
+ * @param bytes  Uint8Array of the whole file
+ * @returns Float32Array
+ */
+export function readSTL(bytes) {
+  if (bytes.length >= HEADER + 4) {
+    const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const n = dv.getUint32(HEADER, true);
+    if (bytes.length === HEADER + 4 + n * PER_TRI) {
+      if (n === 0) throw new Error('STL has no triangles');
+      const pos = new Float32Array(n * 9);
+      for (let f = 0; f < n; f++) {
+        const o = HEADER + 4 + f * PER_TRI + 12;
+        for (let i = 0; i < 9; i++) pos[f * 9 + i] = dv.getFloat32(o + i * 4, true);
+      }
+      return pos;
+    }
+  }
+  const text = new TextDecoder().decode(bytes.subarray(0, Math.min(bytes.length, 1024)));
+  if (!/^\s*solid\b/.test(text)) {
+    throw new Error('not an STL: wrong size for binary and no "solid" line for ASCII (truncated file?)');
+  }
+  return readAsciiSTL(new TextDecoder().decode(bytes));
+}
+
+function readAsciiSTL(text) {
+  const out = [];
+  const re = /\bvertex\s+(\S+)\s+(\S+)\s+(\S+)/g;
+  for (let m; (m = re.exec(text));) {
+    for (let k = 1; k <= 3; k++) {
+      const v = Number(m[k]);
+      if (!Number.isFinite(v)) throw new Error(`ASCII STL has a bad vertex: ${m[0]}`);
+      out.push(v);
+    }
+  }
+  if (out.length === 0) throw new Error('STL has no triangles');
+  if (out.length % 9 !== 0) throw new Error('ASCII STL has a facet without three vertices (truncated file?)');
+  return Float32Array.from(out);
 }
 
 /** Trigger a download without touching the network. */

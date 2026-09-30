@@ -9,6 +9,7 @@ export const { buildTopology, analyze } = await import(`${WEB}overhangs.js`);
 export const fins = await import(`${WEB}fins.js`);
 export const prop = await import(`${WEB}prop.js`);
 export const { insidePart } = await import(`${WEB}inside.js`);
+export const { readSTL } = await import(`${WEB}stl.js`);
 
 // --- assertions -----------------------------------------------------------
 export function assert(cond, msg) {
@@ -19,17 +20,6 @@ export function assertClose(a, b, tol, msg) {
 }
 
 // --- STL + geometry --------------------------------------------------------
-export function readSTL(bytes) {
-  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const n = dv.getUint32(80, true);
-  const pos = new Float32Array(n * 9);
-  for (let f = 0; f < n; f++) {
-    const o = 84 + f * 50 + 12;
-    for (let i = 0; i < 9; i++) pos[f * 9 + i] = dv.getFloat32(o + i * 4, true);
-  }
-  return pos;
-}
-
 export function loadModel(name) {
   const pos = readSTL(Deno.readFileSync(`${MODELS}${name}.stl`));
   return buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
