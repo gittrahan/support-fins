@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write
 // Support Fins command line: `deno run -RW support-fins.js part.stl` or
-// `node support-fins.js part.stl` (Node 20+). The logic is in cli.js; this file
+// `node support-fins.js part.stl` (Node 20.10+: JSON import attributes). The logic is in cli.js; this file
 // only gives it a file system and an exit code.
 import { run } from './cli.js';
 

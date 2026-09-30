@@ -7,6 +7,14 @@
 // two word for word (plugins/cli/tests/cli.test.js checks them against each other
 // when python3 is on the PATH).
 
+// Python's f"{x:.1f}": an exact tie rounds to even (4.25 -> 4.2), where toFixed rounds up.
+function oneDecimal(x) {
+  const t = x * 10;
+  const f = Math.floor(t);
+  const r = t - f === 0.5 ? (f % 2 === 0 ? f : f + 1) : Math.round(t);
+  return (r / 10).toFixed(1);
+}
+
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
 /** @param {object} stats  computeFins(...).stats */
@@ -23,7 +31,7 @@ export function reportLine(stats) {
   }
   const floating = stats.floating || 0;
   if (floating) {
-    const drop = Number(stats.floatingDrop || 0).toFixed(1);
+    const drop = oneDecimal(Number(stats.floatingDrop || 0));
     parts.push((floating === 1
       ? `one piece isn't joined to the rest: it starts ${drop} mm up`
       : `${floating} pieces aren't joined to the rest: the first starts ${drop} mm up`)

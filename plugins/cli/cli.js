@@ -6,10 +6,11 @@
 // plugins/shared/engine computeFins places the fins exactly as it does for Orca,
 // Cura or Fusion. Flags come from options.json, so a flag is a site setting is a
 // plugin dialog control.
-import { computeFins, optionsFromDialog, OPTIONS_SCHEMA } from '../shared/engine/fins_entry.js';
+import { computeFins, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from '../shared/engine/fins_entry.js';
 import { reportLine } from '../shared/engine/report.js';
 import { readSTL, writeBinarySTL } from '../../web/stl.js';
 import { readThreeMF, writeThreeMF } from '../../web/threemf.js';
+import { unzip } from '../../web/zip.js';
 
 // --- flags from options.json -------------------------------------------------
 
@@ -29,8 +30,9 @@ export function helpText() {
     '',
     '  -o, --output <file>   where to write (.3mf or .stl); one input only.',
     '                        default: <part>-fins.3mf next to the input',
-    '  --rot <x,y,z>         pose the part first: degrees about the plate\'s X, then Y, then Z',
-    '  --fins-only           write only the fins + bed pad (an .stl that lines up with the part)',
+    '  --rot <x,y,z>         pose the part first, in degrees: the site\'s "X · Y · Z" readout',
+    '  --fins-only           write only the fins + bed pad, lined up with the part as it is in',
+    '                        your file (so not with --rot)',
     '  --object <n|name>     which object of a multi-object 3MF to fin (1-based)',
     '  --json                one JSON line per file instead of the summary',
     '  -h, --help            this text',
@@ -50,7 +52,7 @@ export function helpText() {
     lines.push(`  ${name.padEnd(38)} ${what}`);
   }
   lines.push('', 'Overhangs a fin can\'t reach are reported, not errors: exit 0. Exit 1 = a file',
-    'failed; exit 2 = bad arguments.');
+    'failed; exit 2 = bad arguments. `--` ends the options (for a file named -x.stl).');
   return lines.join('\n');
 }
 
@@ -60,8 +62,11 @@ class UsageError extends Error {}
 export function parseArgs(argv) {
   const out = { inputs: [], output: null, rot: null, finsOnly: false, object: null,
                 json: false, help: false, dialog: {} };
+  let files = false;
   for (let i = 0; i < argv.length; i++) {
     let a = argv[i];
+    if (files) { out.inputs.push(a); continue; }
+    if (a === '--') { files = true; continue; }
     let value = null;
     const eq = a.startsWith('--') ? a.indexOf('=') : -1;
     if (eq > 0) { value = a.slice(eq + 1); a = a.slice(0, eq); }
@@ -114,16 +119,20 @@ function parseRot(s) {
 
 // --- geometry ---------------------------------------------------------------
 
-/** Column-major 3x3 (three.js Matrix3.elements) for X, then Y, then Z about the plate axes. */
+/**
+ * Column-major 3x3 (three.js Matrix3.elements) for the site's rotation readout:
+ * "X a · Y b · Z c" is three.js Euler(a, b, c, 'XYZ'), i.e. R = Rx * Ry * Rz, so the
+ * numbers on printfins.com pose the part the same way here.
+ */
 export function rotationMatrix([ax, ay, az]) {
   const r = (d) => (d * Math.PI) / 180;
   const [cx, sx, cy, sy, cz, sz] = [Math.cos(r(ax)), Math.sin(r(ax)), Math.cos(r(ay)),
     Math.sin(r(ay)), Math.cos(r(az)), Math.sin(r(az))];
-  // R = Rz * Ry * Rx, stored by column
+  // three.js Matrix4.makeRotationFromEuler, order 'XYZ', stored by column
   return [
-    cz * cy, sz * cy, -sy,
-    cz * sy * sx - sz * cx, sz * sy * sx + cz * cx, cy * sx,
-    cz * sy * cx + sz * sx, sz * sy * cx - cz * sx, cy * cx,
+    cy * cz, cx * sz + sx * sy * cz, sx * sz - cx * sy * cz,
+    -cy * sz, cx * cz - sx * sy * sz, sx * cz + cx * sy * sz,
+    sy, -sx * cy, cx * cy,
   ];
 }
 
@@ -153,6 +162,12 @@ const triples = (flat, add = [0, 0, 0]) => {
 
 async function readPart(path, bytes, object) {
   if (/\.3mf$/i.test(path)) {
+    // Our own export holds part + fins as one object: finning it would put fins
+    // under the old fins. Refuse rather than print that.
+    const model = (await unzip(bytes)).get('3D/3dmodel.model');
+    if (model && new TextDecoder().decode(model).includes('<metadata name="Application">Support Fins</metadata>')) {
+      throw new Error('already has fins (a Support Fins export): fin the original part instead');
+    }
     const m = await readThreeMF(bytes);
     const objs = m.objects || [];
     if (objs.length <= 1 && object === null) return m.positions;
@@ -169,6 +184,8 @@ async function readPart(path, bytes, object) {
   throw new Error('reads .stl and .3mf only');
 }
 
+const sameFile = (a, b) => a.replace(/^\.[\\/]/, '') === b.replace(/^\.[\\/]/, '');
+
 function defaultOutput(input, finsOnly) {
   const base = input.replace(/\.(stl|3mf)$/i, '');
   return finsOnly ? `${base}-fins-only.stl` : `${base}-fins.3mf`;
@@ -182,11 +199,17 @@ export async function finFile(input, args, io, engineOptions) {
   const output = args.output ?? defaultOutput(input, args.finsOnly);
   if (!/\.(3mf|stl)$/i.test(output)) throw new Error(`output ${output}: write .3mf or .stl`);
   if (args.finsOnly && !/\.stl$/i.test(output)) throw new Error('--fins-only writes an .stl');
+  if (sameFile(output, input)) throw new Error(`won't overwrite the input; pick another -o`);
   const posed = pose(await readPart(input, await io.read(input), args.object), args.rot);
   const { triangles, offset, stats } = computeFins(posed, engineOptions);
-  const fins = triples(triangles);
-  const part = triples(posed, [offset.x, offset.y, offset.z]);
   const name = (input.split(/[\\/]/).pop() || 'part').replace(/\.(stl|3mf)$/i, '');
+  if (args.finsOnly && triangles.length === 0) {
+    return { input, output: null, stats, report: `${reportLine(stats)}; no fins, nothing written` };
+  }
+  // The fins come back in the engine's seated frame. --fins-only maps them back onto
+  // the part as it is in the file (fin - offset); otherwise the part moves to them.
+  const fins = triples(triangles, args.finsOnly ? [-offset.x, -offset.y, -offset.z] : [0, 0, 0]);
+  const part = triples(posed, [offset.x, offset.y, offset.z]);
   const blob = args.finsOnly ? writeBinarySTL(fins, `${name} fins`)
     : /\.3mf$/i.test(output) ? writeThreeMF(part, fins, name)
     : writeBinarySTL([...part, ...fins], name);
@@ -209,7 +232,15 @@ export async function run(argv, io) {
     if (args.help) { io.out(helpText()); return 0; }
     if (args.inputs.length === 0) throw new UsageError('no input file (see --help)');
     if (args.output && args.inputs.length > 1) throw new UsageError('-o takes one input; with several, each is written next to its input');
+    if (args.finsOnly && args.rot) {
+      throw new UsageError('--fins-only lines up with the part as it is in your file, so it can\'t take --rot: '
+        + 'pose the part in your file, or write part + fins (.3mf)');
+    }
     engineOptions = optionsFromDialog(args.dialog);
+    // No setting the math ignores goes by silently (the site hides these controls).
+    for (const key of Object.keys(args.dialog)) {
+      if (!optionVisible(key, args.dialog)) io.err(`support-fins: warning: --${flagOf(key)} does nothing with these settings`);
+    }
   } catch (e) {
     // optionsFromDialog speaks in the entry's units; say it in the flag's.
     io.err(`support-fins: ${e instanceof UsageError ? e.message : flagMessage(e.message)}`);
@@ -219,7 +250,7 @@ export async function run(argv, io) {
   for (const input of args.inputs) {
     try {
       const r = await finFile(input, args, io, engineOptions);
-      io.out(args.json ? JSON.stringify(r) : `${r.input} -> ${r.output}: ${r.report}`);
+      io.out(args.json ? JSON.stringify(r) : `${r.input} -> ${r.output ?? '(nothing)'}: ${r.report}`);
     } catch (e) {
       failed++;
       io.err(args.json ? JSON.stringify({ input, error: e.message }) : `support-fins: ${input}: ${e.message}`);

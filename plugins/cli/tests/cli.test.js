@@ -2,9 +2,11 @@
 //   - it runs the plugins' engine path: the CLI's fins are computeFins' fins on the
 //     posed part, bit for bit, and match the website's own path the way every
 //     plugin does (same overhangs + fin count, tines within 3: ENGINE-SENSITIVITY.md);
-//   - --rot turns about the plate's X, then Y, then Z;
+//   - --rot reads the site's "X · Y · Z" readout (three.js Euler XYZ = Rx*Ry*Rz);
 //   - what it writes: a 3MF with the part and the fins seated together on z = 0,
-//     an STL with both, or the fins alone lined up with it;
+//     an STL with both, or the fins alone lined up with the part as it is in the file;
+//   - it won't fin its own output, overwrite its input, or take a setting the math
+//     ignores without saying so;
 //   - the flags reach the engine, in the site's units (percent sliders 0-100);
 //   - failures are loud and scoped: a bad flag is exit 2 before anything runs, a bad
 //     file is exit 1 and the other files still get their fins.
@@ -15,7 +17,7 @@ import { computeFins, ENGINE_DEFAULTS } from '../../shared/engine/fins_entry.js'
 import { reportLine } from '../../shared/engine/report.js';
 import { readSTL, MODELS, analyze, fins, rotX, rotY, assert, assertClose, block } from '../../../tests/_util.js';
 import { buildTopology, IDENTITY3 } from '../../../web/overhangs.js';
-import { readThreeMF, writeThreeMF } from '../../../web/threemf.js';
+import { readThreeMF } from '../../../web/threemf.js';
 import { writeBinarySTL } from '../../../web/stl.js';
 
 const LBRACKET = Deno.readFileSync(`${MODELS}lbracket.stl`);
@@ -45,13 +47,20 @@ function bounds(pos) {
   return { lo, hi };
 }
 
-Deno.test('cli: --rot is X, then Y, then Z about the plate, in the tests\' matrix layout', () => {
+// v' = A (B v), column-major like three.js Matrix3.elements
+const mul = (A, B) => { const C = new Array(9).fill(0);
+  for (let c = 0; c < 3; c++) for (let r = 0; r < 3; r++) for (let k = 0; k < 3; k++) C[c * 3 + r] += A[k * 3 + r] * B[c * 3 + k];
+  return C; };
+const rotZ = (d) => { const c = Math.cos(d * Math.PI / 180), s = Math.sin(d * Math.PI / 180); return [c, s, 0, -s, c, 0, 0, 0, 1]; };
+
+Deno.test('cli: --rot is the site\'s readout, three.js Euler XYZ (Rx * Ry * Rz)', () => {
   const same = (a, b, msg) => a.forEach((v, i) => assertClose(v, b[i], 1e-12, `${msg}[${i}]`));
   same(rotationMatrix([30, 0, 0]), rotX(30), 'X');
   same(rotationMatrix([0, 35, 0]), rotY(35), 'Y');
-  // X then Y: the point (0,1,0) turned 90 about X lands on +Z, then 90 about Y lands on +X
+  same(rotationMatrix([30, 35, 20]), mul(rotX(30), mul(rotY(35), rotZ(20))), 'XYZ');
+  // X 90 · Y 90: (0,1,0) is untouched by Y, then X turns it onto +Z
   const p = pose([0, 1, 0, 0, 0, 0, 0, 0, 0], [90, 90, 0]);
-  assertClose(p[0], 1, 1e-12, 'x'); assertClose(p[1], 0, 1e-12, 'y'); assertClose(p[2], 0, 1e-12, 'z');
+  assertClose(p[0], 0, 1e-12, 'x'); assertClose(p[1], 0, 1e-12, 'y'); assertClose(p[2], 1, 1e-12, 'z');
 });
 
 Deno.test('cli: fins are computeFins\' on the posed part, and match the website like every plugin', async () => {
@@ -84,6 +93,15 @@ Deno.test('cli: the 3MF holds the part and its fins, seated together on the plat
   assert(m.positions.length / 9 === partTris + direct.triangles.length / 9, 'triangle count');
   const b = bounds(m.positions);
   assertClose(b.lo[2], 0, 1e-4, 'sits on z = 0');
+  // the part comes first, moved by exactly the engine's offset: the fins' frame
+  const posed = pose(readSTL(LBRACKET), [0, 35, 0]);
+  const off = [direct.offset.x, direct.offset.y, direct.offset.z];
+  for (let i = 0; i < posed.length; i++) {
+    assertClose(m.positions[i], posed[i] + off[i % 3], 1e-4, `part value ${i}`);
+  }
+  const pb = bounds(m.positions.subarray(0, posed.length));
+  assertClose((pb.lo[0] + pb.hi[0]) / 2, 0, 1e-4, 'part centred in x');
+  assertClose((pb.lo[1] + pb.hi[1]) / 2, 0, 1e-4, 'part centred in y');
   // the part alone is centred over the origin (the site's export frame)
   const part = bounds(pose(readSTL(LBRACKET), [0, 35, 0]));
   const partCentre = [(part.lo[0] + part.hi[0]) / 2, (part.lo[1] + part.hi[1]) / 2];
@@ -96,15 +114,27 @@ Deno.test('cli: the 3MF holds the part and its fins, seated together on the plat
     `fins centred at ${fc} are off the part (half size ${half}, raw centre ${partCentre})`);
 });
 
-Deno.test('cli: .stl output merges part + fins; --fins-only writes the fins alone', async () => {
+Deno.test('cli: .stl output merges part + fins; --fins-only lines the fins up with the file\'s part', async () => {
   const direct = computeFins(pose(readSTL(LBRACKET), [0, 35, 0]));
   const partN = readSTL(LBRACKET).length / 9, finN = direct.triangles.length / 9;
   const both = await cli(['lb.stl', '--rot', '0,35,0', '-o', 'out.stl']);
   assert(readSTL(both.fs.get('out.stl')).length / 9 === partN + finN, 'merged STL count');
-  const only = await cli(['lb.stl', '--rot', '0,35,0', '--fins-only']);
-  const got = readSTL(only.fs.get('lb-fins-only.stl'));
-  assert(got.length / 9 === finN, 'fins-only count');
-  for (let i = 0; i < got.length; i++) assert(got[i] === direct.triangles[i], `fins-only value ${i}`);
+  // A part already posed in its file (at x=137 on some plate): the fins-only STL
+  // must land under it there, as in the user's own slicer.
+  const posed = pose(readSTL(LBRACKET), [0, 35, 0]).map((v, i) => v + [137, 88, 5][i % 3]);
+  const file = new Uint8Array(await writeBinarySTL([...Array(posed.length / 3)].map((_, j) => [posed[j * 3], posed[j * 3 + 1], posed[j * 3 + 2]]), 'posed').arrayBuffer());
+  const only = await cli(['posed.stl', '--fins-only'], { 'posed.stl': file });
+  assert(only.code === 0, `exit ${only.code}: ${only.err}`);
+  const got = readSTL(only.fs.get('posed-fins-only.stl'));
+  const ref = computeFins(readSTL(file));
+  assert(got.length === ref.triangles.length && got.length > 0, 'fins-only count');
+  const off = [ref.offset.x, ref.offset.y, ref.offset.z];
+  for (let i = 0; i < got.length; i++) assertClose(got[i], ref.triangles[i] - off[i % 3], 1e-4, `fins-only value ${i}`);
+  const fb = bounds(got), pb = bounds(readSTL(file));
+  assertClose(fb.lo[2], pb.lo[2], 1e-3, 'fins start where the part\'s plate is');
+  // with no overhang there are no fins, and no empty file
+  const none = await cli(['lb.stl', '--fins-only']);
+  assert(none.code === 0 && !none.fs.has('lb-fins-only.stl') && /nothing written/.test(none.out[0]), none.out[0]);
 });
 
 Deno.test('cli: flags reach the engine in the site\'s units', async () => {
@@ -128,6 +158,8 @@ Deno.test('cli: bad arguments are exit 2 with a message in the flag\'s own units
     [['lb.stl', '--rot', '35'], /--rot takes three angles/],
     [['lb.stl', '--layer-height', 'thick'], /--layer-height must be a number/],
     [['a.stl', 'b.stl', '-o', 'x.3mf'], /-o takes one input/],
+    [['lb.stl', '--fins-only', '--rot', '0,35,0'], /--fins-only .* can't take --rot/],
+    [['lb.stl', '--no-coverage'], /unknown option --no-coverage/],
     [[], /no input file/],
   ];
   for (const [argv, re] of cases) {
@@ -136,6 +168,14 @@ Deno.test('cli: bad arguments are exit 2 with a message in the flag\'s own units
     assert(re.test(err.join('\n')), `${argv.join(' ')}: said ${JSON.stringify(err)}`);
     assert(fs.size === 1, `${argv.join(' ')}: wrote a file`);
   }
+  const warned = await cli(['lb.stl', '--rot', '0,35,0', '--sway-reach', '40', '--no-tines', '--sway-tine-spacing', '4']);
+  assert(warned.code === 0, `warnings are not errors: exit ${warned.code}`);
+  assert(/--sway-reach does nothing/.test(warned.err.join('\n')) && /--sway-tine-spacing does nothing/.test(warned.err.join('\n')),
+    `ignored settings must warn: ${JSON.stringify(warned.err)}`);
+  const quiet = await cli(['lb.stl', '--rot', '0,35,0', '--sway', '--sway-reach', '40']);
+  assert(quiet.err.length === 0, `a used setting warned: ${quiet.err}`);
+  const dashed = await cli(['--', '-x.stl'], { '-x.stl': LBRACKET });
+  assert(dashed.code === 0 && dashed.fs.has('-x-fins.3mf'), `-- ends the options: ${dashed.err}`);
   const help = await cli(['--help']);
   assert(help.code === 0 && /--coverage <0-100>/.test(help.out[0]), 'help lists the settings');
 });
@@ -148,36 +188,51 @@ Deno.test('cli: a bad file is exit 1 and the other files still get their fins', 
   assert(err.length === 3, `errors: ${JSON.stringify(err)}`);
   assert(/broken\.stl: not an STL/.test(err[0]), err[0]);
   assert(/notes\.txt: reads \.stl and \.3mf only/.test(err[2]), err[2]);
+  const self = await cli(['lb.stl', '-o', 'lb.stl']);
+  assert(self.code === 1 && /won't overwrite the input/.test(self.err[0]) && self.fs.get('lb.stl') === LBRACKET, self.err[0]);
 });
 
-Deno.test('cli: a 3MF input reads; one with several objects asks which', async () => {
-  const cube = [];
-  const flat = block(0, 20, 0, 20, 0, 20);
-  for (let i = 0; i < flat.length; i += 3) cube.push([flat[i], flat[i + 1], flat[i + 2]]);
-  const one = new Uint8Array(await writeThreeMF(cube, [], 'cube').arrayBuffer());
-  const r1 = await cli(['c.3mf', '--rot', '45,0,0', '--json'], { 'c.3mf': one });
-  assert(r1.code === 0, `exit ${r1.code}: ${r1.err}`);
-  const want = computeFins(pose(block(0, 20, 0, 20, 0, 20), [45, 0, 0])).stats;
-  assert(JSON.stringify(JSON.parse(r1.out[0]).stats) === JSON.stringify(want), '3MF input fins = STL input fins');
+Deno.test('cli: its own 3MF (part + fins) is refused, not finned again', async () => {
+  const first = await cli(['lb.stl', '--rot', '0,35,0']);
+  const again = await cli(['lb-fins.3mf'], { 'lb-fins.3mf': first.fs.get('lb-fins.3mf') });
+  assert(again.code === 1 && /already has fins/.test(again.err[0]), JSON.stringify(again.err));
+  assert(!again.fs.has('lb-fins-fins.3mf'), 'wrote fins on fins');
+});
 
-  // A plate of two objects: refused without --object, finned with it.
+// A 3MF as a slicer writes it: one mesh object per entry of `objects` (flat soups).
+async function plate3MF(objects) {
   const { zipStore } = await import('../../../web/zip.js');
-  const mesh = (x) => `<object id="${x}" type="model"><mesh><vertices>`
-    + [[0, 0, 0], [20, 0, 0], [0, 20, 0], [0, 0, 20]].map(([a, b, c]) => `<vertex x="${a + x * 40}" y="${b}" z="${c}"/>`).join('')
-    + '</vertices><triangles><triangle v1="0" v2="2" v3="1"/><triangle v1="0" v2="1" v3="3"/>'
-    + '<triangle v1="0" v2="3" v3="2"/><triangle v1="1" v2="2" v3="3"/></triangles></mesh></object>';
+  const obj = (flat, id) => {
+    let v = '', t = '';
+    for (let i = 0; i < flat.length; i += 3) v += `<vertex x="${flat[i]}" y="${flat[i + 1]}" z="${flat[i + 2]}"/>`;
+    for (let f = 0; f < flat.length / 9; f++) t += `<triangle v1="${f * 3}" v2="${f * 3 + 1}" v3="${f * 3 + 2}"/>`;
+    return `<object id="${id}" type="model"><mesh><vertices>${v}</vertices><triangles>${t}</triangles></mesh></object>`;
+  };
   const xml = '<?xml version="1.0"?><model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">'
-    + `<resources>${mesh(1)}${mesh(2)}</resources><build><item objectid="1"/><item objectid="2"/></build></model>`;
+    + `<metadata name="Application">SomeSlicer</metadata><resources>${objects.map((o, i) => obj(o, i + 1)).join('')}</resources>`
+    + `<build>${objects.map((_, i) => `<item objectid="${i + 1}"/>`).join('')}</build></model>`;
   const rels = '<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
     + '<Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>';
-  const two = new Uint8Array(await zipStore([
+  return new Uint8Array(await zipStore([
     { name: '_rels/.rels', data: new TextEncoder().encode(rels) },
     { name: '3D/3dmodel.model', data: new TextEncoder().encode(xml) },
   ]).arrayBuffer());
+}
+
+Deno.test('cli: a 3MF input reads; one with several objects asks which', async () => {
+  const cube = block(0, 20, 0, 20, 0, 20);
+  const r1 = await cli(['c.3mf', '--rot', '45,0,0', '--json'], { 'c.3mf': await plate3MF([cube]) });
+  assert(r1.code === 0, `exit ${r1.code}: ${r1.err}`);
+  const want = computeFins(pose(cube, [45, 0, 0])).stats;
+  assert(JSON.stringify(JSON.parse(r1.out[0]).stats) === JSON.stringify(want), '3MF input fins = STL input fins');
+
+  // A plate of two objects: refused without --object, finned with it.
+  const two = await plate3MF([cube, block(40, 60, 0, 20, 0, 20)]);
   const refused = await cli(['plate.3mf'], { 'plate.3mf': two });
   assert(refused.code === 1 && /has 2 objects .*pick one with --object/.test(refused.err[0]), refused.err[0]);
-  const picked = await cli(['plate.3mf', '--object', '2'], { 'plate.3mf': two });
+  const picked = await cli(['plate.3mf', '--object', '2', '--rot', '45,0,0', '--json'], { 'plate.3mf': two });
   assert(picked.code === 0 && picked.fs.has('plate-fins.3mf'), `--object 2: ${picked.err}`);
+  assert(JSON.stringify(JSON.parse(picked.out[0]).stats) === JSON.stringify(want), '--object 2 fins that cube alone');
 });
 
 Deno.test('cli: the summary line says what was left unsupported, word for word with the Python hosts', async () => {
@@ -186,9 +241,11 @@ Deno.test('cli: the summary line says what was left unsupported, word for word w
     { braces: 1, props: 0, tines: 1, swayBraces: 2, unserved: 1 },
     { braces: 0, props: 2, tines: 0, unserved: 3, floating: 1, floatingDrop: 4.26 },
     { braces: 2, tines: 5, floating: 2, floatingDrop: 12 },
+    { braces: 1, tines: 2, floating: 1, floatingDrop: 4.25 },   // a tie: Python rounds to even
   ];
   assert(/1 overhang is too shallow/.test(reportLine(samples[1])), reportLine(samples[1]));
   assert(/one piece isn't joined to the rest: it starts 4\.3 mm up/.test(reportLine(samples[2])), reportLine(samples[2]));
+  assert(/it starts 4\.2 mm up/.test(reportLine(samples[4])), reportLine(samples[4]));
   let py;
   try {
     py = new Deno.Command('python3', {
