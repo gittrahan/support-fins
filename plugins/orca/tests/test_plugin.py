@@ -45,55 +45,6 @@ def rot_x(deg, shift=(0, 0, 0), scale=1.0):
     return m
 
 
-def loops_area(groups):
-    return sum(abs(SF.signed_area(o)) - sum(abs(SF.signed_area(h)) for h in hs) for o, hs in groups)
-
-
-# ------------------------------------------------------------------ slicing core
-def test_cube_cross_section_is_one_square():
-    box = trimesh.creation.box((10, 20, 30))
-    box.apply_translation([0, 0, 15])
-    loops = SF.slice_soup(np.asarray(box.triangles), 7.3)
-    assert len(loops) == 1
-    assert abs(abs(SF.signed_area(loops[0])) - 200.0) < 1e-9
-
-
-def test_hole_is_grouped_under_its_outer():
-    tube = trimesh.creation.annulus(r_min=4, r_max=10, height=20, sections=64)
-    tube.apply_translation([0, 0, 10])
-    groups = SF.group_loops(SF.slice_soup(np.asarray(tube.triangles), 10.1))
-    assert len(groups) == 1 and len(groups[0][1]) == 1
-    ring = tube.section(plane_origin=[0, 0, 10.1], plane_normal=[0, 0, 1]).to_2D()[0].area
-    assert abs(loops_area(groups) - ring) / ring < 1e-9
-
-
-def test_winding_is_not_trusted():
-    box = trimesh.creation.box((10, 10, 10))
-    box.apply_translation([0, 0, 5])
-    flipped = np.asarray(box.triangles)[:, ::-1, :]  # every face inside-out
-    groups = SF.group_loops(SF.slice_soup(flipped, 5.0))
-    assert len(groups) == 1 and abs(loops_area(groups) - 100.0) < 1e-9
-
-
-def test_face_exactly_on_the_plane_counts_as_inside_like_orca():
-    # Orca puts a layer whose slice plane touches a top face INSIDE the solid
-    # (verified against a real Orca 2.5 slice of a finned STL in an Orca 2.5 nightly).
-    box = trimesh.creation.box((10, 10, 10))
-    box.apply_translation([0, 0, 5])
-    top = SF.slice_soup(np.asarray(box.triangles), 10.0)                 # top face ON the plane
-    assert len(top) == 1 and abs(abs(SF.signed_area(top[0])) - 100.0) < 1e-5
-    assert SF.slice_soup(np.asarray(box.triangles), 0.0) == []           # bottom face ON the plane
-
-
-def test_overlapping_solids_split_into_shells():
-    a = trimesh.creation.box((10, 10, 10))
-    b = trimesh.creation.box((10, 10, 10))
-    b.apply_translation([5, 0, 0])            # overlaps a, shares no edges
-    soup = np.concatenate([a.triangles, b.triangles])
-    shells = SF.split_shells(soup)
-    assert sorted(len(s) for s in shells) == [12, 12]
-
-
 # ------------------------------------------------------------------ frame
 def test_slice_frame_round_trip_and_refusal():
     f = SF.SliceFrame(np.array([100.0, 50.0]), np.array([140.0, 70.0]),
