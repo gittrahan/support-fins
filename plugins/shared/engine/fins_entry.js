@@ -206,6 +206,9 @@ export function computeFins(positions, options = {}) {
       finTriangles: fin.length / 9,
       padTriangles: pad.length / 9,
       braces: built.braceCount ?? 0,
+      // plain walls (no tines): every wall when Tines is off. walls = braces + props,
+      // as the site's readout counts them
+      props: built.propCount ?? 0,
       tines: built.tines ?? 0,
       // Sway braces are counted apart from the fins: they hold a tall part's
       // sides rather than an overhang, so a readout that merged them would

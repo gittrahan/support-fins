@@ -117,6 +117,12 @@ Deno.test('pad style: Light and Sure hold build different pads, the fins stay pu
   } finally { resetPla(); }
 });
 
+Deno.test('Tines off: plain walls are counted as walls (props), not lost', () => {
+  const on = computeFins(PART, OPTS).stats, off = computeFins(PART, { ...OPTS, tines: false }).stats;
+  assert(off.tines === 0 && off.braces === 0 && off.props >= 1, JSON.stringify(off));
+  assert(on.props === 0 && on.braces >= 1, JSON.stringify(on));
+});
+
 Deno.test('pad style Off is bedPad: false', () => {
   const off = computeFins(PART, { ...OPTS, padStyle: 'off' });
   assert(off.stats.padTriangles === 0, 'Off still built a pad');

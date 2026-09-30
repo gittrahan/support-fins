@@ -102,7 +102,18 @@ def host_options(ctx, values):
     sway keys, checks every value and refuses a bad one (a percent control sends
     value / 100; None or '' means the default). Raises on a bad value.
     """
-    return json.loads(ctx.call("SupportFinsEngine.optionsFromDialogJson", json.dumps(values)))
+    try:
+        return json.loads(ctx.call("SupportFinsEngine.optionsFromDialogJson", json.dumps(values)))
+    except Exception as e:
+        raise ValueError(_js_message(e)) from None
+
+
+def _js_message(e):
+    """V8's error text carries the whole bundle's source after the message; keep only
+    what the engine said ("coverage must be 0..1 ..."), which is what a user sees."""
+    text = str(e)
+    at = text.find("Error: ")
+    return text[at + 7:].split("\n", 1)[0] if at >= 0 else text.split("\n", 1)[0]
 
 
 def host_visible(ctx, key, values):
@@ -117,7 +128,8 @@ def host_report(stats):
     for a fin this way up, and pieces that start in mid-air. Same facts as the
     website's readout (web/ui/readout.js), shorter.
     """
-    walls, tines = stats.get("braces", 0), stats.get("tines", 0)
+    walls = stats.get("braces", 0) + stats.get("props", 0)   # tined + plain, as the site counts
+    tines = stats.get("tines", 0)
     parts = [f"{walls} wall{'' if walls == 1 else 's'}, {tines} tine{'' if tines == 1 else 's'}"]
     unserved = stats.get("unserved") or 0
     if unserved:
