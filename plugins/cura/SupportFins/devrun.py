@@ -1,12 +1,16 @@
 """Developer smoke test in the real Cura. Inert unless dev_autorun.json sits next to
 this file:
 
-    {"rotate_x": 35, "slice": true}
+    {"rotate_x": 35, "slice": true,
+     "settings": {"material": "petg", "tines": "false"}, "dialog": true, "stale": true}
 
 Then every model opened (e.g. `open -a "UltiMaker Cura" part.stl`) is tilted, gets
 fins, and is put through re-run / undo / remove / undo; each step goes to
-dev_log.jsonl, and with "slice" the sliced G-code to dev_plate<N>.gcode. Used to check
-the plugin end to end without clicking (plugins/cura/README.md, "Developing").
+dev_log.jsonl, and with "slice" the sliced G-code to dev_plate<N>.gcode. Optional:
+"settings" is saved as the dialog would save it before the first run; "dialog" opens
+the settings dialog and logs what it shows; "stale" rotates the part after the last
+run and presses Update on the "out of date" message. Used to check the plugin end to
+end without clicking (plugins/cura/README.md, "Developing").
 """
 import json
 import math
@@ -57,7 +61,15 @@ class _Run:
         if rx:
             self.part.rotate(Quaternion.fromAngleAxis(math.radians(rx), Vector.Unit_X),
                              SceneNode.TransformSpace.World)
+        if "settings" in self.cfg:
+            from . import settings
+            app.getPreferences().setValue(settings.PREF, settings.dump(self.cfg["settings"]))
+            log(step="settings saved", settings=self.cfg["settings"])
         self.steps = [self.add, self.readd, self.undo, self.remove, self.undo, self.slice]
+        if self.cfg.get("dialog"):
+            self.steps.insert(0, self.dialog)
+        if self.cfg.get("stale"):
+            self.steps += [self.rotate, self.update]
         QTimer.singleShot(1500, self.next)
 
     def fins(self):
@@ -115,3 +127,35 @@ class _Run:
                 f.write("".join(chunks))
             text = "".join(chunks)
             log(step="sliced", path=path, fins_layers=text.count(";MESH:Support Fins"))
+
+    def dialog(self):
+        self.ext.showSettings()
+        d = self.ext._dialog
+        log(step="dialog", opened=d is not None and d.isVisible(),
+            rows=[(r["key"], r.get("value", r.get("index"))) for r in self.ext.rows],
+            visible=list(self.ext.visible))
+        if d is not None:
+            QTimer.singleShot(700, lambda: d.grabWindow().save(os.path.join(HERE, "dev_dialog.png")))
+        QTimer.singleShot(900, self.dialog_edits)
+        self.steps.insert(0, lambda: None)      # give the screenshot + edits time
+
+    def dialog_edits(self):
+        self.ext.setValue("tines", False)
+        log(step="dialog: tines off", visible=list(self.ext.visible))
+        self.ext.setValue("coverage", 500)           # a percent field typed out of range
+        log(step="dialog: bad coverage", saved=self.ext.save(), error=self.ext.error)
+        if self.ext._dialog is not None:
+            self.ext._dialog.close()
+
+    def rotate(self):
+        self.part.rotate(Quaternion.fromAngleAxis(math.radians(10), Vector.Unit_Z),
+                         SceneNode.TransformSpace.World)
+        self.report("rotated 10 deg: stale message shown=%s" % (id(self.part) in self.ext._stale))
+
+    def update(self):
+        msg = self.ext._stale.get(id(self.part))
+        if msg is None:
+            log(step="update: no stale message to press")
+            return
+        self.ext._onStaleAction(msg, "update")
+        self.steps.insert(0, lambda: self.report("updated: stale=%s" % (id(self.part) in self.ext._stale)))

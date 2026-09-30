@@ -10,8 +10,7 @@ The geometry is **the website's engine itself** (`web/*.js`, unmodified, bundled
 an embedded V8 (mini-racer) that ships inside the plugin. Cura gets the fins the site would give
 the same part in the same pose, and a fix on the site reaches Cura at the next build.
 
-Status: **0.1, experimental.** Tested in Cura 5.13 on an Apple-silicon Mac. Website defaults
-only (no settings dialog yet).
+Status: **0.1, experimental.** Tested in Cura 5.13 on an Apple-silicon Mac.
 
 ## Install
 
@@ -40,12 +39,19 @@ about 64 MB unpacked. `python3 plugins/cura/build.py win_amd64` (or `macosx_10_9
    starts in mid-air. Those aren't hidden: tilt the part and run it again.
 3. Turn Cura's own supports off for the part, and slice.
 
-- The fins move with the part. **Rotate or scale** the part and run *Add Support Fins* again:
-  it replaces the old fins.
+- The fins move with the part. **Rotate or scale** the part and a *Fins are out of date*
+  message offers **Update** (it doesn't re-run by itself: that takes a second or three).
 - **Ctrl+Z** takes the fins off again. *Remove Support Fins* removes them from the selected
   parts, or from every part when nothing is selected.
 - Several parts selected: each gets its own fins. Groups: ungroup first.
 - Layer height comes from the active profile, so the tines land on real layers.
+
+**Settings: Extensions › Support Fins › Support Fins Settings…** The website's settings
+(material, overhang angle, tines and grip, bed pad, sway braces, cutouts, coverage), with its
+defaults and tooltips; *Add Support Fins* stays one click and uses what you saved. The dialog is
+built from the shared `plugins/shared/engine/options.json`, so a new setting on the site shows
+up here at the next build. Material starts as **Match Cura**: PLA or PETG follow the filament
+loaded for the part's extruder, anything else prints with PLA's numbers and the readout says so.
 
 **Tines touch the part rather than bite into it.** Cura's *Remove Mesh Intersection* (a global
 setting, on by default) trims the overlap between the part and the fins object, so each tine
@@ -57,8 +63,9 @@ ends at the part's outer wall. That's deliberate: the tines snap off clean.
 python3 plugins/cura/build.py && python3 -m pytest -q plugins/cura/tests/
 ```
 
-The tests cover the frame mapping (Cura is Y-up, the engine Z-up) and the part → engine → fins
-round trip, without Cura. For the Cura side (menu, background job, scene, undo), drop a
+The tests cover the frame mapping (Cura is Y-up, the engine Z-up), the part → engine → fins
+round trip, and the settings layer (`SupportFins/settings.py`: saved values, Match Cura, the
+dialog's rows, stale fins), without Cura. For the Cura side (menu, background job, scene, undo), drop a
 `dev_autorun.json` next to the built plugin and open a model:
 
 ```sh
@@ -68,4 +75,7 @@ open -a "UltiMaker Cura" web/dev-models/lbracket.stl
 
 The plugin then tilts the part, adds fins, re-runs, undoes, removes, undoes and slices, logging
 each step to `dev_log.jsonl` and saving the G-code to `dev_plate0.gcode` (both next to the
-plugin). Delete the JSON to go back to normal.
+plugin). Add `"settings": {...}` (saved before the first run), `"dialog": true` (opens the
+settings dialog, logs what it shows and saves a screenshot to `dev_dialog.png`) and
+`"stale": true` (rotates the part afterwards and presses **Update**). Delete the JSON to go back
+to normal.
