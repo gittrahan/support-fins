@@ -131,6 +131,9 @@ def host_report(stats):
     walls = stats.get("braces", 0) + stats.get("props", 0)   # tined + plain, as the site counts
     tines = stats.get("tines", 0)
     parts = [f"{walls} wall{'' if walls == 1 else 's'}, {tines} tine{'' if tines == 1 else 's'}"]
+    braces = stats.get("swayBraces") or 0
+    if braces:   # they hold the tall sides, not an overhang: never added to the walls
+        parts[0] += f", {braces} sway brace{'' if braces == 1 else 's'}"
     unserved = stats.get("unserved") or 0
     if unserved:
         parts.append(f"{unserved} overhang{' is' if unserved == 1 else 's are'} too shallow "

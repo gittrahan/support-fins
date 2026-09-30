@@ -270,7 +270,7 @@ def existing_fin_count(design):
 
 
 def _group_name(kind, n):
-    return ('Support fin %d' if kind == 'fin' else 'Bed pad %d') % n
+    return {'fin': 'Support fin %d', 'sway': 'Sway brace %d', 'pad': 'Bed pad %d'}[kind] % n
 
 
 def _warn_if_elsewhere(bodies, comp):
@@ -373,11 +373,12 @@ def add_fin_bodies(design, groups, frame, meta=None):
 
     meshes = comp.meshBodies
     before = set()
-    counts = {'fin': 0, 'pad': 0}
+    counts = {'fin': 0, 'sway': 0, 'pad': 0}
     for b in meshes:
         before.add(b.entityToken)
         if is_fin(b):
-            counts['pad' if b.name.startswith('Bed pad') else 'fin'] += 1
+            counts['pad' if b.name.startswith('Bed pad')
+                   else 'sway' if b.name.startswith('Sway brace') else 'fin'] += 1
     names = []
     for g in groups:
         counts[g.kind] += 1

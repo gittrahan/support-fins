@@ -220,8 +220,11 @@ def _style(inputs):
 def _sync(inputs):
     inputs.itemById('density').isEnabled = inputs.itemById('tines').value
     on = inputs.itemById('braces').value
-    for i in ('sway_from', 'sway_spacing', 'sway_depth'):
-        inputs.itemById(i).isEnabled = on
+    # as on the site: grip-from and spacing place brace TINES, so they need Tines too
+    tines = inputs.itemById('tines').value
+    inputs.itemById('sway_from').isEnabled = on and tines
+    inputs.itemById('sway_spacing').isEnabled = on and tines
+    inputs.itemById('sway_depth').isEnabled = on
 
 
 def _settings(inputs):
@@ -475,7 +478,7 @@ def _finish(ctx, fins, stats):
     """The engine's fins -> the readout and the bodies to add."""
     body, frame, s = ctx['body'], ctx['frame'], ctx['s']
     lines = list(ctx['pre'])
-    groups = shells.fin_groups(fins, stats.get('finTriangles', 0))
+    groups = shells.fin_groups(fins, stats.get('finTriangles', 0), stats.get('swayTriangles', 0))
     if _session.get('earlier'):
         lines.append('%d fin/pad bod%s from an earlier run %s already in Supports; delete them '
                      'if these replace them.' % (_session['earlier'],
@@ -493,7 +496,7 @@ def _finish(ctx, fins, stats):
         return _result(['<b>No fins</b>: %s.' % why] + lines)
 
     n_fin = sum(1 for g in groups if g.kind == 'fin')
-    n_pad = len(groups) - n_fin
+    n_pad = sum(1 for g in groups if g.kind == 'pad')
     grams = _volume_mm3(fins) / 1000.0 * PLA_DENSITY
     # Braces are counted apart from the fins: they hold the part's tall sides,
     # not an overhang, so adding them to the fin count would claim overhangs are

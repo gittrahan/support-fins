@@ -134,6 +134,15 @@ class EngineHost(unittest.TestCase):
         self.assertEqual(no_pad['padTriangles'], 0)
         self.assertEqual(no_tines['tines'], 0)
 
+    def test_sway_braces_become_brace_bodies_not_fins(self):
+        # local issue 018: braces arrived inside the fin block and became 'Support fin N'
+        fins, stats = engine_host.compute_fins(tall_post(150), {'sway': {'on': True}})
+        groups = shells.fin_groups(fins, stats['finTriangles'], stats['swayTriangles'])
+        kinds = [g.kind for g in groups]
+        self.assertEqual(kinds.count('fin'), 0, stats)
+        self.assertEqual(kinds.count('sway'), stats['swayBraces'])
+        self.assertGreaterEqual(stats['swayBraces'], 2)
+
     def test_sway_braces_reach_the_engine_and_come_back_counted(self):
         # A tall post: nothing overhangs, so anything built here is a brace. The
         # whole point of the option is that the engine's own allow-lists (Python

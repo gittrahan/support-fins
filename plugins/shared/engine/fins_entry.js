@@ -189,6 +189,11 @@ export function computeFins(positions, options = {}) {
     tunables,
   });
   const fin = flatten(built.triangles);
+  // Sway braces are appended to the fin soup as one block (web/fins.js), each with
+  // its range in points: count them so a host can tell a brace from a fin.
+  const swayPoints = (built.fins ?? []).filter((f) => f.kind === 'sway')
+    .reduce((n, f) => n + f.triRanges.reduce((m, [a, b]) => m + b - a, 0), 0);
+  const swayTris = typeof built.triangles?.[0] === 'number' ? swayPoints / 9 : swayPoints / 3;
   const pad = flatten(built.padTriangles || []);
   const triangles = new Float32Array(fin.length + pad.length);
   triangles.set(fin, 0);
@@ -199,12 +204,11 @@ export function computeFins(positions, options = {}) {
     offset: { x: result.offset.x - cx, y: result.offset.y - cy, z: result.offset.z - z0 },
     stats: {
       overhangRegions: result.regions.length,
-      // Braces, when asked for, are part of this count: the engine appends them
-      // to the same soup, so a host that splits fins from pad here keeps them
-      // with the fins. Separating them per body would need per-brace ranges,
-      // which this entry point does not expose yet.
-      finTriangles: fin.length / 9,
+      // The soup is fins | sway braces | pad, in these counts.
+      finTriangles: fin.length / 9 - swayTris,
+      swayTriangles: swayTris,
       padTriangles: pad.length / 9,
+      // Tined fins (walls with tines); plain walls are `props`. Sway braces are neither.
       braces: built.braceCount ?? 0,
       // plain walls (no tines): every wall when Tines is off. walls = braces + props,
       // as the site's readout counts them

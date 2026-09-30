@@ -208,17 +208,19 @@ def orient(group):
     return group
 
 
-def fin_groups(fins, fin_triangles):
-    """The engine's output as bodies: fins first (grouped wall + tines), then pads.
+def fin_groups(fins, fin_triangles, sway_triangles=0):
+    """The engine's output as bodies: fins (grouped wall + tines), sway braces, pads.
 
-    fins           flat soup, fin triangles first, then bed-pad triangles (the order
-                   fins_entry.js returns them in)
-    fin_triangles  how many of them are fin triangles (stats['finTriangles'])
+    fins            flat soup: fin triangles, then sway-brace triangles, then bed-pad
+                    triangles (the order fins_entry.js returns them in)
+    fin_triangles   how many are fin triangles (stats['finTriangles'])
+    sway_triangles  how many sway-brace triangles follow them (stats['swayTriangles'])
     """
     n = len(fins) // 9
-    split = max(0, min(n, int(fin_triangles)))
+    a = max(0, min(n, int(fin_triangles)))
+    b = max(a, min(n, a + int(sway_triangles)))
     out = []
-    for kind, lo, hi in (('fin', 0, split), ('pad', split, n)):
+    for kind, lo, hi in (('fin', 0, a), ('sway', a, b), ('pad', b, n)):
         if hi <= lo:
             continue
         part = fins[lo * 9:hi * 9]
@@ -227,7 +229,8 @@ def fin_groups(fins, fin_triangles):
             if w.indices:
                 out.append(orient(w))
     # left to right, then front to back: a stable order for the names
-    out.sort(key=lambda g: (g.kind != 'fin', round(g.bbox()[0], 1), round(g.bbox()[1], 1)))
+    rank = {'fin': 0, 'sway': 1, 'pad': 2}
+    out.sort(key=lambda g: (rank[g.kind], round(g.bbox()[0], 1), round(g.bbox()[1], 1)))
     return out
 
 

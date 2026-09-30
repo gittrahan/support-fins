@@ -6,7 +6,7 @@
 	"description": {
 		"": "printfins.com supports that live in the model. Insert Support Fins: the website's breakaway fins and bed pad under a part's overhangs, from the website's own engine."
 	},
-	"version": "0.6.0",
+	"version": "0.6.1",
 	"runOnStartup": false,
 	"supportedOS": "windows|mac",
 	"editEnabled": true
