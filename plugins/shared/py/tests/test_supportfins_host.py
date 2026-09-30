@@ -115,3 +115,6 @@ def test_report_says_what_was_not_reached():
     assert line.startswith("3 walls, 12 tines; 2 overhangs are too shallow for a fin this way up")
     assert "one piece isn't joined to the rest: it starts 4.2 mm up, held only by supports" in line
     assert "the first starts 1.0 mm up" in host.host_report({"floating": 2, "floatingDrop": 1})
+    # sway braces hold the tall sides, not an overhang: named apart, never added to the walls
+    assert host.host_report({"braces": 1, "tines": 1, "swayBraces": 4}) == "1 wall, 1 tine, 4 sway braces"
+    assert host.host_report({"braces": 2, "swayBraces": 1}) == "2 walls, 0 tines, 1 sway brace"

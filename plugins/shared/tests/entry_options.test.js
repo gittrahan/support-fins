@@ -124,14 +124,20 @@ Deno.test('Tines off: plain walls are counted as walls (props), not lost', () =>
 });
 
 Deno.test('sway braces come back as their own block: fins | braces | pad', () => {
-  const bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));   // upright: braced
-  const off = computeFins(bar, OPTS), on = computeFins(bar, { ...OPTS, sway: { on: true } });
-  assert(off.stats.swayTriangles === 0, 'braces nobody asked for');
+  // lbracket @Y35 at twice the size gets fins, sway braces AND a pad (review, 018): the
+  // braces must slot in between without disturbing either neighbour.
+  const big = PART.map((v) => v * 2);
+  const off = computeFins(big, OPTS), on = computeFins(big, { ...OPTS, sway: { on: true } });
   const s = on.stats;
-  assert(s.swayBraces >= 1 && s.swayTriangles > 0, JSON.stringify(s));
-  assert(s.finTriangles === off.stats.finTriangles, `braces counted as fins: ${s.finTriangles} vs ${off.stats.finTriangles}`);
-  assert((s.finTriangles + s.swayTriangles + s.padTriangles) * 9 === on.triangles.length, 'counts don\'t cover the soup');
+  assert(off.stats.swayTriangles === 0, 'braces nobody asked for');
+  assert(s.swayBraces >= 1 && s.swayTriangles > 0 && s.finTriangles > 0 && s.padTriangles > 0, JSON.stringify(s));
   assert(Number.isInteger(s.swayTriangles), `${s.swayTriangles} brace triangles`);
+  const cut = (r, a, b) => r.triangles.subarray(a * 9, b * 9);
+  const nOff = off.stats.finTriangles, nOn = s.finTriangles;
+  assert(nOn === nOff && same(cut(on, 0, nOn), cut(off, 0, nOff)), 'the fins changed, or braces are counted as fins');
+  const padOn = cut(on, nOn + s.swayTriangles, nOn + s.swayTriangles + s.padTriangles);
+  assert(same(padOn, cut(off, nOff, nOff + off.stats.padTriangles)), 'the pad block moved: braces filed as pad');
+  assert((nOn + s.swayTriangles + s.padTriangles) * 9 === on.triangles.length, 'counts don\'t cover the soup');
 });
 
 Deno.test('pad style Off is bedPad: false', () => {

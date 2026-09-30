@@ -262,7 +262,7 @@ def body_soup(body, frame):
 
 
 def existing_fin_count(design):
-    """How many fin / pad bodies earlier runs left in the design."""
+    """How many fin / sway brace / pad bodies earlier runs left in the design."""
     comp, _ = supports_target(design, create=False)
     if comp is None:
         return 0

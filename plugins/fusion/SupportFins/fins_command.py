@@ -265,7 +265,7 @@ class _InputChangedHandler(adsk.core.InputChangedEventHandler):
     def notify(self, args):
         try:
             inputs = args.firingEvent.sender.commandInputs
-            if args.input.id == 'tines':
+            if args.input.id in ('tines', 'braces'):   # both decide which brace fields apply
                 _sync(inputs)
             elif args.input.id == 'bed' and inputs.itemById('bed').selectionCount:
                 inputs.itemById('body').hasFocus = True
@@ -480,7 +480,7 @@ def _finish(ctx, fins, stats):
     lines = list(ctx['pre'])
     groups = shells.fin_groups(fins, stats.get('finTriangles', 0), stats.get('swayTriangles', 0))
     if _session.get('earlier'):
-        lines.append('%d fin/pad bod%s from an earlier run %s already in Supports; delete them '
+        lines.append('%d support bod%s from an earlier run %s already in Supports; delete them '
                      'if these replace them.' % (_session['earlier'],
                                                   'y' if _session['earlier'] == 1 else 'ies',
                                                   'is' if _session['earlier'] == 1 else 'are'))
@@ -500,7 +500,7 @@ def _finish(ctx, fins, stats):
     grams = _volume_mm3(fins) / 1000.0 * PLA_DENSITY
     # Braces are counted apart from the fins: they hold the part's tall sides,
     # not an overhang, so adding them to the fin count would claim overhangs are
-    # served that nothing is under. They arrive in the same bodies, though.
+    # served that nothing is under. They get their own bodies, Sway brace N.
     braces = stats.get('swayBraces', 0)
     head = '<b>%d fin%s, %d tines%s%s, ~%.0f g PLA</b>' % (
         n_fin, '' if n_fin == 1 else 's', stats.get('tines', 0),

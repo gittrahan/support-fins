@@ -77,8 +77,8 @@ then **+** next to *My Add-Ins*.
    to keep them.
 
 The fins go into the **Supports** component (in a Part Design document, beside the part in its
-one component) as **mesh bodies**: one per fin (its wall and the tines that ride on it) and one
-per bed pad, named *Support fin N* and *Bed pad N*. In a parametric design each is its own
+one component) as **mesh bodies**: one per fin (its wall and the tines that ride on it), one per
+sway brace and one per bed pad, named *Support fin N*, *Sway brace N* and *Bed pad N*. In a parametric design each is its own
 *Base Mesh Feature*, grouped as **Support fins** in the timeline. Delete any fin you don't want.
 Your own bodies are never changed. Export the part and the Supports bodies together (STL/3MF);
 the tines overlap the part by the bite on purpose, and the slicer merges them.
