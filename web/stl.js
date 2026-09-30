@@ -69,16 +69,22 @@ export function writeBinarySTL(tris, name = 'Support Fins') {
  *
  * Binary is decided by SIZE, not by the "solid" prefix: plenty of CAD exporters
  * (SolidWorks among them) start a binary file's header with "solid", and reading
- * one as text gives an empty part instead of an error.
+ * one as text gives an empty part instead of an error. Some exporters also leave
+ * bytes after the last triangle; three.js reads those files, so we do too: a file
+ * at least as long as its triangle count says is binary unless it reads as ASCII
+ * (a "solid" line and a "facet" soon after).
  *
  * @param bytes  Uint8Array of the whole file
  * @returns Float32Array
  */
 export function readSTL(bytes) {
+  const head = new TextDecoder().decode(bytes.subarray(0, Math.min(bytes.length, 1024)));
+  const looksAscii = /^\uFEFF?\s*solid/i.test(head) && /\bfacet\b/i.test(head);
   if (bytes.length >= HEADER + 4) {
     const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     const n = dv.getUint32(HEADER, true);
-    if (bytes.length === HEADER + 4 + n * PER_TRI) {
+    const need = HEADER + 4 + n * PER_TRI;
+    if (bytes.length === need || (n > 0 && bytes.length > need && !looksAscii)) {
       if (n === 0) throw new Error('STL has no triangles');
       const pos = new Float32Array(n * 9);
       for (let f = 0; f < n; f++) {
@@ -88,16 +94,15 @@ export function readSTL(bytes) {
       return pos;
     }
   }
-  const text = new TextDecoder().decode(bytes.subarray(0, Math.min(bytes.length, 1024)));
-  if (!/^\s*solid\b/.test(text)) {
-    throw new Error('not an STL: wrong size for binary and no "solid" line for ASCII (truncated file?)');
+  if (!/^\uFEFF?\s*solid/i.test(head)) {
+    throw new Error('not an STL: too short for binary and no "solid" line for ASCII (truncated file?)');
   }
   return readAsciiSTL(new TextDecoder().decode(bytes));
 }
 
 function readAsciiSTL(text) {
   const out = [];
-  const re = /\bvertex\s+(\S+)\s+(\S+)\s+(\S+)/g;
+  const re = /\bvertex\s+(\S+)\s+(\S+)\s+(\S+)/gi;
   for (let m; (m = re.exec(text));) {
     for (let k = 1; k <= 3; k++) {
       const v = Number(m[k]);

@@ -48,8 +48,28 @@ Deno.test('stl: a binary file whose header starts with "solid" is still binary',
   assert(got.length === CUBE.length, `read ${got.length / 9} faces as ASCII instead of binary`);
 });
 
+Deno.test('stl: extra bytes after the last triangle still read as binary (three.js reads these)', async () => {
+  for (const name of ['part', 'solid part']) {
+    const bin = await bytesOf(triples(CUBE), name);
+    const padded = new Uint8Array(bin.length + 2);
+    padded.set(bin);
+    const got = readSTL(padded);
+    assert(got.length === CUBE.length, `header "${name}": read ${got.length / 9} faces`);
+  }
+});
+
 Deno.test('stl: ASCII reads the same triangles', () => {
   const got = readSTL(ascii(CUBE));
+  assert(got.length === CUBE.length, `length ${got.length} vs ${CUBE.length}`);
+  for (let i = 0; i < CUBE.length; i++) assert(got[i] === CUBE[i], `value ${i}`);
+});
+
+Deno.test('stl: ASCII with CRLF, exponents, upper case, a BOM and solid_name', () => {
+  const text = new TextDecoder().decode(ascii(CUBE))
+    .replace('solid cube', '\uFEFFSOLID_cube').replaceAll('vertex', 'VERTEX')
+    .replace(/VERTEX (\S+)/g, (_, x) => `VERTEX ${Number(x).toExponential()}`)
+    .replaceAll('\n', '\r\n');
+  const got = readSTL(new TextEncoder().encode(text));
   assert(got.length === CUBE.length, `length ${got.length} vs ${CUBE.length}`);
   for (let i = 0; i < CUBE.length; i++) assert(got[i] === CUBE[i], `value ${i}`);
 });

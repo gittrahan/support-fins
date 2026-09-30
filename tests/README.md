@@ -130,7 +130,9 @@ that aren't fin geometry, because the file format is equally part of the product
 use it; the site parses with three.js's `STLLoader`):
 - our own binary export **reads back** as the same triangles, and ASCII does too;
 - binary is decided by **size**, not by a leading `solid`: CAD exporters (SolidWorks)
-  start binary headers with it, and reading one as text opens an empty part;
+  start binary headers with it, and reading one as text opens an empty part; bytes
+  left after the last triangle still read as binary, as three.js reads them;
+- ASCII with CRLF, exponents, upper-case keywords and a BOM reads;
 - a **truncated, empty or non-STL** file throws instead of opening blank.
 
 **`step.test.js`** -- STEP import through the real vendored OpenCascade WASM (the
