@@ -22,8 +22,9 @@ So this plugin:
    executed in an embedded V8 ([mini-racer](https://pypi.org/project/mini-racer/)).
    The bundle and its bridge are shared with the other plugins
    ([`plugins/shared/`](../shared/README.md)),
-3. cross-sections the fin shells at every layer's `slice_z` and merges them into the
-   layer (Orca's own `union_ex` fuses the tines into the part).
+3. cross-sections the fin shells at every layer's `slice_z` (the shared mesh slicer,
+   `plugins/shared/py/supportfins_slice.py`) and merges them into the layer (Orca's
+   own `union_ex` fuses the tines into the part).
 
 No export, no re-import, no "fins land on the plate" API needed. Rotate the part,
 re-slice, and the fins follow. Parts with Orca's **Enable support** on are skipped,
@@ -32,8 +33,12 @@ so the per-object support toggle picks fins vs Orca supports.
 ```
 python3 plugins/orca/build.py                   # -> build/support_fins_orca.py (one file, ~100 KB)
 deno test --allow-read tests/ plugins/shared/tests/
-python3 -m pytest -q plugins/orca/tests/        # needs numpy, trimesh, scipy, shapely, rtree, networkx, mini-racer
+python3 -m pytest -q plugins/orca/tests/ plugins/shared/py/tests/   # needs numpy, trimesh, scipy, shapely, rtree, networkx, mini-racer
 ```
+
+`src/support_fins_orca.py` holds only Orca glue. The build inlines the shared Python
+modules (`plugins/shared/py/`: V8 host, mesh slicer) at their `# __SUPPORTFINS_*__`
+marker lines, so the plugin still ships as one file.
 
 Install and turn on (OrcaSlicer 2.5 nightly):
 

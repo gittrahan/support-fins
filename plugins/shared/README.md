@@ -11,6 +11,9 @@ bundle.py               esbuild: bridge.js + web/*.js -> one IIFE, global Suppor
 py/supportfins_host.py  Python side for plugins that run the bundle in mini-racer: start V8
                         (host_engine), run the engine on a soup and map the fins back to
                         the caller's frame (host_compute). Orca inlines it at build time
+py/supportfins_slice.py mesh -> per-layer polygons (split_shells, slice_soup, group_loops),
+                        for hosts whose API takes layer polygons, not a mesh. Pure numpy.
+                        Orca inlines it at build time
 tests/                  Deno tests: same fins as the website, anywhere on the plate;
                         the base64 bridge round-trips exactly
 ENGINE-SENSITIVITY.md   engine note: tine placement moves under 1e-13 mm of noise, and
@@ -20,8 +23,15 @@ ENGINE-SENSITIVITY.md   engine note: tine placement moves under 1e-13 mm of nois
 ```
 python3 plugins/shared/bundle.py out.js     # needs esbuild (npx fetches it on demand)
 deno test --allow-read plugins/shared/tests/
-python3 -m pytest -q plugins/shared/py/tests/   # needs numpy + mini-racer==0.14.1
+python3 -m pytest -q plugins/shared/py/tests/   # needs numpy, trimesh, mini-racer==0.14.1
 ```
+
+**What goes where.** Anything two plugins could use lives here: engine host, mesh
+slicing, and next the options every dialog is built from. `plugins/<host>/` only calls
+into that host's API (read the part, show a dialog, add the result). A plugin that
+needs a new piece of geometry adds it here, with its own tests, instead of in its
+adapter. Fusion is the exception: its `fins_core/` is pure Python because Fusion has no
+numpy, and moves here only when another plugin wants per-fin objects.
 
 Used by: [Orca](../orca/README.md) (inlines the bundle into its single-file plugin) and
 [Cura](../cura/README.md) (ships the bundle and the Python host next to the plugin).
