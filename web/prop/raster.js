@@ -24,8 +24,8 @@
  *
  * Split out of prop.js, which only wires the two passes together.
  */
-import { floorLine } from './attached.js';
 import { PROP } from './config.js';
+import { floorLine } from './mold.js';
 import { seat } from './surface.js';
 import { footFor } from './sweep.js';
 import { patchTracks } from './tracks.js';

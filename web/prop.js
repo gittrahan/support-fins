@@ -35,6 +35,7 @@
  *   clearance.js  which stations can carry a wall (reach, certification, runs)
  *   tines.js      the grip comb along a wall's top
  *   tracks.js     where Suggest puts walls: straight patches, tracks, tube line
+ *   mold.js       the floor under a wall on the part, and its bottom's shape
  *   attached.js   walls that stand on the part instead of the plate
  *   squat.js      brimmed squat walls for the near-bed band
  *   rival.js      a small tube against the patch path: the region keeps the better
@@ -67,7 +68,8 @@ export { surfaceZAt, surfaceZsAt } from './prop/surface.js';
 export { stationIsClear, stationCertified, pathToPlateIsClear, longestRun,
   withLowTails, insertFloorStations } from './prop/clearance.js';
 export { tineStepFor, emitTines } from './prop/tines.js';
-export { floorLine, PART_BAND } from './prop/attached.js';
+export { PART_BAND } from './prop/attached.js';
+export { floorLine } from './prop/mold.js';
 export { sweepSquat, buildSquatBed } from './prop/squat.js';
 
 /**
