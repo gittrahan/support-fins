@@ -3,6 +3,9 @@
  * coupon with the engine's own buildPartAttached, each with its ledge's
  * PROP.footGap / footTeeth, and write the 3MF to print.
  *
+ * Ledges 4-6 (teeth) need commit 91986b8: PROP.footTeeth was dropped after the
+ * print, so on later commits they build as plain welded walls.
+ *
  *   deno run -A prototype/calibration/foot/build.js     # -> out/foot-coupon.3mf + .stl
  */
 const WEB = new URL('../../../web/', import.meta.url).pathname;

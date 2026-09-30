@@ -104,22 +104,18 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
  * edge. The wall tapers to the `tip` width at BOTH ends: the top tip breaks away
  * under the overhang (the part bridges the `gap`), and the bottom tip is the only
  * thing that welds to the part below, kept as narrow as the top so it leaves the
- * smallest possible witness mark and snaps off cleanly. There is no `gap` at the
- * bottom by default: an air gap at both ends would make the support a floating
- * island the slicer cannot anchor, so the support grows UP from the floor (the
- * only printable topology) and the single scar it can leave is on an internal
- * surface you could not have oriented away.
+ * smallest possible witness mark and snaps off cleanly.
  *
- * That scar is a full-length line (local issue 009), so PROP.footGap / footTeeth
- * can lift the bottom instead: a slicer-style bottom gap the first layer sags
- * across, and/or a row of teeth that alone reach down (see config.js). A lifted
- * bottom keeps the full wall thickness -- the first layer over air is then two
- * lines wide, not one 0.6 mm tip line that could peel.
+ * The bottom stops PROP.footGap above the floor -- the same clearance as the top,
+ * a slicer's "bottom Z distance". It used to weld on purpose, on the worry that
+ * a gap at both ends makes a floating island the slicer can't anchor; the foot
+ * coupon (prototype/calibration/foot/) printed the gap clean, and the welded tip
+ * was the only one that scarred the part (local issue 009). The first layer
+ * sags across the gap, so the bottom keeps the full wall thickness -- two lines
+ * over air, not one 0.6 mm tip line that could peel. footGap 0 welds as before.
  */
 export function sweepBetween(topLine, botLine, out) {
-  const teeth = PROP.footTeeth > 0;
-  const lift = PROP.footGap + (teeth ? PROP.toothH : 0);
-  const welded = lift <= 0;
+  const welded = PROP.footGap <= 0;
   const wall = [], st = [];
   for (let i = 0; i < topLine.length; i++) {
     const p = topLine[i];
@@ -132,9 +128,11 @@ export function sweepBetween(topLine, botLine, out) {
     const sx = ry, sy = -rx;                 // horizontal, across the wall
 
     const top = p[2] - PROP.gap;
-    const bot = botLine[i][2] + lift;
+    const bot = botLine[i][2] + PROP.footGap;
     const h = top - bot;
-    if (h < PROP.minHeight) return false;
+    // judged on the headroom, not the lifted wall: the gap must not change
+    // WHICH walls exist (hub_corner X60 lost a 31 mm wall to a 1.6 mm station)
+    if (h + PROP.footGap < PROP.minHeight) return false;
     const taper = Math.min(PROP.tipH, welded ? h / 2 : h); // tapers meet in the middle if short
     const zBotTip = welded ? bot + taper : bot;
     const zTopTip = top - taper;
@@ -155,46 +153,6 @@ export function sweepBetween(topLine, botLine, out) {
   }
 
   if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
-  if (teeth) footTeeth(st, botLine, out);
   return true;
 }
 
-/**
- * The teeth under a lifted part-attached wall (PROP.footTeeth): short tapered
- * blocks, tip-wide at the floor (+ footGap) and th-wide where they sink into the
- * wall's bottom, toothLen long, one at each end and about footTeeth apart between
- * -- the wall bridges the spans. Each is its own closed solid overlapping the
- * wall, the same overlap the T-wall's flange uses.
- */
-function footTeeth(st, botLine, out) {
-  const s = [0];
-  for (let i = 1; i < st.length; i++) {
-    s.push(s[i - 1] + Math.hypot(st[i].p[0] - st[i - 1].p[0], st[i].p[1] - st[i - 1].p[1]));
-  }
-  const L = s[s.length - 1], half = PROP.toothLen / 2;
-  // station frame + floor z at arclength x, interpolated
-  const at = (x) => {
-    let i = 0;
-    while (i < st.length - 2 && s[i + 1] < x) i++;
-    const t = Math.min(1, Math.max(0, (x - s[i]) / Math.max(1e-9, s[i + 1] - s[i])));
-    const A = st[i], B = st[i + 1];
-    const lerp = (u, v) => u + (v - u) * t;
-    return {
-      x: lerp(A.p[0], B.p[0]), y: lerp(A.p[1], B.p[1]),
-      sx: A.sx, sy: A.sy,
-      floor: lerp(botLine[i][2], botLine[i + 1][2]), bot: lerp(A.bot, B.bot),
-    };
-  };
-  const n = Math.max(2, Math.round((L - 2 * half) / PROP.footTeeth) + 1);
-  for (let k = 0; k < n; k++) {
-    const c = half + (L - 2 * half) * k / (n - 1);
-    const secs = [];
-    for (const x of [c - half, c + half]) {
-      const q = at(Math.min(L, Math.max(0, x)));
-      const P = (o, z) => [q.x + q.sx * o, q.y + q.sy * o, z];
-      const zb = q.floor + PROP.footGap, zt = q.bot + 0.3; // 0.3 into the wall
-      secs.push([P(+PROP.tip / 2, zb), P(+PROP.th / 2, zt), P(-PROP.th / 2, zt), P(-PROP.tip / 2, zb)]);
-    }
-    ribbon(secs, out);
-  }
-}
