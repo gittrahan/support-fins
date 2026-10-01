@@ -526,6 +526,25 @@ class FusionSide(unittest.TestCase):
         self.assertAlmostEqual(min(allc[1::3]), 0.3, places=4)          # cm, along Y
         self.assertLessEqual(max(allc[1::3]), max(c / 10.0 for c in yup[1::3]) + 1e-4)
 
+    def test_an_xy_bed_hands_the_engine_the_part_unturned(self):
+        # The site fins the STL as it sits; Fusion must give the engine the same
+        # soup, or placement differs (the headset got 95 walls here, 93 on the site).
+        part = posed(read_stl('lbracket'), 35)
+        design, body = mesh_design(part)
+        frame = fb.PrintFrame.from_bed(design.rootComponent.xYConstructionPlane, body, APP)
+        soup = fb.body_soup(body, frame)
+        self.assertEqual(len(soup), len(part))
+        self.assertLess(max(abs(a - b) for a, b in zip(soup, part)), 1e-4)
+
+    def test_the_print_frame_is_right_handed_on_any_bed(self):
+        design, body = mesh_design(posed(read_stl('lbracket'), 35))
+        for n in ((0, 0, 1), (0, 1, 0), (1, 0, 0), (0.3, -0.5, 0.81)):
+            frame = fb.PrintFrame.from_bed(fake_adsk.ConstructionPlane((0, 0, 0), n), body, APP)
+            x, y, z = (fake_adsk.Vec(*v) for v in (frame.x, frame.y, frame.z))
+            c = x.crossProduct(y)
+            self.assertAlmostEqual(c.dotProduct(z), 1.0, places=9)
+            self.assertAlmostEqual(x.dotProduct(y), 0.0, places=9)
+
     def test_part_through_the_bed_is_refused_and_floating_is_flagged(self):
         part = posed(read_stl('lbracket'), 35, (0, 0, -5))
         design, _ = mesh_design(part)

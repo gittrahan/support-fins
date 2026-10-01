@@ -128,8 +128,13 @@ class PrintFrame:
 
         axes = [adsk.core.Vector3D.create(1, 0, 0), adsk.core.Vector3D.create(0, 1, 0),
                 adsk.core.Vector3D.create(0, 0, 1)]
+        # Print x is the world axis lying flattest on the bed, projected onto it, so
+        # a bed on the XY plane gives print axes = world axes: the part goes to the
+        # engine the way the site sees the same STL. (x = n x ref turned every part
+        # 90 degrees, and the engine's placement isn't the same under a turn.)
         ref = min(axes, key=lambda a: abs(a.dotProduct(n)))
-        x = n.crossProduct(ref)
+        k = ref.dotProduct(n)
+        x = adsk.core.Vector3D.create(ref.x - k * n.x, ref.y - k * n.y, ref.z - k * n.z)
         x.normalize()
         y = n.crossProduct(x)
         y.normalize()
