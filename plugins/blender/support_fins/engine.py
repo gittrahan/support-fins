@@ -315,7 +315,8 @@ def restand_drawn(wall, part, tris, scene):
 def export_meshes(part, context):
     """[(name, vertices mm, faces)] for the part and every visible fin, world frame."""
     out = []
-    for obj in [part] + [o for o in children(part, {"fin", "drawn"}) if o.visible_get()]:
+    # (a drawn wall that no longer fits is empty, even if the user unhid it)
+    for obj in [part] + [o for o in children(part, {"fin", "drawn"}) if o.visible_get() and len(o.data.polygons)]:
         soup = part_soup(obj, context)
         verts, inverse = np.unique(soup.reshape(-1, 3), axis=0, return_inverse=True)
         faces = inverse.reshape(-1, 3)

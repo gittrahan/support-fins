@@ -224,6 +224,9 @@ w = fins_of(block, ["drawn"])[0]
 assert w.visible_get() or "drawn walls not built" in block["sf_report"], block["sf_report"]
 if not w.visible_get():                      # not built: no old-pose wall left to export
     assert len(w.data.polygons) == 0
+    w.hide_set(False)                        # unhid by hand: the 3MF export skips it
+    assert bpy.ops.support_fins.export_3mf(filepath=str(TMP / "unbuilt.3mf")) == {"FINISHED"}
+    w.hide_set(True)
 print("LAY_FLAT", block["sf_report"], flush=True)
 
 # Show overhangs with an overlay in a collection the view layer excludes: no error,
