@@ -121,13 +121,16 @@ export { SCHEMA as OPTIONS_SCHEMA };
  * @param {object} [options]                 overrides for ENGINE_DEFAULTS
  * @returns {{ triangles: Float32Array, offset: {x:number,y:number,z:number},
  *            pieces: {id:string, kind:string, ranges:number[][]}[], overFaces: Int32Array,
- *            stats: object }}
+ *            smallFaces: Int32Array, stats: object }}
  *   pieces     what each run of `triangles` is, so a host can make one object per fin:
  *              kind 'prop' (a wall) | 'wedge' | 'sway' | ... as web/fins.js tags it, and
  *              'pad'; ranges are [first, end) TRIANGLE indices into `triangles`. Every
  *              triangle belongs to exactly one piece. ids are stable for the same part
  *              and options, not across edits.
- *   overFaces  indices of the INPUT faces analyze() marks as overhangs (the site's red)
+ *   overFaces  indices of the INPUT faces in the overhang regions the engine supports:
+ *              the site paints these red (web/ui/part.js paintOverhangs, res.kept)
+ *   smallFaces faces past the threshold in regions too small to fin, painted amber
+ *              on the site: a host should show them too, not hide them
  */
 export function computeFins(positions, options = {}) {
   const opts = { ...ENGINE_DEFAULTS, ...options };
@@ -136,8 +139,10 @@ export function computeFins(positions, options = {}) {
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   const result = analyze(topo, opts.threshold, IDENTITY3);
   // Read now: `over` is the topology's own buffer, which a later analyze() refills.
-  const overFaces = [];
-  for (let f = 0; f < result.over.length; f++) if (result.over[f]) overFaces.push(f);
+  const overFaces = [], smallFaces = [];
+  for (let f = 0; f < result.over.length; f++) {
+    if (result.kept[f]) overFaces.push(f); else if (result.over[f]) smallFaces.push(f);
+  }
   const built = buildFins(topo, result, IDENTITY3, {
     mode: opts.mode, bedPad: opts.bedPad && opts.padStyle !== 'off', tines: opts.tines,
     tineDensity: opts.tineDensity, layerHeight: opts.layerHeight, coverage: opts.coverage,
@@ -167,6 +172,7 @@ export function computeFins(positions, options = {}) {
     offset: { x: result.offset.x - shift.x, y: result.offset.y - shift.y, z: result.offset.z - shift.z },
     pieces,
     overFaces: Int32Array.from(overFaces),
+    smallFaces: Int32Array.from(smallFaces),
     stats: {
       overhangRegions: result.regions.length,
       // The soup is fins | sway braces | pad, in these counts.

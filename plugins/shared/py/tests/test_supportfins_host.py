@@ -72,7 +72,7 @@ def test_fins_come_back_in_the_callers_frame(ctx):
 def test_pieces_split_the_fins_one_object_each(ctx):
     soup = lbracket_35()
     fins, stats = host.host_compute(ctx, soup, {"layerHeight": 0.2})
-    fins2, stats2, pieces, over = host.host_compute_pieces(ctx, soup, {"layerHeight": 0.2})
+    fins2, stats2, pieces, over, small = host.host_compute_pieces(ctx, soup, {"layerHeight": 0.2})
     assert stats2 == stats and np.array_equal(fins2, fins)
     seen = np.zeros(len(fins), dtype=int)
     for p in pieces:
@@ -86,6 +86,7 @@ def test_pieces_split_the_fins_one_object_each(ctx):
     t = soup[over]
     normals = np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0])
     assert (normals[:, 2] < 0).all()   # overhangs face down
+    assert small.dtype == np.int64 and not set(small) & set(over)
 
 
 def tilted_block():
@@ -117,6 +118,8 @@ def test_draw_wall_lands_under_the_line_anywhere_on_the_plate(ctx):
 def test_draw_wall_says_why_not(ctx):
     wall, reason = host.host_draw_wall(ctx, tilted_block(), (-8, -5, 11.97), (-6, -5, 11.97), {})
     assert wall is None and "too short" in reason
+    with pytest.raises(ValueError, match="finite"):
+        host.host_draw_wall(ctx, tilted_block(), (-8, -5, float("nan")), (8, -5, 11.97), {})
 
 
 def test_options_reach_the_engine(ctx):

@@ -19,6 +19,7 @@ Needs numpy and mini-racer (py_mini_racer) in the host's Python.
 import atexit
 import base64
 import json
+import math
 import os
 import sys
 
@@ -75,23 +76,27 @@ def host_compute(ctx, soup, options):
              anything left out takes the engine's default (fins_entry.js).
     Returns (fins (K,3,3) float64 in the SAME frame as `soup`, stats dict).
     """
-    fins, stats, _, _ = host_compute_pieces(ctx, soup, options)
+    fins, stats, _, _, _ = host_compute_pieces(ctx, soup, options)
     return fins, stats
 
 
 def host_compute_pieces(ctx, soup, options):
     """host_compute, plus what each fin is, for hosts that show one object per fin.
 
-    Returns (fins, stats, pieces, over_faces):
+    Returns (fins, stats, pieces, over_faces, small_faces):
       pieces      [{"id", "kind", "ranges": [[first, end), ...]}]: triangle ranges of
                   `fins`; kind "prop" (a wall), "wedge", "sway", "pad", ... Every
                   triangle is in exactly one piece (fins_entry.js computeFins).
-      over_faces  indices of the faces of `soup` the engine counts as overhangs
+      over_faces  indices of faces of `soup` in the overhangs the engine supports
+                  (the site paints them red)
+      small_faces past the threshold but in regions too small to fin (the site's
+                  amber): show them too -- an overhang nothing holds isn't hidden
     """
     import numpy as np  # here, not at the top: Orca reports a failed numpy install itself
     raw = ctx.call("SupportFinsEngine.computeFinsB64", _soup_b64(soup), json.dumps(options))
     out = json.loads(raw)
-    return _unseat(out), out["stats"], out["pieces"], np.array(out["overFaces"], dtype=np.int64)
+    return (_unseat(out), out["stats"], out["pieces"],
+            np.array(out["overFaces"], dtype=np.int64), np.array(out["smallFaces"], dtype=np.int64))
 
 
 def host_draw_wall(ctx, soup, a, b, options):
@@ -99,12 +104,15 @@ def host_draw_wall(ctx, soup, a, b, options):
 
     soup, options  as for host_compute (the same part and options as the fins next to it)
     a, b           the wall's ends, (x, y, z) in soup's frame -- where the clicks hit
-    Returns (triangles (K,3,3) float64 in soup's frame, stats {length, height, tines}),
+    Returns (triangles (K,3,3) float64 in soup's frame, stats {length, height, tines,
+    partAttached}),
     or (None, reason) when the engine can't build it -- the site's words, for the user.
     """
+    ends = [[float(v) for v in p] for p in (a, b)]
+    if not all(len(p) == 3 and all(math.isfinite(v) for v in p) for p in ends):
+        raise ValueError(f"wall ends must be two finite (x, y, z) points, got {a!r}, {b!r}")
     raw = ctx.call("SupportFinsEngine.drawWallB64", _soup_b64(soup),
-                   json.dumps([float(v) for v in a]), json.dumps([float(v) for v in b]),
-                   json.dumps(options))
+                   json.dumps(ends[0]), json.dumps(ends[1]), json.dumps(options))
     out = json.loads(raw)
     if not out["ok"]:
         return None, out["reason"]

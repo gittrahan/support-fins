@@ -7,7 +7,8 @@ A fix on the site reaches a plugin the next time it is built.
 ```
 engine/fins_entry.js    posed triangle soup in (mm, z up) -> fin + bed-pad triangles out,
                         plus `pieces` (which triangles are which fin, for a host that
-                        shows one object per fin) and `overFaces` (the site's red faces)
+                        shows one object per fin), `overFaces` and `smallFaces` (the
+                        faces the site paints red, and amber: too small to fin)
 engine/draw_entry.js    Draw mode: the same soup + two points -> one hand-drawn wall
                         (web/draw.js drawnWall, called the way the site calls it)
 engine/seat.js          what both entries do first: centre + snap the part, pick the

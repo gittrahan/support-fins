@@ -8,7 +8,7 @@
 //
 //   in : base64 float64 triangle soup (posed, mm) + JSON options
 //   out: JSON { triangles: base64 float32 soup (seated frame), offset, pieces,
-//               overFaces, stats }
+//               overFaces, smallFaces, stats }
 // drawWallB64 does the same for Draw mode (draw_entry.js): one wall between two points.
 import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from './fins_entry.js';
 import { drawWall } from './draw_entry.js';
@@ -59,7 +59,8 @@ export function computeFinsB64(soupB64, optionsJson) {
   const options = optionsJson ? JSON.parse(optionsJson) : {};
   const res = computeFins(soupOf(soupB64), options);
   return JSON.stringify({ triangles: trianglesB64(res.triangles), offset: res.offset,
-                          pieces: res.pieces, overFaces: Array.from(res.overFaces), stats: res.stats });
+                          pieces: res.pieces, overFaces: Array.from(res.overFaces),
+                          smallFaces: Array.from(res.smallFaces), stats: res.stats });
 }
 
 // a, b: JSON [x, y, z] in the soup's frame.

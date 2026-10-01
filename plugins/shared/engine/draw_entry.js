@@ -19,7 +19,7 @@ import { seatSoup, clearances, flatten, snap } from './seat.js';
  * @param a, b       [x, y, z] the wall's ends, in the same frame as `positions`
  * @param options    as for computeFins (material, tines, tineDensity, layerHeight,
  *                   threshold); the rest is ignored
- * @returns {{ ok: true, triangles: Float32Array, offset, stats: {length, height, tines} }
+ * @returns {{ ok: true, triangles: Float32Array, offset, stats: {length, height, tines, partAttached} }
  *          | { ok: false, reason: string }}
  *   triangles are in the seated frame, mapped back exactly as computeFins':
  *   input = seated - offset. `reason` is the site's words (too short, at the plate...).
@@ -54,6 +54,7 @@ export function drawWall(positions, a, b, options = {}) {
     ok: true,
     triangles: flatten(r.tris),
     offset: { x: off.x - shift.x, y: off.y - shift.y, z: off.z - shift.z },
-    stats: { length: r.length, height: r.height, tines: r.tines ?? 0 },
+    // partAttached: it stands on the part below, not the plate (the site says so)
+    stats: { length: r.length, height: r.height, tines: r.tines ?? 0, partAttached: !!r.partAttached },
   };
 }

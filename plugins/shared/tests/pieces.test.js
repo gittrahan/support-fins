@@ -4,7 +4,7 @@
 //
 //   deno test --allow-read plugins/shared/tests/
 import { computeFins } from '../engine/fins_entry.js';
-import { readSTL, MODELS, analyze, rotX, rotY, assert } from '../../../tests/_util.js';
+import { readSTL, MODELS, analyze, rotX, rotY, assert, block } from '../../../tests/_util.js';
 import { buildTopology, IDENTITY3 } from '../../../web/overhangs.js';
 
 function posed(name, m, dx = 40, dy = -12, dz = 5) {
@@ -51,20 +51,45 @@ for (const [name, pose, rot] of CASES) {
   }
 }
 
-Deno.test('overFaces are the input faces analyze() marks, anywhere on the plate', () => {
-  for (const [name, pose, rot] of CASES) {
-    const soup = posed(name, rot);
-    const r = computeFins(soup, {});
-    const res = analyze(buildTopology({ getAttribute: () => ({ array: posed(name, rot, 0, 0, 0) }) }), 45, IDENTITY3);
-    const want = [];
-    for (let f = 0; f < res.over.length; f++) if (res.over[f]) want.push(f);
-    assert(want.length > 0, `${name}/${pose}: test part has no overhang`);
-    assert(JSON.stringify(Array.from(r.overFaces)) === JSON.stringify(want),
-      `${name}/${pose}: overFaces ${r.overFaces.length}, analyze ${want.length}`);
+// The site's colours (web/ui/part.js paintOverhangs): red = res.kept, amber = over
+// but in a region too small to fin.
+function siteFaces(soup) {
+  const res = analyze(buildTopology({ getAttribute: () => ({ array: soup }) }), 45, IDENTITY3);
+  const red = [], amber = [];
+  for (let f = 0; f < res.over.length; f++) if (res.kept[f]) red.push(f); else if (res.over[f]) amber.push(f);
+  return { red, amber };
+}
+
+// A tower with a broad shelf (red) and a 2x2 mm nub (4 mm^2 underside, under
+// MIN_REGION_AREA: amber) sticking out of it.
+function shelfAndNub(dx = 0, dy = 0) {
+  const parts = [block(0, 20, 0, 20, 0, 20), block(20, 30, 0, 20, 15, 20), block(-2, 0, 8, 10, 10, 12)];
+  const out = new Float64Array(parts.reduce((n, p) => n + p.length, 0));
+  let i = 0;
+  for (const p of parts) for (let j = 0; j < p.length; j += 3) {
+    out[i++] = p[j] + dx; out[i++] = p[j + 1] + dy; out[i++] = p[j + 2];
   }
+  return out;
+}
+
+Deno.test('overFaces / smallFaces are the faces the site paints red / amber, anywhere on the plate', () => {
+  let amber = 0;
+  const cases = [...CASES.map(([name, pose, rot]) => [`${name}/${pose}`, posed(name, rot), posed(name, rot, 0, 0, 0)]),
+                 ['shelf + nub', shelfAndNub(40, -12), shelfAndNub()]];
+  for (const [label, soup, atOrigin] of cases) {
+    const r = computeFins(soup, {});
+    const want = siteFaces(atOrigin);
+    assert(want.red.length > 0, `${label}: test part has no overhang`);
+    assert(JSON.stringify(Array.from(r.overFaces)) === JSON.stringify(want.red),
+      `${label}: overFaces ${r.overFaces.length}, site red ${want.red.length}`);
+    assert(JSON.stringify(Array.from(r.smallFaces)) === JSON.stringify(want.amber),
+      `${label}: smallFaces ${r.smallFaces.length}, site amber ${want.amber.length}`);
+    amber += want.amber.length;
+  }
+  assert(amber > 0, 'no case has an amber face: the smallFaces check never ran');
 });
 
 Deno.test('overFaces is empty for a part with no overhang', () => {
   const r = computeFins(posed('cube', IDENTITY3), {});
-  assert(r.overFaces.length === 0, `${r.overFaces.length} overhang faces on a flat cube`);
+  assert(r.overFaces.length === 0 && r.smallFaces.length === 0, 'overhang faces on a flat cube');
 });
