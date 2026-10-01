@@ -1,5 +1,6 @@
 """mini-racer, vendored into a plugin folder, for hosts whose Python can't pip-install
-(Cura, FreeCAD's bundled Python). Used by their build.py scripts.
+(Cura, FreeCAD's bundled Python), or as the wheel itself for a host that installs
+wheels (Blender). Used by their build.py scripts.
 
 The wheel is tagged py3-none-<platform> (a ctypes library, no CPython ABI), so one copy
 serves every Python of that platform. Wheels are cached per platform.
@@ -30,15 +31,22 @@ def wheel_platform():
     return "manylinux_2_27_aarch64" if platform.machine() in ("aarch64", "arm64") else "manylinux_2_27_x86_64"
 
 
-def vendor_mini_racer(dest, plat, cache):
-    """Unpack py_mini_racer/ for `plat` into dest/ (wheel cached in cache/<plat>/).
-    Returns the wheel's file name."""
+def mini_racer_wheel(plat, cache):
+    """The mini-racer wheel for `plat`, downloaded once into cache/<plat>/. Hosts that
+    install wheels themselves (Blender's extension manifest) ship this file as is."""
     wheels = cache / plat
     if not list(wheels.glob("*.whl")):
         subprocess.run([sys.executable, "-m", "pip", "download", "--quiet", "--no-deps",
                         "--only-binary=:all:", "--platform", plat, "-d", str(wheels), MINI_RACER],
                        check=True)
     (whl,) = wheels.glob("*.whl")
+    return whl
+
+
+def vendor_mini_racer(dest, plat, cache):
+    """Unpack py_mini_racer/ for `plat` into dest/ (wheel cached in cache/<plat>/).
+    Returns the wheel's file name."""
+    whl = mini_racer_wheel(plat, cache)
     with zipfile.ZipFile(whl) as z:
         for name in z.namelist():
             # mini_racer-X.data/purelib/py_mini_racer/<file>
