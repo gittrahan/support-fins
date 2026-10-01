@@ -10,7 +10,8 @@ Scale 0.001 = 1 unit is 1 mm, the usual 3D-printing setup).
 
 Fins are objects parented to the part, one per wall / brace / pad (the engine's
 `pieces`), so any one can be selected, hidden or deleted. Each carries:
-  sf_role  'fin' (Generate's), 'drawn' (Draw wall)
+  sf_role  'fin' (Generate's), 'drawn' (Draw wall), 'overhangs' (the site's red and
+           amber faces, so an overhang nothing holds is shown, not hidden)
   sf_a/sf_b  a drawn wall's ends, in the part's local coordinates, so Generate can
              rebuild it for the part's current pose (the site's rebuildDrawn)
 The part carries sf_report (the result line, after Generate) and sf_matrix /
@@ -32,6 +33,8 @@ SCHEMA = json.loads((HERE / "options.json").read_text(encoding="utf-8"))
 SPECS = schema.specs(SCHEMA)
 FIN_COLOR = (0.15, 0.45, 0.95, 1.0)
 DRAWN_COLOR = (0.95, 0.55, 0.1, 1.0)
+OVER_COLOR = (0.9, 0.04, 0.02, 1.0)    # the site's red: overhangs the fins hold
+SMALL_COLOR = (0.95, 0.65, 0.1, 1.0)   # the site's amber: past the angle, too small to fin
 KIND_NAMES = {"prop": "wall", "sway": "sway brace", "pad": "bed pad", "wedge": "wedge"}
 
 _ctx = None
@@ -210,15 +213,16 @@ def mesh_object(name, tris_mm, part, scene, role, color):
 
 def generate(part, context):
     """Replace the part's fins with the engine's for its current pose and settings,
-    and rebuild its drawn walls the same way. Returns the report line."""
+    rebuild its drawn walls the same way, refresh the red overhang faces. Returns
+    the report line."""
     scene = context.scene
     soup = part_soup(part, context)
     options = engine_options(scene)
     # Every engine call first: if one fails, the scene is still as it was.
-    fins, stats, pieces, _over, _small = host.host_compute_pieces(ctx(), soup, options)
+    fins, stats, pieces, over, small = host.host_compute_pieces(ctx(), soup, options)
     drawn = [(wall, drawn_wall_tris(wall, part, soup, options, scene)) for wall in children(part, {"drawn"})]
 
-    for o in children(part, {"fin"}):
+    for o in children(part, {"fin", "overhangs"}):
         remove(o)
     for p in pieces:
         tris = np.concatenate([fins[a:b] for a, b in p["ranges"]])
@@ -232,6 +236,14 @@ def generate(part, context):
         if tris is None:
             problems.append(f"{wall.name}: {info}")
         restand_drawn(wall, part, tris, scene)
+
+    for faces, label, color in ((over, "overhangs", OVER_COLOR), (small, "too small to fin", SMALL_COLOR)):
+        if len(faces):
+            o = mesh_object(f"{part.name} {label}", soup[faces], part, scene, "overhangs", color)
+            o.hide_select = True
+            o.hide_render = True
+            o.show_in_front = True
+            set_hidden(o, not scene.support_fins.show_overhangs)
 
     report = host.host_report(stats)
     if problems:

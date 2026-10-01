@@ -29,7 +29,8 @@ The panel is in the 3D View sidebar (**N**), tab **Support Fins**.
   `plugins/shared/engine/options.json`); ones the engine would ignore are hidden.
 - **Generate fins** replaces the part's fins for its current pose and settings. The
   result line says what was placed and what wasn't reached (overhangs too shallow for
-  a fin, pieces starting in mid-air).
+  a fin, pieces starting in mid-air). **Show overhangs** paints the faces the fins hold
+  red, and amber for faces past the angle but too small to fin, as on the site.
 - **Draw wall**: click two points under an overhang for one hand-placed wall (the site's
   Draw mode). Generate re-stands drawn walls for the part's current pose; one that no
   longer fits says why.

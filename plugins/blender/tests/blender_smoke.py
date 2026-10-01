@@ -90,6 +90,7 @@ for o in fins_of(part):
     assert o.parent == part
     z = min((o.matrix_world @ v.co).z for v in o.data.vertices)
     assert z >= low - 1e-3, f"{o.name} goes below the bed ({z} < {low})"
+assert any(o.name.endswith("overhangs") for o in fins_of(part, ["overhangs"]))
 assert engine.out_of_date(part, scene) is None and ui.out_of_date(part, scene) is None, ui.out_of_date(part, scene)
 print("LBRACKET", report, flush=True)
 
@@ -225,6 +226,21 @@ if not w.visible_get():                      # not built: no old-pose wall left 
     assert len(w.data.polygons) == 0
 print("LAY_FLAT", block["sf_report"], flush=True)
 
+# Show overhangs with an overlay in a collection the view layer excludes: no error,
+# and the other overlays still toggle
+hidden = bpy.data.collections.new("excluded")
+scene.collection.children.link(hidden)
+stray = bpy.data.objects.new("stray overhangs", bpy.data.meshes.new("stray"))
+stray["sf_role"] = "overhangs"
+hidden.objects.link(stray)
+c.view_layer.layer_collection.children["excluded"].exclude = True
+others = [x for x in scene.objects if x.get("sf_role") == "overhangs" and x is not stray]
+assert others
+scene.support_fins.show_overhangs = False
+assert all(not x.visible_get() for x in others), "an excluded overlay stopped the toggle"
+scene.support_fins.show_overhangs = True
+assert all(x.visible_get() for x in others)
+
 # ---- units: a part read in metres is called out ------------------------------
 scene.unit_settings.scale_length = 1.0
 assert engine.size_mm(part, c).max() > 1000
@@ -235,12 +251,12 @@ for o in fins_of(part):                      # every fin deleted by hand: Clear 
     engine.remove(o)                         # clears the result line and pose stamp
 assert bpy.ops.support_fins.clear.poll()
 bpy.ops.support_fins.clear()
-assert not engine.children(part, {"fin"}) and "sf_report" not in part and "sf_matrix" not in part
+assert not engine.children(part, {"fin", "overhangs"}) and "sf_report" not in part and "sf_matrix" not in part
 select(block)
 for o in engine.children(block, {"fin", "drawn"}):   # drawn walls only, deleted by hand:
     engine.remove(o)                                  # Clear still clears the pose stamp
 del block["sf_report"]
 assert bpy.ops.support_fins.clear.poll()
 bpy.ops.support_fins.clear()
-assert "sf_matrix" not in block and "sf_drawn" not in block
+assert "sf_matrix" not in block and "sf_drawn" not in block and not engine.children(block, {"overhangs"})
 print("SMOKE_PASS", flush=True)

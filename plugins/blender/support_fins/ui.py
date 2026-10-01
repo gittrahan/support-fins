@@ -19,6 +19,12 @@ EDITED = set()
 _visible_cache = {}
 
 
+def _overlays_changed(self, context):
+    for obj in context.scene.objects:
+        if obj.get("sf_role") == "overhangs":
+            engine.set_hidden(obj, not self.show_overhangs)
+
+
 def _settings_class():
     annotations = {}
     for s in engine.SPECS:
@@ -32,6 +38,10 @@ def _settings_class():
             annotations[s["name"]] = FloatProperty(default=s["default"], step=s["step"], precision=s["precision"],
                                                    subtype="PERCENTAGE" if s["percent"] else "NONE",
                                                    **limits, **common)
+    annotations["show_overhangs"] = BoolProperty(
+        name="Show overhangs", default=True, update=_overlays_changed,
+        description="Red: the overhangs the fins hold. Amber: past the angle but too small to fin, "
+                    "as on printfins.com")
     return type("SupportFinsSettings", (bpy.types.PropertyGroup,), {"__annotations__": annotations})
 
 
@@ -107,6 +117,8 @@ class SUPPORTFINS_PT_main(bpy.types.Panel):
                 _wrapped(box, f"Out of date: {why}. Generate again.", "ERROR", cols)
             for i, line in enumerate(report.split("; ") if report else []):
                 _wrapped(box, line, "CHECKMARK" if i == 0 else "ERROR", cols)
+            if report:
+                box.prop(scene.support_fins, "show_overhangs")
 
         settings = scene.support_fins
         for title, specs in schema.sections(engine.SCHEMA):

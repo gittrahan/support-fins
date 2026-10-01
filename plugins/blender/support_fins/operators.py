@@ -44,7 +44,7 @@ class SUPPORTFINS_OT_generate(bpy.types.Operator):
 class SUPPORTFINS_OT_clear(bpy.types.Operator):
     bl_idname = "support_fins.clear"
     bl_label = "Clear fins"
-    bl_description = "Delete the active part's fins and drawn walls"
+    bl_description = "Delete the active part's fins, drawn walls and overhang highlight"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
@@ -52,11 +52,11 @@ class SUPPORTFINS_OT_clear(bpy.types.Operator):
         part = active_part(context)
         # also with every fin deleted by hand: the result line and pose stamp remain
         return context.mode == "OBJECT" and part is not None and (
-            bool(engine.children(part, {"fin", "drawn"})) or "sf_report" in part or "sf_matrix" in part)
+            bool(engine.children(part, {"fin", "drawn", "overhangs"})) or "sf_report" in part or "sf_matrix" in part)
 
     def execute(self, context):
         part = active_part(context)
-        for o in engine.children(part, {"fin", "drawn"}):
+        for o in engine.children(part, {"fin", "drawn", "overhangs"}):
             engine.remove(o)
         ui.built(part)
         for k in ("sf_report", "sf_matrix", "sf_settings", "sf_mesh", "sf_drawn"):
@@ -199,7 +199,7 @@ def lay_face_flat(part, world_normal, context):
     part.matrix_world = Matrix.Translation(centre) @ rot @ Matrix.Translation(-centre) @ part.matrix_world
     context.view_layer.update()
     part.matrix_world.translation.z += (low - part_lowest(part, context)) / k
-    for o in engine.children(part, {"fin"}):
+    for o in engine.children(part, {"fin", "overhangs"}):
         engine.remove(o)
     context.view_layer.update()
 
