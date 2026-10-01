@@ -631,7 +631,7 @@ class AsyncDialog(unittest.TestCase):
         final = fins_command._compute(inputs)
         self.assertFalse(final['pending'])
         self.assertTrue(final['groups'])
-        self.assertIn(' walls, ', self.readout.formattedText)
+        self.assertRegex(self.readout.formattedText, r'\d+ walls?\b')
 
     def test_a_late_answer_for_an_old_pick_is_ignored(self):
         design, _ = mesh_design(posed(read_stl('lbracket'), 35))

@@ -505,10 +505,11 @@ def _finish(ctx, fins, stats):
     # not an overhang, so adding them to the fin count would claim overhangs are
     # served that nothing is under. They get their own bodies, Sway brace N.
     braces = stats.get('swayBraces', 0)
-    head = '<b>%d wall%s%s, %d tines%s%s, ~%.0f g PLA</b>' % (
+    tines = stats.get('tines', 0)
+    head = '<b>%d wall%s%s, %d tine%s%s%s, ~%.0f g PLA</b>' % (
         walls, '' if walls == 1 else 's',
         ' (%d bod%s)' % (n_fin, 'y' if n_fin == 1 else 'ies') if n_fin != walls else '',
-        stats.get('tines', 0),
+        tines, '' if tines == 1 else 's',
         ' + %d sway brace%s, %d brace tines' % (braces, '' if braces == 1 else 's',
                                                 stats.get('swayTines', 0)) if braces else '',
         ', bed pad' if n_pad else '', grams)
