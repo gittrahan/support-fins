@@ -206,13 +206,9 @@ function buildPass(topo, result, rot, opts, raster) {
   const tineHeight = opts.layerHeight ?? PROP.tineH;
   // where the tests' tine capture stands (see buildProps); null when off
   const capAt = () => globalThis.__TINECAP?.length ?? null;
-  // The lowest tine vertex in out[from..] -- where a wall's grip starts, which
-  // the raster race must not raise (prop/raster.js gripZ). Infinity: no tines.
-  const gripFrom = (from) => {
-    let z = Infinity;
-    for (let i = from; i < out.length; i++) if (out[i][2] < z) z = out[i][2];
-    return z;
-  };
+  // A wall's `grip` is its lowest tine bottom (emitTines fills grip.z), which the
+  // raster race must not raise (prop/raster.js gripZ). Infinity: no tines. Read
+  // from the tines, not the triangles: a wall step under a tine sits lower.
 
   // The support unit is the locally-straight sub-patch, not the connected
   // region -- see splitRegion. Fragments too small to be worth a wall are
@@ -359,18 +355,18 @@ function buildPass(topo, result, rot, opts, raster) {
       if (pa.ok) {
         servedRegions.add(patch.region);
         let nT = 0;
-        const c0 = capAt(), g0 = out.length;
+        const c0 = capAt(), grip = { z: Infinity };
         // pa.prop.line already carries the wall top (surface minus gap); add the
         // gap back so emitTines reads it as the surface, like the plate path does.
         if (withTines) {
           const topLine = pa.prop.line.map((p) => [p[0], p[1], p[2] + PROP.gap]);
-          nT = emitTines(topLine, partTris, topo, rot, off, out, tineStepEff, undefined, tineHeight);
+          nT = emitTines(topLine, partTris, topo, rot, off, out, tineStepEff, undefined, tineHeight, null, grip);
           tally.tines += nT;
         }
         // buildPartAttached pushed the wall starting at tri0; emitTines above pushed
         // its tines right after, so wall + tines are contiguous -> one segment.
         props.push({ ...pa.prop, area: patch.area, region: patch.region, tines: nT,
-                     caps: c0 === null ? undefined : [c0, capAt()], grip: gripFrom(g0),
+                     caps: c0 === null ? undefined : [c0, capAt()], grip: grip.z,
                      trimmed: line.length - pa.prop.stations,
                      id: nextId++, kind: 'prop',
                      triRanges: [[tri0, out.length]] });
@@ -399,10 +395,10 @@ function buildPass(topo, result, rot, opts, raster) {
         for (const sq of buildSquatBed(squatLine, regionTris, topo, rot, off, out, claimed)) {
           // a squat wall's base is the thin brim, not the tall flange, so tines
           // attach from squatBrimH up (the default minTop would skip every one).
-          const t0 = out.length, c0 = capAt();
+          const t0 = out.length, c0 = capAt(), grip = { z: Infinity };
           const nT = withTines ? emitTines(
             sq.line.map((p) => [p[0], p[1], p[2] + PROP.gap]),
-            regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH, tineHeight) : 0;
+            regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH, tineHeight, null, grip) : 0;
           tally.tines += nT;
           servedRegions.add(patch.region);
           // buildSquatBed pushed this wall (sq.triRange) BEFORE every squat wall's
@@ -411,7 +407,7 @@ function buildPass(topo, result, rot, opts, raster) {
           const segs = [sq.triRange];
           if (out.length > t0) segs.push([t0, out.length]);
           props.push({ ...sq, area: patch.area, region: patch.region, tines: nT,
-                       caps: c0 === null ? undefined : [c0, capAt()], grip: gripFrom(t0),
+                       caps: c0 === null ? undefined : [c0, capAt()], grip: grip.z,
                        id: nextId++, kind: 'prop', triRanges: segs });
         }
       };
@@ -524,13 +520,13 @@ function buildPass(topo, result, rot, opts, raster) {
         servedRegions.add(patch.region);
         // The grip comb: nubs along this wall's settled top that bite into the
         // part. `settled` carries the surface z; emitTines subtracts the gap.
-        const c0 = capAt(), g0 = out.length;
+        const c0 = capAt(), grip = { z: Infinity };
         const nT = withTines ? emitTines(settled, regionTris, topo, rot, off, out, tineStepEff, undefined, tineHeight,
-                                         tallBody(settledBody)) : 0;
+                                         tallBody(settledBody), grip) : 0;
         tally.tines += nT;
         props.push({
           region: patch.region, tines: nT,
-          caps: c0 === null ? undefined : [c0, capAt()], grip: gripFrom(g0),
+          caps: c0 === null ? undefined : [c0, capAt()], grip: grip.z,
           span: span2, height: top - zBed, area: patch.area,
           stations: settled.length, trimmed: line.length - settled.length,
           volume: Math.abs(vol),

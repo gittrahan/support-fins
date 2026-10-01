@@ -151,9 +151,13 @@ export function tineStepFor(density) {
  *
  * Nubs are the wall's own thickness wide and overlap back into it, so the slicer
  * unions them onto the wall the same way every other solid here is unioned.
+ *
+ * `grip`, if given ({ z }), gets the lowest tine bottom: the wall's grip height.
+ * Not the lowest emitted vertex -- a wall step under a tine sits lower.
  */
 export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
-                          minTop = PROP.baseH + 0.2, tineH = PROP.tineH, body = null) {
+                          minTop = PROP.baseH + 0.2, tineH = PROP.tineH, body = null,
+                          grip = null) {
   if (line.length < 2) return 0;
 
   // arc length along the run, to space nubs by a real distance not a station count
@@ -252,6 +256,19 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
       [PROP.tineBite, half], [-PROP.tineOverlap, half],
     ];
     boxExtrude(poly, tineBot, tineTop, P, out);
+    if (grip && tineBot < grip.z) grip.z = tineBot;
+    // WALL STEP. The tine is snapped to the part's layer, the wall top isn't, so
+    // the tine can start above the wall: up to half a layer when the gap is one
+    // layer (PLA), a full layer when it's 1.5 (PETG 0.3) -- and past half a layer
+    // the slice under the tine comes out empty, so the tine hangs off the part
+    // without touching the wall (local issue 005). Raise the wall to meet it, under
+    // the tine's wall end only (-tineOverlap..0): it sits directly beneath the tine,
+    // so it never comes nearer the part than the tine does. Sunk half a layer into
+    // the wall so the two union.
+    if (tineBot > wallTop + 1e-6) {
+      const step = [[-PROP.tineOverlap, -half], [0, -half], [0, half], [-PROP.tineOverlap, half]];
+      boxExtrude(step, wallTop - tineH / 2, tineBot, P, out);
+    }
     // Test seam: tests/tines_realparts.test.js sets globalThis.__TINECAP to an array
     // and reads back each tine's seed + bite heading to verify grip on real parts
     // through the whole pipeline. Undefined in the browser -> a zero-cost noop.
