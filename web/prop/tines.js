@@ -271,7 +271,12 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
     // inside the wall to half a layer inside the tine, inset STEP_INSET all round, so
     // it shares no face or vertex with either: they overlap like a tine and its wall
     // (a step flush on the tine's bottom welded into a non-manifold body in Fusion).
-    if (tineBot > wallTop + 1e-6) {
+    // Only where the slice needs it: a slicer samples each layer at mid-height, so the
+    // layer under the tine holds wall while the wall top is above that layer's middle
+    // (tineBot - tineH/2). Under a half-layer lift the print is already joined and
+    // the output stays as it was (PLA's whole range); at half a layer or more -- the
+    // tie included, a wall top ON the sampled plane -- the step goes in.
+    if (tineBot - wallTop >= tineH / 2 - 1e-6) {
       const e = STEP_INSET;
       const step = [[-PROP.tineOverlap + e, -half + e], [-e, -half + e],
                     [-e, half - e], [-PROP.tineOverlap + e, half - e]];
