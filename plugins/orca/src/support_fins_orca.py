@@ -318,7 +318,10 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None):
             touched += 1
             log["layers"].append([round(z, 4), round(sum(e.area() for e in expolys) * unit * unit, 4)])
     log["layers_touched"] = touched
-    return host_report(stats)   # the same line every plugin shows
+    report = host_report(stats)   # the same line every plugin shows
+    if touched == 0:   # placed, but no layer took them: the overhangs are still bare
+        report += "; none of it reached a layer, so nothing was added (see support_fins_log.jsonl)"
+    return report
 
 
 class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):

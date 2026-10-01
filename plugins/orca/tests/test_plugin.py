@@ -124,6 +124,14 @@ def test_no_fins_still_reports_overhangs_left_bare(monkeypatch):
     assert SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6) == "no fins needed"
 
 
+def test_fins_that_reach_no_layer_are_not_reported_as_added(monkeypatch):
+    part = trimesh.load(MODELS / "cube.stl")
+    po = fake_orca.FakePrintObject(part, rot_x(45, (50, 50, 0)))
+    far = np.array([[[0, 0, 900.0], [1, 0, 900.0], [0, 1, 901.0]]])   # above every layer
+    monkeypatch.setattr(SF, "compute_fins", lambda *a: (far, {"braces": 1, "tines": 2}))
+    assert "nothing was added" in SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6)
+
+
 def test_fins_actually_add_material_under_the_overhang():
     po, res, want, _ = run_case("cube", rot_x(45, (50, 50, 0)))
     part_only = fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45, (50, 50, 0)))
