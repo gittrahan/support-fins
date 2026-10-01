@@ -111,7 +111,17 @@ def test_fins_land_exactly_where_a_finned_stl_would(model, deg, shift, scale):
         worst = max(worst, diff)
     # tolerance: slicer vertex rounding (1 nm) and chord differences, per layer
     assert worst < 0.05, f"{res.message}: worst per-layer mismatch {worst:.4f} mm^2"
-    assert "fin(s)" in res.message
+    assert " walls, " in res.message or " wall, " in res.message
+
+
+def test_no_fins_still_reports_overhangs_left_bare(monkeypatch):
+    # The torus case: nothing placed, but 2 overhangs too shallow -- never "no fins needed".
+    part = trimesh.load(MODELS / "cube.stl")
+    po = fake_orca.FakePrintObject(part, rot_x(45, (50, 50, 0)))
+    monkeypatch.setattr(SF, "compute_fins", lambda *a: (np.zeros((0, 3, 3)), {"unserved": 2}))
+    assert "2 overhangs are too shallow" in SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6)
+    monkeypatch.setattr(SF, "compute_fins", lambda *a: (np.zeros((0, 3, 3)), {}))
+    assert SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6) == "no fins needed"
 
 
 def test_fins_actually_add_material_under_the_overhang():

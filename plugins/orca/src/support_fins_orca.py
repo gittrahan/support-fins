@@ -281,7 +281,9 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None):
     soup = soup - np.array([0.0, 0.0, zmin])       # object bottom at z = 0, like slice_z
     fins, stats = compute_fins(soup, layer_height, cfg)
     if len(fins) == 0:
-        return "no fins needed"
+        # Quality first: no fins can still mean overhangs left bare, so say so.
+        bare = stats.get("unserved") or stats.get("floating")
+        return host_report(stats) if bare else "no fins needed"
     pts = soup.reshape(-1, 3)
     bbox = print_object.bounding_box()
     frame = SliceFrame(pts[:, :2].min(axis=0), pts[:, :2].max(axis=0), bbox, unit)
@@ -315,8 +317,8 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None):
         if expolys and add_fins_to_layer(layer, expolys):
             touched += 1
             log["layers"].append([round(z, 4), round(sum(e.area() for e in expolys) * unit * unit, 4)])
-    return (f"{stats.get('braces', 0)} fin(s), {stats.get('tines', 0)} tine(s) "
-            f"on {touched} layer(s)")
+    log["layers_touched"] = touched
+    return host_report(stats)   # the same line every plugin shows
 
 
 class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
