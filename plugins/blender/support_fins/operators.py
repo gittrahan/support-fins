@@ -49,7 +49,7 @@ class SUPPORTFINS_OT_clear(bpy.types.Operator):
         part = active_part(context)
         # also with every fin deleted by hand: the result line and pose stamp remain
         return context.mode == "OBJECT" and part is not None and (
-            bool(engine.children(part, {"fin", "drawn"})) or "sf_report" in part)
+            bool(engine.children(part, {"fin", "drawn"})) or "sf_report" in part or "sf_matrix" in part)
 
     def execute(self, context):
         part = active_part(context)
@@ -60,6 +60,11 @@ class SUPPORTFINS_OT_clear(bpy.types.Operator):
             if k in part:
                 del part[k]
         return {"FINISHED"}
+
+
+def _in_view(region, event):
+    x, y = event.mouse_x - region.x, event.mouse_y - region.y
+    return 0 <= x < region.width and 0 <= y < region.height
 
 
 def _ray(region, rv3d, event, obj, context):
@@ -157,7 +162,10 @@ class SUPPORTFINS_OT_draw(bpy.types.Operator):
         if event.type == "LEFTMOUSE" and event.value == "PRESS":
             hit, p, n = _ray(self._region, self._rv3d, event, self._part, context)
             if not hit:
-                return {"PASS_THROUGH"}       # off the part, or a click in the panel
+                if _in_view(self._region, event):   # off the part: no selecting mid-tool
+                    self._say("click on the part" if self._a is None else "click the other end, on the part")
+                    return {"RUNNING_MODAL"}
+                return {"PASS_THROUGH"}       # a click in the panel or elsewhere
             if self.kind == "FACE":
                 self._finish()
                 lay_face_flat(self._part, n, context)

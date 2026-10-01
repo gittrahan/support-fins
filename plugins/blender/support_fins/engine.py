@@ -276,20 +276,23 @@ def drawn_wall_tris(wall, part, soup, options, scene):
 
 
 def restand_drawn(wall, part, tris, scene):
-    """Give the drawn wall its new triangles; with None, hide it (kept, so it comes
-    back when the part is turned back)."""
+    """Give the drawn wall its new triangles; with None, empty and hide it (kept: its
+    ends are in sf_a / sf_b, so it comes back when the part is turned back, and no
+    old-pose wall is left for Blender's own STL export to pick up)."""
+    old = wall.data
+    name = old.name
     if tris is None:
         wall["sf_unbuilt"] = True
         set_hidden(wall, True)
-        return
-    old = wall.data
-    name = old.name
+        tris = np.empty((0, 3, 3))
     wall.data = _mesh(name + " (new)", tris, scene, "drawn", DRAWN_COLOR)
     if old.users == 0:
         bpy.data.meshes.remove(old)
     wall.data.name = name
     wall.matrix_parent_inverse = part.matrix_world.inverted()
     wall.matrix_basis.identity()
+    if not len(wall.data.polygons):
+        return
     if wall.get("sf_unbuilt"):           # hidden because it didn't fit; a wall the user
         del wall["sf_unbuilt"]           # hid stays hidden
         set_hidden(wall, False)

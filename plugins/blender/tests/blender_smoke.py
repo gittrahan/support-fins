@@ -211,6 +211,8 @@ assert ui.out_of_date(block, scene) == "the part moved"
 generate()                                   # the drawn wall is re-stood or says why not
 w = fins_of(block, ["drawn"])[0]
 assert w.visible_get() or "drawn walls not built" in block["sf_report"], block["sf_report"]
+if not w.visible_get():                      # not built: no old-pose wall left to export
+    assert len(w.data.polygons) == 0
 print("LAY_FLAT", block["sf_report"], flush=True)
 
 # ---- units: a part read in metres is called out ------------------------------
@@ -225,6 +227,10 @@ assert bpy.ops.support_fins.clear.poll()
 bpy.ops.support_fins.clear()
 assert not engine.children(part, {"fin"}) and "sf_report" not in part and "sf_matrix" not in part
 select(block)
+for o in engine.children(block, {"fin", "drawn"}):   # drawn walls only, deleted by hand:
+    engine.remove(o)                                  # Clear still clears the pose stamp
+del block["sf_report"]
+assert bpy.ops.support_fins.clear.poll()
 bpy.ops.support_fins.clear()
-assert not engine.children(block, {"fin", "drawn"}) and "sf_report" not in block
+assert "sf_matrix" not in block and "sf_drawn" not in block
 print("SMOKE_PASS", flush=True)

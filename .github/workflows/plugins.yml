@@ -155,7 +155,7 @@ jobs:
 
   blender-smoke:
     # Install the Linux zip into a real headless Blender (the oldest it supports and
-    # a current one) and use it: Generate, out of date, Draw wall, Lay face flat.
+    # a current one) and use it: Generate, out of date, settings, units, Draw wall, Lay face flat, Clear.
     needs: blender
     runs-on: ubuntu-24.04
     timeout-minutes: 20
