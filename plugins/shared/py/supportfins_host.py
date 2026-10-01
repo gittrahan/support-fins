@@ -75,19 +75,38 @@ def host_compute(ctx, soup, options):
              anything left out takes the engine's default (fins_entry.js).
     Returns (fins (K,3,3) float64 in the SAME frame as `soup`, stats dict).
     """
+    fins, stats, _, _ = host_compute_pieces(ctx, soup, options)
+    return fins, stats
+
+
+def host_compute_pieces(ctx, soup, options):
+    """host_compute, plus what each fin is, for hosts that show one object per fin.
+
+    Returns (fins, stats, pieces, over_faces):
+      pieces      [{"id", "kind", "ranges": [[first, end), ...]}]: triangle ranges of
+                  `fins`; kind "prop" (a wall), "wedge", "sway", "pad", ... Every
+                  triangle is in exactly one piece (fins_entry.js computeFins).
+      over_faces  indices of the faces of `soup` the engine counts as overhangs
+    """
     import numpy as np  # here, not at the top: Orca reports a failed numpy install itself
-    soup = np.ascontiguousarray(soup, dtype=np.float64)
-    raw = ctx.call(
-        "SupportFinsEngine.computeFinsB64",
-        base64.b64encode(soup.tobytes()).decode("ascii"),
-        json.dumps(options),
-    )
+    raw = ctx.call("SupportFinsEngine.computeFinsB64", _soup_b64(soup), json.dumps(options))
     out = json.loads(raw)
+    return _unseat(out), out["stats"], out["pieces"], np.array(out["overFaces"], dtype=np.int64)
+
+
+def _soup_b64(soup):
+    import numpy as np
+    soup = np.ascontiguousarray(soup, dtype=np.float64)
+    return base64.b64encode(soup.tobytes()).decode("ascii")
+
+
+def _unseat(out):
+    """The engine's seated float32 triangles, back in the caller's frame, float64."""
+    import numpy as np
     seated = np.frombuffer(base64.b64decode(out["triangles"]), dtype=np.float32)
     seated = seated.astype(np.float64).reshape(-1, 3, 3)
     off = out["offset"]  # seated = input + offset
-    fins = seated - np.array([off["x"], off["y"], off["z"]], dtype=np.float64)
-    return fins, out["stats"]
+    return seated - np.array([off["x"], off["y"], off["z"]], dtype=np.float64)
 
 
 def host_schema(ctx):

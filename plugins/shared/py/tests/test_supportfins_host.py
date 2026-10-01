@@ -69,6 +69,25 @@ def test_fins_come_back_in_the_callers_frame(ctx):
     assert abs(fins1[..., 2].min() - (soup[..., 2].min() + shift[2])) < 1e-4
 
 
+def test_pieces_split_the_fins_one_object_each(ctx):
+    soup = lbracket_35()
+    fins, stats = host.host_compute(ctx, soup, {"layerHeight": 0.2})
+    fins2, stats2, pieces, over = host.host_compute_pieces(ctx, soup, {"layerHeight": 0.2})
+    assert stats2 == stats and np.array_equal(fins2, fins)
+    seen = np.zeros(len(fins), dtype=int)
+    for p in pieces:
+        for a, b in p["ranges"]:
+            seen[a:b] += 1
+    assert (seen == 1).all()
+    assert sum(p["kind"] == "prop" for p in pieces) == stats["braces"] + stats["props"]
+    assert [p["kind"] for p in pieces].count("pad") == 1
+    # the engine's red faces, as indices into the caller's soup
+    assert over.dtype == np.int64 and len(over) > 0 and over.max() < len(soup)
+    t = soup[over]
+    normals = np.cross(t[:, 1] - t[:, 0], t[:, 2] - t[:, 0])
+    assert (normals[:, 2] < 0).all()   # overhangs face down
+
+
 def test_options_reach_the_engine(ctx):
     _, on = host.host_compute(ctx, lbracket_35(), {"layerHeight": 0.2})
     _, off = host.host_compute(ctx, lbracket_35(), {"layerHeight": 0.2, "bedPad": False, "tines": False})

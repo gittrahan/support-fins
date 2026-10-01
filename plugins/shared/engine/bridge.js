@@ -7,7 +7,8 @@
 // 100k-triangle part.
 //
 //   in : base64 float64 triangle soup (posed, mm) + JSON options
-//   out: JSON { triangles: base64 float32 soup (seated frame), offset, stats }
+//   out: JSON { triangles: base64 float32 soup (seated frame), offset, pieces,
+//               overFaces, stats }
 import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from './fins_entry.js';
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -46,13 +47,17 @@ export function bytesToB64(bytes) {
   return parts.join('');
 }
 
+const soupOf = (b64) => {
+  const bytes = b64ToBytes(b64);
+  return new Float64Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 8);
+};
+const trianglesB64 = (t) => bytesToB64(new Uint8Array(t.buffer, t.byteOffset, t.byteLength));
+
 export function computeFinsB64(soupB64, optionsJson) {
-  const bytes = b64ToBytes(soupB64);
-  const soup = new Float64Array(bytes.buffer, bytes.byteOffset, bytes.byteLength / 8);
   const options = optionsJson ? JSON.parse(optionsJson) : {};
-  const res = computeFins(soup, options);
-  const tri = new Uint8Array(res.triangles.buffer, res.triangles.byteOffset, res.triangles.byteLength);
-  return JSON.stringify({ triangles: bytesToB64(tri), offset: res.offset, stats: res.stats });
+  const res = computeFins(soupOf(soupB64), options);
+  return JSON.stringify({ triangles: trianglesB64(res.triangles), offset: res.offset,
+                          pieces: res.pieces, overFaces: Array.from(res.overFaces), stats: res.stats });
 }
 
 // A Python host's settings dialog, as JSON strings like computeFinsB64 (supportfins_host

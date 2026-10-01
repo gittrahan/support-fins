@@ -17,16 +17,12 @@
 //   them back onto the part: fin_world = fin_seated - offset.
 import { buildTopology, analyze, DEFAULT_THRESHOLD, IDENTITY3 } from '../../../web/overhangs.js';
 import { buildFins } from '../../../web/fins.js';
-import { MATERIAL } from '../../../web/materials.js';
-import { CUTOUT_PATTERNS } from '../../../web/cutout.js';
+import { seatSoup, clearances, flatten } from './seat.js';
 import SCHEMA from './options.json' with { type: 'json' };
 
 // The dialog settings (options.json) are the one source of their defaults: every
 // plugin's dialog is built from the same file, so the entry can't disagree with it.
 const OPTION = Object.fromEntries(SCHEMA.options.map((o) => [o.key, o]));
-// The site's Bed pad choices minus Custom (a plugin dialog shows presets, not the
-// four custom numbers). 'off' is the site's Off, the same as bedPad: false.
-const PAD_STYLES = ['off', 'auto', 'light', 'sure'];
 
 export const ENGINE_DEFAULTS = Object.freeze({
   mode: 'auto',        // the website's default fin mode
@@ -124,57 +120,24 @@ export { SCHEMA as OPTIONS_SCHEMA };
  *        precision, and rounding back to float32 can flip a borderline tine.
  * @param {object} [options]                 overrides for ENGINE_DEFAULTS
  * @returns {{ triangles: Float32Array, offset: {x:number,y:number,z:number},
+ *            pieces: {id:string, kind:string, ranges:number[][]}[], overFaces: Int32Array,
  *            stats: object }}
+ *   pieces     what each run of `triangles` is, so a host can make one object per fin:
+ *              kind 'prop' (a wall) | 'wedge' | 'sway' | ... as web/fins.js tags it, and
+ *              'pad'; ranges are [first, end) TRIANGLE indices into `triangles`. Every
+ *              triangle belongs to exactly one piece. ids are stable for the same part
+ *              and options, not across edits.
+ *   overFaces  indices of the INPUT faces analyze() marks as overhangs (the site's red)
  */
 export function computeFins(positions, options = {}) {
   const opts = { ...ENGINE_DEFAULTS, ...options };
-  const pick = (name, value, allowed) => {
-    if (!allowed.includes(value)) throw new Error(`${name} must be one of ${allowed.join(', ')}, got ${JSON.stringify(value)}`);
-    return value;
-  };
-  const mat = MATERIAL[pick('material', opts.material, Object.keys(MATERIAL))];
-  // The clearances, exactly as the site's build request sends them (ui/finbuild.js).
-  // ALWAYS the full set: buildFins applies them to module state, and a plugin's V8
-  // context lives across calls, so a partial set would let a PETG run's clearances
-  // leak into the next PLA run.
-  const tunables = {
-    tineBite: mat.tineBite, padH: mat.padH, padGrab: mat.padGrab, propGap: mat.propGap,
-    // Off builds no pad, so which style it carries doesn't matter; Auto keeps it valid.
-    padStyle: pick('padStyle', opts.padStyle, PAD_STYLES) === 'off' ? 'auto' : opts.padStyle,
-    cutout: pick('cutout', opts.cutout, CUTOUT_PATTERNS),
-  };
-  const input = (positions instanceof Float32Array || positions instanceof Float64Array)
-    ? positions : Float64Array.from(positions);
-  if (input.length === 0 || input.length % 9 !== 0) {
-    throw new Error(`positions must be a non-empty triangle soup (9 floats/face), got ${input.length}`);
-  }
-  // Seat the part at the origin OURSELVES, in float64, before the engine sees it.
-  // The engine welds vertices on a 1-micron grid of ABSOLUTE coordinates, so the
-  // same part parked at x=137 on Orca's plate welds differently than at x=0 and
-  // can grow or lose a tine (measured on lbracket). Centring first makes the result
-  // independent of where the part sits on the plate -- and identical to the website
-  // for a part whose STL is centred.
-  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z0 = Infinity;
-  for (let i = 0; i < input.length; i += 3) {
-    const x = input[i], y = input[i + 1], z = input[i + 2];
-    if (x < x0) x0 = x; if (x > x1) x1 = x;
-    if (y < y0) y0 = y; if (y > y1) y1 = y;
-    if (z < z0) z0 = z;
-  }
-  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  // ...then snap to a 1 nm grid. The engine's tine placement moves under ~1e-13 mm
-  // of noise (ENGINE-SENSITIVITY.md), and the subtraction above leaves exactly that
-  // much residue, so without the snap dragging a part across the plate could add or
-  // drop tines. 1 nm is far below anything printable.
-  const SNAP = 1e6;
-  const pos = new Float64Array(input.length);
-  for (let i = 0; i < input.length; i += 3) {
-    pos[i] = Math.round((input[i] - cx) * SNAP) / SNAP;
-    pos[i + 1] = Math.round((input[i + 1] - cy) * SNAP) / SNAP;
-    pos[i + 2] = Math.round((input[i + 2] - z0) * SNAP) / SNAP;
-  }
+  const { mat, tunables } = clearances(opts);
+  const { pos, shift } = seatSoup(positions);
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   const result = analyze(topo, opts.threshold, IDENTITY3);
+  // Read now: `over` is the topology's own buffer, which a later analyze() refills.
+  const overFaces = [];
+  for (let f = 0; f < result.over.length; f++) if (result.over[f]) overFaces.push(f);
   const built = buildFins(topo, result, IDENTITY3, {
     mode: opts.mode, bedPad: opts.bedPad && opts.padStyle !== 'off', tines: opts.tines,
     tineDensity: opts.tineDensity, layerHeight: opts.layerHeight, coverage: opts.coverage,
@@ -189,19 +152,21 @@ export function computeFins(positions, options = {}) {
     tunables,
   });
   const fin = flatten(built.triangles);
-  // Sway braces are appended to the fin soup as one block (web/fins.js), each with
-  // its range in points: count them so a host can tell a brace from a fin.
-  const swayPoints = (built.fins ?? []).filter((f) => f.kind === 'sway')
-    .reduce((n, f) => n + f.triRanges.reduce((m, [a, b]) => m + b - a, 0), 0);
-  const swayTris = typeof built.triangles?.[0] === 'number' ? swayPoints / 9 : swayPoints / 3;
   const pad = flatten(built.padTriangles || []);
   const triangles = new Float32Array(fin.length + pad.length);
   triangles.set(fin, 0);
   triangles.set(pad, fin.length);
+  const pieces = piecesOf(built, fin.length / 9, pad.length / 9);
+  // Sway braces are appended to the fin soup as one block (web/fins.js): count them
+  // so a host can tell a brace from a fin.
+  const swayTris = pieces.filter((p) => p.kind === 'sway')
+    .reduce((n, p) => n + p.ranges.reduce((m, [a, b]) => m + b - a, 0), 0);
   return {
     triangles,
     // seated = input + offset  (so the caller maps fins back with input = seated - offset)
-    offset: { x: result.offset.x - cx, y: result.offset.y - cy, z: result.offset.z - z0 },
+    offset: { x: result.offset.x - shift.x, y: result.offset.y - shift.y, z: result.offset.z - shift.z },
+    pieces,
+    overFaces: Int32Array.from(overFaces),
     stats: {
       overhangRegions: result.regions.length,
       // The soup is fins | sway braces | pad, in these counts.
@@ -231,16 +196,15 @@ export function computeFins(positions, options = {}) {
   };
 }
 
-// buildFins hands back either a flat number array or an array of [x,y,z] triples
-// depending on the path taken; normalise both to a flat Float32Array.
-function flatten(tris) {
-  if (!tris || tris.length === 0) return new Float32Array(0);
-  if (typeof tris[0] === 'number') return Float32Array.from(tris);
-  const out = new Float32Array(tris.length * 3);
-  let i = 0;
-  for (const p of tris) {
-    if (Array.isArray(p) || ArrayBuffer.isView(p)) { out[i++] = p[0]; out[i++] = p[1]; out[i++] = p[2]; }
-    else { out[i++] = p.x; out[i++] = p.y; out[i++] = p.z; }
-  }
-  return out.subarray(0, i);
+// web/fins.js tags each fin with its runs of `built.triangles` (triRanges), counted
+// in that array's elements: points ([x,y,z] triples) or, on a flat path, numbers.
+// Turn them into triangle ranges of the flattened soup, then add the pad after them.
+function piecesOf(built, finTris, padTris) {
+  const per = typeof built.triangles?.[0] === 'number' ? 9 : 3;
+  const pieces = (built.fins ?? []).map((f) => ({
+    id: String(f.id), kind: f.kind,
+    ranges: f.triRanges.map(([a, b]) => [a / per, b / per]),
+  }));
+  if (padTris) pieces.push({ id: 'pad', kind: 'pad', ranges: [[finTris, finTris + padTris]] });
+  return pieces;
 }

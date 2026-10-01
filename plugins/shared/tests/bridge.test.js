@@ -36,4 +36,7 @@ Deno.test('bridge gives the same fins as the direct call', () => {
   assert(tris.length === direct.triangles.length, 'triangle count differs');
   assert(tris.every((v, i) => v === direct.triangles[i]), 'triangles differ');
   assert(JSON.stringify(viaB64.offset) === JSON.stringify(direct.offset), 'offset differs');
+  assert(JSON.stringify(viaB64.pieces) === JSON.stringify(direct.pieces), 'pieces differ');
+  assert(JSON.stringify(viaB64.overFaces) === JSON.stringify(Array.from(direct.overFaces)), 'overFaces differ');
 });
+
