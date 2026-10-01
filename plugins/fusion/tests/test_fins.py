@@ -525,6 +525,12 @@ class FusionSide(unittest.TestCase):
         allc = [c for b in added for c in b.coords]
         self.assertAlmostEqual(min(allc[1::3]), 0.3, places=4)          # cm, along Y
         self.assertLessEqual(max(allc[1::3]), max(c / 10.0 for c in yup[1::3]) + 1e-4)
+        # and the engine sees the Z-up part, not a turned one: print = (wx, -wz, wy)
+        frame = fb.PrintFrame.from_bed(body, body, APP)
+        soup = fb.body_soup(body, frame)
+        lo_s, lo_z = bbox(soup)[:3], bbox(zup)[:3]      # the origin is the part's corner
+        self.assertLess(max(abs((a - lo_s[i % 3]) - (b - lo_z[i % 3]))
+                            for i, (a, b) in enumerate(zip(soup, zup))), 1e-4)
 
     def test_an_xy_bed_hands_the_engine_the_part_unturned(self):
         # The site fins the STL as it sits; Fusion must give the engine the same
@@ -538,7 +544,7 @@ class FusionSide(unittest.TestCase):
 
     def test_the_print_frame_is_right_handed_on_any_bed(self):
         design, body = mesh_design(posed(read_stl('lbracket'), 35))
-        for n in ((0, 0, 1), (0, 1, 0), (1, 0, 0), (0.3, -0.5, 0.81)):
+        for n in ((0, 0, 1), (0, 0, -1), (0, 1, 0), (1, 0, 0), (1e-9, 0, 1), (0.3, -0.5, 0.81)):
             frame = fb.PrintFrame.from_bed(fake_adsk.ConstructionPlane((0, 0, 0), n), body, APP)
             x, y, z = (fake_adsk.Vec(*v) for v in (frame.x, frame.y, frame.z))
             c = x.crossProduct(y)
