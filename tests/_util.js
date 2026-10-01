@@ -165,3 +165,26 @@ export function bbox(tris) {
   for (const v of tris) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], v[k]); hi[k] = Math.max(hi[k], v[k]); }
   return { lo, hi };
 }
+
+/** Split emitTines output into its boxes: each tine is a 36-vertex block, followed by
+ *  its WALL STEP (another 36) when the tine sits above the wall top (local issue 005).
+ *  A step starts below its tine, ends inside it and lies inside its footprint, which a
+ *  next tine along the run never does. Returns { tines, steps } of
+ *  { verts, lo, hi } (a step also carries `tine`, the box it sits under). */
+export function tineBoxes(out) {
+  const tines = [], steps = [];
+  const within = (b, t) => [0, 1].every((k) => b.lo[k] >= t.lo[k] - 1e-6 && b.hi[k] <= t.hi[k] + 1e-6);
+  let prev = null;
+  for (let i = 0; i + 36 <= out.length; i += 36) {
+    const verts = out.slice(i, i + 36);
+    const b = { verts, ...bbox(verts) };
+    if (prev && b.lo[2] < prev.lo[2] && b.hi[2] > prev.lo[2] && b.hi[2] < prev.hi[2] && within(b, prev)) {
+      steps.push({ ...b, tine: prev });
+      prev = null;                              // at most one step per tine
+    } else {
+      tines.push(b);
+      prev = b;
+    }
+  }
+  return { tines, steps };
+}

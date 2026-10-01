@@ -155,6 +155,10 @@ export function tineStepFor(density) {
  * `grip`, if given ({ z }), gets the lowest tine bottom: the wall's grip height.
  * Not the lowest emitted vertex -- a wall step under a tine sits lower.
  */
+// How far a wall step (below) stays inside its tine's footprint: enough that no
+// vertex coincides, far under anything a slicer resolves.
+const STEP_INSET = 0.01;
+
 export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
                           minTop = PROP.baseH + 0.2, tineH = PROP.tineH, body = null,
                           grip = null) {
@@ -263,11 +267,15 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
     // the slice under the tine comes out empty, so the tine hangs off the part
     // without touching the wall (local issue 005). Raise the wall to meet it, under
     // the tine's wall end only (-tineOverlap..0): it sits directly beneath the tine,
-    // so it never comes nearer the part than the tine does. Sunk half a layer into
-    // the wall so the two union.
+    // so it never comes nearer the part than the tine does. It runs from half a layer
+    // inside the wall to half a layer inside the tine, inset STEP_INSET all round, so
+    // it shares no face or vertex with either: they overlap like a tine and its wall
+    // (a step flush on the tine's bottom welded into a non-manifold body in Fusion).
     if (tineBot > wallTop + 1e-6) {
-      const step = [[-PROP.tineOverlap, -half], [0, -half], [0, half], [-PROP.tineOverlap, half]];
-      boxExtrude(step, wallTop - tineH / 2, tineBot, P, out);
+      const e = STEP_INSET;
+      const step = [[-PROP.tineOverlap + e, -half + e], [-e, -half + e],
+                    [-e, half - e], [-PROP.tineOverlap + e, half - e]];
+      boxExtrude(step, wallTop - tineH / 2, tineBot + tineH / 2, P, out);
     }
     // Test seam: tests/tines_realparts.test.js sets globalThis.__TINECAP to an array
     // and reads back each tine's seed + bite heading to verify grip on real parts

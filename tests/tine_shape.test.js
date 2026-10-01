@@ -7,7 +7,7 @@
 // And the squat bed walls must be able to carry tines at all (the base-height gate
 // was skipping every one of them).
 
-import { blockTopo, tiltedBlockTopo, prop, fins, insidePart, assert, assertClose } from './_util.js';
+import { blockTopo, tiltedBlockTopo, prop, fins, insidePart, assert, assertClose, tineBoxes } from './_util.js';
 
 const { emitTines, surfaceZAt, PROP } = prop;
 const LAYER = 0.2;   // Matthew's slicer layer height; a tine must equal exactly this
@@ -153,14 +153,10 @@ Deno.test('REGRESSION: an off-grid underside still yields one-layer tines (the c
   const n = emitTines(line, null, topo, rot, offset, out);   // default LAYER-height tine
   assert(n >= 3, `need tines to test, got ${n}`);
   let offGrid = 0, twoLayer = 0;
-  for (let i = 0; i < n; i++) {
-    let lo = Infinity, hi = -Infinity, cx = 0;
-    for (let v = i * 36; v < (i + 1) * 36; v++) {
-      if (out[v][2] < lo) lo = out[v][2];
-      if (out[v][2] > hi) hi = out[v][2];
-      cx += out[v][0];
-    }
-    cx /= 36;
+  const { tines } = tineBoxes(out);   // off the grid, so wall steps come in between
+  assert(tines.length === n, `${tines.length} tine boxes for ${n} tines`);
+  for (const { verts, lo: [, , lo], hi: [, , hi] } of tines) {
+    const cx = verts.reduce((a, v) => a + v[0], 0) / 36;
     const surf = surfaceZAt(topo.pos, cx, 0);
     if (Math.abs((surf / LAYER) - Math.round(surf / LAYER)) > 1e-3) offGrid++;
     const cells = Math.ceil(hi / LAYER - 1e-4) - Math.floor(lo / LAYER + 1e-4);
