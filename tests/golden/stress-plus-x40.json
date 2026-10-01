@@ -1,0 +1,83 @@
+{
+  "scene": {
+    "name": "stress-plus-x40",
+    "model": "plus",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 4,
+  "tines": 22,
+  "unserved": 0,
+  "triangles": 2232,
+  "padTriangles": 11828,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 19.813,
+      "length": 10.932,
+      "tines": 0,
+      "from": [
+        18,
+        2.248,
+        10.641
+      ],
+      "to": [
+        18,
+        13.179,
+        19.813
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 30.654,
+      "length": 35.793,
+      "tines": 0,
+      "from": [
+        6,
+        -9.694,
+        0.62
+      ],
+      "to": [
+        6,
+        26.099,
+        30.654
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 30.654,
+      "length": 35.793,
+      "tines": 0,
+      "from": [
+        -6,
+        -9.694,
+        0.62
+      ],
+      "to": [
+        -6,
+        26.099,
+        30.654
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 19.813,
+      "length": 10.932,
+      "tines": 0,
+      "from": [
+        -18,
+        2.248,
+        10.641
+      ],
+      "to": [
+        -18,
+        13.179,
+        19.813
+      ]
+    }
+  ],
+  "sha256": "51e71f4c5790197f36788080cc25c2bb0aa16f706cb61e54f4f4e5ba82eeb35b"
+}

@@ -71,6 +71,12 @@ const SCENES = [
   { name: 'torus-x30-auto', model: 'torus', rot: [30, 0, 0] },
   { name: 'staircase-x40-auto', model: 'staircase', rot: [40, 0, 0] },
   { name: 'bar-sway', model: 'bar', rot: [0, 0, 0], set: { sway: true } },
+  // Every stress model as loaded and at X40, Auto, PLA: a change on ANY of them shows
+  // up (lowledge's doubled edge walls from #143 went unseen with fewer scenes).
+  ...[...Deno.readDirSync(new URL('../prototype/stress/models/', import.meta.url))]
+    .map((e) => e.name.replace(/\.stl$/, '')).sort()
+    .flatMap((model) => [{ name: `stress-${model}-up`, model, rot: [0, 0, 0] },
+                         { name: `stress-${model}-x40`, model, rot: [40, 0, 0] }]),
 ];
 
 const r3 = (x) => Math.round(x * 1000) / 1000;

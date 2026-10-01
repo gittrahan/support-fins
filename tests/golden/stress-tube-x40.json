@@ -1,0 +1,51 @@
+{
+  "scene": {
+    "name": "stress-tube-x40",
+    "model": "tube",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 2,
+  "tines": 10,
+  "unserved": 0,
+  "triangles": 1024,
+  "padTriangles": 1152,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 23.092,
+      "length": 21.81,
+      "tines": 0,
+      "from": [
+        16.5,
+        6.772,
+        4.791
+      ],
+      "to": [
+        16.5,
+        28.582,
+        23.092
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 23.092,
+      "length": 21.81,
+      "tines": 0,
+      "from": [
+        -16.5,
+        6.772,
+        4.791
+      ],
+      "to": [
+        -16.5,
+        28.582,
+        23.092
+      ]
+    }
+  ],
+  "sha256": "a52144b55432f646249a676b80e3db851e1960a8726e3c6d5c7b89bc230a06a3"
+}

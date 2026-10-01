@@ -1,0 +1,67 @@
+{
+  "scene": {
+    "name": "stress-wedge-x40",
+    "model": "wedge",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 3,
+  "tines": 13,
+  "unserved": 0,
+  "triangles": 1412,
+  "padTriangles": 39388,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 12.241,
+      "length": 13.838,
+      "tines": 0,
+      "from": [
+        0,
+        -4.691,
+        0.629
+      ],
+      "to": [
+        0,
+        9.148,
+        12.241
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 17.217,
+      "length": 19.769,
+      "tines": 0,
+      "from": [
+        -12,
+        -4.691,
+        0.629
+      ],
+      "to": [
+        -12,
+        15.078,
+        17.217
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 22.194,
+      "length": 25.711,
+      "tines": 0,
+      "from": [
+        -24,
+        -4.702,
+        0.62
+      ],
+      "to": [
+        -24,
+        21.009,
+        22.194
+      ]
+    }
+  ],
+  "sha256": "ef96abf1da39aa64b53444a0b58dd3687b3a5357b1726aadfd98daf319948196"
+}

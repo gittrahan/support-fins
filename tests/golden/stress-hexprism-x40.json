@@ -1,0 +1,67 @@
+{
+  "scene": {
+    "name": "stress-hexprism-x40",
+    "model": "hexprism",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 3,
+  "tines": 13,
+  "unserved": 0,
+  "triangles": 1392,
+  "padTriangles": 13714,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 17.943,
+      "length": 16.708,
+      "tines": 0,
+      "from": [
+        13.333,
+        7.716,
+        3.923
+      ],
+      "to": [
+        13.333,
+        24.424,
+        17.943
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 22.067,
+      "length": 25.554,
+      "tines": 0,
+      "from": [
+        0,
+        3.784,
+        0.625
+      ],
+      "to": [
+        0,
+        29.338,
+        22.067
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 17.943,
+      "length": 16.708,
+      "tines": 0,
+      "from": [
+        -13.333,
+        7.716,
+        3.923
+      ],
+      "to": [
+        -13.333,
+        24.424,
+        17.943
+      ]
+    }
+  ],
+  "sha256": "d423925f42556fb926b5208d63335804add1377c4ed19d19066a812b93a035d9"
+}

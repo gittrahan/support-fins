@@ -1,0 +1,51 @@
+{
+  "scene": {
+    "name": "stress-ushape-x40",
+    "model": "ushape",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 2,
+  "tines": 14,
+  "unserved": 0,
+  "triangles": 1512,
+  "padTriangles": 33756,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 28.083,
+      "length": 32.715,
+      "tines": 0,
+      "from": [
+        18.75,
+        -6.22,
+        0.632
+      ],
+      "to": [
+        18.75,
+        26.495,
+        28.083
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 28.083,
+      "length": 32.715,
+      "tines": 0,
+      "from": [
+        -18.75,
+        -6.22,
+        0.632
+      ],
+      "to": [
+        -18.75,
+        26.495,
+        28.083
+      ]
+    }
+  ],
+  "sha256": "bd8e84e2d534fb71c511897773ee936d5b0b42925041a5cda0363239dd60e89e"
+}

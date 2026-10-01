@@ -1,0 +1,83 @@
+{
+  "scene": {
+    "name": "stress-arch-x40",
+    "model": "arch",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 4,
+  "tines": 22,
+  "unserved": 0,
+  "triangles": 2432,
+  "padTriangles": 37996,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 19.706,
+      "length": 22.734,
+      "tines": 0,
+      "from": [
+        18,
+        -4.691,
+        0.629
+      ],
+      "to": [
+        18,
+        18.044,
+        19.706
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 25.512,
+      "length": 29.653,
+      "tines": 0,
+      "from": [
+        6,
+        -4.691,
+        0.629
+      ],
+      "to": [
+        6,
+        24.963,
+        25.512
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 25.512,
+      "length": 29.653,
+      "tines": 0,
+      "from": [
+        -6,
+        -4.691,
+        0.629
+      ],
+      "to": [
+        -6,
+        24.963,
+        25.512
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 19.706,
+      "length": 22.734,
+      "tines": 0,
+      "from": [
+        -18,
+        -4.691,
+        0.629
+      ],
+      "to": [
+        -18,
+        18.044,
+        19.706
+      ]
+    }
+  ],
+  "sha256": "976d9157fdfc1e850833bfa7ce45ca9af0a63ea984c3d799e618aadd1c97c4c7"
+}

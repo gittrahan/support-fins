@@ -1,0 +1,99 @@
+{
+  "scene": {
+    "name": "stress-tshape-x40",
+    "model": "tshape",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 5,
+  "tines": 24,
+  "unserved": 0,
+  "triangles": 2088,
+  "padTriangles": 42578,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 9.689,
+      "length": 10.808,
+      "tines": 0,
+      "from": [
+        24,
+        -10.46,
+        0.62
+      ],
+      "to": [
+        24,
+        0.348,
+        9.689
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 9.689,
+      "length": 10.808,
+      "tines": 0,
+      "from": [
+        12,
+        -10.46,
+        0.62
+      ],
+      "to": [
+        12,
+        0.348,
+        9.689
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 31.939,
+      "length": 37.325,
+      "tines": 0,
+      "from": [
+        0,
+        -10.46,
+        0.62
+      ],
+      "to": [
+        0,
+        26.865,
+        31.939
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 9.689,
+      "length": 10.808,
+      "tines": 0,
+      "from": [
+        -12,
+        -10.46,
+        0.62
+      ],
+      "to": [
+        -12,
+        0.348,
+        9.689
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 9.689,
+      "length": 10.808,
+      "tines": 0,
+      "from": [
+        -24,
+        -10.46,
+        0.62
+      ],
+      "to": [
+        -24,
+        0.348,
+        9.689
+      ]
+    }
+  ],
+  "sha256": "ac13213852656312776c8a0a680e570a2e71a0af43792c2808edabe0dc237cac"
+}

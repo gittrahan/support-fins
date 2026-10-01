@@ -1,0 +1,35 @@
+{
+  "scene": {
+    "name": "stress-lbracket-x40",
+    "model": "lbracket",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 1,
+  "tines": 8,
+  "unserved": 0,
+  "triangles": 888,
+  "padTriangles": 31272,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 31.939,
+      "length": 37.325,
+      "tines": 0,
+      "from": [
+        -18.75,
+        -8.532,
+        0.62
+      ],
+      "to": [
+        -18.75,
+        28.793,
+        31.939
+      ]
+    }
+  ],
+  "sha256": "2e54ed6e71e9b9f3b0bb5c645c16814191c34844398f7f70c333b90b73bcadba"
+}

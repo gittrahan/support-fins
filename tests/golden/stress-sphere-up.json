@@ -1,0 +1,83 @@
+{
+  "scene": {
+    "name": "stress-sphere-up",
+    "model": "sphere",
+    "rot": [
+      0,
+      0,
+      0
+    ]
+  },
+  "walls": 4,
+  "tines": 18,
+  "unserved": 0,
+  "triangles": 1704,
+  "padTriangles": 1344,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 5.802,
+      "length": 22.992,
+      "tines": 0,
+      "from": [
+        -11.496,
+        -12.184,
+        5.802
+      ],
+      "to": [
+        11.496,
+        -12.184,
+        5.802
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 7.524,
+      "length": 11.996,
+      "tines": 0,
+      "from": [
+        -18.493,
+        0,
+        7.524
+      ],
+      "to": [
+        -6.498,
+        0,
+        0.619
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 7.524,
+      "length": 11.996,
+      "tines": 0,
+      "from": [
+        6.498,
+        0,
+        0.619
+      ],
+      "to": [
+        18.493,
+        0,
+        7.524
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 5.802,
+      "length": 22.992,
+      "tines": 0,
+      "from": [
+        -11.496,
+        12.184,
+        5.802
+      ],
+      "to": [
+        11.496,
+        12.184,
+        5.802
+      ]
+    }
+  ],
+  "sha256": "ad825c9e5f44519bc9469d2b4732bb3f5a940fd23b34127a2a583b83d6c2e87d"
+}

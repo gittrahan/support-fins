@@ -1,0 +1,83 @@
+{
+  "scene": {
+    "name": "stress-cone-x40",
+    "model": "cone",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 4,
+  "tines": 26,
+  "unserved": 0,
+  "triangles": 2920,
+  "padTriangles": 1344,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 27.376,
+      "length": 25.892,
+      "tines": 0,
+      "from": [
+        19.5,
+        -3.621,
+        5.649
+      ],
+      "to": [
+        19.5,
+        22.271,
+        27.376
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 32.389,
+      "length": 37.843,
+      "tines": 0,
+      "from": [
+        6.5,
+        -9.596,
+        0.636
+      ],
+      "to": [
+        6.5,
+        28.246,
+        32.389
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 32.389,
+      "length": 37.843,
+      "tines": 0,
+      "from": [
+        -6.5,
+        -9.596,
+        0.636
+      ],
+      "to": [
+        -6.5,
+        28.246,
+        32.389
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 27.376,
+      "length": 25.892,
+      "tines": 0,
+      "from": [
+        -19.5,
+        -3.621,
+        5.649
+      ],
+      "to": [
+        -19.5,
+        22.271,
+        27.376
+      ]
+    }
+  ],
+  "sha256": "c916a771bf2eae33b050f099cfaa47fdcdfc96c5bd1d1136bd0e16d7b212199a"
+}

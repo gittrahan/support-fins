@@ -1,0 +1,99 @@
+{
+  "scene": {
+    "name": "stress-pyramid-x40",
+    "model": "pyramid",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 5,
+  "tines": 27,
+  "unserved": 0,
+  "triangles": 2644,
+  "padTriangles": 768,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 22.437,
+      "length": 7.994,
+      "tines": 0,
+      "from": [
+        24,
+        2.189,
+        15.73
+      ],
+      "to": [
+        24,
+        10.183,
+        22.437
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 29.983,
+      "length": 25.979,
+      "tines": 0,
+      "from": [
+        12,
+        -6.803,
+        8.184
+      ],
+      "to": [
+        12,
+        19.175,
+        29.983
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 37.529,
+      "length": 43.986,
+      "tines": 0,
+      "from": [
+        0,
+        -15.818,
+        0.62
+      ],
+      "to": [
+        0,
+        28.168,
+        37.529
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 29.983,
+      "length": 25.979,
+      "tines": 0,
+      "from": [
+        -12,
+        -6.803,
+        8.184
+      ],
+      "to": [
+        -12,
+        19.175,
+        29.983
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 22.437,
+      "length": 7.994,
+      "tines": 0,
+      "from": [
+        -24,
+        2.189,
+        15.73
+      ],
+      "to": [
+        -24,
+        10.183,
+        22.437
+      ]
+    }
+  ],
+  "sha256": "44b3d8e3fcdc4d197d8ebc2ba5f84a384cc7f07eff87f3bf4cdafd26dc77b4b2"
+}

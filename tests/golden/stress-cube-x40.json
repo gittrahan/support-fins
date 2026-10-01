@@ -1,0 +1,67 @@
+{
+  "scene": {
+    "name": "stress-cube-x40",
+    "model": "cube",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 3,
+  "tines": 18,
+  "unserved": 0,
+  "triangles": 2052,
+  "padTriangles": 28302,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 25.512,
+      "length": 29.653,
+      "tines": 0,
+      "from": [
+        13.333,
+        -1.477,
+        0.629
+      ],
+      "to": [
+        13.333,
+        28.177,
+        25.512
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 25.512,
+      "length": 29.653,
+      "tines": 0,
+      "from": [
+        0,
+        -1.477,
+        0.629
+      ],
+      "to": [
+        0,
+        28.177,
+        25.512
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 25.512,
+      "length": 29.653,
+      "tines": 0,
+      "from": [
+        -13.333,
+        -1.477,
+        0.629
+      ],
+      "to": [
+        -13.333,
+        28.177,
+        25.512
+      ]
+    }
+  ],
+  "sha256": "cd060ac3ed966071861eccb11ea88bf831f6f14240f45556b552f733fec5f53e"
+}

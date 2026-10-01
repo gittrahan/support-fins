@@ -1,0 +1,67 @@
+{
+  "scene": {
+    "name": "stress-cylinder-x40",
+    "model": "cylinder",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 3,
+  "tines": 16,
+  "unserved": 0,
+  "triangles": 1728,
+  "padTriangles": 1152,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 21.364,
+      "length": 21.746,
+      "tines": 0,
+      "from": [
+        13.333,
+        7.917,
+        3.118
+      ],
+      "to": [
+        13.333,
+        29.662,
+        21.364
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 25.512,
+      "length": 29.665,
+      "tines": 0,
+      "from": [
+        0,
+        4.94,
+        0.62
+      ],
+      "to": [
+        0,
+        34.605,
+        25.512
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 21.364,
+      "length": 21.746,
+      "tines": 0,
+      "from": [
+        -13.333,
+        7.917,
+        3.118
+      ],
+      "to": [
+        -13.333,
+        29.662,
+        21.364
+      ]
+    }
+  ],
+  "sha256": "7a860985ed490bbe5983fd92f89c8322acb7f7fb9019698cd8e7ce33b2b6baf1"
+}

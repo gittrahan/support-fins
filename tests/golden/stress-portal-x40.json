@@ -1,0 +1,51 @@
+{
+  "scene": {
+    "name": "stress-portal-x40",
+    "model": "portal",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 2,
+  "tines": 10,
+  "unserved": 0,
+  "triangles": 1224,
+  "padTriangles": 27546,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 21.655,
+      "length": 25.081,
+      "tines": 0,
+      "from": [
+        13.333,
+        -2.416,
+        0.609
+      ],
+      "to": [
+        13.333,
+        22.665,
+        21.655
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 21.655,
+      "length": 25.081,
+      "tines": 0,
+      "from": [
+        -13.333,
+        -2.416,
+        0.609
+      ],
+      "to": [
+        -13.333,
+        22.665,
+        21.655
+      ]
+    }
+  ],
+  "sha256": "42efba2ee773984da5a85032339c20fa2e28cdfff6f427bc843f0cf5e3e748cb"
+}

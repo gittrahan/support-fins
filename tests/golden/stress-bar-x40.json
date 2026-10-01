@@ -1,0 +1,35 @@
+{
+  "scene": {
+    "name": "stress-bar-x40",
+    "model": "bar",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 1,
+  "tines": 4,
+  "unserved": 0,
+  "triangles": 300,
+  "padTriangles": 11828,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 10.085,
+      "length": 11.279,
+      "tines": 0,
+      "from": [
+        0,
+        23.774,
+        0.62
+      ],
+      "to": [
+        0,
+        35.054,
+        10.085
+      ]
+    }
+  ],
+  "sha256": "e21a319faa1d09906ce1c4c84d933fd5cf11020be81d69bd711fe0710c272a03"
+}
