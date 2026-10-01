@@ -175,6 +175,14 @@ tests/       offline geometry regression suite
 Fins are separate closed solids appended to the mesh; the slicer unions them. The whole
 engine is plain mesh math with no boolean kernel, because it has to run in the browser.
 
+## Blender extension (experimental)
+
+[Blender 4.2+ integration](plugins/blender/README.md): guided scene preparation,
+mesh checks, load-aware orientation suggestions, optional fins and separate-part
+STL/3MF export. Builds use the current web engine. See its README for installation,
+platform requirements and testing limitations. The Blender integration is GPL-3.0-or-later;
+the shared web engine keeps its MIT license.
+
 ## Credit
 
 The fin technique is Slant3D's — they've evangelized designed-in supports for years.

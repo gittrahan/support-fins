@@ -26,3 +26,7 @@ plugins/fusion/SupportFins/palette/fins_engine.js
 plugins/fusion/build/
 plugins/cura/build/
 plugins/cura/SupportFins/dev_*
+
+# Blender: generated web engine, downloaded runtime archives and packages
+plugins/blender/build/
+plugins/blender/.cache/

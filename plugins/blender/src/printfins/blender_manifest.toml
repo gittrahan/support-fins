@@ -1,0 +1,12 @@
+schema_version = "1.0.0"
+id = "printfins"
+version = "0.3.0"
+name = "PrintFins"
+tagline = "Offline breakaway fins for FDM with separate printable parts"
+maintainer = "PrintFins contributors"
+type = "add-on"
+tags = ["3D View", "Mesh", "Import-Export"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+[permissions]
+files = "Import/export models and run the bundled offline geometry engine"
