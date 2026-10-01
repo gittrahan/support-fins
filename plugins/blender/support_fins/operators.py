@@ -44,8 +44,9 @@ class SUPPORTFINS_OT_clear(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         part = active_part(context)
-        return context.mode == "OBJECT" and part is not None and bool(
-            engine.children(part, {"fin"}))
+        # also with every fin deleted by hand: the result line and pose stamp remain
+        return context.mode == "OBJECT" and part is not None and (
+            bool(engine.children(part, {"fin"})) or "sf_report" in part)
 
     def execute(self, context):
         part = active_part(context)

@@ -48,6 +48,15 @@ def visible(scene, key):
     return _visible_cache[cache_key]
 
 
+def _columns(context):
+    """About how many characters fit on a sidebar label: Blender cuts a longer one
+    off with an ellipsis instead of wrapping it."""
+    region = context.region
+    if region is None or region.type != "UI":
+        return 42
+    return max(16, int(region.width / context.preferences.system.ui_scale / 6.5) - 6)
+
+
 def _wrapped(layout, text, icon="NONE", width=42):
     lines = textwrap.wrap(text, width) or [""]
     for i, line in enumerate(lines):
@@ -64,6 +73,7 @@ class SUPPORTFINS_PT_main(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
+        cols = _columns(context)
         part = engine.part_for(context.active_object)
         if part is None:
             layout.label(text="Select the part to support", icon="INFO")
@@ -73,13 +83,13 @@ class SUPPORTFINS_PT_main(bpy.types.Panel):
         size = engine.size_mm(part, context)
         box.label(text="{:.1f} × {:.1f} × {:.1f} mm".format(*size))
         if size.max() > 1000 or size.max() < 1:
-            _wrapped(box, "That size looks wrong for a print: is one Blender unit a millimetre?", "ERROR")
+            _wrapped(box, "That size looks wrong for a print: is one Blender unit a millimetre?", "ERROR", cols)
             box.operator("support_fins.millimetres")
 
         try:
             engine.ctx()
         except Exception as e:  # noqa: BLE001 -- say why the engine won't start, don't crash the panel
-            _wrapped(layout, f"The fin engine didn't start: {e}", "ERROR")
+            _wrapped(layout, f"The fin engine didn't start: {e}", "ERROR", cols)
             return
 
         col = layout.column(align=True)
@@ -91,9 +101,9 @@ class SUPPORTFINS_PT_main(bpy.types.Panel):
         if report or why:
             box = layout.box()
             if why:
-                _wrapped(box, f"Out of date: {why}. Generate again.", "ERROR")
+                _wrapped(box, f"Out of date: {why}. Generate again.", "ERROR", cols)
             for i, line in enumerate(report.split("; ") if report else []):
-                _wrapped(box, line, "CHECKMARK" if i == 0 else "ERROR")
+                _wrapped(box, line, "CHECKMARK" if i == 0 else "ERROR", cols)
 
         settings = scene.support_fins
         for title, specs in schema.sections(engine.SCHEMA):

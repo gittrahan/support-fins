@@ -167,6 +167,9 @@ scene.unit_settings.scale_length = 1.0
 assert engine.size_mm(part, c).max() > 1000
 scene.unit_settings.scale_length = 0.001
 
+for o in fins_of(part):                      # every fin deleted by hand: Clear still
+    engine.remove(o)                         # clears the result line and pose stamp
+assert bpy.ops.support_fins.clear.poll()
 bpy.ops.support_fins.clear()
-assert not engine.children(part, {"fin"}) and "sf_report" not in part
+assert not engine.children(part, {"fin"}) and "sf_report" not in part and "sf_matrix" not in part
 print("SMOKE_PASS", flush=True)
