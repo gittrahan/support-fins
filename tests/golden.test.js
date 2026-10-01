@@ -66,6 +66,10 @@ const SCENES = [
   { name: 'cube-x40-auto', model: 'cube', rot: [40, 0, 0] },
   { name: 'cube-x40-draw', model: 'cube', rot: [40, 0, 0], draw: [[-15, 13, 13], [15, 13, 13]] },
   { name: 'cube-x40-petg', model: 'cube', rot: [40, 0, 0], set: { material: 'petg' } },
+  // A flat-enough underside (<= PROP.edgeFlatDeg) moves its end rows out flush:
+  // #143 added two there instead and the cube went 3 -> 5 walls, unseen at X40.
+  { name: 'cube-x20-auto', model: 'cube', rot: [20, 0, 0] },
+  { name: 'cube-x30-auto', model: 'cube', rot: [30, 0, 0] },
   { name: 'lbracket-x35-auto', model: 'lbracket', rot: [35, 0, 0] },
   { name: 'sphere-auto', model: 'sphere', rot: [0, 0, 0] },
   { name: 'torus-x30-auto', model: 'torus', rot: [30, 0, 0] },

@@ -1,0 +1,67 @@
+{
+  "scene": {
+    "name": "cube-x30-auto",
+    "model": "cube",
+    "rot": [
+      30,
+      0,
+      0
+    ]
+  },
+  "walls": 3,
+  "tines": 21,
+  "unserved": 0,
+  "triangles": 2328,
+  "padTriangles": 28302,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 19.8,
+      "length": 33.221,
+      "tines": 0,
+      "from": [
+        19.4,
+        -5.9,
+        0.62
+      ],
+      "to": [
+        19.4,
+        27.321,
+        19.8
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 19.8,
+      "length": 33.221,
+      "tines": 0,
+      "from": [
+        0,
+        -5.9,
+        0.62
+      ],
+      "to": [
+        0,
+        27.321,
+        19.8
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 19.8,
+      "length": 33.221,
+      "tines": 0,
+      "from": [
+        -19.4,
+        -5.9,
+        0.62
+      ],
+      "to": [
+        -19.4,
+        27.321,
+        19.8
+      ]
+    }
+  ],
+  "sha256": "9a752204088fb0372a5556ff01bd7529cdef358502397b73f9ecacf6ab9b37f7"
+}
