@@ -1,4 +1,4 @@
-"""The Blender add-on's settings, without Blender: options.json ->
+"""The Blender add-on's settings and 3MF writer, without Blender: options.json ->
 properties -> the engine's dialog values. (The real Blender run is blender_smoke.py.)
 
     python3 -m pytest -q plugins/blender/tests/
@@ -9,17 +9,21 @@ Pinned:
     engine refuses; layer height (host-supplied) only a soft one;
   - the properties' defaults ARE the site's defaults, read straight back in the
     engine's units -- and the engine itself accepts them (host_options);
-  - a percent property shows 0-100 and goes to the engine / 100.
+  - a percent property shows 0-100 and goes to the engine / 100;
+  - the 3MF is one assembly of the part + fins, in mm, as they sit.
 """
 import json
 import pathlib
 import sys
+import zipfile
+import xml.etree.ElementTree as ET
 
 import pytest
 
 HERE = pathlib.Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "support_fins"))
 import schema  # noqa: E402
+import threemf  # noqa: E402
 
 SCHEMA = json.loads((HERE.parents[1] / "shared" / "engine" / "options.json").read_text(encoding="utf-8"))
 SPECS = schema.specs(SCHEMA)
@@ -97,3 +101,22 @@ def test_a_key_clash_is_refused():
     with pytest.raises(ValueError, match="duplicate property names"):
         schema.specs(bad)
 
+
+def test_3mf_is_one_assembly_in_mm(tmp_path):
+    cube = ([(0, 0, 0), (10, 0, 0), (0, 10, 0), (0, 0, 10)], [(0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)])
+    fin = ([(0, 0, -2), (1, 0, -2), (0, 1, -2), (0, 0, 0)], [(0, 2, 1), (0, 1, 3), (0, 3, 2), (1, 2, 3)])
+    path = tmp_path / "out.3mf"
+    threemf.write_3mf(path, [("part", *cube), ("part wall 0", *fin)])
+    with zipfile.ZipFile(path) as z:
+        assert {"[Content_Types].xml", "_rels/.rels", "3D/3dmodel.model"} <= set(z.namelist())
+        root = ET.fromstring(z.read("3D/3dmodel.model"))
+    ns = {"m": threemf.CORE}
+    assert root.get("unit") == "millimeter"
+    objects = root.findall("m:resources/m:object", ns)
+    assert [o.get("name") for o in objects] == ["part", "part wall 0", "part"]
+    assert [c.get("objectid") for c in objects[2].findall("m:components/m:component", ns)] == ["1", "2"]
+    assert [i.get("objectid") for i in root.findall("m:build/m:item", ns)] == ["3"]
+    zs = [float(v.get("z")) for v in objects[1].findall("m:mesh/m:vertices/m:vertex", ns)]
+    assert min(zs) == -2.0          # where it was: no recentring
+    with pytest.raises(ValueError):
+        threemf.write_3mf(tmp_path / "empty.3mf", [])

@@ -118,7 +118,9 @@ class SUPPORTFINS_PT_main(bpy.types.Panel):
             for s in shown:
                 col.prop(settings, s["name"], slider=s.get("slider", False))
 
-        layout.operator("support_fins.clear", icon="TRASH")
+        row = layout.row(align=True)
+        row.operator("support_fins.export_3mf", icon="EXPORT")
+        row.operator("support_fins.clear", text="", icon="TRASH")
 
 
 def out_of_date(part, scene):

@@ -36,14 +36,15 @@ The panel is in the 3D View sidebar (**N**), tab **Support Fins**.
 - Fins are children of the part. Delete one you don't want (it comes back on the next
   Generate). Moving the part, editing its mesh or changing a setting marks the fins
   **out of date** until Generate runs again.
-- **Export**: select the part and its fins and use Blender's own STL export.
+- **Export part + fins (.3mf)**: one assembly in mm, the fins where they sit. Or select
+  the part and fins and use Blender's own STL export.
 
 ## Build and test
 
 ```
 python3 plugins/blender/build.py               # this machine's platform -> build/support_fins-<platform>.zip
 python3 plugins/blender/build.py --all         # every platform
-python3 -m pytest -q plugins/blender/tests/    # settings mapping, no Blender (needs mini-racer==0.14.1)
+python3 -m pytest -q plugins/blender/tests/    # settings mapping + 3MF, no Blender (needs mini-racer==0.14.1)
 python3 plugins/blender/tests/run_blender.py --version 4.2.23 --package plugins/blender/build/support_fins-linux-x64.zip
 ```
 
@@ -59,5 +60,5 @@ engine bundled into it (`web/*.js`) stays MIT (`LICENSE-engine` in the zip).
 
 The Blender side started as [RemusTL](https://github.com/RemusTL)'s extension in
 [#145](https://github.com/gittrahan/support-fins/pull/145): the two-click Draw wall and
-Lay face flat tool and the headless-Blender CI smoke test are his, ported onto the
-shared engine path.
+Lay face flat tool, the 3MF assembly export and the headless-Blender CI smoke test are
+his, ported onto the shared engine path.

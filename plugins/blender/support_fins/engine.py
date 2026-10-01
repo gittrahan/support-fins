@@ -296,3 +296,18 @@ def restand_drawn(wall, part, tris, scene):
     if wall.get("sf_unbuilt"):           # hidden because it didn't fit; a wall the user
         del wall["sf_unbuilt"]           # hid stays hidden
         set_hidden(wall, False)
+
+
+# ---- export ----------------------------------------------------------------
+
+def export_meshes(part, context):
+    """[(name, vertices mm, faces)] for the part and every visible fin, world frame."""
+    out = []
+    for obj in [part] + [o for o in children(part, {"fin", "drawn"}) if o.visible_get()]:
+        soup = part_soup(obj, context)
+        verts, inverse = np.unique(soup.reshape(-1, 3), axis=0, return_inverse=True)
+        faces = inverse.reshape(-1, 3)
+        # a 3MF triangle must have three different vertices: drop ones the weld closed
+        faces = faces[(faces[:, 0] != faces[:, 1]) & (faces[:, 1] != faces[:, 2]) & (faces[:, 0] != faces[:, 2])]
+        out.append((obj.name, verts.tolist(), faces.tolist()))
+    return out

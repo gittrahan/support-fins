@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Generate, Draw wall, Lay face flat, Clear, Use millimetres. The geometry is the engine's
+"""Generate, Draw wall, Lay face flat, Clear, Export. The geometry is the engine's
 (engine.py); these only read clicks and selections and report what came back."""
+import os
+
 import bpy
-from bpy.props import EnumProperty
+from bpy.props import EnumProperty, StringProperty
 from bpy_extras import view3d_utils
+from bpy_extras.io_utils import ExportHelper
 from mathutils import Matrix, Vector
 
-from . import engine, ui
+from . import engine, threemf, ui
 
 
 def active_part(context):
@@ -218,5 +221,38 @@ class SUPPORTFINS_OT_millimetres(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class SUPPORTFINS_OT_export_3mf(bpy.types.Operator, ExportHelper):
+    bl_idname = "support_fins.export_3mf"
+    bl_label = "Export part + fins (.3mf)"
+    bl_description = "Save the active part and its visible fins as one 3MF, in mm, as they sit"
+    filename_ext = ".3mf"
+    filter_glob: StringProperty(default="*.3mf", options={"HIDDEN"})
+
+    @classmethod
+    def poll(cls, context):
+        return context.mode == "OBJECT" and active_part(context) is not None
+
+    def invoke(self, context, event):
+        if not self.filepath:
+            self.filepath = bpy.path.clean_name(active_part(context).name) + ".3mf"
+        return super().invoke(context, event)
+
+    def execute(self, context):
+        part = active_part(context)
+        try:
+            meshes = engine.export_meshes(part, context)
+            threemf.write_3mf(self.filepath, meshes)
+        except Exception as e:  # noqa: BLE001
+            self.report({"ERROR"}, str(e).splitlines()[0][:300])
+            return {"CANCELLED"}
+        why = ui.out_of_date(part, context.scene)
+        if why:
+            self.report({"WARNING"}, f"Saved {os.path.basename(self.filepath)}, but the fins are out of date "
+                                     f"({why}): Generate and export again")
+        else:
+            self.report({"INFO"}, f"Saved {os.path.basename(self.filepath)}: the part + {len(meshes) - 1} fin objects")
+        return {"FINISHED"}
+
+
 CLASSES = [SUPPORTFINS_OT_generate, SUPPORTFINS_OT_clear, SUPPORTFINS_OT_draw,
-           SUPPORTFINS_OT_millimetres]
+           SUPPORTFINS_OT_millimetres, SUPPORTFINS_OT_export_3mf]

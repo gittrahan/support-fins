@@ -7,7 +7,10 @@ tagline = "Breakaway support fins that grip the part, from printfins.com"
 maintainer = "gittrahan"
 type = "add-on"
 website = "https://printfins.com/"
-tags = ["Mesh"]
+tags = ["Mesh", "Import-Export"]
 blender_version_min = "4.2.0"
 license = ["SPDX:GPL-3.0-or-later"]
 # build.py adds: platforms = ["<one>"] and wheels = ["./wheels/<mini-racer for it>"]
+
+[permissions]
+files = "Export the part and its fins as a 3MF"

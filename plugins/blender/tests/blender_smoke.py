@@ -13,6 +13,7 @@ import pathlib
 import sys
 import tempfile
 import types
+import zipfile
 
 import bmesh
 import bpy
@@ -163,6 +164,15 @@ for state in ("fins", "out of date", "no part"):
     ui.SUPPORTFINS_PT_main.draw(types.SimpleNamespace(layout=Layout()), c)
 select(part)
 print("PANEL", flush=True)
+
+# ---- export: the part + its fins, one 3MF ------------------------------------
+generate()
+out = TMP / "lbracket.3mf"
+assert bpy.ops.support_fins.export_3mf(filepath=str(out)) == {"FINISHED"}
+with zipfile.ZipFile(out) as z:
+    model = z.read("3D/3dmodel.model").decode()
+assert model.count("<object ") == 1 + len(fins_of(part)) + 1, "part + fins + the assembly"
+print("EXPORT_3MF", flush=True)
 
 # ---- Draw mode on tests/draw.test.js's tilted block ---------------------------
 me = bpy.data.meshes.new("block")

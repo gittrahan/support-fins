@@ -129,7 +129,7 @@ jobs:
         run: python -m pytest -q plugins/freecad/tests/test_props.py
 
   blender:
-    # The extension's settings mapping, then a zip per platform (engine
+    # The extension's settings mapping + 3MF writer, then a zip per platform (engine
     # bundle + that platform's mini-racer wheel, which Blender installs itself).
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -155,7 +155,7 @@ jobs:
 
   blender-smoke:
     # Install the Linux zip into a real headless Blender (the oldest it supports and
-    # a current one) and use it: Generate, out of date, settings, units, Draw wall, Lay face flat, Clear.
+    # a current one) and use it: Generate, out of date, settings, units, Draw wall, Lay face flat, 3MF, Clear.
     needs: blender
     runs-on: ubuntu-24.04
     timeout-minutes: 20
