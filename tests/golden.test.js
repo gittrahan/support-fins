@@ -9,50 +9,68 @@
 // and commit tests/golden/*.json with the PR, saying why in its body. The golden diff
 // is how a reviewer sees that the default output moved.
 //
-// Scenes mirror the app's call (ui/part.js + ui/finbuild.js finOpts + ui/walls.js):
-// the pose is the site's X·Y·Z readout (plugins/cli rotationMatrix, three.js Euler
-// XYZ), analyze(topo, 45, rot), then buildFins with the form's defaults -- Auto, pad
-// Auto, tines on, density 0, 0.2 mm layers, coverage 50, sway off, PLA.
+// Scenes mirror the app's call exactly (ui/pose.js + ui/part.js + ui/finbuild.js finOpts
+// + ui/walls.js): the pose is what the rotate ring makes (snapped 5 deg steps about the
+// world axes, three.js quaternion -> Matrix3), analyze(topo, 45, rot), then buildFins
+// with the form's defaults -- Auto, pad Auto, tines on, density 0, 0.2 mm layers,
+// coverage 50, sway off, PLA.
+//
+// Every build passes the WHOLE set of tunables. buildFins writes them into module state
+// (fins.js applyTunables), so reading defaults back from FIN / PAD / PROP would carry
+// one scene's material into the next -- the PETG scene did, into four PLA goldens.
 
-import { analyze, loadModel, fins, prop } from './_util.js';
-import { rotationMatrix } from '../plugins/cli/cli.js';
+import { analyze, loadModel, fins } from './_util.js';
+import * as THREE from '../web/vendor/three/three.core.js';
 
-const { buildFins, FIN, PAD } = fins;
-const { PROP } = prop;
-const { CUT } = await import('../web/cutout.js');
+const { buildFins } = fins;
 const { drawnWall } = await import('../web/draw.js');
+const { MATERIAL } = await import('../web/materials.js');
 const DIR = new URL('./golden/', import.meta.url).pathname;
 const UPDATE = Deno.env.get('UPDATE_GOLDEN') === '1';
 
-/** The site's finOpts() with the form untouched; `over` changes one setting. */
-function siteOpts(over = {}) {
+/** The site's tunables for a material, the form otherwise untouched (finOpts). */
+function tunables(material) {
+  const m = MATERIAL[material];
+  return { tineBite: m.tineBite, padH: m.padH, padGrab: m.padGrab, propGap: m.propGap,
+           padStyle: 'auto',                                     // Bed pad: Auto
+           padCustom: { h: 0.5, gap: 0.0, grip: 0.05, margin: 4.0 }, // fins/pad.js PAD.custom
+           cutout: 'none' };
+}
+
+/** finOpts() with the form untouched, for a material and fin mode. */
+function siteOpts({ material = 'pla', mode = 'auto', sway = false } = {}) {
+  const t = tunables(material);
   return {
-    mode: 'auto', bedPad: true, tines: true, tineDensity: 0, layerHeight: 0.2, coverage: 0.5,
-    sway: undefined,
-    tunables: { tineBite: FIN.tineBite, padH: FIN.padH, padGrab: PAD.grab, padStyle: PAD.style,
-                padCustom: { ...PAD.custom }, propGap: PROP.gap, cutout: CUT.pattern },
-    ...over,
+    mode, bedPad: true, tines: true, tineDensity: 0, layerHeight: 0.2, coverage: 0.5,
+    // swayOpts() with its fields at the form's defaults
+    sway: sway ? { on: true, gripFrom: 0, tineSpacing: 6, reach: 0.15, gap: t.propGap,
+                   bite: t.tineBite, tines: true, layerHeight: 0.2 } : undefined,
+    tunables: t,
   };
 }
 
-const { MATERIAL } = await import('../web/materials.js');
-// The site's Material select: its clearances travel in tunables (finOpts).
-const PETG = (({ tineBite, padH, padGrab, propGap }) => ({ tineBite, padH, padGrab, propGap }))(MATERIAL.petg);
-// The site's sway fields untouched (ui/finbuild.js swayOpts + index.html defaults).
-const SWAY = { on: true, gripFrom: 0, tineSpacing: 6, reach: 0.15, gap: PROP.gap, bite: FIN.tineBite,
-               tines: true, layerHeight: 0.2 };
+/** The rotate ring's pose for the readout [x, y, z]: snapped turns about the world
+ *  axes (TransformControls premultiplies), as Matrix3 elements like part.js rotM3. */
+const SNAP = THREE.MathUtils.degToRad(5);
+function sitePose(deg) {
+  const q = new THREE.Quaternion();
+  const axes = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
+  deg.forEach((d, i) => {
+    if (d) q.premultiply(new THREE.Quaternion().setFromAxisAngle(axes[i], Math.round(d / 5) * SNAP));
+  });
+  return new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(q)).elements;
+}
 
 const SCENES = [
   // Matthew's manual check on the site: cube.stl at X 40.
   { name: 'cube-x40-auto', model: 'cube', rot: [40, 0, 0] },
   { name: 'cube-x40-draw', model: 'cube', rot: [40, 0, 0], draw: [[-15, 13, 13], [15, 13, 13]] },
-  { name: 'cube-x40-petg', model: 'cube', rot: [40, 0, 0],
-    opts: (o) => ({ tunables: { ...o.tunables, ...PETG } }) },
+  { name: 'cube-x40-petg', model: 'cube', rot: [40, 0, 0], set: { material: 'petg' } },
   { name: 'lbracket-x35-auto', model: 'lbracket', rot: [35, 0, 0] },
   { name: 'sphere-auto', model: 'sphere', rot: [0, 0, 0] },
   { name: 'torus-x30-auto', model: 'torus', rot: [30, 0, 0] },
   { name: 'staircase-x40-auto', model: 'staircase', rot: [40, 0, 0] },
-  { name: 'bar-sway', model: 'bar', rot: [0, 0, 0], opts: () => ({ sway: SWAY }) },
+  { name: 'bar-sway', model: 'bar', rot: [0, 0, 0], set: { sway: true } },
 ];
 
 const r3 = (x) => Math.round(x * 1000) / 1000;
@@ -70,20 +88,22 @@ function seated(topo, rot, o) {
   return a;
 }
 
-function run(scene) {
+export function run(scene, rot = sitePose(scene.rot)) {
   const topo = loadModel(scene.model);
-  const rot = rotationMatrix(scene.rot);
   const res = analyze(topo, 45, rot);
-  const base = siteOpts();
-  const opts = { ...base, ...(scene.opts ? scene.opts(base) : {}) };
   if (scene.draw) {
+    // Draw: the site still builds in 'prop' mode for the bed pad it exports
+    // (finbuild.js), then sweeps each drawn wall (walls.js rebuildDrawn).
+    const opts = siteOpts({ ...scene.set, mode: 'prop' });
+    const b = buildFins(topo, res, rot, opts);
     const r = drawnWall(scene.draw[0], scene.draw[1], seated(topo, rot, res.offset), 0,
       { tines: opts.tines, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
         topo, rot, offset: res.offset });
-    return { tris: r.ok ? r.tris : [], pad: [], walls: r.ok ? 1 : 0, tines: r.tines ?? 0, unserved: 0,
+    return { tris: r.ok ? r.tris : [], pad: b.padTriangles ?? [], walls: r.ok ? 1 : 0,
+             tines: r.tines ?? 0, unserved: 0,
              summary: r.ok ? [{ height: r.height, length: r.length }] : [{ refused: r.reason }] };
   }
-  const b = buildFins(topo, res, rot, opts);
+  const b = buildFins(topo, res, rot, siteOpts(scene.set));
   return {
     tris: b.triangles, pad: b.padTriangles ?? [],
     walls: (b.braceCount ?? 0) + (b.propCount ?? 0), tines: b.tines, unserved: b.unserved ?? 0,
@@ -119,7 +139,7 @@ for (const scene of SCENES) {
     const file = `${DIR}${scene.name}.json`;
     if (UPDATE) {
       Deno.mkdirSync(DIR, { recursive: true });
-      Deno.writeTextFileSync(file, JSON.stringify({ scene: { ...scene, opts: undefined }, ...got }, null, 2) + '\n');
+      Deno.writeTextFileSync(file, JSON.stringify({ scene, ...got }, null, 2) + '\n');
       return;
     }
     let want;
@@ -140,3 +160,10 @@ for (const scene of SCENES) {
     }
   });
 }
+
+Deno.test('golden: every recorded file belongs to a scene (a removed scene takes its golden with it)', () => {
+  const names = new Set(SCENES.map((s) => `${s.name}.json`));
+  const stale = [...Deno.readDirSync(DIR)].map((e) => e.name).filter((n) => !names.has(n));
+  if (UPDATE) { for (const n of stale) Deno.removeSync(`${DIR}${n}`); return; }
+  if (stale.length) throw new Error(`tests/golden/ has files no scene records: ${stale.join(', ')}`);
+});

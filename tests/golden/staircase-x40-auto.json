@@ -8,28 +8,60 @@
       0
     ]
   },
-  "walls": 1,
-  "tines": 4,
+  "walls": 3,
+  "tines": 16,
   "unserved": 0,
-  "triangles": 140,
+  "triangles": 1648,
   "padTriangles": 42578,
   "fins": [
     {
-      "kind": "wedge",
-      "height": 21.149,
-      "length": 17.051,
+      "kind": "prop",
+      "height": 14.676,
+      "length": 16.744,
       "tines": 0,
       "from": [
         0,
-        -5.737,
-        1.129
+        -3.805,
+        0.626
       ],
       "to": [
         0,
-        -22.788,
-        21.449
+        12.939,
+        14.676
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 22.94,
+      "length": 26.593,
+      "tines": 0,
+      "from": [
+        -12,
+        -3.805,
+        0.626
+      ],
+      "to": [
+        -12,
+        22.788,
+        22.94
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 22.94,
+      "length": 26.593,
+      "tines": 0,
+      "from": [
+        -24,
+        -3.805,
+        0.626
+      ],
+      "to": [
+        -24,
+        22.788,
+        22.94
       ]
     }
   ],
-  "sha256": "9f426e60a67e06337f8e0d8adfcd7e49db74b046bcdb70f3889dfa2fd19f7b2e"
+  "sha256": "303836483c510805464952f23766eb11d07a19f87dbbc796814cdb8c3a8c1f63"
 }

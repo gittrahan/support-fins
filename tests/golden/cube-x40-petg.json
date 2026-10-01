@@ -6,7 +6,10 @@
       40,
       0,
       0
-    ]
+    ],
+    "set": {
+      "material": "petg"
+    }
   },
   "walls": 1,
   "tines": 5,
