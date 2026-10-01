@@ -20,7 +20,8 @@ function build(name, tilt, opts = {}) {
 }
 
 // Isolate the tine triangles: whatever a tined build adds over a tine-less one.
-// emitTines appends each tine as a contiguous 36-vertex block, so chunk by 36.
+// emitTines appends each tine as a contiguous 36-vertex block (and its wall step,
+// when it has one, as the next 36), so chunk by 36; tinesAndSteps tells them apart.
 function tineChunks(name, tilt, opts = {}) {
   const off = build(name, tilt, { ...opts, tines: false }).built.triangles;
   const on = build(name, tilt, { ...opts, tines: true }).built.triangles;
@@ -47,14 +48,21 @@ const bounds = (c) => {
 
 // Tine boxes in emission order, each followed by its WALL STEP when it has one: the
 // box that raises the wall to meet a tine snapped above the wall top (local issue
-// 005). A step is the box whose top is the box before it's bottom.
+// 005). A step is the box right after a tine whose top is that tine's bottom and
+// whose footprint lies inside the tine's (a lower tine next along the run doesn't).
 function tinesAndSteps(name, tilt, opts = {}) {
   const tines = [], steps = [];
+  const within = (b, t) => [0, 1].every((k) => b.lo[k] >= t.lo[k] - 1e-6 && b.hi[k] <= t.hi[k] + 1e-6);
+  let prev = null;
   for (const c of tineChunks(name, tilt, opts)) {
     const b = bounds(c);
-    const prev = tines[tines.length - 1];
-    if (prev && Math.abs(b.hi[2] - prev.lo[2]) < 1e-6) steps.push({ ...b, tine: prev });
-    else tines.push(b);
+    if (prev && Math.abs(b.hi[2] - prev.lo[2]) < 1e-6 && within(b, prev)) {
+      steps.push({ ...b, tine: prev });
+      prev = null;                              // at most one step per tine
+    } else {
+      tines.push(b);
+      prev = b;
+    }
   }
   return { tines, steps };
 }
@@ -108,9 +116,8 @@ Deno.test('PETG: a tine snapped above the wall top gets a wall step under it, in
   for (const st of steps) {
     const h = st.hi[2] - st.lo[2];
     assert(h > 0 && h <= 1.5 * PROP.tineH + 1e-6, `a wall step is ${h.toFixed(3)} mm tall (max 1.5 layers)`);
-    for (let k = 0; k < 2; k++) {   // under the tine, never out past it toward the part
-      assert(st.lo[k] >= st.tine.lo[k] - 1e-6 && st.hi[k] <= st.tine.hi[k] + 1e-6,
-        'a wall step reaches outside its tine\'s footprint');
-    }
+    // under the tine, never out past it toward the part: tinesAndSteps only counts a
+    // box as a step when it lies inside its tine's footprint, so a stray one would
+    // land in `tines` and fail the one-layer check in the test above.
   }
 });
