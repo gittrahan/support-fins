@@ -1,0 +1,13 @@
+schema_version = "1.0.0"
+
+id = "support_fins"
+version = "0.1.0"
+name = "Support Fins"
+tagline = "Breakaway support fins that grip the part, from printfins.com"
+maintainer = "gittrahan"
+type = "add-on"
+website = "https://printfins.com/"
+tags = ["Mesh", "Import-Export"]
+blender_version_min = "4.2.0"
+license = ["SPDX:GPL-3.0-or-later"]
+# build.py adds: platforms = ["<one>"] and wheels = ["./wheels/<mini-racer for it>"]

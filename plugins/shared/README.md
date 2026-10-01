@@ -56,8 +56,10 @@ needs a new piece of geometry adds it here, with its own tests, instead of in it
 adapter. Fusion is the exception: its `fins_core/` is pure Python because Fusion has no
 numpy, and moves here only when another plugin wants per-fin objects.
 
-Used by: [Orca](../orca/README.md) (inlines the bundle into its single-file plugin) and
-[Cura](../cura/README.md) (ships the bundle and the Python host next to the plugin).
+Used by: [Orca](../orca/README.md) (inlines the bundle into its single-file plugin),
+[Cura](../cura/README.md) and [FreeCAD](../freecad/README.md) (ship the bundle and the
+Python host next to the plugin), and [Blender](../blender/README.md) (the same, with
+mini-racer as a wheel Blender installs; it uses the per-fin pieces).
 Onshape (FeatureScript) and Prusa (Lua) can't run JavaScript, so they don't use this.
 
 CI: [`.github/workflows/plugins.yml`](../../.github/workflows/plugins.yml) rebuilds and tests

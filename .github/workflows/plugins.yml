@@ -128,6 +128,55 @@ jobs:
       - name: Test
         run: python -m pytest -q plugins/freecad/tests/test_props.py
 
+  blender:
+    # The extension's settings mapping + 3MF writer, then a zip per platform (engine
+    # bundle + that platform's mini-racer wheel, which Blender installs itself).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4     # npx fetches the pinned esbuild (plugins/shared/bundle.py)
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        run: pip install pytest mini-racer==0.14.1
+      - name: Test
+        run: python -m pytest -q plugins/blender/tests/
+      - name: Build
+        run: python plugins/blender/build.py --all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: blender
+          path: plugins/blender/build/support_fins-*.zip
+          if-no-files-found: error
+
+  blender-smoke:
+    # Install the Linux zip into a real headless Blender (the oldest it supports and
+    # a current one) and use it: Generate, out-of-date, Draw wall, Lay face flat, 3MF.
+    needs: blender
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        version: ['4.2.23', '5.2.2']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          name: blender
+          path: plugins/blender/build
+      - name: Install Blender's system libraries
+        run: sudo apt-get update -q && sudo apt-get install -y -q libx11-6 libxi6 libxrender1 libxfixes3 libxxf86vm1 libgl1 libsm6 libice6 libxkbcommon0
+      - name: Smoke test in Blender ${{ matrix.version }}
+        run: python plugins/blender/tests/run_blender.py --version '${{ matrix.version }}' --package plugins/blender/build/support_fins-linux-x64.zip
+
   prusa:
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -148,7 +197,7 @@ jobs:
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [orca, fusion, cura, prusa]
+    needs: [orca, fusion, cura, prusa, blender, blender-smoke]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -176,7 +225,8 @@ jobs:
           - support_fins_orca.py: OrcaSlicer plugin (2.5 nightly), experimental
           - SupportFins.zip: Autodesk Fusion add-in, experimental (run on Windows and macOS)
           - SupportFins-<platform>.curapackage: UltiMaker Cura 5 plugin, experimental; pick your computer's (mac-arm64, mac-x64, windows-x64, linux-x64, linux-arm64) and drag it onto Cura
-          - support-fins-prusa.zip: PrusaSlicer 3.0 plugin bundle, placement by hand"
+          - support-fins-prusa.zip: PrusaSlicer 3.0 plugin bundle, placement by hand
+          - support_fins-<platform>.zip: Blender 4.2+ extension, experimental; pick your computer's (macos-arm64, macos-x64, windows-x64, linux-x64) and use Install from Disk"
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "Plugins (latest build)" --notes "$notes" --prerelease
           else

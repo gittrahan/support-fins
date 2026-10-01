@@ -27,3 +27,6 @@ plugins/fusion/build/
 plugins/cura/build/
 plugins/cura/SupportFins/dev_*
 plugins/freecad/build/
+
+# Blender: built extension zips and the cached mini-racer wheels
+plugins/blender/build/
