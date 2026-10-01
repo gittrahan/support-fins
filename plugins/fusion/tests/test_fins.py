@@ -464,7 +464,7 @@ class FusionSide(unittest.TestCase):
         design, body = mesh_design(part)
         root = design.rootComponent
         res, added = self.run_command(design, root.xYConstructionPlane)
-        self.assertIn('fin', res['plain'][0])
+        self.assertRegex(res['plain'][0], r'^\d+ walls?\b')
         self.assertTrue(added)
         supports = [o.component for o in root.occurrences if o.component.name == 'Supports']
         self.assertEqual(len(supports), 1)
@@ -631,7 +631,7 @@ class AsyncDialog(unittest.TestCase):
         final = fins_command._compute(inputs)
         self.assertFalse(final['pending'])
         self.assertTrue(final['groups'])
-        self.assertIn('fins', self.readout.formattedText)
+        self.assertIn(' walls, ', self.readout.formattedText)
 
     def test_a_late_answer_for_an_old_pick_is_ignored(self):
         design, _ = mesh_design(posed(read_stl('lbracket'), 35))

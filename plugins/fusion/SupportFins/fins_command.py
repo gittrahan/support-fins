@@ -497,13 +497,18 @@ def _finish(ctx, fins, stats):
 
     n_fin = sum(1 for g in groups if g.kind == 'fin')
     n_pad = sum(1 for g in groups if g.kind == 'pad')
+    # Walls as the site counts them (tined + plain). Walls that touch weld into one
+    # body, so the body count can be lower: chairs makes 6 walls in 3 bodies.
+    walls = stats.get('braces', 0) + stats.get('props', 0)
     grams = _volume_mm3(fins) / 1000.0 * PLA_DENSITY
     # Braces are counted apart from the fins: they hold the part's tall sides,
     # not an overhang, so adding them to the fin count would claim overhangs are
     # served that nothing is under. They get their own bodies, Sway brace N.
     braces = stats.get('swayBraces', 0)
-    head = '<b>%d fin%s, %d tines%s%s, ~%.0f g PLA</b>' % (
-        n_fin, '' if n_fin == 1 else 's', stats.get('tines', 0),
+    head = '<b>%d wall%s%s, %d tines%s%s, ~%.0f g PLA</b>' % (
+        walls, '' if walls == 1 else 's',
+        ' (%d bod%s)' % (n_fin, 'y' if n_fin == 1 else 'ies') if n_fin != walls else '',
+        stats.get('tines', 0),
         ' + %d sway brace%s, %d brace tines' % (braces, '' if braces == 1 else 's',
                                                 stats.get('swayTines', 0)) if braces else '',
         ', bed pad' if n_pad else '', grams)
