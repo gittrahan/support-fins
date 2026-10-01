@@ -9,7 +9,7 @@ import { loadModel, analyze, fins, rotX, rotY, assert } from './_util.js';
 
 const PINS = [
   // model, pose, rotation, walls
-  ['cube', 'X25', rotX(25), 5],       // #143: + a flush wall at each free edge (underside 25deg, flat enough to curl)
+  ['cube', 'X25', rotX(25), 3],       // the end rows move out flush to the free edges, same count (#143 had added two)
   ['cube', 'X35', rotX(35), 3],
   ['cube', 'X60', rotX(60), 3],
   ['cube', 'Y35', rotY(35), 3],
@@ -18,7 +18,7 @@ const PINS = [
   ['ramp', 'X45', rotX(45), 0],
   ['wedge', 'X45', rotX(45), 0],
   ['tube', 'X25', rotX(25), 4],
-  ['arch', 'X25', rotX(25), 6],       // #143: + a flush wall at each free edge
+  ['arch', 'X25', rotX(25), 4],       // likewise (#143 had 6)
 ];
 
 for (const [name, pose, rot, want] of PINS) {

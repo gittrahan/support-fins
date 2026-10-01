@@ -471,21 +471,34 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
  * each row mid-strip (vExt / n apart, half that from each edge), which leaves a
  * lip of up to half a pitch past the last row; on a FREE edge (air past it, see
  * freeEdge) that lip is a cantilever, and on the slenderness coupon a 4 mm one
- * curled on every ledge. So a free edge ALSO gets a row at the end, flush
- * (PROP.edgeInset), unless the old outermost row is already that close. The old
- * rows all stay: moving the outer one out instead cost coverage wherever the
- * edge isn't parallel to the rows (sparse lbracket X25 100 -> 97, tshape Y35 93).
+ * curled on every ledge. So the outermost row MOVES OUT to a free edge, flush
+ * (PROP.edgeInset), and the rows spread evenly between the two ends: the same
+ * number of walls. #143 added a row there instead and kept the old ones, which
+ * doubled every free edge (lowledge 3 -> 5 walls, a cube at X20-30 3 -> 5, two
+ * walls ~6 mm apart); Matthew 2026-10-01: same count, the end ones flush.
  * With no free edge, no part to probe, or a steep underside (`probe` null; see
  * PROP.edgeFlatDeg), the old layout exactly.
  */
 function rowOffsets(vLo, vHi, rowSpan, probe) {
   const vExt = vHi - vLo, e = PROP.edgeInset;
   const n = Math.max(1, Math.round(vExt / rowSpan));
-  const rows = Array.from({ length: n }, (_, w) => vLo + (vExt * (w + 0.5)) / n);
+  let rows = Array.from({ length: n }, (_, w) => vLo + (vExt * (w + 0.5)) / n);
   const near = 2 * e;                        // an old row this close already sits at the end
   if (probe && vExt > 2 * near) {
-    if (rows[0] - vLo > near && freeEdge(probe, vLo, -1)) rows.unshift(vLo + e);
-    if (vHi - rows[rows.length - 1] > near && freeEdge(probe, vHi, +1)) rows.push(vHi - e);
+    const lo = rows[0] - vLo > near && freeEdge(probe, vLo, -1);
+    const hi = vHi - rows[n - 1] > near && freeEdge(probe, vHi, +1);
+    if (lo || hi) {
+      const a = lo ? vLo + e : rows[0], b = hi ? vHi - e : rows[n - 1];
+      // one row can't stand at an end without leaving the rest bare: it keeps its
+      // place mid-strip and the free ends get their own (as #143)
+      // Spread wider than both the old pitch and 2 x maxUnsupportedSpan (a point
+      // mid-gap out of a wall's reach), and the gap gets another row instead: two
+      // rows moved out to a 60 mm strip's ends left 59 mm bare (tshape X25 sparse).
+      const cap = Math.max(vExt / n, 2 * PROP.maxUnsupportedSpan);
+      const m = Math.max(n, Math.ceil((b - a) / cap - 1e-9) + 1);
+      rows = n === 1 ? [...(lo ? [a] : []), rows[0], ...(hi ? [b] : [])]
+        : Array.from({ length: m }, (_, w) => a + ((b - a) * w) / (m - 1));
+    }
   }
   let widest = 0;
   for (let i = 1; i < rows.length; i++) widest = Math.max(widest, rows[i] - rows[i - 1]);
@@ -512,6 +525,9 @@ function freeEdge(probe, vEdge, dir) {
     const [ix, iy] = at(vEdge - dir * 0.3);
     const z = surfaceZAt(patchTris, ix, iy);
     if (z === null) continue;
+    // an edge down at the bed rests on it: no lip to curl, and a flush wall there
+    // is lower than any wall worth building (a cube at X20's low edge)
+    if (z < PROP.minHeightSquat) { part++; continue; }
     const [ox, oy] = at(vEdge + dir * 0.8);
     const solid = [-2, -1, -0.3, 0.3, 1, 2].some((dz) => insidePart(support.topo, support.rot, support.offset, ox, oy, z + dz));
     if (solid) { part++; continue; }
