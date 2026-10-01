@@ -1,8 +1,9 @@
 // The base64 bridge must round-trip bytes exactly and give the same fins as
 // calling the engine directly.
-import { b64ToBytes, bytesToB64, computeFinsB64 } from '../engine/bridge.js';
+import { b64ToBytes, bytesToB64, computeFinsB64, drawWallB64 } from '../engine/bridge.js';
 import { computeFins } from '../engine/fins_entry.js';
-import { readSTL, MODELS, rotX, assert } from '../../../tests/_util.js';
+import { drawWall } from '../engine/draw_entry.js';
+import { readSTL, MODELS, rotX, assert, tiltedBlockTopo } from '../../../tests/_util.js';
 
 Deno.test('base64 round-trips every length mod 3', () => {
   for (let n = 0; n < 50; n++) {
@@ -40,3 +41,18 @@ Deno.test('bridge gives the same fins as the direct call', () => {
   assert(JSON.stringify(viaB64.overFaces) === JSON.stringify(Array.from(direct.overFaces)), 'overFaces differ');
 });
 
+Deno.test('bridge draws the same wall as the direct call, and passes a refusal through', () => {
+  const pos = Float64Array.from(tiltedBlockTopo(-20, 20, -30, 30, -6, 6, 45).pos);
+  const soup = bytesToB64(new Uint8Array(pos.buffer));
+  // a level line under the tilted block's underside (at y = -5 it is ~12 mm up)
+  const a = [-8, -5, 11.97], b = [8, -5, 11.97];
+  const direct = drawWall(pos, a, b, {});
+  const via = JSON.parse(drawWallB64(soup, JSON.stringify(a), JSON.stringify(b), '{}'));
+  assert(direct.ok && via.ok, `wall failed: ${direct.reason ?? via.reason}`);
+  const tris = new Float32Array(b64ToBytes(via.triangles).buffer);
+  assert(tris.length === direct.triangles.length && tris.every((v, i) => v === direct.triangles[i]), 'triangles differ');
+  assert(JSON.stringify(via.offset) === JSON.stringify(direct.offset), 'offset differs');
+  assert(JSON.stringify(via.stats) === JSON.stringify(direct.stats), 'stats differ');
+  const short = JSON.parse(drawWallB64(soup, JSON.stringify(a), JSON.stringify([-6, -5, 11.97]), '{}'));
+  assert(!short.ok && /too short/.test(short.reason), `expected a refusal, got ${JSON.stringify(short)}`);
+});

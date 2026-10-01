@@ -88,6 +88,37 @@ def test_pieces_split_the_fins_one_object_each(ctx):
     assert (normals[:, 2] < 0).all()   # overhangs face down
 
 
+def tilted_block():
+    """tests/draw.test.js's part: a 40x60x12 block tilted 45 deg about X, min z = 0."""
+    v = np.array([[x, y, z] for x in (-20, 20) for y in (-30, 30) for z in (-6, 6)], dtype=np.float64)
+    quads = [(0, 2, 6, 4), (1, 5, 7, 3), (0, 4, 5, 1), (2, 3, 7, 6), (0, 1, 3, 2), (4, 6, 7, 5)]
+    tris = np.array([[v[a], v[b], v[c]] for q in quads for a, b, c in ((q[0], q[1], q[2]), (q[0], q[2], q[3]))])
+    c = s = math.sqrt(0.5)
+    y, z = tris[..., 1].copy(), tris[..., 2].copy()
+    tris[..., 1], tris[..., 2] = y * c - z * s, y * s + z * c
+    tris[..., 2] -= tris[..., 2].min()
+    return tris
+
+
+def test_draw_wall_lands_under_the_line_anywhere_on_the_plate(ctx):
+    soup = tilted_block()
+    a, b = (-8.0, -5.0, 11.97), (8.0, -5.0, 11.97)   # under the underside, ~12 mm up
+    wall, stats = host.host_draw_wall(ctx, soup, a, b, {})
+    assert wall is not None, stats
+    assert stats["tines"] > 0 and wall.dtype == np.float64
+    # stands on the bed, under the drawn line, between its ends
+    assert abs(wall[..., 2].min()) < 1e-4
+    assert -8.5 < wall[..., 0].min() and wall[..., 0].max() < 8.5
+    shift = np.array([137.25, -42.5, 5.0])
+    moved, stats1 = host.host_draw_wall(ctx, soup + shift, np.add(a, shift), np.add(b, shift), {})
+    assert stats1 == stats and np.abs((moved - shift) - wall).max() < 1e-4
+
+
+def test_draw_wall_says_why_not(ctx):
+    wall, reason = host.host_draw_wall(ctx, tilted_block(), (-8, -5, 11.97), (-6, -5, 11.97), {})
+    assert wall is None and "too short" in reason
+
+
 def test_options_reach_the_engine(ctx):
     _, on = host.host_compute(ctx, lbracket_35(), {"layerHeight": 0.2})
     _, off = host.host_compute(ctx, lbracket_35(), {"layerHeight": 0.2, "bedPad": False, "tines": False})

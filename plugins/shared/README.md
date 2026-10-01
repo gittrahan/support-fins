@@ -8,8 +8,10 @@ A fix on the site reaches a plugin the next time it is built.
 engine/fins_entry.js    posed triangle soup in (mm, z up) -> fin + bed-pad triangles out,
                         plus `pieces` (which triangles are which fin, for a host that
                         shows one object per fin) and `overFaces` (the site's red faces)
-engine/seat.js          what the entry does first: centre + snap the part, pick the
-                        material's clearances -- so a fin doesn't move with plate position
+engine/draw_entry.js    Draw mode: the same soup + two points -> one hand-drawn wall
+                        (web/draw.js drawnWall, called the way the site calls it)
+engine/seat.js          what both entries do first: centre + snap the part, pick the
+                        material's clearances -- so a wall doesn't move with plate position
 engine/bridge.js        base64 in/out for Python hosts running the bundle in V8 (mini-racer)
 engine/options.json     the settings every plugin dialog is built from: key, type, default,
                         range or choices, label, tooltip, section, when it shows. Defaults,
@@ -27,7 +29,7 @@ bundle.py               esbuild: bridge.js + web/*.js -> one IIFE, global Suppor
 py/supportfins_host.py  Python side for plugins that run the bundle in mini-racer: start V8
                         (host_engine), run the engine on a soup and map the fins back to
                         the caller's frame (host_compute; host_compute_pieces adds the
-                        per-fin pieces and overhang faces);
+                        per-fin pieces and overhang faces; host_draw_wall draws one wall);
                         a settings dialog's values to
                         engine options (host_schema, host_options, host_visible). Orca inlines it
                         at build time

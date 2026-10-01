@@ -9,7 +9,9 @@
 //   in : base64 float64 triangle soup (posed, mm) + JSON options
 //   out: JSON { triangles: base64 float32 soup (seated frame), offset, pieces,
 //               overFaces, stats }
+// drawWallB64 does the same for Draw mode (draw_entry.js): one wall between two points.
 import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from './fins_entry.js';
+import { drawWall } from './draw_entry.js';
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const LOOKUP = new Uint8Array(256);
@@ -60,6 +62,14 @@ export function computeFinsB64(soupB64, optionsJson) {
                           pieces: res.pieces, overFaces: Array.from(res.overFaces), stats: res.stats });
 }
 
+// a, b: JSON [x, y, z] in the soup's frame.
+export function drawWallB64(soupB64, aJson, bJson, optionsJson) {
+  const options = optionsJson ? JSON.parse(optionsJson) : {};
+  const res = drawWall(soupOf(soupB64), JSON.parse(aJson), JSON.parse(bJson), options);
+  if (!res.ok) return JSON.stringify(res);
+  return JSON.stringify({ ok: true, triangles: trianglesB64(res.triangles), offset: res.offset, stats: res.stats });
+}
+
 // A Python host's settings dialog, as JSON strings like computeFinsB64 (supportfins_host
 // host_schema / host_options / host_visible).
 export const optionsSchemaJson = () => JSON.stringify(OPTIONS_SCHEMA);
@@ -67,4 +77,4 @@ export const optionsFromDialogJson = (valuesJson) => JSON.stringify(optionsFromD
 export const optionVisibleJson = (key, valuesJson) => optionVisible(key, JSON.parse(valuesJson));
 
 // optionsFromDialog / optionVisible / OPTIONS_SCHEMA: what a host's settings dialog needs
-export { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA };
+export { computeFins, drawWall, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA };

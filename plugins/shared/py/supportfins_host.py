@@ -94,6 +94,23 @@ def host_compute_pieces(ctx, soup, options):
     return _unseat(out), out["stats"], out["pieces"], np.array(out["overFaces"], dtype=np.int64)
 
 
+def host_draw_wall(ctx, soup, a, b, options):
+    """One hand-drawn wall from a to b (Draw mode; draw_entry.js drawWall).
+
+    soup, options  as for host_compute (the same part and options as the fins next to it)
+    a, b           the wall's ends, (x, y, z) in soup's frame -- where the clicks hit
+    Returns (triangles (K,3,3) float64 in soup's frame, stats {length, height, tines}),
+    or (None, reason) when the engine can't build it -- the site's words, for the user.
+    """
+    raw = ctx.call("SupportFinsEngine.drawWallB64", _soup_b64(soup),
+                   json.dumps([float(v) for v in a]), json.dumps([float(v) for v in b]),
+                   json.dumps(options))
+    out = json.loads(raw)
+    if not out["ok"]:
+        return None, out["reason"]
+    return _unseat(out), out["stats"]
+
+
 def _soup_b64(soup):
     import numpy as np
     soup = np.ascontiguousarray(soup, dtype=np.float64)
