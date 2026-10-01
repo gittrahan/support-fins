@@ -95,6 +95,9 @@ class SUPPORTFINS_PT_main(bpy.types.Panel):
         col = layout.column(align=True)
         col.scale_y = 1.4
         col.operator("support_fins.generate", icon="MOD_BUILD")
+        row = layout.row(align=True)
+        row.operator("support_fins.draw", text="Draw wall", icon="GREASEPENCIL").kind = "WALL"
+        row.operator("support_fins.draw", text="Lay face flat", icon="SNAP_FACE").kind = "FACE"
 
         report = part.get("sf_report")
         why = out_of_date(part, scene)

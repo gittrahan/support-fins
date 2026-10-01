@@ -16,6 +16,8 @@ import types
 
 import bmesh
 import bpy
+import numpy as np
+from mathutils import Matrix, Vector
 
 args = argparse.ArgumentParser()
 args.add_argument("--package", required=True)
@@ -32,7 +34,7 @@ repo = bpy.context.preferences.extensions.repos[-1]
 bpy.ops.extensions.package_install_files(filepath=str(pathlib.Path(args.package).resolve()),
                                          repo=repo.module, enable_on_install=True, overwrite=True)
 addon = sys.modules[f"bl_ext.{repo.module}.support_fins"]
-engine, ui = addon.engine, addon.ui
+engine, ui, ops = addon.engine, addon.ui, addon.operators
 assert hasattr(bpy.types.Scene, "support_fins"), "extension not enabled"
 print("INSTALLED", flush=True)
 
@@ -162,14 +164,67 @@ for state in ("fins", "out of date", "no part"):
 select(part)
 print("PANEL", flush=True)
 
+# ---- Draw mode on tests/draw.test.js's tilted block ---------------------------
+me = bpy.data.meshes.new("block")
+bm = bmesh.new()
+bmesh.ops.create_cube(bm, size=1.0)
+bmesh.ops.scale(bm, vec=Vector((40, 60, 12)), verts=bm.verts)
+bm.to_mesh(me)
+bm.free()
+block = bpy.data.objects.new("block", me)
+scene.collection.objects.link(block)
+block.matrix_world = Matrix.Rotation(math.radians(45), 4, "X")
+c.view_layer.update()
+block.location.z -= engine.part_soup(block, c)[..., 2].min()
+c.view_layer.update()
+select(block)
+wall, reason = engine.draw_wall(block, (-8, -5, 11.97), (8, -5, 11.97), c)
+assert wall is not None, reason
+assert wall.parent == block and wall["sf_role"] == "drawn" and closed(wall)
+none, reason = engine.draw_wall(block, (-8, -5, 11.97), (-6, -5, 11.97), c)
+assert none is None and "too short" in reason, reason
+# a drawn wall alone (no Generate yet) is for this pose: moving the part says so
+assert ui.out_of_date(block, scene) is None
+block.location.x += 3
+c.view_layer.update()
+assert ui.out_of_date(block, scene) == "the part moved", ui.out_of_date(block, scene)
+block.location.x -= 3
+c.view_layer.update()
+generate()                                   # Generate re-stands the drawn wall too
+assert len(fins_of(block, ["drawn"])) == 1 and wall.visible_get()
+assert "drawn walls not built" not in block["sf_report"]
+print("DRAW_WALL", block["sf_report"], flush=True)
+
+# ---- Lay face flat: the clicked face ends on the bed, same lowest point ----------
+low = engine.part_soup(block, c)[..., 2].min()
+normal = block.matrix_world.to_3x3() @ Vector((0, 1, 0))      # the 40x12 end face
+ops.lay_face_flat(block, normal, c)
+soup = engine.part_soup(block, c)
+assert abs(soup[..., 2].min() - low) < 1e-4
+n = np.cross(soup[:, 1] - soup[:, 0], soup[:, 2] - soup[:, 0])
+n /= np.linalg.norm(n, axis=1)[:, None]
+down = n[:, 2] < -0.99999          # (float32 vertices: the turn lands to ~1e-7 rad)
+assert down.sum() == 2, "the end face is two triangles"
+assert np.abs(soup[down][..., 2] - low).max() < 1e-3, "the clicked face isn't on the bed"
+assert not fins_of(block), "the old pose's fins are still there"
+assert ui.out_of_date(block, scene) == "the part moved"
+generate()                                   # the drawn wall is re-stood or says why not
+w = fins_of(block, ["drawn"])[0]
+assert w.visible_get() or "drawn walls not built" in block["sf_report"], block["sf_report"]
+print("LAY_FLAT", block["sf_report"], flush=True)
+
 # ---- units: a part read in metres is called out ------------------------------
 scene.unit_settings.scale_length = 1.0
 assert engine.size_mm(part, c).max() > 1000
 scene.unit_settings.scale_length = 0.001
 
+select(part)
 for o in fins_of(part):                      # every fin deleted by hand: Clear still
     engine.remove(o)                         # clears the result line and pose stamp
 assert bpy.ops.support_fins.clear.poll()
 bpy.ops.support_fins.clear()
 assert not engine.children(part, {"fin"}) and "sf_report" not in part and "sf_matrix" not in part
+select(block)
+bpy.ops.support_fins.clear()
+assert not engine.children(block, {"fin", "drawn"}) and "sf_report" not in block
 print("SMOKE_PASS", flush=True)

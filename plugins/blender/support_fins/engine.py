@@ -9,11 +9,14 @@ it sits. Blender units become millimetres through the scene's unit scale (Unit
 Scale 0.001 = 1 unit is 1 mm, the usual 3D-printing setup).
 
 Fins are objects parented to the part, one per wall / brace / pad (the engine's
-`pieces`), so any one can be selected, hidden or deleted. Each carries sf_role 'fin'.
+`pieces`), so any one can be selected, hidden or deleted. Each carries:
+  sf_role  'fin' (Generate's), 'drawn' (Draw wall)
+  sf_a/sf_b  a drawn wall's ends, in the part's local coordinates, so Generate can
+             rebuild it for the part's current pose (the site's rebuildDrawn)
 The part carries sf_report (the result line, after Generate) and sf_matrix /
 sf_settings / sf_mesh (the pose, settings + unit scale, and a mesh fingerprint its
-fins were built for -- set by Generate -- to tell the user when the fins are out of
-date).
+fins were built for -- set by Generate or the first drawn wall -- to tell the user
+when the fins are out of date).
 """
 import json
 import pathlib
@@ -28,6 +31,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 SCHEMA = json.loads((HERE / "options.json").read_text(encoding="utf-8"))
 SPECS = schema.specs(SCHEMA)
 FIN_COLOR = (0.15, 0.45, 0.95, 1.0)
+DRAWN_COLOR = (0.95, 0.55, 0.1, 1.0)
 KIND_NAMES = {"prop": "wall", "sway": "sway brace", "pad": "bed pad", "wedge": "wedge"}
 
 _ctx = None
@@ -140,7 +144,7 @@ def stamp(part, context):
 
 
 def out_of_date(part, scene):
-    """Why the fins no longer match the part's pose or the settings,
+    """Why the fins (auto or drawn) no longer match the part's pose or the settings,
     or None. Edits to the mesh itself are caught by ui.py's handlers."""
     if "sf_matrix" not in part:
         return None
@@ -162,6 +166,15 @@ def remove(obj):
     bpy.data.objects.remove(obj, do_unlink=True)
     if data is not None and data.users == 0:
         bpy.data.meshes.remove(data)
+
+
+def set_hidden(obj, hidden):
+    """hide_set, for an object that may sit in a collection the view layer excludes
+    (hide_set raises there; it's hidden anyway)."""
+    try:
+        obj.hide_set(hidden)
+    except RuntimeError:     # (Blender still prints its "can't be hidden" line)
+        pass
 
 
 def _material(name, color):
@@ -196,13 +209,14 @@ def mesh_object(name, tris_mm, part, scene, role, color):
 
 
 def generate(part, context):
-    """Replace the part's fins with the engine's for its current pose and settings.
-    Returns the report line."""
+    """Replace the part's fins with the engine's for its current pose and settings,
+    and rebuild its drawn walls the same way. Returns the report line."""
     scene = context.scene
     soup = part_soup(part, context)
     options = engine_options(scene)
-    # The engine call first: if it fails, the scene is still as it was.
+    # Every engine call first: if one fails, the scene is still as it was.
     fins, stats, pieces, _over, _small = host.host_compute_pieces(ctx(), soup, options)
+    drawn = [(wall, drawn_wall_tris(wall, part, soup, options, scene)) for wall in children(part, {"drawn"})]
 
     for o in children(part, {"fin"}):
         remove(o)
@@ -213,8 +227,69 @@ def generate(part, context):
             mesh_object(f"{part.name} {label} {p['id']}" if p["kind"] != "pad" else f"{part.name} {label}",
                         tris, part, scene, "fin", FIN_COLOR)
 
+    problems = []
+    for wall, (tris, info) in drawn:
+        if tris is None:
+            problems.append(f"{wall.name}: {info}")
+        restand_drawn(wall, part, tris, scene)
+
     report = host.host_report(stats)
+    if problems:
+        report += "; drawn walls not built: " + "; ".join(problems)
     part["sf_report"] = report
     stamp(part, context)
     return report
 
+
+# ---- Draw mode -------------------------------------------------------------
+
+def draw_wall(part, a_world, b_world, context):
+    """A wall from a to b (world coordinates, Blender units: where the clicks hit the
+    part). Returns (the wall object, None), or (None, the engine's reason)."""
+    scene = context.scene
+    k = mm_per_unit(scene)
+    soup = part_soup(part, context)
+    tris, info = host.host_draw_wall(ctx(), soup, [v * k for v in a_world], [v * k for v in b_world],
+                                     engine_options(scene))
+    if tris is None:
+        return None, info
+    n = part.get("sf_drawn", 0) + 1
+    part["sf_drawn"] = n
+    wall = mesh_object(f"{part.name} drawn wall {n}", tris, part, scene, "drawn", DRAWN_COLOR)
+    inv = part.matrix_world.inverted()
+    wall["sf_a"] = list(inv @ Vector(a_world))
+    wall["sf_b"] = list(inv @ Vector(b_world))
+    if "sf_matrix" not in part:
+        # A drawn wall is for this pose too: moving the part now must say so, Generate
+        # or not. (If Generate's fins are already out of date, they stay that way.)
+        stamp(part, context)
+    return wall, None
+
+
+def drawn_wall_tris(wall, part, soup, options, scene):
+    """A drawn wall for the part's current pose: host_draw_wall's (tris, stats), or
+    (None, why it can't be built any more)."""
+    k = mm_per_unit(scene)
+    a = part.matrix_world @ Vector(wall["sf_a"])
+    b = part.matrix_world @ Vector(wall["sf_b"])
+    return host.host_draw_wall(ctx(), soup, [v * k for v in a], [v * k for v in b], options)
+
+
+def restand_drawn(wall, part, tris, scene):
+    """Give the drawn wall its new triangles; with None, hide it (kept, so it comes
+    back when the part is turned back)."""
+    if tris is None:
+        wall["sf_unbuilt"] = True
+        set_hidden(wall, True)
+        return
+    old = wall.data
+    name = old.name
+    wall.data = _mesh(name + " (new)", tris, scene, "drawn", DRAWN_COLOR)
+    if old.users == 0:
+        bpy.data.meshes.remove(old)
+    wall.data.name = name
+    wall.matrix_parent_inverse = part.matrix_world.inverted()
+    wall.matrix_basis.identity()
+    if wall.get("sf_unbuilt"):           # hidden because it didn't fit; a wall the user
+        del wall["sf_unbuilt"]           # hid stays hidden
+        set_hidden(wall, False)

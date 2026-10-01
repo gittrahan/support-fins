@@ -20,7 +20,8 @@ The panel is in the 3D View sidebar (**N**), tab **Support Fins**.
 ## Use
 
 - **Bed** = the world XY plane at the part's lowest point: the part prints the way it
-  sits, z up. Turn it to change the pose.
+  sits, z up. Turn it to change the pose, or **Lay face flat** and click the face that
+  should go down.
 - **Units**: one Blender unit is read as `Unit Scale × 1000` mm. An STL imported 1:1
   into a default scene reads as metres; the panel shows the part's size in mm and
   offers **Use millimetres** (Unit Scale 0.001) when the size looks wrong.
@@ -29,6 +30,9 @@ The panel is in the 3D View sidebar (**N**), tab **Support Fins**.
 - **Generate fins** replaces the part's fins for its current pose and settings. The
   result line says what was placed and what wasn't reached (overhangs too shallow for
   a fin, pieces starting in mid-air).
+- **Draw wall**: click two points under an overhang for one hand-placed wall (the site's
+  Draw mode). Generate re-stands drawn walls for the part's current pose; one that no
+  longer fits says why.
 - Fins are children of the part. Delete one you don't want (it comes back on the next
   Generate). Moving the part, editing its mesh or changing a setting marks the fins
   **out of date** until Generate runs again.
@@ -54,5 +58,6 @@ The add-on (this folder) is GPL-3.0-or-later, as Blender requires of add-ons; th
 engine bundled into it (`web/*.js`) stays MIT (`LICENSE-engine` in the zip).
 
 The Blender side started as [RemusTL](https://github.com/RemusTL)'s extension in
-[#145](https://github.com/gittrahan/support-fins/pull/145): the headless-Blender CI
-smoke test is his, ported onto the shared engine path.
+[#145](https://github.com/gittrahan/support-fins/pull/145): the two-click Draw wall and
+Lay face flat tool and the headless-Blender CI smoke test are his, ported onto the
+shared engine path.
