@@ -186,7 +186,7 @@ def _material(name, color):
     return mat
 
 
-def _mesh(name, tris_mm, scene, role, color):
+def _mesh(name, tris_mm, scene, role, color, material=None):
     """(K,3,3) world-mm triangles -> a mesh in world Blender units. Vertices are
     welded only where they are identical: no tolerance that could close a print gap."""
     verts, inverse = np.unique(np.ascontiguousarray(tris_mm.reshape(-1, 3)), axis=0, return_inverse=True)
@@ -195,13 +195,14 @@ def _mesh(name, tris_mm, scene, role, color):
     me = bpy.data.meshes.new(name)
     me.from_pydata((verts / mm_per_unit(scene)).tolist(), [], faces.tolist())
     me.update()
-    me.materials.append(_material("Support Fins " + role, color))
+    # one material per colour: _material repaints a shared one
+    me.materials.append(_material("Support Fins " + (material or role), color))
     return me
 
 
-def mesh_object(name, tris_mm, part, scene, role, color):
+def mesh_object(name, tris_mm, part, scene, role, color, material=None):
     """(K,3,3) world-mm triangles -> an object parented to `part`, left where it is."""
-    obj = bpy.data.objects.new(name, _mesh(name, tris_mm, scene, role, color))
+    obj = bpy.data.objects.new(name, _mesh(name, tris_mm, scene, role, color, material))
     for c in part.users_collection:
         c.objects.link(obj)
     obj.parent = part
@@ -239,7 +240,7 @@ def generate(part, context):
 
     for faces, label, color in ((over, "overhangs", OVER_COLOR), (small, "too small to fin", SMALL_COLOR)):
         if len(faces):
-            o = mesh_object(f"{part.name} {label}", soup[faces], part, scene, "overhangs", color)
+            o = mesh_object(f"{part.name} {label}", soup[faces], part, scene, "overhangs", color, label)
             o.hide_select = True
             o.hide_render = True
             o.show_in_front = True
@@ -322,5 +323,6 @@ def export_meshes(part, context):
         faces = inverse.reshape(-1, 3)
         # a 3MF triangle must have three different vertices: drop ones the weld closed
         faces = faces[(faces[:, 0] != faces[:, 1]) & (faces[:, 1] != faces[:, 2]) & (faces[:, 0] != faces[:, 2])]
-        out.append((obj.name, verts.tolist(), faces.tolist()))
+        if len(faces):                  # an object with no triangles isn't valid 3MF
+            out.append((obj.name, verts.tolist(), faces.tolist()))
     return out

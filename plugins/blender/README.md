@@ -38,7 +38,8 @@ The panel is in the 3D View sidebar (**N**), tab **Support Fins**.
   Generate). Moving the part, editing its mesh or changing a setting marks the fins
   **out of date** until Generate runs again.
 - **Export part + fins (.3mf)**: one assembly in mm, the fins where they sit. Or select
-  the part and fins and use Blender's own STL export.
+  the part and fins and use Blender's own STL export with **Selection Only** ticked:
+  without it, the red / amber overhang sheets go into the file too.
 
 ## Build and test
 

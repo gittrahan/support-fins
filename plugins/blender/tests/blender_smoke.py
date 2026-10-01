@@ -229,6 +229,29 @@ if not w.visible_get():                      # not built: no old-pose wall left 
     w.hide_set(True)
 print("LAY_FLAT", block["sf_report"], flush=True)
 
+# red and amber each keep their own colour: the bracket + a 1.5 mm nub on its side
+# has both (a shared material once painted every overlay amber)
+nubbed = part.copy()
+nubbed.data = part.data.copy()
+scene.collection.objects.link(nubbed)
+bm = bmesh.new()
+bm.from_mesh(nubbed.data)
+lo, hi = [Vector(v) for v in (np.min([v.co for v in bm.verts], axis=0), np.max([v.co for v in bm.verts], axis=0))]
+nub = bmesh.ops.create_cube(bm, size=1.5)["verts"]
+bmesh.ops.translate(bm, vec=Vector((hi.x + 0.55, (lo.y + hi.y) / 2, lo.z + 0.6 * (hi.z - lo.z))), verts=nub)
+bm.to_mesh(nubbed.data)
+bm.free()
+c.view_layer.update()
+select(nubbed)
+generate()
+colours = {o.name.removeprefix(nubbed.name + " "): tuple(round(x, 2) for x in o.active_material.diffuse_color)
+           for o in fins_of(nubbed, ["overhangs"])}
+assert colours == {"overhangs": tuple(round(x, 2) for x in engine.OVER_COLOR),
+                   "too small to fin": tuple(round(x, 2) for x in engine.SMALL_COLOR)}, colours
+engine.remove(nubbed)
+c.view_layer.update()
+print("OVERLAY_COLOURS", flush=True)
+
 # Show overhangs with an overlay in a collection the view layer excludes: no error,
 # and the other overlays still toggle
 hidden = bpy.data.collections.new("excluded")
