@@ -26,7 +26,7 @@ import sys
 _host_ctx = None
 
 
-def host_engine(js_source, vendor_dir=None):
+def host_engine(js_source, vendor_dir=None, jit=None):
     """The one V8 context for this process, with the engine bundle loaded.
 
     js_source   the bundle's text (global SupportFinsEngine)
@@ -36,14 +36,17 @@ def host_engine(js_source, vendor_dir=None):
                 can't open files from a plugin folder there either (both seen in Cura
                 5.13). Pointing _MEIPASS at vendor_dir while V8 starts fixes both.
 
-    On macOS V8 runs --jitless: mini-racer's JIT hits SIGTRAP there, and a hardened
-    app may refuse JIT memory anyway (lessons from the first Orca spike).
+    jit         None (default): V8 runs --jitless on macOS: mini-racer's JIT hits SIGTRAP
+                there in a hardened app that refuses JIT memory (lessons from the first
+                Orca spike). True: a host whose macOS app allows JIT (Blender is signed
+                with com.apple.security.cs.allow-jit) keeps it -- jitless is ~25x slower
+                on a big part (75k triangles: 80 s vs 3 s).
     """
     global _host_ctx
     if _host_ctx is None:
         from py_mini_racer import MiniRacer, init_mini_racer
         flags = ["--single-threaded"]
-        if sys.platform == "darwin":
+        if sys.platform == "darwin" and not jit:
             flags.append("--jitless")
         missing = object()
         saved = getattr(sys, "_MEIPASS", missing)

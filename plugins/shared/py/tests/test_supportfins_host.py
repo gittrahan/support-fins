@@ -162,6 +162,24 @@ print(json.dumps([sys._MEIPASS, ctx.eval("typeof SupportFinsEngine.computeFinsB6
     assert json.loads(out.stdout.strip().splitlines()[-1]) == ["/nonexistent/app/bundle", "function"]
 
 
+def test_jit_gives_the_same_fins(bundle_path):
+    """host_engine(jit=True) (Blender): V8's flags are per process, so a fresh one.
+    Same walls and tines as the default (jitless on macOS), only faster."""
+    code = f"""
+import json, sys
+sys.path.insert(0, {str(PY)!r})
+sys.path.insert(0, {str(HERE)!r})
+import supportfins_host as host
+from test_supportfins_host import lbracket_35
+ctx = host.host_engine(open({str(bundle_path)!r}).read(), jit=True)
+_, stats = host.host_compute(ctx, lbracket_35(), {{"layerHeight": 0.2}})
+print(json.dumps([stats["braces"], stats["tines"]]))
+"""
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
+    assert out.returncode == 0, out.stderr
+    assert json.loads(out.stdout.strip().splitlines()[-1]) == [4, 20]
+
+
 def test_report_says_what_was_not_reached():
     assert host.host_report({"braces": 1, "tines": 1}) == "1 wall, 1 tine"
     line = host.host_report({"braces": 3, "tines": 12, "unserved": 2, "floating": 1, "floatingDrop": 4.25})
