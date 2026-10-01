@@ -1,0 +1,83 @@
+{
+  "scene": {
+    "name": "lbracket-x35-auto",
+    "model": "lbracket",
+    "rot": [
+      35,
+      0,
+      0
+    ]
+  },
+  "walls": 4,
+  "tines": 20,
+  "unserved": 0,
+  "triangles": 1688,
+  "padTriangles": 31272,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 7.394,
+      "length": 9.675,
+      "tines": 0,
+      "from": [
+        18.75,
+        -10.561,
+        0.62
+      ],
+      "to": [
+        18.75,
+        -0.887,
+        7.394
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 7.394,
+      "length": 9.675,
+      "tines": 0,
+      "from": [
+        6.25,
+        -10.561,
+        0.62
+      ],
+      "to": [
+        6.25,
+        -0.887,
+        7.394
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 7.394,
+      "length": 9.675,
+      "tines": 0,
+      "from": [
+        -6.25,
+        -10.561,
+        0.62
+      ],
+      "to": [
+        -6.25,
+        -0.887,
+        7.394
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 28.379,
+      "length": 39.644,
+      "tines": 0,
+      "from": [
+        -18.75,
+        -10.561,
+        0.62
+      ],
+      "to": [
+        -18.75,
+        29.082,
+        28.379
+      ]
+    }
+  ],
+  "sha256": "fec1cec535a56b36c2d4b157af62e8ee3dbbc9eff540658ab262ed25875f1ae3"
+}

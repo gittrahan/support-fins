@@ -1,0 +1,35 @@
+{
+  "scene": {
+    "name": "cube-x40-petg",
+    "model": "cube",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 1,
+  "tines": 5,
+  "unserved": 1,
+  "triangles": 184,
+  "padTriangles": 28302,
+  "fins": [
+    {
+      "kind": "wedge",
+      "height": 30.342,
+      "length": 24.759,
+      "tines": 0,
+      "from": [
+        0,
+        -3.417,
+        1.135
+      ],
+      "to": [
+        0,
+        -28.177,
+        30.642
+      ]
+    }
+  ],
+  "sha256": "b3c1c32ed4cf37b4bdfece876a92de6bd17407482b11897f5a84df78924ca9e6"
+}

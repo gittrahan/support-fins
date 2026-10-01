@@ -1,0 +1,83 @@
+{
+  "scene": {
+    "name": "bar-sway",
+    "model": "bar",
+    "rot": [
+      0,
+      0,
+      0
+    ]
+  },
+  "walls": 0,
+  "tines": 0,
+  "unserved": 0,
+  "triangles": 816,
+  "padTriangles": 0,
+  "fins": [
+    {
+      "kind": "sway",
+      "height": 89,
+      "length": 13.35,
+      "tines": 15,
+      "from": [
+        -8.2,
+        4,
+        0
+      ],
+      "to": [
+        -24.55,
+        4,
+        0
+      ]
+    },
+    {
+      "kind": "sway",
+      "height": 89,
+      "length": 13.35,
+      "tines": 15,
+      "from": [
+        -4,
+        -8.2,
+        0
+      ],
+      "to": [
+        -4,
+        -24.55,
+        0
+      ]
+    },
+    {
+      "kind": "sway",
+      "height": 89,
+      "length": 13.35,
+      "tines": 15,
+      "from": [
+        4,
+        8.2,
+        0
+      ],
+      "to": [
+        4,
+        24.55,
+        0
+      ]
+    },
+    {
+      "kind": "sway",
+      "height": 89,
+      "length": 13.35,
+      "tines": 15,
+      "from": [
+        8.2,
+        -4,
+        0
+      ],
+      "to": [
+        24.55,
+        -4,
+        0
+      ]
+    }
+  ],
+  "sha256": "c90789f0111a9ed8d10602f9c422a43b91d20cf98393ed0fda096e8a14dd755e"
+}

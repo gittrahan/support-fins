@@ -13,6 +13,18 @@ deno test --allow-read tests/
 Each of these is a regression that actually shipped once. The tests are the
 fence around it.
 
+**`golden.test.js`** -- the exact supports the site builds, at its default settings,
+for a few reference scenes (Matthew's site check: `cube.stl` at X40, Auto and Draw;
+PETG; lbracket, sphere, torus, staircase; sway on a bar). Every test below pins a
+property or a count; a change that keeps every count (PR #149's wall steps, on the
+default cube) passes them all. This one hashes the geometry, so **any** change fails
+and names the scene. A change you mean: re-record and commit `tests/golden/` with the
+PR, saying why in its body -- the golden diff is how review sees the default moved:
+
+```sh
+UPDATE_GOLDEN=1 deno test -A tests/golden.test.js
+```
+
 **`tines.test.js`** -- `emitTines` on a controlled solid block:
 - teeth **point INTO the part**, flush with the wall's flanks -- never standing
   proud as sideways tabs "laying on" the surface;

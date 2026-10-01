@@ -1,0 +1,51 @@
+{
+  "scene": {
+    "name": "sphere-auto",
+    "model": "sphere",
+    "rot": [
+      0,
+      0,
+      0
+    ]
+  },
+  "walls": 2,
+  "tines": 10,
+  "unserved": 0,
+  "triangles": 1064,
+  "padTriangles": 1344,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 5.702,
+      "length": 22.992,
+      "tines": 0,
+      "from": [
+        -11.496,
+        -12.184,
+        5.702
+      ],
+      "to": [
+        11.496,
+        -12.184,
+        5.702
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 5.702,
+      "length": 22.992,
+      "tines": 0,
+      "from": [
+        -11.496,
+        12.184,
+        5.702
+      ],
+      "to": [
+        11.496,
+        12.184,
+        5.702
+      ]
+    }
+  ],
+  "sha256": "93987c1ac76c26c38a0d220e83e10f56279d29d35688ebdcb4379ee094f1fa07"
+}

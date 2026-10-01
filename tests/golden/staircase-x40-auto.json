@@ -1,0 +1,35 @@
+{
+  "scene": {
+    "name": "staircase-x40-auto",
+    "model": "staircase",
+    "rot": [
+      40,
+      0,
+      0
+    ]
+  },
+  "walls": 1,
+  "tines": 4,
+  "unserved": 0,
+  "triangles": 140,
+  "padTriangles": 42578,
+  "fins": [
+    {
+      "kind": "wedge",
+      "height": 21.149,
+      "length": 17.051,
+      "tines": 0,
+      "from": [
+        0,
+        -5.737,
+        1.129
+      ],
+      "to": [
+        0,
+        -22.788,
+        21.449
+      ]
+    }
+  ],
+  "sha256": "9f426e60a67e06337f8e0d8adfcd7e49db74b046bcdb70f3889dfa2fd19f7b2e"
+}
