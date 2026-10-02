@@ -40,9 +40,9 @@ const PLUGINS = [
   {
     name: 'PrusaSlicer', needs: '3.0 alpha · for tilted parts · you place each fin by hand',
     // a warning line under the row: what a user must know before downloading
-    note: 'Adds one angled fin that you set under a tilted part. PrusaSlicer\'s plugins can\'t read the part\'s mesh, so it isn\'t shaped to the part like the other plugins. New in 0.2.0; not yet confirmed in a running slicer.',
+    note: 'Adds one angled fin that you set under a tilted part. PrusaSlicer\'s plugins can\'t read the part\'s mesh, so it isn\'t shaped to the part like the other plugins. New in 0.2.0.',
     file: 'support-fins-prusa.zip',
-    install: 'Unzip, copy com.printfins.support-fins into the lua folder beside PrusaSlicer.ini, restart. Menu Support Fins ▸ Add a Fin: set Slope Angle to the underside\'s angle, then move the fin so its slope sits 0.2 mm under the part.',
+    install: 'Unzip, copy com.printfins.support-fins into the lua folder beside PrusaSlicer.ini, restart. Menu Support Fins ▸ Add a Fin: set Slope Angle to the underside\'s angle, then move the fin so its slope sits 0.2 mm under the part. Size it with Fin Height, not the scale tool: scaling stretches the one-layer tines.',
   },
   {
     name: 'Cura', needs: '5.x · experimental',
