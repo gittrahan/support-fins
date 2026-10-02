@@ -1,0 +1,41 @@
+name: Calibration result
+description: What the tuning prints (docs/CALIBRATION.md) gave on your printer
+title: "Calibration: <printer> + <filament>"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for printing the coupons. Each result is one more printer the defaults
+        are tuned for. Rungs are counted by the raised dots (1 dot = rung 1).
+        Leave out any test you didn't print.
+  - type: input
+    id: printer
+    attributes: { label: Printer and nozzle, placeholder: "Prusa MK4, 0.4 mm" }
+    validations: { required: true }
+  - type: input
+    id: filament
+    attributes: { label: Filament (brand + type), placeholder: "Polymaker PLA Pro" }
+    validations: { required: true }
+  - type: input
+    id: slicer
+    attributes: { label: Slicer and layer height, placeholder: "OrcaSlicer 2.3, 0.2 mm" }
+  - type: input
+    id: angle
+    attributes: { label: Angle — shallowest clean ramp, placeholder: "3 dots (40°)" }
+  - type: input
+    id: gap
+    attributes: { label: Gap — smallest gap that snapped off clean, placeholder: "3 dots (0.2 mm)" }
+  - type: input
+    id: span
+    attributes: { label: Span — leftmost Coverage position whose shelf was flat, placeholder: "3 dots (middle)" }
+  - type: input
+    id: pad
+    attributes: { label: Pad — biggest gap whose cube stayed put, placeholder: "3 dots (0.12 mm)" }
+  - type: textarea
+    id: bore
+    attributes: { label: Bore — which walls pulled out clean, which broke or stuck }
+  - type: textarea
+    id: notes
+    attributes:
+      label: Photos and notes
+      description: A photo of the undersides helps most. Anything odd (welds, curls, a cube that came loose) goes here.
