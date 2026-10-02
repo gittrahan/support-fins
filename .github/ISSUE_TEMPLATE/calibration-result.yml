@@ -24,13 +24,7 @@ body:
     attributes: { label: Angle — shallowest clean ramp, placeholder: "4 dots (25°)" }
   - type: input
     id: gap
-    attributes: { label: Gap — smallest gap that snapped off clean, placeholder: "3 dots (0.2 mm)" }
-  - type: input
-    id: bite-low
-    attributes: { label: Bite — highest rung where the grip failed (wall fell off with no snap), placeholder: "2 dots (0.20 mm)" }
-  - type: input
-    id: bite-high
-    attributes: { label: Bite — lowest rung that left marks, placeholder: "9 dots (0.55 mm)" }
+    attributes: { label: Gap — fewest empty layers that snapped off clean, placeholder: "1 dot (1 layer, 0.2 mm)" }
   - type: input
     id: span
     attributes: { label: Span — which shelves came out flat, which sagged, placeholder: "1, 2, 4, 5 flat; 3 sagged between the walls" }
