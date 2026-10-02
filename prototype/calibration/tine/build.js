@@ -14,6 +14,7 @@ const { writeBinarySTL } = await import(`${WEB}stl.js`);
 
 const c = loadCoupon(import.meta.url);
 const sup = [], kiss = [];
+let reach;   // the first ledge's wall reach; every other must match
 console.log('ledge  walls  tines  label');
 for (const r of c.rungs) {
   const built = finsWith(c, { tines: r.tines ?? true, tunables: r.tunables });
@@ -24,6 +25,13 @@ for (const r of c.rungs) {
   // tinesPerWall can only undershoot (a tine that doesn't grip isn't re-placed): check it
   const want = r.tunables.tinesPerWall;
   if (want && walls.some((f) => f.tines !== want)) throw new Error(`ledge ${r.id}: asked ${want} tines a wall, got ${walls.map((f) => f.tines)}`);
+  // every ledge's wall must reach the same far end, or the rungs aren't comparable
+  // (at some ledge positions the engine stops a wall 0.9 mm short: local issue 023)
+  for (const f of walls) {
+    const far = Math.max(...f.line.map((p) => Math.abs(p[1] - c.off.y)));
+    reach ??= far;
+    if (Math.abs(far - reach) > 0.05) throw new Error(`ledge ${r.id}: wall reaches ${far.toFixed(2)}, not ${reach.toFixed(2)}`);
+  }
   if (r.tines === false && tines) throw new Error(`ledge ${r.id}: tines off but ${tines} built`);
 }
 await writeCoupon(c, 'tine', 'Tine coupon', sup);

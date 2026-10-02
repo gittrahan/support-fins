@@ -60,7 +60,7 @@ def ledge(x, side):
 parts, rungs = [], []
 for k, r in enumerate(RUNGS):
     side = 1 if k < 6 else -1
-    x = 4.0 + (k % 6) * STEP
+    x = 3.0 + (k % 6) * STEP    # 3, not 4: at 4-6 some walls stop 0.9 mm short (issue 023)
     parts.append(ledge(x, side))
     top = Z0 + RISE + TOP_T
     n = k + 1
@@ -70,7 +70,7 @@ for k, r in enumerate(RUNGS):
         parts += dots(n - 6, x + 2.0, yd - side * 1.8, top, step=1.6, size=0.9)
     y0, y1 = sorted([side * BAR_W / 2, side * (BAR_W / 2 + D)])
     rungs.append({'id': n, **r, 'box': [x - 1.5, x + W + 1.5, y0 - 0.5, y1 + 0.5]})
-L = 4.0 + 5 * STEP + W + 4.0
+L = 3.0 + 5 * STEP + W + 4.0
 parts.append(bx(0, L, -BAR_W / 2, BAR_W / 2, 0, Z0 + RISE + TOP_T + 2))
 m = write(__file__, parts, rungs)
 print(f'tine coupon {m.extents.round(1)} mm, ledges reach {D:.1f} mm out')

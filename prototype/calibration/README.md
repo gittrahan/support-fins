@@ -1,8 +1,9 @@
 # Calibration coupons
 
 Small test prints that settle a geometry number by printing it, instead of guessing.
-Each coupon is ONE solid piece (a multi-piece coupon lost parts off the bed), built
-by the engine's own code so the print tests what the app actually makes:
+Each coupon's PART is ONE solid piece (a multi-piece coupon lost parts off the bed),
+with its supports built by the engine's own code so the print tests what the app
+actually makes (tine/ also adds its KISS tines as a second object, on purpose):
 
     python3 prototype/calibration/<name>/gen.py      # the part -> out/coupon_part.stl
     deno run -A prototype/calibration/<name>/build.js  # walls on it -> out/<name>-coupon.3mf
@@ -141,8 +142,12 @@ KISS: kiss.py cuts those tines off at the part's surface and writes them as thei
 OWN object in the 3MF, so the slicer keeps them apart from the part instead of
 merging them. **Print the 3MF** (the .stl can't keep objects apart), and if the
 slicer asks whether to load it as one object with several parts, say **no**.
+**Never Arrange** (and turn off arrange-on-load): it moves the two objects apart,
+leaving the kiss walls standing loose and ledges 5-6 bare. The file places both
+together on any bed 180 mm or bigger; to move it, select both and move them as one.
+Check in the preview that ledges 5-6 have their walls under them.
 Measured before printing (PrusaSlicer, 0.2 layers): every tine prints, 0.3 and
 pointed included; two objects in the G-code; tine top under the part's next layer,
-per ledge: 1 0.94 mm2, 2 0.74, 3 0.53, 4 0.60, 5 0.36, 6 0.34, 7 0.97, 8 0.65, 9 0.33.
+per ledge: 1 0.97 mm2, 2 0.74, 3 0.53, 4 0.60, 5 0.36, 6 0.34, 7 0.97, 8 0.65, 9 0.33.
 For a user: the ledge with the faintest marks that still snapped (didn't fall off).
 - **waiting on print.**

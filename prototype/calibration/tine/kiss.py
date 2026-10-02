@@ -18,9 +18,10 @@ import trimesh
 
 OUT = Path(__file__).resolve().parent / 'out'
 NS = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02'
-# Both items placed together at a bed's middle (Prusa MK4 250 x 210): two objects
+# Both items placed together, on any bed 180 mm or bigger (A1 mini up): two objects
 # keep their 3MF positions, and centred on the origin half the coupon is off the bed.
-BED = '1 0 0 0 1 0 0 0 1 125 105 0'
+# The coupon is 119 mm long, so it spans x 30.5-149.5. Arrange splits the two apart.
+BED = '1 0 0 0 1 0 0 0 1 90 90 0'
 
 
 def read_objects(path):
