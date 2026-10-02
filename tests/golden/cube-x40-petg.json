@@ -11,28 +11,60 @@
       "material": "petg"
     }
   },
-  "walls": 1,
-  "tines": 5,
-  "unserved": 1,
-  "triangles": 220,
+  "walls": 3,
+  "tines": 18,
+  "unserved": 0,
+  "triangles": 2268,
   "padTriangles": 28302,
   "fins": [
     {
-      "kind": "wedge",
-      "height": 30.342,
-      "length": 24.759,
+      "kind": "prop",
+      "height": 25.412,
+      "length": 29.545,
+      "tines": 0,
+      "from": [
+        13.333,
+        -1.369,
+        0.62
+      ],
+      "to": [
+        13.333,
+        28.177,
+        25.412
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 25.412,
+      "length": 29.545,
       "tines": 0,
       "from": [
         0,
-        -3.417,
-        1.135
+        -1.369,
+        0.62
       ],
       "to": [
         0,
-        -28.177,
-        30.642
+        28.177,
+        25.412
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 25.412,
+      "length": 29.545,
+      "tines": 0,
+      "from": [
+        -13.333,
+        -1.369,
+        0.62
+      ],
+      "to": [
+        -13.333,
+        28.177,
+        25.412
       ]
     }
   ],
-  "sha256": "3c2782945515b8c0dbec42099fba947ada4f1a56f7c528bccde6e9f3f61945a7"
+  "sha256": "7e7e297006b8b93315993995611f61d216b44a1e0f01be3fe8808c83a1908bb9"
 }
