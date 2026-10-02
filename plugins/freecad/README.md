@@ -30,6 +30,14 @@ Output is a mesh. Converting to a solid for STEP export comes later (local issue
 
 ## Install (for now, until the Addon Manager listing)
 
+Download your computer's `support-fins-freecad-<platform>.zip` (printfins.com ▸ Plugins,
+or the `plugins-latest` release) and unzip it into the `Mod` folder of FreeCAD's user
+data folder (Help ▸ About ▸ Copy to clipboard shows it; on macOS
+`~/Library/Application Support/FreeCAD/Mod`), so you get `Mod/SupportFins/`. Restart
+FreeCAD. `python3 plugins/freecad/build.py --all` builds those zips.
+
+From a checkout:
+
 ```
 python3 plugins/freecad/build.py --install ~/Library/Application\ Support/FreeCAD   # macOS
 ```
