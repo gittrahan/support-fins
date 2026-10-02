@@ -65,13 +65,14 @@ Deno.test('tunables: a bigger gap keeps the walls under a 40 deg underside (021)
   const build = (propGap) => {
     const b = fins.buildFins(topo, res, IDENTITY,
       { mode: 'auto', bedPad: true, tines: true, tunables: { propGap } });
-    return { walls: b.props.filter((p) => p.kind === 'prop').length,
-             weld: b.skipped.weld, unserved: b.unserved };
+    return { walls: b.props.filter((p) => p.kind === 'prop').length, unserved: b.unserved };
   };
-  const pla = build(0.2), petg = build(0.3);
-  build(0.2);   // put the module's gap back for the files after this one
+  const gap0 = prop.PROP.gap;
+  let pla, petg;
+  try { pla = build(0.2); petg = build(0.3); } finally { fins.applyTunables({ propGap: gap0 }); }
   assert(pla.walls > 0, 'PLA built no walls to compare against');
-  assert(petg.walls === pla.walls && petg.weld === 0 && petg.unserved === 0,
+  // walls + unserved catch it: main lost them in stationCertified's trim, not skipped.weld
+  assert(petg.walls === pla.walls && petg.unserved === 0,
          `gap 0.3: ${JSON.stringify(petg)} where gap 0.2 built ${JSON.stringify(pla)}`);
 });
 
