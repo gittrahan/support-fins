@@ -7,7 +7,7 @@ name: plugins
 #
 #   PR:            build + test
 #   push to main:  build + test, then publish the builds to the rolling
-#                  `plugins-latest` pre-release (the site's future download links)
+#                  `plugins-latest` pre-release (printfins.com's Plugins menu links here)
 #
 # The Fusion add-in runs the engine in Fusion's own browser (a hidden palette), so
 # its zip has nothing native in it and serves Windows and macOS alike. It has been
@@ -108,9 +108,9 @@ jobs:
           if-no-files-found: error
 
   freecad:
-    # The add-on's settings mapping, and that it builds (engine bundle + this runner's
-    # mini-racer). FreeCAD itself isn't installable here: plugins/freecad/tests/smoke.py
-    # runs the real thing locally. Packaging and a release zip come later (local issue 016).
+    # The add-on's settings mapping, then a zip per platform (engine bundle + that
+    # platform's mini-racer). FreeCAD itself isn't installable here:
+    # plugins/freecad/tests/smoke.py runs the real thing locally.
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -123,10 +123,40 @@ jobs:
           node-version: '22'
       - name: Install test dependencies
         run: pip install pytest
-      - name: Build
-        run: python plugins/freecad/build.py
       - name: Test
         run: python -m pytest -q plugins/freecad/tests/test_props.py
+      - name: Build a zip per platform
+        run: python plugins/freecad/build.py --all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: freecad
+          path: plugins/freecad/build/support-fins-freecad-*.zip
+          if-no-files-found: error
+
+  cli:
+    # The command line as one file (its tests run with the rest in test.yml's deno test):
+    # bundled, then run on Node from outside the checkout, so a missed import fails here.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4     # npx fetches the pinned esbuild (plugins/shared/bundle.py)
+        with:
+          node-version: '22'
+      - name: Build
+        run: python plugins/cli/build.py
+      - name: Run it outside the checkout
+        run: |
+          mkdir -p "$RUNNER_TEMP/cli" && cp plugins/cli/build/support-fins.mjs prototype/stress/models/lowledge.stl "$RUNNER_TEMP/cli/"
+          cd "$RUNNER_TEMP/cli" && node support-fins.mjs lowledge.stl && test -s lowledge-fins.3mf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli
+          path: plugins/cli/build/support-fins.mjs
+          if-no-files-found: error
 
   blender:
     # The extension's settings mapping + 3MF writer, then a zip per platform (engine
@@ -197,7 +227,7 @@ jobs:
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [orca, fusion, cura, prusa, blender, blender-smoke]
+    needs: [orca, fusion, cura, prusa, blender, blender-smoke, freecad, cli]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -226,10 +256,17 @@ jobs:
           - SupportFins.zip: Autodesk Fusion add-in, experimental (run on Windows and macOS)
           - SupportFins-<platform>.curapackage: UltiMaker Cura 5 plugin, experimental; pick your computer's (mac-arm64, mac-x64, windows-x64, linux-x64, linux-arm64) and drag it onto Cura
           - support-fins-prusa.zip: PrusaSlicer 3.0 plugin bundle, placement by hand
-          - support_fins-<platform>.zip: Blender 4.2+ extension, experimental; pick your computer's (macos-arm64, macos-x64, windows-x64, linux-x64) and use Install from Disk"
+          - support_fins-<platform>.zip: Blender 4.2+ extension, experimental; pick your computer's (macos-arm64, macos-x64, windows-x64, linux-x64) and use Install from Disk
+          - support-fins-freecad-<platform>.zip: FreeCAD 1.0 add-on, experimental; pick your computer's (mac-arm64, mac-x64, windows-x64, linux-x64, linux-arm64) and unzip into FreeCAD's Mod folder
+          - support-fins.mjs: command line (Deno or Node 20.10+): node support-fins.mjs part.stl
+
+          Each file's label names its plugin version and the engine commit it was built from."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "Plugins (latest build)" --notes "$notes" --prerelease
           else
             gh release create "$TAG" --title "Plugins (latest build)" --notes "$notes" --prerelease --verify-tag
           fi
-          gh release upload "$TAG" dist/* --clobber
+          # label = plugin version + engine commit; printfins.com's Plugins menu shows it
+          python3 plugins/shared/release_labels.py dist "$GITHUB_SHA" > labels.txt
+          cat labels.txt
+          xargs -d '\n' gh release upload "$TAG" --clobber < labels.txt
