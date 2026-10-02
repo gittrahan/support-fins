@@ -65,7 +65,7 @@ class _Run:
             from . import settings
             app.getPreferences().setValue(settings.PREF, settings.dump(self.cfg["settings"]))
             log(step="settings saved", settings=self.cfg["settings"])
-        self.steps = [self.add, self.readd, self.undo, self.remove, self.undo, self.slice]
+        self.steps = [self.add_unselected, self.readd, self.undo, self.remove, self.undo, self.slice]
         if self.cfg.get("dialog"):
             self.steps.insert(0, self.dialog)
         if self.cfg.get("stale"):
@@ -98,6 +98,14 @@ class _Run:
         self.ext.addTo([self.part])
         self.t0 = t
         self.steps.insert(0, lambda: self.report("added (%.1f s)" % (time.time() - self.t0)))
+
+    def add_unselected(self):
+        """Add with NOTHING selected: the menu's path, which fins every part on the plate."""
+        from UM.Scene.Selection import Selection
+        Selection.clear()
+        self.t0 = time.time()
+        self.ext.addToSelection()
+        self.steps.insert(0, lambda: self.report("added, nothing selected (%.1f s)" % (time.time() - self.t0)))
 
     def readd(self):
         self.ext.addTo([self.part])

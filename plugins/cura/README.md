@@ -51,7 +51,8 @@ ln -s "$PWD/plugins/cura/build/SupportFins" ~/Library/Application\ Support/cura/
 
 1. Pose the part the way it will print (rotate it in Cura). The fins are fitted to that pose,
    the same as the website fits them to the rotation you choose there.
-2. Select it → **Extensions › Support Fins › Add Support Fins**. *Computing fins…* shows for a
+2. **Extensions › Support Fins › Add Support Fins** (the selected parts, or every part on the
+   plate when nothing is selected). *Computing fins…* shows for a
    second or three (the engine runs in the background), then the result: walls and tines
    placed, plus any overhang too shallow for a fin this way up and any piece of the part that
    starts in mid-air. Those aren't hidden: tilt the part and run it again.
@@ -61,7 +62,7 @@ ln -s "$PWD/plugins/cura/build/SupportFins" ~/Library/Application\ Support/cura/
   message offers **Update** (it doesn't re-run by itself: that takes a second or three).
 - **Ctrl+Z** takes the fins off again. *Remove Support Fins* removes them from the selected
   parts, or from every part when nothing is selected.
-- Several parts selected: each gets its own fins. Groups: ungroup first.
+- Several parts (selected, or the whole plate): each gets its own fins. Groups: ungroup first.
 - Layer height comes from the active profile, so the tines land on real layers.
 
 **Settings: Extensions › Support Fins › Support Fins Settings…** The website's settings

@@ -1,7 +1,8 @@
 """Support Fins for UltiMaker Cura: host glue only.
 
 Extensions > Support Fins > Add Support Fins runs the printfins.com engine (the
-website's web/*.js, bundled) on each selected part as it sits on the plate, and adds
+website's web/*.js, bundled) on each selected part (every part on the plate when
+nothing is selected) as it sits on the plate, and adds
 the fins + bed pad as a "Support Fins" object parented to the part: it moves with the
 part, Ctrl+Z takes it back off, and a second run replaces it. Add is one click with the
 saved settings; Support Fins Settings... opens the dialog (SettingsDialog.qml, built
@@ -42,6 +43,7 @@ from UM.Settings.SettingInstance import SettingInstance
 
 from . import frames
 from . import platform_check
+from . import scope
 from . import settings
 from . import supportfins_host as host
 
@@ -122,9 +124,10 @@ class SupportFins(QObject, Extension):
         if self._job is not None:
             Message("Still computing the last fins.", title=TITLE).show()
             return
-        parts = self._selected_parts()
+        root = CuraApplication.getInstance().getController().getScene().getRoot()
+        parts, why = scope.parts_to_fin(Selection.getAllSelectedObjects(), root.getChildren(), is_fins)
         if not parts:
-            Message("Select a part on the plate first.", title=TITLE).show()
+            Message(why, title=TITLE).show()
             return
         self.addTo(parts)
 
@@ -241,16 +244,7 @@ class SupportFins(QObject, Extension):
 
     # -- selection ------------------------------------------------------------------
     def _selected_parts(self):
-        """Selected parts; a selected fins object counts as its part. Groups are skipped
-        (their mesh lives in the children) -- ungroup first."""
-        out = []
-        for n in Selection.getAllSelectedObjects():
-            if is_fins(n):
-                n = n.getParent()
-            if n is None or n in out or n.callDecoration("isGroup") or n.getMeshData() is None:
-                continue
-            out.append(n)
-        return out
+        return scope.selected_parts(Selection.getAllSelectedObjects(), is_fins)
 
     def _material_type(self, part):
         """Cura's material type ("PLA", "PETG", ...) loaded for this part's extruder."""
