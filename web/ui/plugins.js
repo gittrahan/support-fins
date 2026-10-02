@@ -99,16 +99,17 @@ const computer = el('plugins-computer');
 const list = el('plugins-list');
 let labels = null;      // asset name -> label, once fetched
 
-// "Cura plugin 0.1.0 · mac-arm64 · engine 28ed79c" -> "v0.1.0 · engine 28ed79c": the
-// row already names the plugin and the picker the platform.
-function shortLabel(label) {
+// "Cura plugin 0.1.0 · mac-arm64 · engine 28ed79c" -> { version: "v0.1.0", engine:
+// "engine 28ed79c" }: the row already names the plugin and the picker the platform.
+// The command line's label has no version ("Command line · engine 28ed79c").
+function splitLabel(label) {
   const [first, ...rest] = label.split(' · ');
   const v = first.match(/(\d[\w.-]*)$/);
-  return [v && `v${v[1]}`, ...rest.filter((p) => p.startsWith('engine'))].filter(Boolean).join(' · ');
+  return { version: v ? `v${v[1]}` : '', engine: rest.find((p) => p.startsWith('engine')) || '' };
 }
 
-// One collapsible row per plugin: the summary is just the name and its Download
-// button (one click to the file); opening it shows what it needs, any warning,
+// One collapsible row per plugin: the summary is the name, its version once the
+// labels load, and its Download button (one click to the file); opening it shows what it needs, any warning,
 // the version line and the install steps. All start closed so the list scans.
 function render() {
   const c = computer.value;
@@ -120,10 +121,20 @@ function render() {
     row.open = wasOpen.has(p.name);           // a computer change keeps what's open
     const head = document.createElement('summary');
     head.className = 'plugin-head';
+    const file = typeof p.file === 'function' ? p.file(c) : p.file;
+    const label = file && labels?.[file] ? splitLabel(labels[file]) : null;
+    const title = document.createElement('span');
+    title.className = 'plugin-name';
     const name = document.createElement('b');
     name.textContent = p.name;
-    head.append(name);
-    const file = typeof p.file === 'function' ? p.file(c) : p.file;
+    title.append(name);
+    if (label?.version) {
+      const v = document.createElement('span');
+      v.className = 'plugin-v';
+      v.textContent = ` · ${label.version}`;
+      title.append(v);
+    }
+    head.append(title);
     const go = document.createElement('a');
     go.className = 'btn sm';
     if (p.link) {
@@ -164,11 +175,10 @@ function render() {
       note.textContent = p.note;
       body.append(note);
     }
-    const label = file && labels?.[file];
-    if (label) {
+    if (label?.engine) {
       const ver = document.createElement('div');
       ver.className = 'plugin-ver';
-      ver.textContent = shortLabel(label);
+      ver.textContent = label.engine;
       body.append(ver);
     }
     if (file !== null) {

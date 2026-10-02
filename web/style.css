@@ -195,7 +195,9 @@ html, body {
 }
 .plugin[open] > .plugin-head::before { transform: rotate(90deg); }
 .plugin-head:hover, .plugin-head:focus-visible { background: var(--btn-hi); outline: none; }
-.plugin-head b { flex: 1; font-weight: 600; }
+.plugin-name { flex: 1; }
+.plugin-name b { font-weight: 600; }
+.plugin-v { color: var(--dim); font-size: 12px; font-variant-numeric: tabular-nums; }
 .plugin-head .btn { text-decoration: none; font-size: 12px; }
 .plugin-none { color: var(--dim); font-size: 12px; }
 .plugin-body { padding: 0 4px 10px 22px; }
