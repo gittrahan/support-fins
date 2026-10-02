@@ -26,11 +26,15 @@ The **shallowest ramp that came out clean** (no droop, no stringy curls) is your
 30°: if a ramp below 30° came out clean, set 30 and tell us which ramp it was.
 
 ## Gap (`gap/print/gap-coupon.3mf`)
-Six ledges, each held by walls standing a different gap below it: 0.1, 0.15, 0.2,
-0.25, 0.3, 0.4 mm (1–6 dots). Snap each wall off.
+Six ledges, each held by walls standing a whole number of empty layers below it:
+1 dot = 1 layer (0.2 mm), 2 dots = 2 (0.4), 3 dots = 3 (0.6); the far side repeats the
+near side. A slicer can only leave whole layers there, so in-between gaps print the
+same. **Print at 0.2 mm layers, 0.2 mm first layer, adaptive layer height off.** Snap
+each wall off.
 - Welded, tears the ledge's skin → gap too small.
 - Ledge underside saggy or stringy → gap too big.
-- Use the **smallest gap that snaps off clean**. Put it in **Support gap**.
+- Use the **fewest layers that snap off clean**, times 0.2, in **Support gap** (the
+  field stops at 0.4 for now: if only 3 layers came clean, tell us).
 
 ## Span (`span/print/span-coupon.3mf`)
 Five wide shelves, built at five **Wide-face coverage** slider positions (1–5 dots):
