@@ -38,6 +38,16 @@ files still are); exit 2 = bad arguments, nothing ran.
 
 ## Running it
 
+The download (printfins.com ▸ Plugins, or `support-fins.mjs` on the `plugins-latest`
+release) is the whole tool in one file:
+
+```
+deno run -RW support-fins.mjs part.stl                 # Deno 2
+node support-fins.mjs part.stl                         # Node 20.10+
+```
+
+From a checkout (`python3 plugins/cli/build.py` makes that file):
+
 ```
 deno run -RW plugins/cli/support-fins.js part.stl      # Deno 2
 node plugins/cli/support-fins.js part.stl              # Node 20.10+
