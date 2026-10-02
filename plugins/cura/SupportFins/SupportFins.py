@@ -125,11 +125,11 @@ class SupportFins(QObject, Extension):
             Message("Still computing the last fins.", title=TITLE).show()
             return
         root = CuraApplication.getInstance().getController().getScene().getRoot()
-        parts, why = scope.parts_to_fin(Selection.getAllSelectedObjects(), root.getChildren(), is_fins)
+        parts, why, skipped = scope.parts_to_fin(Selection.getAllSelectedObjects(), root.getChildren(), is_fins)
         if not parts:
             Message(why, title=TITLE).show()
             return
-        self.addTo(parts)
+        self.addTo(parts, skipped)
 
     def removeFromSelection(self):
         parts = self._selected_parts()
@@ -146,8 +146,9 @@ class SupportFins(QObject, Extension):
         op.push()
 
     # -- add ------------------------------------------------------------------------
-    def addTo(self, parts):
-        """Snapshot each part's world mesh on the UI thread, compute in a Job."""
+    def addTo(self, parts, skipped=()):
+        """Snapshot each part's world mesh on the UI thread, compute in a Job. `skipped`:
+        report lines for what was left out (groups)."""
         app = CuraApplication.getInstance()
         layer = app.getGlobalContainerStack().getProperty("layer_height", "value")
         saved = settings.load(self.schema(), app.getPreferences().getValue(settings.PREF))
@@ -163,7 +164,7 @@ class SupportFins(QObject, Extension):
         self._progress = Message("Computing fins…", lifetime=0, dismissable=False,
                                  progress=-1, title=TITLE)
         self._progress.show()
-        self._pending = (parts, poses, notes)
+        self._pending = (parts, poses, notes, list(skipped))
         self._job = FinsJob(soups, values)
         # A bound method, not a lambda: Uranium's Signal holds plain functions weakly.
         self._job.finished.connect(self._onJobFinished)
@@ -174,7 +175,7 @@ class SupportFins(QObject, Extension):
         CuraApplication.getInstance().callLater(self._finished, job)
 
     def _finished(self, job):
-        parts, poses, notes = self._pending
+        parts, poses, notes, skipped = self._pending
         self._job = self._pending = None
         if self._visible_pending:
             self._update_visible()       # the dialog changed while the engine was busy
@@ -210,6 +211,7 @@ class SupportFins(QObject, Extension):
             lines.append((f"{name}: " if len(parts) > 1 else "") + host.host_report(stats)
                          + f"; material {note}")
         op.push()
+        lines += skipped
         stack = CuraApplication.getInstance().getGlobalContainerStack()
         if stack.getProperty("support_enable", "value"):
             lines.append("Cura's own supports are on too. Turn them off to print with fins only")

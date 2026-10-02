@@ -111,7 +111,7 @@ def test_a_package_is_what_curas_installer_reads(pkg):
     others = set(LIB.values()) - {LIB[os_name]}
     assert not any(n.rsplit("/", 1)[-1] in others for n in names), "another platform's V8 inside"
     # the plugin itself: engine, schema, host, dialog; no dev files, no caches
-    for f in ("__init__.py", "SupportFins.py", "settings.py", "platform_check.py", "frames.py",
+    for f in ("__init__.py", "SupportFins.py", "settings.py", "platform_check.py", "frames.py", "scope.py",
               "SettingsDialog.qml", "supportfins_host.py", "fins_engine.js", "options.json"):
         assert f"files/plugins/SupportFins/{f}" in names, f"{f} missing"
     assert not any("__pycache__" in n or "/dev_" in n for n in names)
