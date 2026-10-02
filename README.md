@@ -146,14 +146,15 @@ Tests (Deno for the JS engine):
 deno test --allow-read tests/
 ```
 
-## The PrusaSlicer plugin (hand-placed; in-slicer check pending)
+## The PrusaSlicer plugin (hand-placed)
 
 `plugins/prusa/` is a native PrusaSlicer 3.0 plugin, **Support Fins → Add a Fin**. The 3.0
 plugin sandbox can't read a loaded mesh's triangles, so it can't do the automatic tool. It
 drops one angled-print support fin instead: a thin triangle whose slope you set 0.2 mm under
 a tilted part's underside, with one-layer tines along it (Slope Angle, Fin Height, Tine
-Spacing). You place it by hand. It hasn't been confirmed in a running slicer yet; until it
-is, use the browser app. See `plugins/prusa/README.md`.
+Spacing). You place it by hand; size it with Fin Height rather than the slicer's scale tool,
+which would stretch the one-layer tines. Confirmed working in PrusaSlicer 3.0 alpha11
+(2026-10-02). For fins shaped to the part automatically, use the browser app. See `plugins/prusa/README.md`.
 
 ## Honest limitations
 

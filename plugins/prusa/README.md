@@ -22,6 +22,10 @@ flat directory with a single menu entry:
   fin never gets fewer than 3 (the site's grip floor), so a huge spacing still leaves 3. A 25 mm
   45° fin gets 7 at 6 mm, 18 at 2 mm, 4 at 12 mm.
 
+  **Sizing it:** use the dialog's Fin Height (and Slope Angle), not the slicer's scale tool.
+  Scaling stretches the tines too: at 2× they'd be two layers tall, off the layer grid, with
+  double the gap, and they'd stop snapping clean. Add another fin rather than stretching one.
+
   **Placing it:** set Slope Angle to the angle of the part's underside. Turn the fin about Z
   only, so its slope climbs the same way as the underside, and slide it until the slope sits
   0.2 mm under the part — e.g. put the low tip 0.2/sin(angle) (0.28 mm at 45°) out from where
