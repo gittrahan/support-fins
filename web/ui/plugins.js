@@ -66,7 +66,7 @@ const PLUGINS = [
     name: 'Onshape', needs: 'custom feature (its own port of the engine)',
     link: 'https://cad.onshape.com/documents/607917e8e297a68eb42cfb58',
     linkText: 'Open in Onshape',
-    guide: `https://github.com/${REPO}/blob/main/plugins/onshape/SupportFins_User_Guide.pdf`,
+    guide: `https://raw.githubusercontent.com/${REPO}/main/plugins/onshape/SupportFins_User_Guide.pdf`,
     install: 'Any Part Studio ▸ Custom features ▸ Add custom features ▸ Fin Supports.',
   },
   {
