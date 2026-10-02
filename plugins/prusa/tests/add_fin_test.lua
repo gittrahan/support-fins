@@ -23,6 +23,7 @@ VolumeType = {Solid="Solid", Negative="Negative", Modifier="Modifier",
 
 local emitted
 local LAYER, FIRST = 0.2, 0.2
+local SPACING = 6
 
 local function box(x0, x1, y0, y1, z0, z1, kind)
     local m = {kind=kind, b={min_x=x0, max_x=x1, min_y=y0, max_y=y1, min_z=z0, max_z=z1}}
@@ -215,11 +216,11 @@ local function check_fin(deg, H, tines_on)
         local ok = #t >= 3
         for i = 2, #t do
             local ds = (t[i].z1 - t[i-1].z1) / sn
-            if ds > 2 + LAYER / sn + E then ok = false end
+            if ds > SPACING + LAYER / sn + E then ok = false end
         end
-        chk("tines along the whole slope, ~2 mm apart on it", ok)
-        chk("tines start near the foot",            #t > 0 and t[1].z1 <= foot_top + 0.2 + 2 * LAYER + E)
-        chk("tines run up near the top",            #t > 0 and t[#t].z1 >= H - 0.5 - 2 * sn - LAYER - E)
+        chk(("at least 3 tines, no more than %g mm apart on the slope"):format(SPACING), ok)
+        chk("tines start just above the foot",      #t > 0 and t[1].z1 <= foot_top + 0.2 + 2 * LAYER + E)
+        chk("tines run up to just under the top",   #t > 0 and t[#t].z1 >= H - 0.5 - LAYER - E)
         return t
     end
 end
@@ -263,6 +264,26 @@ check_fin(20, 5, true)
 print("Add-a-Fin checks (clamped: 89 deg -> 70):")
 execute({angle=89, fin_height=12, tines=true})
 check_fin(70, 12, true)
+
+-- ---- Tine Spacing ----
+local function count(deg, step)
+    execute({angle=deg, fin_height=25, tines=true, tine_step=step})
+    return #pieces().tines
+end
+print("Add-a-Fin checks (Tine Spacing):")
+local n6, n2, n12 = count(45, 6), count(45, 2), count(45, 12)
+print(("  (45 deg, 25 mm: %d tines at 6 mm, %d at 2 mm, %d at 12 mm)"):format(n6, n2, n12))
+chk("default 6 mm is sparse: ~6-8 tines on a 25 mm 45 deg fin", n6 >= 6 and n6 <= 8)
+chk("tighter spacing gives more tines",          n2 > n6 and n6 > n12)
+chk("a huge spacing still keeps 3 tines (grip floor)", count(45, 500) == 3)
+chk("spacing is floored at 1 mm (0 doesn't flood)", count(45, 0) == count(45, 1))
+SPACING = 2
+execute({angle=30, fin_height=25, tines=true, tine_step=2})
+check_fin(30, 25, true)
+SPACING = 12
+execute({angle=60, fin_height=25, tines=true, tine_step=12})
+check_fin(60, 25, true)
+SPACING = 6
 
 print("Add-a-Fin checks (tines off):")
 execute({angle=45, fin_height=25, tines=false})

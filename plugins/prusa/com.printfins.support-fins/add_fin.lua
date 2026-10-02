@@ -38,7 +38,8 @@ info = {
     params = {
         {name = "angle",      label = "Slope Angle [deg]", type = "float", default = 45},
         {name = "fin_height", label = "Fin Height [mm]",   type = "float", default = 25},
-        {name = "tines",      label = "Gripping Tines",    type = "bool",  default = true}
+        {name = "tines",      label = "Gripping Tines",    type = "bool",  default = true},
+        {name = "tine_step",  label = "Tine Spacing [mm]", type = "float", default = 6}
     }
 }
 
@@ -55,7 +56,8 @@ local GAP          = 0.2    -- slope to part clearance, square to the slope (PRO
 local BITE         = 0.5    -- how far a tine reaches horizontally into the part (PROP.tineBite) [mm]
 local TINE_GRIP    = 0.4    -- how far a tine sinks back into the fin [mm]
 local TINE_W       = 0.5    -- tine width: one nozzle bead (PROP.tineW) [mm]
-local TINE_STEP    = 2.0    -- tines this far apart along the slope (PROP.tineStep) [mm]
+local MIN_STEP     = 1.0    -- Tine Spacing never tighter than this [mm]
+local MIN_TINES    = 3      -- grip floor: a fin gets at least this many (PROP.minGripTines)
 local TOP_CLEAR    = 0.5    -- bare slope kept at the top (PROP.tineTopClear) [mm]
 local MIN_ANGLE, MAX_ANGLE = 20, 70
 local MIN_H        = 5.0
@@ -148,38 +150,43 @@ function execute(opts)
     fin:add { mesh = api.make_cube(bx - fx0, BASE_W, base_h), x = fx0, y = cy - br, z = 0 }
     fin:add(shapes.cylinder_at(br, base_h, bx, cy, 0))
 
-    -- Tines along the slope, TINE_STEP apart measured along it, each one layer
-    -- on the grid. A tine reaches from inside the fin -- TINE_GRIP past the
-    -- slope at its own top, and at least into the fill step behind it, so it
-    -- holds on even without the rail -- out across the GAP (GAP/sin measured
-    -- level) and BITE into the part, measured at mid-layer where the slicer cuts.
+    -- Tines spread evenly along the slope from just above the foot to just
+    -- under the top, no further apart than Tine Spacing (measured along the
+    -- slope) -- so both ends always grip -- and never fewer than MIN_TINES,
+    -- each one layer on the grid. A tine reaches from inside the fin --
+    -- TINE_GRIP past the slope at its own top, and at least into the fill step
+    -- behind it, so it holds on even without the rail -- out across the GAP
+    -- (GAP/sin measured level) and BITE into the part, measured at mid-layer
+    -- where the slicer cuts.
     if opts.tines then
-        local z_lo = base_h + 0.2
-        local z_hi = H - TOP_CLEAR
-        local last
-        local z = z_lo
-        while true do
-            local top = snap_top(z + layer, layer, first)
-            if top > z_hi then break end
-            if not last or top > last + 1e-6 then
-                local x_top = top / tn                -- slope at the tine's top
-                local x_mid = (top - layer * 0.5) / tn  -- slope at mid-layer, where it slices
-                -- the fill step holding the tine's bottom
-                local x_step = x_top
-                for _, st in ipairs(steps) do
-                    if st.z0 <= top - layer + 1e-6 and st.z1 > top - layer + 1e-6 then x_step = st.x0 end
-                end
-                local xa = x_mid - GAP / sn - BITE
-                local xb = math.max(x_top + TINE_GRIP, x_step + OVERLAP)
-                fin:add {
-                    mesh = api.make_cube(xb - xa, TINE_W, layer),
-                    x = xa,
-                    y = cy - TINE_W * 0.5,
-                    z = top - layer
-                }
-                last = top
+        local top_lo = snap_top(base_h + 0.2 + layer, layer, first)
+        local top_hi = first + math.floor((H - TOP_CLEAR - first) / layer + 1e-9) * layer
+        local spacing = math.max(MIN_STEP, tonumber(opts.tine_step) or 6)
+        local tops = {}
+        if top_hi >= top_lo then
+            local n = math.ceil((top_hi - top_lo) / sn / spacing - 1e-9) + 1
+            n = math.max(MIN_TINES, n)
+            for i = 0, n - 1 do
+                local top = snap_top(top_lo + (top_hi - top_lo) * i / (n - 1), layer, first)
+                if #tops == 0 or top > tops[#tops] + 1e-6 then tops[#tops + 1] = top end
             end
-            z = z + TINE_STEP * sn
+        end
+        for _, top in ipairs(tops) do
+            local x_top = top / tn                    -- slope at the tine's top
+            local x_mid = (top - layer * 0.5) / tn    -- slope at mid-layer, where it slices
+            -- the fill step holding the tine's bottom
+            local x_step = x_top
+            for _, st in ipairs(steps) do
+                if st.z0 <= top - layer + 1e-6 and st.z1 > top - layer + 1e-6 then x_step = st.x0 end
+            end
+            local xa = x_mid - GAP / sn - BITE
+            local xb = math.max(x_top + TINE_GRIP, x_step + OVERLAP)
+            fin:add {
+                mesh = api.make_cube(xb - xa, TINE_W, layer),
+                x = xa,
+                y = cy - TINE_W * 0.5,
+                z = top - layer
+            }
         end
     end
 

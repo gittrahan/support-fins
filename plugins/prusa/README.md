@@ -9,12 +9,16 @@ flat directory with a single menu entry:
   underside, the same shape as the 30°/45°/60° angled-print fins people place by hand
   ([printables.com/model/1771718](https://www.printables.com/model/1771718)). Its **slope**
   runs from a low tip on the plate up to the top of a straight back edge, **0.2 mm under the
-  part**, on a thin foot with a round back end. A **comb of tines** runs along the slope, 2 mm apart: one-layer
+  part**, on a thin foot with a round back end. A **comb of tines** runs along the slope: one-layer
   horizontal nubs, one bead (0.5 mm) wide, each top on the print preset's layer grid, that
   reach across the gap and **0.5 mm into the part** at mid-layer (`PROP.tineBite`), so each prints as one
   strand that fuses in and snaps clean (`docs/FIN-SPEC.md`). The top of the slope ends in a
   short flat (1.2 mm, a little more when steep), never a point. Params: **Slope Angle** (20–70°, default 45), **Fin Height**,
-  and a **Gripping Tines** toggle.
+  a **Gripping Tines** toggle, and **Tine Spacing** (default 6 mm, the sway braces' printed
+  spacing; at least 1 mm). Tines spread evenly from just above the foot to just under the
+  top, no further apart than Tine Spacing along the slope, so both ends always grip; a fin
+  never gets fewer than 3 (the site's grip floor), so a huge spacing still leaves 3. A 25 mm
+  45° fin gets 7 at 6 mm, 18 at 2 mm, 4 at 12 mm.
 
   **Placing it:** set Slope Angle to the angle of the part's underside. Turn the fin about Z
   only, so its slope climbs the same way as the underside, and slide it until the slope sits
@@ -78,10 +82,10 @@ inside a `com.printfins.support-fins/` folder), and importers need
 
 ## Verify (must be done in a running 3.0 slicer — it can't be unit-tested)
 
-1. **Support Fins → Add a Fin** appears; the dialog shows Slope Angle, Fin Height + the Gripping
-   Tines toggle.
+1. **Support Fins → Add a Fin** appears; the dialog shows Slope Angle, Fin Height, the Gripping
+   Tines toggle and Tine Spacing.
 2. Generate with defaults → a 45° right triangle, 25 tall, its slope climbing toward +X with
-   a row of small tines along it, a straight back edge, and a foot running from near the low tip to past the back edge.
+   7 small tines spread along it, a straight back edge, and a foot running from near the low tip to past the back edge.
    Preview of the intended shapes at 30/45/60°: `~/Downloads/support-fin-prusa-preview.png`.
 3. **The slope must be smooth and flush.** It is the one turned volume (a cube rotated about
    Y). If it tilts the wrong way or sits off the triangle, you'd see a plank sticking
