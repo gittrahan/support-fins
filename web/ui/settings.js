@@ -109,6 +109,7 @@ function debouncedRefresh(ms = 180) {
 function syncTineGrip() {
   const on = el('tines').checked;
   el('tinegrip-fld').hidden = !on;
+  el('tinebite-fld').hidden = !on;
   // The Light pad is one layer tall, so it reads the layer height too.
   el('layerh-fld').hidden = !on && !['light', 'auto'].includes(el('bed-pad').value);
 }
@@ -152,6 +153,9 @@ function wireGap(id, obj, key, lo, hi) {
   });
 }
 wireGap('gap', PROP, 'gap', 0.1, 0.4);
+// The walls' tine bite. Not part of the material profile: PLA and PETG's tineBite is
+// FIN.tineBite, which only the sway braces read.
+wireGap('tine-bite', PROP, 'tineBite', 0.1, 0.8);
 
 // Wall cutouts (issue #34). CUT.pattern is read fresh by every wall sweep -- the
 // drawn walls here on the page, the auto walls in the Worker via tunables.
@@ -239,7 +243,7 @@ export function syncSectionSums() {
   el('sum-setup').textContent = `${sel('material')} · ${sel('fin-mode')}`;
   const grip = el('tine-density').valueAsNumber;
   el('sum-tines').textContent = el('tines').checked
-    ? `${grip <= 20 ? 'light' : grip >= 80 ? 'firm' : 'medium'} grip · ${el('layer-height').value} mm`
+    ? `${grip <= 20 ? 'light' : grip >= 80 ? 'firm' : 'medium'} grip · bite ${el('tine-bite').value} · ${el('layer-height').value} mm`
     : 'off';
   el('sum-clearances').textContent =
     `${el('gap').value} mm gap · pad ${el('bed-pad').selectedOptions[0].textContent.toLowerCase()}`;
@@ -287,5 +291,6 @@ export function initSettings() {
   syncPadStyle();
   syncSway();
   CUT.pattern = el('cutout').value;   // a reload can keep the browser's last pick
+  el('tine-bite').dispatchEvent(new Event('input'));   // ...and its last Tine bite
   applyMaterial(el('material').value);   // sync density + tunables to the initial choice
 }

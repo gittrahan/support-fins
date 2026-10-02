@@ -83,6 +83,9 @@ export function applyTunables(t) {
   if (['auto', 'light', 'sure', 'custom'].includes(t.padStyle)) PAD.style = t.padStyle;
   if (t.padCustom) for (const k of Object.keys(PAD.custom)) set(PAD.custom, k, t.padCustom[k]);
   set(PROP, 'gap', t.propGap);
+  // The walls' tines (prop/tines.js), the site's Tine bite field. Not t.tineBite:
+  // that is FIN.tineBite, the material's, which only the sway braces read.
+  set(PROP, 'tineBite', t.wallBite);
   // The wedge keeps its own copy of the clearance, so the Support gap field and the
   // PETG profile never reached it -- not even on the main thread, where everything
   // else worked. One clearance, applied everywhere it is spelled.

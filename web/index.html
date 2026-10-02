@@ -219,6 +219,14 @@
       <span>Tine grip <span class="mut">light ⟶ firm</span></span>
       <input type="range" id="tine-density" min="0" max="100" step="5" value="0">
     </label>
+    <!-- Tine bite: how far each tine reaches into the part (PROP.tineBite, the walls'
+         tines). Less = smaller marks and a cleaner snap; too little and the tine never
+         fuses, so it stops gripping. The bite coupon (docs/CALIBRATION.md) finds both
+         ends for a printer + filament. Shown only when Tines is on. -->
+    <label class="fld row" id="tinebite-fld" title="How far each tine reaches into the part. Smaller leaves smaller marks and snaps off cleaner; too small and the tines stop gripping. Print the bite test (docs/CALIBRATION.md) to find yours. Default 0.5mm.">
+      <span>Tine bite <span class="mut">mm</span></span>
+      <input type="number" id="tine-bite" min="0.1" max="0.8" step="0.05" value="0.5">
+    </label>
     <!-- Layer height: the grip tines are exactly ONE layer tall so they print as one
          clean bead and BEND off instead of tearing. That only holds if this matches
          the layer height you actually slice at -- set it wrong and the tines slice
