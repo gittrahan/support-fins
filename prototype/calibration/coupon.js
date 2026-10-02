@@ -22,7 +22,7 @@ export const SITE = Object.freeze({
 });
 export const PLA_TUNABLES = Object.freeze({
   tineBite: MATERIAL.pla.tineBite, padH: MATERIAL.pla.padH, padGrab: MATERIAL.pla.padGrab,
-  propGap: MATERIAL.pla.propGap, padStyle: 'auto',
+  propGap: MATERIAL.pla.propGap, wallBite: 0.5, padStyle: 'auto',
   // Custom starts from Light's numbers (ui/settings.js padPreset), as the page does
   padCustom: { h: 0.2, gap: 0.12, grip: 0, margin: 4.0 }, cutout: 'none',
 });
