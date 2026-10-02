@@ -188,6 +188,12 @@ export const PROP = {
   // 0.5 is his stated number ("0.5 by 0.5"). NOTE: this used to be dead -- emitTines
   // built the tine `th` (1.0mm) wide, ~2x spec, a fat divot Matthew caught by eye.
   tineW: 0.5,
+  // Tine TIP in plan view: 'square' (a 0.5 x 0.8 bar, the default) or 'point' (full
+  // width at the wall, tapering to a point at the bite). On a sloped underside the
+  // part's next layer prints straight onto the tine, so the weld -- and the mark --
+  // is roughly the tine's plan area under the part; a point halves the bite end.
+  // Calibration knob (tunables.tineTip), decided by the tine coupon.
+  tineTip: 'square',
   tineBite: 0.5,     // how far a nub reaches horizontally into the part. TRIMMING this
                      // toward Slant3D's smaller sliver (0.3) to shrink the pockmark was
                      // tried and reverted: because the tine seeds on the surface and

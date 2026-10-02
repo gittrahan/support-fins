@@ -86,6 +86,10 @@ export function applyTunables(t) {
   // The walls' tines (prop/tines.js), the site's Tine bite field. Not t.tineBite:
   // that is FIN.tineBite, the material's, which only the sway braces read.
   set(PROP, 'tineBite', t.wallBite);
+  // Tine shape, the tine coupon's knobs (no site field yet): width across the run
+  // and the plan-view tip. Calibration only until a print picks them.
+  set(PROP, 'tineW', t.tineWidth);
+  if (['square', 'point'].includes(t.tineTip)) PROP.tineTip = t.tineTip;
   // The wedge keeps its own copy of the clearance, so the Support gap field and the
   // PETG profile never reached it -- not even on the main thread, where everything
   // else worked. One clearance, applied everywhere it is spelled.

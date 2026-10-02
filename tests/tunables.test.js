@@ -92,3 +92,42 @@ Deno.test('tunables: the weld floor scales with the gap, PLA unchanged', () => {
     fins.applyTunables({ propGap: gap0 });
   }
 });
+
+Deno.test('tunables: tine width and a pointed tip shrink the tines, same count', () => {
+  // The tine coupon's knobs (calibration/tine). Same part, same pose: the comb is
+  // placed by tineBite, not by the tine's shape, so only each tine's plastic moves.
+  const topo = tiltedBlockTopo(-20, 20, -15, 15, 0, 30, 40);
+  const res = analyze(topo, 45, IDENTITY);
+  // signed volume of the closed boxes the soup is made of (overlaps counted twice,
+  // the same in every build, so differences are the tines')
+  const vol = (t) => {
+    let v = 0;
+    for (let i = 0; i < t.length; i += 3) {
+      const [a, b, c] = [t[i], t[i + 1], t[i + 2]];
+      v += (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0])
+          + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
+    }
+    return v;
+  };
+  const build = (tunables) => {
+    const b = fins.buildFins(topo, res, IDENTITY, { mode: 'auto', bedPad: false, tines: true, tunables });
+    return { tines: b.tines, v: vol(b.triangles) };
+  };
+  const w0 = prop.PROP.tineW, tip0 = prop.PROP.tineTip;
+  let base, narrow, point;
+  try {
+    base = build({});
+    narrow = build({ tineWidth: 0.3 });
+    point = build({ tineWidth: w0, tineTip: 'point' });
+  } finally { fins.applyTunables({ tineWidth: w0, tineTip: tip0 }); }
+  assert(base.tines > 0, 'no tines to compare');
+  assert(narrow.tines === base.tines && point.tines === base.tines,
+         `tine count moved: ${base.tines} / ${narrow.tines} / ${point.tines}`);
+  // one tine is 0.8 long x tineW wide x 0.2 tall: 0.3 wide saves 0.2 x 0.8 x 0.2 each,
+  // plus the wall steps under lifted tines (they take the tine's width too); a point
+  // saves half the 0.5-long bite end, 0.5 x 0.5 / 2 x 0.2, and leaves the steps alone
+  const per = (d) => (base.v - d) / base.tines;
+  assert(per(narrow.v) > 0.032 - 0.004, `0.3 wide saved only ${per(narrow.v).toFixed(4)} mm3/tine`);
+  assert(Math.abs(per(point.v) - 0.025) < 0.004, `point saved ${per(point.v).toFixed(4)} mm3/tine`);
+  assert(prop.PROP.tineW === 0.5 && prop.PROP.tineTip === 'square', 'defaults not restored');
+});

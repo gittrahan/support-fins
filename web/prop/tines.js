@@ -254,11 +254,14 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
     const base = [x, y, 0];
     const P = (a, b, c) => [base[0] + dirx * a + ax * b,
                             base[1] + diry * a + ay * b, c];
-    // rectangle in (along, across): from -overlap (into the wall) to +bite
-    const poly = [
-      [-PROP.tineOverlap, -half], [PROP.tineBite, -half],
-      [PROP.tineBite, half], [-PROP.tineOverlap, half],
-    ];
+    // rectangle in (along, across): from -overlap (into the wall) to +bite; a
+    // 'point' tip keeps the full width back to the seed and tapers from there to
+    // the bite (convex, so boxExtrude's fan caps stay valid)
+    const poly = PROP.tineTip === 'point'
+      ? [[-PROP.tineOverlap, -half], [0, -half], [PROP.tineBite, 0],
+         [0, half], [-PROP.tineOverlap, half]]
+      : [[-PROP.tineOverlap, -half], [PROP.tineBite, -half],
+         [PROP.tineBite, half], [-PROP.tineOverlap, half]];
     boxExtrude(poly, tineBot, tineTop, P, out);
     if (grip && tineBot < grip.z) grip.z = tineBot;
     // WALL STEP. The tine is snapped to the part's layer, the wall top isn't, so
