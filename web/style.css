@@ -176,6 +176,11 @@ html, body {
   font-size: 13px;
   white-space: normal;
 }
+/* Narrow window: drop the panel from the window's right edge, not the button's, so
+   it can't run off the left. */
+@media (max-width: 600px) {
+  .plugins-panel { position: fixed; top: 52px; left: 16px; right: 16px; width: auto; min-width: 0; }
+}
 .plugins-computer { display: flex; align-items: center; gap: 8px; color: var(--dim); padding: 2px 0 6px; }
 .plugins-computer select { flex: 1; margin-left: 0; }
 .plugin { padding: 8px 0; border-top: 1px solid var(--line); }

@@ -35,7 +35,7 @@ const PLUGINS = [
   {
     name: 'OrcaSlicer', needs: '2.5 nightly or newer · experimental',
     file: 'support_fins_orca.py',
-    install: 'Plugins ▸ Install plugin, pick the .py and tick it. Then Process ▸ Advanced ▸ Slicing Pipeline Plugin ▸ Add ▸ Support Fins. Fins appear when you slice.',
+    install: 'Plugins ▸ Install plugin, pick the .py and tick it. Process settings ▸ Advanced ▸ Others ▸ Slicing Pipeline Plugin ▸ Add plugin ▸ Support Fins. Slice; answer Yes to the first slice\'s permission prompts.',
   },
   {
     name: 'PrusaSlicer', needs: '3.0 alpha · you place each fin by hand',
@@ -67,12 +67,12 @@ const PLUGINS = [
     link: 'https://cad.onshape.com/documents/607917e8e297a68eb42cfb58',
     linkText: 'Open in Onshape',
     guide: `https://raw.githubusercontent.com/${REPO}/main/plugins/onshape/SupportFins_User_Guide.pdf`,
-    install: 'Any Part Studio ▸ Custom features ▸ Add custom features ▸ Fin Supports.',
+    install: 'Any Part Studio ▸ Custom features ▸ Add custom features ▸ Fin Supports document ▸ Support-Fins FS, then select the part.',
   },
   {
     name: 'Command line', needs: 'Deno or Node 20.10+ · fins a whole folder; the Bambu Studio answer',
     file: 'support-fins.mjs',
-    install: 'node support-fins.mjs part.stl  →  part-fins.3mf (part + fins). --help lists every setting.',
+    install: 'node support-fins.mjs part.stl (or deno run -RW support-fins.mjs part.stl) → part-fins.3mf, part + fins. --help lists every setting.',
   },
 ];
 
@@ -87,7 +87,7 @@ async function guessComputer() {
   } catch { /* not offered: guess from the platform alone */ }
   if (/Mac/.test(ua)) return arch === 'x86' ? 'mac-x64' : 'mac-arm64';
   if (/Windows/.test(ua)) return 'windows-x64';
-  if (/Linux|X11/.test(ua)) return arch === 'arm' || /aarch64|arm/i.test(ua) ? 'linux-arm64' : 'linux-x64';
+  if (/Linux|X11/.test(ua)) return arch === 'arm' || /aarch64|arm64/i.test(ua) ? 'linux-arm64' : 'linux-x64';
   return 'windows-x64';
 }
 
@@ -97,12 +97,12 @@ const computer = el('plugins-computer');
 const list = el('plugins-list');
 let labels = null;      // asset name -> label, once fetched
 
-// "Fusion add-in 0.6.2 · engine 28ed79c" -> "v0.6.2 · engine 28ed79c": the row
-// already names the plugin.
+// "Cura plugin 0.1.0 · mac-arm64 · engine 28ed79c" -> "v0.1.0 · engine 28ed79c": the
+// row already names the plugin and the picker the platform.
 function shortLabel(label) {
   const [first, ...rest] = label.split(' · ');
   const v = first.match(/(\d[\w.-]*)$/);
-  return [v && `v${v[1]}`, ...rest].filter(Boolean).join(' · ');
+  return [v && `v${v[1]}`, ...rest.filter((p) => p.startsWith('engine'))].filter(Boolean).join(' · ');
 }
 
 function render() {
@@ -136,6 +136,7 @@ function render() {
       guide.target = '_blank';
       guide.rel = 'noopener';
       guide.textContent = 'Guide (PDF)';
+      guide.download = 'SupportFins_User_Guide.pdf';   // served as octet-stream: say it's a download
       head.append(guide);
     }
     const needs = document.createElement('div');
@@ -174,6 +175,9 @@ function setOpen(open) {
   panel.hidden = !open;
   btn.setAttribute('aria-expanded', String(open));
   if (open) {
+    // the menus close each other on pointerdown only; a keyboard open must too
+    el('export-menu').hidden = true;
+    el('export').setAttribute('aria-expanded', 'false');
     fetchLabels();
     computer.focus();
   }
@@ -181,10 +185,13 @@ function setOpen(open) {
 
 for (const [key, text] of COMPUTERS) computer.add(new Option(text, key));
 computer.addEventListener('change', render);
-guessComputer().then((c) => { computer.value = c; render(); });
+let picked = false;
+computer.addEventListener('change', () => { picked = true; }, { once: true });
+guessComputer().then((c) => { if (!picked) { computer.value = c; render(); } });
 render();
 
 btn.addEventListener('click', () => setOpen(panel.hidden));
+el('export').addEventListener('click', () => { if (!panel.hidden) setOpen(false); });
 // click-away / Esc close it, like the Export menu
 document.addEventListener('pointerdown', (e) => {
   if (!panel.hidden && !e.target.closest('.plugins-wrap')) setOpen(false);
