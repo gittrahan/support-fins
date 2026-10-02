@@ -10,7 +10,9 @@ by the engine's own code so the print tests what the app actually makes:
 The user-facing coupons (angle, gap, bite, span, pad, bore) share `coupon.py` (boxes, rung
 dots, the one-piece check) and `coupon.js` (the site's own call -- `analyze(topo, 45,
 rot)` then `buildFins(..., {mode: 'auto', bedPad: true})` at the site's PLA defaults --
-run once per rung with that rung's setting, keeping the supports in the rung's box).
+run once per rung with that rung's setting, keeping the support PIECES -- whole
+connected bodies, never cut -- whose centre is in the rung's box; every coupon's
+supports are checked closed before they're written).
 `python3 prototype/calibration/render.py <name>` draws a build. What a user does with
 each one is `docs/CALIBRATION.md`.
 
@@ -61,6 +63,8 @@ whose shelf printed flat.
   hugs the bar, which already holds the shelf's root); 75 % -> 9.0 / 18.7 / 28.4
   (9.7); 100 % -> 8.0 / 14.8 / 21.6 / 28.4 (6.8). So the default 50 % leaves a wider
   span than 0 %. The coupon prints what the site makes, so it will show it.
+  Cause and proposed fix: local issue 024. Until then CALIBRATION.md asks users to
+  report flat / sagged per shelf, not to set the dial from it.
 - **waiting on print.**
 
 ### angle/ -- what overhang does the printer manage unsupported? (the Overhang slider)
@@ -72,13 +76,14 @@ user: the shallowest clean ramp is the Overhang setting.
 
 ### pad/ -- how far off the part should the bed pad stand? (Bed pad > Custom > Pad gap)
 The one multi-piece coupon, on purpose: six 15 mm cubes on an edge (bed contact is a
-line, so each gets a pad), Auto per cube with Bed pad = Custom at Light's numbers
-(h 0.2, grip 0, spread 4) and Pad gap 1: 0, 2: 0.08, 3: 0.12 (Light), 4: 0.16,
-5: 0.2, 6: 0.3 mm. Where each pad's top crosses the first-layer cut, measured off
-the cube's first-layer outline: -0.005 / 0.084 / 0.133 / 0.167 / 0.208 / 0.297 (the
-0.1 mm brim mesh). A cube that comes loose is a result. The 3MF is re-packed
-deflated (the brim mesh is 113k triangles: 7.5 MB stored, 0.9 MB deflated, local
-issue 007); no merged STL in `print/`.
+line, so each gets a pad), each built ALONE (out/cube_<k>.stl; built together their
+contacts line up and the engine lays one pad under all six), Auto with Bed pad =
+Custom at Light's numbers (h 0.2, grip 0, spread 4) and Pad gap 1: 0, 2: 0.08,
+3: 0.12 (Light), 4: 0.16, 5: 0.2, 6: 0.3 mm. Six separate closed pads. Where each
+pad's top crosses the first-layer cut, measured off the cube's first-layer outline:
+0.0 / 0.076 / 0.13 / 0.161 / 0.2 / 0.3 (the 0.1 mm brim mesh). A cube that comes
+loose is a result. The 3MF is re-packed deflated (the brim mesh is ~64k triangles,
+local issue 007); no merged STL in `print/`.
 - **waiting on print.**
 
 ### bore/ -- do walls inside a sideways hole pull out clean, and from what size?

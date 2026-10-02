@@ -33,7 +33,7 @@ body:
     attributes: { label: Bite — lowest rung that left marks, placeholder: "9 dots (0.55 mm)" }
   - type: input
     id: span
-    attributes: { label: Span — leftmost Coverage position whose shelf was flat, placeholder: "3 dots (middle)" }
+    attributes: { label: Span — which shelves came out flat, which sagged, placeholder: "1, 2, 4, 5 flat; 3 sagged between the walls" }
   - type: input
     id: pad
     attributes: { label: Pad — biggest gap whose cube stayed put, placeholder: "3 dots (0.12 mm)" }
