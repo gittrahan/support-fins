@@ -170,7 +170,9 @@ export function bbox(tris) {
  *  its WALL STEP (another 36) when the tine sits above the wall top (local issue 005).
  *  A step starts below its tine, ends inside it and lies inside its footprint, which a
  *  next tine along the run never does. Returns { tines, steps } of
- *  { verts, lo, hi } (a step also carries `tine`, the box it sits under). */
+ *  { verts, lo, hi } (a step also carries `tine`, the box it sits under).
+ *  Square tines only (the default): a PROP.tineTip "point" tine is a pentagon, 48
+ *  vertices, and would mis-chunk here (and in integration/sway/tine_shape tests). */
 export function tineBoxes(out) {
   const tines = [], steps = [];
   const within = (b, t) => [0, 1].every((k) => b.lo[k] >= t.lo[k] - 1e-6 && b.hi[k] <= t.hi[k] + 1e-6);

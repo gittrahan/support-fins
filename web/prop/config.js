@@ -194,6 +194,10 @@ export const PROP = {
   // is roughly the tine's plan area under the part; a point halves the bite end.
   // Calibration knob (tunables.tineTip), decided by the tine coupon.
   tineTip: 'square',
+  // Tines per wall, EXACT, overriding spacing and the minGripTines floor: the comb is
+  // spaced wall-length / n. 0 = off (the default; spacing rules decide). Calibration
+  // knob (tunables.tinesPerWall), the tine coupon's how-few-still-hold row.
+  tinesPerWall: 0,
   tineBite: 0.5,     // how far a nub reaches horizontally into the part. TRIMMING this
                      // toward Slant3D's smaller sliver (0.3) to shrink the pockmark was
                      // tried and reverted: because the tine seeds on the surface and

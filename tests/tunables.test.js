@@ -94,8 +94,9 @@ Deno.test('tunables: the weld floor scales with the gap, PLA unchanged', () => {
 });
 
 Deno.test('tunables: tine width and a pointed tip shrink the tines, same count', () => {
-  // The tine coupon's knobs (calibration/tine). Same part, same pose: the comb is
-  // placed by tineBite, not by the tine's shape, so only each tine's plastic moves.
+  // The tine coupon's knobs (calibration/tine). Same part, same pose: the tip never
+  // moves the comb (placement is by tineBite), and on this part neither does the
+  // width (it sets the anchor scan's step, which can shift where the comb starts).
   const topo = tiltedBlockTopo(-20, 20, -15, 15, 0, 30, 40);
   const res = analyze(topo, 45, IDENTITY);
   // signed volume of the closed boxes the soup is made of (overlaps counted twice,
@@ -130,4 +131,24 @@ Deno.test('tunables: tine width and a pointed tip shrink the tines, same count',
   assert(per(narrow.v) > 0.032 - 0.004, `0.3 wide saved only ${per(narrow.v).toFixed(4)} mm3/tine`);
   assert(Math.abs(per(point.v) - 0.025) < 0.004, `point saved ${per(point.v).toFixed(4)} mm3/tine`);
   assert(prop.PROP.tineW === 0.5 && prop.PROP.tineTip === 'square', 'defaults not restored');
+});
+
+Deno.test('tunables: tinesPerWall puts exactly n tines on every tined wall', () => {
+  // The tine coupon's how-few-still-hold row. 0 (the default) leaves spacing alone.
+  const topo = tiltedBlockTopo(-20, 20, -15, 15, 0, 30, 40);
+  const res = analyze(topo, 45, IDENTITY);
+  const perWall = (tunables) => fins.buildFins(topo, res, IDENTITY,
+    { mode: 'auto', bedPad: false, tines: true, tunables }).props
+    .filter((f) => f.tines > 0).map((f) => f.tines);
+  const n0 = prop.PROP.tinesPerWall;
+  let base, one, two;
+  try {
+    base = perWall({});
+    one = perWall({ tinesPerWall: 1 });
+    two = perWall({ tinesPerWall: 2 });
+  } finally { fins.applyTunables({ tinesPerWall: n0 }); }
+  assert(base.length > 0 && base.some((n) => n > 2), `nothing to thin: ${base}`);
+  assert(one.length && one.every((n) => n === 1), `tinesPerWall 1 gave ${one}`);
+  assert(two.length && two.every((n) => n === 2), `tinesPerWall 2 gave ${two}`);
+  assert(prop.PROP.tinesPerWall === 0, 'default not restored');
 });

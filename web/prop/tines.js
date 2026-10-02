@@ -186,8 +186,11 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
   // length, so a squat part's sparse spacing never starves a long wall of grip or
   // leaves a short wall with a single lonely nub. min() only ever TIGHTENS the
   // requested spacing, never loosens it past the dense comb.
-  const step = Math.min(stepArg, total / PROP.minGripTines);
-  if (total < step) return 0;
+  // PROP.tinesPerWall (calibration) asks for exactly n: spaced over the WHOLE run
+  // (tails too, which the comb also covers), so n fit.
+  const step = PROP.tinesPerWall > 0 ? s[s.length - 1] / PROP.tinesPerWall
+    : Math.min(stepArg, total / PROP.minGripTines);
+  if (total < step && !(PROP.tinesPerWall > 0)) return 0;
 
   // half the tine's WIDTH across the run -- one nozzle bead (PROP.tineW), NOT the
   // wall thickness. Building it th-wide made a 1mm divot, ~2x Slant3D's spec.
@@ -319,7 +322,8 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
   const lowFirst = line[0][2] <= line[line.length - 1][2];
   const at = (u) => place((lowFirst ? u : S - u) - s0);   // u = arc length from the LOW end
   const band = Math.min(PROP.tineEdgeBand, S / 2);
-  const midStep = Math.min(step * PROP.tineMidFactor, PROP.tineStepSparse);
+  const midStep = PROP.tinesPerWall > 0 ? step     // an exact count: even, no edge bias
+    : Math.min(step * PROP.tineMidFactor, PROP.tineStepSparse);
   const uTop = S - Math.min(step / 2, PROP.tineTopClear);
   const zLo = Math.min(line[0][2], line[line.length - 1][2]);
   const zHi = Math.max(line[0][2], line[line.length - 1][2]);

@@ -88,8 +88,12 @@ export function applyTunables(t) {
   set(PROP, 'tineBite', t.wallBite);
   // Tine shape, the tine coupon's knobs (no site field yet): width across the run
   // and the plan-view tip. Calibration only until a print picks them.
-  set(PROP, 'tineW', t.tineWidth);
+  // A width under 0.1 would fold the tine and its wall step (inset 0.01 a side) inside out.
+  if (t.tineWidth >= 0.1) PROP.tineW = t.tineWidth;
   if (['square', 'point'].includes(t.tineTip)) PROP.tineTip = t.tineTip;
+  // Tines per wall, exact (0 = off, the spacing rules decide): the tine coupon asks
+  // how few still hold. Calibration only.
+  if (Number.isInteger(t.tinesPerWall) && t.tinesPerWall >= 0) PROP.tinesPerWall = t.tinesPerWall;
   // The wedge keeps its own copy of the clearance, so the Support gap field and the
   // PETG profile never reached it -- not even on the main thread, where everything
   // else worked. One clearance, applied everywhere it is spelled.
