@@ -13,6 +13,7 @@ supports are already in the file (and the angle test needs none). Files are in
 |---|---|---|
 | Angle | which faces need support | Overhang slider (top bar) |
 | Gap | how close walls stand to the part | Clearances ▸ Support gap |
+| Bite | how far tines reach into the part | Tines ▸ Tine bite |
 | Span | how densely broad faces are lined | Walls ▸ Wide-face coverage (Auto) |
 | Pad | how the bed pad lets go | Clearances ▸ Bed pad ▸ Custom ▸ Pad gap |
 | Bore | whether holes pull clean (no setting: tells us) | — |
@@ -28,6 +29,17 @@ Six ledges, each held by walls standing a different gap below it: 0.1, 0.15, 0.2
 - Welded, tears the ledge's skin → gap too small.
 - Ledge underside saggy or stringy → gap too big.
 - Use the **smallest gap that snaps off clean**. Put it in **Support gap**.
+
+## Bite (`bite/print/bite-coupon.3mf`)
+Twelve ledges held by tined walls. The tines reach 0.15 mm (1 dot) to 0.70 mm
+(12 dots, in a second row past six) into the part, in 0.05 steps. Snap each wall off,
+from rung 1 up.
+- Wall falls off with no snap, tines never stuck → too little bite: the grip failed.
+- Snaps off and leaves no mark → good.
+- Snaps but leaves pits or nubs on the underside → too much bite.
+- Use the **smallest bite that still needed a snap**. If it left marks, go up a rung
+  only as far as you need grip. Put it in **Tine bite**. Note both ends (where grip
+  failed, where marks started) in your result: that window is what we're after.
 
 ## Span (`span/print/span-coupon.3mf`)
 Five wide shelves, built at five **Wide-face coverage** slider positions (1–5 dots):

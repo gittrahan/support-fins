@@ -26,6 +26,12 @@ body:
     id: gap
     attributes: { label: Gap — smallest gap that snapped off clean, placeholder: "3 dots (0.2 mm)" }
   - type: input
+    id: bite-low
+    attributes: { label: Bite — highest rung where the grip failed (wall fell off with no snap), placeholder: "2 dots (0.20 mm)" }
+  - type: input
+    id: bite-high
+    attributes: { label: Bite — lowest rung that left marks, placeholder: "9 dots (0.55 mm)" }
+  - type: input
     id: span
     attributes: { label: Span — leftmost Coverage position whose shelf was flat, placeholder: "3 dots (middle)" }
   - type: input

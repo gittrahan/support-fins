@@ -7,7 +7,7 @@ by the engine's own code so the print tests what the app actually makes:
     python3 prototype/calibration/<name>/gen.py      # the part -> out/coupon_part.stl
     deno run -A prototype/calibration/<name>/build.js  # walls on it -> out/<name>-coupon.3mf
 
-The user-facing coupons (gap, span, angle, pad, bore) share `coupon.py` (boxes, rung
+The user-facing coupons (angle, gap, bite, span, pad, bore) share `coupon.py` (boxes, rung
 dots, the one-piece check) and `coupon.js` (the site's own call -- `analyze(topo, 45,
 rot)` then `buildFins(..., {mode: 'auto', bedPad: true})` at the site's PLA defaults --
 run once per rung with that rung's setting, keeping the supports in the rung's box).
@@ -86,4 +86,18 @@ Block on the plate with through-bores along y, 1: 3, 2: 5, 3: 8, 4: 12 mm across
 centred 9 mm up. One Auto build at the defaults (nothing varied): one wall along each
 bore's axis, inside the bore, running out the open end; 0 unserved. Checks the
 2026-09-27 reversal (bores DO get supported) on a printed part.
+- **waiting on print.**
+
+### bite/ -- how far should tines reach into the part? (the Tine bite field, PROP.tineBite)
+Bar on the plate, twelve identical 16 mm ledges, undersides 40 deg off the plate;
+Auto per ledge with Tine bite 0.15 ... 0.70 in 0.05 steps (1-12 dots, a second row
+past six). One wall + 3 tines per ledge on every rung. Each tine's reach INTO the
+part (its overlap with the solid / its cross-section) climbs with the rung: 0.15 ->
+0.01-0.08 mm, 0.50 -> 0.31-0.49, 0.70 -> 0.51-0.69 (layer snap makes the three
+differ). At 0.10 the engine places no tines on this slope, so the ladder starts at
+0.15. One print reads both ends: the low rungs where a wall drops off with no snap
+(grip failed) and the high rungs where a snapped tine leaves a mark.
+- Field added with it (Tines section, 0.1-0.8, default 0.5, `tunables.wallBite`).
+  The material profile's `tineBite` (PLA 0.30 / PETG 0.15) is FIN.tineBite, which
+  only the sway braces read; walls always used PROP.tineBite 0.5. Unchanged here.
 - **waiting on print.**
