@@ -52,7 +52,11 @@ welds; too big lets the overhang sag. Bar on the plate, six identical 12 x 10 mm
 ledges 10 mm up; the site's Auto build per ledge. **Rungs are whole empty layers**,
 because a slicer can only leave whole layers there: dots = layers, 1 dot 0.2, 2 dots
 0.4, 3 dots 0.6 mm at 0.2 mm layers, and the far side repeats the near side. **Print
-at 0.2 mm layers.** For a user: the fewest empty layers that snap off clean.
+at 0.2 mm layers with a 0.2 first layer and variable/adaptive layer height off**: a
+0.3 first layer shifts every slice plane 0.1 mm and the gaps stop being whole layers.
+For a user: the fewest empty layers that snap off clean. The 3-layer rung (0.6) is
+above the Gap field's 0.4 max, so if it wins the field can't be set to it yet (local
+issue 026).
 - **2026-10-02: first build (0.1, 0.15, 0.2, 0.25, 0.3, 0.4) was rebuilt before
   printing.** Matthew saw every ledge look the same; sliced in PrusaSlicer at 0.2 mm
   layers, ledges 1-5 all printed a one-layer (0.2) gap and only 0.4 differed. The

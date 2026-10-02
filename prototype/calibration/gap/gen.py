@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Gap coupon: how close may a support wall stand to the part (the Gap field,
-PROP.gap) and still snap off clean? Too small welds; too big lets the overhang sag.
+"""Gap coupon: how many empty layers between a wall's top and the overhang above it
+(the Gap field, PROP.gap) still snap off clean? Too few welds; too many lets the overhang sag.
 
 The gap is vertical: the empty space between a wall's top and the underside of the
 overhang it holds. A slicer can only leave whole empty layers there -- at 0.2 mm
