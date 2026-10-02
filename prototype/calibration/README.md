@@ -46,11 +46,18 @@ local issue 009's free-edge rule).
 - **waiting on print.**
 
 
-### gap/ -- how close may a wall stand to the part? (the Gap field, PROP.gap)
-Bar on the plate, six identical 12 x 10 mm flat ledges 10 mm up over open plate; the
-site's Auto build per ledge with Gap = 1: 0.1, 2: 0.15, 3: 0.2, 4: 0.25, 5: 0.3,
-6: 0.4 mm (the field's range). Two walls per ledge; each wall's top measured at
-10 - gap (9.9 ... 9.6). For a user: the smallest gap that snaps off clean.
+### gap/ -- how much empty space between a wall's top and the overhang? (the Gap field, PROP.gap)
+The gap is vertical: wall top to the underside of the overhang it holds. Too small
+welds; too big lets the overhang sag. Bar on the plate, six identical 12 x 10 mm flat
+ledges 10 mm up; the site's Auto build per ledge. **Rungs are whole empty layers**,
+because a slicer can only leave whole layers there: dots = layers, 1 dot 0.2, 2 dots
+0.4, 3 dots 0.6 mm at 0.2 mm layers, and the far side repeats the near side. **Print
+at 0.2 mm layers.** For a user: the fewest empty layers that snap off clean.
+- **2026-10-02: first build (0.1, 0.15, 0.2, 0.25, 0.3, 0.4) was rebuilt before
+  printing.** Matthew saw every ledge look the same; sliced in PrusaSlicer at 0.2 mm
+  layers, ledges 1-5 all printed a one-layer (0.2) gap and only 0.4 differed. The
+  rebuilt coupon slices as labelled (0.2 / 0.4 / 0.6, checked in the G-code). The
+  Gap field itself has the same problem (local issue 026).
 - **waiting on print** (PLA and PETG: the same file, the rungs ARE the gaps).
 
 ### span/ -- how far apart may walls under a broad face sit? (the Coverage dial)
