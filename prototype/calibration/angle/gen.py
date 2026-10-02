@@ -5,9 +5,14 @@ face gets support).
 
 Print it with NO supports (slicer supports off, no fins). ONE solid piece: a bar
 standing on the plate with seven ramps sticking out of it, each underside at its
-own angle from the plate (30-60 deg, every one rising the same 8 mm). Read the
+own angle from the plate (10-40 deg, every one rising the same 4 mm). Read the
 undersides: the shallowest ramp that printed clean is your Overhang setting.
 Ramp k carries k dots.
+
+The first build (30-60 deg, 8 mm rise, commit 925380c) printed clean on every ramp
+on Matthew's printer (PLA, 2026-10-02), so this one goes shallower. Its 30-40 deg
+ramps overlap that print. The Overhang slider stops at 30, so a clean ramp below 30
+says the slider's floor is too high, not a setting to type.
 
     python3 prototype/calibration/angle/gen.py      # -> out/angle-coupon.stl (no build.js: no supports)
 """
@@ -21,8 +26,8 @@ import trimesh
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from coupon import bx, dots, write  # noqa: E402
 
-ANGLES = [30, 35, 40, 45, 50, 55, 60]   # the slider runs 30-70; past 60 nearly every printer is fine
-BAR_W, Z0, RISE, TOP_T, W, STEP = 10.0, 2.0, 8.0, 2.0, 10.0, 14.0
+ANGLES = [10, 15, 20, 25, 30, 35, 40]   # 30-60 all printed clean (first build); the slider runs 30-70
+BAR_W, Z0, RISE, TOP_T, W, STEP = 10.0, 2.0, 4.0, 2.0, 10.0, 14.0
 
 
 def ramp(x, side, angle):

@@ -19,9 +19,10 @@ supports are already in the file (and the angle test needs none). Files are in
 | Bore | whether holes pull clean (no setting: tells us) | — |
 
 ## Angle (`angle/print/angle-coupon.stl`) — print this first
-Seven ramps, from 30° (1 dot) to 60° (7 dots) off the plate. Look at the undersides.
+Seven ramps, from 10° (1 dot) to 40° (7 dots) off the plate. Look at the undersides.
 The **shallowest ramp that came out clean** (no droop, no stringy curls) is your
-**Overhang** setting. Faces shallower than that get support.
+**Overhang** setting. Faces shallower than that get support. The slider stops at
+30°: if a ramp below 30° came out clean, set 30 and tell us which ramp it was.
 
 ## Gap (`gap/print/gap-coupon.3mf`)
 Six ledges, each held by walls standing a different gap below it: 0.1, 0.15, 0.2,

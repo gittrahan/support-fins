@@ -68,11 +68,17 @@ whose shelf printed flat.
 - **waiting on print.**
 
 ### angle/ -- what overhang does the printer manage unsupported? (the Overhang slider)
-Bar on the plate, seven ramps whose undersides rise 8 mm at 1: 30, 2: 35, 3: 40,
-4: 45, 5: 50, 6: 55, 7: 60 deg from the plate (checked from the face normals).
-Printed with NO supports, so there is no build.js; `print/` has the STL only. For a
-user: the shallowest clean ramp is the Overhang setting.
-- **waiting on print.**
+Bar on the plate, seven ramps, printed with NO supports (no build.js; `print/` has
+STLs only). For a user: the shallowest clean ramp is the Overhang setting.
+- First build (`print/angle-coupon-30-60.stl`, commit 925380c): undersides rising
+  8 mm at 30-60 deg in 5 deg steps.
+  **2026-10-02, PLA, Matthew's printer: all seven clean.** Nothing failed, so it
+  set nothing.
+- Second build (`print/angle-coupon.stl`): rising 4 mm at 1: 10, 2: 15, 3: 20,
+  4: 25, 5: 30, 6: 35, 7: 40 deg (face normals checked; 10 deg reaches 22.7 mm out).
+  30-40 overlap the first print. **The slider's floor is 30** (web/index.html #thr,
+  options.json threshold min 30): a clean ramp below 30 means the floor should drop,
+  not a number to type. **waiting on print.**
 
 ### pad/ -- how far off the part should the bed pad stand? (Bed pad > Custom > Pad gap)
 The one multi-piece coupon, on purpose: six 15 mm cubes on an edge (bed contact is a

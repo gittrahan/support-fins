@@ -21,7 +21,7 @@ body:
     attributes: { label: Slicer and layer height, placeholder: "OrcaSlicer 2.3, 0.2 mm" }
   - type: input
     id: angle
-    attributes: { label: Angle — shallowest clean ramp, placeholder: "3 dots (40°)" }
+    attributes: { label: Angle — shallowest clean ramp, placeholder: "4 dots (25°)" }
   - type: input
     id: gap
     attributes: { label: Gap — smallest gap that snapped off clean, placeholder: "3 dots (0.2 mm)" }
