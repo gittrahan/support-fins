@@ -4,14 +4,35 @@ A native PrusaSlicer plugin companion to [printfins.com](https://printfins.com),
 the **3.0 plugin API** (`project.plugin` 1.0.0). Bundle `com.printfins.support-fins/` is one
 flat directory with a single menu entry:
 
-- **Support Fins → Add a Fin** (`add_fin.lua`) — drops one breakaway support fin onto the
-  plate: a thin blade on a flared foot, necking to a thin tip, with a **comb of horizontal
-  tines up the gripping face** (denser near the base, per Slant3D's spec) — the same fin the
-  website bakes in. You position it by hand with **PrusaSlicer's own move tool**: turn it so
-  the **tine face** (the combed +X side) sits against your part's overhanging face, foot on
-  the plate, and nudge it until the tines just touch. Then bend the fin off — the horizontal
-  tines fuse in one layer line and snap clean. Params: fin height, length, wall, foot, and a
-  **Gripping Tines** toggle (off = a plain breakaway wall for a flat overhang).
+- **Support Fins → Add a Fin** (`add_fin.lua`) — drops one breakaway **support fin** for a part
+  printed **tilted**: a thin (1.2 mm) right triangle that stands under the part's sloped
+  underside, the same shape as the 30°/45°/60° angled-print fins people place by hand
+  ([printables.com/model/1771718](https://www.printables.com/model/1771718)). Its **slope**
+  runs from a low tip on the plate up to the top of a straight back edge, **0.2 mm under the
+  part**, on a thin foot with a round back end. A **comb of tines** runs along the slope, 2 mm apart: one-layer
+  horizontal nubs, one bead (0.5 mm) wide, each top on the print preset's layer grid, that
+  reach across the gap and **0.5 mm into the part** at mid-layer (`PROP.tineBite`), so each prints as one
+  strand that fuses in and snaps clean (`docs/FIN-SPEC.md`). The top of the slope ends in a
+  short flat (1.2 mm, a little more when steep), never a point. Params: **Slope Angle** (20–70°, default 45), **Fin Height**,
+  and a **Gripping Tines** toggle.
+
+  **Placing it:** set Slope Angle to the angle of the part's underside. Turn the fin about Z
+  only, so its slope climbs the same way as the underside, and slide it until the slope sits
+  0.2 mm under the part — e.g. put the low tip 0.2/sin(angle) (0.28 mm at 45°) out from where
+  the underside meets the plate. The foot starts where the slope rises above it, so the part
+  keeps the slope's own gap off it. Wide parts want a fin near each side.
+
+  The tines overlap your part, which PrusaSlicer slices as a separate object, so each tine's
+  0.5 mm bite is extruded twice (a few hundredths of a mm³ per tine). If your version can
+  merge the fin and part into one object, merging unions it instead.
+
+  **How the slope is built:** the slope is **one cube turned to the angle** (`rotate = {y =
+  -angle}`), a 1.5 mm rail whose top face *is* the slope. A stack of cube steps fills
+  under it, every step corner inside the rail (one layer tall below where the rail starts, so
+  the slope there is no rougher than the slicer's own layers). Each tine also reaches into the step behind it,
+  so it holds on even if the rail misbehaves. The API's only triangle (`make_prism`) is
+  isosceles with its apex centred (PrusaSlicer `its_make_prism`), so a vertical back edge
+  would need a Negative cut, which the slicer draws as a grey box over half the fin.
 
 ## Why placement is by hand — read before filming
 
@@ -57,26 +78,35 @@ inside a `com.printfins.support-fins/` folder), and importers need
 
 ## Verify (must be done in a running 3.0 slicer — it can't be unit-tested)
 
-1. **Support Fins → Add a Fin** appears; the dialog shows four floats + the Tines toggle.
-2. Generate with defaults → a thin blade on a T-foot, a necked tip, and a comb of ~7 tine ribs
-   up the lower part of one face. (Preview of the intended shape:
-   `~/Downloads/support-fin-plugin-preview.png`.)
-3. Move it so the tine face meets a part's overhanging face, foot on the plate; nudge until the
-   tines just kiss the face.
-4. **It must be ONE connected fin, not scattered boxes.** All pieces are built in one flat
-   object space via `shapes.builder()` (vendored from leotrax3d, MIT) — the same pattern the
-   shipped `box_generator`/`tolerance_test` use, which anchors every volume to the first and
-   never assumes a primitive's origin. Corner-origin `make_cube` (base at z = 0) is confirmed by
-   those working plugins. The earlier hand-rolled version centred the attachments at y = 0 while
-   the wall spanned `y[0,length]`, flinging the foot/tip/tines ~half the length off the blade —
-   that bug is what the builder + the new overlap assertions in the test now rule out.
-5. Slice, print, bend the fin off — tines should snap clean and leave faint marks.
+1. **Support Fins → Add a Fin** appears; the dialog shows Slope Angle, Fin Height + the Gripping
+   Tines toggle.
+2. Generate with defaults → a 45° right triangle, 25 tall, its slope climbing toward +X with
+   a row of small tines along it, a straight back edge, and a foot running from near the low tip to past the back edge.
+   Preview of the intended shapes at 30/45/60°: `~/Downloads/support-fin-prusa-preview.png`.
+3. **The slope must be smooth and flush.** It is the one turned volume (a cube rotated about
+   Y). If it tilts the wrong way or sits off the triangle, you'd see a plank sticking
+   down or out and the stepped fill underneath. Report it with a screenshot.
+4. Slice at your usual layer height and scrub the layer slider: each tine should show up on
+   **exactly one layer** (never split across two). Change the layer height, generate a new
+   fin, and check again — the tines follow the bed's print preset (a per-object layer height
+   override isn't seen).
+5. Set it under a tilted part (slope 0.2 mm under the underside), slice, print, bend the fin
+   off — the tines should snap clean and leave faint dots.
+
+All pieces are built in one flat object space via `shapes.builder()` (vendored from
+leotrax3d, MIT), which anchors every volume to the first and places each primitive by its
+bounding box, so nothing assumes where a primitive puts its origin.
 
 **Lint / local checks:** run `./run-tests.sh` from the `plugins/prusa/` dir (needs `lua`/`luac`). It
 covers syntax (`luac -p`), the manifest JSON, the slicer's **scan pass** on a bare engine, and
-the fin **arithmetic** against a mock api (`tests/add_fin_test.lua`) — whose mock now models the
-*real* semantics (corner-origin cubes; `other_volumes` translates **relative to the main mesh**)
-and asserts every piece actually **overlaps the wall**, the check that catches the scatter. The
+the fin **arithmetic** against a mock api (`tests/add_fin_test.lua`), which models the real
+semantics (corner-origin cubes, Z-axis cylinders, `other_volumes` translated **relative to the
+main mesh** and turned right-handed about their own origin, as the bundled temp tower's
+upright text shows, and the preset's layer grid). At 30/45/60° and the clamps it asserts the
+rail's top face **is** the slope, the fill stays under it with its notches inside the rail,
+the foot clears the part, and every tine is one layer on the grid, grips the fin and bites
+0.5 mm into the part (also at a 0.3 layer over a 0.25 first layer, with the preset handing back
+strings like `"150%"`, and with no preset at all). The
 fatal, silent trap the scan guards is any `require`/`api` call **at file scope** — the scan runs
 the whole file just to read `info`, on an engine with neither, so a hit there produces no menu
 entry and no error. Both files keep all `api`/`require` use inside functions (`execute()` for the
@@ -84,9 +114,8 @@ plugin, method bodies for the module); keep it that way.
 
 ## Notes / possible polish
 
-- **Chamfered foot.** The foot is currently a flat flange; a bevel up to the wall would read
-  even more like the `breakaway.py` profile. Skipped for now — it needs rotated `Negative` cuts
-  whose result can't be verified headlessly; add it with an in-slicer look.
+- **Material.** Gap 0.2 / bite 0.5 are the site's PLA defaults (`PROP`). PETG wants bigger gaps
+  and shallower tines; a material choice could come after the bite coupon prints.
 - **Distribution:** optionally PR to
   [leotrax3d/prusaslicer-plugins-unofficial](https://github.com/leotrax3d/prusaslicer-plugins-unofficial)
   for reach + its CI and signing/release workflow, keeping the canonical copy here.
