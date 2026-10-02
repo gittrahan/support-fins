@@ -18,7 +18,7 @@ const { MATERIAL } = await import(`${WEB}materials.js`);
 // The site's defaults (web/index.html): what an untouched page sends. PLA's
 // clearances, so a rung that sets one value leaves the rest where the site starts.
 export const SITE = Object.freeze({
-  mode: 'auto', bedPad: true, tines: true, tineDensity: 0.5, layerHeight: 0.2, coverage: 0.5,
+  mode: 'auto', bedPad: true, tines: true, tineDensity: 0, layerHeight: 0.2, coverage: 0.5,
 });
 export const PLA_TUNABLES = Object.freeze({
   tineBite: MATERIAL.pla.tineBite, padH: MATERIAL.pla.padH, padGrab: MATERIAL.pla.padGrab,
