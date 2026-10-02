@@ -7,7 +7,7 @@
  */
 import { solidClearance } from '../inside.js';
 import { ribbon } from '../solids.js';
-import { longestRun, stationCertified, stationIsClear } from './clearance.js';
+import { longestRun, stationCertified, stationIsClear, welds } from './clearance.js';
 import { PROP } from './config.js';
 import { settleTop } from './contact.js';
 
@@ -127,7 +127,7 @@ export function buildSquatBed(line, regionTris, topo, rot, offset, out, claimed 
     // Same acceptance as the plate path: an approach from above is the breakaway
     // interface (must clear the gap), anything else is a flank weld.
     const hit = solidClearance(topo, rot, offset, out.slice(before), 0.25);
-    if (hit && (hit.cosUp > 0.7 ? hit.d < PROP.gap - 0.065 : hit.d < 0.205)) {
+    if (hit && welds(hit)) {
       out.length = before;
       continue;
     }

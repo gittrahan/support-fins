@@ -81,10 +81,8 @@ export function stationIsClear(line, k, topo, rot, offset) {
  * never saw (see nearestPart). So sample the station's cross-section outline
  * and measure the actual distance to the part, classifying each approach the
  * way check_stl.py does: toward a surface ABOVE, this is the breakaway
- * interface and ~gap is correct (the floor sits just under the checker's
- * gap - 0.06 acceptance so a legitimate 0.2 x cos(slope) approach on a steep
- * underside is not trimmed); sideways, it is a flank and must clear by more
- * than the checker's FLANK_MIN. A station that fails is trimmed by the same
+ * interface and ~gap is correct (see `welds` for the floor); sideways, it is
+ * a flank and must clear by more than the checker's FLANK_MIN. A station that fails is trimmed by the same
  * longestRun machinery as every other local problem -- including an end
  * station whose cap would stop nearly touching whatever blocked the trim,
  * because the cap's outline IS this station's outline and the measurement has
@@ -120,13 +118,24 @@ export function stationCertified(line, k, topo, rot, offset) {
     if (z <= 0.05) continue;
     const hit = nearestPart(topo, rot, offset, p[0] + sx * o, p[1] + sy * o, z);
     if (!hit) continue;
-    if (hit.cosUp > 0.7) {
-      if (hit.d < PROP.gap - 0.065) return false;   // breakaway would weld
-    } else if (hit.d < 0.205) {
-      return false;                                 // flank would weld
-    }
+    if (welds(hit)) return false;
   }
   return true;
+}
+
+/**
+ * Would a wall this close to the part weld to it? `hit` is a nearest-part
+ * measurement ({ d, cosUp }). From ABOVE it is the breakaway interface: the top
+ * stands `gap` below the part VERTICALLY, so the nearest distance on a slope is
+ * only ~gap x cos(slope). The floor is a fraction of the gap, not gap minus a
+ * constant: `gap - 0.065` was tuned at PLA's 0.2 (passes slopes to ~47.5 deg) and
+ * at PETG's 0.3 it failed every wall under a 40 deg underside (0.230 < 0.235;
+ * the cube at X40 lost all 3 walls to one wedge, local issue 021). 0.675 x gap is
+ * the same 0.135 at 0.2 and the same ~47.5 deg at any gap. SIDEWAYS it is a flank
+ * and must clear the checker's FLANK_MIN. Every weld gate uses this one test.
+ */
+export function welds(hit) {
+  return hit.cosUp > 0.7 ? hit.d < PROP.gap * 0.675 : hit.d < 0.205;
 }
 
 /** True when EVERY station can reach the plate. */

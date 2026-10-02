@@ -47,7 +47,7 @@
 import { solidClearance } from './inside.js';
 import { MIN_REGION_AREA } from './overhangs.js';
 import { buildPartAttached } from './prop/attached.js';
-import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified, stationIsClear, tallBody, tallSpan, withLowTails } from './prop/clearance.js';
+import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified, stationIsClear, tallBody, tallSpan, welds, withLowTails } from './prop/clearance.js';
 import { PROP } from './prop/config.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
 import { latticeStruts, strutPatches } from './prop/lattice.js';
@@ -66,7 +66,7 @@ export { straightness, contactLine, lowerSag, contourTop, settleTop } from './pr
 export { footFor, profileHalf, sweep, sweepBetween } from './prop/sweep.js';
 export { surfaceZAt, surfaceZsAt } from './prop/surface.js';
 export { stationIsClear, stationCertified, pathToPlateIsClear, longestRun,
-  withLowTails, insertFloorStations } from './prop/clearance.js';
+  withLowTails, insertFloorStations, welds } from './prop/clearance.js';
 export { tineStepFor, emitTines } from './prop/tines.js';
 export { PART_BAND } from './prop/attached.js';
 export { floorLine, moldLine } from './prop/mold.js';
@@ -346,7 +346,7 @@ function buildPass(topo, result, rot, opts, raster) {
         // measured clearance the plate path demands (see the sweep below): on
         // 3DBenchy at Y35 an unchecked one fused 0.09 mm into the cabin roof.
         const hit = solidClearance(topo, rot, off, out.slice(tri0), 0.25);
-        if (hit && (hit.cosUp > 0.7 ? hit.d < PROP.gap - 0.065 : hit.d < 0.205)) {
+        if (hit && welds(hit)) {
           out.length = tri0;
           skipped.weld++;
           continue;
@@ -487,7 +487,7 @@ function buildPass(topo, result, rot, opts, raster) {
         // measures 0 and fails the flank test, which is what retires the old
         // vertex-containment `buried` check -- crossing surfaces have
         // distance 0 long before any vertex is inside.
-        if (hit && (hit.cosUp > 0.7 ? hit.d < PROP.gap - 0.065 : hit.d < 0.205)) {
+        if (hit && welds(hit)) {
           out.length = before;
           let kBest = 0, dBest = Infinity;
           for (let k = 0; k < settled.length; k++) {

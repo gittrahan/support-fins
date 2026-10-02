@@ -55,3 +55,39 @@ Deno.test('tunables: absent or junk values leave the defaults alone', () => {
   assert(snap().every((v, i) => v === before[i]),
          `defaults changed: ${snap().join(',')} vs ${before.join(',')}`);
 });
+
+Deno.test('tunables: a bigger gap keeps the walls under a 40 deg underside (021)', () => {
+  // The weld gate measures the NEAREST distance, ~gap x cos(slope) on a slope. As
+  // `gap - 0.065` it passed PLA's 0.2 there but failed PETG's 0.3 (0.230 < 0.235):
+  // every wall counted as a weld and the face went to a lone wedge, unserved.
+  const topo = tiltedBlockTopo(-20, 20, -15, 15, 0, 30, 40);
+  const res = analyze(topo, 45, IDENTITY);
+  const build = (propGap) => {
+    const b = fins.buildFins(topo, res, IDENTITY,
+      { mode: 'auto', bedPad: true, tines: true, tunables: { propGap } });
+    return { walls: b.props.filter((p) => p.kind === 'prop').length,
+             weld: b.skipped.weld, unserved: b.unserved };
+  };
+  const pla = build(0.2), petg = build(0.3);
+  build(0.2);   // put the module's gap back for the files after this one
+  assert(pla.walls > 0, 'PLA built no walls to compare against');
+  assert(petg.walls === pla.walls && petg.weld === 0 && petg.unserved === 0,
+         `gap 0.3: ${JSON.stringify(petg)} where gap 0.2 built ${JSON.stringify(pla)}`);
+});
+
+Deno.test('tunables: the weld floor scales with the gap, PLA unchanged', () => {
+  const gap0 = prop.PROP.gap;
+  try {
+    const at40 = (gap) => ({ d: gap * Math.cos(40 * Math.PI / 180), cosUp: 0.77 });
+    for (const gap of [0.2, 0.3, 0.45]) {
+      fins.applyTunables({ propGap: gap });
+      assert(!prop.welds(at40(gap)), `gap ${gap}: an on-spec 40 deg approach counted as a weld`);
+      assert(prop.welds({ d: gap * 0.5, cosUp: 0.9 }), `gap ${gap}: half the gap passed`);
+      assert(prop.welds({ d: 0.2, cosUp: 0 }), `gap ${gap}: a 0.2 mm flank passed`);
+    }
+    fins.applyTunables({ propGap: 0.2 });
+    assert(Math.abs(0.2 * 0.675 - (0.2 - 0.065)) < 1e-12, 'PLA floor moved off 0.135');
+  } finally {
+    fins.applyTunables({ propGap: gap0 });
+  }
+});
