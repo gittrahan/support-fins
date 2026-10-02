@@ -17,7 +17,8 @@ supports are checked closed before they're written).
 each one is `docs/CALIBRATION.md`.
 
 `out/` is git-ignored. The files actually printed are committed in `<name>/print/`
-(.3mf with the part and walls as separate objects, one merged .stl, a render), so a
+(.3mf with the part and walls as two parts of ONE object -- a slicer unions them, as it
+does the site's 3MF -- one merged .stl, a render), so a
 coupon can be reprinted as-is even after the engine moves on. Record each print's result below, with the date and the
 setting it decided; the number itself goes in `web/prop/config.js` with a pointer here.
 
@@ -122,4 +123,26 @@ differ). At 0.10 the engine places no tines on this slope, so the ladder starts 
 - Field added with it (Tines section, 0.1-0.8, default 0.5, `tunables.wallBite`).
   The material profile's `tineBite` (PLA 0.30 / PETG 0.15) is FIN.tineBite, which
   only the sway braces read; walls always used PROP.tineBite 0.5. Unchanged here.
+- **2026-10-02, PLA: every rung fused, all left marks; none failed.** Bite isn't the
+  dial. Measured on this coupon: at a tine's own layer the part's edge is only
+  0.02-0.20 mm out from the wall's centreline (inside the 1 mm wall), and one layer up
+  the part reaches 0.05-0.23 mm back OVER the wall. So the part's next layer prints
+  straight onto the tine with no gap, and a slicer merges a tine into the part it
+  touches. The weld is about the tine's plan area under the part, the same at 0.15
+  and 0.70. Replaced by tine/ (local issue 027).
+
+### tine/ -- what leaves the smallest tine mark and still holds?
+The bite coupon's bar and 40 deg ledges, ten of them; Auto per ledge with:
+near side (shape, 3 tines a wall) 1 square 0.5 wide (today), 2 square 0.4, 3 square
+0.3, 4 pointed tip, 5 KISS square, 6 KISS pointed; far side (count, today's square)
+7 three tines, 8 two, 9 one, 10 none. Knobs: `tunables.tineWidth` / `tineTip` /
+`tinesPerWall` (#166, calibration only; no site field until this prints).
+KISS: kiss.py cuts those tines off at the part's surface and writes them as their
+OWN object in the 3MF, so the slicer keeps them apart from the part instead of
+merging them. **Print the 3MF** (the .stl can't keep objects apart), and if the
+slicer asks whether to load it as one object with several parts, say **no**.
+Measured before printing (PrusaSlicer, 0.2 layers): every tine prints, 0.3 and
+pointed included; two objects in the G-code; tine top under the part's next layer,
+per ledge: 1 0.94 mm2, 2 0.74, 3 0.53, 4 0.60, 5 0.36, 6 0.34, 7 0.97, 8 0.65, 9 0.33.
+For a user: the ledge with the faintest marks that still snapped (didn't fall off).
 - **waiting on print.**
