@@ -25,6 +25,7 @@ import { undo, redo } from './ui/history.js';
 import { loadURL } from './ui/io.js';
 import { applyVolume } from './ui/volume.js';
 import { buildExportGeometry } from './ui/export.js';
+import './ui/plugins.js';
 import { updateReadout } from './ui/readout.js';
 import {
   drawnWalls, drawnTris, drawStart, selectedWall, drawActive, sizeMarkers, clearPreview,

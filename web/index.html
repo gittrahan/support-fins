@@ -60,6 +60,23 @@
               title="Just the fins and pad, in the part's print position, so they line up if imported beside it.">Fins only (STL)</button>
     </div>
   </span>
+  <!-- Plugin downloads (web/ui/plugins.js): every slicer / CAD plugin from the
+       rolling plugins-latest release, one row each, one "Your computer" picker for
+       the ones that ship a file per platform. -->
+  <span class="plugins-wrap">
+    <button class="btn" id="plugins" aria-haspopup="dialog" aria-expanded="false"
+            aria-controls="plugins-menu"
+            title="Support Fins inside your slicer or CAD: the same engine as this site.">Plugins&nbsp;▾</button>
+    <div class="menu plugins-panel" id="plugins-menu" role="dialog" aria-label="Plugin downloads" hidden>
+      <label class="plugins-computer">Your computer
+        <select id="plugins-computer"></select>
+      </label>
+      <div id="plugins-list"></div>
+      <p class="plugins-foot">Built from this site's engine on every update.
+        <a href="https://github.com/gittrahan/support-fins/releases/tag/plugins-latest"
+           target="_blank" rel="noopener">All files</a></p>
+    </div>
+  </span>
   <a class="btn gh" href="https://github.com/gittrahan/support-fins" target="_blank" rel="noopener"
      title="Source code on GitHub. Runs entirely in your browser; no file ever leaves your machine."
      aria-label="Support Fins on GitHub"><svg viewBox="0 0 16 16" width="16" height="16"
