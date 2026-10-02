@@ -39,6 +39,8 @@ const PLUGINS = [
   },
   {
     name: 'PrusaSlicer', needs: '3.0 alpha · you place each fin by hand',
+    // a warning line under the row: what a user must know before downloading
+    note: 'Not working right now: a fix is on the way. It also places a plain fin where you put it, not one shaped to the part like the other plugins (PrusaSlicer\'s plugins can\'t read the part\'s mesh).',
     file: 'support-fins-prusa.zip',
     install: 'Unzip, copy com.printfins.support-fins into the lua folder beside PrusaSlicer.ini, restart. Menu Support Fins ▸ Add a Fin.',
   },
@@ -143,6 +145,12 @@ function render() {
     needs.className = 'plugin-needs';
     needs.textContent = file === null ? `No build for ${COMPUTERS.find(([k]) => k === c)[1]}` : p.needs;
     row.append(head, needs);
+    if (p.note) {
+      const note = document.createElement('div');
+      note.className = 'plugin-note';
+      note.textContent = p.note;
+      row.append(note);
+    }
     const label = file && labels?.[file];
     if (label) {
       const ver = document.createElement('div');

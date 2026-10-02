@@ -190,6 +190,7 @@ html, body {
 .plugin-needs, .plugin-ver { color: var(--dim); font-size: 12px; margin-top: 2px; }
 .plugin-ver { font-variant-numeric: tabular-nums; }
 .plugin-how { margin-top: 4px; font-size: 12px; line-height: 1.4; }
+.plugin-note { margin-top: 4px; font-size: 12px; line-height: 1.4; color: #ffb492; }
 .plugins-foot { margin: 6px 0 0; padding-top: 8px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12px; }
 .plugins-foot a { color: var(--accent); }
 .btn.primary {
