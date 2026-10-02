@@ -182,7 +182,7 @@ html, body {
   .plugins-panel { position: fixed; top: 52px; left: 16px; right: 16px; width: auto; min-width: 0; }
 }
 .plugins-computer { display: flex; align-items: center; gap: 8px; color: var(--dim); padding: 2px 0 6px; }
-.plugins-computer select { flex: 1; margin-left: 0; }
+.plugins-computer select { flex: 1; }
 .plugin { padding: 8px 0; border-top: 1px solid var(--line); }
 .plugin-head { display: flex; align-items: center; gap: 8px; }
 .plugin-head b { flex: 1; font-weight: 600; }
@@ -213,6 +213,7 @@ html, body {
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
   font: inherit;
 }
+.plugins-computer select { margin-left: 0; }   /* its label already has an 8px gap */
 
 .badge {
   padding: 4px 10px;

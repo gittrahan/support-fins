@@ -38,11 +38,11 @@ const PLUGINS = [
     install: 'Plugins ▸ Install plugin, pick the .py and tick it. Process settings ▸ Advanced ▸ Others ▸ Slicing Pipeline Plugin ▸ Add plugin ▸ Support Fins. Slice; answer Yes to the first slice\'s permission prompts.',
   },
   {
-    name: 'PrusaSlicer', needs: '3.0 alpha · you place each fin by hand',
+    name: 'PrusaSlicer', needs: '3.0 alpha · for tilted parts · you place each fin by hand',
     // a warning line under the row: what a user must know before downloading
-    note: 'Not working right now: a fix is on the way. It also places a plain fin where you put it, not one shaped to the part like the other plugins (PrusaSlicer\'s plugins can\'t read the part\'s mesh).',
+    note: 'Adds one angled fin that you set under a tilted part. PrusaSlicer\'s plugins can\'t read the part\'s mesh, so it isn\'t shaped to the part like the other plugins. New in 0.2.0; not yet confirmed in a running slicer.',
     file: 'support-fins-prusa.zip',
-    install: 'Unzip, copy com.printfins.support-fins into the lua folder beside PrusaSlicer.ini, restart. Menu Support Fins ▸ Add a Fin.',
+    install: 'Unzip, copy com.printfins.support-fins into the lua folder beside PrusaSlicer.ini, restart. Menu Support Fins ▸ Add a Fin: set Slope Angle to the underside\'s angle, then move the fin so its slope sits 0.2 mm under the part.',
   },
   {
     name: 'Cura', needs: '5.x · experimental',
@@ -137,8 +137,7 @@ function render() {
       guide.href = p.guide;
       guide.target = '_blank';
       guide.rel = 'noopener';
-      guide.textContent = 'Guide (PDF)';
-      guide.download = 'SupportFins_User_Guide.pdf';   // served as octet-stream: say it's a download
+      guide.textContent = 'Guide (PDF)';   // raw.githubusercontent serves it as a file, so it downloads
       head.append(guide);
     }
     const needs = document.createElement('div');
