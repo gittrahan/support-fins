@@ -146,14 +146,14 @@ Tests (Deno for the JS engine):
 deno test --allow-read tests/
 ```
 
-## The PrusaSlicer plugin (exploratory — not currently working)
+## The PrusaSlicer plugin (hand-placed; in-slicer check pending)
 
-**Status: exploratory. This does not currently work — treat it as a research spike, not a
-usable feature.** `plugins/prusa/` is an in-progress attempt at a native PrusaSlicer 3.0 companion.
-It can't do the automatic tool — the 3.0 plugin sandbox can't read a loaded mesh's triangles
-— and the intended fallback (generating the fin natively: an overhang test object, a
-standalone breakaway fin you position by hand, and a combined tine demo) is not functional
-yet. Kept in the repo for reference only. Use the browser app instead. See `plugins/prusa/README.md`.
+`plugins/prusa/` is a native PrusaSlicer 3.0 plugin, **Support Fins → Add a Fin**. The 3.0
+plugin sandbox can't read a loaded mesh's triangles, so it can't do the automatic tool. It
+drops one angled-print support fin instead: a thin triangle whose slope you set 0.2 mm under
+a tilted part's underside, with one-layer tines along it (Slope Angle, Fin Height, Tine
+Spacing). You place it by hand. It hasn't been confirmed in a running slicer yet; until it
+is, use the browser app. See `plugins/prusa/README.md`.
 
 ## Honest limitations
 

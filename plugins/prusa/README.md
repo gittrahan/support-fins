@@ -16,8 +16,10 @@ flat directory with a single menu entry:
   short flat (1.2 mm, a little more when steep), never a point. Params: **Slope Angle** (20–70°, default 45), **Fin Height**,
   a **Gripping Tines** toggle, and **Tine Spacing** (default 6 mm, the sway braces' printed
   spacing; at least 1 mm). Tines spread evenly from just above the foot to just under the
-  top, no further apart than Tine Spacing along the slope, so both ends always grip; a fin
-  never gets fewer than 3 (the site's grip floor), so a huge spacing still leaves 3. A 25 mm
+  top, about Tine Spacing apart along the slope (snapping to the layer grid can stretch a gap
+  by up to a layer), so both ends always grip. Tines always keep at least one bare layer
+  between them, so a tight spacing on a shallow slope never fuses two into a 2-layer band. A
+  fin never gets fewer than 3 (the site's grip floor), so a huge spacing still leaves 3. A 25 mm
   45° fin gets 7 at 6 mm, 18 at 2 mm, 4 at 12 mm.
 
   **Placing it:** set Slope Angle to the angle of the part's underside. Turn the fin about Z

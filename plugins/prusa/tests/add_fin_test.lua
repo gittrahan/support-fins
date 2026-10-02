@@ -277,6 +277,19 @@ chk("default 6 mm is sparse: ~6-8 tines on a 25 mm 45 deg fin", n6 >= 6 and n6 <
 chk("tighter spacing gives more tines",          n2 > n6 and n6 > n12)
 chk("a huge spacing still keeps 3 tines (grip floor)", count(45, 500) == 3)
 chk("spacing is floored at 1 mm (0 doesn't flood)", count(45, 0) == count(45, 1))
+-- a tight spacing on a shallow slope: snapped tops must keep a bare layer apart
+local function min_gap(deg, step)
+    execute({angle=deg, fin_height=25, tines=true, tine_step=step})
+    local t, g = pieces().tines, math.huge
+    for i = 2, #t do g = math.min(g, t[i].z1 - t[i-1].z1) end
+    return g, #t
+end
+for _, lf in ipairs{{0.2, 0.2}, {0.3, 0.25}} do
+    LAYER, FIRST = lf[1], lf[2]
+    local g, n = min_gap(20, 1)
+    chk(("20 deg, spacing 1, layer %g: tines a bare layer apart (%d tines)"):format(LAYER, n), g >= 2 * LAYER - E)
+end
+LAYER, FIRST = 0.2, 0.2
 SPACING = 2
 execute({angle=30, fin_height=25, tines=true, tine_step=2})
 check_fin(30, 25, true)

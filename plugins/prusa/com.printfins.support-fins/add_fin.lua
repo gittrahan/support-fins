@@ -151,9 +151,11 @@ function execute(opts)
     fin:add(shapes.cylinder_at(br, base_h, bx, cy, 0))
 
     -- Tines spread evenly along the slope from just above the foot to just
-    -- under the top, no further apart than Tine Spacing (measured along the
-    -- slope) -- so both ends always grip -- and never fewer than MIN_TINES,
-    -- each one layer on the grid. A tine reaches from inside the fin --
+    -- under the top, about Tine Spacing apart along the slope (snapping to the
+    -- layer grid can stretch a gap by up to a layer) -- so both ends always
+    -- grip -- and never fewer than MIN_TINES, each one layer on the grid with
+    -- at least one bare layer between tines, so two never fuse into a 2-layer
+    -- band that welds into the part. A tine reaches from inside the fin --
     -- TINE_GRIP past the slope at its own top, and at least into the fill step
     -- behind it, so it holds on even without the rail -- out across the GAP
     -- (GAP/sin measured level) and BITE into the part, measured at mid-layer
@@ -161,14 +163,16 @@ function execute(opts)
     if opts.tines then
         local top_lo = snap_top(base_h + 0.2 + layer, layer, first)
         local top_hi = first + math.floor((H - TOP_CLEAR - first) / layer + 1e-9) * layer
-        local spacing = math.max(MIN_STEP, tonumber(opts.tine_step) or 6)
+        -- the spacing is along the slope, the grid vertical: on a shallow slope
+        -- 1 mm along it is a fraction of a layer, so never closer than 2 layers up
+        local spacing = math.max(MIN_STEP, 2 * layer / sn, tonumber(opts.tine_step) or 6)
         local tops = {}
         if top_hi >= top_lo then
             local n = math.ceil((top_hi - top_lo) / sn / spacing - 1e-9) + 1
             n = math.max(MIN_TINES, n)
             for i = 0, n - 1 do
                 local top = snap_top(top_lo + (top_hi - top_lo) * i / (n - 1), layer, first)
-                if #tops == 0 or top > tops[#tops] + 1e-6 then tops[#tops + 1] = top end
+                if #tops == 0 or top >= tops[#tops] + 2 * layer - 1e-6 then tops[#tops + 1] = top end
             end
         end
         for _, top in ipairs(tops) do
