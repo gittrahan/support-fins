@@ -183,10 +183,22 @@ html, body {
 }
 .plugins-computer { display: flex; align-items: center; gap: 8px; color: var(--dim); padding: 2px 0 6px; }
 .plugins-computer select { flex: 1; }
-.plugin { padding: 8px 0; border-top: 1px solid var(--line); }
-.plugin-head { display: flex; align-items: center; gap: 8px; }
+.plugin { border-top: 1px solid var(--line); }
+.plugin-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 4px; cursor: pointer; list-style: none; border-radius: 6px;
+}
+.plugin-head::-webkit-details-marker { display: none; }
+.plugin-head::before {      /* the open/closed caret */
+  content: '▸'; color: var(--dim); width: 10px; flex: none;
+  transition: transform 0.12s;
+}
+.plugin[open] > .plugin-head::before { transform: rotate(90deg); }
+.plugin-head:hover, .plugin-head:focus-visible { background: var(--btn-hi); outline: none; }
 .plugin-head b { flex: 1; font-weight: 600; }
 .plugin-head .btn { text-decoration: none; font-size: 12px; }
+.plugin-none { color: var(--dim); font-size: 12px; }
+.plugin-body { padding: 0 4px 10px 22px; }
 .plugin-needs, .plugin-ver { color: var(--dim); font-size: 12px; margin-top: 2px; }
 .plugin-ver { font-variant-numeric: tabular-nums; }
 .plugin-how { margin-top: 4px; font-size: 12px; line-height: 1.4; }

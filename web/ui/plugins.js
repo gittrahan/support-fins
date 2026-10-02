@@ -107,12 +107,18 @@ function shortLabel(label) {
   return [v && `v${v[1]}`, ...rest.filter((p) => p.startsWith('engine'))].filter(Boolean).join(' · ');
 }
 
+// One collapsible row per plugin: the summary is just the name and its Download
+// button (one click to the file); opening it shows what it needs, any warning,
+// the version line and the install steps. All start closed so the list scans.
 function render() {
   const c = computer.value;
+  const wasOpen = new Set([...list.querySelectorAll('details[open]')].map((d) => d.dataset.name));
   list.replaceChildren(...PLUGINS.map((p) => {
-    const row = document.createElement('div');
+    const row = document.createElement('details');
     row.className = 'plugin';
-    const head = document.createElement('div');
+    row.dataset.name = p.name;
+    row.open = wasOpen.has(p.name);           // a computer change keeps what's open
+    const head = document.createElement('summary');
     head.className = 'plugin-head';
     const name = document.createElement('b');
     name.textContent = p.name;
@@ -131,6 +137,12 @@ function render() {
       go.title = file;
     }
     if (go.href) head.append(go);
+    else {
+      const none = document.createElement('span');
+      none.className = 'plugin-none';
+      none.textContent = 'No build';
+      head.append(none);
+    }
     if (p.guide) {
       const guide = document.createElement('a');
       guide.className = 'btn sm';
@@ -140,29 +152,32 @@ function render() {
       guide.textContent = 'Guide (PDF)';   // raw.githubusercontent serves it as a file, so it downloads
       head.append(guide);
     }
+    const body = document.createElement('div');
+    body.className = 'plugin-body';
     const needs = document.createElement('div');
     needs.className = 'plugin-needs';
     needs.textContent = file === null ? `No build for ${COMPUTERS.find(([k]) => k === c)[1]}` : p.needs;
-    row.append(head, needs);
+    body.append(needs);
     if (p.note) {
       const note = document.createElement('div');
       note.className = 'plugin-note';
       note.textContent = p.note;
-      row.append(note);
+      body.append(note);
     }
     const label = file && labels?.[file];
     if (label) {
       const ver = document.createElement('div');
       ver.className = 'plugin-ver';
       ver.textContent = shortLabel(label);
-      row.append(ver);
+      body.append(ver);
     }
     if (file !== null) {
       const how = document.createElement('div');
       how.className = 'plugin-how';
       how.textContent = p.install;
-      row.append(how);
+      body.append(how);
     }
+    row.append(head, body);
     return row;
   }));
 }
