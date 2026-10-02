@@ -44,7 +44,6 @@ const SITE_EXCLUDED = {
   'show-layers': 'site display', 'highlight-small': 'site display',
   'fin-mode': 'plugins run Auto; Draw needs the site\'s canvas',
   'gap': 'hand-typed clearance; the material sets it',
-  'tine-bite': 'hand-typed, from the bite coupon; plugins keep the engine default',
   'pad-h': 'Custom pad', 'pad-gap': 'Custom pad', 'pad-grip': 'Custom pad', 'pad-margin': 'Custom pad',
 };
 
