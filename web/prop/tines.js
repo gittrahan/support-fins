@@ -318,7 +318,10 @@ export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tin
   // sparsest setting: edge-bias must not compound with a user who already dialed
   // grip to light and starve the comb to a few scattered nubs.
   const S = s[s.length - 1];
-  const lowFirst = line[0][2] <= line[line.length - 1][2];
+  // Ends level to within float noise (a symmetric part: sphere walls end at the same
+  // z) keep the line's own order, rather than let a 1e-9 nudge pick which end anchors
+  // the comb (local issue 023: sphere 18 -> 17 tines, the mirrored comb lost one).
+  const lowFirst = line[0][2] <= line[line.length - 1][2] + 1e-6;
   const at = (u) => place((lowFirst ? u : S - u) - s0);   // u = arc length from the LOW end
   const band = Math.min(PROP.tineEdgeBand, S / 2);
   const midStep = PROP.tinesPerWall > 0 ? step     // an exact count: even, no edge bias
