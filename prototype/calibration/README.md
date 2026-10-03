@@ -138,8 +138,10 @@ object, so the slicer keeps the tine separate from the part (it trims only
 vs two. Knob: `tunables.tinesPerWall` (#166).
 **Score blind:** for each ledge 1-15, note the mark 0 (none) - 3 (bad), and whether
 the wall snapped clean or fell off during the print. Only then open
-`print/key.json`, which maps each ledge to its condition. The build's console
-output hides the conditions too.
+`print/key.json`, which maps each ledge to its condition. The tine count (0/1/3) is
+visible on the print anyway, so what's truly blind is merged vs KISS, the main
+question. The slicer's object list shows which walls are the KISS object, so if you
+slice it yourself, don't study the preview's object colours.
 **Print the 3MF** (the .stl can't keep objects apart). If the slicer asks whether to
 load it as one object with several parts, say **no**. **Never Arrange** (and turn
 off arrange-on-load): it moves the two objects apart, leaving the KISS walls
@@ -147,9 +149,9 @@ standing loose. The file places both together on any bed 180 mm or bigger (156 m
 long); to move it, select both and move them as one. Check in the preview that every
 ledge has a wall under it.
 Checked before printing (PrusaSlicer 3.0 alpha, 0.2 layers): two objects in the
-G-code, placed together. Every wall reaches the ledge's edge. Before #171, one
-ledge's wall stopped 0.9 mm short through float noise (local issue 023), and
-build.js still fails on any unequal wall.
+G-code, placed together. build.js checks that every wall reaches the same distance
+out (12.15 mm from the bar's centre, the ledge's edge on this build). Before #171,
+one ledge's wall stopped 0.9 mm short through float noise (local issue 023).
 Reading it: B beats A and D beats C -> separate objects help, so a "fins as their
 own object" export is worth building (local issue 027). Only 1 vs 3 matters -> fewer
 tines, no export change. Neither beats E's no-tine control on marks -> look at grip
