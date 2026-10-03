@@ -1,40 +1,28 @@
 // FLOAT-NOISE STABILITY (local issue 023). The same part nudged by 1e-9 rad -- far below
 // anything a user, an STL writer or a browser's trig can do on purpose -- must build the
-// same supports. Before #171 and this file, 16 of these 26 scenes changed under the
+// same supports. Before #171 and this file, 14 of these 24 scenes changed under the
 // nudge: an end station dropped one ulp outside surfaceZAt's grid, a part edge lying in
 // a wall's end-cap plane read as a pierce (segTriHit's absolute parallel test), and a
 // level wall's comb anchored at whichever end noise made lower.
 
 import { assert, assertAlmostEquals } from 'jsr:@std/assert';
 import { blockTopo } from './_util.js';
-import { run } from './_scene.js';
-import * as THREE from '../web/vendor/three/three.core.js';
+import { run, sitePose } from './_scene.js';
 
 const { solidClearance } = await import('../web/inside.js');
 
-const SNAP = THREE.MathUtils.degToRad(5);
-/** The site's pose (golden.test.js sitePose) with every turn nudged by `eps` rad. */
-function nudged(deg, eps) {
-  const q = new THREE.Quaternion();
-  const axes = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
-  deg.forEach((d, i) => {
-    if (d) q.premultiply(new THREE.Quaternion().setFromAxisAngle(axes[i], Math.round(d / 5) * SNAP + eps));
-  });
-  if (!deg.some(Boolean)) q.premultiply(new THREE.Quaternion().setFromAxisAngle(axes[0], eps));
-  return new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(q)).elements;
-}
-
+// golden picks not already in the stress set at X40, plus every stress model at X40
 const SCENES = [
-  ['cube', [40, 0, 0]], ['sphere', [0, 0, 0]], ['lbracket', [35, 0, 0]], ['staircase', [40, 0, 0]],
+  ['sphere', [0, 0, 0]], ['lbracket', [35, 0, 0]],
   ...[...Deno.readDirSync(new URL('../prototype/stress/models/', import.meta.url))]
     .map((e) => e.name.replace(/\.stl$/, '')).sort().map((m) => [m, [40, 0, 0]]),
 ];
 
-Deno.test('stability: a 1e-9 rad nudge builds the same supports (26 scenes)', () => {
+Deno.test('stability: a 1e-9 rad nudge builds the same supports (24 scenes)', () => {
   const flips = [];
   for (const [model, rot] of SCENES) {
     const sig = (eps) => {
-      const o = run({ model, rot }, nudged(rot, eps));
+      const o = run({ model, rot }, sitePose(rot, eps));
       return `${o.walls}w ${o.tines}t ${o.tris.length / 3}tri`;
     };
     const base = sig(0);

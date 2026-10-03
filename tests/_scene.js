@@ -34,12 +34,15 @@ export function siteOpts({ material = 'pla', mode = 'auto', sway = false } = {})
 /** The rotate ring's pose for the readout [x, y, z]: snapped turns about the world
  *  axes (TransformControls premultiplies), as Matrix3 elements like part.js rotM3. */
 const SNAP = THREE.MathUtils.degToRad(5);
-export function sitePose(deg) {
+export function sitePose(deg, eps = 0) {
   const q = new THREE.Quaternion();
   const axes = [new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 1)];
   deg.forEach((d, i) => {
-    if (d) q.premultiply(new THREE.Quaternion().setFromAxisAngle(axes[i], Math.round(d / 5) * SNAP));
+    if (d) q.premultiply(new THREE.Quaternion().setFromAxisAngle(axes[i], Math.round(d / 5) * SNAP + eps));
   });
+  // `eps` nudges every turn by that many rad (stability.test.js); an unturned pose
+  // takes it about X
+  if (eps && !deg.some(Boolean)) q.premultiply(new THREE.Quaternion().setFromAxisAngle(axes[0], eps));
   return new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(q)).elements;
 }
 
