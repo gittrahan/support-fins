@@ -8,7 +8,7 @@ actually makes (tine/ also adds its KISS tines as a second object, on purpose):
     python3 prototype/calibration/<name>/gen.py      # the part -> out/coupon_part.stl
     deno run -A prototype/calibration/<name>/build.js  # walls on it -> out/<name>-coupon.3mf
 
-The user-facing coupons (angle, gap, bite, span, pad, bore) share `coupon.py` (boxes, rung
+The user-facing coupons (angle, gap, tine, span, pad, bore) share `coupon.py` (boxes, rung
 dots, the one-piece check) and `coupon.js` (the site's own call -- `analyze(topo, 45,
 rot)` then `buildFins(..., {mode: 'auto', bedPad: true})` at the site's PLA defaults --
 run once per rung with that rung's setting, keeping the support PIECES -- whole
@@ -115,33 +115,18 @@ bore's axis, inside the bore, running out the open end; 0 unserved. Checks the
 2026-09-27 reversal (bores DO get supported) on a printed part.
 - **waiting on print.**
 
-### bite/ -- how far should tines reach into the part? (the Tine bite field, PROP.tineBite)
-Bar on the plate, twelve identical 16 mm ledges, undersides 40 deg off the plate;
-Auto per ledge with Tine bite 0.15 ... 0.70 in 0.05 steps (1-12 dots, a second row
-past six). One wall + 3 tines per ledge on every rung. Each tine's reach INTO the
-part (its overlap with the solid / its cross-section) climbs with the rung: 0.15 ->
-0.01-0.08 mm, 0.50 -> 0.31-0.49, 0.70 -> 0.51-0.69 (layer snap makes the three
-differ). At 0.10 the engine places no tines on this slope, so the ladder starts at
-0.15. One print reads both ends: the low rungs where a wall drops off with no snap
-(grip failed) and the high rungs where a snapped tine leaves a mark.
-- Field added with it (Tines section, 0.1-0.8, default 0.5, `tunables.wallBite`;
-  the field was removed in #167).
-  The material profile's `tineBite` (PLA 0.30 / PETG 0.15) is FIN.tineBite, which
-  only the sway braces read; walls always used PROP.tineBite 0.5. Unchanged here.
-- **2026-10-02, PLA: every rung fused, all left marks; none failed.** Bite isn't the
-  dial. Measured on this coupon: at a tine's own layer the part's edge is only
-  0.02-0.20 mm out from the wall's centreline (inside the 1 mm wall), and one layer up
-  the part reaches 0.05-0.23 mm back OVER the wall. So the part's next layer prints
-  straight onto the tine with no gap, and a slicer merges a tine into the part it
-  touches. The weld is about the tine's plan area under the part, the same at 0.15
-  and 0.70. Replaced by tine/ (local issue 027).
-- **2026-10-03, PLA, second print (all-coupons plate): rung 1 (0.15) looked best, but
-  all twelve look nearly the same.** Matches the finding above. The Tine bite field
-  is gone (#167) and tines now end at the part's surface (#168): bite is only a
-  placement reach.
+### bite/ -- RETIRED 2026-10-03 (files removed; last in git at 6ec7c16)
+Asked how far tines should reach into the part (the old Tine bite field): twelve 40 deg
+ledges, bite 0.15-0.70. **Printed twice in PLA: every rung fused and left a mark, none
+failed, all looked about the same.** Why: at a tine's layer the part's edge is already
+inside the 1 mm wall, and one layer up the part reaches back over the wall, so the
+part's next layer prints straight onto the tine; the slicer merges part and supports
+(one object), so the reach changes nothing. Bite is not a user setting any more (field
+removed in #167; tines end at the part's surface in #168), so the coupon went too.
+Replaced by tine/ (local issue 027).
 
 ### tine/ -- what leaves the smallest tine mark and still holds?
-The bite coupon's bar and 40 deg ledges, ten of them; Auto per ledge with:
+The retired bite coupon's bar and 40 deg ledges, ten of them; Auto per ledge with:
 near side (shape, 3 tines a wall) 1 square 0.5 wide (today), 2 square 0.4, 3 square
 0.3, 4 pointed tip, 5 KISS square, 6 KISS pointed; far side (count, today's square)
 7 three tines, 8 two, 9 one, 10 none. Knobs: `tunables.tineWidth` / `tineTip` /

@@ -23,7 +23,7 @@ import trimesh
 HERE = Path(__file__).resolve().parent
 BED, GAP = 256.0, 6.0
 # rows, front to back; each row left to right
-ROWS = [['pad', 'bore'], ['span', 'slender'], ['bite', 'tine'], ['foot', 'gap', 'lip'], ['angle']]
+ROWS = [['pad', 'bore'], ['span', 'slender'], ['tine'], ['foot', 'gap', 'lip'], ['angle']]
 NS = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02'
 
 

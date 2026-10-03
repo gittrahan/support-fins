@@ -83,9 +83,6 @@ export function applyTunables(t) {
   if (['auto', 'light', 'sure', 'custom'].includes(t.padStyle)) PAD.style = t.padStyle;
   if (t.padCustom) for (const k of Object.keys(PAD.custom)) set(PAD.custom, k, t.padCustom[k]);
   set(PROP, 'gap', t.propGap);
-  // The walls' tines (prop/tines.js); calibration only (the bite coupon). Not t.tineBite:
-  // that is FIN.tineBite, the material's, which only the sway braces read.
-  set(PROP, 'tineBite', t.wallBite);
   // Tine shape, the tine coupon's knobs (no site field yet): width across the run
   // and the plan-view tip. Calibration only until a print picks them.
   // A width under 0.1 would fold the tine and its wall step (inset 0.01 a side) inside out.

@@ -22,7 +22,7 @@ export const SITE = Object.freeze({
 });
 export const PLA_TUNABLES = Object.freeze({
   tineBite: MATERIAL.pla.tineBite, padH: MATERIAL.pla.padH, padGrab: MATERIAL.pla.padGrab,
-  propGap: MATERIAL.pla.propGap, wallBite: 0.5, padStyle: 'auto',
+  propGap: MATERIAL.pla.propGap, padStyle: 'auto',
   // PAD.custom's own defaults: what a fresh page sends (style auto never reads them)
   padCustom: { h: 0.5, gap: 0.0, grip: 0.05, margin: 4.0 }, cutout: 'none',
   // the tine shape knobs' defaults (tine coupon): reset every rung, they persist

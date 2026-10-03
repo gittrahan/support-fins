@@ -104,7 +104,7 @@ function finOpts() {
            // applyTunables). Without this, Auto mode always built PLA's numbers.
            tunables: { tineBite: FIN.tineBite, padH: FIN.padH,
                        padGrab: PAD.grab, padStyle: PAD.style, padCustom: { ...PAD.custom },
-                       propGap: PROP.gap, wallBite: PROP.tineBite,
+                       propGap: PROP.gap,
                        cutout: CUT.pattern } };
 }
 
