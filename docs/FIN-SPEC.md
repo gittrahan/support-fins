@@ -72,6 +72,16 @@ welts.
   66% of contact-line stations take a tine ≤ 1.5 mm, and 13/20 overhang regions have a
   vertical face tall enough to stand a fin against. **That ~65% ceiling is why manual fin
   placement is a core feature, not a fallback.**
+- **Tines kiss the part's surface** (2026-10-02). A tine is placed only where its
+  `tineBite` (0.5) reach lands in the part, but it's built only up to the surface: its
+  end follows the part, measured at each side edge at the tine's bottom and top
+  (`kissEnds`), so on a slope the end leans with the underside and nothing of the tine
+  sits inside the part (+0.01 mm, so the two overlap rather than sit flush). Top and
+  bottom stay flat and one layer apart, so it's still one bead. A slicer unions part
+  and supports in one object, so the buried stretch never printed: bite coupon, main
+  vs kiss, sectioned at every mid-layer: 0 mm2 lost, 0.02 mm2 gained (spots where the
+  0.5 box stopped short of the face). What welds is the part's next layer printing
+  onto the tine (local issue 027).
 - **Scale-aware profile.** The prototype's foot/chamfer/tip are fixed, which degenerates
   into a 14 mm splayed sheet when the overhang sits low. Foot width must scale with wall
   height.

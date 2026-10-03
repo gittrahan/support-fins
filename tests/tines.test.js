@@ -8,7 +8,7 @@
 //   - hung BELOW the contact -> a tall tooth, not a one-layer bridge.
 // These tests pin emitTines directly on a controlled solid so both stay caught.
 
-import { blockTopo, tiltedBlockTopo, prop, insidePart, bbox, assert, assertClose } from './_util.js';
+import { blockTopo, tiltedBlockTopo, prop, insidePart, bbox, assert, assertClose, tineBoxes } from './_util.js';
 
 const { emitTines, surfaceZAt } = prop;
 
@@ -85,18 +85,34 @@ Deno.test('emitTines: on a wall along the level CONTOUR, teeth still bite INTO t
     if (z !== null) line.push([x, 0, z]);
   }
   const out = [];
-  const n = emitTines(line, null, topo, rot, offset, out);
+  const cap = [];                          // each tine's seed + bite heading (the test seam)
+  globalThis.__TINECAP = cap;
+  let n;
+  try { n = emitTines(line, null, topo, rot, offset, out); } finally { delete globalThis.__TINECAP; }
   // The old run-aligned bite produced ZERO tines here: probing +-run heads along
   // the contour (constant height), never into the material, so every station drops
   // out. A part-derived bite grips the sloped face.
   assert(n >= 3, `contour wall produced too few tines: ${n} (old bug: 0 -- bit along the run)`);
-  let inside = 0;
-  for (const v of out) if (insidePart(topo, rot, offset, v[0], v[1], v[2])) inside++;
-  assert(inside / out.length >= 0.35, `contour tines lie flat: only ${(inside / out.length * 100 | 0)}% of verts inside`);
-  // the bite runs ACROSS the wall (into the slope in Y), not ALONG it (X): the run
-  // spans x in [-8,8] but the tooth reach in Y must clear the wall thickness.
-  const box = bbox(out);
-  assert((box.hi[1] - box.lo[1]) > 0.6, `contour tines don't reach into the face (Y-extent ${(box.hi[1] - box.lo[1]).toFixed(2)})`);
+  // the bite runs ACROSS the wall (into the slope, in Y), not ALONG it (X), and each
+  // tine KISSES the face: tines end at the part's surface (kissEnds), their end leaning
+  // with the slope. So every corner of a tine's far end touches solid, and 0.03 mm back
+  // toward the wall is open -- no part of the tine runs on into the part, and a tine
+  // lying flat along the contour would end in the gap instead.
+  const { tines } = tineBoxes(out);
+  assert(tines.length === n, `${tines.length} tine boxes for ${n} tines`);
+  for (const [k, t] of tines.entries()) {
+    assert(t.hi[0] - t.lo[0] < 0.6, `a tine runs along the contour (x ${t.lo[0].toFixed(2)}..${t.hi[0].toFixed(2)})`);
+    const { x, y, biteX, biteY } = cap[k];
+    assert(Math.abs(biteY) > 0.99, `tine ${k} bites along ${biteX.toFixed(2)},${biteY.toFixed(2)}, not into the slope`);
+    const along = (v) => (v[0] - x) * biteX + (v[1] - y) * biteY;
+    const far = t.verts.filter((v) => along(v) > -prop.PROP.tineOverlap + 1e-6);
+    assert(far.length > 0, `tine ${k} has no far end`);
+    for (const v of far) {
+      assert(insidePart(topo, rot, offset, v[0], v[1], v[2]), `tine ${k} corner ${v.map((c) => c.toFixed(2))} ends short of the face`);
+      assert(!insidePart(topo, rot, offset, v[0] - biteX * 0.03, v[1] - biteY * 0.03, v[2]),
+             `tine ${k} corner ${v.map((c) => c.toFixed(2))} runs on into the part`);
+    }
+  }
 });
 
 Deno.test('emitTines: an overhang the tooth cannot reach into gets no tine (honest)', () => {

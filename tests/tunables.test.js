@@ -124,12 +124,10 @@ Deno.test('tunables: tine width and a pointed tip shrink the tines, same count',
   assert(base.tines > 0, 'no tines to compare');
   assert(narrow.tines === base.tines && point.tines === base.tines,
          `tine count moved: ${base.tines} / ${narrow.tines} / ${point.tines}`);
-  // one tine is 0.8 long x tineW wide x 0.2 tall: 0.3 wide saves 0.2 x 0.8 x 0.2 each,
-  // plus the wall steps under lifted tines (they take the tine's width too); a point
-  // saves half the 0.5-long bite end, 0.5 x 0.5 / 2 x 0.2, and leaves the steps alone
-  const per = (d) => (base.v - d) / base.tines;
-  assert(per(narrow.v) > 0.032 - 0.004, `0.3 wide saved only ${per(narrow.v).toFixed(4)} mm3/tine`);
-  assert(Math.abs(per(point.v) - 0.025) < 0.004, `point saved ${per(point.v).toFixed(4)} mm3/tine`);
+  // tines kiss the part (kissEnds), so each one's length follows the surface: the
+  // savings vary by tine, but narrower or pointed is always less plastic
+  assert(narrow.v < base.v - 1e-4, `0.3 wide saved nothing (${base.v.toFixed(4)} -> ${narrow.v.toFixed(4)})`);
+  assert(point.v < base.v - 1e-4, `point saved nothing (${base.v.toFixed(4)} -> ${point.v.toFixed(4)})`);
   assert(prop.PROP.tineW === 0.5 && prop.PROP.tineTip === 'square', 'defaults not restored');
 });
 
