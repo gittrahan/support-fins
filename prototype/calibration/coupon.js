@@ -26,7 +26,7 @@ export const PLA_TUNABLES = Object.freeze({
   // PAD.custom's own defaults: what a fresh page sends (style auto never reads them)
   padCustom: { h: 0.5, gap: 0.0, grip: 0.05, margin: 4.0 }, cutout: 'none',
   // the tine shape knobs' defaults (tine coupon): reset every rung, they persist
-  tineWidth: 0.5, tineTip: 'square', tinesPerWall: 0,
+  tinesPerWall: 0,
 });
 
 function readSTL(b) {

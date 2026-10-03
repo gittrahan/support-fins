@@ -93,44 +93,6 @@ Deno.test('tunables: the weld floor scales with the gap, PLA unchanged', () => {
   }
 });
 
-Deno.test('tunables: tine width and a pointed tip shrink the tines, same count', () => {
-  // The tine coupon's knobs (calibration/tine). Same part, same pose: the tip never
-  // moves the comb (placement is by tineBite), and on this part neither does the
-  // width (it sets the anchor scan's step, which can shift where the comb starts).
-  const topo = tiltedBlockTopo(-20, 20, -15, 15, 0, 30, 40);
-  const res = analyze(topo, 45, IDENTITY);
-  // signed volume of the closed boxes the soup is made of (overlaps counted twice,
-  // the same in every build, so differences are the tines')
-  const vol = (t) => {
-    let v = 0;
-    for (let i = 0; i < t.length; i += 3) {
-      const [a, b, c] = [t[i], t[i + 1], t[i + 2]];
-      v += (a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0])
-          + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
-    }
-    return v;
-  };
-  const build = (tunables) => {
-    const b = fins.buildFins(topo, res, IDENTITY, { mode: 'auto', bedPad: false, tines: true, tunables });
-    return { tines: b.tines, v: vol(b.triangles) };
-  };
-  const w0 = prop.PROP.tineW, tip0 = prop.PROP.tineTip;
-  let base, narrow, point;
-  try {
-    base = build({});
-    narrow = build({ tineWidth: 0.3 });
-    point = build({ tineWidth: w0, tineTip: 'point' });
-  } finally { fins.applyTunables({ tineWidth: w0, tineTip: tip0 }); }
-  assert(base.tines > 0, 'no tines to compare');
-  assert(narrow.tines === base.tines && point.tines === base.tines,
-         `tine count moved: ${base.tines} / ${narrow.tines} / ${point.tines}`);
-  // tines kiss the part (kissEnds), so each one's length follows the surface: the
-  // savings vary by tine, but narrower or pointed is always less plastic
-  assert(narrow.v < base.v - 1e-4, `0.3 wide saved nothing (${base.v.toFixed(4)} -> ${narrow.v.toFixed(4)})`);
-  assert(point.v < base.v - 1e-4, `point saved nothing (${base.v.toFixed(4)} -> ${point.v.toFixed(4)})`);
-  assert(prop.PROP.tineW === 0.5 && prop.PROP.tineTip === 'square', 'defaults not restored');
-});
-
 Deno.test('tunables: tinesPerWall puts exactly n tines on every tined wall', () => {
   // The tine coupon's how-few-still-hold row. 0 (the default) leaves spacing alone.
   const topo = tiltedBlockTopo(-20, 20, -15, 15, 0, 30, 40);

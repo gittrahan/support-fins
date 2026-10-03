@@ -73,7 +73,7 @@ welts.
   vertical face tall enough to stand a fin against. **That ~65% ceiling is why manual fin
   placement is a core feature, not a fallback.**
 - **Tines kiss the part's surface** (2026-10-02). A tine is placed only where its
-  `tineBite` (0.5) reach lands in the part, but it's built only up to the surface: its
+  `tineReach` (0.5) reach lands in the part, but it's built only up to the surface: its
   end follows the part, measured at each side edge at the tine's bottom and top
   (`kissEnds`), so on a slope the end leans with the underside and nothing of the tine
   sits inside the part (+0.01 mm, so the two overlap rather than sit flush). Top and

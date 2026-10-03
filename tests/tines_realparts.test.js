@@ -16,7 +16,7 @@
 
 import { loadModel, analyze, fins, prop, insidePart, nearestFaceInwardH, rotX, rotY, assert } from './_util.js';
 
-const TINE_BITE = prop.PROP.tineBite;   // how far the nub reaches in -- read from source, don't drift
+const TINE_BITE = prop.PROP.tineReach;   // how far the nub reaches in -- read from source, don't drift
 
 const CASES = [
   ['plate', rotX(45)], ['plate', rotY(40)], ['plate', rotY(-40)],

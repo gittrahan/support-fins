@@ -165,12 +165,12 @@ export const PROP = {
   // --- TINES (the grip comb) ---------------------------------------------
   // A plain prop stops `gap` under the overhang and the part bridges over it:
   // a pure breakaway, no grip. The COMBINED support adds a comb of tiny
-  // horizontal nubs along the wall's top that bite a hair into the part, so a
+  // horizontal nubs along the wall's top that reach the part's surface, so a
   // tilted part cannot peel or twist off the wall -- and, because each nub is
   // one layer line lying in the layer plane, it BENDS to snap clean instead of
   // tearing out (fins.js documents the same reasoning for the beside-the-face
   // fin these replace). Tines only bite where the overhang is steep enough that
-  // a horizontal poke reaches solid: past a slope of gap/bite the nub lands in
+  // a horizontal poke reaches solid: past a slope of gap/reach the nub lands in
   // the part, below it in air, and the emitter simply skips the ones that miss
   // (verified by insidePart, never assumed) -- the same honest behaviour the
   // beside-the-face fin had.
@@ -188,25 +188,23 @@ export const PROP = {
   // 0.5 is his stated number ("0.5 by 0.5"). NOTE: this used to be dead -- emitTines
   // built the tine `th` (1.0mm) wide, ~2x spec, a fat divot Matthew caught by eye.
   tineW: 0.5,
-  // Tine TIP in plan view: 'square' (a 0.5 x 0.8 bar, the default) or 'point' (full
-  // width at the wall, tapering to a point at the bite). On a sloped underside the
-  // part's next layer prints straight onto the tine, so the weld -- and the mark --
-  // is roughly the tine's plan area under the part; a point halves the bite end.
-  // Calibration knob (tunables.tineTip), decided by the tine coupon.
-  tineTip: 'square',
+  // (A 'point' tip and a tineWidth knob were tried on the tine coupon, 2026-10-03:
+  // no visible difference -- a 0.3-0.5 wide tine or a point all print as about one
+  // bead -- so both knobs are gone. prototype/calibration/README.md tine/ v1.)
   // Tines per wall, EXACT, overriding spacing and the minGripTines floor: the comb is
   // spaced wall-length / n. 0 = off (the default; spacing rules decide). Calibration
   // knob (tunables.tinesPerWall), the tine coupon's how-few-still-hold row.
   tinesPerWall: 0,
-  tineBite: 0.5,     // how far a nub reaches horizontally into the part. TRIMMING this
-                     // toward Slant3D's smaller sliver (0.3) to shrink the pockmark was
-                     // tried and reverted: because the tine seeds on the surface and
-                     // drops `gap` below it, the reach-into-solid margin is thin, and
-                     // the slope gate is gap/bite -- so a shorter reach stops gripping
-                     // at/near 45deg (the common orientation). tines_realparts +
-                     // draw + tine_density pin real grip there and fail below ~0.45;
-                     // 0.5 is already near the grip floor. Mark reduction is a
-                     // PLACEMENT problem (keep tines off flat mid-faces), not a bite one.
+  tineReach: 0.5,    // how far out a tine looks for the part, horizontally: a tine is
+                     // placed only if solid lies within this reach (the slope gate is
+                     // gap/reach), and kissEnds searches up to 2x it for the surface the
+                     // tine's end stops on (#168: no tine runs into the part). Was
+                     // `tineBite`, when tines ran this far INTO the part. Shrinking it
+                     // to 0.3 was tried and reverted: the tine seeds on the surface and
+                     // drops `gap` below it, so a shorter reach stops gripping at/near
+                     // 45deg (the common orientation). tines_realparts + draw +
+                     // tine_density pin real grip there and fail below ~0.45. Print
+                     // tests: the reach never changed the mark (bite coupon, retired).
   tineStep: 2.0,     // mm between nubs -- the DENSE grip comb, the default
   tineStepSparse: 5.0, // mm between nubs at the sparse end of the Tine-grip slider
   tineOverlap: 0.3,  // how far the nub sinks back into the wall, so they union

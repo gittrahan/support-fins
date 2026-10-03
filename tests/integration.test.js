@@ -68,7 +68,7 @@ Deno.test('every tine on a real part matches Slant’s spec: one layer tall, one
   // the tine footprint is a rectangle: (bite + overlap) long, tineW wide. Pin the
   // diagonal to THAT -- a th-wide (1.0mm) tine pushes the diagonal from ~0.94 to
   // ~1.28 and trips this. Uses tineW so it tracks the spec, not a loose 0.8.
-  const maxDiag = Math.hypot(PROP.tineBite + PROP.tineOverlap, PROP.tineW) + 0.05;
+  const maxDiag = Math.hypot(PROP.tineReach + PROP.tineOverlap, PROP.tineW) + 0.05;
   for (const { lo, hi } of chunks) {
     // one layer tall
     const zExt = hi[2] - lo[2];
