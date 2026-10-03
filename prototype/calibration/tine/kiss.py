@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tine coupon, step 3: the KISS ledges. Cut their supports at the part's surface
+"""Tine coupon, step 3: the KISS ledges (which ones: out/key.json). Cut their supports at the part's surface
 (each closed body minus the part), so no tine reaches inside it, and rewrite
 out/tine-coupon.3mf with them as their OWN build item. A slicer unions the parts of
 one object -- the site's 3MF puts part and supports in one, so a tine touching the
@@ -20,7 +20,7 @@ OUT = Path(__file__).resolve().parent / 'out'
 NS = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02'
 # Both items placed together, on any bed 180 mm or bigger (A1 mini up): two objects
 # keep their 3MF positions, and centred on the origin half the coupon is off the bed.
-# The coupon is 119 mm long, so it spans x 30.5-149.5. Arrange splits the two apart.
+# The coupon is 156 mm long, so it spans x 12-168. Arrange splits the two apart.
 BED = '1 0 0 0 1 0 0 0 1 90 90 0'
 
 
@@ -59,7 +59,7 @@ model = (f'<?xml version="1.0" encoding="UTF-8"?>\n<model unit="millimeter" xml:
          '<resources>' + mesh_xml(1, part, 'Tine coupon') + mesh_xml(2, sup, 'Supports')
          + '<object id="3" type="model" name="Tine coupon"><components><component objectid="1"/>'
            '<component objectid="2"/></components></object>'
-         + mesh_xml(4, kiss, 'Kiss supports (ledges 5-6, own object)')
+         + mesh_xml(4, kiss, 'Kiss supports (own object)')
          + f'</resources><build><item objectid="3" transform="{BED}"/>'
            f'<item objectid="4" transform="{BED}"/></build></model>')
 src = zipfile.ZipFile(OUT / 'tine-coupon.3mf')

@@ -125,24 +125,42 @@ part's next layer prints straight onto the tine; the slicer merges part and supp
 removed in #167; tines end at the part's surface in #168), so the coupon went too.
 Replaced by tine/ (local issue 027).
 
-### tine/ -- what leaves the smallest tine mark and still holds?
-The retired bite coupon's bar and 40 deg ledges, ten of them; Auto per ledge with:
-near side (shape, 3 tines a wall) 1 square 0.5 wide (today), 2 square 0.4, 3 square
-0.3, 4 pointed tip, 5 KISS square, 6 KISS pointed; far side (count, today's square)
-7 three tines, 8 two, 9 one, 10 none. Knobs: `tunables.tineWidth` / `tineTip` /
-`tinesPerWall` (#166, calibration only; no site field until this prints).
-KISS: kiss.py cuts those tines off at the part's surface and writes them as their
-OWN object in the 3MF, so the slicer keeps them apart from the part instead of
-merging them. **Print the 3MF** (the .stl can't keep objects apart), and if the
-slicer asks whether to load it as one object with several parts, say **no**.
-**Never Arrange** (and turn off arrange-on-load): it moves the two objects apart,
-leaving the kiss walls standing loose and ledges 5-6 bare. The file places both
-together on any bed 180 mm or bigger; to move it, select both and move them as one.
-Check in the preview that ledges 5-6 have their walls under them.
-Measured before printing (PrusaSlicer, 0.2 layers): every tine prints, 0.3 and
-pointed included; two objects in the G-code; tine top under the part's next layer,
-per ledge: 1 0.97 mm2, 2 0.74, 3 0.53, 4 0.60, 5 0.36, 6 0.34, 7 0.97, 8 0.65, 9 0.33.
-For a user: the ledge with the faintest marks that still snapped (didn't fall off).
+### tine/ -- does a separate-object (KISS) tine leave a fainter mark, or is it just fewer tines?
+**v2 (current).** Bar on the plate with fifteen 40 deg ledges, 8 on the near side
+(1-8) and 7 on the far side (9-15). Each carries its number in dots, in rows of five.
+Five conditions, three copies each, in a fixed SHUFFLED order: A merged, 3 tines;
+B KISS, 3 tines; C merged, 1 tine; D KISS, 1 tine; E no tines (the control). All are
+today's square 0.5 tine, and since #168 every tine already ends at the part's
+surface. **Merged** = the site's own output: part and supports in one object, which
+the slicer unions. **KISS** = kiss.py moves those ledges' supports into their OWN
+object, so the slicer keeps the tine separate from the part (it trims only
+0.012 mm3, because the tines already kiss). So v2 tests exactly one thing: one object
+vs two. Knob: `tunables.tinesPerWall` (#166).
+**Score blind:** for each ledge 1-15, note the mark 0 (none) - 3 (bad), and whether
+the wall snapped clean or fell off during the print. Only then open
+`print/key.json`, which maps each ledge to its condition. The build's console
+output hides the conditions too.
+**Print the 3MF** (the .stl can't keep objects apart). If the slicer asks whether to
+load it as one object with several parts, say **no**. **Never Arrange** (and turn
+off arrange-on-load): it moves the two objects apart, leaving the KISS walls
+standing loose. The file places both together on any bed 180 mm or bigger (156 mm
+long); to move it, select both and move them as one. Check in the preview that every
+ledge has a wall under it.
+Checked before printing (PrusaSlicer 3.0 alpha, 0.2 layers): two objects in the
+G-code, placed together. Every wall reaches the ledge's edge. Before #171, one
+ledge's wall stopped 0.9 mm short through float noise (local issue 023), and
+build.js still fails on any unequal wall.
+Reading it: B beats A and D beats C -> separate objects help, so a "fins as their
+own object" export is worth building (local issue 027). Only 1 vs 3 matters -> fewer
+tines, no export change. Neither beats E's no-tine control on marks -> look at grip
+instead (did E's walls fall?).
+- **waiting on print.**
+
+**v1** (files in git at 6ec7c16): ten ledges. Near side, the tine's shape (3 tines a
+wall): 1 square 0.5, 2 square 0.4, 3 square 0.3, 4 pointed, 5 KISS square, 6 KISS
+pointed. Far side, the count: 7 three, 8 two, 9 one, 10 none. Tine-top contact
+under the part's next layer (PrusaSlicer, 0.2 layers): 1 0.97 mm2, 2 0.74, 3 0.53,
+4 0.60, 5 0.36, 6 0.34, 7 0.97, 8 0.65, 9 0.33.
 - **2026-10-02/03, PLA, printed twice (alone, then on the all-coupons plate): no clear
   order. Best were 5 (kiss, square) and 9 (one tine), but every ledge looked similar.**
   Those two are among the least tine-top contact (9 0.33, 6 0.34, 5 0.36 mm2; 10
@@ -151,4 +169,5 @@ For a user: the ledge with the faintest marks that still snapped (didn't fall of
   measured): XY has the same rounding as the gap's layers. A tine is one bead, and
   0.3, 0.4 and 0.5 mm wide probably all print as about one ~0.45 mm extrusion, so the
   width rungs differ less on the plate than in the model. Next, if any: exaggerate (0 vs 1 vs 3 tines; kiss vs merged on
-  the same ledge), and repeat each rung 2-3 times. Decision pending (local issue 027).
+  the same ledge), and repeat each rung 2-3 times. -> v2 above. Width and pointed tip
+  showed nothing, so their knobs go (local issue 027).

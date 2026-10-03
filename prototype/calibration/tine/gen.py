@@ -1,25 +1,28 @@
 #!/usr/bin/env python3
-"""Tine coupon: what leaves the smallest tine mark and still holds? The bite coupon
-answered "not the bite": every rung fused the same, because under a sloped
-underside the part's next layer prints straight onto the tine, and a slicer merges
-a tine into the part it touches. So this one varies what does change the weld:
+"""Tine coupon v2: does cutting tines at the part's surface (KISS, own object) help,
+or is it just fewer tines? v1 (in git at 6ec7c16) found no clear order; its two best
+ledges were one KISS and one with a single tine, both least contact, so it couldn't
+tell the two apart. v2 crosses them, 3 copies each:
 
-  near side (shape, 3 tines a wall):   1 square 0.5 wide (today)   2 square 0.4
-                                       3 square 0.3   4 pointed tip (0.5 at the wall)
-                                       5 KISS square   6 KISS pointed
-  far side (count, today's square):    7 three tines   8 two   9 one   10 none
+    A merged, 3 tines   B KISS, 3 tines   C merged, 1 tine   D KISS, 1 tine   E no tines
 
-KISS ledges' tines are cut off at the part's surface and saved as their OWN object
-in the 3MF, so the slicer keeps them separate from the part instead of merging them
-(kiss.py). Every other ledge is the site's own output, part and supports one object.
+All square 0.5 tines (v1: widths 0.3-0.5 and a pointed tip all print as one bead).
+"Merged" is the site's own output (part and supports one object, the slicer unions
+them); KISS ledges' tines are cut at the part's surface and saved as their OWN object
+(kiss.py). The 15 ledges are in a fixed SHUFFLED order and carry only their number in
+dots (1-15, rows of five), so marks are scored before anyone looks at the key
+(print/key.json). The order is the first seed whose shuffle puts every condition on
+both sides of the bar and no two copies of a condition next to each other.
 
-ONE solid piece: the bite coupon's bar and 40 deg ledges (a face the site supports at
-the default 45 deg Overhang). Ledge k carries k dots (a second row past six).
+ONE solid piece: a bar with 40 deg ledges (a face the site supports at the default 45
+deg Overhang), 8 on the near side, 7 on the far side.
 
     python3 prototype/calibration/tine/gen.py && deno run -A prototype/calibration/tine/build.js \
       && python3 prototype/calibration/tine/kiss.py
 """
+import json
 import math
+import random
 import sys
 from pathlib import Path
 
@@ -28,26 +31,40 @@ import trimesh
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from coupon import bx, dots, write  # noqa: E402
 
-# per ledge: the tunables it builds with, and whether its tines kiss
-RUNGS = [
-    {'label': 'square 0.5 (today)', 'tunables': {}},
-    {'label': 'square 0.4', 'tunables': {'tineWidth': 0.4}},
-    {'label': 'square 0.3', 'tunables': {'tineWidth': 0.3}},
-    {'label': 'pointed tip', 'tunables': {'tineTip': 'point'}},
-    {'label': 'kiss, square', 'tunables': {}, 'kiss': True},
-    {'label': 'kiss, pointed', 'tunables': {'tineTip': 'point'}, 'kiss': True},
-    {'label': '3 tines', 'tunables': {'tinesPerWall': 3}},
-    {'label': '2 tines', 'tunables': {'tinesPerWall': 2}},
-    {'label': '1 tine', 'tunables': {'tinesPerWall': 1}},
-    {'label': 'no tines', 'tunables': {}, 'tines': False},
-]
+# the five conditions; every tined one asks for an exact count (tinesPerWall)
+CONDITIONS = {
+    'A': {'label': 'merged, 3 tines', 'tunables': {'tinesPerWall': 3}},
+    'B': {'label': 'KISS, 3 tines', 'tunables': {'tinesPerWall': 3}, 'kiss': True},
+    'C': {'label': 'merged, 1 tine', 'tunables': {'tinesPerWall': 1}},
+    'D': {'label': 'KISS, 1 tine', 'tunables': {'tinesPerWall': 1}, 'kiss': True},
+    'E': {'label': 'no tines', 'tunables': {}, 'tines': False},
+}
+COPIES, NEAR = 3, 8    # 15 ledges: 1-8 on the near side, 9-15 on the far side
+# Per-ledge x nudges (mm). Identical ledges at some positions get a wall that stops
+# 0.9 mm short (float sensitivity, local issue 023); build.js fails on it, and moving
+# just that ledge clears it.
+NUDGE = {}
+
+
+def shuffled():
+    """The first seed's order with every condition on both sides, no neighbours alike."""
+    for seed in range(1000):
+        order = [k for k in CONDITIONS for _ in range(COPIES)]
+        random.Random(seed).shuffle(order)
+        near, far = order[:NEAR], order[NEAR:]
+        if all(k in near and k in far for k in CONDITIONS) and \
+           all(a != b for side in (near, far) for a, b in zip(side, side[1:])):
+            return seed, order
+    raise SystemExit('no seed satisfies the layout')
+
+
 ANGLE, BAR_W, Z0, RISE, TOP_T, W, STEP = 40.0, 10.0, 6.0, 6.0, 2.0, 16.0, 19.0
 D = RISE / math.tan(math.radians(ANGLE))
 
 
 def ledge(x, side):
     """Off the bar face: underside from (bar, Z0) up to (bar + D, Z0 + RISE) at ANGLE,
-    a vertical outer face, a flat top. (The bite coupon's ledge.)"""
+    a vertical outer face, a flat top."""
     y_in, y_out, top = side * (BAR_W / 2 - 0.5), side * (BAR_W / 2 + D), Z0 + RISE + TOP_T
     yz = [(y_in, Z0), (side * BAR_W / 2, Z0), (y_out, Z0 + RISE), (y_out, top), (y_in, top)]
     if side < 0:
@@ -57,21 +74,24 @@ def ledge(x, side):
     return m
 
 
+seed, order = shuffled()
 parts, rungs = [], []
-for k, r in enumerate(RUNGS):
-    side = 1 if k < 6 else -1
-    x = 3.0 + (k % 6) * STEP    # 3, not 4: at 4-6 some walls stop 0.9 mm short (issue 023)
+for k, cond in enumerate(order):
+    side = 1 if k < NEAR else -1
+    x = 3.0 + (k if k < NEAR else k - NEAR) * STEP + NUDGE.get(k + 1, 0.0)
     parts.append(ledge(x, side))
     top = Z0 + RISE + TOP_T
     n = k + 1
-    yd = side * (BAR_W / 2 + D - 1.2)
-    parts += dots(min(n, 6), x + 2.0, yd, top, step=1.6, size=0.9)
-    if n > 6:
-        parts += dots(n - 6, x + 2.0, yd - side * 1.8, top, step=1.6, size=0.9)
+    for row in range((n + 4) // 5):   # rows of five dots, stepping in from the outer edge
+        yd = side * (BAR_W / 2 + D - 1.2 - row * 1.8)
+        parts += dots(min(5, n - row * 5), x + 2.0, yd, top, step=1.8, size=0.9)
     y0, y1 = sorted([side * BAR_W / 2, side * (BAR_W / 2 + D)])
-    rungs.append({'id': n, **r, 'box': [x - 1.5, x + W + 1.5, y0 - 0.5, y1 + 0.5]})
-L = 3.0 + 5 * STEP + W + 4.0
+    rungs.append({'id': n, 'cond': cond, **CONDITIONS[cond], 'box': [x - 1.5, x + W + 1.5, y0 - 0.5, y1 + 0.5]})
+L = 3.0 + (NEAR - 1) * STEP + W + 4.0
 parts.append(bx(0, L, -BAR_W / 2, BAR_W / 2, 0, Z0 + RISE + TOP_T + 2))
 m = write(__file__, parts, rungs)
-print(f'tine coupon {m.extents.round(1)} mm, ledges reach {D:.1f} mm out')
-for r in rungs: print(f"  ledge {r['id']} ({r['id']} dots): {r['label']}")
+key = {'seed': seed, 'conditions': {k: c['label'] for k, c in CONDITIONS.items()},
+       'ledges': {r['id']: r['cond'] for r in rungs}}
+(Path(__file__).resolve().parent / 'out' / 'key.json').write_text(json.dumps(key, indent=1) + '\n')
+print(f'tine coupon v2 {m.extents.round(1)} mm, ledges reach {D:.1f} mm out, seed {seed}')
+print('key in out/key.json (not printed here: score the marks first)')
