@@ -31,3 +31,5 @@ plugins/freecad/build/
 
 # Blender: built extension zips and the cached mini-racer wheels
 plugins/blender/build/
+# user-reported parts (other people's files): measured locally, never committed
+prototype/examples/reports/
