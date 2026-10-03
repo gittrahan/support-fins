@@ -131,6 +131,10 @@ differ). At 0.10 the engine places no tines on this slope, so the ladder starts 
   straight onto the tine with no gap, and a slicer merges a tine into the part it
   touches. The weld is about the tine's plan area under the part, the same at 0.15
   and 0.70. Replaced by tine/ (local issue 027).
+- **2026-10-03, PLA, second print (all-coupons plate): rung 1 (0.15) looked best, but
+  all twelve look nearly the same.** Matches the finding above. The Tine bite field
+  is gone (#167) and tines now end at the part's surface (#168): bite is only a
+  placement reach.
 
 ### tine/ -- what leaves the smallest tine mark and still holds?
 The bite coupon's bar and 40 deg ledges, ten of them; Auto per ledge with:
@@ -150,4 +154,12 @@ Measured before printing (PrusaSlicer, 0.2 layers): every tine prints, 0.3 and
 pointed included; two objects in the G-code; tine top under the part's next layer,
 per ledge: 1 0.97 mm2, 2 0.74, 3 0.53, 4 0.60, 5 0.36, 6 0.34, 7 0.97, 8 0.65, 9 0.33.
 For a user: the ledge with the faintest marks that still snapped (didn't fall off).
-- **waiting on print.**
+- **2026-10-02/03, PLA, printed twice (alone, then on the all-coupons plate): no clear
+  order. Best were 5 (kiss, square) and 9 (one tine), but every ledge looked similar.**
+  Those two have the least tine-top contact (0.36, 0.33 mm2), so it leans the right
+  way, but the effect is small next to print-to-print variation. Likely why: XY has
+  the same rounding as the gap's layers. A tine is one bead, and 0.3, 0.4 and 0.5 mm
+  wide all print as about one 0.45 mm extrusion (the G-code check above found
+  similar extruded length on each), so the width rungs differ less on the plate
+  than in the model. Next, if any: exaggerate (0 vs 1 vs 3 tines; kiss vs merged on
+  the same ledge), and repeat each rung 2-3 times. Decision pending (local issue 027).
