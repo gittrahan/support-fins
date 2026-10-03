@@ -80,7 +80,8 @@ function buildZGrid(tris) {
 
 // The grid cell's candidate triangles for column (x, y), or null outside the grid.
 function cellOf(g, x, y) {
-  if (x < g.minX || x > g.maxX || y < g.minY || y > g.maxY) return null;
+  const e = 1e-9;
+  if (x < g.minX - e || x > g.maxX + e || y < g.minY - e || y > g.maxY + e) return null;
   const a = Math.min(ZGRID - 1, Math.max(0, Math.floor((x - g.minX) * g.sx)));
   const b = Math.min(ZGRID - 1, Math.max(0, Math.floor((y - g.minY) * g.sy)));
   return a * ZGRID + b;
