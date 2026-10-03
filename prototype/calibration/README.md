@@ -14,7 +14,10 @@ rot)` then `buildFins(..., {mode: 'auto', bedPad: true})` at the site's PLA defa
 run once per rung with that rung's setting, keeping the support PIECES -- whole
 connected bodies, never cut -- whose centre is in the rung's box; every coupon's
 supports are checked closed before they're written).
-`python3 prototype/calibration/render.py <name>` draws a build. What a user does with
+`python3 prototype/calibration/render.py <name>` draws a build.
+`python3 prototype/calibration/plate.py` lays every coupon's `print/` file on one
+256 mm plate -> `out/all-coupons.3mf` (the "all-coupons plate" below; the tine
+coupon's KISS object stays in register with its coupon, so never Arrange it). What a user does with
 each one is `docs/CALIBRATION.md`.
 
 `out/` is git-ignored. The files actually printed are committed in `<name>/print/`
@@ -121,7 +124,8 @@ part (its overlap with the solid / its cross-section) climbs with the rung: 0.15
 differ). At 0.10 the engine places no tines on this slope, so the ladder starts at
 0.15. One print reads both ends: the low rungs where a wall drops off with no snap
 (grip failed) and the high rungs where a snapped tine leaves a mark.
-- Field added with it (Tines section, 0.1-0.8, default 0.5, `tunables.wallBite`).
+- Field added with it (Tines section, 0.1-0.8, default 0.5, `tunables.wallBite`;
+  the field was removed in #167).
   The material profile's `tineBite` (PLA 0.30 / PETG 0.15) is FIN.tineBite, which
   only the sway braces read; walls always used PROP.tineBite 0.5. Unchanged here.
 - **2026-10-02, PLA: every rung fused, all left marks; none failed.** Bite isn't the
@@ -156,10 +160,10 @@ per ledge: 1 0.97 mm2, 2 0.74, 3 0.53, 4 0.60, 5 0.36, 6 0.34, 7 0.97, 8 0.65, 9
 For a user: the ledge with the faintest marks that still snapped (didn't fall off).
 - **2026-10-02/03, PLA, printed twice (alone, then on the all-coupons plate): no clear
   order. Best were 5 (kiss, square) and 9 (one tine), but every ledge looked similar.**
-  Those two have the least tine-top contact (0.36, 0.33 mm2), so it leans the right
-  way, but the effect is small next to print-to-print variation. Likely why: XY has
-  the same rounding as the gap's layers. A tine is one bead, and 0.3, 0.4 and 0.5 mm
-  wide all print as about one 0.45 mm extrusion (the G-code check above found
-  similar extruded length on each), so the width rungs differ less on the plate
-  than in the model. Next, if any: exaggerate (0 vs 1 vs 3 tines; kiss vs merged on
+  Those two are among the least tine-top contact (9 0.33, 6 0.34, 5 0.36 mm2; 10
+  has no tines at all), so it leans the right way, but 6 and 10 didn't stand out and
+  the effect is small next to print-to-print variation. Likely why (a guess, not
+  measured): XY has the same rounding as the gap's layers. A tine is one bead, and
+  0.3, 0.4 and 0.5 mm wide probably all print as about one ~0.45 mm extrusion, so the
+  width rungs differ less on the plate than in the model. Next, if any: exaggerate (0 vs 1 vs 3 tines; kiss vs merged on
   the same ledge), and repeat each rung 2-3 times. Decision pending (local issue 027).

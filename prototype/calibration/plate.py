@@ -95,7 +95,7 @@ for n, its, t in placed:
         label = n if k == 0 else f'{n} kiss tines (own object)'
         ids = []
         for j, m in enumerate(parts):
-            objs.append(mesh_xml(oid, m, f'{label} {"part" if j == 0 else "supports"}'))
+            objs.append(mesh_xml(oid, m, f'{label} {"part" if j == 0 and k == 0 else "supports"}'))
             ids.append(oid)
             oid += 1
         if len(ids) > 1:
