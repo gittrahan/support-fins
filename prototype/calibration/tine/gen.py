@@ -40,10 +40,6 @@ CONDITIONS = {
     'E': {'label': 'no tines', 'tunables': {}, 'tines': False},
 }
 COPIES, NEAR = 3, 8    # 15 ledges: 1-8 on the near side, 9-15 on the far side
-# Per-ledge x nudges (mm). Identical ledges at some positions get a wall that stops
-# 0.9 mm short (float sensitivity, local issue 023); build.js fails on it, and moving
-# just that ledge clears it.
-NUDGE = {}
 
 
 def shuffled():
@@ -78,7 +74,7 @@ seed, order = shuffled()
 parts, rungs = [], []
 for k, cond in enumerate(order):
     side = 1 if k < NEAR else -1
-    x = 3.0 + (k if k < NEAR else k - NEAR) * STEP + NUDGE.get(k + 1, 0.0)
+    x = 3.0 + (k if k < NEAR else k - NEAR) * STEP
     parts.append(ledge(x, side))
     top = Z0 + RISE + TOP_T
     n = k + 1
