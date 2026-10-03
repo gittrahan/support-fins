@@ -26,7 +26,7 @@ UPDATE_GOLDEN=1 deno test -A tests/golden.test.js
 ```
 
 **`stability.test.js`** -- the same part nudged by 1e-9 rad builds the same supports,
-on 26 scenes (local issue 023: 16 of them used to change -- an end station dropped one
+on 24 scenes (local issue 023: 14 of them used to change -- an end station dropped one
 ulp off surfaceZAt's grid, a part edge in a wall's end-cap plane read as a pierce, a
 level wall's comb anchored at whichever end noise made lower). Plus the end-cap case on
 `solidClearance` directly, at nudges where the old parallel test misfired. Builds come
