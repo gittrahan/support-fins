@@ -189,14 +189,14 @@ export const PROP = {
   // built the tine `th` (1.0mm) wide, ~2x spec, a fat divot Matthew caught by eye.
   tineW: 0.5,
   // (A 'point' tip and a tineWidth knob were tried on the tine coupon, 2026-10-03:
-  // no visible difference -- a 0.3-0.5 wide tine or a point all print as about one
-  // bead -- so both knobs are gone. prototype/calibration/README.md tine/ v1.)
+  // no visible difference -- a 0.3-0.5 wide tine or a point likely all print as about
+  // one bead -- so both knobs are gone. prototype/calibration/README.md tine/ v1.)
   // Tines per wall, EXACT, overriding spacing and the minGripTines floor: the comb is
   // spaced wall-length / n. 0 = off (the default; spacing rules decide). Calibration
   // knob (tunables.tinesPerWall), the tine coupon's how-few-still-hold row.
   tinesPerWall: 0,
   tineReach: 0.5,    // how far out a tine looks for the part, horizontally: a tine is
-                     // placed only if solid lies within this reach (the slope gate is
+                     // placed only if solid lies at this reach (the slope gate is
                      // gap/reach), and kissEnds searches up to 2x it for the surface the
                      // tine's end stops on (#168: no tine runs into the part). Was
                      // `tineBite`, when tines ran this far INTO the part. Shrinking it

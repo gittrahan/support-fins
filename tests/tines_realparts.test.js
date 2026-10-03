@@ -16,7 +16,7 @@
 
 import { loadModel, analyze, fins, prop, insidePart, nearestFaceInwardH, rotX, rotY, assert } from './_util.js';
 
-const TINE_BITE = prop.PROP.tineReach;   // how far the nub reaches in -- read from source, don't drift
+const TINE_REACH = prop.PROP.tineReach;   // how far a tine looks for the part -- read from source, don't drift
 
 const CASES = [
   ['plate', rotX(45)], ['plate', rotY(40)], ['plate', rotY(-40)],
@@ -36,7 +36,7 @@ Deno.test('tines on real parts: every tine bites INTO the nearest face, none lie
     const caps = globalThis.__TINECAP;
     for (const c of caps) {
       total++;
-      const bx = c.x + c.biteX * TINE_BITE, by = c.y + c.biteY * TINE_BITE;
+      const bx = c.x + c.biteX * TINE_REACH, by = c.y + c.biteY * TINE_REACH;
       if (!insidePart(topo, rot, res.offset, bx, by, c.z)) { noGrip++; airCases.add(name); }
       const inw = nearestFaceInwardH(topo, rot, res.offset, [c.x, c.y, c.z]);
       if (inw) {

@@ -11,7 +11,7 @@ flat directory with a single menu entry:
   runs from a low tip on the plate up to the top of a straight back edge, **0.2 mm under the
   part**, on a thin foot with a round back end. A **comb of tines** runs along the slope: one-layer
   horizontal nubs, one bead (0.5 mm) wide, each top on the print preset's layer grid, that
-  reach across the gap and **0.5 mm into the part** at mid-layer (`PROP.tineBite`), so each prints as one
+  reach across the gap and **0.5 mm into the part** at mid-layer (the site's old `PROP.tineBite`; the site's tines now stop at the surface), so each prints as one
   strand that fuses in and snaps clean (`docs/FIN-SPEC.md`). The top of the slope ends in a
   short flat (1.2 mm, a little more when steep), never a point. Params: **Slope Angle** (20–70°, default 45), **Fin Height**,
   a **Gripping Tines** toggle, and **Tine Spacing** (default 6 mm, the sway braces' printed

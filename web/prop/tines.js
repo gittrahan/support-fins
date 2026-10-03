@@ -144,14 +144,14 @@ export function tineStepFor(density) {
  * through those four corners, so on a sloped or curved underside the end leans with
  * the surface and no part of the tine sits inside the part.
  *
- * A tine used to run the full reach (0.5, then `tineBite`) on into the part. A slicer unions that
+ * A tine used to run full `tineReach` (then called `tineBite`) on into the part. A slicer unions that
  * buried stretch away (the site's 3MF and STL put part and supports in one object),
  * so the print is the same; the tine just stops poking through, and is ready for an
  * export that keeps the two apart (local issue 027). Placement is unchanged: the
  * tine still has to reach solid within `tineReach`.
  *
- * Per corner: no solid within reach on that line and height -> the full bite (the
- * old shape); solid already back over the wall end -> TRIM_MIN past it.
+ * Per corner: no solid within reach on that line and height -> the full tineReach
+ * (the old shape); solid already back over the wall end -> TRIM_MIN past it.
  * Returns { bot: [left, right], top: [...] }.
  */
 const TRIM_KISS = 0.01, TRIM_MIN = 0.05, TRIM_Z = 0.01;
