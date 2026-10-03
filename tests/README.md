@@ -25,6 +25,13 @@ PR, saying why in its body -- the golden diff is how review sees the default mov
 UPDATE_GOLDEN=1 deno test -A tests/golden.test.js
 ```
 
+**`stability.test.js`** -- the same part nudged by 1e-9 rad builds the same supports,
+on 26 scenes (local issue 023: 16 of them used to change -- an end station dropped one
+ulp off surfaceZAt's grid, a part edge in a wall's end-cap plane read as a pierce, a
+level wall's comb anchored at whichever end noise made lower). Plus the end-cap case on
+`solidClearance` directly, at nudges where the old parallel test misfired. Builds come
+from `_scene.js`, the site's exact call, shared with `golden.test.js`.
+
 **`tines.test.js`** -- `emitTines` on a controlled solid block:
 - teeth **point INTO the part**, flush with the wall's flanks -- never standing
   proud as sideways tabs "laying on" the surface;
