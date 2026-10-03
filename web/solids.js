@@ -55,3 +55,21 @@ export function boxExtrude(poly, lo, hi, P, out) {
     out.push(vlo[0], vlo[i + 1], vlo[i]);
   }
 }
+
+/** boxExtrude with a different (same-size) outline at the top: a tine whose end leans
+ *  with the part's surface. Same vertex order and faces as boxExtrude, so a tine is
+ *  still one 36-vertex block (tests/_util.js tineBoxes). */
+export function loftExtrude(polyLo, polyHi, lo, hi, P, out) {
+  const n = polyLo.length;
+  const vlo = polyLo.map(([a, b]) => P(a, b, lo));
+  const vhi = polyHi.map(([a, b]) => P(a, b, hi));
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    out.push(vlo[i], vlo[j], vhi[j]);
+    out.push(vlo[i], vhi[j], vhi[i]);
+  }
+  for (let i = 1; i < n - 1; i++) {
+    out.push(vhi[0], vhi[i], vhi[i + 1]);
+    out.push(vlo[0], vlo[i + 1], vlo[i]);
+  }
+}
