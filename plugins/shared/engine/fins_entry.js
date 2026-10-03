@@ -37,7 +37,7 @@ export const ENGINE_DEFAULTS = Object.freeze({
   cutout: OPTION.cutout.default,       // one of web/cutout.js CUTOUT_PATTERNS
   // Sway braces (web/sway.js), off by default exactly as on the website. Pass
   // { on: true } to brace the tall sides, plus any of gripFrom / tineSpacing /
-  // reach / gap / bite to match the host's own settings. Without this a plugin
+  // reach / gap to match the host's own settings. Without this a plugin
   // could not reach the feature at all: the options below are an explicit list,
   // so anything absent from it never arrives at buildFins.
   sway: null,
@@ -148,10 +148,10 @@ export function computeFins(positions, options = {}) {
     tineDensity: opts.tineDensity, layerHeight: opts.layerHeight, coverage: opts.coverage,
     // `sway` is forwarded whole, so a host passes the same object the website's
     // options panel builds; buildFins ignores it unless `on` is set. Like the site
-    // (ui/finbuild.js swayOpts), braces take the material's gap and bite unless the
+    // (ui/finbuild.js swayOpts), braces take the material's gap unless the
     // host sets its own. A null from the host (Python None) counts as unset, or it
     // would drop sway.js back to PLA's numbers under PETG.
-    sway: opts.sway ? { gap: mat.propGap, bite: mat.tineBite,
+    sway: opts.sway ? { gap: mat.propGap,
                         ...Object.fromEntries(Object.entries(opts.sway).filter(([, v]) => v != null)) }
                     : undefined,
     tunables,

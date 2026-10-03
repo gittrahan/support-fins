@@ -31,7 +31,7 @@ const UPDATE = Deno.env.get('UPDATE_GOLDEN') === '1';
 /** The site's tunables for a material, the form otherwise untouched (finOpts). */
 function tunables(material) {
   const m = MATERIAL[material];
-  return { tineBite: m.tineBite, padH: m.padH, padGrab: m.padGrab, propGap: m.propGap,
+  return { padH: m.padH, padGrab: m.padGrab, propGap: m.propGap,
            padStyle: 'auto',                                     // Bed pad: Auto
            padCustom: { h: 0.5, gap: 0.0, grip: 0.05, margin: 4.0 }, // fins/pad.js PAD.custom
            cutout: 'none' };
@@ -44,7 +44,7 @@ function siteOpts({ material = 'pla', mode = 'auto', sway = false } = {}) {
     mode, bedPad: true, tines: true, tineDensity: 0, layerHeight: 0.2, coverage: 0.5,
     // swayOpts() with its fields at the form's defaults
     sway: sway ? { on: true, gripFrom: 0, tineSpacing: 6, reach: 0.15, gap: t.propGap,
-                   bite: t.tineBite, tines: true, layerHeight: 0.2 } : undefined,
+                   tines: true, layerHeight: 0.2 } : undefined,
     tunables: t,
   };
 }

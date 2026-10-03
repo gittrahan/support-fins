@@ -23,7 +23,7 @@ export function pick(name, value, allowed) {
 export function clearances(opts) {
   const mat = MATERIAL[pick('material', opts.material, Object.keys(MATERIAL))];
   const tunables = {
-    tineBite: mat.tineBite, padH: mat.padH, padGrab: mat.padGrab, propGap: mat.propGap,
+    padH: mat.padH, padGrab: mat.padGrab, propGap: mat.propGap,
     // Off builds no pad, so which style it carries doesn't matter; Auto keeps it valid.
     padStyle: pick('padStyle', opts.padStyle, PAD_STYLES) === 'off' ? 'auto' : opts.padStyle,
     cutout: pick('cutout', opts.cutout, CUTOUT_PATTERNS),

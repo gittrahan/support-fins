@@ -102,20 +102,20 @@ function finOpts() {
            // Worker with its own copy of fins.js / prop.js, which never sees what
            // applyMaterial and the gap fields set on this page's copy (fins.js
            // applyTunables). Without this, Auto mode always built PLA's numbers.
-           tunables: { tineBite: FIN.tineBite, padH: FIN.padH,
+           tunables: { padH: FIN.padH,
                        padGrab: PAD.grab, padStyle: PAD.style, padCustom: { ...PAD.custom },
                        propGap: PROP.gap,
                        cutout: CUT.pattern } };
 }
 
-/** The Sway braces settings. Gap and bite are passed explicitly -- sway.js takes
- *  the material's numbers as options instead of reading FIN/PROP itself. */
+/** The Sway braces settings. The gap is passed explicitly -- sway.js takes the
+ *  material's number as an option instead of reading FIN/PROP itself. */
 export function swayOpts() {
   const num = (id, d) => (Number.isFinite(el(id).valueAsNumber) ? el(id).valueAsNumber : d);
   return { gripFrom: num('sway-from', 0),
            tineSpacing: num('sway-spacing', 6),
            reach: num('sway-depth', 15) / 100,
-           gap: PROP.gap, bite: FIN.tineBite,
+           gap: PROP.gap,
            tines: el('tines').checked,
            layerHeight: el('layer-height').valueAsNumber };
 }

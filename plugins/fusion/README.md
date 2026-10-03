@@ -81,7 +81,7 @@ one component) as **mesh bodies**: one per fin (its wall and the tines that ride
 sway brace and one per bed pad, named *Support fin N*, *Sway brace N* and *Bed pad N*. In a parametric design each is its own
 *Base Mesh Feature*, grouped as **Support fins** in the timeline. Delete any fin you don't want.
 Your own bodies are never changed. Export the part and the Supports bodies together (STL/3MF);
-the tines overlap the part by the bite on purpose, and the slicer merges them.
+the tines touch the part (0.01 mm overlap, so the bodies never sit flush) and the slicer merges them.
 
 ## How the engine runs
 

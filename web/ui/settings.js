@@ -167,7 +167,6 @@ export let materialDensity = MATERIAL.pla.density;
 
 function applyMaterial(name) {
   const m = MATERIAL[name] || MATERIAL.pla;
-  FIN.tineBite = m.tineBite;
   FIN.padH = m.padH;
   PAD.grab = m.padGrab;
   PROP.gap = m.propGap;

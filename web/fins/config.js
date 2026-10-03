@@ -1,6 +1,6 @@
 /**
  * FIN -- the numbers the combined support shares with the UI: the one-layer
- * tine height, tine bite, bed-pad size, and the wide-face coverage pitches.
+ * tine height, bed-pad size, and the wide-face coverage pitches.
  * docs/FIN-SPEC.md is the spec they implement.
  *
  * Split out of fins.js; fins.js re-exports it, so importers are unchanged.
@@ -12,7 +12,6 @@ export const FIN = {
                       // as a single continuous bead (see prop/config.js tineH / FIN-SPEC)
 
   // --- ours, derived or measured ---
-  tineBite: 0.3,      // how far a tine sinks into the part
   padH: 0.5,          // bed pad thickness
   padMargin: 4.0,     // how far the pad's open-bed grip spreads past the part's
                       // contact. A part tilted onto an EDGE grips only the OUTBOARD

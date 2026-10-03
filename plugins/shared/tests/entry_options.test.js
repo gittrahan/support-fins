@@ -59,10 +59,9 @@ const flat = (b) => Float64Array.from([...b.triangles, ...(b.padTriangles || [])
 // leave every plugin on the old value.
 Deno.test('PLA profile = the engine\'s built-in clearances', () => {
   const pla = MATERIAL.pla;
-  const pairs = [['FIN.tineBite', fins.FIN.tineBite, pla.tineBite], ['FIN.padH', fins.FIN.padH, pla.padH],
+  const pairs = [['FIN.padH', fins.FIN.padH, pla.padH],
                  ['PAD.grab', fins.PAD.grab, pla.padGrab], ['PROP.gap', PROP.gap, pla.propGap],
                  ['PERP.gap', PERP.gap, pla.propGap], ['SWAY.gap', SWAY.gap, pla.propGap],
-                 ['SWAY.bite', SWAY.bite, pla.tineBite],
                  ['PAD.style', fins.PAD.style, ENGINE_DEFAULTS.padStyle], ['CUT.pattern', CUT.pattern, ENGINE_DEFAULTS.cutout]];
   for (const [name, engine, profile] of pairs) assert(engine === profile, `${name} is ${engine}, the plugins' default ${profile}`);
 });
@@ -85,7 +84,7 @@ Deno.test('PETG: same fins as the website builds for PETG, and not PLA\'s', () =
     // tines on this part; only the clearances move (Sure hold, so padH and padGrab show).
     const m = MATERIAL.petg, topo = topoOf(centred(PART));
     const web = flat(fins.buildFins(topo, analyze(topo, 45, IDENTITY3), IDENTITY3, { ...OPTS,
-      tunables: { tineBite: m.tineBite, padH: m.padH, padGrab: m.padGrab, propGap: m.propGap,
+      tunables: { padH: m.padH, padGrab: m.padGrab, propGap: m.propGap,
                   padStyle: 'sure', cutout: 'none' } }));
     assert(web.length === petg.triangles.length, `${petg.triangles.length / 9} vs site ${web.length / 9} triangles`);
     let worst = 0;
@@ -162,10 +161,10 @@ Deno.test('sway braces take the material\'s clearances; a null from the host is 
     const petg = (sway) => computeFins(bar, { ...OPTS, material: 'petg', sway: { on: true, ...sway } });
     const byMaterial = petg({});
     assert(byMaterial.stats.swayBraces >= 1, `no sway braces on the bar (${byMaterial.stats.swayReason})`);
-    assert(same(byMaterial.triangles, petg({ gap: null, bite: null }).triangles),
-           'gap/bite: null dropped the braces off PETG\'s numbers');
-    const plaBraces = petg({ gap: MATERIAL.pla.propGap, bite: MATERIAL.pla.tineBite });
-    assert(!same(byMaterial.triangles, plaBraces.triangles), 'PETG braces built with PLA\'s gap and bite');
+    assert(same(byMaterial.triangles, petg({ gap: null }).triangles),
+           'gap: null dropped the braces off PETG\'s numbers');
+    const plaBraces = petg({ gap: MATERIAL.pla.propGap });
+    assert(!same(byMaterial.triangles, plaBraces.triangles), 'PETG braces built with PLA\'s gap');
   } finally { resetPla(); }
 });
 

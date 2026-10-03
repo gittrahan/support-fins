@@ -26,12 +26,14 @@
  * tines are horizontal and exactly one layer tall, the geometry is plain closed
  * solids unioned by the slicer, and a rib that can't be built says why.
  *
- * Gap and bite arrive in `opts` rather than being read from FIN/PROP, so this
+ * The gap arrives in `opts` rather than being read from FIN/PROP, so this
  * module depends on neither: the caller passes the material's numbers, whether it
  * runs in the Worker (after fins.js applyTunables) or on the page (Draw).
  */
 import { findWallPatches, patchProbe, patchPoint, tAtZ } from './planes.js';
 import { insidePart } from './inside.js';
+import { kissEnds } from './kiss.js';
+import { loftExtrude } from './solids.js';
 
 export const SWAY = {
   // which faces take a brace
@@ -56,9 +58,14 @@ export const SWAY = {
   footHalf: 3.0,      // flange past the rib on each side
   footPad: 3.0,       // ...and past its outer end
 
-  // the tines (standoff and bite come from the material profile, via opts)
+  // the tines (the standoff comes from the material profile, via opts)
   gap: 0.2,
-  bite: 0.3,
+  // How far in from the face a tine looks for the part: placed only if the part is
+  // there at half this, and its end stops on the surface (kissEnds, searching up to
+  // 2x). Was the material's tine bite (PLA 0.3, PETG 0.15), when tines ran that far
+  // INTO the part; with the end on the surface the reach only gates placement, and
+  // the slicer merges part and brace either way (local issue 027).
+  tineReach: 0.3,
   tineW: 0.5,         // one nozzle bead, as elsewhere
   tineOverlap: 0.3,   // how far the tine sinks back into the rib, so they union
   tineSpanMax: 1.5,   // past this much open air a tine is a bridge (probe_tines2.py)
@@ -99,7 +106,6 @@ function settings(opts = {}) {
     tines: opts.tines !== false,
     layerH: Math.max(0.04, num(opts.layerHeight, 0.2)),
     gap: num(opts.gap, SWAY.gap),
-    bite: num(opts.bite, SWAY.bite),
     gripFrom: Math.max(0, num(opts.gripFrom, 0)),
     spacing: Math.max(1, num(opts.tineSpacing, SWAY.tineSpacing)),
     reach: Math.max(0.05, Math.min(0.5, num(opts.reach, SWAY.reach))),
@@ -328,11 +334,22 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
       const sPart = fr.sOf(patchPoint(p, dev, uc, tAtZ(p, dev, zMid)));
       const sWall = sIn(zMid);
       if (sWall - sPart > SWAY.tineSpanMax) continue;      // a bridge, not a tine
-      const bx = fr.toWorld(sPart - S.bite / 2, uc, zMid);
+      const bx = fr.toWorld(sPart - SWAY.tineReach / 2, uc, zMid);
       if (!insidePart(topo, rot, offset, bx[0], bx[1], bx[2])) continue;  // grips nothing
-      prism([[sPart - S.bite, bot], [sWall + SWAY.tineOverlap, bot],
-             [sWall + SWAY.tineOverlap, top], [sPart - S.bite, top]],
-            uc - SWAY.tineW / 2, uc + SWAY.tineW / 2, P, out);
+      // the tine runs from inside the rib to where it meets the part, its end
+      // following the face between bottom and top (kissEnds): nothing of it sits
+      // inside the part. Frame: along = into the part (-s) from the face point,
+      // across = (z x along), as kissEnds measures it.
+      const o = fr.toWorld(sPart, uc, 0), ax = -fr.nh.x, ay = -fr.nh.y;
+      const half = SWAY.tineW / 2;
+      const e = kissEnds(topo, rot, offset, o[0], o[1], ax, ay, bot, top,
+                         { half, back: SWAY.tineOverlap, reach: SWAY.tineReach });
+      const ov = -(sWall + SWAY.tineOverlap - sPart);
+      const PT = (a, b, z) => [o[0] + ax * a - ay * b, o[1] + ay * a + ax * b, z];
+      const outline = (h) => [[ov, -half], [e[h][0], -half], [e[h][1], half], [ov, half]];
+      const local = [];
+      loftExtrude(outline('bot'), outline('top'), bot, top, PT, local);
+      pushSolid(local, out);
       tines++;
       if (bot < firstGrip) firstGrip = bot;
     }

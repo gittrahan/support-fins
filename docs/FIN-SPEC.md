@@ -173,6 +173,16 @@ bite 0.3, tine spacing 6 mm, depth 15%, layer height 0.2 — so the PLA clearanc
 release cleanly in ASA too. ASA has no profile of its own yet; two prints isn't enough
 to write one, but it is enough to say the PLA numbers are a safe starting point for it.
 
+**Tines kiss the face (2026-10-03).** Like the walls' tines (#168), a brace tine now ends
+on the part's face (`kissEnds`, web/kiss.js) instead of running the bite (0.3, PETG 0.15)
+into it, and the material's bite is gone: one `SWAY.tineReach` 0.3 only decides where a
+tine goes (the part must be there at half of it). Measured before changing it, on 16
+braced cases (4 real parts, 12 stress shapes), PLA and PETG: brace and tine counts all the
+same, and part + braces merged, sectioned at every mid-layer that changed, identical in
+30 of 32. The two others are one brace on the lighthouse (Y90), where a blocky step puts
+a notch between a tine's two side edges: PLA 0.13 mm2 less tine in it, PETG 0.14 more,
+over 7 layers. The printed numbers above still stand.
+
 | feature | value | rationale |
 |---|---|---|
 | orientation | vertical rib, **edge-on** to an upright face (≤ 30° lean) | a plate lying flat against the face bends the easy way exactly when the part leans into it; edge-on is its stiff direction |

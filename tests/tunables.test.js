@@ -32,26 +32,23 @@ Deno.test('tunables: a bigger support gap stops the support lower under the part
 });
 
 Deno.test('tunables: the PETG profile reaches the build as PETG numbers', () => {
-  const before = { bite: fins.FIN.tineBite, padH: fins.FIN.padH,
-                   grab: fins.PAD.grab, propGap: prop.PROP.gap };
+  const before = { padH: fins.FIN.padH, grab: fins.PAD.grab, propGap: prop.PROP.gap };
   try {
-    fins.applyTunables({ tineBite: 0.15, padH: 0.3, padGrab: -0.1, propGap: 0.3 });
-    assert(fins.FIN.tineBite === 0.15, 'tine bite not applied');
+    fins.applyTunables({ padH: 0.3, padGrab: -0.1, propGap: 0.3 });
     assert(fins.FIN.padH === 0.3, 'pad thickness not applied');
     assert(fins.PAD.grab === -0.1, 'pad grip not applied');
     assert(prop.PROP.gap === 0.3, 'prop gap not applied');
   } finally {
-    fins.applyTunables({ tineBite: before.bite, padH: before.padH,
-                         padGrab: before.grab, propGap: before.propGap });
+    fins.applyTunables({ padH: before.padH, padGrab: before.grab, propGap: before.propGap });
   }
 });
 
 Deno.test('tunables: absent or junk values leave the defaults alone', () => {
-  const snap = () => [fins.FIN.tineBite, fins.FIN.padH, fins.PAD.grab, prop.PROP.gap];
+  const snap = () => [fins.FIN.padH, fins.PAD.grab, prop.PROP.gap];
   const before = snap();
   fins.applyTunables(undefined);
   fins.applyTunables({});
-  fins.applyTunables({ tineBite: NaN, propGap: 'wide', padGrab: null });
+  fins.applyTunables({ padH: NaN, propGap: 'wide', padGrab: null });
   assert(snap().every((v, i) => v === before[i]),
          `defaults changed: ${snap().join(',')} vs ${before.join(',')}`);
 });
