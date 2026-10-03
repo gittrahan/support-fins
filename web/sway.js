@@ -342,6 +342,8 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
       // across = (z x along), as kissEnds measures it.
       const o = fr.toWorld(sPart, uc, 0), ax = -fr.nh.x, ay = -fr.nh.y;
       const half = SWAY.tineW / 2;
+      // measured from the face point, not the tine's back: `back` only bounds how far
+      // out of the face the end may pull back (0.25 mm), well short of the rib (ov)
       const e = kissEnds(topo, rot, offset, o[0], o[1], ax, ay, bot, top,
                          { half, back: SWAY.tineOverlap, reach: SWAY.tineReach });
       const ov = -(sWall + SWAY.tineOverlap - sPart);

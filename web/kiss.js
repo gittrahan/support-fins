@@ -22,7 +22,9 @@ import { insidePart } from './inside.js';
  *
  * Per corner: no solid within reach on that line and height -> the full `reach`
  * (the old shape); solid already back over the wall end -> TRIM_MIN past it.
- * Returns { bot: [left, right], top: [...] }.
+ * Distances are from (x, y): a wall tine's seed on the wall top, a sway tine's
+ * point on the face (prop/tines.js, sway.js). `back` bounds how far behind that the
+ * end may pull back. Returns { bot: [left, right], top: [...] }.
  */
 const TRIM_KISS = 0.01, TRIM_MIN = 0.05, TRIM_Z = 0.01;
 export function kissEnds(topo, rot, offset, x, y, dx, dy, zb, zt, { half, back, reach: R }) {
