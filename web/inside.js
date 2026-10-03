@@ -377,7 +377,13 @@ function segTriHit(p, q, A, B, C) {
   const hy = dz * e2x - dx * e2z;
   const hz = dx * e2y - dy * e2x;
   const a = e1x * hx + e1y * hy + e1z * hz;
-  if (Math.abs(a) < 1e-12) return null;   // parallel; grazing is distance work
+  // parallel; grazing is distance work. Relative to the lengths: `a` is a triple
+  // product (mm^3), and an edge lying IN the triangle's plane measures ~1e-12 of
+  // rounding on mm-sized parts -- past an absolute 1e-12 it read as a pierce at a
+  // garbage point (cube X40: a wall's end cap in the plane of the part's top edge,
+  // 0.2 mm clear, trimmed as a weld under a 1e-9 rad nudge; local issue 023).
+  const scale = Math.hypot(dx, dy, dz) * Math.hypot(e1x, e1y, e1z) * Math.hypot(e2x, e2y, e2z);
+  if (Math.abs(a) <= 1e-9 * scale) return null;
   const f = 1 / a;
   const sx = p[0] - A[0], sy = p[1] - A[1], sz = p[2] - A[2];
   const u = f * (sx * hx + sy * hy + sz * hz);
