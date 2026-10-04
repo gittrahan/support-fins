@@ -4,7 +4,7 @@
 // toggle on and none with it off, the geometry stays watertight, and the tines --
 // and only the tines -- bite into the part.
 
-import { WEB, tiltedBlockTopo, prop, block, buildTopology, isClosed, insideCount, assert } from './_util.js';
+import { WEB, tiltedBlockTopo, prop, block, buildTopology, loadModel, isClosed, insideCount, assert } from './_util.js';
 
 const { drawnWall, DRAW_MIN_LEN } = await import(`${WEB}draw.js`);
 const IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -188,4 +188,15 @@ Deno.test('draw: the squat stem and the full wall overlap, never meet flush', ()
   const brimX = r.tris.filter((v) => v[2] <= P.squatBrimH + 1e-6 && Math.abs(v[1]) > P.th).map((v) => v[0]);
   const tallX = r.tris.filter((v) => v[2] > P.minHeight).map((v) => v[0]);
   assert(Math.max(...brimX) > Math.min(...tallX) + 0.5, `brim ends at x ${Math.max(...brimX)}, full wall starts at ${Math.min(...tallX)}: flush, not overlapping`);
+});
+
+Deno.test('draw: a squat brim stays out of an underside that dips beside the line (torus)', () => {
+  // the review's case: the brim's mid-height was clear, its top corner 0.06 mm inside the torus
+  const p = loadModel('torus').pos;
+  let mz = Infinity; for (let i = 2; i < p.length; i += 3) mz = Math.min(mz, p[i]);
+  const pos = new Float32Array(p); for (let i = 2; i < pos.length; i += 3) pos[i] -= mz;
+  const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
+  const r = drawnWall([-15.29, 17.49, 2.31], [-14.72, 20.77, 2.31], pos, 0);
+  assert(!r.ok || insideCount(topo, IDENTITY, OFF, r.tris.filter((v) => v[2] > 0.05)) === 0,
+    'the squat brim sits inside the torus');
 });

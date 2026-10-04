@@ -215,7 +215,8 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
 
 /**
  * The squat fallback for a drawn line no full-height wall fits: `{ tris, top, height,
- * partAttached }` or null. Part first (sweepBetween down to minHeightSquat of headroom),
+ * partAttached }` or null. Part first (sweepBetween down to minHeightSquat of headroom --
+ * in practice just over 1 mm of room, since floorLine skips surfaces within its 1 mm margin),
  * then the plate: stations from minHeightSquat to minHeight get a brimmed squat stem
  * (sweepSquat, what Auto builds near the bed), taller runs keep the flanged wall.
  * A station under minHeightSquat still refuses the whole line.
@@ -245,7 +246,9 @@ function squatWall(topPA, line, tris, zBed) {
   // ...and only under a real overhang, with room for the whole brim (squatBrimW either
   // side, wider than the stem floorLine looked under) and the stem beside the line
   if (!underAnOverhang(line, tris)) return null;
-  if (!acrossClear(line, tris, PROP.squatBrimW, () => zBed + PROP.squatBrimH / 2)) return null;
+  // (probed at the brim's TOP plus the gap: under an underside that dips beside the
+  // line, mid-height passed while the brim's top corner sat in the part -- torus)
+  if (!acrossClear(line, tris, PROP.squatBrimW, () => zBed + PROP.squatBrimH + PROP.gap)) return null;
   if (!acrossClear(line, tris, PROP.th / 2, (i) => zBed + (line[i][2] - PROP.gap - zBed) / 2)) return null;
   // runs of tall (full wall) and low (squat) stations; a tall run under two stations
   // can't sweep, so it goes squat with its neighbours

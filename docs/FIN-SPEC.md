@@ -86,8 +86,9 @@ welts.
   wall needs only **2 mm** of line (`DRAW_MIN_LEN` in `draw.js`; Auto's `minSpan` is 7),
   because the user is pointing at one small overhang Auto doesn't reach -- a cleat, a
   fingertip. When neither full-height wall fits (on the part, then on the plate), it
-  falls back to a **squat** wall: on the part with as little as `minHeightSquat`
-  (**0.6 mm**) of headroom, or on the plate -- only where nothing of the part is under
+  falls back to a **squat** wall: on the part down to `minHeightSquat` (0.6 mm) of
+  wall -- in practice the part below must be **just over 1 mm** under the overhang,
+  since `floorLine` skips surfaces within its 1 mm margin -- or on the plate -- only where nothing of the part is under
   the line -- with its stations under `minHeight` (1.5) as a brimmed squat stem
   (`sweepSquat`, Auto's near-bed wall, tines from `squatBrimH` up) and any taller run as
   the full flanged wall. Under 0.6 mm of room it still refuses. The fallback runs only
