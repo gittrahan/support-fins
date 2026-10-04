@@ -36,7 +36,7 @@ Other people's files, kept locally in `reports/`, never committed: `issue18_ssd_
 the GitHub issues) and `mini_goblin_janitor` (Matthew's figure work). Matthew's copies:
 `~/Downloads/printfins-issues/`.
 
-**Baseline 2026-10-03 (main 8e0f3aa)**, held% / small% (share of the overhang in regions
+**Baseline 2026-10-03 (main 8e0f3aa; the knuckle rows reproduce on 3155267)**, held% / small% (share of the overhang in regions
 too small to be seen):
 
     issue121_m4_front     up 68/3    X45 69/3    Y45 51/2    suggested 45/3   sliver ~850-1090 per pose
@@ -58,9 +58,10 @@ Auto path, called like the app: `analyze(topo, 45, rot)` then
 
 - `held%`: overhang area whose face centroid sits within `maxUnsupportedSpan/2` of a
   wall top in plan and 0-1.5 mm above it (or on the plate), over EVERY overhang face
-  (held.js; before 2026-10-03 only faces in regions >= 12 mm2 counted, which hid minis).
-- `small%`: the share of overhang in regions under MIN_REGION_AREA (12 mm2). A proxy: confirm a case by
-  rendering or slicing before trusting a number.
+  (held.js; before 2026-10-03 only faces in regions >= 12 mm2 counted, which hid minis;
+  compare.js shares held.js, so its held faces and heldFrac changed the same way). A proxy:
+  confirm a case by rendering or slicing before trusting a number.
+- `small%`: the share of overhang in regions under MIN_REGION_AREA (12 mm2).
 - `walls` / `onPart`: walls built, and how many stand on the part instead of the plate.
 - `stilt mm`, `g`: plate-standing wall height summed, and support + pad mass (PLA).
 - `skipped`: `buildProps`' own reasons (`sliver` = a patch under 12 mm2, dropped).

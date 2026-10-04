@@ -37,7 +37,7 @@ function build(raster) {
   const h = heldFaces(topo, res, rot, { fins: r.props }, PROP.maxUnsupportedSpan / 2);
   const held = h.faces.map(([f, hd]) => [f, hd]);
   const heldFrac = h.area ? h.held / h.area : null;
-  return { walls, held, heldFrac: area ? got / area : null, nWalls: r.props.length };
+  return { walls, held, heldFrac, nWalls: r.props.length };
 }
 
 Deno.writeTextFileSync(outPath, JSON.stringify({ title: `${file.split('/').pop()} X${xdeg}`, part,
