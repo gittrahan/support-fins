@@ -81,9 +81,11 @@ export function floorLine(topLine, tris, margin = 1.0, mold = false) {
  * under it and footGap past it; if the part bulges up between them, both rise
  * until the straight bottom edge clears it -- but never past the highest floor:
  * then the high side pins there and only the low one tilts. The tilt reaches at most
- * MAX_DROP across th (~70deg), leaving that corner at most MAX_HANG over its floor; a
- * side whose floor is further down stays level, so a wall on the brink of a ledge
- * doesn't reach down its face into the air.
+ * MAX_DROP across th (~70deg), leaving that corner at most MAX_HANG (+ footGap) over
+ * its floor; a side whose floor is further down stays level, so a wall on the brink
+ * of a ledge doesn't reach down its face into the air. That is a switch, not a fade:
+ * where a side floor straddles MAX_DROP + MAX_HANG along the wall, the bottom steps
+ * MAX_DROP between neighbouring stations (each piece capped or level, both safe).
  * Returns [zNeg, zPos] for the -w and +w sides (the across-wall `sx` sign).
  */
 const MAX_DROP = 2.75, MAX_HANG = 1.0;
