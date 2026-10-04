@@ -35,6 +35,29 @@ Slab + spine + ledges; one part-attached wall per ledge at h 15/25/40 mm x 2/3/5
   left a **foot scar** (-> foot/), and the lip past a mid-ledge wall curled (the
   free-edge rule, local issue 009).
 
+### short/ -- how short may a wall standing on the plate be for its height? (PROP.minSpan)
+Coverage work (goal 1): `PROP.minSpan` 7 mm ("not worth the plate space") is what
+leaves organic parts unheld. With walls down to 2 mm the probe went M4 45 -> 68 %,
+knuckle 74 -> 85 %, octopus 53 -> 74 % (`prototype/examples/`, 2026-10-03), but those
+walls are 2 mm long and 40-60 mm tall, and slender/ only tried walls on the part, up to 7:1.
+Spine on the plate, twelve ledges, each with ONE plate wall under its free edge, 7 mm
+clear of the spine, so nothing holds the wall up until it reaches the ledge (a short
+wall under a small island on an organic part). The walls are draw mode's own
+`drawnWall` at the site's defaults, with minSpan lifted for the build. Ledge = L + 2 mm
+wide (1 mm lip past each wall end). Flat ledges get no tines (nothing for one to bite
+sideways into), same as the site. Ledge k carries k dots, in rows of three:
+
+| ledge | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| wall length mm | 2 | 2 | 2 | 3 | 3 | 3 | 4 | 4 | 4 | 5 | 5 | 5 |
+| height mm | 20 | 40 | 60 | 20 | 40 | 60 | 20 | 40 | 60 | 20 | 40 | 60 |
+| height:length | 10 | 20 | 30 | 6.7 | 13 | 20 | 5 | 10 | 15 | 4 | 8 | 12 |
+
+Score per ledge: stood / wobbled (ripples on the wall's upper half) / fell, and did the
+ledge print flat. The result sets a plate-wall slenderness cap: walls shorter than
+minSpan are allowed only while height:length stays under the tallest ratio that stood.
+- **waiting on print.**
+
 ### foot/ -- how should a wall on the part meet the part?
 Six ledges 15 mm up, a 12 mm wall under each, 1 mm in from the free edge. Ledge k
 carries k dots (`print/` is the as-printed build, from commit a2e5a80 which still had teeth): 1 welded (the old default), 2 gap 0.2, 3 gap 0.3, 4 teeth every 3 mm,
