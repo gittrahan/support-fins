@@ -16,7 +16,7 @@
  * into a watertight wall, reusing prop/sweep.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
-import { PROP, PART_BAND, sweep, sweepBetween, sweepSquat, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
+import { PROP, PART_BAND, footFor, sweep, sweepBetween, sweepSquat, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
 
 /**
  * A hand-drawn wall may be much shorter than an auto wall (PROP.minSpan, 7 mm): the user
@@ -35,7 +35,15 @@ export const DRAW_MIN_LEN = 2;
  * overhang would jump down to whatever plate-resting geometry shares its (x, y).
  */
 function surfaceZsAt(tris, x, y) {
-  const zs = [];
+  return surfaceHits(tris, x, y).map((h) => h[0]);
+}
+
+/** ...and with each, its normal's z (unit): [z, nz]. The full-wall checks (local issue
+ * 033) ask about surfaces, not parity: a mesh built from bodies touching face to face
+ * (bridge.stl's deck on its piers) carries coincident inner faces, and an inside/outside
+ * count through them reads air as solid. */
+function surfaceHits(tris, x, y) {
+  const hits = [];
   for (let i = 0; i < tris.length; i += 9) {
     const ax = tris[i], ay = tris[i + 1], az = tris[i + 2];
     const bx = tris[i + 3], by = tris[i + 4], bz = tris[i + 5];
@@ -46,9 +54,11 @@ function surfaceZsAt(tris, x, y) {
     const l2 = ((cy - ay) * (x - cx) + (ax - cx) * (y - cy)) / den;
     const l3 = 1 - l1 - l2;
     if (l1 < -1e-9 || l2 < -1e-9 || l3 < -1e-9) continue;
-    zs.push(l1 * az + l2 * bz + l3 * cz);
+    const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
+    const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+    hits.push([l1 * az + l2 * bz + l3 * cz, nz / (Math.hypot(nx, ny, nz) || 1)]);
   }
-  return zs;
+  return hits;
 }
 
 /**
@@ -70,6 +80,38 @@ function solidAt(tris, x, y, z) {
 function underAnOverhang(line, tris) {
   return line.every((p) => !solidAt(tris, p[0], p[1], p[2] - 0.02)
     && [0.02, 0.1, 0.25, 0.5].some((d) => solidAt(tris, p[0], p[1], p[2] + d)));
+}
+
+/** Does an interior station lie ON the part -- the surface it touches facing up? A line
+ * drawn on an upward face does; one under an overhang touches a face looking down. Not
+ * the end stations: Auto and the user put those on the overhang's edge. */
+function onThePart(line, tris) {
+  return line.some((p, i) => {
+    if (i === 0 || i === line.length - 1) return false;
+    let best = null;
+    for (const h of surfaceHits(tris, p[0], p[1])) {
+      if (Math.abs(h[0] - p[2]) < 0.5 && (!best || Math.abs(h[0] - p[2]) < Math.abs(best[0] - p[2]))) best = h;
+    }
+    return best !== null && best[1] > 0;
+  });
+}
+
+/** Does part surface cross z0..z1(i) anywhere across the wall, w(i) either side of its
+ * centre line? A body resting on the plate beside a plate wall's flange puts its bottom
+ * face in the flange's band; one standing in its stem, a side face. */
+function bandHitsPart(line, tris, w, z0, z1) {
+  for (let i = 0; i < line.length; i++) {
+    const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
+    const rn = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (rn < 1e-9) continue;
+    const rx = (b[0] - a[0]) / rn, ry = (b[1] - a[1]) / rn, wi = w(i), top = z1(i);
+    for (const o of [-wi, -wi / 2, wi / 2, wi]) {
+      for (const [z] of surfaceHits(tris, line[i][0] + ry * o, line[i][1] - rx * o)) {
+        if (z >= z0 && z <= top) return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Points across a wall at each station, `w` either side of its centre line, at height z(i). */
@@ -155,7 +197,11 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   // straight to the plate" bug: on the over-the-part case sweep-to-plate SUCCEEDS
   // and silently builds the tall stilt, so the fix must PREFER the floor.
   const topPA = drawnLine(a, b, tris, PROP.stationStep, PART_BAND);
-  if (topPA && topPA.length >= PROP.minStations) {
+  // ...unless the line lies ON the part: drawn on an UPWARD face (the UI lets you
+  // click one), it read the part's own underside as its floor and stood the wall
+  // inside the part, floor to top (local issue 033: a sphere's top, 296-384
+  // vertices in). That line falls through to the plate wall below.
+  if (topPA && topPA.length >= PROP.minStations && !onThePart(topPA, tris)) {
     const floor = floorLine(topPA, tris);
     let floorMax = 0;
     for (const p of floor) if (p[2] > floorMax) floorMax = p[2];
@@ -187,6 +233,16 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   // was out of reach (too thin a gap to seat a wall), not that we ignore it.
   // The clicked endpoints' heights are exactly "what the user pointed at", so a
   // high clickTop with a failed sweep is the unreachable case, not a low line.
+  // The flange and the stem must clear the part beside the line (Auto's clearance
+  // pass measures the same profile): drawn beside a body resting on the plate, the
+  // flange reached 0.4-1.1 mm into it (local issue 033). Checked before sweep writes.
+  const top = (i) => line[i][2] - PROP.gap - zBed;
+  if (line.every((p, i) => top(i) >= PROP.minHeight)
+      && (bandHitsPart(line, tris, (i) => footFor(top(i)), zBed - 0.01, () => zBed + PROP.baseH + PROP.gap)
+       || bandHitsPart(line, tris, () => PROP.th / 2, zBed - 0.01, (i) => zBed + top(i) / 2))) {
+    return { ok: false, reason: 'too close to the part — the wall’s foot would cut '
+      + 'into it; draw the line a little further out' };
+  }
   if (!sweep(line, zBed, out)) {
     // Neither full-height wall fits. Before refusing, the two SQUAT walls a user
     // drawing by hand can still want (local issue 011) -- tried only now, so every

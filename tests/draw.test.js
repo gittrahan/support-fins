@@ -154,7 +154,7 @@ Deno.test('draw: a squat plate wall takes tines from the brim up', () => {
 
 // ---- review fixes: a squat wall never fills the part, its brim fits, its pieces overlap
 
-Deno.test('draw: a line on an UPWARD slope builds no squat wall inside the part', () => {
+Deno.test('draw: a line on an UPWARD slope builds no wall inside the part', () => {
   // the cone/pyramid case: at 0.6 mm headroom the slope itself read as the wall's floor
   const pos = Float32Array.from(tiltedBlockTopo(-20, 20, -30, 30, -6, 6, 45).pos);
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
@@ -162,10 +162,9 @@ Deno.test('draw: a line on an UPWARD slope builds no squat wall inside the part'
     const top = Math.max(...prop.surfaceZsAt(pos, 0, y));
     if (!isFinite(top)) continue;
     const r = drawnWall([-4, y, top], [4, y, top], pos, 0);
-    // only the squat fallback is this PR's: a FULL wall from a top-face line can already
-    // fill the part on main (the sphere case; local issue 033)
-    assert(!r.ok || !r.squat || insideCount(topo, IDENTITY, OFF, r.tris) === 0,
-      `a line on the top face at y ${y} built a squat wall inside the part`);
+    // squat or full (local issue 033: a full wall from a top-face line filled the part)
+    assert(!r.ok || insideCount(topo, IDENTITY, OFF, r.tris) === 0,
+      `a line on the top face at y ${y} built a${r.squat ? ' squat' : ''} wall inside the part`);
   }
 });
 
@@ -199,4 +198,36 @@ Deno.test('draw: a squat brim stays out of an underside that dips beside the lin
   const r = drawnWall([-15.29, 17.49, 2.31], [-14.72, 20.77, 2.31], pos, 0);
   assert(!r.ok || insideCount(topo, IDENTITY, OFF, r.tris.filter((v) => v[2] > 0.05)) === 0,
     'the squat brim sits inside the torus');
+});
+
+// ---- local issue 033: full-height drawn walls stay out of the part
+
+Deno.test('draw: a line on a sphere\'s top builds no wall inside it', () => {
+  // the part path read the sphere's own underside as the floor under a top-face line
+  // and stood a wall inside it, floor to top (296-384 vertices in)
+  const p = loadModel('sphere').pos;
+  let mz = Infinity; for (let i = 2; i < p.length; i += 3) mz = Math.min(mz, p[i]);
+  const pos = Float32Array.from(p); for (let i = 2; i < pos.length; i += 3) pos[i] -= mz;
+  const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
+  for (const x of [5, 8, 10, 14]) {
+    const top = (y) => Math.max(...prop.surfaceZsAt(pos, x, y));
+    const r = drawnWall([x, -4, top(-4)], [x, 4, top(4)], pos, 0);
+    assert(!r.ok || (!r.partAttached && insideCount(topo, IDENTITY, OFF, r.tris) === 0),
+      `a line on the sphere's top at x ${x} built a wall inside it (part-attached ${!!r.partAttached})`);
+  }
+});
+
+Deno.test('draw: a full wall whose flange would cut into the body beside it refuses', () => {
+  // a body resting on the plate at x 0..10, a cantilever over x<0 at z 1.8: lines 0.5 and
+  // 1 mm out built full walls whose flange reached 0.6-1.1 mm into the body
+  const topo = topoOf(block(0, 10, -5, 5, 0, 6), block(-10, 0.01, -5, 5, 1.8, 6));
+  for (const x of [-0.5, -1]) {
+    const r = drawnWall([x, -4, 1.8], [x, 4, 1.8], topo.pos, 0);
+    assert(!r.ok && /too close/.test(r.reason), `line at x ${x}: expected 'too close', got ${r.ok ? 'a wall' : r.reason}`);
+  }
+  // 2 mm out the flange clears it: still builds (bed-plane vertices are on, not in, the body's
+  // bottom, and parity reads some of them inside -- so measure the flange's reach instead)
+  const r = drawnWall([-2, -4, 1.8], [-2, 4, 1.8], topo.pos, 0);
+  assert(r.ok && !r.squat, `line at x -2: ${r.reason ?? 'squat'}`);
+  assert(Math.max(...r.tris.map((v) => v[0])) < 0, 'the wall 2 mm out reaches the body');
 });
