@@ -113,8 +113,11 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
  * was the only one that scarred the part (local issue 009). The first layer
  * sags across the gap, so the bottom keeps the full wall thickness -- two lines
  * over air, not one 0.6 mm tip line that could peel. footGap 0 welds as before.
+ *
+ * `minH` is the least headroom a station needs (Draw mode passes minHeightSquat
+ * for a squat wall the user asked for by hand; Auto keeps minHeight).
  */
-export function sweepBetween(topLine, botLine, out) {
+export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
   const welded = PROP.footGap <= 0;
   const wall = [], st = [];
   for (let i = 0; i < topLine.length; i++) {
@@ -131,7 +134,7 @@ export function sweepBetween(topLine, botLine, out) {
     const bot = botLine[i][2] + PROP.footGap;
     // judged on the headroom, not the lifted wall: the gap must not change
     // WHICH walls exist (hub_corner X60 lost a 31 mm wall to a 1.6 mm station)
-    if (top - bot + PROP.footGap < PROP.minHeight) return false;
+    if (top - bot + PROP.footGap < minH) return false;
     // a lifted bottom tilts with the floor under each side (floorLine's
     // sideFloors); welded, or with no side floors, it is level at `bot`
     // (a molded side can sit above `bot`: never within 0.5 of the top, which the
