@@ -35,27 +35,36 @@ Slab + spine + ledges; one part-attached wall per ledge at h 15/25/40 mm x 2/3/5
   left a **foot scar** (-> foot/), and the lip past a mid-ledge wall curled (the
   free-edge rule, local issue 009).
 
-### short/ -- how short may a wall standing on the plate be for its height? (PROP.minSpan)
-Coverage work (goal 1): `PROP.minSpan` 7 mm ("not worth the plate space") is what
-leaves organic parts unheld. With walls down to 2 mm the probe went M4 45 -> 68 %,
-knuckle 74 -> 85 %, octopus 53 -> 74 % (`prototype/examples/`, 2026-10-03), but those
-walls are 2 mm long and 40-60 mm tall, and slender/ only tried walls on the part, up to 7:1.
-Spine on the plate, twelve ledges, each with ONE plate wall under its free edge, 7 mm
-clear of the spine, so nothing holds the wall up until it reaches the ledge (a short
-wall under a small island on an organic part). The walls are draw mode's own
-`drawnWall` at the site's defaults, with minSpan lifted for the build. Ledge = L + 2 mm
-wide (1 mm lip past each wall end). Flat ledges get no tines (nothing for one to bite
-sideways into), same as the site. Ledge k carries k dots, in rows of three:
+### short/ -- how slender may a SHORT wall standing on the plate be? (PROP.minSpanShort, maxShortAspect)
+Coverage work (goal 1). Walls under `minSpan` (7 mm) are built only in the last-resort
+pass (`web/fins/shortwalls.js`), down to `minSpanShort` 4 mm while height <=
+`maxShortAspect` 6 x length. Both numbers were guessed. With walls down to 2 mm the
+probe went M4 45 -> 68 %, knuckle 74 -> 85 %, octopus 53 -> 74 % (`prototype/examples/`,
+2026-10-03), but those walls are 2-3 mm long at up to 20:1 and more, and slender/ only
+tried walls on the part, up to 7:1.
+Spine on the plate, twelve ledges, ONE plate wall under each ledge's tip. The wall's
+faces are 8 mm from the spine and its foot at least 2.5 mm, so nothing holds it up
+until it reaches the ledge (a short wall under a small island on an organic part).
+The walls come from draw mode's own `drawnWall` at the site's defaults (same sweep and
+foot as Auto), with minSpan lifted for the build. Each runs along x on purpose, so its
+length is exactly the one under test (Auto would run along the ledge's long side). The
+ledge's tongue sticks out only 0.2 mm past each wall end, so no lip can curl into a
+tall wall. The dots sit on the wide root by the spine. Flat ledges get no tines
+(nothing for one to bite sideways into), same as the site. Ledge k carries k dots, in
+rows of four:
 
 | ledge | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| wall length mm | 2 | 2 | 2 | 3 | 3 | 3 | 4 | 4 | 4 | 5 | 5 | 5 |
-| height mm | 20 | 40 | 60 | 20 | 40 | 60 | 20 | 40 | 60 | 20 | 40 | 60 |
-| height:length | 10 | 20 | 30 | 6.7 | 13 | 20 | 5 | 10 | 15 | 4 | 8 | 12 |
+| wall length mm | 2 | 2 | 2 | 2 | 3 | 3 | 3 | 3 | 4 | 4 | 4 | 4 |
+| height mm | 12 | 20 | 30 | 40 | 18 | 30 | 45 | 60 | 24 | 40 | 60 | 80 |
+| height:length | 6 | 10 | 15 | 20 | 6 | 10 | 15 | 20 | 6 | 10 | 15 | 20 |
 
-Score per ledge: stood / wobbled (ripples on the wall's upper half) / fell, and did the
-ledge print flat. The result sets a plate-wall slenderness cap: walls shorter than
-minSpan are allowed only while height:length stays under the tallest ratio that stood.
+6:1 is today's cap, the control. Score each ledge: stood / wobbled (ripples on the
+wall's upper half) / fell, and whether the ledge printed flat. Read per LENGTH: the
+tallest ratio that stood at each length sets maxShortAspect (one number if it's the
+same for every length, otherwise per length), and the shortest length that stands at
+6:1 sets minSpanShort. A fall here is conservative: a part with little plate contact
+also gets the bed pad, which this coupon doesn't.
 - **waiting on print.**
 
 ### foot/ -- how should a wall on the part meet the part?

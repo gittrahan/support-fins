@@ -1,20 +1,25 @@
 #!/usr/bin/env python3
-"""Short-wall coupon: how short may a wall standing on the PLATE be for its height?
-(PROP.minSpan, 7 mm today: "not worth the plate space".)
+"""Short-wall coupon: how slender may a SHORT wall standing on the plate be?
+(PROP.minSpanShort 4 mm and PROP.maxShortAspect 6, web/prop/config.js.)
 
-Coverage probe, 2026-10-03: minSpan is what leaves organic parts unheld. Walls down
-to 2 mm lift the M4 headset 45 -> 68 %, the knuckle 74 -> 85 %, the octopus 53 -> 74 %,
-but those walls are 2 mm long and 40-60 mm tall (20:1 and more). slender/ only tried
-walls standing on the part, at up to 7:1. This one asks whether a short wall standing
-alone on the plate stays up all the way to its overhang.
+Walls under PROP.minSpan (7 mm) are built only in the last-resort pass
+(web/fins/shortwalls.js), and only down to minSpanShort 4 mm while height <=
+maxShortAspect 6 x length -- both numbers guessed, never printed. The coverage probe
+(2026-10-03) says those two are what leave organic parts unheld: with walls down to
+2 mm the M4 headset went 45 -> 68 %, the knuckle 74 -> 85 %, the octopus 53 -> 74 %,
+but those walls are 2-3 mm long and up to 20:1 and more. slender/ only tried walls on
+the part, up to 7:1. This asks how slender a short wall standing alone on the plate
+may be and still stay up all the way to its overhang.
 
-ONE solid piece: a spine on the plate with twelve small ledges, six a side. The ledges
-are lengths x heights: wall length L in LENGTHS, ledge underside at H in HEIGHTS. Each
-ledge is L + 2 mm wide (1 mm lip past each end of the wall) and sticks DEPTH out of the
-spine, so the wall under its free edge stands DEPTH - 1 mm clear of the spine, held by
-nothing but its own foot until its tines reach the ledge. That is the case on an
-organic part: a short wall under a small island, nothing beside it. A ledge's dots
-count its rung (1-12); the table in the README maps rung -> L x H.
+ONE solid piece: a spine on the plate with twelve ledges, six a side, one wall each:
+lengths 2/3/4 mm x height:length 6 (today's cap, the control), 10, 15, 20. Each ledge is
+a wide ROOT on the spine (it carries the dots) and a TONGUE out to the free edge only
+0.2 mm wider than its wall at each end, so there is no lip to curl into a tall wall
+(slender/ saw lips curl). The wall runs ALONG x under the tongue's tip, its faces
+8 mm clear of the spine and its foot at least 2.5 mm clear: nothing holds it up until
+it reaches the ledge (a short wall under a small island on an organic part). Auto would
+run a wall along this ledge's long side instead; the wall is drawn along x on purpose,
+so its length is exactly the one under test. Ledge k carries k dots, rows of four.
 
     python3 prototype/calibration/short/gen.py && deno run -A prototype/calibration/short/build.js
 """
@@ -24,31 +29,31 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from coupon import bx, dots, write  # noqa: E402
 
-LENGTHS = [2.0, 3.0, 4.0, 5.0]               # wall length along x, mm
-HEIGHTS = [20.0, 40.0, 60.0]                 # ledge underside above the plate, mm
-SPINE_W, LEDGE_T, DEPTH, STEP = 8.0, 2.0, 8.0, 12.0
-TOP = max(HEIGHTS) + LEDGE_T + 2.0
+LENGTHS = [2.0, 3.0, 4.0]                    # wall length along x, mm
+RATIOS = [6, 10, 15, 20]                     # height:length; 6 = maxShortAspect today
+SPINE_W, LEDGE_T, ROOT_W, ROOT_D, DEPTH, STEP = 8.0, 2.0, 9.0, 5.5, 9.5, 12.0
+END = 0.2                                    # tongue past each wall end (no lip to curl)
 
+grid = [(L, L * r, r) for L in LENGTHS for r in RATIOS]
+TOP = max(h for _, h, _ in grid) + LEDGE_T + 2.0
 parts, rungs = [], []
-# near side: L 2, 3 at every height; far side: L 4, 5 at every height (rungs 1-6, 7-12)
-grid = [(L, H) for L in LENGTHS[:2] for H in HEIGHTS] + [(L, H) for L in LENGTHS[2:] for H in HEIGHTS]
-for k, (L, H) in enumerate(grid):
+for k, (L, H, ratio) in enumerate(grid):
     side = 1 if k < 6 else -1
     x = 4.0 + (k % 6) * STEP
-    w = L + 2.0
-    y0, y1 = sorted([side * SPINE_W / 2, side * (SPINE_W / 2 + DEPTH)])
-    parts.append(bx(x, x + w, y0, y1, H, H + LEDGE_T))
-    # dots on the ledge's top, rows of three (a 3 mm ledge can't hold a row of six)
+    r0, r1 = sorted([side * SPINE_W / 2, side * (SPINE_W / 2 + ROOT_D)])
+    parts.append(bx(x, x + ROOT_W, r0, r1, H, H + LEDGE_T))
+    cx = x + ROOT_W / 2                                  # the tongue's and wall's centre
+    t0, t1 = sorted([side * SPINE_W / 2, side * (SPINE_W / 2 + DEPTH)])
+    parts.append(bx(cx - L / 2 - END, cx + L / 2 + END, t0, t1, H, H + LEDGE_T))
     n = k + 1
-    for r in range(0, n, 3):
-        parts += dots(min(3, n - r), x + 0.6, side * (SPINE_W / 2 + DEPTH - 1.2 - 1.6 * (r // 3)), H + LEDGE_T,
-                      step=1.3 if w < 5 else 1.8, size=0.8)
-    # the wall: along x under the free edge, 1 mm in from it and from each end
+    for r in range(0, n, 4):
+        parts += dots(min(4, n - r), x + 1.5, side * (SPINE_W / 2 + 1.2 + 1.6 * (r // 4)), H + LEDGE_T,
+                      step=2.0)
     wy = side * (SPINE_W / 2 + DEPTH - 1.0)
-    rungs.append({'id': n, 'length': L, 'height': H, 'ratio': round(H / L, 1),
-                  'wall': [[x + 1.0, wy], [x + 1.0 + L, wy]], 'z': H,
-                  'box': [x - 1.0, x + w + 1.0, y0 - 0.5, y1 + 0.5]})
-LEN = 4.0 + 5 * STEP + max(LENGTHS) + 2.0 + 4.0
+    rungs.append({'id': n, 'length': L, 'height': H, 'ratio': ratio,
+                  'wall': [[cx - L / 2, wy], [cx + L / 2, wy]], 'z': H,
+                  'box': [x - 1.0, x + ROOT_W + 1.0, t0 - 0.5, t1 + 0.5]})
+LEN = 4.0 + 5 * STEP + ROOT_W + 4.0
 parts.append(bx(0, LEN, -SPINE_W / 2, SPINE_W / 2, 0, TOP))
 m = write(__file__, parts, rungs)
 print(f'short-wall coupon {m.extents.round(1)} mm')
