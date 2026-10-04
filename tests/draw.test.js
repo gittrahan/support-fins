@@ -231,3 +231,11 @@ Deno.test('draw: a full wall whose flange would cut into the body beside it refu
   assert(r.ok && !r.squat, `line at x -2: ${r.reason ?? 'squat'}`);
   assert(Math.max(...r.tris.map((v) => v[0])) < 0, 'the wall 2 mm out reaches the body');
 });
+
+Deno.test('draw: a thin pin inside the flange footprint, between stations, refuses', () => {
+  // a 0.3 mm pin standing on the plate under a high slab, between two stations and two
+  // of the old across-samples: the flange cut it with no wall vertex inside (review)
+  const topo = topoOf(block(-12, 12, -10, 10, 20, 24), block(0.4, 0.7, 1.6, 1.9, 0, 5));
+  const r = drawnWall([-10, 0, 20], [10, 0, 20], topo.pos, 0);
+  assert(!r.ok && /too close/.test(r.reason), `expected 'too close', got ${r.ok ? 'a wall' : r.reason}`);
+});

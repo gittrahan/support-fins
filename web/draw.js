@@ -16,7 +16,7 @@
  * into a watertight wall, reusing prop/sweep.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
-import { PROP, PART_BAND, footFor, sweep, sweepBetween, sweepSquat, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
+import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, sweep, sweepBetween, sweepSquat, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
 
 /**
  * A hand-drawn wall may be much shorter than an auto wall (PROP.minSpan, 7 mm): the user
@@ -96,17 +96,23 @@ function onThePart(line, tris) {
   });
 }
 
-/** Does part surface cross z0..z1(i) anywhere across the wall, w(i) either side of its
+/** Does part surface cross z0..z1(i) anywhere under the wall, w(i) either side of its
  * centre line? A body resting on the plate beside a plate wall's flange puts its bottom
- * face in the flange's band; one standing in its stem, a side face. */
+ * face in the flange's band; one standing in its stem, a side face. Sampled every
+ * BAND_STEP along and across -- at the stations alone, a pin 0.5 mm thick slipped
+ * between them -- through prop.js's gridded surfaceZsAt (a mini has ~1M faces). */
+const BAND_STEP = 0.25;
 function bandHitsPart(line, tris, w, z0, z1) {
-  for (let i = 0; i < line.length; i++) {
-    const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
-    const rn = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    if (rn < 1e-9) continue;
-    const rx = (b[0] - a[0]) / rn, ry = (b[1] - a[1]) / rn, wi = w(i), top = z1(i);
-    for (const o of [-wi, -wi / 2, wi / 2, wi]) {
-      for (const [z] of surfaceHits(tris, line[i][0] + ry * o, line[i][1] - rx * o)) {
+  for (let i = 0; i + 1 < line.length; i++) {
+    const p = line[i], q = line[i + 1];
+    const len = Math.hypot(q[0] - p[0], q[1] - p[1]);
+    if (len < 1e-9) continue;
+    const rx = (q[0] - p[0]) / len, ry = (q[1] - p[1]) / len;
+    const wi = Math.max(w(i), w(i + 1)), top = Math.max(z1(i), z1(i + 1));
+    const na = Math.ceil(len / BAND_STEP), nc = Math.ceil(2 * wi / BAND_STEP);
+    for (let s = 0; s <= na; s++) for (let k = 0; k <= nc; k++) {
+      const t = len * s / na, o = -wi + 2 * wi * k / nc;
+      for (const z of gridZsAt(tris, p[0] + rx * t + ry * o, p[1] + ry * t - rx * o)) {
         if (z >= z0 && z <= top) return true;
       }
     }
@@ -220,6 +226,16 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   if (!line || line.length < PROP.minStations) {
     return { ok: false, reason: 'no surface found along that line' };
   }
+  // The flange and the stem must clear the part beside the line (Auto's clearance
+  // pass measures the same profile): drawn beside a body resting on the plate, the
+  // flange reached 0.4-1.1 mm into it (local issue 033). Checked before sweep writes.
+  const top = (i) => line[i][2] - PROP.gap - zBed;
+  if (line.every((p, i) => top(i) >= PROP.minHeight)
+      && (bandHitsPart(line, tris, (i) => footFor(top(i)), zBed - 0.01, () => zBed + PROP.baseH + PROP.gap)
+       || bandHitsPart(line, tris, () => PROP.th / 2, zBed - 0.01, (i) => zBed + top(i) / 2))) {
+    return { ok: false, reason: 'too close to the part — the wall’s foot would cut '
+      + 'into it; draw the line a little further out' };
+  }
   // Reaching here means no real floor was found below the overhang, so this is a
   // plate-attached wall. `sweep` returns false when any station is shorter than
   // PROP.minHeight, and two situations produce that:
@@ -233,16 +249,6 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   // was out of reach (too thin a gap to seat a wall), not that we ignore it.
   // The clicked endpoints' heights are exactly "what the user pointed at", so a
   // high clickTop with a failed sweep is the unreachable case, not a low line.
-  // The flange and the stem must clear the part beside the line (Auto's clearance
-  // pass measures the same profile): drawn beside a body resting on the plate, the
-  // flange reached 0.4-1.1 mm into it (local issue 033). Checked before sweep writes.
-  const top = (i) => line[i][2] - PROP.gap - zBed;
-  if (line.every((p, i) => top(i) >= PROP.minHeight)
-      && (bandHitsPart(line, tris, (i) => footFor(top(i)), zBed - 0.01, () => zBed + PROP.baseH + PROP.gap)
-       || bandHitsPart(line, tris, () => PROP.th / 2, zBed - 0.01, (i) => zBed + top(i) / 2))) {
-    return { ok: false, reason: 'too close to the part — the wall’s foot would cut '
-      + 'into it; draw the line a little further out' };
-  }
   if (!sweep(line, zBed, out)) {
     // Neither full-height wall fits. Before refusing, the two SQUAT walls a user
     // drawing by hand can still want (local issue 011) -- tried only now, so every
