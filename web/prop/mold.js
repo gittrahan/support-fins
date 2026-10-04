@@ -80,19 +80,27 @@ export function floorLine(topLine, tris, margin = 1.0, mold = false) {
  * the air on the downhill one -- nothing to grip. Each side takes the floor
  * under it and footGap past it; if the part bulges up between them, both rise
  * until the straight bottom edge clears it -- but never past the highest floor:
- * then the high side pins there and only the low one tilts. The tilt is capped (MAX_DROP across
- * th, ~70deg), so a wall on the brink of a ledge doesn't reach down its face.
+ * then the high side pins there and only the low one tilts. The tilt reaches at most
+ * MAX_DROP across th (~70deg), leaving that corner at most MAX_HANG over its floor; a
+ * side whose floor is further down stays level, so a wall on the brink of a ledge
+ * doesn't reach down its face into the air.
  * Returns [zNeg, zPos] for the -w and +w sides (the across-wall `sx` sign).
  */
-const MAX_DROP = 2.75;
+const MAX_DROP = 2.75, MAX_HANG = 1.0;
 function sideFloors(f, offs, z, w) {
   let zN = -Infinity, zP = -Infinity;
   offs.forEach((o, k) => {
     if (o <= -w) zN = Math.max(zN, f[k]);
     if (o >= w) zP = Math.max(zP, f[k]);
   });
-  zN = Math.max(zN, z - MAX_DROP);
-  zP = Math.max(zP, z - MAX_DROP);
+  // The tilt stops at MAX_DROP. A side whose floor is only a little past that (a
+  // steep slope: bore_bracket's bore) keeps the capped tilt, its corner just over
+  // the slope; one whose floor is further -- open to the plate past a ledge edge, or
+  // a step well down -- stays LEVEL at z: tilted, it reached into the air, a corner
+  // the slicer starts mid-air (Auto built them on the lighthouse X90, gree,
+  // artichoke, the #121 M4; local issue 032).
+  zN = zN < z - MAX_DROP - MAX_HANG ? z : Math.max(zN, z - MAX_DROP);
+  zP = zP < z - MAX_DROP - MAX_HANG ? z : Math.max(zP, z - MAX_DROP);
   let lift = 0;
   offs.forEach((o, k) => {
     if (o <= -w || o >= w) return;

@@ -173,3 +173,39 @@ Deno.test('part foot: the bottom molds to a rounded bump -- clear along every ed
   assert(lo > 0.15, `bottom comes ${lo.toFixed(3)} mm from the bump (straight down), expected ~${PROP.footGap}`);
   assert(onBump > 30 && hugging / onBump > 0.8, `bottom hugs the bump at ${hugging}/${onBump} vertices`);
 });
+
+// A wall standing at a LEDGE's edge, the ledge ending under it (local issue 032):
+// one side reads no floor at all (open to the plate) or a step far below. It used
+// to tilt down MAX_DROP (2.75) toward it anyway -- a corner starting mid-air, over
+// nothing (a slicer island; Auto built these on the lighthouse, gree, artichoke...).
+// It stays level on the ledge; a step within MAX_DROP still gets the tilt. The
+// edge sits under the wall between its centre and one face (y -0.4 of th 1.0): an
+// edge past the centre makes the straight bottom clear the ledge, level anyway.
+const ledge = (step) => new Float32Array([...block(-40, 40, -10, -0.4, 0, 5),
+  ...(step > 0 ? block(-40, 40, -0.4, 10, 0, step) : []), ...block(-40, 40, -10, 10, 35, 39)]);
+
+Deno.test('part foot: at a ledge edge over open air the bottom stays level on the ledge', () => {
+  for (const step of [0, 1]) {                   // nothing beside the ledge; a step 4 mm down
+    const r = drawnWall([-30, 0, 35], [30, 0, 35], ledge(step), 0);
+    assert(r.ok, `wall failed (step ${step}): ${r.reason}`);
+    const z = Math.min(...r.tris.map((p) => p[2]));
+    assert(Math.abs(z - (5 + PROP.footGap)) < 1e-6,
+      `step ${step}: lowest point ${z.toFixed(3)}, expected ${5 + PROP.footGap} (level on the ledge, not hanging past it)`);
+  }
+});
+
+Deno.test('part foot: at a ledge edge over a step within MAX_DROP the bottom still tilts to it', () => {
+  const r = drawnWall([-30, 0, 35], [30, 0, 35], ledge(3.5), 0);
+  assert(r.ok, `wall failed: ${r.reason}`);
+  const z = Math.min(...r.tris.map((p) => p[2]));
+  assert(Math.abs(z - (3.5 + PROP.footGap)) < 1e-6, `lowest point ${z.toFixed(3)}, expected ${3.5 + PROP.footGap} (footGap over the step)`);
+});
+
+Deno.test('part foot: a floor just past MAX_DROP keeps the capped tilt, its corner just over it', () => {
+  // 3.25 mm down (MAX_DROP 2.75 + 0.5): a steep slope, not an open edge -- levelled,
+  // the corner sat 3 mm over it (bore_bracket x30y60's bore)
+  const r = drawnWall([-30, 0, 35], [30, 0, 35], ledge(5 - 3.25), 0);
+  assert(r.ok, `wall failed: ${r.reason}`);
+  const z = Math.min(...r.tris.map((p) => p[2]));
+  assert(Math.abs(z - (5 - 2.75 + PROP.footGap)) < 1e-6, `lowest point ${z.toFixed(3)}, expected ${5 - 2.75 + PROP.footGap} (tilted MAX_DROP)`);
+});
