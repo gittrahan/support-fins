@@ -18,7 +18,7 @@
  */
 const opt = (k) => { const i = Deno.args.indexOf(k); return i >= 0 ? Deno.args[i + 1] : null; };
 const ROOT = new URL('../', import.meta.url).pathname;
-const WEB = (opt('--web') ?? `${ROOT}web`).replace(/\/$/, '');
+const WEB = new URL(opt('--web') ?? `${ROOT}web`, `file://${Deno.cwd()}/`).pathname.replace(/\/$/, '');
 const { buildTopology, analyze } = await import(`${WEB}/overhangs.js`);
 const { buildFins } = await import(`${WEB}/fins.js`);
 const { readSTL } = await import(`${WEB}/stl.js`);
