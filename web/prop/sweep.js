@@ -138,7 +138,8 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     // a lifted bottom tilts with the floor under each side (floorLine's
     // sideFloors); welded, or with no side floors, it is level at `bot`
     // (a molded side can sit above `bot`: never within 0.5 of the top, which the
-    // headroom check above keeps >= 0.8 over the plain floor + gap)
+    // headroom check above keeps >= minH - footGap over the plain floor + gap --
+    // 1.3 at minHeight, 0.4 for Draw's squat minH)
     const side = (k) => (welded || botLine[i].length < 5 ? bot
       : Math.min(botLine[i][k] + PROP.footGap, top - 0.5));
     const bN = side(3), bP = side(4);

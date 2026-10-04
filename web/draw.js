@@ -52,6 +52,42 @@ function surfaceZsAt(tris, x, y) {
 }
 
 /**
+ * Is (x, y, z) inside the part? Odd number of surfaces below it in that column. The
+ * squat fallback has no clearance probe of its own (Auto's stationIsClear needs the
+ * topology), and at 0.6 mm of headroom a line on an UPWARD face reads that face as its
+ * floor -- so it checks the solid directly.
+ */
+function solidAt(tris, x, y, z) {
+  // a column through a shared edge hits both triangles: one surface, counted once
+  const zs = surfaceZsAt(tris, x, y).filter((zz) => zz < z).sort((p, q) => p - q);
+  let n = 0;
+  for (let i = 0; i < zs.length; i++) if (i === 0 || zs[i] - zs[i - 1] > 1e-5) n++;
+  return n % 2 === 1;
+}
+
+/** Each station sits under a DOWN-facing surface: air just below it and part within
+ * half a mm above (the settle passes leave a top a little under the underside). */
+function underAnOverhang(line, tris) {
+  return line.every((p) => !solidAt(tris, p[0], p[1], p[2] - 0.02)
+    && [0.02, 0.1, 0.25, 0.5].some((d) => solidAt(tris, p[0], p[1], p[2] + d)));
+}
+
+/** Points across a wall at each station, `w` either side of its centre line, at height z(i). */
+function acrossClear(line, tris, w, z) {
+  for (let i = 0; i < line.length; i++) {
+    const a = line[Math.max(0, i - 1)], b = line[Math.min(line.length - 1, i + 1)];
+    let rx = b[0] - a[0], ry = b[1] - a[1];
+    const rn = Math.hypot(rx, ry);
+    if (rn < 1e-9) return false;
+    rx /= rn; ry /= rn;
+    for (const o of [-w, -w / 2, 0, w / 2, w]) {
+      if (solidAt(tris, line[i][0] + ry * o, line[i][1] - rx * o, z(i))) return false;
+    }
+  }
+  return true;
+}
+
+/**
  * The contact polyline for a wall drawn from `a` to `b` (both surface points in
  * PRINT space, [x, y, z]). Straight in XY by construction. Each station's height
  * is the part surface nearest the line the user drew -- not the global lowest,
@@ -185,9 +221,13 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
  * A station under minHeightSquat still refuses the whole line.
  */
 function squatWall(topPA, line, tris, zBed) {
-  if (topPA && topPA.length >= PROP.minStations) {
+  if (topPA && topPA.length >= PROP.minStations && underAnOverhang(topPA, tris)) {
     const floor = floorLine(topPA, tris);
-    if (floor.some((p) => p[2] > PROP.gap + 0.5)) {
+    // the wall's middle, between its floor and its top, is air (on an upward slope
+    // the "floor" is the slope itself and this is solid)
+    const midClear = acrossClear(topPA, tris, PROP.th / 2,
+      (i) => (topPA[i][2] - PROP.gap + floor[i][2] + PROP.footGap) / 2);
+    if (midClear && floor.some((p) => p[2] > PROP.gap + 0.5)) {
       const mold = moldLine(topPA, tris);
       const t = [];
       if (mold && sweepBetween(mold.top, mold.floor, t, PROP.minHeightSquat)) {
@@ -202,6 +242,11 @@ function squatWall(topPA, line, tris, zBed) {
   // a plate wall stands only where the way down is clear: part under a station (too
   // close for the squat wall on it above) would put this one straight through it
   if (floorLine(line, tris).some((p) => p[2] > PROP.gap + 0.5)) return null;
+  // ...and only under a real overhang, with room for the whole brim (squatBrimW either
+  // side, wider than the stem floorLine looked under) and the stem beside the line
+  if (!underAnOverhang(line, tris)) return null;
+  if (!acrossClear(line, tris, PROP.squatBrimW, () => zBed + PROP.squatBrimH / 2)) return null;
+  if (!acrossClear(line, tris, PROP.th / 2, (i) => zBed + (line[i][2] - PROP.gap - zBed) / 2)) return null;
   // runs of tall (full wall) and low (squat) stations; a tall run under two stations
   // can't sweep, so it goes squat with its neighbours
   const tall = h.map((v) => v >= PROP.minHeight);
@@ -216,8 +261,10 @@ function squatWall(topPA, line, tris, zBed) {
     if (tall[i]) {
       if (!sweep(line.slice(i, j + 1), zBed, t)) return null;
     } else {
-      // a squat run reaches one station into each tall neighbour, so the two solids overlap
-      const seg = line.slice(Math.max(0, i - 1), Math.min(line.length, j + 2));
+      // a squat run reaches TWO stations into each tall neighbour: the tall sweep ends at
+      // its own first/last station, so one would only meet it face to face -- the pieces
+      // must overlap, never sit flush (Fusion's weld). sweepSquat takes any h >= 0.6.
+      const seg = line.slice(Math.max(0, i - 2), Math.min(line.length, j + 3));
       if (seg.length < 2 || !sweepSquat(seg, zBed, t)) return null;
     }
     i = j + 1;

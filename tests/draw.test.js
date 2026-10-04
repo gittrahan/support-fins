@@ -134,17 +134,58 @@ Deno.test('draw: no squat wall through the part -- too little room on a low slab
 });
 
 Deno.test('draw: a squat plate wall takes tines from the brim up', () => {
-  // the 45deg block's underside where it runs ~1.2 mm over the plate (a tine needs a
-  // sloped face to reach into; a level underside takes none)
-  const topo = tiltedBlockTopo(-20, 20, -30, 30, -6, 6, 45);
+  // the 45deg block lifted 0.4 mm off the plate, drawn where the underside is ~1.4 mm
+  // up: a tine needs a sloped face to reach into (a level
+  // underside takes none), and under the edge is open air, so the brim fits both sides
+  const pos = Float32Array.from(tiltedBlockTopo(-20, 20, -30, 30, -6, 6, 45).pos);
+  for (let i = 2; i < pos.length; i += 3) pos[i] += 0.4;
+  const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   let at = null;
-  for (let y = -30; y <= 30 && !at; y += 0.1) {
+  for (let y = -30; y <= 30 && !at; y += 0.05) {
     const zs = prop.surfaceZsAt(topo.pos, 0, y);
-    if (zs.length >= 2 && Math.abs(Math.min(...zs) - 1.2) < 0.06) at = { y, z: Math.min(...zs) };
+    if (zs.length >= 2 && Math.abs(Math.min(...zs) - 1.4) < 0.03) at = { y, z: Math.min(...zs) };
   }
-  assert(at, 'test setup: no underside ~1.2 mm up on the tilted block');
+  assert(at, 'test setup: no underside ~1.4 mm up on the lifted block');
   const r = drawnWall([-6, at.y, at.z], [6, at.y, at.z], topo.pos, 0,
     { tines: true, topo, rot: IDENTITY, offset: OFF, tineDensity: 1 });
   assert(r.ok && r.squat, `expected a squat plate wall: ${r.reason}`);
   assert(r.tines > 0, 'a squat drawn wall with Tines on emitted no tines');
+});
+
+// ---- review fixes: a squat wall never fills the part, its brim fits, its pieces overlap
+
+Deno.test('draw: a line on an UPWARD slope builds no squat wall inside the part', () => {
+  // the cone/pyramid case: at 0.6 mm headroom the slope itself read as the wall's floor
+  const pos = Float32Array.from(tiltedBlockTopo(-20, 20, -30, 30, -6, 6, 45).pos);
+  const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
+  for (let y = -20; y <= 20; y += 5) {
+    const top = Math.max(...prop.surfaceZsAt(pos, 0, y));
+    if (!isFinite(top)) continue;
+    const r = drawnWall([-4, y, top], [4, y, top], pos, 0);
+    // only the squat fallback is this PR's: a FULL wall from a top-face line can already
+    // fill the part on main (the sphere case; local issue 033)
+    assert(!r.ok || !r.squat || insideCount(topo, IDENTITY, OFF, r.tris) === 0,
+      `a line on the top face at y ${y} built a squat wall inside the part`);
+  }
+});
+
+Deno.test('draw: a squat brim that would run into the part beside the line refuses', () => {
+  // a body resting on the plate at x 0..10 and a cantilever over x<0 at z 1.2: a line at
+  // x -2 is clear straight down, but its 2.5 mm brim reaches into the body
+  const topo = topoOf(block(0, 10, -8, 8, 0, 6), block(-10, 0, -8, 8, 1.2, 6));
+  const r = drawnWall([-2, -5, 1.2], [-2, 5, 1.2], topo.pos, 0);
+  assert(!r.ok || insideCount(topo, IDENTITY, OFF, r.tris) === 0, 'the squat brim pokes into the body beside it');
+});
+
+Deno.test('draw: the squat stem and the full wall overlap, never meet flush', () => {
+  const pos = new Float32Array(block(-10, 10, -5, 5, 0, 4));
+  for (let i = 0; i < pos.length; i += 3) pos[i + 2] += 1.0 + (pos[i] + 10) * 0.4;
+  const zAt = (x) => 1.0 + (x + 10) * 0.4;
+  const r = drawnWall([-9, 0, zAt(-9)], [8, 0, zAt(8)], pos, 0);
+  assert(r.ok && r.squat, `expected a mixed wall: ${r.reason}`);
+  // the brim (z <= squatBrimH, wide) must reach past where the flanged wall starts
+  const P = prop.PROP;
+  const brimX = r.tris.filter((v) => v[2] <= P.squatBrimH + 1e-6 && Math.abs(v[1]) > P.th).map((v) => v[0]);
+  const tallX = r.tris.filter((v) => v[2] > P.minHeight).map((v) => v[0]);
+  assert(Math.max(...brimX) > Math.min(...tallX) + 0.5, `brim ends at x ${Math.max(...brimX)}, full wall starts at ${Math.min(...tallX)}: flush, not overlapping`);
 });
