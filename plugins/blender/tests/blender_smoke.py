@@ -192,7 +192,7 @@ select(block)
 wall, reason = engine.draw_wall(block, (-8, -5, 11.97), (8, -5, 11.97), c)
 assert wall is not None, reason
 assert wall.parent == block and wall["sf_role"] == "drawn" and closed(wall)
-none, reason = engine.draw_wall(block, (-8, -5, 11.97), (-6, -5, 11.97), c)
+none, reason = engine.draw_wall(block, (-8, -5, 11.97), (-7, -5, 11.97), c)  # 1 mm, under DRAW_MIN_LEN
 assert none is None and "too short" in reason, reason
 # a drawn wall alone (no Generate yet) is for this pose: moving the part says so
 assert ui.out_of_date(block, scene) is None
