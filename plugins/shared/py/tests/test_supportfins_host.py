@@ -116,7 +116,7 @@ def test_draw_wall_lands_under_the_line_anywhere_on_the_plate(ctx):
 
 
 def test_draw_wall_says_why_not(ctx):
-    wall, reason = host.host_draw_wall(ctx, tilted_block(), (-8, -5, 11.97), (-6, -5, 11.97), {})
+    wall, reason = host.host_draw_wall(ctx, tilted_block(), (-8, -5, 11.97), (-7, -5, 11.97), {})  # 1 mm, under DRAW_MIN_LEN
     assert wall is None and "too short" in reason
     with pytest.raises(ValueError, match="finite"):
         host.host_draw_wall(ctx, tilted_block(), (-8, -5, float("nan")), (8, -5, 11.97), {})

@@ -82,6 +82,16 @@ welts.
   vs kiss, sectioned at every mid-layer: 0 mm2 lost, 0.02 mm2 gained (spots where the
   0.5 box stopped short of the face). What welds is the part's next layer printing
   onto the tine (local issue 027).
+- **Draw mode builds smaller walls than Auto** (2026-10-03, local issue 011). A drawn
+  wall needs only **2 mm** of line (`DRAW_MIN_LEN` in `draw.js`; Auto's `minSpan` is 7),
+  because the user is pointing at one small overhang Auto doesn't reach -- a cleat, a
+  fingertip. When neither full-height wall fits (on the part, then on the plate), it
+  falls back to a **squat** wall: on the part with as little as `minHeightSquat`
+  (**0.6 mm**) of headroom, or on the plate -- only where nothing of the part is under
+  the line -- with its stations under `minHeight` (1.5) as a brimmed squat stem
+  (`sweepSquat`, Auto's near-bed wall, tines from `squatBrimH` up) and any taller run as
+  the full flanged wall. Under 0.6 mm of room it still refuses. The fallback runs only
+  after both full-height walls fail, so every line that built before builds the same.
 - **Scale-aware profile.** The prototype's foot/chamfer/tip are fixed, which degenerates
   into a 14 mm splayed sheet when the overhang sits low. Foot width must scale with wall
   height.

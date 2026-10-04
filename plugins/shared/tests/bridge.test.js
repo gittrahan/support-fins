@@ -53,6 +53,6 @@ Deno.test('bridge draws the same wall as the direct call, and passes a refusal t
   assert(tris.length === direct.triangles.length && tris.every((v, i) => v === direct.triangles[i]), 'triangles differ');
   assert(JSON.stringify(via.offset) === JSON.stringify(direct.offset), 'offset differs');
   assert(JSON.stringify(via.stats) === JSON.stringify(direct.stats), 'stats differ');
-  const short = JSON.parse(drawWallB64(soup, JSON.stringify(a), JSON.stringify([-6, -5, 11.97]), '{}'));
+  const short = JSON.parse(drawWallB64(soup, JSON.stringify(a), JSON.stringify([-7, -5, 11.97]), '{}'));   // 1 mm, under DRAW_MIN_LEN
   assert(!short.ok && /too short/.test(short.reason), `expected a refusal, got ${JSON.stringify(short)}`);
 });

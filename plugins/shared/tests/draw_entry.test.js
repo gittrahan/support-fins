@@ -115,7 +115,7 @@ Deno.test('drawWall: the layer height reaches the wall (one-layer tines)', () =>
 
 Deno.test('drawWall says why it can\'t build, in the site\'s words', () => {
   const { pos, a } = tiltedBlock();
-  const r = drawWall(pos, a, add(a, [2, 0, 0]), {});
+  const r = drawWall(pos, a, add(a, [1, 0, 0]), {});   // 1 mm, under DRAW_MIN_LEN
   assert(!r.ok && /too short/.test(r.reason), `expected "too short", got ${JSON.stringify(r)}`);
 });
 

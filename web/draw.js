@@ -16,7 +16,14 @@
  * into a watertight wall, reusing prop/sweep.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
-import { PROP, PART_BAND, sweep, sweepBetween, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
+import { PROP, PART_BAND, sweep, sweepBetween, sweepSquat, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
+
+/**
+ * A hand-drawn wall may be much shorter than an auto wall (PROP.minSpan, 7 mm): the user
+ * is pointing at one small overhang -- a cleat, a fingertip, a chin -- that no auto
+ * wall reaches. 2 mm still gives the three stations a sweep needs (local issue 011).
+ */
+export const DRAW_MIN_LEN = 2;
 
 /**
  * Every surface height directly above (x, y), as a list.
@@ -87,8 +94,8 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity) 
 export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   const dx = b[0] - a[0], dy = b[1] - a[1];
   const len = Math.hypot(dx, dy);
-  if (len < PROP.minSpan) {
-    return { ok: false, reason: `wall too short — ${len.toFixed(0)}mm, needs ${PROP.minSpan}mm` };
+  if (len < DRAW_MIN_LEN) {
+    return { ok: false, reason: `wall too short — ${len.toFixed(1)}mm, needs ${DRAW_MIN_LEN}mm` };
   }
   const out = [];
   // A drawn wall grips the part with the same tine comb the auto fins use, when
@@ -96,9 +103,11 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   // it only runs when the caller passes topo/rot/offset -- the live preview omits
   // them and stays a plain wall for speed. `topLine` is the wall's surface-z contact
   // line (emitTines subtracts the gap itself).
-  const withTines = (line) => opts.tines && opts.topo
+  // (`minTop`: a squat plate wall's base is its thin brim, so its tines start from
+  // squatBrimH, as Auto's squat walls do -- the flange default would skip every one)
+  const withTines = (line, minTop = undefined) => opts.tines && opts.topo
     ? emitTines(line, tris, opts.topo, opts.rot, opts.offset, out,
-                tineStepFor(opts.tineDensity), undefined, opts.layerHeight ?? PROP.tineH)
+                tineStepFor(opts.tineDensity), minTop, opts.layerHeight ?? PROP.tineH)
     : 0;
   // PART-ATTACHED first: if solid part sits below the overhang, the support
   // stands on THAT, not the plate. Probe with a BANDED top contour so the
@@ -143,6 +152,17 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   // The clicked endpoints' heights are exactly "what the user pointed at", so a
   // high clickTop with a failed sweep is the unreachable case, not a low line.
   if (!sweep(line, zBed, out)) {
+    // Neither full-height wall fits. Before refusing, the two SQUAT walls a user
+    // drawing by hand can still want (local issue 011) -- tried only now, so every
+    // drawn wall that built before builds exactly the same:
+    //   - on the part, with as little as minHeightSquat headroom (a hand just over a thigh);
+    //   - on the plate, its low stations a brimmed squat stem, the tall ones the full wall.
+    const squat = squatWall(topPA, line, tris, zBed);
+    if (squat) {
+      out.push(...squat.tris);
+      const tines = withTines(squat.top, squat.partAttached ? undefined : PROP.squatBrimH);
+      return { ok: true, tris: out, length: len, height: squat.height, partAttached: squat.partAttached, squat: true, tines };
+    }
     const clickTop = Math.min(a[2], b[2]) - zBed;
     if (clickTop >= PROP.minHeight + PROP.gap) {
       return { ok: false, reason: 'this overhang sits above another part of the '
@@ -155,4 +175,52 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   for (const p of line) height = Math.max(height, p[2] - PROP.gap - zBed);
   const tines = withTines(line);
   return { ok: true, tris: out, length: len, height, tines };
+}
+
+/**
+ * The squat fallback for a drawn line no full-height wall fits: `{ tris, top, height,
+ * partAttached }` or null. Part first (sweepBetween down to minHeightSquat of headroom),
+ * then the plate: stations from minHeightSquat to minHeight get a brimmed squat stem
+ * (sweepSquat, what Auto builds near the bed), taller runs keep the flanged wall.
+ * A station under minHeightSquat still refuses the whole line.
+ */
+function squatWall(topPA, line, tris, zBed) {
+  if (topPA && topPA.length >= PROP.minStations) {
+    const floor = floorLine(topPA, tris);
+    if (floor.some((p) => p[2] > PROP.gap + 0.5)) {
+      const mold = moldLine(topPA, tris);
+      const t = [];
+      if (mold && sweepBetween(mold.top, mold.floor, t, PROP.minHeightSquat)) {
+        let height = 0;
+        for (let i = 0; i < topPA.length; i++) height = Math.max(height, topPA[i][2] - PROP.gap - floor[i][2]);
+        return { tris: t, top: topPA, height, partAttached: true };
+      }
+    }
+  }
+  const h = line.map((p) => p[2] - PROP.gap - zBed);
+  if (h.some((v) => v < PROP.minHeightSquat)) return null;
+  // a plate wall stands only where the way down is clear: part under a station (too
+  // close for the squat wall on it above) would put this one straight through it
+  if (floorLine(line, tris).some((p) => p[2] > PROP.gap + 0.5)) return null;
+  // runs of tall (full wall) and low (squat) stations; a tall run under two stations
+  // can't sweep, so it goes squat with its neighbours
+  const tall = h.map((v) => v >= PROP.minHeight);
+  for (let i = 0; i < tall.length; i++) {
+    if (tall[i] && !tall[i - 1] && !tall[i + 1]) tall[i] = false;
+  }
+  const t = [];
+  let i = 0;
+  while (i < line.length) {
+    let j = i;
+    while (j + 1 < line.length && tall[j + 1] === tall[i]) j++;
+    if (tall[i]) {
+      if (!sweep(line.slice(i, j + 1), zBed, t)) return null;
+    } else {
+      // a squat run reaches one station into each tall neighbour, so the two solids overlap
+      const seg = line.slice(Math.max(0, i - 1), Math.min(line.length, j + 2));
+      if (seg.length < 2 || !sweepSquat(seg, zBed, t)) return null;
+    }
+    i = j + 1;
+  }
+  return { tris: t, top: line, height: Math.max(...h), partAttached: false };
 }
