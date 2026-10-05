@@ -102,7 +102,9 @@ export function classify(topo, res, rot) {
     p.push(f);
   }
   // insidePart caches its grid on the topo; under probe.js --web the other engine's
-  // build made that one, so drop it and score with THIS checkout's (one ruler)
+  // build made that one, so score with THIS checkout's and put the engine's back
+  // after (the next pose's build reuses the topo)
+  const engineGrid = topo._insideGrid;
   delete topo._insideGrid;
   const inside = (x, y, z) => insidePart(topo, rot, off, x, y, z);
   for (const faces of patches.values()) {
@@ -183,5 +185,6 @@ export function classify(topo, res, rot) {
       cls[f] = cz < LOW_Z ? LOW : MUST;
     }
   }
+  if (engineGrid) topo._insideGrid = engineGrid; else delete topo._insideGrid;
   return cls;
 }
