@@ -12,6 +12,7 @@
 // drawWallB64 does the same for Draw mode (draw_entry.js): one wall between two points.
 import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from './fins_entry.js';
 import { drawWall } from './draw_entry.js';
+import { reportLine } from './report.js';
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const LOOKUP = new Uint8Array(256);
@@ -77,5 +78,6 @@ export const optionsSchemaJson = () => JSON.stringify(OPTIONS_SCHEMA);
 export const optionsFromDialogJson = (valuesJson) => JSON.stringify(optionsFromDialog(JSON.parse(valuesJson)));
 export const optionVisibleJson = (key, valuesJson) => optionVisible(key, JSON.parse(valuesJson));
 
-// optionsFromDialog / optionVisible / OPTIONS_SCHEMA: what a host's settings dialog needs
-export { computeFins, drawWall, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA };
+// optionsFromDialog / optionVisible / OPTIONS_SCHEMA: what a host's settings dialog needs;
+// reportLine: the one-line result, for a host whose dialog is a web page (SolidWorks)
+export { computeFins, drawWall, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA, reportLine };
