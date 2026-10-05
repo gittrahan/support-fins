@@ -66,6 +66,12 @@ const PLUGINS = [
     install: 'Unzip into the Mod folder of FreeCAD\'s user data folder (Help ▸ About shows it) and restart. Toolbar ▸ Add Support Fins.',
   },
   {
+    name: 'SolidWorks', needs: 'Windows · experimental',
+    note: 'Built and tested against the engine, but not yet run in SolidWorks itself: tell us how it goes.',
+    file: 'support-fins-solidworks.zip',
+    install: 'Unzip somewhere it can stay, right-click SupportFins\\install.bat ▸ Run as administrator, restart SolidWorks. In a part: Support Fins tab ▸ Support Fins.',
+  },
+  {
     name: 'Onshape', needs: 'custom feature (its own port of the engine)',
     link: 'https://cad.onshape.com/documents/607917e8e297a68eb42cfb58',
     linkText: t('Open in Onshape'),

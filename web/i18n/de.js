@@ -1,4 +1,7 @@
 export default {
+  'Windows · experimental': 'Windows · experimentell',
+  'Built and tested against the engine, but not yet run in SolidWorks itself: tell us how it goes.': 'Gegen die Engine gebaut und getestet, aber noch nicht in SolidWorks selbst ausgeführt: Erfahrungen bitte melden.',
+  'Unzip somewhere it can stay, right-click SupportFins\\install.bat ▸ Run as administrator, restart SolidWorks. In a part: Support Fins tab ▸ Support Fins.': 'An einen festen Ort entpacken, Rechtsklick auf SupportFins\\install.bat ▸ Als Administrator ausführen, SolidWorks neu starten. In einem Teil: Registerkarte Support Fins ▸ Support Fins.',
   'the upright sides are blocked by other parts of the model in this pose': 'die aufrechten Seiten sind in dieser Lage durch andere Modellteile blockiert.',
   'node support-fins.mjs part.stl (or deno run -RW support-fins.mjs part.stl) → part-fins.3mf, part + fins. --help lists every setting.': 'node support-fins.mjs part.stl (oder deno run -RW support-fins.mjs part.stl) → part-fins.3mf, Bauteil + Finnen. --help zeigt alle Optionen.',
   'Command line': 'Kommandozeile',
