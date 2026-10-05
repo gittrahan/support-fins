@@ -562,16 +562,21 @@ function lowEdges(probe, vLo, vHi) {
     if (above >= 0) edges.push({ v: vs[above], dir: +1 });
     k = j;
   }
+  // a row's own class, so lowEdgeRows can tell a row behind an edge that still
+  // builds (a PART row) from one in the band that never will
+  edges.low = (v) => cls[Math.max(0, Math.min(cls.length - 1, Math.round((v - vLo) / step)))] === 'low';
   return edges;
 }
 
 /**
  * rowOffsets' rows plus a row at each low edge (lowEdges) with no row within a
- * brim width (2 x squatBrimW) on its standing side, or within `near` behind it.
- * Only ever ADDED: the layout's rows are a guess at where a wall builds, the
- * edge scan is a coarser one, and moving a row onto the edge lost real walls
- * (the flat torus's 9-tine rim walls slid 1.3 mm in and failed the build). The
- * brim width keeps two squat brims from fusing.
+ * brim width (2 x squatBrimW) of it -- either side, except a row IN the low band
+ * behind it, which never builds. Only ever ADDED: the layout's rows are a guess
+ * at where a wall builds, the edge scan is a coarser one, and moving a row onto
+ * the edge lost real walls (the flat torus's 9-tine rim walls slid 1.3 mm in
+ * and failed the build). The brim width keeps two squat brims from fusing: a
+ * row behind the edge over a PART row still builds (a tilted cube at X60Z30
+ * got a second squat wall 1.6 mm from it, one fused slab).
  */
 function lowEdgeRows(rows, edges, near) {
   const out = [...rows];
@@ -579,7 +584,7 @@ function lowEdgeRows(rows, edges, near) {
   for (const { v, dir } of edges) {
     const blocked = out.some((r) => {
       const d = (r - v) * dir;
-      return d >= 0 ? d < brim : -d < near;
+      return d >= 0 ? d < brim : -d < near || (-d < brim && !edges.low(r));
     });
     if (!blocked) out.push(v);
   }

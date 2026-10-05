@@ -75,7 +75,9 @@ of bow) lying on the plate gets a wall at **each edge of its low band** (where t
 underside climbs past the squat floor, ~14.6 mm out) at sparse, default and dense.
 Main put the nearest at 23.4 mm, ~9 mm of near-flat underside bare on each side
 (a customer's DRO housing on its bowed back; at the default coverage one side got
-nothing). The row is added beside the layout, never moved into it.
+nothing). The row is added beside the layout, never moved into it, and **no two
+squat brims fuse** -- on the slab, and on a 40 mm cube at X60Z30 sparse, where the
+first version added a squat wall 1.6 mm from the one main builds (review).
 
 **`pad.test.js`** -- the bed pad styles (FIN-SPEC "Bed pad styles"):
 - **Sure hold** is a smooth oval that conforms under a tilted part's flank, stays

@@ -97,8 +97,8 @@ welts.
   toward the plate (a curved face lying on the bed), no wall fits under the squat floor
   (0.6 mm wall + gap), and Auto's rows land on a pitch that ignores it. So the edge of
   that band -- the first row position where a squat wall and its brim clear the part --
-  gets a row when no row stands within a brim width (5 mm) of it (`lowEdges` in
-  `prop/tracks.js`). Added, never moved: moving a row onto the edge lost real walls. Bands
+  gets a row when no row that can build stands within a brim width (5 mm) of it
+  (`lowEdges` in `prop/tracks.js`; a row inside the band never builds, so it doesn't count). Added, never moved: moving a row onto the edge lost real walls. Bands
   under `lowBandMin` (1 mm) are sampling dips, not the plate.
 - **Scale-aware profile.** The prototype's foot/chamfer/tip are fixed, which degenerates
   into a 14 mm splayed sheet when the overhang sits low. Foot width must scale with wall
