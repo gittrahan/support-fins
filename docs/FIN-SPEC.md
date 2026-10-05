@@ -93,6 +93,13 @@ welts.
   (`sweepSquat`, Auto's near-bed wall, tines from `squatBrimH` up) and any taller run as
   the full flanged wall. Under 0.6 mm of room it still refuses. The fallback runs only
   after both full-height walls fail, so every line that built before builds the same.
+- **A low band gets a row at its edge** (2026-10-05). Where a near-flat underside sinks
+  toward the plate (a curved face lying on the bed), no wall fits under the squat floor
+  (0.6 mm wall + gap), and Auto's rows land on a pitch that ignores it. So the edge of
+  that band -- the first row position where a squat wall and its brim clear the part --
+  gets a row when no row stands within a brim width (5 mm) of it (`lowEdges` in
+  `prop/tracks.js`). Added, never moved: moving a row onto the edge lost real walls. Bands
+  under `lowBandMin` (1 mm) are sampling dips, not the plate.
 - **Scale-aware profile.** The prototype's foot/chamfer/tip are fixed, which degenerates
   into a 14 mm splayed sheet when the overhang sits low. Foot width must scale with wall
   height.

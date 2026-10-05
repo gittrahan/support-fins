@@ -500,10 +500,90 @@ function rowOffsets(vLo, vHi, rowSpan, probe) {
         : Array.from({ length: m }, (_, w) => a + ((b - a) * w) / (m - 1));
     }
   }
+  if (probe) rows = lowEdgeRows(rows, lowEdges(probe, vLo, vHi), near);
   let widest = 0;
   for (let i = 1; i < rows.length; i++) widest = Math.max(widest, rows[i] - rows[i - 1]);
   rows.spacing = rows.length > 1 ? widest : 0;
   return rows;
+}
+
+/**
+ * Where a near-flat patch sinks to the plate: each LOW edge, the row position
+ * `v` nearest a band no wall can stand in, with `dir` pointing away from the
+ * band (+1: the band is below v). A curved face lying on the bed is the case:
+ * the DRO housing's bowed back at X-90 is 0-0.8 mm up for ~9 mm either side of
+ * its contact strip, the pitch put the nearest surviving row at +-16 mm (and on
+ * one side none at all at the default coverage), and the strip between printed
+ * into air.
+ *
+ * Rows are sampled across v; at each, a row is OK when most samples along the
+ * patch are high enough for a squat wall AND its brim each side (the weld guard
+ * drops a brim within the gap of the part), LOW when none is and some sink
+ * under the squat floor, PART otherwise (a row one end of which climbs out of
+ * the band still carries a wall there). A low run's edge is the first OK row
+ * past it, across PART rows only -- a hole or a pocket ('none') is no edge.
+ */
+function lowEdges(probe, vLo, vHi) {
+  const { patchTris, ux, uy, vx, vy, uLo, uHi } = probe;
+  const wallZ = PROP.minHeightSquat + PROP.gap + 0.02;   // clearance.js's squat floor
+  const brimZ = PROP.squatBrimH + PROP.gap + 0.02;
+  const step = 0.25, nU = 9;
+  const at = (u, v) => surfaceZAt(patchTris, ux * u + vx * v, uy * u + vy * v);
+  const vs = [], cls = [];
+  for (let v = vLo; v <= vHi + 1e-9; v += step) {
+    let hit = 0, ok = 0, sunk = false;
+    for (let i = 0; i < nU; i++) {
+      const u = uLo + ((uHi - uLo) * (i + 0.5)) / nU;
+      const z = at(u, v);
+      if (z === null) continue;
+      hit++;
+      if (z < wallZ) { sunk = true; continue; }
+      const b1 = at(u, v - PROP.squatBrimW), b2 = at(u, v + PROP.squatBrimW);
+      if ((b1 === null || b1 >= brimZ) && (b2 === null || b2 >= brimZ)) ok++;
+    }
+    vs.push(v);
+    cls.push(hit === 0 ? 'none' : ok * 2 >= hit ? 'ok' : ok === 0 && sunk ? 'low' : 'part');
+  }
+  const edges = [];
+  const reach = (k, dir) => {                // first OK row from k on, over PART rows
+    for (let j = k; j >= 0 && j < cls.length; j += dir) {
+      if (cls[j] === 'ok') return j;
+      if (cls[j] !== 'part') return -1;
+    }
+    return -1;
+  };
+  for (let k = 0; k < cls.length; k++) {
+    if (cls[k] !== 'low') continue;
+    let j = k;
+    while (j + 1 < cls.length && cls[j + 1] === 'low') j++;
+    if ((j - k + 1) * step < PROP.lowBandMin) { k = j; continue; }   // a dip, not a band
+    const below = reach(k - 1, -1), above = reach(j + 1, +1);
+    if (below >= 0) edges.push({ v: vs[below], dir: -1 });
+    if (above >= 0) edges.push({ v: vs[above], dir: +1 });
+    k = j;
+  }
+  return edges;
+}
+
+/**
+ * rowOffsets' rows plus a row at each low edge (lowEdges) with no row within a
+ * brim width (2 x squatBrimW) on its standing side, or within `near` behind it.
+ * Only ever ADDED: the layout's rows are a guess at where a wall builds, the
+ * edge scan is a coarser one, and moving a row onto the edge lost real walls
+ * (the flat torus's 9-tine rim walls slid 1.3 mm in and failed the build). The
+ * brim width keeps two squat brims from fusing.
+ */
+function lowEdgeRows(rows, edges, near) {
+  const out = [...rows];
+  const brim = 2 * PROP.squatBrimW;
+  for (const { v, dir } of edges) {
+    const blocked = out.some((r) => {
+      const d = (r - v) * dir;
+      return d >= 0 ? d < brim : -d < near;
+    });
+    if (!blocked) out.push(v);
+  }
+  return out.length === rows.length ? rows : out.sort((a, b) => a - b);
 }
 
 /**

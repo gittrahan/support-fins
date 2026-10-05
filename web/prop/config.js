@@ -80,6 +80,10 @@ export const PROP = {
   // under maxUnsupportedSpan/2 so a row of squat walls never fuses brim-to-brim.
   squatBrimH: 0.4,     // ~2 layers
   squatBrimW: 2.5,     // half-width; a 5mm-wide brim strip along the wall
+  // A near-flat underside's LOW band (prop/tracks.js lowEdges): rows across it
+  // where no squat wall stands, narrower than this is a dip in a curved
+  // underside's sampling (a flat torus's ring), not the plate.
+  lowBandMin: 1.0,
   // mm between cross-sections; a LENGTH, not a count -- see `straightness`.
   // 1.0 rather than 2.0 deliberately, and the trade is measured: at 2.0 the
   // matrix is 8 clean / 2 walls that would weld / 18% coverage, at 1.0 it is

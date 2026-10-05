@@ -70,6 +70,13 @@ Shapes: curved fixtures `tests/fixtures/{bowl,dome_ceiling,torus_flat}.stl`
 - added geometry is **watertight**;
 - a tilted part gets a **tined, gripping** fin.
 
+**`low_edge.test.js`** -- a slab whose underside is a shallow cylinder (R 130, 2.2 mm
+of bow) lying on the plate gets a wall at **each edge of its low band** (where the
+underside climbs past the squat floor, ~14.6 mm out) at sparse, default and dense.
+Main put the nearest at 23.4 mm, ~9 mm of near-flat underside bare on each side
+(a customer's DRO housing on its bowed back; at the default coverage one side got
+nothing). The row is added beside the layout, never moved into it.
+
 **`pad.test.js`** -- the bed pad styles (FIN-SPEC "Bed pad styles"):
 - **Sure hold** is a smooth oval that conforms under a tilted part's flank, stays
   watertight, and thins into a gap on PETG numbers;
