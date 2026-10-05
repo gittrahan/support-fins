@@ -1,0 +1,55 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    The SolidWorks add-in. .NET Framework 4.8, because SolidWorks loads add-ins into
+    its own .NET Framework process. Builds with `dotnet build` on Windows, macOS or
+    Linux (the reference-assemblies package stands in for the Framework); build.py
+    runs it and packages the result.
+
+    SolidWorks interop: compile-time only, from NuGet, with its types embedded
+    (EmbedInteropTypes), so no Dassault DLL ships and the add-in doesn't bind to
+    one SolidWorks version's interop: it talks to whichever SolidWorks loads it
+    through the same COM interfaces.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <AssemblyName>SupportFins.SolidWorks</AssemblyName>
+    <RootNamespace>SupportFins.SolidWorks</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <!-- Bump with each add-in change: the dialog shows it, so you can tell which build SolidWorks loaded. -->
+    <Version>0.1.0</Version>
+    <Product>Support Fins for SolidWorks</Product>
+    <Company>printfins.com</Company>
+    <Copyright>Support Fins contributors</Copyright>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Web.WebView2" Version="1.0.4258.31" />
+    <PackageReference Include="SolidWorks.Interop.sldworks" Version="32.1.0" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="SolidWorks.Interop.swconst" Version="32.1.0" PrivateAssets="all" ExcludeAssets="runtime" />
+    <PackageReference Include="SolidWorks.Interop.swpublished" Version="32.1.0" PrivateAssets="all" ExcludeAssets="runtime" />
+    <Reference Include="System.Windows.Forms" />
+    <Reference Include="System.Web.Extensions" />
+    <!-- embedded interop types hand back VARIANTs as dynamic -->
+    <Reference Include="Microsoft.CSharp" />
+  </ItemGroup>
+
+  <!-- The dialog page (and the engine bundle build.py writes into it) and the ribbon icons sit next to the DLL. -->
+  <ItemGroup>
+    <None Include="page\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="page" />
+    <None Include="icons\**\*" CopyToOutputDirectory="PreserveNewest" LinkBase="icons" />
+  </ItemGroup>
+
+  <Target Name="EmbedSolidWorksInterop" AfterTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <ReferencePath Condition="$([System.String]::Copy('%(FileName)').StartsWith('SolidWorks.Interop.'))">
+        <EmbedInteropTypes>true</EmbedInteropTypes>
+      </ReferencePath>
+    </ItemGroup>
+  </Target>
+</Project>

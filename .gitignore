@@ -28,6 +28,11 @@ plugins/cura/build/
 plugins/cli/build/
 plugins/cura/SupportFins/dev_*
 plugins/freecad/build/
+# SolidWorks add-in: the built engine bundle, dotnet's obj/bin and the packaged add-in
+plugins/solidworks/SupportFins/page/fins_engine.js
+plugins/solidworks/SupportFins/obj/
+plugins/solidworks/SupportFins/bin/
+plugins/solidworks/build/
 
 # Blender: built extension zips and the cached mini-racer wheels
 plugins/blender/build/

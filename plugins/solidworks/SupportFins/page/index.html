@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Support Fins</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<!-- The Support Fins dialog, shown by the add-in in a WebView2 window
+     (../FinsWindow.cs). Its settings come from options.json through the engine
+     bundle; dialog.js runs the engine here, and the add-in only reads the part
+     and inserts the result. -->
+<header>
+  <div id="part">No part read yet</div>
+  <button id="read" type="button" title="Read the active part (and the selected face) again">Read part</button>
+</header>
+<form id="settings" autocomplete="off"></form>
+<p id="readout" role="status">Loading…</p>
+<footer>
+  <span id="version"></span>
+  <button id="insert" type="button" disabled>Insert</button>
+</footer>
+<script src="fins_engine.js"></script>
+<script type="module" src="dialog.js"></script>
+</body>
+</html>
