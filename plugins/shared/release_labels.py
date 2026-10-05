@@ -37,6 +37,8 @@ RULES = [
     (r"support_fins-(.+)\.zip", "Blender extension",
      lambda: tomllib.loads((PLUGINS / "blender/support_fins/blender_manifest.toml").read_text())["version"]),
     (r"support-fins-freecad-(.+)\.zip", "FreeCAD add-on", None),
+    (r"support-fins-solidworks\.zip", "SolidWorks add-in",
+     lambda: re.search(r"<Version>([^<]+)</Version>", (PLUGINS / "solidworks/SupportFins/SupportFins.SolidWorks.csproj").read_text()).group(1)),
     (r"support-fins\.mjs", "Command line", None),
 ]
 

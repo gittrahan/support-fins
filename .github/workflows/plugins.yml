@@ -225,9 +225,34 @@ jobs:
           path: support-fins-prusa.zip
           if-no-files-found: error
 
+  solidworks:
+    # The add-in, built on Linux: it targets .NET Framework 4.8 through reference
+    # assemblies and SolidWorks' interop is compile-time only. Its page's tests run
+    # with the rest in test.yml's deno test; SolidWorks itself isn't installable here.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4     # npx fetches the pinned esbuild (plugins/shared/bundle.py)
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Build
+        run: python plugins/solidworks/build.py --zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: solidworks
+          path: plugins/solidworks/build/support-fins-solidworks.zip
+          if-no-files-found: error
+
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [orca, fusion, cura, prusa, blender, blender-smoke, freecad, cli]
+    needs: [orca, fusion, cura, prusa, blender, blender-smoke, freecad, cli, solidworks]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -261,6 +286,7 @@ jobs:
           - support-fins-prusa.zip: PrusaSlicer 3.0 plugin bundle, placement by hand
           - support_fins-<platform>.zip: Blender 4.2+ extension, experimental; pick your computer's (macos-arm64, macos-x64, windows-x64, linux-x64) and use Install from Disk
           - support-fins-freecad-<platform>.zip: FreeCAD 1.0 add-on, experimental; pick your computer's (mac-arm64, mac-x64, windows-x64, linux-x64, linux-arm64) and unzip into FreeCAD's Mod folder
+          - support-fins-solidworks.zip: SolidWorks add-in (Windows), experimental, not yet run in SolidWorks; unzip, run install.bat as administrator
           - support-fins.mjs: command line (Deno or Node 20.10+): node support-fins.mjs part.stl
 
           Each file's label names its plugin version and the engine commit it was built from."
