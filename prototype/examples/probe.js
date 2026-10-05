@@ -10,13 +10,23 @@
  *   deno run -A prototype/examples/probe.js --dir <folder> [model ...] # any folder of STLs
  *     --poses up,X30,X45,Y45,suggested   (default up,X30)
  *     --dump <folder>                    one JSON per case, for render_held.py
+ *     --web <checkout>/web               build with another checkout's engine (scored by THIS
+ *                                        checkout's held.js, so both runs use one ruler)
+ *     --json <file>                      every row as JSON, for probe_diff.js
+ *
+ * Columns: `must%` is the policy number (2026-10-05: every red face gets something):
+ * held share of the MUST-hold overhang, i.e. all of it but tiny holes' ceilings
+ * (`hole`, exempt) and the strip under the squat floor (`low`, reported apart); see
+ * held.js classify. `held%` / `small%` are the old columns, kept for the baselines.
  *
  * The user-reported parts (GitHub #18 #50 #121 #157, and figures) live in the
  * git-ignored prototype/examples/reports/ -- other people's files, never committed.
  */
 import { heldFaces } from './held.js';
 
-const WEB = new URL('../../web/', import.meta.url).pathname;
+const webArg = Deno.args.includes('--web') ? Deno.args[Deno.args.indexOf('--web') + 1] : null;
+const WEB = webArg ? new URL(webArg.replace(/\/?$/, '/'), `file://${Deno.cwd()}/`).pathname
+  : new URL('../../web/', import.meta.url).pathname;
 const { buildTopology, analyze } = await import(`${WEB}overhangs.js`);
 const { buildFins } = await import(`${WEB}fins.js`);
 const { PROP } = await import(`${WEB}prop.js`);
@@ -39,15 +49,18 @@ const dir = opt('--dir') ? opt('--dir').replace(/\/?$/, '/')
   : new URL(args.includes('--fixtures') ? '../../tests/fixtures/' : './real/', import.meta.url).pathname;
 const POSES = (opt('--poses') ?? 'up,X30').split(',');
 const dump = opt('--dump');
+const jsonOut = opt('--json');
+const rows = [];
 if (dump) Deno.mkdirSync(dump, { recursive: true });
-const valued = new Set(['--dir', '--poses', '--dump'].map((k) => opt(k)).filter(Boolean));
+const valued = new Set(['--dir', '--poses', '--dump', '--web', '--json'].map((k) => opt(k)).filter(Boolean));
 const want = args.filter((a) => !a.startsWith('-') && !valued.has(a));
 const files = [...Deno.readDirSync(dir)].map((f) => f.name).filter((n) => n.toLowerCase().endsWith('.stl'))
   .filter((n) => !want.length || want.includes(n.replace(/\.stl$/i, ''))).sort();
 const R = PROP.maxUnsupportedSpan / 2;
 const pad = (s, n) => String(s).padEnd(n);
 const W = Math.max(18, ...files.map((f) => Math.min(40, f.length - 2)));
-console.log(pad('model', W) + pad('pose', 10) + pad('ovh mm2', 9) + pad('held%', 7) + pad('small%', 8) + pad('walls', 6)
+console.log(pad('model', W) + pad('pose', 10) + pad('ovh mm2', 9) + pad('must%', 7) + pad('hole', 6) + pad('low', 6)
+  + pad('held%', 7) + pad('small%', 8) + pad('walls', 6)
   + pad('onPart', 7) + pad('stilt mm', 9) + pad('g', 6) + 'skipped');
 for (const f of files) {
   const pos = readSTL(Deno.readFileSync(dir + f));
@@ -65,9 +78,13 @@ for (const f of files) {
     const g = (vol(b.triangles) + vol(b.padTriangles ?? [])) * 1.24 / 1000;
     const sk = Object.entries(b.skipped ?? {}).filter(([, n]) => n).map(([k, n]) => `${k}:${n}`).join(' ');
     const pct = (x) => (h.area ? (100 * x / h.area).toFixed(0) : '-');
+    const must = h.must ? (100 * h.mustHeld / h.must).toFixed(0) : '-';
     console.log(pad(f.replace(/\.stl$/i, '').slice(0, W), W) + pad(pose, 10) + pad(h.area.toFixed(0), 9)
+      + pad(must, 7) + pad(h.hole.toFixed(0), 6) + pad(h.low.toFixed(0), 6)
       + pad(pct(h.held), 7) + pad(pct(h.small), 8) + pad(walls.length, 6) + pad(onPart, 7)
       + pad(stilt.toFixed(0), 9) + pad(g.toFixed(1), 6) + sk);
+    rows.push({ model: f.replace(/\.stl$/i, ''), pose, area: h.area, held: h.held, must: h.must, mustHeld: h.mustHeld,
+      hole: h.hole, low: h.low, lowHeld: h.lowHeld, walls: walls.length, grams: g });
     if (dump) {
       // the seated part (every face, for context), the overhang faces' held/small
       // flags, and the support triangles -- what render_held.py draws
@@ -79,7 +96,9 @@ for (const f of files) {
       const sup = []; for (let i = 0; i < b.triangles.length; i += 3) sup.push([b.triangles[i], b.triangles[i + 1], b.triangles[i + 2]].map((v) => v.map((x) => +x.toFixed(3))));
       Deno.writeTextFileSync(`${dump}/${f.replace(/\.stl$/i, '').replace(/[^a-zA-Z0-9]+/g, '_')}-${pose}.json`, JSON.stringify({
         title: `${f} ${pose}`, area: h.area, held: h.held, small: h.small, walls: walls.length,
-        part, over: h.faces.map(([fc, hd, sm]) => [tri(fc * 9), hd, sm]), sup }));
+        must: h.must, mustHeld: h.mustHeld, hole: h.hole, low: h.low,
+        part, over: h.faces.map(([fc, hd, sm, cl]) => [tri(fc * 9), hd, sm, cl]), sup }));
     }
   }
 }
+if (jsonOut) Deno.writeTextFileSync(jsonOut, JSON.stringify(rows, null, 1));
