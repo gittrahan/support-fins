@@ -18,7 +18,7 @@ trap cleanup EXIT
 git -C "$ROOT" fetch -q origin 2>/dev/null || true
 git -C "$ROOT" worktree add -q --detach "$WORK/base" "$BASE" || exit 2
 echo "base $(git -C "$WORK/base" log --oneline -1)"
-echo "head $(git -C "$ROOT" log --oneline -1)$(git -C "$ROOT" diff --quiet -- web || echo ' + uncommitted web/ changes')"
+echo "head $(git -C "$ROOT" log --oneline -1)$([ -n "$(git -C "$ROOT" status --porcelain -- web)" ] && echo ' + uncommitted web/ changes')"
 
 run() {   # $1 web dir, $2 out prefix
   deno run -A "$HERE/probe.js" --web "$1" --dir "$HERE/reports" --poses up,suggested,X-90 --json "$2-reports.json" >/dev/null || return 1
@@ -31,5 +31,5 @@ run "$ROOT/web" "$WORK/head" || exit 2
 echo
 deno run -A "$HERE/probe_diff.js" "$WORK/base.json" "$WORK/head.json"
 status=$?
-[ -n "${KEEP:-}" ] && { cp "$WORK"/base.json "$WORK"/head.json "$KEEP"/; echo "kept json in $KEEP"; }
+[ -n "${KEEP:-}" ] && { mkdir -p "$KEEP"; cp "$WORK"/base.json "$WORK"/head.json "$KEEP"/; echo "kept json in $KEEP"; }
 exit $status

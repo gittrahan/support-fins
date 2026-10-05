@@ -6,9 +6,11 @@
  *
  *   deno run -A prototype/examples/probe_diff.js base.json head.json
  *
- * Exits 1 when a case loses more than 2 points of must% -- a scoreboard, so a
- * loss is named, never averaged away.
+ * Exits 1 when a case loses more than 2 points of must% AND at least MIN_LOSS mm2
+ * -- a scoreboard, so a loss is named, never averaged away; the area floor keeps
+ * one face on a 5 mm2 mini pose from failing the run.
  */
+const MIN_LOSS = 1.0;
 const [baseF, headF] = Deno.args;
 const load = (f) => new Map(JSON.parse(Deno.readTextFileSync(f)).map((r) => [`${r.model}|${r.pose}`, r]));
 const B = load(baseF), H = load(headF);
@@ -22,8 +24,9 @@ for (const [k, b] of B) {
   if (!h) { console.log(pad(k, 50) + 'MISSING in head'); lost++; continue; }
   mustB += b.must; heldB += b.mustHeld; mustH += h.must; heldH += h.mustHeld;
   const d = pct(h) - pct(b);
-  const flag = d < -2 ? '  LOST' : d > 2 ? '  gained' : '';
-  if (d < -2) lost++;
+  const loss = d < -2 && b.mustHeld - h.mustHeld >= MIN_LOSS;
+  const flag = loss ? '  LOST' : d > 2 ? '  gained' : '';
+  if (loss) lost++;
   console.log(pad(k, 50) + pad(b.must.toFixed(0), 10) + pad(pct(b).toFixed(1), 7) + pad(pct(h).toFixed(1), 7)
     + pad((d >= 0 ? '+' : '') + d.toFixed(1), 7) + `${b.walls} -> ${h.walls} / ${b.grams.toFixed(1)} -> ${h.grams.toFixed(1)}${flag}`);
 }

@@ -60,13 +60,14 @@ short) and `noLine:`. Suggest picks least support, not best held (local issue 03
 
 **Baseline 2026-10-05 (main 7ef4cfa), must%** -- the policy number (below), area-weighted over
 every case `vs-base.sh` runs (reports/ at up, suggested, X-90; real/ at up, X30):
-**64.8% of 281,534 mm2**. By family:
+**64.4% of 283,431 mm2**. By family:
 
-    reports/  (21 cases)   71.0% of 87,204 mm2    tiny holes exempted: 813 mm2
+    reports/  (21 cases)   70.9% of 87,383 mm2    tiny holes exempted: 634 mm2 (DRO 3 mm holes,
+                                                  Bosch vac bores, M4 bolt holes, goblin base lettering)
     curved_   (18)         83.3% of 90,294
-    tall_     (8)          57.5% of 30,999        (soap bubble chair: 0% both poses)
-    mini_     (12)         58.9% of 7,602         32 mm copies (12): 58.4% of 6,341
-    others    (6)          32.6% of 59,093        buster 19-23%, M4 large 65-68%
+    tall_     (8)          57.5% of 31,027        (soap bubble chair: 0% both poses; castle window slots exempt)
+    mini_     (12)         58.5% of 7,645         32 mm copies (12): 58.0% of 6,388
+    others    (6)          31.8% of 60,694        buster 19-23%, M4 large 65-68%
     pictures: ~/Downloads/printfins-coverage/2026-10-05-baseline/
 
 ## What the probe measures
@@ -82,11 +83,12 @@ Auto path, called like the app: `analyze(topo, 45, rot)` then
   has to hold it). `held%`'s rule over the MUST-hold faces only: all overhang but
   - `hole` (mm2, exempt): a tiny hole's ceiling, a horizontal bore or slot up to ~6 mm
     wide -- a model issue, left unsupported and flagged. A patch is one when it is a
-    cylinder or flat roof (some face within ~14deg of straight down, every normal square
-    to the bore), no wider than the bore's overhang chord, with part under it within the
-    diameter and part equally far either side just under its apex (held.js classify).
-    On the goblin that is the lettering under its base; the Bosch vac's toothed ring
-    (V-notches) and every armpit stay must-hold.
+    cylinder or flat roof (some face within ~14deg of straight down, normals square to the
+    bore on area-weighted average), no wider than a 6 mm bore's overhang chord, with air
+    at its plan centre just under the apex, part equally far either side there, and part
+    under it within 6 mm (held.js classify). On the goblin that is lettering under its
+    base; the Bosch vac's toothed ring (V-notches), every armpit, and a flat collar round
+    a post (a crossguard, a bolt head) stay must-hold.
   - `low` (mm2, reported apart): the strip under the squat-wall floor (0.82 mm), where
     no wall fits; it counts once a shim is coupon-tested.
   It scores REACH, not the wall: the DRO housing's +X bore counts as held by a 3.8 mm

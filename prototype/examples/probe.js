@@ -25,6 +25,7 @@
 import { heldFaces } from './held.js';
 
 const webArg = Deno.args.includes('--web') ? Deno.args[Deno.args.indexOf('--web') + 1] : null;
+if (Deno.args.includes('--web') && !webArg) throw new Error('--web needs a path: --web <checkout>/web');
 const WEB = webArg ? new URL(webArg.replace(/\/?$/, '/'), `file://${Deno.cwd()}/`).pathname
   : new URL('../../web/', import.meta.url).pathname;
 const { buildTopology, analyze } = await import(`${WEB}overhangs.js`);

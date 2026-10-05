@@ -71,7 +71,8 @@ export const MUST = 0, HOLE = 1, LOW = 2;
 // apex, is a hole's ceiling. A mini's sleeve over an arm has air on one side.
 const HOLE_D = 6.0;
 // The NEAR-PLATE strip: under the squat-wall floor (0.6 wall + 0.2 gap), where no
-// wall fits (prop/config.js minHeightSquat). Above the 0.6 the plate already holds.
+// wall fits (prop/config.js minHeightSquat). Below 0.6 the plate already holds it
+// (heldFaces), so what LOW leaves unheld is 0.6-0.82.
 const LOW_Z = 0.82;
 
 /**
@@ -100,6 +101,9 @@ export function classify(topo, res, rot) {
     let p = patches.get(r); if (!p) patches.set(r, (p = []));
     p.push(f);
   }
+  // insidePart caches its grid on the topo; under probe.js --web the other engine's
+  // build made that one, so drop it and score with THIS checkout's (one ruler)
+  delete topo._insideGrid;
   const inside = (x, y, z) => insidePart(topo, rot, off, x, y, z);
   for (const faces of patches.values()) {
     // plan extent across the patch's minor axis (2D PCA of its vertices)
@@ -162,7 +166,10 @@ export function classify(topo, res, rot) {
     for (const f of faces) {
       if (rot[2] * nrm[f * 3] + rot[5] * nrm[f * 3 + 1] + rot[8] * nrm[f * 3 + 2] < -0.97) { roof = true; break; }
     }
-    let hole = roof && (narrow(-uy, ux) || narrow(ux, uy));
+    // the probes start at the patch's plan centre, so that must be AIR: a flat collar
+    // round a post (a mini's crossguard, a bolt head) has its centre over the stem,
+    // where every probe lands in part at once and the collar read as a hole (review)
+    let hole = roof && !inside(apex[0], apex[1], z) && (narrow(-uy, ux) || narrow(ux, uy));
     if (hole) {
       // under the apex: the bore's floor within a diameter
       let floor = false;
