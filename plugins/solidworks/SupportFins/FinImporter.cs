@@ -44,11 +44,17 @@ namespace SupportFins.SolidWorks
                         if (feature == null) { failed.Add(p.Name); continue; }
                         var name = Unique(p.Name, n => part.FeatureByName(n) != null);
                         feature.Name = name;
+                        // A piece is a wall and the tines riding on it, overlapping on
+                        // purpose: the import may make one body per shell. Union them, so
+                        // a fin is one body to hide or delete, as on the other plugins.
+                        var made = Bodies(part).Where(b => !before.Contains(b.Name ?? "")).ToList();
+                        if (made.Count > 1) made = Combine(part, made);
                         var taken = new HashSet<string>(BodyNames(part));
-                        foreach (IBody2 body in Bodies(part).Where(b => !before.Contains(b.Name ?? "")))
+                        for (int k = 0; k < made.Count; k++)
                         {
-                            var bodyName = Unique(name, taken.Contains);
-                            body.Name = bodyName;
+                            // a union that didn't take leaves "wall 1", "wall 1 · 2", ...
+                            var bodyName = Unique(k == 0 ? name : $"{name} · {k + 1}", taken.Contains);
+                            made[k].Name = bodyName;
                             taken.Add(bodyName);
                         }
                         inserted++;
@@ -61,6 +67,23 @@ namespace SupportFins.SolidWorks
             }
             doc.GraphicsRedraw2();
             return failed;
+        }
+
+        // The bodies unioned into the first; as they were if SolidWorks won't.
+        static List<IBody2> Combine(IPartDoc part, List<IBody2> bodies)
+        {
+            try
+            {
+                var names = new HashSet<string>(bodies.Select(b => b.Name ?? ""));
+                var tools = bodies.Skip(1).Cast<object>().ToArray();
+                if (part.InsertCombineFeature((int)swBodyOperationType_e.SWBODYADD, bodies[0], tools))
+                {
+                    var left = Bodies(part).Where(b => names.Contains(b.Name ?? "")).ToList();
+                    if (left.Count > 0) return left;
+                }
+            }
+            catch { }
+            return bodies;
         }
 
         static IEnumerable<IBody2> Bodies(IPartDoc part) =>

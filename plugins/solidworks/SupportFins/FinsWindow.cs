@@ -86,16 +86,23 @@ namespace SupportFins.SolidWorks
             }
         }
 
+        static bool loaderSet;
+
         // WebView2Loader.dll ships in the add-in folder (or the package's runtimes/
-        // layout); SolidWorks' own folder is where it would look otherwise.
+        // layout); SolidWorks' own folder is where it would look otherwise. WebView2
+        // takes the folder once per process, before its loader loads: a second window
+        // (or another add-in that loaded it first) must not set it again, or it throws.
         static void UseBundledLoader()
         {
+            if (loaderSet) return;
+            loaderSet = true;
             foreach (var dir in new[] { "", "x64", Path.Combine("runtimes", "win-x64", "native") })
             {
                 var folder = Path.Combine(Addin.Folder, dir);
                 if (File.Exists(Path.Combine(folder, "WebView2Loader.dll")))
                 {
-                    CoreWebView2Environment.SetLoaderDllFolderPath(folder);
+                    try { CoreWebView2Environment.SetLoaderDllFolderPath(folder); }
+                    catch (InvalidOperationException) { /* already loaded: use that one */ }
                     return;
                 }
             }

@@ -38,14 +38,15 @@ namespace SupportFins.SolidWorks
             var bodies = (object[])((IPartDoc)doc).GetBodies2((int)swBodyType_e.swSolidBody, true) ?? new object[0];
             foreach (IBody2 body in bodies)
             {
-                if ((body.Name ?? "").StartsWith(Prefix, StringComparison.Ordinal)) { mesh.Earlier++; continue; }
+                if (IsOurs(body)) { mesh.Earlier++; continue; }
                 mesh.Bodies++;
                 foreach (IFace2 face in (object[])body.GetFaces() ?? new object[0])
                 {
                     // true: no unit conversion, so metres whatever the document's units
                     var tess = (float[])face.GetTessTriangles(true);
                     if (tess == null) continue;
-                    foreach (var v in tess) soup.Add(v * 1000.0);
+                    var norms = (float[])face.GetTessNorms();
+                    for (int t = 0; t + 9 <= tess.Length; t += 9) AddTriangle(soup, tess, norms, t);
                 }
             }
             if (mesh.Bodies == 0)
@@ -63,6 +64,35 @@ namespace SupportFins.SolidWorks
             mesh.Soup = soup.ToArray();
             ReadSelectedFace(doc, mesh);
             return mesh;
+        }
+
+        // An earlier run's body: named by FinImporter, or (should a rename not have
+        // taken) made by one of its features. Fins must never get fins.
+        static bool IsOurs(IBody2 body)
+        {
+            if ((body.Name ?? "").StartsWith(Prefix, StringComparison.Ordinal)) return true;
+            foreach (IFeature f in (object[])body.GetFeatures() ?? new object[0])
+                if ((f.Name ?? "").StartsWith(Prefix, StringComparison.Ordinal)) return true;
+            return false;
+        }
+
+        // One triangle, in mm, wound so its normal points out of the part: the engine
+        // tells an overhang by which way a face points. SolidWorks' vertex normals
+        // (GetTessNorms, same layout) are outward; its winding isn't documented to be.
+        static void AddTriangle(List<double> soup, float[] t, float[] n, int i)
+        {
+            double ax = t[i + 3] - t[i], ay = t[i + 4] - t[i + 1], az = t[i + 5] - t[i + 2];
+            double bx = t[i + 6] - t[i], by = t[i + 7] - t[i + 1], bz = t[i + 8] - t[i + 2];
+            double cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
+            bool flip = false;
+            if (n != null && n.Length >= i + 9)
+            {
+                double s = 0;
+                for (int k = 0; k < 9; k += 3) s += cx * n[i + k] + cy * n[i + k + 1] + cz * n[i + k + 2];
+                flip = s < 0;
+            }
+            foreach (int v in flip ? new[] { 0, 6, 3 } : new[] { 0, 3, 6 })
+                for (int k = 0; k < 3; k++) soup.Add(t[i + v + k] * 1000.0);
         }
 
         static void ReadSelectedFace(IModelDoc2 doc, PartMesh mesh)

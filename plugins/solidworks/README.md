@@ -98,10 +98,14 @@ which build SolidWorks loaded.
 ## Hand test (SolidWorks)
 
 - [ ] `install.bat` as administrator succeeds; SolidWorks lists Support Fins under Tools › Add-Ins
+- [ ] first: Insert one piece (a part with one wall) goes in as a solid body; if every piece fails, InsertImportedFeature doesn't take STLs on this release
 - [ ] the Support Fins tab shows in a part, with its icon; the button is greyed out in an assembly
 - [ ] the window opens beside SolidWorks; readout gives walls and tines for a part with overhangs
 - [ ] Top Plane / Front Plane / Selected face each put the fins under the part as posed
 - [ ] Insert adds one *Support Fins…* solid body per piece, in the right place and size (mm and inch parts)
+- [ ] a wall with tines is one body (the tines unioned into it), not one body per tine
+- [ ] close the window and click Support Fins again: it reopens
+- [ ] a curved part at the document's coarse and fine image quality: fins land under the overhangs either way (the mesh is SolidWorks' display tessellation)
 - [ ] a second run says the earlier bodies were left alone and doesn't fin them
 - [ ] your own STL import settings are as they were afterwards
 - [ ] exported with the part, it slices like the website's download

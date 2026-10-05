@@ -50,6 +50,13 @@ Deno.test('upFor: named planes, and a face points up whichever way its normal fa
     const up = upFor('face', soup, { normal, point: [0, 0, minZ] });
     assert(JSON.stringify(up) === '[0,0,1]', `${normal} -> ${up}`);
   }
+  // the top face as the bed: the part is below it, so up is -z (it prints upside down)
+  let maxZ = -Infinity;
+  for (let i = 2; i < soup.length; i += 3) maxZ = Math.max(maxZ, soup[i]);
+  for (const normal of [[0, 0, 1], [0, 0, -3]]) {
+    const up = upFor('face', soup, { normal, point: [0, 0, maxZ] });
+    assert(JSON.stringify(up) === '[0,0,-1]', `top face ${normal} -> ${up}`);
+  }
   assert(upFor('face', soup, null).error, 'no face selected');
   assert(BEDS.map((b) => b.value).join() === 'top,front,face', 'dialog beds');
 });

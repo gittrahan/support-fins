@@ -41,6 +41,7 @@ namespace SupportFins.SolidWorks
             // the WebView2 DLLs that ship with the add-in. Before anything touches them.
             AppDomain.CurrentDomain.AssemblyResolve += ResolveFromAddinFolder;
             sw.SetAddinCallbackInfo2(0, this, cookie);
+            LoadAtStartup();
             AddCommand();
             return true;
         }
@@ -56,6 +57,22 @@ namespace SupportFins.SolidWorks
             GC.Collect();
             GC.WaitForPendingFinalizers();
             return true;
+        }
+
+        // install.bat writes the load-at-startup key for the account that elevated it,
+        // which may be another admin's. Write it for this user too, unless SolidWorks
+        // already keeps one (unticking Start Up in Tools > Add-Ins sets it to 0).
+        void LoadAtStartup()
+        {
+            try
+            {
+                var path = $@"Software\SolidWorks\AddInsStartup\{{{GetType().GUID}}}";
+                using (var key = Registry.CurrentUser.OpenSubKey(path))
+                    if (key != null) return;
+                using (var key = Registry.CurrentUser.CreateSubKey(path))
+                    key.SetValue(null, 1);
+            }
+            catch { }
         }
 
         static Assembly ResolveFromAddinFolder(object sender, ResolveEventArgs args)

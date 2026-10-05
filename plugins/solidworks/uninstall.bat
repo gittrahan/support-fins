@@ -9,6 +9,11 @@ if errorlevel 1 (
     exit /b 1
 )
 set "REGASM=%WINDIR%\Microsoft.NET\Framework64\v4.0.30319\RegAsm.exe"
+if not exist "%REGASM%" (
+    echo .NET Framework 4.8 ^(64-bit^) was not found: %REGASM%
+    pause
+    exit /b 1
+)
 "%REGASM%" /unregister /nologo "%~dp0SupportFins.SolidWorks.dll"
 if errorlevel 1 (
     echo Unregistering failed; see the message above.
