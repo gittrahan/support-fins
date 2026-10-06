@@ -30,6 +30,10 @@ export function setFinsVisible(v) { finsVisible = v; }
 // bed pad + seating verdict, and it is the geometry Auto props with.)
 export let finMode = 'auto';
 export function setFinMode(v) { finMode = v; }
+// FULL COVERAGE ('full', fins/fill.js) is Auto plus walls under the red Auto left
+// bare, so everything Auto offers -- the coverage slider, sway braces, per-fin
+// removal, walls added by hand -- applies to it too. Every Auto-only gate asks this.
+export const autoLike = (m = finMode) => m === 'auto' || m === 'full';
 // Suggest + Draw mix: when true, the pointer places hand-drawn walls ON TOP of the
 // auto-placed ones (for when auto misses a spot). It only gates the pointer; the
 // drawn walls themselves stay shown/exported after placing until Clear all.
@@ -37,7 +41,7 @@ export let drawAugment = false;
 export function setDrawAugment(v) { drawAugment = v; }
 /** The "+ Add walls by hand" toggle, shown only in Suggest mode. */
 export function syncAugmentUI() {
-  const show = finsVisible && finMode === 'auto';
+  const show = finsVisible && autoLike();
   el('augment-toggle').hidden = !show;
   el('augment-toggle').classList.toggle('primary', drawAugment);
   el('augment-toggle').textContent = drawAugment ? 'Done adding walls' : '+ Add walls by hand';
@@ -46,7 +50,7 @@ export function syncAugmentUI() {
 el('fin-mode').addEventListener('change', (e) => {
   histPush();
   finMode = e.target.value;
-  el('coverage-fld').hidden = finMode !== 'auto';  // row density only applies to Auto
+  el('coverage-fld').hidden = !autoLike();  // row density only applies to Auto (and Full coverage)
   drawAugment = false;      // start each mode with hand-placement off
   if (removeMode) cancelRemove();
   setDrawMsg('');

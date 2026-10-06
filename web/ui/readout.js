@@ -8,7 +8,7 @@ import { el } from './dom.js';
 import { removedIds } from './remove.js';
 import { drawnWalls, drawMsg, selectedWall, selectedNote, drawShown, drawMaterial } from './walls.js';
 import {
-  finMode, finsVisible, materialDensity, syncSectionSums,
+  finMode, finsVisible, materialDensity, syncSectionSums, autoLike,
 } from './settings.js';
 import { analysisTiming } from './part.js';
 import { activeAdded, finMaterial, padMaterial } from './finbuild.js';
@@ -261,7 +261,7 @@ function updateFinReadout(built, ms) {
   // Hand-added walls (Suggest + Draw mix) count toward the tally too.
   const drawnOk = drawShown() ? drawnWalls.filter((w) => w.ok).length : 0;
   let autoTxt;
-  if (built.mode === 'auto') {
+  if (autoLike(built.mode)) {
     // Named apart so the readout is honest: the support fins sit on the overhangs
     // (tined when the toggle is on), the props are the fallback under ledges too
     // flat to take a fin. "N fins" alone would hide which is which.
@@ -296,7 +296,7 @@ function updateFinReadout(built, ms) {
     // (i), since it's a paragraph and the user can hover for it.
     help.push(explainNoFins(built));
   } else if (n) {
-    if (built.mode === 'auto') {
+    if (autoLike(built.mode)) {
       // Make "why no tines" legible: props never take tines, only the gripping
       // fins do, so a part that gets only props shows no tines and that's correct.
       const b = built.braceCount, p = built.propCount;
@@ -358,7 +358,23 @@ function updateFinReadout(built, ms) {
     lead.push('coverage is below the anti-sag guide, so a broad overhang may sag '
             + 'between supports — nudge the slider right if the surface bows');
   }
-  if (built.unserved) {
+  // Full coverage (fins/fill.js): what it added, and -- must-see, in the panel --
+  // the red it couldn't reach, marked on the part, never hidden.
+  const fl = built.fill;
+  if (fl) {
+    if (fl.walls) help.push(`Full coverage added ${fl.walls} wall${fl.walls === 1 ? '' : 's'} under overhangs Auto left bare.`);
+    else if (fl.bareBefore < 1 && n) help.push('Auto already reaches every overhang here, so Full coverage added nothing.');
+    const bare = Math.round(fl.unservedArea);
+    if (fl.capped) {
+      lead.push('Full coverage stopped at its wall limit with overhang still bare (marked pink) — '
+              + 'nudge Wide-face coverage left, or rotate the part');
+    } else if (bare >= 1) {
+      lead.push(`${bare} mm² of overhang no wall can reach this way up (marked pink) — `
+              + 'tilt the part, or add a wall by hand');
+    }
+  }
+  // (in Full coverage the fill's own line above says what is still bare)
+  if (built.unserved && !fl) {
     // An un-served ledge is a shallow overhang with no room for a prop and too
     // flat to stand a fin against. The fix (tilt steeper) is a sentence, so it
     // rides in the (i) rather than the panel.

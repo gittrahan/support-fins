@@ -173,6 +173,7 @@ export default {
   "Material": "Material",
   "Placement": "Platzierung",
   "Auto — place supports for me": "Auto — Stützen automatisch platzieren",
+  "Full coverage — every overhang": "Volle Abdeckung — jeder Überhang",
   "Draw — place them by hand": "Zeichnen — manuell platzieren",
   "grip the part": "greifen ins Bauteil",
   "Tine grip": "Haltezacken-Dichte",

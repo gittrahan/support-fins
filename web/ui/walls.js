@@ -14,7 +14,7 @@ import { histPush } from './history.js';
 import { updateReadout } from './readout.js';
 import { pickFace } from './pose.js';
 import { part, topology, rotM3, lastResult, updateFit } from './part.js';
-import { finsVisible, finMode, drawAugment } from './settings.js';
+import { finsVisible, finMode, autoLike, drawAugment } from './settings.js';
 import { lastBuilt, swayOpts } from './finbuild.js';
 
 // ---- draw mode: the user places breakaway walls by hand --------------------
@@ -79,7 +79,7 @@ export const drawActive = () => finsVisible && (finMode === 'draw' || drawAugmen
 // always; in Suggest it's whenever the user has drawn any (they persist after the
 // add toggle is switched off, so you can orbit and export without losing them).
 export const drawShown = () =>
-  finsVisible && (finMode === 'draw' || (finMode === 'auto' && (drawAugment || drawnWalls.length > 0)));
+  finsVisible && (finMode === 'draw' || (autoLike() && (drawAugment || drawnWalls.length > 0)));
 
 // Marker radii in CSS pixels, whatever the zoom.
 const DOT_PX = 5, CURSOR_PX = 4;
@@ -300,7 +300,7 @@ function placeSecondPoint(hitPoint) {
  * removed are left out -- they aren't there to hit.
  */
 function autoSupports() {
-  if (!finsVisible || finMode !== 'auto' || !lastBuilt) return { braces: [], walls: [] };
+  if (!finsVisible || !autoLike() || !lastBuilt) return { braces: [], walls: [] };
   const outlines = lastBuilt.sway?.braces ?? [];
   const braces = [], walls = [];
   let k = 0;   // sway records and their outlines are emitted in the same order

@@ -10,7 +10,7 @@ import { el } from './dom.js';
 import { scene, renderer, camera, raycaster, pointer, meshFrom } from './scene.js';
 import { setGizmo } from './pose.js';
 import { part, updateFit } from './part.js';
-import { finsVisible, finMode, drawAugment, setDrawAugment, syncAugmentUI } from './settings.js';
+import { finsVisible, autoLike, drawAugment, setDrawAugment, syncAugmentUI } from './settings.js';
 import { lastBuilt, finMesh, setFinTris } from './finbuild.js';
 import { clearPreview, syncDrawControls } from './walls.js';
 import { updateReadout } from './readout.js';
@@ -108,7 +108,7 @@ function rebuildFinMesh() {
   updateFit();
 }
 
-export const removeActive = () => finsVisible && finMode === 'auto' && removeMode;
+export const removeActive = () => finsVisible && autoLike() && removeMode;
 
 /** Ray the pointer into the (filtered) fin mesh; returns the owning fin record. */
 function pickFin(ev) {
@@ -125,7 +125,7 @@ function pickFin(ev) {
 
 /** Show the Remove/Restore buttons only in Auto mode with fins on screen. */
 export function syncRemoveUI() {
-  const show = finsVisible && finMode === 'auto';
+  const show = finsVisible && autoLike();
   el('remove-fins-controls').hidden = !show;
   el('remove-fins-toggle').hidden = !show;
   el('remove-fins-toggle').classList.toggle('primary', removeMode);
