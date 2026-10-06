@@ -1,7 +1,7 @@
 // Which red counts (web/fins/coverage.js) -- the rule the coverage scoreboard and
 // the Full coverage fill pass share. A tiny bore's ceiling (<= 6 mm, "a model
 // issue") is exempt as HOLE; a wider bore's is MUST, since bores DO get supported;
-// a face under the squat-wall floor is LOW. And reachOf: a wall top holds a face
+// (LOW, the near-plate strip, is per face centroid under 0.82 mm.) And reachOf: a wall top holds a face
 // within R in plan and 0..1.5 mm under it.
 
 import { holedPlateTopo, tiltedBlockTopo, analyze, rotY, assert } from './_util.js';
@@ -50,14 +50,14 @@ Deno.test('must class: a 10 mm bore ceiling is MUST (bores get supported)', () =
   assert(by[HOLE] < 1, `wide bore read as a tiny hole: ${by.map((a) => a.toFixed(0))}`);
 });
 
-Deno.test('must class: a tilted slab underside is MUST, its plate edge LOW', () => {
+Deno.test('must class: a tilted slab underside is MUST', () => {
   const topo = tiltedBlockTopo(-20, 20, -20, 20, -3, 3, 55);
   const rot = [1, 0, 0, 0, 1, 0, 0, 0, 1];
   const res = analyze(topo, 45, rot);
   const by = areas(topo, res, rot);
   assert(by[MUST] > 100, `slab underside not MUST: ${by.map((a) => a.toFixed(0))}`);
   assert(by[HOLE] === 0, 'a slab has no hole');
-  assert(by[LOW] >= 0);
+  assert(by[LOW] === 0, 'two big faces, both centred far above the near-plate strip');
 });
 
 Deno.test('reachOf: within R in plan and 0..1.5 mm under, grows with add', () => {
