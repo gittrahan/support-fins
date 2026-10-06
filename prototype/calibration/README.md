@@ -9,7 +9,8 @@ actually makes (tine/ also adds its KISS tines as a second object, on purpose):
     deno run -A prototype/calibration/<name>/build.js  # walls on it -> out/<name>-coupon.3mf
 
 The user-facing coupons (angle, gap, grip, span, pad, bore) share `coupon.py` (boxes, rung
-dots, the one-piece check) and `coupon.js` (the site's own call -- `analyze(topo, 45,
+labels -- `label()` raises each rung's value as text; the older `dots()` stays for tine/,
+slender/ and foot/, as printed -- the one-piece check) and `coupon.js` (the site's own call -- `analyze(topo, 45,
 rot)` then `buildFins(..., {mode: 'auto', bedPad: true})` at the site's PLA defaults --
 run once per rung with that rung's setting, keeping the support PIECES -- whole
 connected bodies, never cut -- whose centre is in the rung's box; every coupon's
@@ -49,9 +50,8 @@ The walls come from draw mode's own `drawnWall` at the site's defaults (same swe
 foot as Auto), with minSpan lifted for the build. Each runs along x on purpose, so its
 length is exactly the one under test (Auto would run along the ledge's long side). The
 ledge's tongue sticks out only 0.2 mm past each wall end, so no lip can curl into a
-tall wall. The dots sit on the wide root by the spine. Flat ledges get no tines
-(nothing for one to bite sideways into), same as the site. Ledge k carries k dots, in
-rows of four:
+tall wall. The label (wall length x height, mm) sits on the wide root by the spine. Flat ledges get no tines
+(nothing for one to bite sideways into), same as the site. The ledges, in print order:
 
 | ledge | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -77,7 +77,7 @@ carries k dots (`print/` is the as-printed build, from commit a2e5a80 which stil
 ### lip/ -- how far may an overhang run past its last wall?
 Six ledges 10 mm up off a spine, each with one wall on the slab 3 mm from the spine
 (the same short bridge on every ledge); the ledges get deeper so the lip past the
-wall's outer face grows. Ledge k carries k dots: 1 lip 0.1 (flush), 2 lip 1, 3 lip 2,
+wall's outer face grows. Each ledge has its lip raised on top: 1 lip 0.1 (flush), 2 lip 1, 3 lip 2,
 4 lip 3, 5 lip 4, 6 lip 6 mm. Sets when a row moves out to a free edge (PROP.edgeInset,
 local issue 009's free-edge rule).
 - **waiting on print.**
@@ -87,8 +87,8 @@ local issue 009's free-edge rule).
 The gap is vertical: wall top to the underside of the overhang it holds. Too small
 welds; too big lets the overhang sag. Bar on the plate, six identical 12 x 10 mm flat
 ledges 10 mm up; the site's Auto build per ledge. **Rungs are whole empty layers**,
-because a slicer can only leave whole layers there: dots = layers, 1 dot 0.2, 2 dots
-0.4, 3 dots 0.6 mm at 0.2 mm layers, and the far side repeats the near side. **Print
+because a slicer can only leave whole layers there: each ledge's gap is raised on top,
+0.2 / 0.4 / 0.6 mm = 1 / 2 / 3 layers at 0.2 mm layers, and the far side repeats the near side. **Print
 at 0.2 mm layers with a 0.2 first layer and variable/adaptive layer height off**: a
 0.3 first layer shifts every slice plane 0.1 mm and the gaps stop being whole layers.
 For a user: the fewest empty layers that snap off clean. The 3-layer rung (0.6) is

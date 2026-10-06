@@ -3,7 +3,8 @@
 Support Fins ships numbers tuned on PLA and PETG printed on one printer. Your printer,
 filament and slicer profile are different. Each test print below sets one setting:
 print it, find the best rung, and type that number into the site. Every rung is marked
-with raised dots on top: **1 dot = rung 1**, and so on.
+with its value raised on top (the angle, the gap in mm, the setting), so there's
+nothing to look up.
 
 Print them with the slicer profile you normally use, with **slicer supports off**. The
 supports are already in the file (and the angle test needs none). Files are in
@@ -19,7 +20,7 @@ supports are already in the file (and the angle test needs none). Files are in
 | Bore | whether holes pull clean (no setting: tells us) | — |
 
 ## Angle (`angle/print/angle-coupon.stl`) — print this first
-Seven ramps, from 10° (1 dot) to 40° (7 dots). The angle is measured **up from the
+Seven ramps, 10° to 40°, each with its angle written on top. The angle is measured **up from the
 plate**, so **lower is harder**: 0° would be a flat ceiling, 90° a straight wall. (Many
 overhang tests count from vertical instead; their 60° is our 30°.) Look at the undersides.
 The **shallowest ramp that came out clean** (no droop, no stringy curls) is your
@@ -28,7 +29,7 @@ The **shallowest ramp that came out clean** (no droop, no stringy curls) is your
 
 ## Gap (`gap/print/gap-coupon.3mf`)
 Six ledges, each held by walls standing a whole number of empty layers below it:
-1 dot = 1 layer (0.2 mm), 2 dots = 2 (0.4), 3 dots = 3 (0.6); the far side repeats the
+0.2 = 1 layer, 0.4 = 2, 0.6 = 3 (each ledge says its gap in mm); the far side repeats the
 near side. A slicer can only leave whole layers there, so in-between gaps print the
 same. **Print at 0.2 mm layers, 0.2 mm first layer, adaptive layer height off.** Snap
 each wall off.
@@ -50,7 +51,7 @@ off and look at each ramp's underside.
   parts may not need tines on gentle slopes, but a tall or tippy part still does.
 
 ## Span (`span/print/span-coupon.3mf`)
-Five wide shelves, built at five **Wide-face coverage** slider positions (1–5 dots):
+Five wide shelves, built at five **Wide-face coverage** slider positions, each written on top as a percentage (0%, 25%, 50%, 75%, 100%):
 all the way left, a quarter, the middle (the default), three quarters, all the way
 right. Snap the walls off and look at each shelf's underside between the walls, and
 tell us which shelves came out flat and which sagged.
@@ -62,7 +63,7 @@ bare stretch your printer can bridge.
 
 ## Pad (`pad/print/pad-coupon.3mf`)
 Six cubes standing on an edge. A pad is all that holds each one down. Each pad stands
-a different gap off its cube: 0, 0.08, 0.12, 0.16, 0.2, 0.3 mm (1–6 dots).
+a different gap off its cube: 0, 0.08, 0.12, 0.16, 0.2, 0.3 mm, written on each cube.
 - Cube came loose mid-print → gap too big.
 - Pad won't peel, or tears the cube's edge → gap too small.
 - Use the **biggest gap whose cube stayed put**. Set Bed pad to **Custom**, put it in
@@ -71,7 +72,7 @@ a different gap off its cube: 0, 0.08, 0.12, 0.16, 0.2, 0.3 mm (1–6 dots).
   which may not be those.
 
 ## Bore (`bore/print/bore-coupon.3mf`)
-A block with four sideways holes, 3, 5, 8 and 12 mm across (1–4 dots), each with a
+A block with four sideways holes, 3, 5, 8 and 12 mm across (the size is written above each), each with a
 wall inside. Pull each wall out of the open end. Tell us which came out clean and
 which broke or stuck. That tells us how small a hole the tool should still support.
 

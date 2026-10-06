@@ -6,13 +6,16 @@ ledge.) Sets the rule for moving a row out to a free edge (PROP.edgeInset).
 ONE solid piece, like the other coupons: a slab, a spine, and six ledges 10 mm up,
 three per side. build.js stands one wall on the slab under each ledge, its outer
 face LIP mm in from the ledge's free edge; between the wall and the spine is a
-short 3 mm bridge, the same on every ledge. Ledge k carries k dots on top.
+short 3 mm bridge, the same on every ledge. Each ledge has its lip (mm) raised on top.
 
     python3 prototype/calibration/lip/gen.py && deno run -A prototype/calibration/lip/build.js
 """
-import json, numpy as np, trimesh
+import json, sys, numpy as np, trimesh
 from trimesh.creation import box
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from coupon import label  # noqa: E402
 
 OUT = Path(__file__).parent / 'out'
 OUT.mkdir(exist_ok=True)
@@ -32,10 +35,7 @@ for k, lip in enumerate(LIPS):
     z = SLAB_T + H
     y0, y1 = (SPINE_T / 2, SPINE_T / 2 + depth) if side > 0 else (-SPINE_T / 2 - depth, -SPINE_T / 2)
     parts.append(bx(x, x + W, y0, y1, z, z + LEDGE_T))
-    ym = (SPINE_T / 2 + 1.5) * side                       # dots near the spine, on every ledge
-    for d in range(k + 1):
-        cx = x + 1.5 + d * 1.8
-        parts.append(bx(cx - 0.5, cx + 0.5, ym - 0.5, ym + 0.5, z + LEDGE_T - 0.1, z + LEDGE_T + 0.8))
+    parts += label(f'{lip:g}', x + W / 2, (y0 + y1) / 2, z + LEDGE_T, size=3.5)   # the lip, on top
     free = y1 if side > 0 else y0                         # the free edge
     ywall = free - side * (lip + TH / 2)
     ledges.append({'id': k + 1, 'lip': lip, 'z': z, 'x0': x + MARGIN, 'x1': x + W - MARGIN, 'y': ywall})
@@ -48,4 +48,4 @@ assert m.is_watertight and len(m.split(only_watertight=False)) == 1
 m.export(OUT / 'coupon_part.stl')
 json.dump(ledges, open(OUT / 'ledges.json', 'w'), indent=1)
 print(f'coupon {np.round(m.extents, 1)} mm, {len(ledges)} ledges')
-for l in ledges: print(f"  ledge {l['id']} ({l['id']} dots): lip {l['lip']} mm past the wall")
+for l in ledges: print(f"  ledge {l['id']}: lip {l['lip']} mm past the wall")

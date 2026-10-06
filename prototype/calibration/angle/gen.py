@@ -7,7 +7,7 @@ Print it with NO supports (slicer supports off, no fins). ONE solid piece: a bar
 standing on the plate with seven ramps sticking out of it, each underside at its
 own angle from the plate (10-40 deg, every one rising the same 4 mm). Read the
 undersides: the shallowest ramp that printed clean is your Overhang setting.
-Ramp k carries k dots.
+Each ramp has its angle raised on top.
 
 The first build (30-60 deg, 8 mm rise, commit 925380c) printed clean on every ramp
 on Matthew's printer (PLA, 2026-10-02), so this one goes shallower. Its 30-40 deg
@@ -24,10 +24,10 @@ from pathlib import Path
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from coupon import bx, dots, write  # noqa: E402
+from coupon import bx, label, write  # noqa: E402
 
 ANGLES = [10, 15, 20, 25, 30, 35, 40]   # 30-60 all printed clean (first build); the slider runs 30-70
-BAR_W, Z0, RISE, TOP_T, W, STEP = 10.0, 2.0, 4.0, 2.0, 10.0, 14.0
+BAR_W, Z0, RISE, TOP_T, W, STEP = 10.0, 2.0, 4.0, 2.0, 14.0, 18.0
 
 
 def ramp(x, side, angle):
@@ -53,7 +53,7 @@ for k, a in enumerate(ANGLES):
     x = 4.0 + (k % 4) * STEP
     m, d = ramp(x, side, a)
     parts.append(m)
-    parts += dots(k + 1, x + 1.0, side * (BAR_W / 2 + d - 1.5), Z0 + RISE + TOP_T, step=1.4, size=0.9)
+    parts += label(f'{a}°', x + W / 2, side * (BAR_W / 2 + d / 2), Z0 + RISE + TOP_T, size=min(5.0, d - 0.8))
     rungs.append({'id': k + 1, 'angle': a, 'depth': round(d, 1)})
 L = 4.0 + 3 * STEP + W + 4.0
 parts.append(bx(0, L, -BAR_W / 2, BAR_W / 2, 0, Z0 + RISE + TOP_T + 2))
@@ -61,4 +61,4 @@ m = write(__file__, parts, rungs)
 out = Path(__file__).parent / 'out'
 shutil.copy(out / 'coupon_part.stl', out / 'angle-coupon.stl')
 print(f'angle coupon {m.extents.round(1)} mm')
-for r in rungs: print(f"  ramp {r['id']} ({r['id']} dots): {r['angle']} deg, reaches {r['depth']} mm out")
+for r in rungs: print(f"  ramp {r['id']}: {r['angle']} deg, reaches {r['depth']} mm out")

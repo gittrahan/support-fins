@@ -13,13 +13,13 @@ may be and still stay up all the way to its overhang.
 
 ONE solid piece: a spine on the plate with twelve ledges, six a side, one wall each:
 lengths 2/3/4 mm x height:length 6 (today's cap, the control), 10, 15, 20. Each ledge is
-a wide ROOT on the spine (it carries the dots) and a TONGUE out to the free edge only
+a wide ROOT on the spine (it carries the label) and a TONGUE out to the free edge only
 0.2 mm wider than its wall at each end, so there is no lip to curl into a tall wall
 (slender/ saw lips curl). The wall runs ALONG x under the tongue's tip, its faces
 8 mm clear of the spine and its foot at least 2.5 mm clear: nothing holds it up until
 it reaches the ledge (a short wall under a small island on an organic part). Auto would
 run a wall along this ledge's long side instead; the wall is drawn along x on purpose,
-so its length is exactly the one under test. Ledge k carries k dots, rows of four.
+so its length is exactly the one under test. Each root has its wall's length x height (mm) raised on top.
 
     python3 prototype/calibration/short/gen.py && deno run -A prototype/calibration/short/build.js
 """
@@ -27,11 +27,11 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from coupon import bx, dots, write  # noqa: E402
+from coupon import bx, label, write  # noqa: E402
 
 LENGTHS = [2.0, 3.0, 4.0]                    # wall length along x, mm
 RATIOS = [6, 10, 15, 20]                     # height:length; 6 = maxShortAspect today
-SPINE_W, LEDGE_T, ROOT_W, ROOT_D, DEPTH, STEP = 8.0, 2.0, 9.0, 5.5, 9.5, 12.0
+SPINE_W, LEDGE_T, ROOT_W, ROOT_D, DEPTH, STEP = 8.0, 2.0, 15.0, 5.5, 9.5, 18.0
 END = 0.2                                    # tongue past each wall end (no lip to curl)
 
 grid = [(L, L * r, r) for L in LENGTHS for r in RATIOS]
@@ -46,9 +46,7 @@ for k, (L, H, ratio) in enumerate(grid):
     t0, t1 = sorted([side * SPINE_W / 2, side * (SPINE_W / 2 + DEPTH)])
     parts.append(bx(cx - L / 2 - END, cx + L / 2 + END, t0, t1, H, H + LEDGE_T))
     n = k + 1
-    for r in range(0, n, 4):
-        parts += dots(min(4, n - r), x + 1.5, side * (SPINE_W / 2 + 1.2 + 1.6 * (r // 4)), H + LEDGE_T,
-                      step=2.0)
+    parts += label(f'{L:g}×{H:g}', x + ROOT_W / 2, side * (SPINE_W / 2 + ROOT_D / 2), H + LEDGE_T, size=3.5)
     wy = side * (SPINE_W / 2 + DEPTH - 1.0)
     rungs.append({'id': n, 'length': L, 'height': H, 'ratio': ratio,
                   'wall': [[cx - L / 2, wy], [cx + L / 2, wy]], 'z': H,

@@ -5,7 +5,7 @@ pulled out an open end; the old never-fin-a-bore rule was reversed 2026-09-27).
 
 ONE solid piece: a block lying on the plate with four through-bores along y,
 3 / 5 / 8 / 12 mm across, all centred 9 mm up. build.js runs the site's Auto
-build once (nothing is varied) and keeps everything. Bore k carries k dots above it.
+build once (nothing is varied) and keeps everything. Each bore has its diameter (mm) raised above it.
 
     python3 prototype/calibration/bore/gen.py && deno run -A prototype/calibration/bore/build.js
 """
@@ -15,7 +15,7 @@ from pathlib import Path
 import trimesh
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from coupon import bx, dots, write  # noqa: E402
+from coupon import bx, label, write  # noqa: E402
 
 DIAMETERS = [3, 5, 8, 12]
 DEPTH, ZC, TOP, WALL = 20.0, 9.0, 18.0, 4.0     # bore length (y), centre height, block height, rib between bores
@@ -34,8 +34,8 @@ for k, (d, xc) in enumerate(zip(DIAMETERS, xs)):
 parts = [block]
 rungs = []
 for k, (d, xc) in enumerate(zip(DIAMETERS, xs)):
-    parts += dots(k + 1, xc - (k * 1.4) / 2, -DEPTH / 2 + 2.0, TOP, step=1.4, size=0.9)
+    parts += label(f'{d}', xc, -DEPTH / 2 + 4.0, TOP, size=5.0)
     rungs.append({'id': k + 1, 'diameter': d, 'box': [xc - d / 2 - 1, xc + d / 2 + 1, -DEPTH / 2 - 30, DEPTH / 2 + 30]})
 m = write(__file__, parts, rungs)
 print(f'bore coupon {m.extents.round(1)} mm')
-for r in rungs: print(f"  bore {r['id']} ({r['id']} dots): {r['diameter']} mm")
+for r in rungs: print(f"  bore {r['id']}: {r['diameter']} mm")
