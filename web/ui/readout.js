@@ -366,7 +366,7 @@ function updateFinReadout(built, ms) {
     else if (fl.bareBefore < 1 && n) help.push('Auto already reaches every overhang here, so Full coverage added nothing.');
     const bare = Math.round(fl.unservedArea);
     if (fl.capped) {
-      lead.push('Full coverage stopped at its wall limit with overhang still bare (marked pink) — '
+      lead.push(`Full coverage stopped at its wall limit with ${bare} mm² of overhang still bare (marked pink) — `
               + 'nudge Wide-face coverage left, or rotate the part');
     } else if (bare >= 1) {
       lead.push(`${bare} mm² of overhang no wall can reach this way up (marked pink) — `

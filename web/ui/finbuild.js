@@ -263,7 +263,8 @@ function applyBuilt(built) {
     // triangle set; exporters read finTris unchanged.
     finTris = adoptFins(built);
     finMesh = meshFrom(finTris, finMaterial);
-    bareMesh = bareFrom(built.fill?.unservedPts);
+    // the readout names the area only from 1 mm² (rounded), so the dots start there too
+    bareMesh = Math.round(built.fill?.unservedArea ?? 0) >= 1 ? bareFrom(built.fill.unservedPts) : null;
     // In Suggest, also (re)build any hand-drawn walls layered on top. rebuildDrawn
     // self-gates on drawShown(), so it clears them when none apply.
     rebuildDrawn();
