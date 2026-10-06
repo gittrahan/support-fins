@@ -224,7 +224,7 @@ function lineAt(pts, across, ux, uy, off, R, bridge, axis) {
  * (`redAt`), as { a, b } surface points; null when none is DRAW_MIN_LEN long.
  * Between patches the underside still carries a bridge.
  */
-function underStretch(c, tris, redAt, others, onPart = false) {
+function underStretch(c, tris, redAt, others, relax = null) {
   const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy);
   const n = Math.max(PROP.minStations - 1, Math.ceil(len / PROP.stationStep));
   const top = [];
@@ -240,7 +240,7 @@ function underStretch(c, tris, redAt, others, onPart = false) {
     // (a line down a cube's 40deg underside to its plate edge); the plate rows
     // and squat walls are Auto's for that band
     if (!p || p[3] >= 0 || p[2] < PROP.minHeight + PROP.gap) return false;
-    return stationClear(p, tris, others, onPart);
+    return stationClear(p, tris, others, relax);
   });
   let pick = null, from = -1, red = 0;
   const close = (to) => {
@@ -269,7 +269,7 @@ function underStretch(c, tris, redAt, others, onPart = false) {
  * most leftover red (`redAt`), as { a, b } surface points; null when none is
  * DRAW_MIN_LEN long. Between patches the underside still carries a bridge.
  */
-function settledStretch(c, tris, redAt, others, onPart = false) {
+function settledStretch(c, tris, redAt, others, relax = null) {
   const top = drawnLine(c.a, c.b, tris, PROP.stationStep, PART_BAND, true);
   if (!top) return null;
   const down = top.map((p) => {
@@ -279,7 +279,7 @@ function settledStretch(c, tris, redAt, others, onPart = false) {
       if (d < 1 && (!best || d < Math.abs(best[0] - p[2]))) best = h;
     }
     if (best === null || best[1] >= 0 || p[2] < PROP.minHeight + PROP.gap) return false;
-    return stationClear(p, tris, others, onPart);
+    return stationClear(p, tris, others, relax);
   });
   let pick = null, from = 0, red = 0;
   for (let i = 0; i <= top.length; i++) {
@@ -298,15 +298,15 @@ function settledStretch(c, tris, redAt, others, onPart = false) {
 /**
  * Does the wall at station p (its top, [x, y, z]) keep PROP.sideClear off every
  * support already built? Its stem runs from its floor to its top, with a foot
- * footFor(h) a side at the plate. `onPart` (the second pass): where part is under
- * the station (a chin over the chest), from that part up, where drawnWall stands
- * it (part-attached); on the plate, its flange may JOIN the flanges already there
- * -- one base on the plate under a crowded figure, peeled off with all its walls --
- * and only the stem above FLANGE_TOP keeps clear.
+ * footFor(h) a side at the plate. `relax` (the second pass's retry), each part on
+ * its own: `part` -- where part is under the station (a chin over the chest), from
+ * that part up, where drawnWall stands it (part-attached); `flange` -- on the plate,
+ * its flange may JOIN the flanges already there (one base under a crowded figure,
+ * peeled off with all its walls) and only the stem above FLANGE_TOP keeps clear.
  */
-function stationClear(p, tris, others, onPart) {
+function stationClear(p, tris, others, relax = null) {
   const w = PROP.th / 2 + PROP.sideClear;
-  if (onPart) {
+  if (relax?.part) {
     // the nearest surface below, if it faces UP (a down-facing one below is another
     // overhang's underside, with air under it)
     let below = null;
@@ -315,9 +315,7 @@ function stationClear(p, tris, others, onPart) {
       return !others.hitsBox([p[0] - w, p[1] - w, below[0], p[0] + w, p[1] + w, p[2]]);
     }
   }
-  // (the second pass: its foot may join the flanges already on the plate -- only the
-  // stem above them keeps clear)
-  if (onPart) return !others.hitsBox([p[0] - w, p[1] - w, FLANGE_TOP, p[0] + w, p[1] + w, p[2]]);
+  if (relax?.flange) return !others.hitsBox([p[0] - w, p[1] - w, FLANGE_TOP, p[0] + w, p[1] + w, p[2]]);
   const wf = footFor(p[2] - PROP.gap) + PROP.sideClear;
   return !others.hitsBox([p[0] - w, p[1] - w, PROP.baseH, p[0] + w, p[1] + w, p[2]])
     && !others.hitsBox([p[0] - wf, p[1] - wf, 0, p[0] + wf, p[1] + wf, PROP.baseH + PROP.gap]);
@@ -409,8 +407,9 @@ function boxGrid() {
       });
       return hit;
     },
-    // `shared`: an overlap wholly within the flange band (both below FLANGE_TOP) is
-    // the second pass's joined base, not a hit
+    // `shared`: two pieces that both start in the flange band, either one wholly
+    // within it (top at or under FLANGE_TOP), are the second pass's joined base, not
+    // a hit -- a base on the part, above the band, never is
     hits(tris, pad, shared = false) {
       let hit = false;
       const test = (b) => {
@@ -419,7 +418,7 @@ function boxGrid() {
           if (hit) return;
           for (const o of grid.get(k) || []) {
             if (b[0] - pad <= o[3] && o[0] <= b[3] + pad && b[1] - pad <= o[4] && o[1] <= b[4] + pad &&
-                b[2] - pad <= o[5] && o[2] <= b[5] + pad && !(shared && Math.min(b[5], o[5]) <= FLANGE_TOP)) { hit = true; return; }
+                b[2] - pad <= o[5] && o[2] <= b[5] + pad && !(shared && Math.max(b[2], o[2]) <= FLANGE_TOP && Math.min(b[5], o[5]) <= FLANGE_TOP)) { hit = true; return; }
           }
         });
       };
@@ -466,7 +465,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
   // gets a try.
   const wallFor = (live, g, local = false) => {
     const redAt = redGrid(g.map((i) => live[i]));
-    let aims = null, builds = 0, partOk = local;
+    let aims = null, builds = 0, partOk = local, flangeOk = local;
     // the first of `cands` that builds, keeps off every support and holds new red:
     // true; CAP; aims (this group's tries are used up); or null (none built)
     const tryLines = (cands) => {
@@ -476,15 +475,17 @@ export function fillCoverage(topo, result, rot, opts, built) {
         stats.checks++;
         let quick = underStretch(c0, tris, redAt, others);
         let c = quick && settledStretch(quick, tris, redAt, others);
-        // ...and standing on the part where there is part under it (a chin over the
-        // chest, its plate below taken): tried second, and only until one such line
+        // ...and relaxed (stationClear): standing on the part where there is part under
+        // it (a chin over the chest, its plate below taken), its flange joining the
+        // flanges on the plate. Tried second, each only until a wall it let through
         // builds into a support (the knuckle's mixed lines did, build after build)
-        let onPart = false;
-        if (!c && partOk) {
+        let relaxed = false;
+        if (!c && (partOk || flangeOk)) {
           stats.checks++;
-          quick = underStretch(c0, tris, redAt, others, true);
-          c = quick && settledStretch(quick, tris, redAt, others, true);
-          onPart = !!c;
+          const relax = { part: partOk, flange: flangeOk };
+          quick = underStretch(c0, tris, redAt, others, relax);
+          c = quick && settledStretch(quick, tris, redAt, others, relax);
+          relaxed = !!c;
         }
         if (!c) { stats.refused['no underside to follow'] = (stats.refused['no underside to follow'] ?? 0) + 1; continue; }
         // a group whose lines keep passing the checks but won't build (part under it,
@@ -495,7 +496,8 @@ export function fillCoverage(topo, result, rot, opts, built) {
         const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0] : others.hits(r.tris, PROP.sideClear, local) ? 'touches a support' : null;
         if (why) {
           stats.refused[why] = (stats.refused[why] ?? 0) + 1;
-          if (onPart && why === 'touches a support') partOk = false;
+          // (the relaxation that let it through: on the part, or on the plate)
+          if (relaxed && why === 'touches a support') { if (r.partAttached) partOk = false; else flangeOk = false; }
           continue;
         }
         const reach = reachOf(r.top, R);
@@ -528,7 +530,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
     while (rest.length) {
       const sub = localPatch(live, rest);
       builds = 0;
-      partOk = true;
+      partOk = flangeOk = true;
       // (one bridge: a patch is at most 2 x FILL.local across)
       const r = tryLines(candidateLines(live, sub, R, FILL.bridge, true));
       if (r === true || r === CAP) return r;
