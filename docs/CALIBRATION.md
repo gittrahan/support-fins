@@ -20,7 +20,7 @@ supports are already in the file (and the angle test needs none). Files are in
 | Bore | whether holes pull clean (no setting: tells us) | — |
 
 ## Angle (`angle/print/angle-coupon.stl`) — print this first
-Seven ramps, 10° to 40°, each with its angle written on top. The angle is measured **up from the
+Seven ramps, 10° to 40°, each with its angle in degrees written on top. The angle is measured **up from the
 plate**, so **lower is harder**: 0° would be a flat ceiling, 90° a straight wall. (Many
 overhang tests count from vertical instead; their 60° is our 30°.) Look at the undersides.
 The **shallowest ramp that came out clean** (no droop, no stringy curls) is your

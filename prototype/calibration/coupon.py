@@ -1,6 +1,6 @@
 """Shared part-building for the calibration coupons' gen.py scripts.
 
-Boxes, raised rung dots, and the one-solid-piece check every coupon makes before
+Boxes, raised rung labels (and the older dots), and the one-solid-piece check every coupon makes before
 it writes out/coupon_part.stl (a multi-piece coupon lost parts off the bed).
 """
 import json

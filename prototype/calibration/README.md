@@ -9,8 +9,8 @@ actually makes (tine/ also adds its KISS tines as a second object, on purpose):
     deno run -A prototype/calibration/<name>/build.js  # walls on it -> out/<name>-coupon.3mf
 
 The user-facing coupons (angle, gap, grip, span, pad, bore) share `coupon.py` (boxes, rung
-labels -- `label()` raises each rung's value as text; the older `dots()` stays for tine/,
-slender/ and foot/, as printed -- the one-piece check) and `coupon.js` (the site's own call -- `analyze(topo, 45,
+labels -- `label()` raises each rung's value as text; tine/ keeps `dots()` and foot/ its
+own inline dots, as printed -- the one-piece check) and `coupon.js` (the site's own call -- `analyze(topo, 45,
 rot)` then `buildFins(..., {mode: 'auto', bedPad: true})` at the site's PLA defaults --
 run once per rung with that rung's setting, keeping the support PIECES -- whole
 connected bodies, never cut -- whose centre is in the rung's box; every coupon's

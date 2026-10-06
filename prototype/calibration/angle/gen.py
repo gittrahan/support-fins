@@ -53,7 +53,8 @@ for k, a in enumerate(ANGLES):
     x = 4.0 + (k % 4) * STEP
     m, d = ramp(x, side, a)
     parts.append(m)
-    parts += label(f'{a}°', x + W / 2, side * (BAR_W / 2 + d / 2), Z0 + RISE + TOP_T, size=min(5.0, d - 0.8))
+    parts += label(f'{a}',  # no °: its ring is ~0.46 mm, under two beads
+                    x + W / 2, side * (BAR_W / 2 + d / 2), Z0 + RISE + TOP_T, size=min(5.0, d - 0.8))
     rungs.append({'id': k + 1, 'angle': a, 'depth': round(d, 1)})
 L = 4.0 + 3 * STEP + W + 4.0
 parts.append(bx(0, L, -BAR_W / 2, BAR_W / 2, 0, Z0 + RISE + TOP_T + 2))
