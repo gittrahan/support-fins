@@ -16,7 +16,7 @@
  * into a watertight wall, reusing prop/sweep.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
-import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, sweep, sweepBetween, sweepSquat, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
+import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
 
 /**
  * A hand-drawn wall may be much shorter than an auto wall (PROP.minSpan, 7 mm): the user
@@ -158,7 +158,9 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, 
     // back (the underside, red) and its front; on a curved back the straight-line
     // hint lands nearer the front, so a long wall the fill pass laid down a spine
     // read "faces up" at every station. A hand-drawn line keeps the nearest of all.
-    const zs = under ? surfaceHits(tris, x, y).filter((h) => h[1] < 0).map((h) => h[0]) : surfaceZsAt(tris, x, y);
+    // (Through prop's grid: the fill pass runs this per candidate line, and a linear
+    // scan per station was minutes on a 1M-face mini.)
+    const zs = under ? gridHitsAt(tris, x, y).filter((h) => h[1] < 0).map((h) => h[0]) : surfaceZsAt(tris, x, y);
     for (const zz of zs) {
       const d = Math.abs(zz - hint);
       if (d < best) { best = d; z = zz; }

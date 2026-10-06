@@ -57,7 +57,7 @@ export const FILL = {
   maxWalls: 40,
   maxTries: 120,     // drawnWall calls, kept or not
   groupTries: 12,     // drawnWall calls one group gets before its red is given up on
-  maxChecks: 2000,   // line checks (the cheap gridded underStretch), built or not
+  maxChecks: 2000,   // line checks (underStretch, then settledStretch; both gridded), built or not
 };
 
 /** The reach the slider asks for: R(0.5) = 6 mm (the held rule), R(1) = denseReach. */
@@ -163,8 +163,8 @@ function candidateLines(pts, group, R, bridge) {
     out.push(c);
     for (const s of FILL.shifts) { const v = line(bestAt + s); if (v) out.push(v); }
   }
-  // all by the red they'd hold: a shifted line only goes ahead of another direction's
-  // own line when it holds more (stable, so the unshifted one wins a tie)
+  // all by the red they'd hold (stable: on a tie a direction's own line stays ahead of
+  // its shifts; between directions, the better direction's lines come first)
   return out.sort((p, q) => q.weight - p.weight);
 }
 
@@ -389,7 +389,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
   // gets a try.
   const wallFor = (live, g) => {
     const redAt = redGrid(g.map((i) => live[i]));
-    let aims = null, built = 0;
+    let aims = null, builds = 0;
     for (const bridge of [FILL.bridge, 2 * FILL.sample]) {
       for (const c0 of candidateLines(live, g, R, bridge)) {
         if (full()) return CAP;
@@ -400,7 +400,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
         if (!c) { stats.refused['no underside to follow'] = (stats.refused['no underside to follow'] ?? 0) + 1; continue; }
         // a group whose lines keep passing the checks but won't build (part under it,
         // no headroom) stops here: each drawnWall is ~0.2 s on a 250k-face part
-        if (built++ >= FILL.groupTries) return aims;
+        if (builds++ >= FILL.groupTries) return aims;
         stats.tries++;
         const r = drawnWall(c.a, c.b, tris, 0, drawOpts);
         const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0] : others.hits(r.tris, PROP.sideClear) ? 'touches a support' : null;
