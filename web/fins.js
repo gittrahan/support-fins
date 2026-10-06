@@ -28,6 +28,7 @@
  *   shortwalls.js the last resort: short, stocky walls where nothing else reached
  *   coverage.js   which red must be held (MUST / tiny HOLE / near-plate LOW) and the
  *                 reach rule that holds it -- shared with the coverage scoreboard
+ *   fill.js       Full coverage: Draw-built walls under the red Auto left bare
  *
  * Each module imports only modules above it in this list and never fins.js.
  */
@@ -40,6 +41,7 @@ import { FIN } from './fins/config.js';
 import { buildPad, PAD } from './fins/pad.js';
 import { bedContact, seatedPartTris, seatingOf } from './fins/seating.js';
 import { lastResortWalls } from './fins/shortwalls.js';
+import { fillCoverage } from './fins/fill.js';
 import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
 
 // Moved into web/fins/ (one module per concern); re-exported here so every
@@ -47,6 +49,7 @@ import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } 
 export { FIN } from './fins/config.js';
 export { PAD } from './fins/pad.js';
 export { gripPatches, perpColumns } from './fins/wedges.js';
+export { FILL, fillReach } from './fins/fill.js';
 
 /**
  * Wedge row pitch for a coverage setting, mirroring prop.js's coverRowSpan: 0.5 is
@@ -100,7 +103,9 @@ export function applyTunables(t) {
  *
  * @param opts.mode     'prop' (the default: a vertical breakaway wall under
  *                      each overhang, no tines) or 'auto' (tined walls PLUS
- *                      wedges under the faces no wall reached). 'stabilize' is
+ *                      wedges under the faces no wall reached), or 'full'
+ *                      (Auto, then fins/fill.js's walls under the red it left
+ *                      bare; `fill` reports what no wall could reach). 'stabilize' is
  *                      an old name for 'auto'; any other mode builds 'prop'.
  * @param opts.bedPad   add the pad when bed contact is too small to hold
  */
@@ -150,6 +155,31 @@ function buildFinsAndBraces(topo, result, rot, opts = {}) {
   };
 }
 
+/** Auto's result plus the fill pass's walls (fins/fill.js), merged the way the
+ *  short walls are: triangles appended, props and fins carrying ranges into them. */
+function withFill(topo, result, rot, opts, auto) {
+  const f = fillCoverage(topo, result, rot, opts, auto);
+  const at = auto.triangles.length;
+  const props = f.props.map((q) => ({ ...q, triRanges: q.triRanges.map(([a, b]) => [a + at, b + at]) }));
+  let wid = auto.fins.length;
+  const fins = props.map((q) => ({
+    height: q.height, length: q.span, tines: q.tines, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
+    id: wid++, kind: 'prop', fill: true, triRanges: q.triRanges, line: q.line, span: q.span,
+  }));
+  const withTines = opts.tines !== false;
+  return {
+    ...auto,
+    triangles: [...auto.triangles, ...f.triangles],
+    props: [...auto.props, ...props],
+    fins: [...auto.fins, ...fins],
+    tines: (auto.tines ?? 0) + f.tines,
+    braceCount: (auto.braceCount ?? 0) + (withTines ? fins.length : 0),
+    propCount: (auto.propCount ?? 0) + (withTines ? 0 : fins.length),
+    fill: { walls: f.stats.walls, tries: f.stats.tries, capped: f.stats.capped, refused: f.stats.refused,
+            bareBefore: f.stats.startArea, unservedArea: f.unserved.area, unservedPts: f.unserved.pts },
+  };
+}
+
 function buildFinsCore(topo, result, rot, opts = {}) {
   const mode = opts.mode ?? 'prop';
   const padOut = [];
@@ -171,7 +201,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
   // rather than a plain breakaway prop); 'prop' proper leaves them off. The old
   // leaning-fin machinery (rankSites / chooseSpan / buildFin) was deleted once
   // nothing reached it; git history has it.
-  if (mode === 'auto' || mode === 'stabilize') {
+  if (mode === 'auto' || mode === 'stabilize' || mode === 'full') {
     const withTines = opts.tines ?? true;
     // Wide-face coverage (0 sparse .. 1 dense) drives how densely a broad face is
     // lined -- the prop rows (buildProps reads opts.coverage, forwarded below) and
@@ -259,7 +289,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
       });
     }
     const servedRegions = [...(base.servedRegions ?? []), ...short.served];
-    return {
+    const auto = {
       ...base, mode,
       triangles: [...base.triangles, ...wedgeTris, ...short.triangles],
       props: [...base.props, ...shortProps],
@@ -273,6 +303,9 @@ function buildFinsCore(topo, result, rot, opts = {}) {
       unserved: wedgedPatches ? unservedAfterWedges(topo, rot, result, servedRegions, wedgeTris)
                               : (base.unserved ?? 0) - short.served.length,
     };
+    // FULL COVERAGE (fins/fill.js): Auto, then walls under the red it left bare. Not
+    // on a point-seated part with the pad off, which gets no walls at all (above).
+    return mode === 'full' && !noShort ? withFill(topo, result, rot, { ...opts, tines: withTines, coverage }, auto) : auto;
   }
 
   // Prop (and any other mode) is its own support, built by its own module -- a
