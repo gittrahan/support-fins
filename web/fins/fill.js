@@ -20,7 +20,8 @@
  * THE LINE. Not a PCA axis (a square patch's eigenvector snaps to 45deg -- the old
  * auto-placer's diagonal walls): FILL.dirs directions are each slid across the
  * group, and the line that keeps the most red area within reach wins, x or y on a
- * near-tie. Its ends are the outermost red it serves.
+ * near-tie; the best few are also tried shifted a few mm across themselves. Its
+ * ends are the outermost red it serves.
  *
  * THE SLIDER. Wide-face coverage (opts.coverage) sets how much gets added, so
  * there is no wall-count field: below FILL.sparseBelow every group gets at most
@@ -46,6 +47,8 @@ export const FILL = {
   bridge: 8.0,       // mm: a line may cross this much plan gap between red it serves
   dirs: 12,          // line directions tried, 180 / dirs apart
   axisBias: 0.97,    // a diagonal must serve 1/0.97 x an x/y line's red to beat it
+  bestDirs: 3,       // directions tried per group, best first...
+  shifts: [-2, 2, -4, 4], // ...each also this many mm across itself (off a wall's foot)
   sparseBelow: 0.25, // coverage under this: one wall per group, then stop
   denseReach: 4.0,   // mm: the reach at coverage 1 (the middle is maxUnsupportedSpan/2)
   minGain: 0.5,      // mm2 of new red a wall must hold to be kept
@@ -53,7 +56,8 @@ export const FILL = {
   redNear: 1.5,      // mm: a station this close to leftover red counts toward its stretch
   maxWalls: 40,
   maxTries: 120,     // drawnWall calls, kept or not
-  maxChecks: 600,    // line checks (underStretch + settledStretch), built or not
+  groupTries: 12,     // drawnWall calls one group gets before its red is given up on
+  maxChecks: 2000,   // line checks (the cheap gridded underStretch), built or not
 };
 
 /** The reach the slider asks for: R(0.5) = 6 mm (the held rule), R(1) = denseReach. */
@@ -134,7 +138,7 @@ function groupsOf(pts) {
  * { a, b, weight, aims } with a, b = [x, y, zHint] and `aims` the indices it serves.
  */
 function candidateLines(pts, group, R, bridge) {
-  const out = [];
+  const dirs = [];
   for (let d = 0; d < FILL.dirs; d++) {
     const th = (Math.PI * d) / FILL.dirs, ux = Math.cos(th), uy = Math.sin(th);
     const axis = d === 0 || 2 * d === FILL.dirs;
@@ -146,30 +150,48 @@ function candidateLines(pts, group, R, bridge) {
       while (across[hi][0] - across[lo][0] > 2 * R) w -= pts[across[lo++][1]][3];
       if (w > best) { best = w; bestAt = (across[lo][0] + across[hi][0]) / 2; }
     }
-    // the band's points along the line, split at gaps over `bridge`
-    const band = across.filter(([v]) => Math.abs(v - bestAt) <= R).map(([, i]) => [ux * pts[i][0] + uy * pts[i][1], i])
-      .sort((p, q) => p[0] - q[0]);
-    let run = null, cur = { from: 0, w: 0 };
-    for (let k = 0; k < band.length; k++) {
-      if (k > 0 && band[k][0] - band[k - 1][0] > bridge) cur = { from: k, w: 0 };
-      cur.w += pts[band[k][1]][3];
-      cur.to = k;
-      if (!run || cur.w > run.w) run = { ...cur };
-    }
-    if (!run) continue;
-    let t0 = band[run.from][0], t1 = band[run.to][0];
-    if (t1 - t0 < DRAW_MIN_LEN + 0.5) { const m = (t0 + t1) / 2; t0 = m - (DRAW_MIN_LEN + 0.5) / 2; t1 = m + (DRAW_MIN_LEN + 0.5) / 2; }
-    // z hint at each end: the red nearest that end
-    const zAt = (t) => {
-      let z = 0, bd = Infinity;
-      for (let k = run.from; k <= run.to; k++) { const dd = Math.abs(band[k][0] - t); if (dd < bd) { bd = dd; z = pts[band[k][1]][2]; } }
-      return z;
-    };
-    const at = (t) => [ux * t - uy * bestAt, uy * t + ux * bestAt, zAt(t)];
-    const aims = band.slice(run.from, run.to + 1).map(([, i]) => i);
-    out.push({ a: at(t0), b: at(t1), weight: run.w * (axis ? 1 : FILL.axisBias), aims });
+    const line = (off) => lineAt(pts, across, ux, uy, off, R, bridge, axis);
+    const c = line(bestAt);
+    if (c) dirs.push({ c, line, bestAt });
   }
+  // the best directions, each also SHIFTED across itself: the heaviest band's centre
+  // often sits ~5 mm off a wall already built, inside its foot (a tall wall's is 3 mm
+  // a side), and a line a few mm over clears it
+  dirs.sort((p, q) => q.c.weight - p.c.weight);
+  const out = [];
+  for (const { c, line, bestAt } of dirs.slice(0, FILL.bestDirs)) {
+    out.push(c);
+    for (const s of FILL.shifts) { const v = line(bestAt + s); if (v) out.push(v); }
+  }
+  // all by the red they'd hold: a shifted line only goes ahead of another direction's
+  // own line when it holds more (stable, so the unshifted one wins a tie)
   return out.sort((p, q) => q.weight - p.weight);
+}
+
+/** One candidate: the line along (ux, uy) at across-offset `off`, over the red within
+ *  R of it, split at plan gaps over `bridge` with the heaviest run kept. */
+function lineAt(pts, across, ux, uy, off, R, bridge, axis) {
+  const band = across.filter(([v]) => Math.abs(v - off) <= R).map(([, i]) => [ux * pts[i][0] + uy * pts[i][1], i])
+    .sort((p, q) => p[0] - q[0]);
+  let run = null, cur = { from: 0, w: 0 };
+  for (let k = 0; k < band.length; k++) {
+    if (k > 0 && band[k][0] - band[k - 1][0] > bridge) cur = { from: k, w: 0 };
+    cur.w += pts[band[k][1]][3];
+    cur.to = k;
+    if (!run || cur.w > run.w) run = { ...cur };
+  }
+  if (!run) return null;
+  let t0 = band[run.from][0], t1 = band[run.to][0];
+  if (t1 - t0 < DRAW_MIN_LEN + 0.5) { const m = (t0 + t1) / 2; t0 = m - (DRAW_MIN_LEN + 0.5) / 2; t1 = m + (DRAW_MIN_LEN + 0.5) / 2; }
+  // z hint at each end: the red nearest that end
+  const zAt = (t) => {
+    let z = 0, bd = Infinity;
+    for (let k = run.from; k <= run.to; k++) { const dd = Math.abs(band[k][0] - t); if (dd < bd) { bd = dd; z = pts[band[k][1]][2]; } }
+    return z;
+  };
+  const at = (t) => [ux * t - uy * off, uy * t + ux * off, zAt(t)];
+  const aims = band.slice(run.from, run.to + 1).map(([, i]) => i);
+  return { a: at(t0), b: at(t1), weight: run.w * (axis ? 1 : FILL.axisBias), aims };
 }
 
 /**
@@ -191,7 +213,8 @@ function underStretch(c, tris, redAt, others) {
   for (let k = 0; k <= n; k++) {
     const t = k / n, x = c.a[0] + dx * t, y = c.a[1] + dy * t, hint = c.a[2] + (c.b[2] - c.a[2]) * t;
     let hit = null;
-    for (const h of surfaceHitsAt(tris, x, y)) if (!hit || Math.abs(h[0] - hint) < Math.abs(hit[0] - hint)) hit = h;
+    // the underside nearest the line's height here (drawnLine's `under` pick)
+    for (const h of surfaceHitsAt(tris, x, y)) if (h[1] < 0 && (!hit || Math.abs(h[0] - hint) < Math.abs(hit[0] - hint))) hit = h;
     top.push(hit === null ? null : [x, y, hit[0], hit[1]]);
   }
   const ok = top.map((p) => {
@@ -233,7 +256,7 @@ function underStretch(c, tris, redAt, others) {
  * DRAW_MIN_LEN long. Between patches the underside still carries a bridge.
  */
 function settledStretch(c, tris, redAt, others) {
-  const top = drawnLine(c.a, c.b, tris, PROP.stationStep, PART_BAND);
+  const top = drawnLine(c.a, c.b, tris, PROP.stationStep, PART_BAND, true);
   if (!top) return null;
   const down = top.map((p) => {
     let best = null;
@@ -351,7 +374,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
   const tris = seatedPartTris(topo, rot, result.offset);
   const others = boxGrid();
   others.add(built.triangles ?? []);
-  const drawOpts = { tines: opts.tines ?? true, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
+  const drawOpts = { under: true, tines: opts.tines ?? true, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
                      topo, rot, offset: result.offset };
   let tines = 0;
   const dead = new Set();          // points no line could serve
@@ -366,15 +389,18 @@ export function fillCoverage(topo, result, rot, opts, built) {
   // gets a try.
   const wallFor = (live, g) => {
     const redAt = redGrid(g.map((i) => live[i]));
-    let aims = null;
+    let aims = null, built = 0;
     for (const bridge of [FILL.bridge, 2 * FILL.sample]) {
-      for (const c0 of candidateLines(live, g, R, bridge).slice(0, 3)) {
+      for (const c0 of candidateLines(live, g, R, bridge)) {
         if (full()) return CAP;
         aims ??= c0.aims;
         stats.checks++;
         const quick = underStretch(c0, tris, redAt, others);
         const c = quick && settledStretch(quick, tris, redAt, others);
         if (!c) { stats.refused['no underside to follow'] = (stats.refused['no underside to follow'] ?? 0) + 1; continue; }
+        // a group whose lines keep passing the checks but won't build (part under it,
+        // no headroom) stops here: each drawnWall is ~0.2 s on a 250k-face part
+        if (built++ >= FILL.groupTries) return aims;
         stats.tries++;
         const r = drawnWall(c.a, c.b, tris, 0, drawOpts);
         const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0] : others.hits(r.tris, PROP.sideClear) ? 'touches a support' : null;

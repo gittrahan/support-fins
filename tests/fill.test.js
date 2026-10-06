@@ -4,7 +4,7 @@
 // sets how much it adds, that it says what it couldn't reach, and that it is
 // deterministic (counts, not a clock, bound it).
 
-import { loadModel, analyze, fins, insideCount, rotX, assert } from './_util.js';
+import { loadModel, analyze, fins, insideCount, rotX, tiltedBlockTopo, assert } from './_util.js';
 
 const { classify, reachOf, MUST, PLATE_Z } = await import('../web/fins/coverage.js');
 const { fillReach, FILL } = await import('../web/fins/fill.js');
@@ -118,4 +118,30 @@ Deno.test('fill: a cap stops it and says so', () => {
 
 Deno.test('fill: Auto mode never runs the fill', () => {
   assert(auto.fill === undefined);
+});
+
+// drawnLine's `under` (the fill's pick): a column through a thick slab tilted 50deg
+// meets its underside AND its top face. With the line's height guess nearer the top
+// face -- a leaning figure's curved back, where a straight guess between the ends
+// strays toward the front -- Draw's own pick takes the top face; `under` keeps the
+// underside, the red a wall is for.
+Deno.test('fill: drawnLine under=true follows the underside where the plain pick takes the top face', async () => {
+  const { drawnLine } = await import('../web/draw.js');
+  const { seatedPartTris } = await import('../web/fins/seating.js');
+  const slab = tiltedBlockTopo(-15, 15, -20, 20, -6, 6, 50);
+  const id = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  const tris = seatedPartTris(slab, id, { x: 0, y: 0, z: 0 });
+  // along x at y = 0, height guess 3 mm under the top face's height there
+  const zs = (await import('../web/prop.js')).surfaceHitsAt(tris, 0, 0).sort((p, q) => p[0] - q[0]);
+  assert(zs.length === 2 && zs[0][1] < 0 && zs[1][1] > 0, `column: ${JSON.stringify(zs)}`);
+  const hint = zs[1][0] - 3;
+  assert(Math.abs(hint - zs[1][0]) < Math.abs(hint - zs[0][0]), 'precondition: the guess is nearer the top face');
+  // PART_BAND, as drawnWall's part-attached probe runs it (an unbounded band settles
+  // any line down to the lowest surface anyway)
+  const { PART_BAND } = await import('../web/prop.js');
+  const plain = drawnLine([-10, 0, hint], [10, 0, hint], tris, undefined, PART_BAND);
+  const under = drawnLine([-10, 0, hint], [10, 0, hint], tris, undefined, PART_BAND, true);
+  const mid = (l) => l[Math.floor(l.length / 2)][2];
+  assert(Math.abs(mid(plain) - zs[1][0]) < 1, `plain pick: ${mid(plain).toFixed(2)}, top ${zs[1][0].toFixed(2)}`);
+  assert(Math.abs(mid(under) - zs[0][0]) < 1, `under pick: ${mid(under).toFixed(2)}, underside ${zs[0][0].toFixed(2)}`);
 });
