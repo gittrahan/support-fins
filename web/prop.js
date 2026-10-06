@@ -64,7 +64,7 @@ export { PROP } from './prop/config.js';
 export { splitRegion, tubeLine, patchTracks } from './prop/tracks.js';
 export { straightness, contactLine, lowerSag, contourTop, settleTop } from './prop/contact.js';
 export { footFor, profileHalf, sweep, sweepBetween } from './prop/sweep.js';
-export { surfaceZAt, surfaceZsAt } from './prop/surface.js';
+export { surfaceHitsAt, surfaceZAt, surfaceZsAt } from './prop/surface.js';
 export { stationIsClear, stationCertified, pathToPlateIsClear, longestRun,
   withLowTails, insertFloorStations, welds } from './prop/clearance.js';
 export { tineStepFor, emitTines } from './prop/tines.js';

@@ -170,7 +170,8 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity) 
 }
 
 /**
- * Build one drawn breakaway wall. Returns `{ ok: true, tris, length, height }`
+ * Build one drawn breakaway wall. Returns `{ ok: true, tris, length, height, top }`
+ * (`top`: the wall's contact line, the surface-z stations its top follows)
  * or `{ ok: false, reason }` with a message the UI can show -- a hand-drawn wall
  * that can't be built should say WHY (too short, at the plate) rather than
  * silently doing nothing, the failure mode M5's scoreboard was built on.
@@ -218,7 +219,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
         height = Math.max(height, (topPA[i][2] - PROP.gap) - floor[i][2]);
       }
       const tines = withTines(topPA);
-      return { ok: true, tris: out, length: len, height, partAttached: true, tines };
+      return { ok: true, tris: out, length: len, height, partAttached: true, tines, top: topPA };
     }
   }
 
@@ -259,7 +260,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     if (squat) {
       out.push(...squat.tris);
       const tines = withTines(squat.top, squat.partAttached ? undefined : PROP.squatBrimH);
-      return { ok: true, tris: out, length: len, height: squat.height, partAttached: squat.partAttached, squat: true, tines };
+      return { ok: true, tris: out, length: len, height: squat.height, partAttached: squat.partAttached, squat: true, tines, top: squat.top };
     }
     const clickTop = Math.min(a[2], b[2]) - zBed;
     if (clickTop >= PROP.minHeight + PROP.gap) {
@@ -272,7 +273,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   let height = 0;
   for (const p of line) height = Math.max(height, p[2] - PROP.gap - zBed);
   const tines = withTines(line);
-  return { ok: true, tris: out, length: len, height, tines };
+  return { ok: true, tris: out, length: len, height, tines, top: line };
 }
 
 /**
