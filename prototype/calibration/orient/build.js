@@ -14,7 +14,7 @@ c.part.forEach((v, i) => tris.set(v, i * 3));
 const opts = { tines: SITE.tines, tineDensity: SITE.tineDensity, layerHeight: SITE.layerHeight,
                topo: c.topo, rot: c.rot, offset: c.off };
 const sup = [];
-console.log('ledge  side      span  walls  heights');
+console.log('ledge  side      spacing  walls  heights');
 for (const r of c.rungs) {
   const at = ([x, y]) => [x + c.off.x, y + c.off.y, r.z + c.off.z];
   const hs = [];

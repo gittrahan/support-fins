@@ -107,12 +107,14 @@ issue 026).
   over walls along it) -> orient/.
 
 ### orient/ -- does it matter which way a flat overhang's walls run, and how close? (no setting yet)
-Bar on the plate, six identical 16 x 16 mm flat ledges 10 mm up, walls from Draw's
-drawnWall at the default 0.2 gap. Near side ACROSS: walls along x, across the
-slicer's bridge lines (Auto's choice on the gap coupon). Far side PARALLEL: the same
-ledges, walls along y, parallel to them. Pairs share the widest bare stretch between
-supports, raised on top: 8 / 5.3 / 4 mm (2 / 3 / 4 walls across, 3 / 4 / 5 parallel:
-the parallel ledges have two free side edges to hold). Checked in PrusaSlicer 3.0
+Bar on the plate, six identical flat ledges 10 mm up (16.6 deep x 17.2 wide), walls
+from Draw's drawnWall at the default 0.2 gap. Near side ACROSS: walls along x, across
+the slicer's bridge lines (Auto's choice on the gap coupon). Far side PARALLEL: the
+same ledges, walls along y, parallel to them. Pairs share the wall spacing exactly
+(centre to centre, the bar face counting as one), raised on top: 8 / 5.3 / 4 mm
+(2 / 3 / 4 walls across, the last 0.6 in from the free edge; 3 / 4 / 5 parallel, the
+outer two 0.6 in from the side edges). What still differs, by nature: PARALLEL puts
+more wall under a ledge (more to snap off), and its far edge is bare between walls. Checked in PrusaSlicer 3.0
 alpha (default profile, 0.2 layers): every ledge's first layer is bridge infill at
 90 deg, so the near side's walls cross it and the far side's run with it.
 For a user: compare each pair (does direction matter?) and down each side (how
