@@ -19,6 +19,7 @@ they're also in `prototype/calibration/<name>/print/`.
 | Span | how wide a bare stretch your printer bridges (tells us, for now) | Walls ▸ Wide-face coverage (Auto) |
 | Pad | how the bed pad lets go | Clearances ▸ Bed pad ▸ Custom ▸ Pad gap |
 | Bore | whether holes pull clean (no setting: tells us) | — |
+| Torture | nothing: every hard shape at once, to see what you get | — |
 
 ## Angle (`angle/print/angle-coupon.stl`) — print this first
 Seven ramps, 10° to 40°, each with its angle in degrees written on top. The angle is measured **up from the
@@ -76,6 +77,16 @@ a different gap off its cube: 0, 0.08, 0.12, 0.16, 0.2, 0.3 mm, written on each 
 A block with four sideways holes, 3, 5, 8 and 12 mm across (the size is written above each), each with a
 wall inside. Pull each wall out of the open end. Tell us which came out clean and
 which broke or stuck. That tells us how small a hole the tool should still support.
+
+## Torture (`torture/print/torture-coupon.3mf`)
+One part with every hard shape at once, supported the way the site does it in
+**Full coverage** at the default settings: ramps (40°, 30°, 20°, written on top),
+a ball, a thin ledge far out, a flat table, a mushroom on a thin stem, a cave,
+sideways holes (3, 6, 12 mm, written above each) and an arch. It sets nothing.
+Print it to see what to expect from your own parts, then snap every wall off.
+Tell us which walls stuck or tore the part, and which undersides sagged. The arch's
+curved sides and the sides of the 12 mm hole get no support yet, so some droop
+there is expected.
 
 ## Tell us what you got
 These results are how the defaults get better. Open a

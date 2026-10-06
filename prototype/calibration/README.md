@@ -178,6 +178,21 @@ bore's axis, inside the bore, running out the open end; 0 unserved. Checks the
 2026-09-27 reversal (bores DO get supported) on a printed part.
 - **waiting on print.**
 
+### torture/ -- one part with every hard shape, as the site supports it (no setting)
+Not a rung coupon: a showcase that sets nothing. A spine on the plate with, front:
+40 / 30 / 20 deg ramps rising 10 mm (angle raised on top), a 20 mm ball, a 2 mm
+ledge 18 mm out and 24 mm up; back: a table (30 mm flat bridge, 14 up), a 26 mm
+mushroom cap on a 5 mm stem, a cave (18 x 14 flat ceiling); through the spine:
+3 / 6 / 12 mm sideways holes (size raised above each); on the end: an arch tunnel.
+One build in Full coverage (mode 'full') at every other default, all supports kept.
+Every feature is big enough for real walls (10-26 mm long), so the print shows
+whether each kind snaps off clean. A point-down tip in the first draft was dropped
+(Matthew: a mess, tells us nothing).
+- **2026-10-06 build:** 32 walls (10 from the fill pass), must-hold 95 % of 2977 mm2
+  (coverage scoreboard). Still bare: thin strips along the arch's curved sides and
+  the 12 mm hole's sides.
+- **waiting on print.**
+
 ### bite/ -- RETIRED 2026-10-03 (files removed; last in git at 6ec7c16)
 Asked how far tines should reach into the part (the old Tine bite field): twelve 40 deg
 ledges, bite 0.15-0.70. **Printed twice in PLA: every rung fused and left a mark, none
