@@ -26,6 +26,8 @@
  *   pad.js        PAD and the bed pad (conforming oval, or the brim-style one)
  *   wedges.js     angled wedges where no wall reaches; gripPatches for Draw
  *   shortwalls.js the last resort: short, stocky walls where nothing else reached
+ *   coverage.js   which red must be held (MUST / tiny HOLE / near-plate LOW) and the
+ *                 reach rule that holds it -- shared with the coverage scoreboard
  *
  * Each module imports only modules above it in this list and never fins.js.
  */

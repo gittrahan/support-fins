@@ -39,8 +39,7 @@ figures were nothing like real miniatures. The three curved ones the raster test
 Other people's files, kept locally in `reports/`, never committed: `dro_housing` (a customer's
 DRO housing, 2026-10-05; they print it at X-90, back on the plate), `issue18_ssd_mounts`,
 `issue50_knuckle`, `issue119_recessed_box`, `issue121_m4_front`, `issue157_bosch_vac` (from
-the GitHub issues) and `mini_goblin_janitor` (Matthew's figure work). Matthew's copies:
-`~/Downloads/printfins-issues/`.
+the GitHub issues) and `mini_goblin_janitor` (Matthew's figure work).
 
 **Baseline 2026-10-03 (main 8e0f3aa; the knuckle rows reproduce on 3155267)**, held% / small% (share of the overhang in regions
 too small to be seen):
@@ -68,7 +67,6 @@ every case `vs-base.sh` runs (reports/ at up, suggested, X-90; real/ at up, X30)
     tall_     (8)          57.5% of 31,027        (soap bubble chair: 0% both poses; castle window slots exempt)
     mini_     (12)         58.5% of 7,645         32 mm copies (12): 58.0% of 6,388
     others    (6)          31.8% of 60,694        buster 19-23%, M4 large 65-68%
-    pictures: ~/Downloads/printfins-coverage/2026-10-05-baseline/
 
 ## What the probe measures
 Auto path, called like the app: `analyze(topo, 45, rot)` then
@@ -86,7 +84,9 @@ Auto path, called like the app: `analyze(topo, 45, rot)` then
     cylinder or flat roof (some face within ~14deg of straight down, normals square to the
     bore on area-weighted average), no wider than a 6 mm bore's overhang chord, with air
     at its plan centre just under the apex, part equally far either side there, and part
-    under it within 6 mm (held.js classify). On the goblin that is lettering under its
+    under it within 6 mm (`classify` in web/fins/coverage.js, the rule the engine shares;
+    held.js scores with it). Known gap: the axis is fitted to triangle corners, so a
+    long slot roofed by two triangles skews it and reads wider than it is. On the goblin that is lettering under its
     base; the Bosch vac's toothed ring (V-notches), every armpit, and a flat collar round
     a post (a crossguard, a bolt head) stay must-hold.
   - `low` (mm2, reported apart): the strip under the squat-wall floor (0.82 mm), where
