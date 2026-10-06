@@ -30,8 +30,8 @@
  * FILL.denseReach at the right.
  *
  * GUARDRAILS. A wall is kept only if it holds new red and keeps PROP.sideClear off
- * every support already built (fused walls don't break away). FILL.maxWalls and
- * FILL.maxTries bound the work -- counts, not a clock, so the output is the same
+ * every support already built (fused walls don't break away). FILL.maxWalls,
+ * maxTries and maxChecks bound the work -- counts, not a clock, so the output is the same
  * on every machine. Red no wall can reach is returned (`unserved`), never hidden:
  * quality first, surface the dropped overhang.
  */
@@ -53,6 +53,7 @@ export const FILL = {
   redNear: 1.5,      // mm: a station this close to leftover red counts toward its stretch
   maxWalls: 40,
   maxTries: 120,     // drawnWall calls, kept or not
+  maxChecks: 600,    // line checks (underStretch + settledStretch), built or not
 };
 
 /** The reach the slider asks for: R(0.5) = 6 mm (the held rule), R(1) = denseReach. */
@@ -344,7 +345,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
   const cls = classify(topo, result, rot);
   const pts = leftoverPoints(topo, result, rot, near, cls);
   const triangles = [], props = [];
-  const stats = { walls: 0, tries: 0, capped: false, refused: {}, startArea: pts.reduce((s, p) => s + p[3], 0) };
+  const stats = { walls: 0, tries: 0, checks: 0, capped: false, refused: {}, startArea: pts.reduce((s, p) => s + p[3], 0) };
   if (!pts.length) return { triangles, props, tines: 0, unserved: { area: 0, pts: [] }, stats };
 
   const tris = seatedPartTris(topo, rot, result.offset);
@@ -355,19 +356,22 @@ export function fillCoverage(topo, result, rot, opts, built) {
   let tines = 0;
   const dead = new Set();          // points no line could serve
   const bare = (p) => !dead.has(p) && !near(p[0], p[1], p[2]);
-  const full = () => stats.walls >= FILL.maxWalls || stats.tries >= FILL.maxTries;
+  const full = () => stats.walls >= FILL.maxWalls || stats.tries >= FILL.maxTries || stats.checks >= FILL.maxChecks;
+  const CAP = 'cap';               // wallFor stopped on a cap: give up on nothing
 
   // One wall for group `g` of `live`: the first candidate (bridged lines first, then
   // the same directions without crossing gaps) that builds, keeps off every support
-  // and holds new red. Added in place: true; otherwise the indices the best line was
-  // aiming at, so only that red is given up on and the rest of the group gets a try.
+  // and holds new red. Added in place: true; on a cap, CAP; otherwise the indices the
+  // best line was aiming at, so only that red is given up on and the rest of the group
+  // gets a try.
   const wallFor = (live, g) => {
     const redAt = redGrid(g.map((i) => live[i]));
     let aims = null;
     for (const bridge of [FILL.bridge, 2 * FILL.sample]) {
       for (const c0 of candidateLines(live, g, R, bridge).slice(0, 3)) {
-        if (full()) return aims ?? g;
+        if (full()) return CAP;
         aims ??= c0.aims;
+        stats.checks++;
         const quick = underStretch(c0, tris, redAt, others);
         const c = quick && settledStretch(quick, tris, redAt, others);
         if (!c) { stats.refused['no underside to follow'] = (stats.refused['no underside to follow'] ?? 0) + 1; continue; }
@@ -404,7 +408,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
         const live = g0.map((i) => pts[i]).filter(bare);
         if (!live.length || full()) break;
         const r = wallFor(live, live.map((_, i) => i));
-        if (r === true) break;
+        if (r === true || r === CAP) break;
         for (const i of r) dead.add(live[i]);
       }
     }
@@ -415,6 +419,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
       if (!live.length) break;
       const g = heaviest(live)[0];
       const r = wallFor(live, g);
+      if (r === CAP) break;
       if (r !== true) for (const i of r) dead.add(live[i]);
     }
   }

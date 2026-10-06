@@ -175,7 +175,7 @@ function withFill(topo, result, rot, opts, auto) {
     tines: (auto.tines ?? 0) + f.tines,
     braceCount: (auto.braceCount ?? 0) + (withTines ? fins.length : 0),
     propCount: (auto.propCount ?? 0) + (withTines ? 0 : fins.length),
-    fill: { walls: f.stats.walls, tries: f.stats.tries, capped: f.stats.capped, refused: f.stats.refused,
+    fill: { walls: f.stats.walls, tries: f.stats.tries, checks: f.stats.checks, capped: f.stats.capped, refused: f.stats.refused,
             bareBefore: f.stats.startArea, unservedArea: f.unserved.area, unservedPts: f.unserved.pts },
   };
 }
@@ -305,7 +305,9 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     };
     // FULL COVERAGE (fins/fill.js): Auto, then walls under the red it left bare. Not
     // on a point-seated part with the pad off, which gets no walls at all (above).
-    return mode === 'full' && !noShort ? withFill(topo, result, rot, { ...opts, tines: withTines, coverage }, auto) : auto;
+    // (`lastResort: false` is the tests' Auto baseline switch; it doesn't turn the fill off)
+    const noWalls = base.seating?.kind === 'point' && !base.pad;
+    return mode === 'full' && !noWalls ? withFill(topo, result, rot, { ...opts, tines: withTines, coverage }, auto) : auto;
   }
 
   // Prop (and any other mode) is its own support, built by its own module -- a

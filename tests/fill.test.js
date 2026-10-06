@@ -48,7 +48,8 @@ Deno.test('fill: Full coverage keeps every Auto support, byte for byte, and only
 Deno.test('fill: it holds more of the must-hold red than Auto, and reports the rest', () => {
   const a = mustHeld(topo, res, rot, auto), f = mustHeld(topo, res, rot, full);
   assert(full.fill, 'full mode reports its fill');
-  if (a.held < a.must - 1) assert(f.held > a.held, `no gain: ${a.held.toFixed(0)} -> ${f.held.toFixed(0)} of ${a.must.toFixed(0)}`);
+  assert(a.held < a.must - 1, 'precondition: Auto leaves the cube at X40 some red');
+  assert(f.held > a.held, `no gain: ${a.held.toFixed(0)} -> ${f.held.toFixed(0)} of ${a.must.toFixed(0)}`);
   assert(Number.isFinite(full.fill.unservedArea) && Array.isArray(full.fill.unservedPts));
 });
 
@@ -61,23 +62,27 @@ Deno.test('fill: no added wall is inside the part', () => {
   assert(n === 0, `${n} fill vertices inside the part`);
 });
 
-Deno.test('fill: added walls keep sideClear off every Auto support (fused walls do not break away)', () => {
+Deno.test('fill: added walls keep sideClear off every other support, Auto\'s and each other (fused walls do not break away)', () => {
   const box = (t, i) => [0, 1, 2].map((k) => Math.min(t[i][k], t[i + 1][k], t[i + 2][k]))
     .concat([0, 1, 2].map((k) => Math.max(t[i][k], t[i + 1][k], t[i + 2][k])));
   const pad = 0.3;   // a hair under PROP.sideClear (0.35)
-  const A = [];
-  for (let i = 0; i < auto.triangles.length; i += 3) A.push(box(auto.triangles, i));
-  for (let i = auto.triangles.length; i < full.triangles.length; i += 3) {
-    const b = box(full.triangles, i);
-    for (const o of A) {
-      const touch = b[0] - pad <= o[3] && o[0] <= b[3] + pad && b[1] - pad <= o[4] && o[1] <= b[4] + pad
-        && b[2] - pad <= o[5] && o[2] <= b[5] + pad;
-      assert(!touch, `fill triangle ${i} within ${pad} mm of an Auto support`);
-    }
+  const touch = (b, o) => b[0] - pad <= o[3] && o[0] <= b[3] + pad && b[1] - pad <= o[4] && o[1] <= b[4] + pad
+    && b[2] - pad <= o[5] && o[2] <= b[5] + pad;
+  // every support as its own list of triangle boxes: Auto's as one, each fill wall apart
+  const walls = [[]];
+  for (let i = 0; i < auto.triangles.length; i += 3) walls[0].push(box(auto.triangles, i));
+  for (const f of full.fins.filter((w) => w.fill)) {
+    const [a, z] = f.triRanges[0], bs = [];
+    for (let i = a; i < z; i += 3) bs.push(box(full.triangles, i));
+    walls.push(bs);
+  }
+  assert(walls.length > 2, 'needs two fill walls to check them against each other');
+  for (let w = 1; w < walls.length; w++) for (let v = 0; v < w; v++) {
+    for (const b of walls[w]) for (const o of walls[v]) assert(!touch(b, o), `fill wall ${w} within ${pad} mm of support ${v}`);
   }
 });
 
-Deno.test('fill: sparse gives every bare group something; the slider never strands red', () => {
+Deno.test('fill: at every slider setting Full holds at least what Auto does, and adds a wall where Auto left red', () => {
   // the slider also sets Auto's own rows (1 wall at 0, 7 at 1 on this cube), so the
   // fill's count isn't monotonic -- what is: sparse still adds a wall where Auto left
   // red, and Full coverage at any setting holds at least what Auto does
@@ -98,6 +103,17 @@ Deno.test('fill: deterministic -- the same build twice', () => {
     const a = again.triangles[i], b = full.triangles[i];
     assert(a[0] === b[0] && a[1] === b[1] && a[2] === b[2], `vertex ${i} differs between runs`);
   }
+});
+
+Deno.test('fill: a cap stops it and says so', () => {
+  const keep = FILL.maxWalls;
+  FILL.maxWalls = 1;
+  try {
+    const f = fins.buildFins(topo, res, rot, { ...OPTS, mode: 'full' });
+    assert(f.fill.walls === 1 && f.fill.capped, `walls ${f.fill.walls}, capped ${f.fill.capped}`);
+    assert(f.fill.unservedArea > 0, 'the red the cap left is reported');
+  } finally { FILL.maxWalls = keep; }
+  assert(!full.fill.capped, 'uncapped at the defaults');
 });
 
 Deno.test('fill: Auto mode never runs the fill', () => {
