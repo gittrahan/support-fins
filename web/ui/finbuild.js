@@ -21,19 +21,6 @@ import { topology, rotM3, lastResult, updateFit } from './part.js';
 
 export let finMesh = null;
 let padMesh = null;
-// Full coverage's red no wall could reach (build.fill.unservedPts): pink dots on the
-// part, so the readout's "N mm² no wall can reach" points somewhere. Pink, not red:
-// they sit on red-shaded overhang.
-let bareMesh = null;
-const bareMaterial = new THREE.PointsMaterial({ color: 0xff3fd2, size: 5, sizeAttenuation: false });
-function bareFrom(pts) {
-  if (!pts?.length) return null;
-  const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(pts.flat(), 3));
-  const m = new THREE.Points(g, bareMaterial);
-  scene.add(m);
-  return m;
-}
 export let finTris = [];
 export let padTris = [];
 
@@ -177,8 +164,8 @@ export function refreshFins() {
   if (!finsVisible || !lastResult || !topology) {
     supersedeBuild();                  // no build wanted now: drop any in-flight one so it can't re-add fins
     clearSpinner();
-    for (const m of [finMesh, padMesh, bareMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
-    finMesh = padMesh = bareMesh = null;
+    for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
+    finMesh = padMesh = null;
     clearFinHover();
     finTris = padTris = [];
     forgetFins();
@@ -194,8 +181,8 @@ export function refreshFins() {
   supersedeBuild();                    // discard any older in-flight pose before starting this one
   const worker = getFinWorker();
   if (!worker) {                       // no worker available: build inline (old behaviour)
-    for (const m of [finMesh, padMesh, bareMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
-    finMesh = padMesh = bareMesh = null;
+    for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
+    finMesh = padMesh = null;
     finTris = padTris = [];
     applyBuilt(buildFins(topology, lastResult, rotM3.elements, lastOpts));
     return;
@@ -223,8 +210,8 @@ export function refreshFins() {
   } catch (err) {
     console.warn('support worker postMessage failed; building inline', err);
     finBusy = false;
-    for (const m of [finMesh, padMesh, bareMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
-    finMesh = padMesh = bareMesh = null;
+    for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
+    finMesh = padMesh = null;
     finTris = padTris = [];
     applyBuilt(buildFins(topology, lastResult, rotM3.elements, lastOpts));
   }
@@ -239,15 +226,13 @@ export function refreshFins() {
 function applyBuilt(built) {
   finBusy = false;
   clearSpinner();
-  for (const m of [finMesh, padMesh, bareMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
-  finMesh = padMesh = bareMesh = null;
+  for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
+  finMesh = padMesh = null;
   clearFinHover();
   finTris = padTris = [];
   // Undo the grey markFinsStale applied to the shared materials.
   finMaterial.transparent = padMaterial.transparent = false;
   finMaterial.opacity = padMaterial.opacity = 1;
-  bareMaterial.transparent = false;
-  bareMaterial.opacity = 1;
 
   lastBuilt = built;
   padTris = built.padTriangles;
@@ -264,8 +249,6 @@ function applyBuilt(built) {
     // triangle set; exporters read finTris unchanged.
     finTris = adoptFins(built);
     finMesh = meshFrom(finTris, finMaterial);
-    // the readout names the area only from 1 mm² (rounded), so the dots start there too
-    bareMesh = Math.round(built.fill?.unservedArea ?? 0) >= 1 ? bareFrom(built.fill.unservedPts) : null;
     // In Suggest, also (re)build any hand-drawn walls layered on top. rebuildDrawn
     // self-gates on drawShown(), so it clears them when none apply.
     rebuildDrawn();
@@ -285,8 +268,7 @@ function applyBuilt(built) {
  */
 /** Grey the fins while a drag is in flight, so nothing on screen is a lie. */
 export function markFinsStale() {
-  for (const m of [finMesh, padMesh, drawnMesh, bareMesh]) if (m) m.material.opacity = 0.25;
-  bareMaterial.transparent = true;
+  for (const m of [finMesh, padMesh, drawnMesh]) if (m) m.material.opacity = 0.25;
   finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = true;
   el('s-fins').textContent = 'generating supports…';
 }

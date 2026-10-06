@@ -359,17 +359,17 @@ function updateFinReadout(built, ms) {
             + 'between supports — nudge the slider right if the surface bows');
   }
   // Full coverage (fins/fill.js): what it added, and -- must-see, in the panel --
-  // the red it couldn't reach, marked on the part, never hidden.
+  // the red it couldn't reach, never hidden.
   const fl = built.fill;
   if (fl) {
     if (fl.walls) help.push(`Full coverage added ${fl.walls} wall${fl.walls === 1 ? '' : 's'} under overhangs Auto left bare.`);
     else if (fl.bareBefore < 1 && n) help.push('Auto already reaches every overhang here, so Full coverage added nothing.');
     const bare = Math.round(fl.unservedArea);
     if (fl.capped) {
-      lead.push(`Full coverage stopped at its wall limit with ${bare} mm² of overhang still bare (marked pink) — `
+      lead.push(`Full coverage stopped at its wall limit with ${bare} mm² of overhang still bare — `
               + 'rotate the part, or switch to Auto');
     } else if (bare >= 1) {
-      lead.push(`${bare} mm² of overhang no wall can reach this way up (marked pink) — `
+      lead.push(`${bare} mm² of overhang no wall can reach this way up — `
               + 'tilt the part, or add a wall by hand');
     }
   }
