@@ -108,7 +108,8 @@ function finOpts() {
            tines: el('tines').checked,
            tineDensity: el('tine-density').valueAsNumber / 100,
            layerHeight: el('layer-height').valueAsNumber,
-           coverage: el('coverage').valueAsNumber / 100,
+           // Full coverage aims at every reachable overhang: the slider is Auto's
+           coverage: finMode === 'full' ? FIN.coverDefault : el('coverage').valueAsNumber / 100,
            // Auto places sway braces itself; in Draw they are clicked on by hand.
            sway: autoLike() && el('sway').checked ? { on: true, ...swayOpts() } : undefined,
            // The clearances have to travel WITH the request: the build runs in a

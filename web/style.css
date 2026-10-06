@@ -127,6 +127,9 @@ html, body {
   border-color: var(--accent);
   color: var(--accent);
 }
+/* A field that doesn't apply in this mode (Wide-face coverage in Full coverage). */
+.fld.disabled { opacity: 0.45; }
+.fld.disabled input { cursor: not-allowed; }
 /* A disabled Undo/Redo shouldn't look clickable. */
 .btn:disabled {
   opacity: 0.4;

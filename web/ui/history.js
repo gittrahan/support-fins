@@ -12,7 +12,7 @@ import { setLayPlacing, setGizmo } from './pose.js';
 import { part, shade } from './part.js';
 import {
   finMode, finsVisible, drawAugment, setFinMode, setFinsVisible, setDrawAugment,
-  syncFinsToggleUI, syncAugmentUI,
+  syncFinsToggleUI, syncAugmentUI, syncCoverageUI,
 } from './settings.js';
 import { refreshFins } from './finbuild.js';
 import { drawnWalls, setDrawnWalls, clearPreview, syncDrawControls } from './walls.js';
@@ -63,6 +63,7 @@ function restoreState(s) {
   // Re-sync every control that mirrors the restored state, then rebuild the
   // scene the same way a normal edit would.
   el('fin-mode').value = finMode;
+  syncCoverageUI();       // the slider follows the restored mode (hidden in Draw, disabled in Full)
   syncFinsToggleUI();
   syncAugmentUI();
   syncDrawControls();

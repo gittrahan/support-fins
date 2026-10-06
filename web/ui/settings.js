@@ -34,6 +34,20 @@ export function setFinMode(v) { finMode = v; }
 // bare, so everything Auto offers -- the coverage slider, sway braces, per-fin
 // removal, walls added by hand -- applies to it too. Every Auto-only gate asks this.
 export const autoLike = (m = finMode) => m === 'auto' || m === 'full';
+// Wide-face coverage is Auto's row density. Draw has no rows, so it is hidden there;
+// Full coverage holds every overhang it can reach whatever the slider says, so there
+// it shows but is disabled (finbuild.js sends the neutral default instead).
+const COVER_TIP_FULL = 'Full coverage supports every overhang a wall can reach, so this '
+  + 'slider only applies in Auto.';
+let coverTip = null;
+export function syncCoverageUI() {
+  const fld = el('coverage-fld'), full = finMode === 'full';
+  coverTip ??= fld.title;
+  fld.hidden = !autoLike();
+  el('coverage').disabled = full;
+  fld.classList.toggle('disabled', full);
+  fld.title = full ? COVER_TIP_FULL : coverTip;
+}
 // Suggest + Draw mix: when true, the pointer places hand-drawn walls ON TOP of the
 // auto-placed ones (for when auto misses a spot). It only gates the pointer; the
 // drawn walls themselves stay shown/exported after placing until Clear all.
@@ -50,7 +64,7 @@ export function syncAugmentUI() {
 el('fin-mode').addEventListener('change', (e) => {
   histPush();
   finMode = e.target.value;
-  el('coverage-fld').hidden = !autoLike();  // row density only applies to Auto (and Full coverage)
+  syncCoverageUI();
   drawAugment = false;      // start each mode with hand-placement off
   if (removeMode) cancelRemove();
   setDrawMsg('');
