@@ -298,9 +298,11 @@ function settledStretch(c, tris, redAt, others, onPart = false) {
 /**
  * Does the wall at station p (its top, [x, y, z]) keep PROP.sideClear off every
  * support already built? Its stem runs from its floor to its top, with a foot
- * footFor(h) a side at the plate -- or, `onPart` and part under the station (a chin
- * over the chest), from that part up, where drawnWall stands it (part-attached),
- * with no plate foot to check.
+ * footFor(h) a side at the plate. `onPart` (the second pass): where part is under
+ * the station (a chin over the chest), from that part up, where drawnWall stands
+ * it (part-attached); on the plate, its flange may JOIN the flanges already there
+ * -- one base on the plate under a crowded figure, peeled off with all its walls --
+ * and only the stem above FLANGE_TOP keeps clear.
  */
 function stationClear(p, tris, others, onPart) {
   const w = PROP.th / 2 + PROP.sideClear;
@@ -313,6 +315,9 @@ function stationClear(p, tris, others, onPart) {
       return !others.hitsBox([p[0] - w, p[1] - w, below[0], p[0] + w, p[1] + w, p[2]]);
     }
   }
+  // (the second pass: its foot may join the flanges already on the plate -- only the
+  // stem above them keeps clear)
+  if (onPart) return !others.hitsBox([p[0] - w, p[1] - w, FLANGE_TOP, p[0] + w, p[1] + w, p[2]]);
   const wf = footFor(p[2] - PROP.gap) + PROP.sideClear;
   return !others.hitsBox([p[0] - w, p[1] - w, PROP.baseH, p[0] + w, p[1] + w, p[2]])
     && !others.hitsBox([p[0] - wf, p[1] - wf, 0, p[0] + wf, p[1] + wf, PROP.baseH + PROP.gap]);
@@ -355,6 +360,7 @@ const triBox = (t, i) => [Math.min(t[i][0], t[i + 1][0], t[i + 2][0]), Math.min(
   Math.max(t[i][1], t[i + 1][1], t[i + 2][1]), Math.max(t[i][2], t[i + 1][2], t[i + 2][2])];
 
 const BOX_EDGE = 2.0;    // mm: largest support-triangle box boxGrid works with (see boxesOf)
+const FLANGE_TOP = PROP.baseH + 0.05;   // mm: the plate flange's band, a hair over its top
 
 /**
  * fn(box) for pieces of triangle (a, b, c) no more than BOX_EDGE across: a long
@@ -403,7 +409,9 @@ function boxGrid() {
       });
       return hit;
     },
-    hits(tris, pad) {
+    // `shared`: an overlap wholly within the flange band (both below FLANGE_TOP) is
+    // the second pass's joined base, not a hit
+    hits(tris, pad, shared = false) {
       let hit = false;
       const test = (b) => {
         if (hit) return;
@@ -411,7 +419,7 @@ function boxGrid() {
           if (hit) return;
           for (const o of grid.get(k) || []) {
             if (b[0] - pad <= o[3] && o[0] <= b[3] + pad && b[1] - pad <= o[4] && o[1] <= b[4] + pad &&
-                b[2] - pad <= o[5] && o[2] <= b[5] + pad) { hit = true; return; }
+                b[2] - pad <= o[5] && o[2] <= b[5] + pad && !(shared && Math.min(b[5], o[5]) <= FLANGE_TOP)) { hit = true; return; }
           }
         });
       };
@@ -484,7 +492,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
         if (builds++ >= FILL.groupTries) return aims;
         stats.tries++;
         const r = drawnWall(c.a, c.b, tris, 0, drawOpts);
-        const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0] : others.hits(r.tris, PROP.sideClear) ? 'touches a support' : null;
+        const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0] : others.hits(r.tris, PROP.sideClear, local) ? 'touches a support' : null;
         if (why) {
           stats.refused[why] = (stats.refused[why] ?? 0) + 1;
           if (onPart && why === 'touches a support') partOk = false;
