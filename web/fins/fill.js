@@ -303,14 +303,16 @@ function settledStretch(c, tris, redAt, others, onPart = false) {
  * with no plate foot to check.
  */
 function stationClear(p, tris, others, onPart) {
-  let floor = 0;
-  // the nearest surface below, if it faces UP (a down-facing one below is another
-  // overhang's underside, with air under it)
-  let below = null;
-  for (const h of surfaceHitsAt(tris, p[0], p[1])) if (h[0] < p[2] - 1 && (!below || h[0] > below[0])) below = h;
-  if (below && below[1] > 0) floor = below[0];
   const w = PROP.th / 2 + PROP.sideClear;
-  if (onPart && floor > PROP.gap + 0.5) return !others.hitsBox([p[0] - w, p[1] - w, floor, p[0] + w, p[1] + w, p[2]]);
+  if (onPart) {
+    // the nearest surface below, if it faces UP (a down-facing one below is another
+    // overhang's underside, with air under it)
+    let below = null;
+    for (const h of surfaceHitsAt(tris, p[0], p[1])) if (h[0] < p[2] - 1 && (!below || h[0] > below[0])) below = h;
+    if (below && below[1] > 0 && below[0] > PROP.gap + 0.5) {
+      return !others.hitsBox([p[0] - w, p[1] - w, below[0], p[0] + w, p[1] + w, p[2]]);
+    }
+  }
   const wf = footFor(p[2] - PROP.gap) + PROP.sideClear;
   return !others.hitsBox([p[0] - w, p[1] - w, PROP.baseH, p[0] + w, p[1] + w, p[2]])
     && !others.hitsBox([p[0] - wf, p[1] - wf, 0, p[0] + wf, p[1] + wf, PROP.baseH + PROP.gap]);
@@ -352,7 +354,27 @@ const triBox = (t, i) => [Math.min(t[i][0], t[i + 1][0], t[i + 2][0]), Math.min(
   Math.min(t[i][2], t[i + 1][2], t[i + 2][2]), Math.max(t[i][0], t[i + 1][0], t[i + 2][0]),
   Math.max(t[i][1], t[i + 1][1], t[i + 2][1]), Math.max(t[i][2], t[i + 1][2], t[i + 2][2])];
 
-const BOX_EDGE = 2.0;    // mm: largest support-triangle box boxGrid keeps (see add)
+const BOX_EDGE = 2.0;    // mm: largest support-triangle box boxGrid works with (see boxesOf)
+
+/**
+ * fn(box) for pieces of triangle (a, b, c) no more than BOX_EDGE across: a long
+ * wall's triangles are big and, on a diagonal wall, so are their boxes -- a box
+ * over a whole quadrant of the plan read every line near it as a hit. Split at the
+ * longest edge's midpoint (a sliver halves along its length, not into 4^n), at
+ * most 16 deep.
+ */
+function boxesOf(a, b, c, fn, depth = 0) {
+  const bx = triBox([a, b, c], 0);
+  if (depth >= 16 || !(Math.max(bx[3] - bx[0], bx[4] - bx[1], bx[5] - bx[2]) > BOX_EDGE)) { fn(bx); return; }
+  const d2 = (p, q) => (p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2;
+  const ab = d2(a, b), bc = d2(b, c), ca = d2(c, a);
+  // rotate so the longest edge is (a, b)
+  if (bc >= ab && bc >= ca) [a, b, c] = [b, c, a];
+  else if (ca >= ab && ca >= bc) [a, b, c] = [c, a, b];
+  const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2];
+  boxesOf(a, m, c, fn, depth + 1);
+  boxesOf(m, b, c, fn, depth + 1);
+}
 
 /** Every support triangle's box, gridded in plan, so "does this new wall touch one" is cheap. */
 function boxGrid() {
@@ -364,21 +386,12 @@ function boxGrid() {
     }
   };
   return {
-    // a long wall's triangles are big and, on a diagonal wall, so are their boxes --
-    // a box over a whole quadrant of the plan read every line near it as a hit; a
-    // triangle is split until its box is BOX_EDGE across
     add(tris) {
-      const put = (a, b, c) => {
-        const t = [a, b, c], bx = triBox(t, 0);
-        if (Math.max(bx[3] - bx[0], bx[4] - bx[1], bx[5] - bx[2]) > BOX_EDGE) {
-          const m = (p, q) => [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2];
-          const ab = m(a, b), bc = m(b, c), ca = m(c, a);
-          put(a, ab, ca); put(ab, b, bc); put(ca, bc, c); put(ab, bc, ca);
-          return;
-        }
-        cellsOf(bx, 0, (k) => { let g = grid.get(k); if (!g) grid.set(k, (g = [])); g.push(bx); });
-      };
-      for (let i = 0; i + 2 < tris.length; i += 3) put(tris[i], tris[i + 1], tris[i + 2]);
+      for (let i = 0; i + 2 < tris.length; i += 3) {
+        boxesOf(tris[i], tris[i + 1], tris[i + 2], (bx) => cellsOf(bx, 0, (k) => {
+          let g = grid.get(k); if (!g) grid.set(k, (g = [])); g.push(bx);
+        }));
+      }
     },
     hitsBox(b) {
       let hit = false;
@@ -391,9 +404,9 @@ function boxGrid() {
       return hit;
     },
     hits(tris, pad) {
-      for (let i = 0; i + 2 < tris.length; i += 3) {
-        const b = triBox(tris, i);
-        let hit = false;
+      let hit = false;
+      const test = (b) => {
+        if (hit) return;
         cellsOf(b, pad, (k) => {
           if (hit) return;
           for (const o of grid.get(k) || []) {
@@ -401,9 +414,10 @@ function boxGrid() {
                 b[2] - pad <= o[5] && o[2] <= b[5] + pad) { hit = true; return; }
           }
         });
-        if (hit) return true;
-      }
-      return false;
+      };
+      // the new wall's triangles split the same way as the stored ones
+      for (let i = 0; i + 2 < tris.length && !hit; i += 3) boxesOf(tris[i], tris[i + 1], tris[i + 2], test);
+      return hit;
     },
   };
 }
@@ -459,6 +473,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
         // builds into a support (the knuckle's mixed lines did, build after build)
         let onPart = false;
         if (!c && partOk) {
+          stats.checks++;
           quick = underStretch(c0, tris, redAt, others, true);
           c = quick && settledStretch(quick, tris, redAt, others, true);
           onPart = !!c;
@@ -544,7 +559,9 @@ export function fillCoverage(topo, result, rot, opts, built) {
     // ...then, with what the caps leave, the red still bare again, patch by patch
     // (wallFor's LOCAL): an upright figure's groups are a hem, both arms and the
     // hands at one height, and every line across all that met the first wall
-    dead.clear();
+    // (only if pass 1 left room: after a cap, what it gave up on stays given up, or
+    // `capped` would count it as stopped-on)
+    if (!full()) dead.clear();
     while (!full()) {
       const live = pts.filter(bare);
       if (!live.length) break;
