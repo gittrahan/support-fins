@@ -43,7 +43,11 @@ import { gizmo, hoverFace, layActive, cancelLay, layHover, layClick } from './ui
 addEventListener('keydown', (e) => {
   if (!part) return;
   const tag = e.target.tagName;
-  if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+  // Undo/redo from a slider, checkbox or menu too: focus stays on one after you use it,
+  // and ⌘Z then did nothing. A text or number field keeps its own text undo.
+  const textField = tag === 'TEXTAREA' || (tag === 'INPUT' && !['range', 'checkbox', 'radio'].includes(e.target.type));
+  const histKey = (e.metaKey || e.ctrlKey) && ['z', 'y'].includes(e.key.toLowerCase());
+  if (textField || ((tag === 'INPUT' || tag === 'SELECT') && !histKey)) return;
   if (selectedWall && (e.key === 'Delete' || e.key === 'Backspace')) {
     e.preventDefault();
     removeSelected();

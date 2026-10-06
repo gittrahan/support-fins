@@ -8,7 +8,7 @@ import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { el } from './dom.js';
 import { renderer, scene, camera, controls, raycaster, pointer } from './scene.js';
 import { removeActive } from './remove.js';
-import { histPush } from './history.js';
+import { histPush, beginGesture, commitGesture } from './history.js';
 import { hideSuggestions, clearSuggestionMark } from './suggest.js';
 import { drawActive, clearPreview } from './walls.js';
 import { refreshFins } from './finbuild.js';
@@ -23,12 +23,15 @@ gizmo.setMode('rotate');
 gizmo.setSize(0.85);
 scene.add(gizmo.getHelper ? gizmo.getHelper() : gizmo);
 const dragFrom = new THREE.Quaternion();   // pose at drag start: did the drag turn it?
+let dragSnap = null;                       // undo state at drag start (history.js)
 gizmo.addEventListener('dragging-changed', (e) => {
   controls.enabled = !e.value;
-  if (e.value && part) dragFrom.copy(part.quaternion);
+  if (e.value && part) { dragFrom.copy(part.quaternion); dragSnap = beginGesture(); }
   if (!e.value) {
     el('rot-delta').textContent = '';
-    if (part && !part.quaternion.equals(dragFrom)) clearSuggestionMark();
+    // a turn by the rings is one undo step, like the 90deg buttons (it never was one)
+    if (part && !part.quaternion.equals(dragFrom)) { clearSuggestionMark(); commitGesture(dragSnap); }
+    dragSnap = null;
     // Drag released: reseat onto the plate now the pivot is allowed to move again
     // (shade() holds part.position steady WHILE dragging -- see the note there --
     // so this is the frame that actually drops the turned part back down).
