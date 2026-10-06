@@ -9,6 +9,7 @@
 #   KEEP=<dir> ...                                  # keep the JSON
 #   HEAD_MODE=full ...                              # build the working tree in Full coverage
 #                                                     (base stays Auto: what the mode adds)
+#   BASE_MODE=full HEAD_MODE=full ...               # Full vs Full: what a fill change does
 set -uo pipefail
 BASE="${1:-origin/main}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -27,7 +28,7 @@ run() {   # $1 web dir, $2 out prefix, $3 mode
   deno run -A "$HERE/probe.js" --web "$1" --mode "$3" --poses "${POSES:-up,X30}" --json "$2-real.json" >/dev/null || return 1
   deno eval "const a=JSON.parse(Deno.readTextFileSync('$2-reports.json')),b=JSON.parse(Deno.readTextFileSync('$2-real.json'));Deno.writeTextFileSync('$2.json',JSON.stringify([...a,...b]))"
 }
-run "$WORK/base/web" "$WORK/base" auto || exit 2
+run "$WORK/base/web" "$WORK/base" "${BASE_MODE:-auto}" || exit 2
 run "$ROOT/web" "$WORK/head" "${HEAD_MODE:-auto}" || exit 2
 
 echo
