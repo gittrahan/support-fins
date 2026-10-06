@@ -30,7 +30,9 @@ gizmo.addEventListener('dragging-changed', (e) => {
   if (!e.value) {
     el('rot-delta').textContent = '';
     // a turn by the rings is one undo step, like the 90deg buttons (it never was one)
-    if (part && !part.quaternion.equals(dragFrom)) { clearSuggestionMark(); commitGesture(dragSnap); }
+    const turned = !!part && !part.quaternion.equals(dragFrom);
+    if (turned) clearSuggestionMark();
+    commitGesture(dragSnap, turned);
     dragSnap = null;
     // Drag released: reseat onto the plate now the pivot is allowed to move again
     // (shade() holds part.position steady WHILE dragging -- see the note there --

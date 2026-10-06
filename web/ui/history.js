@@ -60,15 +60,24 @@ function snapshot() {
 document.addEventListener('change', (e) => {
   if (restoring || !FORM_IDS.includes(e.target?.id)) return;
   histPush();
-  // after the field's own handlers: choosing a material rewrites other fields
-  queueMicrotask(() => { settled = readForm(); });
 }, true);
+// ...and the values to compare the NEXT edit against, read once the field's own
+// handlers have run (bubbling up to window comes after them): choosing a material
+// rewrites the gap and pad fields. Not a microtask -- a real event runs microtasks
+// between listeners, before the material handler, and PETG's gap went down as PLA's.
+addEventListener('change', (e) => {
+  if (restoring || !FORM_IDS.includes(e.target?.id)) return;
+  settled = readForm();
+});
 
 /** A gesture that changes state over many events (a rotate-ring drag): take the
  *  snapshot when it starts, record it only if the gesture changed something. */
-export const beginGesture = () => (part ? snapshot() : null);
-export function commitGesture(s) {
-  if (!s) return;
+let gesture = false;     // a gesture is open: undo/redo wait for it
+export const beginGesture = () => { gesture = true; return part ? snapshot() : null; };
+/** End the gesture; `s` (its start snapshot) is recorded when it changed something. */
+export function commitGesture(s, changed) {
+  gesture = false;
+  if (!s || !changed) return;
   undoStack.push(s);
   if (undoStack.length > 100) undoStack.shift();
   redoStack.length = 0;
@@ -104,7 +113,6 @@ function restoreForm(form) {
 }
 
 function restoreState(s) {
-  restoreForm(s.form);
   part.quaternion.set(s.quat[0], s.quat[1], s.quat[2], s.quat[3]);
   setDrawnWalls(s.walls.map((w) => ({ kind: w.kind, face: w.face, a: w.a.clone(), b: w.b?.clone(),
                                        ok: false, info: null })));
@@ -128,19 +136,21 @@ function restoreState(s) {
   setGizmo();
   el('rot-delta').textContent = '';
   hideSuggestions();
+  // settings last, so the builds their handlers start already see the restored pose
+  restoreForm(s.form);
   shade();
   refreshFins();
   syncHistButtons();
 }
 
 export function undo() {
-  if (!undoStack.length) return;
+  if (gesture || !undoStack.length) return;
   redoStack.push(snapshot());
   restoreState(undoStack.pop());
 }
 
 export function redo() {
-  if (!redoStack.length) return;
+  if (gesture || !redoStack.length) return;
   undoStack.push(snapshot());
   restoreState(redoStack.pop());
 }
