@@ -99,7 +99,27 @@ issue 026).
   layers, ledges 1-5 all printed a one-layer (0.2) gap and only 0.4 differed. The
   rebuilt coupon slices as labelled (0.2 / 0.4 / 0.6, checked in the G-code). The
   Gap field itself has the same problem (local issue 026).
-- **waiting on print** (PLA and PETG: the same file, the rungs ARE the gaps).
+- **2026-10-06, PLA:** 0.2 (one empty layer) was the only worthwhile gap; 0.4 and 0.6
+  were worse. 0.2 is already the default (PROP.gap, MATERIAL.pla.propGap), so
+  nothing changes; the Gap field's in-between values are moot (local issue 026). The
+  underside at 0.2 was clean but "not better than tree or snug supports": between
+  the two walls the slicer bridges (PrusaSlicer: bridge infill across the ledge,
+  over walls along it) -> orient/.
+
+### orient/ -- does it matter which way a flat overhang's walls run, and how close? (no setting yet)
+Bar on the plate, six identical 16 x 16 mm flat ledges 10 mm up, walls from Draw's
+drawnWall at the default 0.2 gap. Near side ACROSS: walls along x, across the
+slicer's bridge lines (Auto's choice on the gap coupon). Far side PARALLEL: the same
+ledges, walls along y, parallel to them. Pairs share the widest bare stretch between
+supports, raised on top: 8 / 5.3 / 4 mm (2 / 3 / 4 walls across, 3 / 4 / 5 parallel:
+the parallel ledges have two free side edges to hold). Checked in PrusaSlicer 3.0
+alpha (default profile, 0.2 layers): every ledge's first layer is bridge infill at
+90 deg, so the near side's walls cross it and the far side's run with it.
+For a user: compare each pair (does direction matter?) and down each side (how
+close do walls need to be for an underside you'd keep?). If ACROSS wins, a wall
+direction rule (cross the slicer's bridge) is worth building; the spacing that
+looks good sets the Coverage dial's target (span/).
+- **waiting on print.**
 
 ### span/ -- how far apart may walls under a broad face sit? (the Coverage dial)
 Bar on the plate, five identical 30 x 24 mm flat shelves 10 mm up; Auto per shelf
