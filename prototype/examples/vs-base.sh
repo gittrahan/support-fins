@@ -7,6 +7,8 @@
 #   prototype/examples/vs-base.sh [base-ref]
 #   POSES=up,X30 prototype/examples/vs-base.sh       # real/ poses (default up,X30)
 #   KEEP=<dir> ...                                  # keep the JSON
+#   HEAD_MODE=full ...                              # build the working tree in Full coverage
+#                                                     (base stays Auto: what the mode adds)
 set -uo pipefail
 BASE="${1:-origin/main}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -20,13 +22,13 @@ git -C "$ROOT" worktree add -q --detach "$WORK/base" "$BASE" || exit 2
 echo "base $(git -C "$WORK/base" log --oneline -1)"
 echo "head $(git -C "$ROOT" log --oneline -1)$([ -n "$(git -C "$ROOT" status --porcelain -- web)" ] && echo ' + uncommitted web/ changes')"
 
-run() {   # $1 web dir, $2 out prefix
-  deno run -A "$HERE/probe.js" --web "$1" --dir "$HERE/reports" --poses up,suggested,X-90 --json "$2-reports.json" >/dev/null || return 1
-  deno run -A "$HERE/probe.js" --web "$1" --poses "${POSES:-up,X30}" --json "$2-real.json" >/dev/null || return 1
+run() {   # $1 web dir, $2 out prefix, $3 mode
+  deno run -A "$HERE/probe.js" --web "$1" --mode "$3" --dir "$HERE/reports" --poses up,suggested,X-90 --json "$2-reports.json" >/dev/null || return 1
+  deno run -A "$HERE/probe.js" --web "$1" --mode "$3" --poses "${POSES:-up,X30}" --json "$2-real.json" >/dev/null || return 1
   deno eval "const a=JSON.parse(Deno.readTextFileSync('$2-reports.json')),b=JSON.parse(Deno.readTextFileSync('$2-real.json'));Deno.writeTextFileSync('$2.json',JSON.stringify([...a,...b]))"
 }
-run "$WORK/base/web" "$WORK/base" || exit 2
-run "$ROOT/web" "$WORK/head" || exit 2
+run "$WORK/base/web" "$WORK/base" auto || exit 2
+run "$ROOT/web" "$WORK/head" "${HEAD_MODE:-auto}" || exit 2
 
 echo
 deno run -A "$HERE/probe_diff.js" "$WORK/base.json" "$WORK/head.json"

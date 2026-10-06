@@ -33,5 +33,9 @@ for (const [k, b] of B) {
 for (const k of H.keys()) if (!B.has(k)) console.log(pad(k, 50) + 'new in head');
 const tot = (held, must) => (must ? (100 * held) / must : 100).toFixed(1);
 console.log(`\nmust-hold, area-weighted: ${tot(heldB, mustB)}% -> ${tot(heldH, mustH)}%   (${mustB.toFixed(0)} mm2)`);
+const sum = (M, k) => [...M.values()].reduce((s, r) => s + (r[k] ?? 0), 0);
+const cost = (k, f) => `${f(sum(B, k))} -> ${f(sum(H, k))}`;
+console.log(`cost: walls ${cost('walls', (x) => x)}, grams ${cost('grams', (x) => x.toFixed(1))}`
+  + (sum(H, 'secs') ? `, build s ${cost('secs', (x) => x.toFixed(0))}` : ''));
 console.log(lost ? `${lost} case(s) lost more than 2 points.` : 'No case lost more than 2 points.');
 Deno.exit(lost ? 1 : 0);

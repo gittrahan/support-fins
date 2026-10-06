@@ -13,6 +13,8 @@
  *     --web <checkout>/web               build with another checkout's engine (scored by THIS
  *                                        checkout's held.js, so both runs use one ruler)
  *     --json <file>                      every row as JSON, for probe_diff.js
+ *     --mode auto|full                   the Placement mode built (default auto; full = Full
+ *                                        coverage, Auto plus fins/fill.js)
  *
  * Columns: `must%` is the policy number (2026-10-05: every red face gets something):
  * held share of the MUST-hold overhang, i.e. all of it but tiny holes' ceilings
@@ -53,7 +55,8 @@ const dump = opt('--dump');
 const jsonOut = opt('--json');
 const rows = [];
 if (dump) Deno.mkdirSync(dump, { recursive: true });
-const valued = new Set(['--dir', '--poses', '--dump', '--web', '--json'].map((k) => opt(k)).filter(Boolean));
+const MODE = opt('--mode') ?? 'auto';
+const valued = new Set(['--dir', '--poses', '--dump', '--web', '--json', '--mode'].map((k) => opt(k)).filter(Boolean));
 const want = args.filter((a) => !a.startsWith('-') && !valued.has(a));
 const files = [...Deno.readDirSync(dir)].map((f) => f.name).filter((n) => n.toLowerCase().endsWith('.stl'))
   .filter((n) => !want.length || want.includes(n.replace(/\.stl$/i, ''))).sort();
@@ -62,7 +65,7 @@ const pad = (s, n) => String(s).padEnd(n);
 const W = Math.max(18, ...files.map((f) => Math.min(40, f.length - 2)));
 console.log(pad('model', W) + pad('pose', 10) + pad('ovh mm2', 9) + pad('must%', 7) + pad('hole', 6) + pad('low', 6)
   + pad('held%', 7) + pad('small%', 8) + pad('walls', 6)
-  + pad('onPart', 7) + pad('stilt mm', 9) + pad('g', 6) + 'skipped');
+  + pad('onPart', 7) + pad('stilt mm', 9) + pad('g', 6) + pad('s', 6) + 'skipped');
 for (const f of files) {
   const pos = readSTL(Deno.readFileSync(dir + f));
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
@@ -71,7 +74,9 @@ for (const f of files) {
       : pose === 'suggested' ? suggestOrientations(topo, { top: 1 }).candidates[0]?.rot : null;
     if (!rot) { console.log(pad(f.slice(0, W), W) + pad(pose, 10) + '(no such pose)'); continue; }
     const res = analyze(topo, 45, rot);
-    const b = buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true });
+    const t0 = performance.now();
+    const b = buildFins(topo, res, rot, { mode: MODE, bedPad: true, tines: true });
+    const secs = (performance.now() - t0) / 1000;
     const h = heldFaces(topo, res, rot, b, R);
     const walls = b.props ?? [];
     const onPart = walls.filter((w) => w.partAttached).length;
@@ -83,9 +88,10 @@ for (const f of files) {
     console.log(pad(f.replace(/\.stl$/i, '').slice(0, W), W) + pad(pose, 10) + pad(h.area.toFixed(0), 9)
       + pad(must, 7) + pad(h.hole.toFixed(0), 6) + pad(h.low.toFixed(0), 6)
       + pad(pct(h.held), 7) + pad(pct(h.small), 8) + pad(walls.length, 6) + pad(onPart, 7)
-      + pad(stilt.toFixed(0), 9) + pad(g.toFixed(1), 6) + sk);
+      + pad(stilt.toFixed(0), 9) + pad(g.toFixed(1), 6) + pad(secs.toFixed(1), 6) + sk
+      + (b.fill ? ` fill:${b.fill.walls}w/${b.fill.tries}t${b.fill.capped ? ' CAPPED' : ''} bare ${b.fill.bareBefore.toFixed(0)}->${b.fill.unservedArea.toFixed(0)} ${JSON.stringify(b.fill.refused)}` : ''));
     rows.push({ model: f.replace(/\.stl$/i, ''), pose, area: h.area, held: h.held, must: h.must, mustHeld: h.mustHeld,
-      hole: h.hole, low: h.low, lowHeld: h.lowHeld, walls: walls.length, grams: g });
+      hole: h.hole, low: h.low, lowHeld: h.lowHeld, walls: walls.length, grams: g, secs });
     if (dump) {
       // the seated part (every face, for context), the overhang faces' held/small
       // flags, and the support triangles -- what render_held.py draws
