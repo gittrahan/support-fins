@@ -100,11 +100,16 @@ for (const f of files) {
       const tri = (f9) => [s(f9), s(f9 + 3), s(f9 + 6)];
       const step = Math.max(1, Math.floor(topo.nFaces / 40000));   // context only: thin a 1M-face mini
       const part = []; for (let k = 0; k < topo.nFaces; k += step) part.push(tri(k * 9));
-      const sup = []; for (let i = 0; i < b.triangles.length; i += 3) sup.push([b.triangles[i], b.triangles[i + 1], b.triangles[i + 2]].map((v) => v.map((x) => +x.toFixed(3))));
+      // the fill pass's walls apart (render_held.py draws them teal)
+      const fillAt = (b.fins ?? []).find((w) => w.fill)?.triRanges?.[0]?.[0] ?? b.triangles.length;
+      const sup = [], fillTris = [];
+      for (let i = 0; i < b.triangles.length; i += 3) {
+        (i >= fillAt ? fillTris : sup).push([b.triangles[i], b.triangles[i + 1], b.triangles[i + 2]].map((v) => v.map((x) => +x.toFixed(3))));
+      }
       Deno.writeTextFileSync(`${dump}/${f.replace(/\.stl$/i, '').replace(/[^a-zA-Z0-9]+/g, '_')}-${pose}.json`, JSON.stringify({
         title: `${f} ${pose}`, area: h.area, held: h.held, small: h.small, walls: walls.length,
         must: h.must, mustHeld: h.mustHeld, hole: h.hole, low: h.low,
-        part, over: h.faces.map(([fc, hd, sm, cl]) => [tri(fc * 9), hd, sm, cl]), sup }));
+        part, over: h.faces.map(([fc, hd, sm, cl]) => [tri(fc * 9), hd, sm, cl]), sup, fill: fillTris }));
     }
   }
 }

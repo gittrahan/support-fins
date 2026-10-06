@@ -1,6 +1,7 @@
 """Render probe.js --dump output: where a build holds the overhang and where it doesn't.
 Red = overhang left unheld, green = held, amber = in a region under MIN_REGION_AREA the
-engine never looks at (red-amber unheld, green-amber held), orange = supports, grey = part.
+engine never looks at (red-amber unheld, green-amber held), orange = supports, teal = the
+Full coverage fill pass's walls (probe.js --mode full), grey = part.
 Exempt from the must-hold policy (held.js classify): blue = a tiny hole's ceiling,
 purple = the unheld strip under the squat floor (near the plate).
 Two views from below plus a plan view from straight under the part.
@@ -31,6 +32,8 @@ def view3d(ax, d, elev, azim):
     ax.add_collection3d(Poly3DCollection(part, facecolors=[0.80, 0.80, 0.82, 0.25], edgecolors='none'))
     if d['sup']:
         ax.add_collection3d(Poly3DCollection(np.array(d['sup']), facecolors=[0.88, 0.54, 0.17, 0.55], edgecolors='none'))
+    if d.get('fill'):
+        ax.add_collection3d(Poly3DCollection(np.array(d['fill']), facecolors=[0.10, 0.60, 0.65, 0.65], edgecolors='none'))
     if d['over']:
         ax.add_collection3d(Poly3DCollection(np.array([o[0] for o in d['over']]),
                             facecolors=[col(o) for o in d['over']], edgecolors='none'))
@@ -45,6 +48,9 @@ def plan(ax, d):
     if d['sup']:
         sup = np.array(d['sup']).mean(1)
         ax.scatter(sup[:, 0], sup[:, 1], s=0.3, c='#e08a2c', alpha=.4, rasterized=True)
+    if d.get('fill'):
+        fl = np.array(d['fill']).mean(1)
+        ax.scatter(fl[:, 0], fl[:, 1], s=0.3, c='#1a99a6', alpha=.5, rasterized=True)
     if d['over']:
         o = np.array([np.mean(x[0], 0) for x in d['over']])
         c = [col(x) for x in d['over']]
