@@ -11,8 +11,8 @@ differed). So the rungs are whole layers: 1, 2, 3 empty layers at LAYER, each tw
 ONE solid piece: a bar standing on the plate with six identical ledges sticking out
 of it 10 mm up (a whole number of layers), three per side, over open plate. build.js
 runs the site's Auto build once per ledge with that ledge's gap and keeps the walls
-under it, so every ledge carries what the site would make at that setting. A ledge's
-its gap (mm) raised on top; the far side repeats the near side.
+under it, so every ledge carries what the site would make at that setting. Each ledge
+has its gap (mm) raised on top; the far side repeats the near side.
 
     python3 prototype/calibration/gap/gen.py && deno run -A prototype/calibration/gap/build.js
 """
