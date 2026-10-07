@@ -184,9 +184,12 @@ per ledge (build.js; a cut wall's overlapping solids read a little high): none 1
 diamond 1230 (78 %), triangle 1230 (78 %), arch 1043 (66 %), lattice 1048 (67 %) mm3.
 For a user: the most open style whose walls stood, held their ledge flat and snapped
 off whole. Built for the Calibrate menu; also shows the Lattice style off.
-Found building it: a cut wall's solids meet along shared edges (4 or 6 triangles to
-an edge), which coupon.js's closed check refused; it now refuses only odd counts (a
-hole in a body).
+Found building it: a cut wall's solids share edges (4 or 6 triangles to an edge), which
+coupon.js's closed check refused; it now checks every directed edge has its reverse
+(closed, consistently wound bodies). Most of those shared edges are FLUSH, not
+overlapping -- web/cutout.js stacks slab pieces that meet exactly at their boundary
+(CUT.eps grows pieces only across the strip sides and into the bands). Already on
+main; it breaks the overlap-never-flush rule, so it's a follow-up.
 - **waiting on print.**
 
 ### bore/ -- do walls inside a sideways hole pull out clean, from what size, and which way?

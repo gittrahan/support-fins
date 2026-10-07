@@ -95,22 +95,25 @@ export function keep(c, verts, [x0, x1, y0, y1]) {
   return kept;
 }
 
-/** Throws unless every edge of the vertex list is shared by an even number of
- *  triangles: closed bodies, what a slicer needs and what the site exports. Even, not
- *  exactly two: a cut wall (Walls > Cutouts) is overlapping closed solids -- bands,
- *  posts, cells -- that meet along shared edges (4 or 6 uses); only an odd count is
- *  a hole in a body. */
+/** Throws unless every directed edge a->b is matched by as many b->a: closed,
+ *  consistently wound bodies, what a slicer needs and what the site exports. Not
+ *  "every edge used exactly twice": a cut wall (Walls > Cutouts) is several closed
+ *  solids -- bands, posts, cells, stacked slabs -- that share edges (4 or 6 uses).
+ *  A hole leaves an edge unmatched, and so does a flipped body. */
 export function assertClosed(verts, what) {
   const edges = new Map();
-  const key = (a, b) => { const s = `${a}`, t = `${b}`; return s < t ? `${s}|${t}` : `${t}|${s}`; };
   for (let i = 0; i < verts.length; i += 3) {
     for (let k = 0; k < 3; k++) {
-      const e = key(verts[i + k], verts[i + (k + 1) % 3]);
+      const e = `${verts[i + k]}|${verts[i + (k + 1) % 3]}`;
       edges.set(e, (edges.get(e) ?? 0) + 1);
     }
   }
-  const open = [...edges.values()].filter((n) => n % 2).length;
-  if (open) throw new Error(`${what}: ${open} edges used an odd number of times (a hole in a body)`);
+  let open = 0;
+  for (const [e, n] of edges) {
+    const [a, b] = e.split('|');
+    if ((edges.get(`${b}|${a}`) ?? 0) !== n) open++;
+  }
+  if (open) throw new Error(`${what}: ${open} edges not matched by a reverse edge (a hole or a flipped body)`);
 }
 
 /** All of a build's support triangles: walls, wedges, braces and the bed pad. */
