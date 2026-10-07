@@ -73,7 +73,8 @@ Auto path, called like the app: `analyze(topo, 45, rot)` then
 `buildFins(topo, res, rot, {mode:'auto', bedPad:true, tines:true})`.
 
 - `held%`: overhang area whose face centroid sits within `maxUnsupportedSpan/2` of a
-  wall top in plan and 0-1.5 mm above it (or on the plate), over EVERY overhang face
+  wall top in plan and 0-1.5 mm above it (or on the plate, or at most 0.5 mm over the
+  bed pad's top -- a cleat sole on studs over the pad; since 2026-10-06), over EVERY overhang face
   (held.js; before 2026-10-03 only faces in regions >= 12 mm2 counted, which hid minis;
   compare.js shares held.js, so its held faces and heldFrac changed the same way). A proxy:
   confirm a case by rendering or slicing before trusting a number.
@@ -90,7 +91,8 @@ Auto path, called like the app: `analyze(topo, 45, rot)` then
     base; the Bosch vac's toothed ring (V-notches), every armpit, and a flat collar round
     a post (a crossguard, a bolt head) stay must-hold.
   - `low` (mm2, reported apart): the strip under the squat-wall floor (0.82 mm), where
-    no wall fits; it counts once a shim is coupon-tested.
+    no wall fits; it counts once a shim is coupon-tested. `low%` is how much of it is
+    held anyway (by the bed pad, or a wall top in reach); probe_diff.js prints the total.
   It scores REACH, not the wall: the DRO housing's +X bore counts as held by a 3.8 mm
   wall with no tines. Look at the picture before trusting a 99.
 - `small%`: the share of overhang in regions under MIN_REGION_AREA (12 mm2).

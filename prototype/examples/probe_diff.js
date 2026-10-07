@@ -34,6 +34,8 @@ for (const k of H.keys()) if (!B.has(k)) console.log(pad(k, 50) + 'new in head')
 const tot = (held, must) => (must ? (100 * held) / must : 100).toFixed(1);
 console.log(`\nmust-hold, area-weighted: ${tot(heldB, mustB)}% -> ${tot(heldH, mustH)}%   (${mustB.toFixed(0)} mm2)`);
 const sum = (M, k) => [...M.values()].reduce((s, r) => s + (r[k] ?? 0), 0);
+console.log(`near-plate strip held (reported apart, not in must%): ${tot(sum(B, 'lowHeld'), sum(B, 'low'))}% -> `
+  + `${tot(sum(H, 'lowHeld'), sum(H, 'low'))}%   (${sum(B, 'low').toFixed(0)} mm2)`);
 const cost = (k, f) => `${f(sum(B, k))} -> ${f(sum(H, k))}`;
 console.log(`cost: walls ${cost('walls', (x) => x)}, grams ${cost('grams', (x) => x.toFixed(1))}`
   + (sum(H, 'secs') ? `, build s ${cost('secs', (x) => x.toFixed(0))}` : ''));
