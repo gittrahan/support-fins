@@ -5,11 +5,17 @@
  * of which matter to this tool specifically --
  *   1. UNITS. STL is unitless, so a slicer has to guess millimeters; a mis-guess
  *      is the classic "my part imported at 1/25 scale" bug. 3MF states mm.
- *   2. SEPARATE OBJECTS. The part and the fins go in as two distinct meshes
- *      assembled by <components> into one build item. They stay locked in the
- *      right relative position (the fins only work where they were placed), and
- *      a slicer shows the fins as their own selectable/colorable body -- so the
- *      breakaway support reads as support, not as part of the model.
+ *   2. SEPARATE BODIES, two ways (opts.separate):
+ *      - LOCKED (default here; the CLI and plugins): the part and the fins are
+ *        two meshes assembled by <components> into ONE build item, so they stay
+ *        locked in place. But a slicer unions the parts of one object, so it runs
+ *        one perimeter through part and tine -- the tine welds (GitHub #38).
+ *      - SEPARATE (the site's default 3MF): two build items, two objects, the
+ *        way Clough42 splits his support ("Split to objects"). Each keeps its own
+ *        perimeter and a tine only touches the part: a cleaner release (the grip
+ *        coupon's split print, prototype/calibration/README.md). Both items carry
+ *        the same transform, so they open in register -- but Arrange can pull
+ *        them apart, which is why LOCKED stays offered.
  *
  * We do NOT embed slicer-specific print profiles (Bambu/Orca bind "supports off"
  * to a full printer-specific project config, which breaks across printers and
@@ -78,27 +84,52 @@ function meshXML(tris) {
   return `<mesh><vertices>${v.join('')}</vertices><triangles>${f.join('')}</triangles></mesh>`;
 }
 
-function modelXML(partTris, finTris, title) {
-  const objects = [`<object id="1" type="model">${meshXML(partTris)}</object>`];
-  let buildId = 1;
+const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+// Where a SEPARATE export opens: two objects keep their 3MF positions (a single one
+// gets centred by the slicer), and print space is centred on the origin, so the pair
+// would sit half off the bed. Shift both by one transform: the footprint's centre to
+// (90, 90) -- on any bed 180 mm or bigger -- but never closer than 5 mm to the bed's
+// 0 edge, so a footprint wider than 170 mm still starts on the bed.
+export const SEPARATE_CENTRE = 90;
+function bedShift(tris) {
+  let lx = Infinity, ly = Infinity, hx = -Infinity, hy = -Infinity;
+  for (const p of tris) {
+    if (p[0] < lx) lx = p[0]; if (p[0] > hx) hx = p[0];
+    if (p[1] < ly) ly = p[1]; if (p[1] > hy) hy = p[1];
+  }
+  if (!Number.isFinite(lx)) return [0, 0];
+  return [Math.max(SEPARATE_CENTRE - (lx + hx) / 2, 5 - lx), Math.max(SEPARATE_CENTRE - (ly + hy) / 2, 5 - ly)];
+}
+
+function modelXML(partTris, finTris, title, separate) {
+  const name = esc(title);
+  const objects = [`<object id="1" type="model" name="${name}">${meshXML(partTris)}</object>`];
+  let build = '<item objectid="1"/>';
 
   if (finTris && finTris.length) {
-    objects.push(`<object id="2" type="model">${meshXML(finTris)}</object>`);
-    // An assembly object so the part and fins import as one locked unit while
-    // remaining two distinct meshes.
-    objects.push(
-      '<object id="3" type="model"><components>' +
-      '<component objectid="1"/><component objectid="2"/></components></object>');
-    buildId = 3;
+    objects.push(`<object id="2" type="model" name="${name} supports">${meshXML(finTris)}</object>`);
+    if (separate) {
+      // two objects, one shared transform: in register, sliced apart
+      const [tx, ty] = bedShift([...partTris, ...finTris]);
+      const t = `1 0 0 0 1 0 0 0 1 ${fmt(tx)} ${fmt(ty)} 0`;
+      build = `<item objectid="1" transform="${t}"/><item objectid="2" transform="${t}"/>`;
+    } else {
+      // An assembly object so the part and fins import as one locked unit while
+      // remaining two distinct meshes.
+      objects.push(
+        `<object id="3" type="model" name="${name}"><components>` +
+        '<component objectid="1"/><component objectid="2"/></components></object>');
+      build = '<item objectid="3"/>';
+    }
   }
 
-  const safeTitle = String(title).replace(/[<>&]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
   return '<?xml version="1.0" encoding="UTF-8"?>\n' +
     `<model unit="millimeter" xml:lang="en-US" xmlns="${NS_CORE}">` +
     '<metadata name="Application">Support Fins</metadata>' +
-    `<metadata name="Title">${safeTitle}</metadata>` +
+    `<metadata name="Title">${name}</metadata>` +
     `<resources>${objects.join('')}</resources>` +
-    `<build><item objectid="${buildId}"/></build></model>`;
+    `<build>${build}</build></model>`;
 }
 
 const CONTENT_TYPES = '<?xml version="1.0" encoding="UTF-8"?>\n' +
@@ -113,14 +144,16 @@ const ROOT_RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
 /**
  * @param partTris  the model geometry, print space
  * @param finTris   the fins + pad, print space (may be empty)
- * @param name      written as the model Title
+ * @param name      written as the model Title (and the objects' names)
+ * @param opts      { separate }: true = part and fins as two objects (see the
+ *                  header); default false = one locked object
  * @returns Blob    a .3mf package
  */
-export function writeThreeMF(partTris, finTris, name = 'Support Fins') {
+export function writeThreeMF(partTris, finTris, name = 'Support Fins', { separate = false } = {}) {
   return zipStore([
     { name: '[Content_Types].xml', data: CONTENT_TYPES },
     { name: '_rels/.rels', data: ROOT_RELS },
-    { name: '3D/3dmodel.model', data: modelXML(partTris, finTris, name) },
+    { name: '3D/3dmodel.model', data: modelXML(partTris, finTris, name, separate) },
   ]);
 }
 

@@ -83,6 +83,47 @@ Deno.test('3MF round trip: our own export reads back as the same geometry', asyn
   assert(hi[0] === 1 && hi[1] === 1 && hi[2] === 2, `max ${hi}, want 1,1,2`);
 });
 
+// The site's default 3MF: part and supports as two OBJECTS (two build items), so a
+// slicer slices them apart and a tine only touches the part (GitHub #38) -- the
+// locked assembly above makes the slicer union them. Two objects keep their 3MF
+// positions, so both carry ONE transform that puts the pair on the bed, in register.
+Deno.test('3MF separate export: two objects, one shared transform, in register and on the bed', async () => {
+  const part = CUBE.map((p) => [p[0] * 20 - 10, p[1] * 10 - 5, p[2] * 8]);   // centred on the origin, like print space
+  const fins = CUBE.map((p) => [p[0] * 2 - 1, p[1] * 2 - 1, p[2] * 8 + 8]);
+  const blob = writeThreeMF(part, fins, 'test part', { separate: true });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const xml = new TextDecoder().decode(bytes);
+  const items = [...xml.matchAll(/<item objectid="(\d+)" transform="([^"]+)"\/>/g)];
+  assert(items.length === 2, `${items.length} build items, want 2 (part, supports)`);
+  assert(items[0][2] === items[1][2], `transforms differ: ${items[0][2]} vs ${items[1][2]}`);
+  assert(!xml.includes('<components>'), 'separate export must not assemble one object');
+
+  const r = await readThreeMF(bytes);
+  assert(r.objects.length === 2, `read ${r.objects.length} objects, want 2`);
+  const { lo, hi } = bounds(r.positions);
+  // the footprint's centre lands on (90, 90), z untouched, and the two stay in register
+  assertClose((lo[0] + hi[0]) / 2, 90, 1e-6, 'x centre');
+  assertClose((lo[1] + hi[1]) / 2, 90, 1e-6, 'y centre');
+  assert(lo[2] === 0 && hi[2] === 16, `z ${lo[2]}..${hi[2]}, want 0..16`);
+  const fb = bounds(r.objects[1].positions);
+  assertClose(fb.lo[0], 89, 1e-6, 'supports stay over the part (x)');
+  assertClose(fb.lo[1], 89, 1e-6, 'supports stay over the part (y)');
+});
+
+Deno.test('3MF separate export: a footprint wider than the bed centre starts 5 mm in', async () => {
+  const part = CUBE.map((p) => [p[0] * 240 - 120, p[1] * 10, p[2]]);
+  const blob = writeThreeMF(part, CUBE, 'wide', { separate: true });
+  const r = await readThreeMF(new Uint8Array(await blob.arrayBuffer()));
+  const { lo } = bounds(r.positions);
+  assertClose(lo[0], 5, 1e-6, 'x min');
+});
+
+Deno.test('3MF separate export with no fins is the part alone', async () => {
+  const blob = writeThreeMF(CUBE, [], 'bare', { separate: true });
+  const xml = new TextDecoder().decode(new Uint8Array(await blob.arrayBuffer()));
+  assert((xml.match(/<item /g) ?? []).length === 1, 'one build item');
+});
+
 // --- units -----------------------------------------------------------------
 
 // STL is unitless and 3MF is not; ignoring the attribute is the "imported at
