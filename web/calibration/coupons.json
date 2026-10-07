@@ -21,6 +21,11 @@
       "grams": 11.9,
       "sha256": "ea940ba86f203e3af0c42cfa281a912c3b90484be9165fb3f5a3144a9cad4d26"
     },
+    "cutout-coupon.3mf": {
+      "minutes": 61,
+      "grams": 24.2,
+      "sha256": "8de622c87c59e846d5c44c1eb9e30bb01ae5e4587753db25fa75b3a9a5866d11"
+    },
     "bore-coupon.3mf": {
       "minutes": 39,
       "grams": 18.0,

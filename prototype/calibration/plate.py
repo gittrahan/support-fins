@@ -24,6 +24,8 @@ HERE = Path(__file__).resolve().parent
 BED, GAP = 256.0, 6.0
 # rows, front to back; each row left to right
 # (bore v2 is 106 mm long: it rides with angle, since pad + bore no longer fit 256)
+# (cutout/ and sampler/ aren't on it: the plate is full -- 238 x 235 mm -- and either
+# would push a row past 256; print them on their own)
 ROWS = [['pad'], ['span', 'slender'], ['tine', 'grip'], ['foot', 'gap', 'lip'], ['angle', 'bore']]
 NS = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02'
 
