@@ -32,6 +32,7 @@
  *   surface.js    seat a vertex; part surface height(s) above (x, y)
  *   contact.js    the contact line under an overhang, settled to exactly `gap`
  *   sweep.js      the wall solid: the upside-down T, and a part-attached wall
+ *   brace.js      ribs at the plate for a short wall that stands tall (the fill pass's)
  *   clearance.js  which stations can carry a wall (reach, certification, runs)
  *   tines.js      the grip comb along a wall's top
  *   tracks.js     where Suggest puts walls: straight patches, tracks, tube line
@@ -64,6 +65,7 @@ export { PROP } from './prop/config.js';
 export { splitRegion, tubeLine, patchTracks } from './prop/tracks.js';
 export { straightness, contactLine, lowerSag, contourTop, settleTop } from './prop/contact.js';
 export { footFor, profileHalf, sweep, sweepBetween } from './prop/sweep.js';
+export { BRACE, braceWall } from './prop/brace.js';
 export { surfaceHitsAt, surfaceZAt, surfaceZsAt } from './prop/surface.js';
 export { stationIsClear, stationCertified, pathToPlateIsClear, longestRun,
   withLowTails, insertFloorStations, welds } from './prop/clearance.js';

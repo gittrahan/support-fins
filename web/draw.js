@@ -16,7 +16,7 @@
  * into a watertight wall, reusing prop/sweep.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
-import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
+import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
 
 /**
  * A hand-drawn wall may be much shorter than an auto wall (PROP.minSpan, 7 mm): the user
@@ -181,6 +181,9 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, 
  * Build one drawn breakaway wall. Returns `{ ok: true, tris, length, height, top }`
  * (`top`: the wall's contact line, the surface-z stations its top follows).
  * `opts.under`: follow only down-facing surfaces (drawnLine) -- the fill pass's walls.
+ * `opts.brace`: a wall that stands on the plate over BRACE.aspect x its length gets
+ *   ribs at the plate (prop/brace.js; `braces` counts them). `floors`: each station's
+ *   bottom z, for a caller that braces later (the fill pass, once every wall is in).
  * or `{ ok: false, reason }` with a message the UI can show -- a hand-drawn wall
  * that can't be built should say WHY (too short, at the plate) rather than
  * silently doing nothing, the failure mode M5's scoreboard was built on.
@@ -202,6 +205,9 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   const withTines = (line, minTop = undefined) => opts.tines && opts.topo
     ? emitTines(line, tris, opts.topo, opts.rot, opts.offset, out,
                 tineStepFor(opts.tineDensity), minTop, opts.layerHeight ?? PROP.tineH)
+    : 0;
+  const withBraces = (line, floorZ) => opts.brace
+    ? braceWall(line, floorZ, tris, zBed, out)
     : 0;
   // PART-ATTACHED first: if solid part sits below the overhang, the support
   // stands on THAT, not the plate. Probe with a BANDED top contour so the
@@ -227,8 +233,12 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
       for (let i = 0; i < topPA.length; i++) {
         height = Math.max(height, (topPA[i][2] - PROP.gap) - floor[i][2]);
       }
+      // a station whose floor is open air runs down to the plate (floorLine's 0): with
+      // no flange there, it is the one that most needs a brace (Isaac's hands)
+      const braces = withBraces(topPA, (i) => floor[i][2]);
       const tines = withTines(topPA);
-      return { ok: true, tris: out, length: len, height, partAttached: true, tines, top: topPA };
+      return { ok: true, tris: out, length: len, height, partAttached: true, tines, braces, top: topPA,
+               floors: floor.map((f) => f[2]) };
     }
   }
 
@@ -281,8 +291,9 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   }
   let height = 0;
   for (const p of line) height = Math.max(height, p[2] - PROP.gap - zBed);
+  const braces = withBraces(line, () => zBed);
   const tines = withTines(line);
-  return { ok: true, tris: out, length: len, height, tines, top: line };
+  return { ok: true, tris: out, length: len, height, tines, braces, top: line, floors: line.map(() => zBed) };
 }
 
 /**

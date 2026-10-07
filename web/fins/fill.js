@@ -42,7 +42,7 @@
  * quality first, surface the dropped overhang.
  */
 import { drawnLine, drawnWall, DRAW_MIN_LEN } from '../draw.js';
-import { footFor, PART_BAND, PROP, surfaceHitsAt } from '../prop.js';
+import { braceWall, footFor, PART_BAND, PROP, surfaceHitsAt } from '../prop.js';
 import { classify, reachOf, PLATE_Z, MUST } from './coverage.js';
 import { seatedPartTris } from './seating.js';
 
@@ -430,6 +430,49 @@ function boxGrid() {
 }
 
 /**
+ * BRACES, last: every wall is placed first, exactly as without them -- ribs built as
+ * the walls went in took the plate the next walls needed (Isaac: 12 walls -> 10, bare
+ * red 71 -> 85 mm2). Then each wall that stands tall and short on the plate gets the
+ * ribs that fit (prop/brace.js), clear of Auto's supports and of every other fill wall
+ * and its ribs (its own wall excepted; joined flanges allowed, as for the walls).
+ * Appends to `triangles`, adds each wall's ribs as a second triRange; returns the count.
+ */
+function braceFill(props, floors, triangles, tris, autoTris) {
+  let autoGrid = null;
+  const grids = props.map(() => null);
+  const gridOf = (k) => {
+    if (!grids[k]) {
+      grids[k] = boxGrid();
+      for (const [a, b] of props[k].triRanges) grids[k].add(triangles.slice(a, b));
+    }
+    return grids[k];
+  };
+  let n = 0;
+  props.forEach((q, k) => {
+    if (!floors[k]) return;
+    const out = [];
+    const clear = (t) => {
+      if (!autoGrid) { autoGrid = boxGrid(); autoGrid.add(autoTris); }
+      if (autoGrid.hits(t, PROP.sideClear, true)) return false;
+      for (let j = 0; j < props.length; j++) if (j !== k && gridOf(j).hits(t, PROP.sideClear, true)) return false;
+      return true;
+    };
+    const built = braceWall(q.line, (i) => floors[k][i], tris, 0, out, (t) => {
+      if (!clear(t)) return false;
+      gridOf(k).add(t);            // the next wall's ribs keep clear of these
+      return true;
+    });
+    if (!built) return;
+    const at = triangles.length;
+    for (const t of out) triangles.push(t);
+    q.triRanges.push([at, triangles.length]);
+    q.braces = built;
+    n += built;
+  });
+  return n;
+}
+
+/**
  * The fill pass. `built` is Auto's result (fins with their contact lines, and
  * every support triangle in `triangles`). Returns the added walls:
  * { triangles, props, tines, unserved: { area, pts }, stats }.
@@ -453,6 +496,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
   const drawOpts = { under: true, tines: opts.tines ?? true, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
                      topo, rot, offset: result.offset };
   let tines = 0;
+  const floors = [];               // each kept wall's bottom z per station (drawnWall), for the braces
   const dead = new Set();          // points no line could serve
   const bare = (p) => !dead.has(p) && !near(p[0], p[1], p[2]);
   const full = () => stats.walls >= FILL.maxWalls || stats.tries >= FILL.maxTries || stats.checks >= FILL.maxChecks;
@@ -510,6 +554,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
         for (const p of r.top) near.add(p);
         props.push({ line: r.top, triRanges: [[at, triangles.length]], height: r.height, span: r.length,
                      tines: r.tines ?? 0, partAttached: !!r.partAttached, squat: !!r.squat, fill: true });
+        floors.push(r.floors ?? null);
         tines += r.tines ?? 0;
         stats.walls++;
         return true;
@@ -580,6 +625,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
       if (r !== true) for (const i of r) dead.add(live[i]);
     }
   }
+  stats.braces = braceFill(props, floors, triangles, tris, built.triangles ?? []);
   const left = pts.filter((p) => !near(p[0], p[1], p[2]));
   stats.capped = full() && left.some((p) => !dead.has(p));
   return { triangles, props, tines,
