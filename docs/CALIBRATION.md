@@ -83,7 +83,9 @@ One part with every hard shape at once, supported the way the site does it in
 **Full coverage** at the default settings: ramps (40°, 30°, 20°, written on top),
 a ball, a thin ledge far out, a flat table, a mushroom on a thin stem, a cave,
 sideways holes (3, 6, 12 mm, written above each) and an arch. It sets nothing.
-Print it to see what to expect from your own parts, then snap every wall off.
+Print it last, once the others are tuned, to see what to expect from your own parts,
+then snap every wall off. It's two objects, part and supports: don't Arrange or move
+one without the other.
 Tell us which walls stuck or tore the part, and which undersides sagged. The flat
 table may sag between its walls: they run the same way the slicer bridges it for now.
 

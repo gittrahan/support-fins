@@ -194,11 +194,15 @@ whether each kind snaps off clean. A point-down tip in the first draft was dropp
   (bigger features), the cone dropped, supports exported as their own object.
 - **Current build:** 44 walls (22 from the fill pass), must-hold 100 % (coverage scoreboard).
   `print/torture-coupon.3mf` = supports as their own object (the site's Export > 3MF since
-  #199); `torture-coupon-locked.3mf` = the old one object, for comparison.
+  #199).
   Expected weak spot: the table. PrusaSlicer bridges its underside at 0 deg (leg to leg)
   and Auto's flat-face walls run the same way -- parallel, which the orient coupon showed
   is junk (local wall-direction rule, still to build).
-- **waiting on print.**
+- **2026-10-07, PLA (Matthew), the current build:** pretty solid. The ball has a few
+  drooping layers; the table's underside isn't perfect nearer the spine. Everything
+  else printed well. The table was the expected weak spot (walls parallel to the
+  bridge). It's in the site's Calibrate menu as the last print: what to expect once
+  the others are tuned.
 
 ### bite/ -- RETIRED 2026-10-03 (files removed; last in git at 6ec7c16)
 Asked how far tines should reach into the part (the old Tine bite field): twelve 40 deg

@@ -18,8 +18,7 @@ console.log('fill', JSON.stringify(built.fill, (k, v) => (Array.isArray(v) && v.
 const sup = supportOf(built);
 await writeCoupon(c, 'torture', 'Torture test', sup);
 // what the site's Export > 3MF writes now: supports as their own object (#199), so the tines
-// only touch the part -- the print to judge. The locked one-object file stays beside it.
-Deno.renameSync(`${c.out}torture-coupon.3mf`, `${c.out}torture-coupon-locked.3mf`);
+// only touch the part -- the print to judge (it replaces writeCoupon's one-object file)
 Deno.writeFileSync(`${c.out}torture-coupon.3mf`,
   new Uint8Array(await writeThreeMF(c.part, sup, 'Torture test', { separate: true }).arrayBuffer()));
-console.log('torture-coupon.3mf = supports as their own object; torture-coupon-locked.3mf = one object');
+console.log('torture-coupon.3mf = supports as their own object');
