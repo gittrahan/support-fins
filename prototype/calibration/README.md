@@ -192,7 +192,13 @@ coupon's 6 mm walls got 3 tines at both ends of the slider. A 30 deg ramp gives 
 wall at a low height.
 Found building it: a main-pass wall's `built.fins[i].tines` reads 0 even when it has
 tines (`built.props[i].tines` is right), so build.js counts from props.
-- **waiting on print.**
+- **2026-10-06, PLA:** all walls stood at every rung; OFF best for marks, LIGHT next.
+- **split** (`split.py` -> `print/grip-coupon-split.3mf`): the same part and walls saved as TWO
+  objects, the way Clough42 splits his support ("Split to objects"; GitHub #38). One object
+  makes the slicer run one perimeter through part and tine (a weld); two keep their own.
+  **2026-10-06, PLA:** loads and slices as wanted in Bambu Studio and PrusaSlicer; marks
+  "a little bit better" than the merged print -- an improvement on a steep overhang, not
+  as much as hoped. Decision: the site exports supports as their own object.
 
 ### tine/ -- does a separate-object (KISS) tine leave a fainter mark, or is it just fewer tines?
 **v2 (current).** Bar on the plate with fifteen 40 deg ledges, 8 on the near side
