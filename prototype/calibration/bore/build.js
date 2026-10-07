@@ -22,6 +22,11 @@ const opts = { tines: SITE.tines, tineDensity: SITE.tineDensity, layerHeight: SI
 // round ceiling meets the floor, where there is no height left for a wall
 const SPAN = 0.8;
 
+// every Auto piece must land in some bore's box: one outside them all (a bed pad, a
+// stray wall after an engine change) would be dropped from the coupon without a word
+const inAny = c.rungs.reduce((n, r) => n + keep(c, auto, r.box).length, 0);
+if (inAny !== auto.length) throw new Error(`${(auto.length - inAny) / 3} Auto triangles fall outside every bore`);
+
 const sup = [];
 console.log('bore  set  diameter  walls  heights');
 for (const r of c.rungs) {

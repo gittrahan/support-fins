@@ -23,7 +23,8 @@ import trimesh
 HERE = Path(__file__).resolve().parent
 BED, GAP = 256.0, 6.0
 # rows, front to back; each row left to right
-ROWS = [['pad', 'bore'], ['span', 'slender'], ['tine', 'grip'], ['foot', 'gap', 'lip'], ['angle']]
+# (bore v2 is 106 mm long: it rides with angle, since pad + bore no longer fit 256)
+ROWS = [['pad'], ['span', 'slender'], ['tine', 'grip'], ['foot', 'gap', 'lip'], ['angle', 'bore']]
 NS = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02'
 
 
@@ -97,7 +98,10 @@ for n, its, t in placed:
         label = n if k == 0 else f'{n} kiss tines (own object)' if n == 'tine' else f'{n} supports'
         ids = []
         for j, m in enumerate(parts):
-            objs.append(mesh_xml(oid, m, f'{label} {"part" if j == 0 and k == 0 else "supports"}'))
+            # an assembly's meshes say part / supports; a lone item is just its label
+            name = (f'{label} {"part" if j == 0 else "supports"}' if len(parts) > 1
+                    else label if k else f'{n} part')
+            objs.append(mesh_xml(oid, m, name))
             ids.append(oid)
             oid += 1
         if len(ids) > 1:
