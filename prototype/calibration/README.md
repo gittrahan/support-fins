@@ -121,7 +121,10 @@ For a user: compare each pair (does direction matter?) and down each side (how
 close do walls need to be for an underside you'd keep?). If ACROSS wins, a wall
 direction rule (cross the slicer's bridge) is worth building; the spacing that
 looks good sets the Coverage dial's target (span/).
-- **waiting on print.**
+- **2026-10-07, PLA:** ACROSS beat PARALLEL at every spacing; within each side the
+  three spacings looked about the same. So direction matters and spacing (8 down to
+  4 mm) doesn't: a wall direction rule (cross the slicer's bridge) is worth building
+  (not built), and this sets no Coverage target.
 
 ### span/ -- how far apart may walls under a broad face sit? (the Coverage dial)
 Bar on the plate, five identical 30 x 24 mm flat shelves 10 mm up; Auto per shelf
