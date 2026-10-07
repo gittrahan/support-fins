@@ -1,4 +1,5 @@
 :root {
+  --topbar-h: 52px;          /* the top bar's height, kept by ui/topbar.js */
   --bg: #14161a;
   --panel: #1c1f26;
   --line: #2c313b;
@@ -85,8 +86,30 @@ html, body {
   padding: 10px 14px;
   background: linear-gradient(var(--bg), transparent);
   pointer-events: none;
+  /* a window too narrow for one row wraps onto a second (and third) instead of
+     pushing buttons off the right edge; ui/topbar.js measures the bar into
+     --topbar-h so the rails and dropped panels start below it */
+  flex-wrap: wrap;
+  row-gap: 8px;
+  justify-content: flex-end;   /* a wrapped row stays with the buttons on the right */
 }
 #topbar > * { pointer-events: auto; }
+/* Narrower windows: shed words before anything wraps. GitHub and Ko-fi go to
+   icons first (their titles and aria-labels still say what they are), then the
+   brand text, the Build volume label and some slider width. */
+@media (max-width: 1320px) {
+  #topbar { gap: 10px; }
+  #topbar .btn.gh .lbl, #topbar .btn.kofi .lbl { display: none; }
+}
+@media (max-width: 1140px) {
+  #topbar .brand-text, #topbar .field .lbl { display: none; }
+  #topbar #thr { width: 90px; }
+}
+/* wrapped onto a phone: the first row is the logo and the import controls, so the
+   logo stays left of them rather than floating mid-row */
+@media (max-width: 600px) {
+  #topbar .brand { margin-right: auto; }
+}
 #topbar .spacer { flex: 1; pointer-events: none; }
 
 .brand {
@@ -184,7 +207,7 @@ html, body {
 /* Narrow window: drop the panel from the window's right edge, not the button's, so
    it can't run off the left. */
 @media (max-width: 600px) {
-  .plugins-panel { position: fixed; top: 52px; left: 16px; right: 16px; width: auto; min-width: 0; }
+  .plugins-panel { position: fixed; top: var(--topbar-h); left: 16px; right: 16px; width: auto; min-width: 0; }
 }
 .plugins-computer { display: flex; align-items: center; gap: 8px; color: var(--dim); padding: 2px 0 6px; }
 .plugins-computer select { flex: 1; }
@@ -252,7 +275,7 @@ html, body {
    and back on for the panels themselves. */
 #left-rail {
   position: fixed;
-  top: 52px; bottom: 14px; left: 14px;
+  top: var(--topbar-h); bottom: 14px; left: 14px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -277,7 +300,7 @@ html, body {
    scene, back on for the cards. */
 #right-rail {
   position: fixed;
-  top: 52px; bottom: 34px; right: 14px;   /* bottom clears the fps readout */
+  top: var(--topbar-h); bottom: 34px; right: 14px;   /* bottom clears the fps readout */
   z-index: 3;
   display: flex;
   flex-direction: column;
@@ -532,8 +555,9 @@ html, body {
 }
 .draw-btns { display: flex; gap: 6px; }
 
-/* Nothing in the topbar may wrap onto a second line: these are single controls,
-   and a two-line button makes the bar jump in height as its contents change. */
+/* No single control in the topbar may wrap its own text onto a second line (a
+   two-line button makes the bar jump in height as its contents change); the bar
+   as a whole wraps between controls on a narrow window instead. */
 #topbar .btn,
 #topbar .badge,
 #topbar .field { white-space: nowrap; }
@@ -738,6 +762,8 @@ html, body {
 #drop {
   position: fixed;
   inset: 0;
+  /* centred in the space under the top bar, which grows on a narrow window */
+  padding: var(--topbar-h) 16px 16px;
   display: grid;
   place-items: center;
   text-align: center;
