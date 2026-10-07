@@ -625,7 +625,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
       if (r !== true) for (const i of r) dead.add(live[i]);
     }
   }
-  stats.braces = braceFill(props, floors, triangles, tris, built.triangles ?? []);
+  stats.ribs = braceFill(props, floors, triangles, tris, built.triangles ?? []);
   const left = pts.filter((p) => !near(p[0], p[1], p[2]));
   stats.capped = full() && left.some((p) => !dead.has(p));
   return { triangles, props, tines,

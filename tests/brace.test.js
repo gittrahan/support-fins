@@ -44,6 +44,27 @@ Deno.test('brace: a 3 mm wall 30 mm tall on the plate gets four ribs, all under 
   }
 });
 
+Deno.test('brace: a part on the plate just past a rib\'s tip keeps sideClear off it (review)', () => {
+  // a 5 mm block resting on the plate 0.1 mm beyond where the +x end rib would land:
+  // checked only to its tip, the rib's flange stopped 0.05 mm from the part and fused
+  const reach = PROP.footRatio * (30 - PROP.gap);
+  const x0 = 3 + reach + 0.1, x1 = x0 + 5, y0 = -5, y1 = 5, z1 = 5;
+  const q = (a, b, c, d) => [...a, ...b, ...c, ...a, ...c, ...d];
+  const P = (x, y, z) => [x, y, z];
+  const block = new Float32Array([
+    ...q(P(x0, y0, 0), P(x0, y1, 0), P(x1, y1, 0), P(x1, y0, 0)),
+    ...q(P(x0, y0, z1), P(x1, y0, z1), P(x1, y1, z1), P(x0, y1, z1)),
+    ...q(P(x0, y0, 0), P(x1, y0, 0), P(x1, y0, z1), P(x0, y0, z1)),
+    ...q(P(x0, y1, 0), P(x0, y1, z1), P(x1, y1, z1), P(x1, y1, 0)),
+    ...q(P(x0, y0, 0), P(x0, y0, z1), P(x0, y1, z1), P(x0, y1, 0)),
+    ...q(P(x1, y0, 0), P(x1, y1, 0), P(x1, y1, z1), P(x1, y0, z1)),
+  ]);
+  const out = [];
+  braceWall(line(3, 30), () => 0, block, 0, out);
+  const b = box(out);
+  assert(b[3] <= x0 - PROP.sideClear + 1e-9, `ribs end ${(x0 - b[3]).toFixed(2)} mm from the block, need ${PROP.sideClear}`);
+});
+
 Deno.test('brace: a stocky wall, or one standing on the part, gets none', () => {
   assert(braceWall(line(10, 30), () => 0, NONE, 0, []) === 0, `under ${BRACE.aspect}:1 is left alone`);
   assert(braceWall(line(3, 30), () => 12, NONE, 0, []) === 0, 'a floor on the part is not braced (v1)');

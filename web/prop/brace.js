@@ -12,9 +12,10 @@
  * each end along its line, one off each face at its middle. A rib is a triangle in its
  * own vertical plane, the wall's thickness, rising BRACE.rise of the wall's height at
  * the stem and running out to the plate `PROP.footRatio x height` away -- the same
- * rule the foot already follows across a plate wall, so no new number reaches the
- * print. Under it a flange strip, the foot's height, grips the plate. Ribs stop well
- * under the tip taper, so the contact, the gap and the tines are untouched.
+ * rule the foot already follows across a plate wall. Under it a flange strip, the
+ * foot's height and footMin either side, grips the plate. Ribs stop 1 mm under the tip
+ * taper, so the contact, the gap and the tines are untouched. New print numbers: rise
+ * and minReach (docs/FIN-SPEC.md, Braces).
  *
  * A rib is built only from a station whose floor is the plate (v1: no ribs landing on
  * the part -- they would mark it), only where the part stays sideClear off it, and
@@ -55,8 +56,14 @@ function rib(tris, o, d, zBed, stem, reach) {
   const u0 = -PROP.th / 2;                          // starts inside the stem: overlapping solids
   const fw = PROP.footMin;                          // flange half-width
   const z1 = (u) => zBed + stem * Math.max(0, 1 - Math.max(0, u) / reach);
-  if (ribHitsPart(tris, o, d, 0, reach, PROP.th / 2 + PROP.sideClear, zBed, z1)) return null;
-  if (ribHitsPart(tris, o, d, 0, reach, fw + PROP.sideClear, zBed, () => zBed + PROP.baseH)) return null;
+  // out to sideClear past the tip: a part resting on the plate just beyond where a rib
+  // lands would otherwise meet its flange end-on (review: 0.05 mm). From the stem's
+  // centre, not behind it: u < 0 is inside the wall's own body, and part beside that is
+  // the wall's clearance, not the rib's -- checking it refused every rib on Isaac's
+  // right-hand wall (it stands 0.6 mm off the boot at the plate)
+  const lo = 0, hi = reach + PROP.sideClear;
+  if (ribHitsPart(tris, o, d, lo, hi, PROP.th / 2 + PROP.sideClear, zBed, z1)) return null;
+  if (ribHitsPart(tris, o, d, lo, hi, fw + PROP.sideClear, zBed, () => zBed + PROP.baseH)) return null;
   const out = [];
   // the rib: (u, z) triangle, extruded across. Frame (u, z, v) right-handed: v = u x z.
   boxExtrude([[u0, zBed], [reach, zBed], [u0, zBed + stem]], -PROP.th / 2, PROP.th / 2,
