@@ -16,8 +16,9 @@
  *        coupon's split print, prototype/calibration/README.md). Both items carry
  *        the same transform, so they open in register (Arrange can pull them
  *        apart; the export's tooltip says so). With the interface crest on
- *        (GitHub #21) a third object, "<name> interface", carries the walls'
- *        tops and the tines, in register too, for a toolchanger's second material.
+ *        (GitHub #21) the supports object is an assembly of two parts, the body
+ *        and "<name> interface" (the walls' tops and the tines), so a toolchanger
+ *        can give the interface its own filament.
  *
  * We do NOT embed slicer-specific print profiles (Bambu/Orca bind "supports off"
  * to a full printer-specific project config, which breaks across printers and
@@ -121,8 +122,15 @@ function modelXML(partTris, finTris, title, separate, iface) {
       const t = `1 0 0 0 1 0 0 0 1 ${fmt(tx)} ${fmt(ty)} 0`;
       build = `<item objectid="1" transform="${t}"/><item objectid="2" transform="${t}"/>`;
       if (iface.length) {
-        objects.push(`<object id="3" type="model" name="${name} interface">${meshXML(iface)}</object>`);
-        build += `<item objectid="3" transform="${t}"/>`;
+        // The crest is a PART of the supports object, not an object of its own: a
+        // slicer drops every object to the plate or refuses it (Orca: "empty first
+        // layer"), and the crest starts in mid-air. As a second component of the
+        // supports it stands on the plate with them, and takes its own filament
+        // per part.
+        objects.push(`<object id="3" type="model" name="${name} interface">${meshXML(iface)}</object>`,
+          `<object id="4" type="model" name="${name} supports"><components>` +
+          '<component objectid="2"/><component objectid="3"/></components></object>');
+        build = `<item objectid="1" transform="${t}"/><item objectid="4" transform="${t}"/>`;
       }
     } else {
       // An assembly object so the part and fins import as one locked unit while
@@ -168,8 +176,8 @@ const ROOT_RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
  *                  objects (see the header), default false = one locked object;
  *                  session = the site's state, written to SESSION_PART
  *                  { iface }: the interface crest's triangles (prop/crest.js),
- *                  written separate as a third object, "<name> interface", for
- *                  the slicer to give a second material
+ *                  written separate as a second part of the supports object,
+ *                  "<name> interface", for the slicer to give a second filament
  * @returns Blob    a .3mf package
  */
 export function writeThreeMF(partTris, finTris, name = 'Support Fins', { separate = false, session = null, iface = [] } = {}) {

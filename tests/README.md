@@ -130,8 +130,9 @@ no DOM), so a change to a verdict or a solver can't silently drift:
 - the split adds **no zero-area triangle** the one-body build did not have;
 - **no body vertex rises into its crest**;
 - a **sway brace's tines** are tagged too;
-- the separate 3MF writes the crest as a **third object** sharing the part's transform
-  and reads back as three; the locked form folds it into the supports.
+- the separate 3MF writes the crest as a **part of the supports object** (a floating
+  object of its own is refused by Orca) and reads back with every triangle; the locked
+  form folds it into the supports.
 
 **`threemf.test.js`** -- the 3MF container, both directions (the only tests here
 that aren't fin geometry, because the file format is equally part of the product):

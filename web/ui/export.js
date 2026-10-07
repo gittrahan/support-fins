@@ -58,8 +58,9 @@ const FORMATS = {
   // site offers only this form: the old one-object assembly kept the pair from being
   // arranged apart, too small a gain for tines that fuse. It also carries the
   // session (ui/session.js), so opening it here again brings the drawn walls back.
-  // With Interface material on, the walls' tops and the tines go in a third object
-  // to set to the second filament (prop/crest.js); off, there are none to split.
+  // With Interface material on, the walls' tops and the tines go in a second part of
+  // the supports object, to set to the second filament (prop/crest.js); off, there
+  // are none to split.
   'export-3mf': (g) => {
     const { body, iface } = splitInterface(g.finTris);
     return [writeThreeMF(g.partTris, body, g.base, { separate: true, iface, session: sessionOf(g.partTris) }),

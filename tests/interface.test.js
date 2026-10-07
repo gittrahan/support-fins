@@ -150,18 +150,25 @@ Deno.test('interface crest: sway brace tines are interface too', () => {
   assert(off.triangles.every((v) => v[3] === undefined), 'off, a brace tine is tagged');
 });
 
-Deno.test('interface crest: the 3MF writes it as a third object, in register', async () => {
+Deno.test('interface crest: the 3MF writes it as a part of the supports object, in register', async () => {
   const on = build('cube', rotX(35), { iface: true });
   const { body, iface } = splitInterface(on);
   const part = [[0, 0, 0], [1, 0, 0], [0, 1, 0]];
   const bytes = new Uint8Array(await writeThreeMF(part, body, 'cube', { separate: true, iface }).arrayBuffer());
   const xml = new TextDecoder().decode(bytes);
+  // two build items, so the crest -- in mid-air on its own -- stands on the plate
+  // with the supports (Orca refused a floating interface object: "empty first layer")
   const items = [...xml.matchAll(/<item objectid="(\d+)" transform="([^"]+)"\/>/g)];
-  assert(items.length === 3, `${items.length} build items, want 3 (part, supports, interface)`);
-  assert(new Set(items.map((m) => m[2])).size === 1, 'the three objects do not share one transform');
-  assert(xml.includes('name="cube interface"'), 'no "cube interface" object');
+  assert(items.length === 2, `${items.length} build items, want 2 (part, supports)`);
+  assert(items[0][2] === items[1][2], 'the part and supports do not share one transform');
+  const sup = xml.match(/<object id="(\d+)" type="model" name="cube supports"><components>(.*?)<\/components>/);
+  assert(sup && sup[1] === items[1][1], 'the supports item is not the body + interface assembly');
+  assert(xml.includes('name="cube interface"'), 'no "cube interface" part');
   const r = await readThreeMF(bytes);
-  assert(r.objects.length === 3, `read ${r.objects.length} objects, want 3`);
+  assert(r.objects.length === 2, `read ${r.objects.length} objects, want 2`);
+  // the supports object reads back as body + crest, every triangle of both
+  const tris = r.objects[1].positions.length / 9;
+  assert(tris === (body.length + iface.length) / 3, `supports read back ${tris} triangles, want ${(body.length + iface.length) / 3}`);
 
   // locked (the CLI's form), the crest is just more of the supports
   const locked = new TextDecoder().decode(new Uint8Array(

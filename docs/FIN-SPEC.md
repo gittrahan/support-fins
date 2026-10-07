@@ -134,7 +134,8 @@ welts.
   (three 0.2 mm layers, inside the 1.5 mm tip taper) below its top: the body below, the
   crest above, the crest reaching 0.01 mm down into the body so the two overlap. The
   tines and their wall steps are interface too, and so are sway braces' tines. The 3MF export writes the interface as a
-  third object, `<name> interface`, in register with the part and supports. The gap
+  second part of the supports object, `<name> interface` (an object of its own starts
+  in mid-air, and Orca refuses it: "empty first layer"). The gap
   stays the material's: whether PETG lets it close is a coupon question. Not split yet:
   a sway rib's own inner edge (a vertical contact the full height of the rib), the
   bottom of a wall standing on the part (its foot, footGap above the part, stays body),
