@@ -9,7 +9,7 @@
 import { cutWall } from '../cutout.js';
 import { ribbon } from '../solids.js';
 import { PROP } from './config.js';
-import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
+import { crestCut, crestKinds, crestTop, dropCollapsed, emitCrest } from './crest.js';
 
 /**
  * Foot half-width for a wall of height `h`.
@@ -68,9 +68,11 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
     rx /= rn; ry /= rn;
     const sx = ry, sy = -rx;              // horizontal, across the wall
 
-    const top = p[2] - PROP.gap;
+    const top = crestTop(p, kinds?.[i]);    // the gap below the part (prop/crest.js)
     const h = top - zBed;
-    if (h < minH) return false;
+    // judged at the plain gap: an interface crest's own gap must not change WHICH
+    // walls exist (a tail station at minHeight, 0.07 lower, dropped a 54 mm wall)
+    if (p[2] - PROP.gap - zBed < minH) return false;
     const foot = footFor(h);
     // A low TAIL station (see withLowTails) has less headroom than the flange +
     // tip taper assume, so both shrink with it. Identical to before for h >= 1.2.
@@ -148,12 +150,12 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     rx /= rn; ry /= rn;
     const sx = ry, sy = -rx;                 // horizontal, across the wall
 
-    const top = p[2] - PROP.gap;
+    const top = crestTop(p, kinds?.[i]);    // the gap below the part (prop/crest.js)
     const g = botLine[i][2] > 0 ? PROP.footGap : 0;
     const bot = botLine[i][2] + g;
     // judged on the headroom, not the lifted wall: the gap must not change
     // WHICH walls exist (hub_corner X60 lost a 31 mm wall to a 1.6 mm station)
-    if (top - botLine[i][2] < minH) return false;
+    if (p[2] - PROP.gap - botLine[i][2] < minH) return false;
     // a lifted bottom tilts with the floor under each side (floorLine's
     // sideFloors); welded, or with no side floors, it is level at `bot`
     // (a molded side can sit above `bot`: never within 0.5 of the top, which the

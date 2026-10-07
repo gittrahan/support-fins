@@ -14,18 +14,18 @@ const { drawnWall } = await import(`${WEB}draw.js`);
 const { CUT } = await import(`${WEB}cutout.js`);
 const { PROP, splitInterface } = prop;
 
-function build(name, rot, { iface, mode = 'auto', cutout = 'none', layerHeight } = {}) {
+function buildAll(name, rot, { iface, mode = 'auto', cutout = 'none', ifaceW = 1.0, ifaceGap = null, layerHeight } = {}) {
   const topo = loadModel(name);
-  const was = [PROP.iface, CUT.pattern];
-  PROP.iface = iface;
-  CUT.pattern = cutout;
+  const was = [PROP.iface, CUT.pattern, PROP.ifaceW, PROP.ifaceGap];
+  [PROP.iface, CUT.pattern, PROP.ifaceW, PROP.ifaceGap] = [iface, cutout, ifaceW, ifaceGap];
   try {
     // the app's call (CLAUDE.md): analyze(topo, 45, rot), then buildFins
-    return fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode, bedPad: true, layerHeight }).triangles;
+    return fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode, bedPad: true, layerHeight });
   } finally {
-    [PROP.iface, CUT.pattern] = was;
+    [PROP.iface, CUT.pattern, PROP.ifaceW, PROP.ifaceGap] = was;
   }
 }
+const build = (...a) => buildAll(...a).triangles;
 
 /** Signed volume of a closed, outward-wound triangle soup. */
 function volume(tris) {
@@ -101,6 +101,41 @@ for (const [name, rot, opts] of FLAT_CASES) {
     checkSplit(build(name, rot, { ...opts, iface: false }), build(name, rot, { ...opts, iface: 'flat' }));
   });
 }
+
+// The crest never changes WHICH walls exist: a flat crest's top sits a hair lower
+// (its edge keeps the gap) and dropped a 54 mm wall whose low tail station was at
+// minHeight (staircase Y8), until the height check went back to the plain gap.
+Deno.test('interface crest: either mode builds the same walls as off', () => {
+  for (const [name, rot, opts] of [...CASES, ...FLAT_CASES]) {
+    const n = (iface) => buildAll(name, rot, { ...opts, iface }).fins.length;
+    const off = n(false);
+    for (const m of ['flat', 'all']) assert(n(m) === off, `${name} ${m}: ${n(m)} walls, ${off} off`);
+  }
+});
+
+// The calibration knobs (prototype/calibration/interface/): a 3 mm crest at gap 0
+// under the portal's flat ceiling -- 3 mm wide, its top ON the ceiling, the wall
+// flaring out to it, all still closed.
+Deno.test('interface crest: a 3 mm crest at gap 0 touches a flat ceiling, on a flared wall', () => {
+  const rot = rotX(90);
+  const on = build('portal', rot, { iface: 'flat', ifaceW: 3, ifaceGap: 0 });
+  const { body, iface } = splitInterface(on);
+  assert(isClosed(body) && isClosed(iface), 'not closed');
+  const off = build('portal', rot, { iface: false });
+  // the plain wall's top is the ceiling minus the 0.2 gap
+  const ceiling = Math.max(...off.map((v) => v[2])) + PROP.gap;
+  const zTop = Math.max(...iface.map((v) => v[2]));
+  assert(Math.abs(zTop - ceiling) < 1e-6, `crest top ${zTop.toFixed(3)}, ceiling ${ceiling.toFixed(3)}`);
+  const top0 = iface.find((v) => zTop - v[2] < 1e-6);
+  const top = iface.filter((v) => zTop - v[2] < 1e-6 && Math.hypot(v[0] - top0[0], v[1] - top0[1]) < 5);
+  const span = (k) => Math.max(...top.map((v) => v[k])) - Math.min(...top.map((v) => v[k]));
+  assert(Math.abs(Math.min(span(0), span(1)) - 3) < 1e-6, `crest ${Math.min(span(0), span(1)).toFixed(3)} mm wide, want 3`);
+  // the body under it is 3 mm wide at its top too (the flare): the bond's area
+  const bTop = Math.max(...body.map((v) => v[2]));
+  const btop = body.filter((v) => bTop - v[2] < 1e-6 && Math.hypot(v[0] - top0[0], v[1] - top0[1]) < 5);
+  const bspan = (k) => Math.max(...btop.map((v) => v[k])) - Math.min(...btop.map((v) => v[k]));
+  assert(Math.abs(Math.min(bspan(0), bspan(1)) - 3) < 1e-6, `body top ${Math.min(bspan(0), bspan(1)).toFixed(3)} mm wide, want 3`);
+});
 
 // 'flat': the portal on its side stands two walls under a flat ceiling -- the case
 // a PETG interface is for -- and its crest keeps the wall's full width (no tip).

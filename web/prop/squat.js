@@ -10,7 +10,7 @@ import { ribbon } from '../solids.js';
 import { longestRun, stationCertified, stationIsClear, welds } from './clearance.js';
 import { PROP } from './config.js';
 import { settleTop } from './contact.js';
-import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
+import { bodyOf, crestCut, crestKinds, crestTop, dropCollapsed, emitCrest } from './crest.js';
 
 /**
  * Sweep a SQUAT breakaway wall: a thin wall necking to the breakaway tip, on a
@@ -34,9 +34,9 @@ export function sweepSquat(line, zBed, out) {
     rx /= rn; ry /= rn;
     const sx = ry, sy = -rx;                 // horizontal, across the wall
 
-    const top = p[2] - PROP.gap;
-    const h = top - zBed;
-    if (h < PROP.minHeightSquat) return false;
+    const top = crestTop(p, kinds?.[i]);    // the gap below the part (prop/crest.js)
+    // judged at the plain gap: an interface crest must not change which walls exist
+    if (p[2] - PROP.gap - zBed < PROP.minHeightSquat) return false;
     // neck to the tip over whatever height is left above the brim
     const ztip = Math.max(top - PROP.tipH, brimTop + 0.05);
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
@@ -134,7 +134,7 @@ export function buildSquatBed(line, regionTris, topo, rot, offset, out, claimed 
 
     // Same acceptance as the plate path: an approach from above is the breakaway
     // interface (must clear the gap), anything else is a flank weld.
-    const hit = solidClearance(topo, rot, offset, out.slice(before), 0.25);
+    const hit = solidClearance(topo, rot, offset, bodyOf(out.slice(before)), 0.25);
     if (hit && welds(hit)) {
       out.length = before;
       continue;

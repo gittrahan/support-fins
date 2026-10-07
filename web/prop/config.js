@@ -49,8 +49,14 @@ export const PROP = {
   // two-line wall top (Matthew, 2026-10-09).
   iface: false,
   ifaceLayers: 1,
-  // 'flat': 10deg keeps a th-wide crest's edge 0.09 mm off the part (under the gap)
+  // 'flat': an underside within this of level (a crest's top comes down by half its
+  // width x the tilt, crestTop, so its edge keeps the gap)
   ifaceFlatDeg: 10,
+  // Calibration-only (prototype/calibration/interface/): a flat crest's width (the
+  // PLA under it flares out to match: the PLA-PETG bond is that area; a 1.0 crest
+  // came off its wall mid-print) and the gap over it (null = the material's).
+  ifaceW: 1.0,
+  ifaceGap: null,
   // Foot half-width. Kept well under maxUnsupportedSpan/2 on purpose: props are
   // laid in ROWS spaced maxUnsupportedSpan apart, so a foot wider than half that
   // spacing overlaps its neighbour and the row's feet fuse into one slab -- the

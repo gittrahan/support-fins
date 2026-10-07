@@ -98,6 +98,10 @@ export function applyTunables(t) {
   if (CUTOUT_PATTERNS.includes(t.cutout)) CUT.pattern = t.cutout;
   // So is the interface crest's mode (GitHub #21, prop/crest.js).
   if ([false, 'flat', 'all'].includes(t.iface)) PROP.iface = t.iface;
+  // ...and its calibration-only knobs (prototype/calibration/interface/): a width,
+  // and a gap over the crest (null = the material's)
+  set(PROP, 'ifaceW', t.ifaceW);
+  if (t.ifaceGap === null || Number.isFinite(t.ifaceGap)) PROP.ifaceGap = t.ifaceGap;
 }
 
 /**

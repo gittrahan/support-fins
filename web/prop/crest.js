@@ -53,27 +53,48 @@ export function crestPart(tris, layerHeight) { part = tris; layerH = layerHeight
 /** The crest's height: `PROP.ifaceLayers` whole layers of the print. */
 export const crestH = () => PROP.ifaceLayers * layerH;
 
-/** Is the part's underside at contact point p (x, y, surface z) flat enough? */
-function flatAt(p) {
-  if (!part) return false;
+/**
+ * The tilt (as tan) of the part's underside at contact point p (x, y, surface z)
+ * when it is flat enough for a 'flat' crest, else null.
+ */
+function flatTan(p) {
+  if (!part) return null;
   let best = null;
   for (const [z, nz] of surfaceHitsAt(part, p[0], p[1])) {
     if (!best || Math.abs(z - p[2]) < Math.abs(best[0] - p[2])) best = [z, nz];
   }
   // the face the wall stands under: down-facing, at the contact
-  return !!best && Math.abs(best[0] - p[2]) < 0.5
-    && -best[1] >= Math.cos((PROP.ifaceFlatDeg * Math.PI) / 180);
+  if (!best || Math.abs(best[0] - p[2]) >= 0.5) return null;
+  const c = -best[1];
+  if (c < Math.cos((PROP.ifaceFlatDeg * Math.PI) / 180)) return null;
+  return Math.sqrt(Math.max(0, 1 - c * c)) / c;
 }
 
 /**
  * What each station of a wall gets, from its contact points (x, y, surface z):
- * 'flat', 'slope' (only in the 'all' mode) or null. A lone crest station has no run
- * to sweep a crest along, so it gets none. Null when the crest is off.
+ * { type: 'flat', tan } (the underside's tilt), { type: 'slope' } (only in the
+ * 'all' mode) or null. A lone crest station has no run to sweep a crest along, so
+ * it gets none. Null when the crest is off.
  */
 export function crestKinds(pts) {
   if (!crestOn()) return null;
-  const k = pts.map((p) => (flatAt(p) ? 'flat' : PROP.iface === 'all' ? 'slope' : null));
+  const k = pts.map((p) => {
+    const tan = flatTan(p);
+    return tan !== null ? { type: 'flat', tan } : PROP.iface === 'all' ? { type: 'slope' } : null;
+  });
   return k.map((c, i) => (c && (k[i - 1] || k[i + 1]) ? c : null));
+}
+
+/**
+ * A station's wall top under contact point p, for its crestKinds `kind`: the gap
+ * below the part, except over a flat crest -- there the interface gap (ifaceGap,
+ * the material's gap when unset), measured at the crest's EDGE: a crest ifaceW
+ * wide under an underside tilted `tan` comes down by half its width x tan, so the
+ * edge nearest the part keeps the gap and a gap-0 crest only touches it.
+ */
+export function crestTop(p, kind) {
+  if (kind?.type !== 'flat') return p[2] - PROP.gap;
+  return p[2] - (PROP.ifaceGap ?? PROP.gap) - (PROP.ifaceW / 2) * kind.tan;
 }
 
 /** Tag out[from..] as interface (see the header). */
@@ -113,6 +134,16 @@ export function dropCollapsed(out, from) {
   out.length = w;
 }
 
+/**
+ * A wall's triangles without its crest, for the weld checks (solidClearance): a
+ * crest may stand closer to the part than the gap -- at ifaceGap 0 it touches it --
+ * because it prints in a material that doesn't fuse to it. With nothing tagged it
+ * is the same list.
+ */
+export function bodyOf(verts) {
+  return verts.some((v) => v[3] === 1) ? splitInterface(verts).body : verts;
+}
+
 /** Split a triangle list into its body and interface triangles. */
 export function splitInterface(tris) {
   const body = [], iface = [];
@@ -133,8 +164,9 @@ export function splitInterface(tris) {
  *   wc     the body's half-width at `cut`
  *   ring   (P) => the crest section, 4 corners from CREST_OVERLAP under `cut` to
  *          `top`, mirrored about the wall's centre.
- * 'flat': no taper at all -- the body runs full width up to `cut` (zt = cut, wc =
- *   th/2: a repeated corner, see dropCollapsed) and the crest is a th-wide block.
+ * 'flat': no taper at all -- the body runs full width up to `cut` and the crest is
+ *   an ifaceW-wide block (th, the default: zt = cut, wc = th/2, a repeated corner,
+ *   see dropCollapsed). Wider, the body flares out to it at 45deg under the cut.
  * 'slope': the body keeps its taper up to `cut` (zt is ztip, or just under `cut`
  *   when the band reaches below the taper, so the cut lands ON it) and the crest is
  *   the trapezoid on the same taper line -- no corner repeated or collinear, which
@@ -144,9 +176,13 @@ export function crestCut(top, ztip, floor, kind, th = PROP.th, tip = PROP.tip) {
   if (!kind) return null;
   const cut = Math.max(top - crestH(), (floor + top) / 2);
   const cb = cut - CREST_OVERLAP;
-  if (kind === 'flat') {
-    return { cut, zt: cut, wc: th / 2,
-             ring: (P) => [P(+th / 2, cb), P(+th / 2, top), P(-th / 2, top), P(-th / 2, cb)] };
+  if (kind.type === 'flat') {
+    // ifaceW wide; a crest wider than the wall stands on a 45deg flare up to it,
+    // so the PLA under the PETG is as wide as the PETG (the bond is that area)
+    const w = Math.max(th, PROP.ifaceW) / 2;
+    const zf = w > th / 2 ? Math.max(cut - (w - th / 2), (floor + cut) / 2) : cut;
+    return { cut, zt: zf, wc: w,
+             ring: (P) => [P(+w, cb), P(+w, top), P(-w, top), P(-w, cb)] };
   }
   const zt = Math.min(ztip, cut - Math.min(0.05, (cut - floor) / 2));
   const half = (z) => th / 2 - ((th - tip) / 2) * (Math.max(0, z - zt) / Math.max(1e-6, top - zt));

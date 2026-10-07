@@ -52,6 +52,7 @@ import { MIN_REGION_AREA } from './overhangs.js';
 import { buildPartAttached } from './prop/attached.js';
 import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified, stationIsClear, tallBody, tallSpan, welds, withLowTails } from './prop/clearance.js';
 import { PROP } from './prop/config.js';
+import { bodyOf } from './prop/crest.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
 import { latticeStruts, strutPatches } from './prop/lattice.js';
 import { rasterRest, rasterTracks, withRaster } from './prop/raster.js';
@@ -73,7 +74,7 @@ export { surfaceHitsAt, surfaceZAt, surfaceZsAt } from './prop/surface.js';
 export { stationIsClear, stationCertified, pathToPlateIsClear, longestRun,
   withLowTails, insertFloorStations, welds } from './prop/clearance.js';
 export { tineStepFor, emitTines } from './prop/tines.js';
-export { crestOn, crestKinds, crestPart, emitCrest, flatCrestRing, flatCut, splitInterface } from './prop/crest.js';
+export { bodyOf, crestOn, crestKinds, crestPart, emitCrest, flatCrestRing, flatCut, splitInterface } from './prop/crest.js';
 export { PART_BAND } from './prop/attached.js';
 export { floorLine, moldLine } from './prop/mold.js';
 export { sweepSquat, buildSquatBed } from './prop/squat.js';
@@ -358,7 +359,7 @@ function buildPass(topo, result, rot, opts, raster) {
         // A small tube's line is new to this path, so hold its wall to the same
         // measured clearance the plate path demands (see the sweep below): on
         // 3DBenchy at Y35 an unchecked one fused 0.09 mm into the cabin roof.
-        const hit = solidClearance(topo, rot, off, out.slice(tri0), 0.25);
+        const hit = solidClearance(topo, rot, off, bodyOf(out.slice(tri0)), 0.25);
         if (hit && welds(hit)) {
           out.length = tri0;
           skipped.weld++;
@@ -494,7 +495,7 @@ function buildPass(topo, result, rot, opts, raster) {
 
         // 0.25 reach: the tightest threshold below is 0.205, and every extra
         // tenth of reach widens the broad phase for nothing
-        const hit = solidClearance(topo, rot, off, out.slice(before), 0.25);
+        const hit = solidClearance(topo, rot, off, bodyOf(out.slice(before)), 0.25);
         // Same acceptance as stationCertified: an approach from above is the
         // breakaway interface, anything else is a flank. Interpenetration
         // measures 0 and fails the flank test, which is what retires the old
