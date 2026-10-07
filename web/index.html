@@ -60,6 +60,19 @@
               title="Just the fins and pad, in the part's print position, so they line up if imported beside it.">Fins only (STL)</button>
     </div>
   </span>
+  <!-- Calibration prints (web/ui/calibrate.js): one test print per setting, its
+       print time and filament on the row, the files served from web/calibration/. -->
+  <span class="calibrate-wrap">
+    <button class="btn" id="calibrate" aria-haspopup="dialog" aria-expanded="false"
+            aria-controls="calibrate-menu"
+            title="Test prints that tune the settings to your printer and filament.">Calibrate&nbsp;▾</button>
+    <div class="menu plugins-panel" id="calibrate-menu" role="dialog" aria-label="Calibration prints" hidden>
+      <p class="calibrate-intro">Print each with your usual profile and slicer supports off; the supports are in the file. Each sets one setting.</p>
+      <div id="calibrate-list"></div>
+      <p class="plugins-foot"><span id="calibrate-profile"></span>
+        <a id="calibrate-guide" target="_blank" rel="noopener">Full guide</a></p>
+    </div>
+  </span>
   <!-- Plugin downloads (web/ui/plugins.js): every slicer / CAD plugin from the
        rolling plugins-latest release, one row each, one "Your computer" picker for
        the ones that ship a file per platform. -->

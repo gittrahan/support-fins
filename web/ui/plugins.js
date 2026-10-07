@@ -215,8 +215,10 @@ function setOpen(open) {
   btn.setAttribute('aria-expanded', String(open));
   if (open) {
     // the menus close each other on pointerdown only; a keyboard open must too
-    el('export-menu').hidden = true;
-    el('export').setAttribute('aria-expanded', 'false');
+    for (const [b, m] of [['export', 'export-menu'], ['calibrate', 'calibrate-menu']]) {
+      el(m).hidden = true;
+      el(b).setAttribute('aria-expanded', 'false');
+    }
     fetchLabels();
     computer.focus();
   }

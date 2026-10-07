@@ -1,0 +1,25 @@
+{
+  "profile": "PrusaSlicer, Core One, PLA, 0.2 mm layers",
+  "coupons": {
+    "angle-coupon.stl": {
+      "minutes": 19,
+      "grams": 7.2
+    },
+    "gap-coupon.3mf": {
+      "minutes": 20,
+      "grams": 7.5
+    },
+    "grip-coupon.3mf": {
+      "minutes": 62,
+      "grams": 24.3
+    },
+    "pad-coupon.3mf": {
+      "minutes": 33,
+      "grams": 11.9
+    },
+    "bore-coupon.3mf": {
+      "minutes": 22,
+      "grams": 9.4
+    }
+  }
+}

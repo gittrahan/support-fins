@@ -21,6 +21,12 @@ supports are checked closed before they're written).
 coupon's KISS object stays in register with its coupon, so never Arrange it). What a user does with
 each one is `docs/CALIBRATION.md`.
 
+The site's Calibrate menu (`web/ui/calibrate.js`) serves the user-facing coupons'
+print files from `web/calibration/`. After changing any of them, run
+`python3 prototype/calibration/estimate.py`: it copies them there and slices each with
+PrusaSlicer's command line for the time and filament the menu shows
+(`web/calibration/coupons.json`). `tests/calibrate.test.js` fails if a copy is stale.
+
 `out/` is git-ignored. The files actually printed are committed in `<name>/print/`
 (.3mf with the part and walls as two parts of ONE object -- a slicer unions them, as it
 does the site's 3MF -- one merged .stl, a render), so a

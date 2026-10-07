@@ -169,7 +169,9 @@ html, body {
 .menu button:disabled { opacity: 0.4; cursor: default; background: none; color: var(--text); }
 /* Plugins menu (web/ui/plugins.js): the same dropped panel, wide enough for a
    row per plugin with its install note; scrolls when the window is short. */
-.plugins-wrap { position: relative; }
+.plugins-wrap, .calibrate-wrap { position: relative; }
+/* Calibrate menu (web/ui/calibrate.js) borrows this panel and its rows. */
+.calibrate-intro { margin: 2px 4px 8px; color: var(--dim); font-size: 12px; line-height: 1.4; }
 .plugins-panel {
   width: min(380px, calc(100vw - 32px));
   max-height: calc(100vh - 70px);

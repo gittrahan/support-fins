@@ -7,6 +7,8 @@ dist/
 !tests/fixtures/*.stl
 # calibration coupons exactly as printed (prototype/calibration/README.md)
 !prototype/calibration/*/print/*.stl
+# ...and their copies the site's Calibrate menu serves (estimate.py)
+!web/calibration/*.stl
 # test models the Deno suite loads (tests/_util.js MODELS); regenerate with
 # prototype/stress/gen.py. Committed so CI and fresh checkouts can run the tests.
 out/

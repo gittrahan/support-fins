@@ -7,8 +7,9 @@ with its value raised on top (the angle, the gap in mm, the setting), so there's
 nothing to look up.
 
 Print them with the slicer profile you normally use, with **slicer supports off**. The
-supports are already in the file (and the angle test needs none). Files are in
-`prototype/calibration/<name>/print/`.
+supports are already in the file (and the angle test needs none). Download them from
+the site's **Calibrate** menu, which also shows each one's print time and filament;
+they're also in `prototype/calibration/<name>/print/`.
 
 | Test | Sets | Where on printfins.com |
 |---|---|---|
