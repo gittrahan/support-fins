@@ -43,7 +43,7 @@ export const COUPONS = [
     how: 'A block with four sideways holes, 3 to 12 mm across, a wall in each. Pull each wall out of its open end and tell us which came out clean and which broke or stuck.',
   },
   {
-    name: 'Torture test', file: 'torture-coupon.3mf',
+    name: 'Sampler', file: 'sampler-coupon.3mf',
     sets: 'Sets nothing: print it last, to see what your parts will get',
     note: 'Part and supports are two objects: don\'t Arrange or move one without the other.',
     how: 'One part with every hard shape: ramps, a ball, a thin ledge, a flat table, a mushroom, a cave, sideways holes and an arch, supported in Full coverage. Snap every wall off and tell us which stuck or tore the part, and which undersides sagged. A few droopy layers on the ball and a rougher table near the spine are what we get too.',

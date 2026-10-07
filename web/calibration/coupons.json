@@ -26,10 +26,10 @@
       "grams": 9.4,
       "sha256": "23e8939e49547788fd8b5e194107a1316fe804b76edc912909e8ec8a0395f347"
     },
-    "torture-coupon.3mf": {
+    "sampler-coupon.3mf": {
       "minutes": 96,
       "grams": 43.7,
-      "sha256": "aee07d3f7707a078e55194fd952421d4bc411056893a9eee93bc4f0ffcb7c55d"
+      "sha256": "f9596511e6870a83c19450ab658bcea3e99efa5e31e62674d1befd6f270a387e"
     }
   }
 }

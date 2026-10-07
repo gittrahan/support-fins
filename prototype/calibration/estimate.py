@@ -29,7 +29,7 @@ COUPONS = [
     ('grip', 'grip-coupon.3mf'),
     ('pad', 'pad-coupon.3mf'),
     ('bore', 'bore-coupon.3mf'),
-    ('torture', 'torture-coupon.3mf'),
+    ('sampler', 'sampler-coupon.3mf'),
 ]
 SLICER = os.environ.get('PRUSASLICER') or next(
     (str(p) for p in sorted(Path('/Applications').glob('PrusaSlicer*.app/Contents/MacOS/PrusaSlicer'))), 'prusa-slicer')

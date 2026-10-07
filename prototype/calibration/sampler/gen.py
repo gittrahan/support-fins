@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Torture test: one part with every overhang the tool has to handle, built by the
+"""Sampler: one part with every overhang the tool has to handle, built by the
 site's Full coverage at its defaults. Not a rung coupon: it sets nothing. It shows
 what the site makes on each shape, in one print.
 
@@ -17,7 +17,7 @@ angle / size as raised text.
 
 Everything joins the spine, so it is ONE solid piece (coupon.write checks).
 
-    python3 prototype/calibration/torture/gen.py && deno run -A prototype/calibration/torture/build.js
+    python3 prototype/calibration/sampler/gen.py && deno run -A prototype/calibration/sampler/build.js
 """
 import math
 import sys
@@ -91,4 +91,4 @@ cut += [at(along_y(cylinder(radius=5, height=2 * HW + 2, sections=48)), -7, 0, 8
 m = trimesh.boolean.difference([trimesh.boolean.union(add, engine='manifold'),
                                 trimesh.boolean.union(cut, engine='manifold')], engine='manifold')
 m = write(__file__, [m], [])
-print(f'torture part {m.extents.round(1)} mm, {len(m.faces)} triangles')
+print(f'sampler part {m.extents.round(1)} mm, {len(m.faces)} triangles')
