@@ -115,6 +115,27 @@ export function isClosed(tris) {
   return true;
 }
 
+/** Every edge is walked once each way (no face flipped against its neighbour) and
+ *  the enclosed volume is positive (normals point out). isClosed only counts edges,
+ *  so it passes a mesh with a patch wound inside-out -- one a slicer misreads. */
+export function isOriented(tris) {
+  const key = (p) => `${Math.round(p[0] * 1e3)},${Math.round(p[1] * 1e3)},${Math.round(p[2] * 1e3)}`;
+  const edges = new Map();
+  let vol = 0;
+  for (let i = 0; i < tris.length; i += 3) {
+    const [p, q, r] = [tris[i], tris[i + 1], tris[i + 2]];
+    vol += p[0] * (q[1] * r[2] - q[2] * r[1]) - p[1] * (q[0] * r[2] - q[2] * r[0]) + p[2] * (q[0] * r[1] - q[1] * r[0]);
+    for (let e = 0; e < 3; e++) {
+      const a = key(tris[i + e]), b = key(tris[i + (e + 1) % 3]);
+      if (a === b) continue;
+      const k = a < b ? `${a}|${b}` : `${b}|${a}`;
+      edges.set(k, (edges.get(k) ?? 0) + (a < b ? 1 : -1));
+    }
+  }
+  for (const c of edges.values()) if (c !== 0) return false;
+  return vol > 0;
+}
+
 /** Squared distance from point p to triangle (a,b,c) (each [x,y,z]). */
 export function ptTriDist2(p, a, b, c) {
   const sub = (u, v) => [u[0] - v[0], u[1] - v[1], u[2] - v[2]];

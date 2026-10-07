@@ -361,7 +361,10 @@ function brimPad(partTris, contact, e, h, g, grab, layerH, outline, out) {
   }
   for (let i = 0; i < cols.length - 1; i++) {
     const A = cols[i], B = cols[i + 1];
-    for (let j = 0; j < nT - 1; j++) { tri(A[j], B[j], B[j + 1]); tri(A[j], B[j + 1], A[j + 1]); }
+    // wound like the tip fans, side wall and bottom (it once ran the other way: the
+    // top was inside-out against the rest, and Bambu, reading a broken pad, refused
+    // the separate-object 3MF over a G-code path conflict with the part)
+    for (let j = 0; j < nT - 1; j++) { tri(A[j], B[j + 1], B[j]); tri(A[j], A[j + 1], B[j + 1]); }
   }
   // boundary ring (tipL, the +t rim left to right, tipR, the -t rim right to
   // left), then its side wall and the flat bottom fan

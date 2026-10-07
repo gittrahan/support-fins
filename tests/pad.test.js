@@ -3,7 +3,7 @@
 // part's flank -- and stay watertight. These pin all three so a revert to the grid
 // (or a broken mesh) fails loudly.
 
-import { loadModel, analyze, fins, isClosed, rotX, assert } from './_util.js';
+import { loadModel, analyze, fins, isClosed, isOriented, rotX, assert } from './_util.js';
 
 // Build with a pad style set for this call only (PAD.style is module state).
 function withStyle(style, fn) {
@@ -142,6 +142,19 @@ Deno.test('pad (brim): one layer thick, whatever the layer height', () => {
     let top = 0; for (const v of b.padTriangles) top = Math.max(top, v[2]);
     assert(Math.abs(top - lh) < 1e-6, `brim pad is ${top.toFixed(3)}mm tall at ${lh}mm layers`);
     assert(isClosed(b.padTriangles), 'brim pad is not closed');
+  }
+});
+
+// Every pad style is one consistently wound outward solid. The Light/Custom top grid
+// once ran the other way to its tip fans, side wall and bottom: closed, but with
+// the top inside-out against the rest. Bambu misread it and refused the
+// separate-object 3MF ("G-code path conflicts" with the part); PrusaSlicer warned.
+Deno.test('pad: every style is wound consistently outward, at any tilt', () => {
+  for (const style of ['light', 'sure', 'custom']) for (const deg of [20, 45, 60]) {
+    const topo = loadModel('cube'), rot = rotX(deg);
+    const b = withStyle(style, () => fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode: 'auto', bedPad: true, tines: true }));
+    assert(b.padTriangles.length > 0, `${style} X${deg}: no pad`);
+    assert(isOriented(b.padTriangles), `${style} X${deg}: pad has faces wound against their neighbours`);
   }
 });
 
