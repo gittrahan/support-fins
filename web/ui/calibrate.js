@@ -25,7 +25,7 @@ export const COUPONS = [
     name: 'Gap', file: 'gap-coupon.3mf',
     sets: 'Sets Clearances ▸ Support gap',
     note: 'Print at 0.2 mm layers with a 0.2 mm first layer and adaptive layer height off, or the gaps stop being whole layers.',
-    how: 'Ledges held 0.2, 0.4 and 0.6 mm below (1, 2 and 3 empty layers). Snap each wall off. Welded or tearing the ledge = too small; saggy or stringy underside = too big. Use the smallest gap that snaps off clean.',
+    how: 'Ledges held 0.2, 0.4 and 0.6 mm below (1, 2 and 3 empty layers). Snap each wall off. Welded or tearing the ledge = too small; saggy or stringy underside = too big. Use the smallest gap that snaps off clean. The field stops at 0.4: if only 0.6 came clean, set 0.4 and tell us.',
   },
   {
     name: 'Grip', file: 'grip-coupon.3mf',

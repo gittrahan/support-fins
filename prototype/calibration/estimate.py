@@ -11,6 +11,7 @@ estimate goes in web/calibration/coupons.json, which the menu shows on each row.
 
 PRUSASLICER=/path/to/PrusaSlicer overrides the binary.
 """
+import hashlib
 import json
 import os
 import re
@@ -51,6 +52,8 @@ def slice_one(src, tmp):
     subprocess.run([SLICER, '--export-gcode', '--center', '125,105',
                     '-o', str(out), str(src)], check=True, capture_output=True)
     g = out.read_text(errors='replace')
+    if not re.search(r'^; printer_model = \S', g, re.M):
+        raise SystemExit(f'{src.name}: the slicer named no printer profile -- run PrusaSlicer once to pick one')
     pick = lambda key: re.search(rf'^; {re.escape(key)} = (.*)$', g, re.M).group(1).strip()
     return {
         'minutes': minutes(pick('estimated printing time (normal mode)')),
@@ -69,7 +72,9 @@ def main():
             shutil.copyfile(src, WEB / file)
             est = slice_one(src, tmp)
             profile = profile or est['profile']
-            data[file] = {'minutes': est['minutes'], 'grams': est['grams']}
+            # the hash ties the estimate to this exact file (tests/calibrate.test.js)
+            data[file] = {'minutes': est['minutes'], 'grams': est['grams'],
+                          'sha256': hashlib.sha256(src.read_bytes()).hexdigest()}
             print(f"{file}: {est['minutes']} min, {est['grams']} g")
     (WEB / 'coupons.json').write_text(json.dumps({'profile': profile, 'coupons': data}, indent=2) + '\n')
     print(f'-> {WEB / "coupons.json"} ({profile})')

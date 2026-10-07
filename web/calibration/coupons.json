@@ -3,23 +3,28 @@
   "coupons": {
     "angle-coupon.stl": {
       "minutes": 19,
-      "grams": 7.2
+      "grams": 7.2,
+      "sha256": "0369b52ee440ebf43b6bc847876737cd7c8452715d54eeb39b8f692644d91b65"
     },
     "gap-coupon.3mf": {
       "minutes": 20,
-      "grams": 7.5
+      "grams": 7.5,
+      "sha256": "7df81d14dbc28208d6f33acc7697a99d88d265688d0ff14d06e5f19b4669edd0"
     },
     "grip-coupon.3mf": {
       "minutes": 62,
-      "grams": 24.3
+      "grams": 24.3,
+      "sha256": "eccd18cf88e04db49248d33d7fabb275ebe81f7497c4c6566eee4e79115c2685"
     },
     "pad-coupon.3mf": {
       "minutes": 33,
-      "grams": 11.9
+      "grams": 11.9,
+      "sha256": "c75aa6533c4cad80acd8a7035673fb7480dfd54f64cfb984528a8f1095cb986a"
     },
     "bore-coupon.3mf": {
       "minutes": 22,
-      "grams": 9.4
+      "grams": 9.4,
+      "sha256": "23e8939e49547788fd8b5e194107a1316fe804b76edc912909e8ec8a0395f347"
     }
   }
 }

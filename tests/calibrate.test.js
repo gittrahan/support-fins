@@ -2,8 +2,9 @@
 // web/calibration/ holds copies of the coupons' committed print/ files, and
 // prototype/calibration/estimate.py slices each into coupons.json. These pin that
 // the copies still match their print/ originals (a coupon rebuilt without
-// re-running estimate.py would ship the old file with the new numbers' label), that
-// every menu row's file is there with an estimate, and nothing stale is left over.
+// re-running estimate.py would ship the old file), that each estimate was sliced from
+// that exact file (its sha256), that every menu row's file is there with an estimate,
+// and nothing stale is left over.
 
 import { WEB, assert } from './_util.js';
 
@@ -25,13 +26,16 @@ Deno.test('calibrate: every menu row has its file and an estimate', () => {
   assert(/mm layers/.test(est.profile), `coupons.json names no profile (${est.profile})`);
 });
 
-Deno.test('calibrate: the served files match the coupons\' print/ files', async () => {
+Deno.test('calibrate: the served files match the coupons\' print/ files, and their estimates are for them', async () => {
   for (const f of files) {
     const name = f.replace(/-coupon\..*$/, '');
     const a = await Deno.readFile(new URL(f, DIR));
     const b = await Deno.readFile(new URL(`${name}/print/${f}`, PROTO));
     assert(a.length === b.length && a.every((x, i) => x === b[i]),
            `${f} differs from prototype/calibration/${name}/print/ -- re-run estimate.py`);
+    const hash = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', a)),
+                            (x) => x.toString(16).padStart(2, '0')).join('');
+    assert(est.coupons[f].sha256 === hash, `${f}: coupons.json's estimate is for another version -- re-run estimate.py`);
   }
 });
 
