@@ -6,6 +6,7 @@
  *   deno run -A prototype/calibration/torture/build.js
  */
 import { loadCoupon, finsWith, supportOf, writeCoupon } from '../coupon.js';
+const { writeThreeMF } = await import(new URL('../../../web/threemf.js', import.meta.url).pathname);
 
 const c = loadCoupon(import.meta.url);
 const built = finsWith(c, { mode: 'full' });
@@ -14,4 +15,11 @@ for (const f of built.fins) { const k = f.kind + (f.short ? ' (short)' : ''); ki
 console.log('walls', kinds, 'fill walls', built.fill?.walls ?? built.fins.filter((f) => f.fill).length,
   'tines', built.tines, 'pad', !!built.pad);
 console.log('fill', JSON.stringify(built.fill, (k, v) => (Array.isArray(v) && v.length > 8 ? `[${v.length}]` : v)));
-await writeCoupon(c, 'torture', 'Torture test', supportOf(built));
+const sup = supportOf(built);
+await writeCoupon(c, 'torture', 'Torture test', sup);
+// what the site's Export > 3MF writes now: supports as their own object (#199), so the tines
+// only touch the part -- the print to judge. The locked one-object file stays beside it.
+Deno.renameSync(`${c.out}torture-coupon.3mf`, `${c.out}torture-coupon-locked.3mf`);
+Deno.writeFileSync(`${c.out}torture-coupon.3mf`,
+  new Uint8Array(await writeThreeMF(c.part, sup, 'Torture test', { separate: true }).arrayBuffer()));
+console.log('torture-coupon.3mf = supports as their own object; torture-coupon-locked.3mf = one object');

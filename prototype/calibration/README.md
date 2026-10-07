@@ -188,9 +188,16 @@ One build in Full coverage (mode 'full') at every other default, all supports ke
 Every feature is big enough for real walls (10-26 mm long), so the print shows
 whether each kind snaps off clean. A point-down tip in the first draft was dropped
 (Matthew: a mess, tells us nothing).
-- **2026-10-06 build:** 32 walls (10 from the fill pass), must-hold 95 % of 2977 mm2
-  (coverage scoreboard). Still bare: thin strips along the arch's curved sides and
-  the 12 mm hole's sides.
+- **2026-10-06, PLA (Matthew), the FIRST draft** (3-8 mm stubs, a point-down cone, one
+  locked object): mostly bad -- spaghetti under the ball, mushroom cap, table and cone (too
+  little support there), prominent tine marks; the holes looked okay. -> walls made real
+  (bigger features), the cone dropped, supports exported as their own object.
+- **Current build:** 44 walls (22 from the fill pass), must-hold 100 % (coverage scoreboard).
+  `print/torture-coupon.3mf` = supports as their own object (the site's Export > 3MF since
+  #199); `torture-coupon-locked.3mf` = the old one object, for comparison.
+  Expected weak spot: the table. PrusaSlicer bridges its underside at 0 deg (leg to leg)
+  and Auto's flat-face walls run the same way -- parallel, which the orient coupon showed
+  is junk (local wall-direction rule, still to build).
 - **waiting on print.**
 
 ### bite/ -- RETIRED 2026-10-03 (files removed; last in git at 6ec7c16)

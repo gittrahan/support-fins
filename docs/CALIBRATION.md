@@ -84,9 +84,8 @@ One part with every hard shape at once, supported the way the site does it in
 a ball, a thin ledge far out, a flat table, a mushroom on a thin stem, a cave,
 sideways holes (3, 6, 12 mm, written above each) and an arch. It sets nothing.
 Print it to see what to expect from your own parts, then snap every wall off.
-Tell us which walls stuck or tore the part, and which undersides sagged. The arch's
-curved sides and the sides of the 12 mm hole get no support yet, so some droop
-there is expected.
+Tell us which walls stuck or tore the part, and which undersides sagged. The flat
+table may sag between its walls: they run the same way the slicer bridges it for now.
 
 ## Tell us what you got
 These results are how the defaults get better. Open a
