@@ -58,7 +58,12 @@ function pickObjects(objects) {
   const loadBtn = el('picker-load');
   const cancelBtn = el('picker-cancel');
 
-  const order = objects.map((_, i) => i).sort((a, b) => objects[b].tris - objects[a].tris);
+  // Largest first -- but our own 3MF export's "<name> supports" object (the separate
+  // form, threemf.js) goes last, so re-importing an export pre-selects the part, not
+  // a tine-heavy support object that happens to have more triangles.
+  const ours = (o) => / supports$/.test(o.name ?? '') ? 1 : 0;
+  const order = objects.map((_, i) => i)
+    .sort((a, b) => ours(objects[a]) - ours(objects[b]) || objects[b].tris - objects[a].tris);
   list.replaceChildren();
   const boxes = [];
   order.forEach((idx, rank) => {
@@ -67,7 +72,7 @@ function pickObjects(objects) {
     const label = document.createElement('label');
     const cb = document.createElement('input');
     cb.type = 'checkbox';
-    cb.checked = rank === 0;                   // largest pre-selected
+    cb.checked = rank === 0;                   // largest (not our supports) pre-selected
     cb.dataset.idx = String(idx);
     cb.addEventListener('change', refresh);
     const name = document.createElement('span');
