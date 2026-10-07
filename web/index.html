@@ -364,11 +364,18 @@
         <option value="lattice" data-i18n="Lattice">Lattice</option>
       </select>
     </label>
-    <!-- Interface material (GitHub #21): for a toolchanger. The top 0.6 mm of every
-         wall and its tines become their own object in the 3MF, shown purple, to print
-         in a second material that won't bond to the part (PETG under PLA). -->
-    <label class="check" title="For a printer with two or more toolheads. The top 0.6 mm of every wall, and its tines, export as their own object, shown purple: set it to a material that won't bond to the part (PETG under PLA) for a clean release. 3MF only.">
-      <input type="checkbox" id="iface">Interface material <span class="mut">toolchanger</span>
+    <!-- Interface material (GitHub #21, prop/crest.js): for a toolchanger. The top
+         0.6 mm of a wall becomes its own part of the supports in the 3MF, shown purple,
+         to print in a material that won't bond to the part (PETG under PLA). Flat
+         contacts only by default: on a tilted underside the band climbs every layer,
+         and PETG wouldn't print on the narrow PLA tip (a 35deg cube). -->
+    <label class="fld row" title="For a printer with two or more toolheads. The top 0.6 mm of a wall exports as its own part of the supports, shown purple: give it a material that won't bond to the part (PETG under PLA) for a clean release. Flat contacts: only under flat undersides, where it works and costs a few tool changes. Everywhere: every wall top and the tines too, a tool change every layer on a tilted part. 3MF only.">
+      Interface material
+      <select id="iface">
+        <option value="off">Off</option>
+        <option value="flat">Flat contacts</option>
+        <option value="all">Everywhere</option>
+      </select>
     </label>
     <!-- Wide-face row density: an overhang face too wide for one corner brace gets a
          ROW of fins (a wide tilted plate would otherwise sag between two braces).

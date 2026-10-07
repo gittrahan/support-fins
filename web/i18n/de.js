@@ -306,6 +306,8 @@ export default {
   "no sway braces: the upright sides are blocked by other parts of the model in this pose.": "Keine Stützrippen: Die aufrechten Seiten sind in dieser Lage durch andere Modellteile blockiert.",
   "of support material added": "Stützmaterial hinzugefügt",
   "Interface material": "Kontaktmaterial",
-  "toolchanger": "Werkzeugwechsler",
-  "For a printer with two or more toolheads. The top 0.6 mm of every wall, and its tines, export as their own object, shown purple: set it to a material that won't bond to the part (PETG under PLA) for a clean release. 3MF only.": "Für Drucker mit zwei oder mehr Druckköpfen. Die oberen 0,6 mm jeder Wand und ihre Haltezacken werden als eigenes Objekt exportiert (lila dargestellt): einem Material zuweisen, das nicht am Bauteil haftet (PETG unter PLA), für ein sauberes Ablösen. Nur 3MF."
+  "Flat contacts": "Flache Kontakte",
+  "Interface material: no flat contacts here, so every support prints in one material": "Kontaktmaterial: keine flachen Kontakte, daher werden alle Stützen in einem Material gedruckt",
+  "Everywhere": "Überall",
+  "For a printer with two or more toolheads. The top 0.6 mm of a wall exports as its own part of the supports, shown purple: give it a material that won't bond to the part (PETG under PLA) for a clean release. Flat contacts: only under flat undersides, where it works and costs a few tool changes. Everywhere: every wall top and the tines too, a tool change every layer on a tilted part. 3MF only.": "Für Drucker mit zwei oder mehr Druckköpfen. Die oberen 0,6 mm einer Wand werden als eigener Teil der Stützen exportiert (lila dargestellt): einem Material zuweisen, das nicht am Bauteil haftet (PETG unter PLA), für ein sauberes Ablösen. Flache Kontakte: nur unter flachen Unterseiten, wo es funktioniert und wenige Werkzeugwechsel kostet. Überall: jede Wandoberkante und auch die Haltezacken, bei geneigten Teilen ein Werkzeugwechsel pro Schicht. Nur 3MF."
 };
