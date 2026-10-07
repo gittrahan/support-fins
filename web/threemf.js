@@ -14,8 +14,8 @@
  *        way Clough42 splits his support ("Split to objects"). Each keeps its own
  *        perimeter and a tine only touches the part: a cleaner release (the grip
  *        coupon's split print, prototype/calibration/README.md). Both items carry
- *        the same transform, so they open in register -- but Arrange can pull
- *        them apart, which is why LOCKED stays offered.
+ *        the same transform, so they open in register (Arrange can pull them
+ *        apart; the export's tooltip says so).
  *
  * We do NOT embed slicer-specific print profiles (Bambu/Orca bind "supports off"
  * to a full printer-specific project config, which breaks across printers and

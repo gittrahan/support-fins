@@ -44,19 +44,18 @@ export function buildExportGeometry() {
   return { partTris, finTris, base };
 }
 
-// The four formats. All share the print-space geometry, so a fins-only STL
+// The three formats. All share the print-space geometry, so a fins-only STL
 // lines up with the part when both are imported into one plate.
 const FORMATS = {
   // STL flattens part + fins into one solid.
   'export-stl': (g) => [writeBinarySTL([...g.partTris, ...g.finTris], g.base), `${g.base}-fins.stl`],
   // 3MF states millimeters, so the file opens correctly oriented and support-free
   // in Bambu Studio, OrcaSlicer, or PrusaSlicer without a re-scale or a re-rotate.
-  // The default writes the supports as their OWN object, so the slicer slices them
-  // apart and a tine only touches the part (GitHub #38, the grip coupon's split
-  // print); 'locked' is the old one-object assembly, for whoever would rather the
-  // two could never be arranged apart.
+  // It writes the supports as their OWN object, so the slicer slices them apart and
+  // a tine only touches the part (GitHub #38, the grip coupon's split print). The
+  // site offers only this form: the old one-object assembly kept the pair from being
+  // arranged apart, too small a gain for tines that fuse.
   'export-3mf': (g) => [writeThreeMF(g.partTris, g.finTris, g.base, { separate: true }), `${g.base}-fins.3mf`],
-  'export-3mf-locked': (g) => [writeThreeMF(g.partTris, g.finTris, g.base), `${g.base}-fins-locked.3mf`],
   // Just the fins + pad (issue #5). One body, so 3MF would add nothing over STL.
   'export-fins': (g) => [writeBinarySTL(g.finTris, `${g.base} fins`), `${g.base}-fins-only.stl`],
 };
@@ -70,7 +69,7 @@ function setOpen(open) {
   if (open) {
     // nothing to write until a part is loaded; no fins-only file without fins
     const ready = !!(part && topology && lastResult);
-    el('export-stl').disabled = el('export-3mf').disabled = el('export-3mf-locked').disabled = !ready;
+    el('export-stl').disabled = el('export-3mf').disabled = !ready;
     el('export-fins').disabled = !ready || activeAdded().length === 0;
     menu.querySelector('button:not(:disabled)')?.focus();
   }
