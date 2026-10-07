@@ -388,8 +388,9 @@ export function cutWall(st, full, out, wall) {
     // keep each band inside the wall's own profile
     const ct = Math.max(q.botTip, Math.min(zHi[i], q.ztip - 0.01));
     const cb = Math.min(q.ztip, Math.max(zLo[i], q.botTip + 0.01));
-    top.push([P(+th, ct), P(+th, q.ztip), P(+tp, q.top),
-              P(-tp, q.top), P(-th, q.ztip), P(-th, ct)]);
+    const tq = q.tipHalf ?? tp;                 // narrower when an interface crest sits on it
+    top.push([P(+th, ct), P(+th, q.ztip), P(+tq, q.top),
+              P(-tq, q.top), P(-th, q.ztip), P(-th, ct)]);
     bot.push(q.taperBot
       ? [P(+tp, q.bot), P(+th, q.botTip), P(+th, cb), P(-th, cb), P(-th, q.botTip), P(-tp, q.bot)]
       : [P(+th, q.botP ?? q.bot), P(+th, cb), P(-th, cb), P(-th, q.botN ?? q.bot)]);  // a tilted lifted bottom (sweepBetween)

@@ -31,6 +31,7 @@
  *   config.js     PROP, every number a wall is built from
  *   surface.js    seat a vertex; part surface height(s) above (x, y)
  *   contact.js    the contact line under an overhang, settled to exactly `gap`
+ *   crest.js      the interface crest: a wall's top band as its own tagged solid
  *   sweep.js      the wall solid: the upside-down T, and a part-attached wall
  *   brace.js      ribs at the plate for a short wall that stands tall (the fill pass's)
  *   ties.js       zigzag struts tying two neighbouring walls into one frame (the fill pass's)
@@ -72,6 +73,7 @@ export { surfaceHitsAt, surfaceZAt, surfaceZsAt } from './prop/surface.js';
 export { stationIsClear, stationCertified, pathToPlateIsClear, longestRun,
   withLowTails, insertFloorStations, welds } from './prop/clearance.js';
 export { tineStepFor, emitTines } from './prop/tines.js';
+export { crestOn, emitCrest, flatCrestRing, flatCut, splitInterface } from './prop/crest.js';
 export { PART_BAND } from './prop/attached.js';
 export { floorLine, moldLine } from './prop/mold.js';
 export { sweepSquat, buildSquatBed } from './prop/squat.js';

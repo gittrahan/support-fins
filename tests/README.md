@@ -121,6 +121,16 @@ no DOM), so a change to a verdict or a solver can't silently drift:
 - a **part-standing** wall cuts too, and the pick reaches an **Auto** build through
   `opts.tunables` (the Worker has its own copy of `cutout.js`).
 
+**`interface.test.js`** -- the interface crest (GitHub #21, `web/prop/crest.js`):
+- off, **nothing is tagged** (the rest of the suite pins off as unchanged);
+- on, for prop walls with tines, a wedge, Full, a cut wall, squat walls, and a wall
+  standing on the part (lifted and welded): the body and the crest each come out
+  **closed and outward-wound**, and between them they are **the same plastic** as the
+  one-body build (within 0.5%: only the 0.01 mm overlap);
+- **no body vertex rises into its crest**;
+- the separate 3MF writes the crest as a **third object** sharing the part's transform
+  and reads back as three; the locked form folds it into the supports.
+
 **`threemf.test.js`** -- the 3MF container, both directions (the only tests here
 that aren't fin geometry, because the file format is equally part of the product):
 - our own export **round-trips** back to the same geometry, both bodies intact

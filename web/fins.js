@@ -96,6 +96,8 @@ export function applyTunables(t) {
   set(PERP, 'gap', t.propGap);
   // Not a clearance, but module state with the same Worker problem.
   if (CUTOUT_PATTERNS.includes(t.cutout)) CUT.pattern = t.cutout;
+  // So is the interface crest's switch (GitHub #21, prop/crest.js).
+  if (typeof t.iface === 'boolean') PROP.iface = t.iface;
 }
 
 /**

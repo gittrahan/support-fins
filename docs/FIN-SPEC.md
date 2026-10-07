@@ -127,6 +127,17 @@ welts.
   tined side fins (the Onshape port's; the web tool no longer builds them) are never
   cut -- their tines anchor across the whole blade.
 
+- **Interface material (optional, off by default).** GitHub #21: a toolchanger can
+  print the part-facing band of every support in a second material that won't bond to
+  the part (PETG under PLA). With `PROP.iface` on (`web/prop/crest.js`), each wall --
+  prop, part-attached, squat, Draw/fill, wedge blade -- is split `PROP.ifaceH` = 0.6 mm
+  (three 0.2 mm layers, inside the 1.5 mm tip taper) below its top: the body below, the
+  crest above, the crest reaching 0.01 mm down into the body so the two overlap. The
+  tines and their wall steps are interface too. The 3MF export writes the interface as a
+  third object, `<name> interface`, in register with the part and supports. The gap
+  stays the material's: whether PETG lets it close is a coupon question. Sway braces are
+  not split yet (their contact is a vertical edge the full height of the rib).
+
 ## Bed pad styles — `PAD.style` in `web/fins/pad.js`
 
 The pad goes under a part whose bed contact is under `padMinArea` (60 mm²), which is

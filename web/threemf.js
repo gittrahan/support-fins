@@ -15,7 +15,9 @@
  *        perimeter and a tine only touches the part: a cleaner release (the grip
  *        coupon's split print, prototype/calibration/README.md). Both items carry
  *        the same transform, so they open in register (Arrange can pull them
- *        apart; the export's tooltip says so).
+ *        apart; the export's tooltip says so). With the interface crest on
+ *        (GitHub #21) a third object, "<name> interface", carries the walls'
+ *        tops and the tines, in register too, for a toolchanger's second material.
  *
  * We do NOT embed slicer-specific print profiles (Bambu/Orca bind "supports off"
  * to a full printer-specific project config, which breaks across printers and
@@ -102,18 +104,26 @@ function bedShift(tris) {
   return [Math.max(SEPARATE_CENTRE - (lx + hx) / 2, 5 - lx), Math.max(SEPARATE_CENTRE - (ly + hy) / 2, 5 - ly)];
 }
 
-function modelXML(partTris, finTris, title, separate) {
+function modelXML(partTris, finTris, title, separate, iface) {
   const name = esc(title);
   const objects = [`<object id="1" type="model" name="${name}">${meshXML(partTris)}</object>`];
   let build = '<item objectid="1"/>';
+  // the interface crest is its own object only in the separate form; locked, it
+  // is just more of the supports
+  if (iface.length && !separate) finTris = [...finTris, ...iface];
 
   if (finTris && finTris.length) {
     objects.push(`<object id="2" type="model" name="${name} supports">${meshXML(finTris)}</object>`);
     if (separate) {
-      // two objects, one shared transform: in register, sliced apart
+      // two objects (three with the interface crest), one shared transform: in
+      // register, sliced apart
       const [tx, ty] = bedShift([...partTris, ...finTris]);
       const t = `1 0 0 0 1 0 0 0 1 ${fmt(tx)} ${fmt(ty)} 0`;
       build = `<item objectid="1" transform="${t}"/><item objectid="2" transform="${t}"/>`;
+      if (iface.length) {
+        objects.push(`<object id="3" type="model" name="${name} interface">${meshXML(iface)}</object>`);
+        build += `<item objectid="3" transform="${t}"/>`;
+      }
     } else {
       // An assembly object so the part and fins import as one locked unit while
       // remaining two distinct meshes.
@@ -157,13 +167,16 @@ const ROOT_RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
  * @param opts      { separate, session }: separate true = part and fins as two
  *                  objects (see the header), default false = one locked object;
  *                  session = the site's state, written to SESSION_PART
+ *                  { iface }: the interface crest's triangles (prop/crest.js),
+ *                  written separate as a third object, "<name> interface", for
+ *                  the slicer to give a second material
  * @returns Blob    a .3mf package
  */
-export function writeThreeMF(partTris, finTris, name = 'Support Fins', { separate = false, session = null } = {}) {
+export function writeThreeMF(partTris, finTris, name = 'Support Fins', { separate = false, session = null, iface = [] } = {}) {
   const entries = [
     { name: '[Content_Types].xml', data: CONTENT_TYPES },
     { name: '_rels/.rels', data: ROOT_RELS },
-    { name: '3D/3dmodel.model', data: modelXML(partTris, finTris, name, separate) },
+    { name: '3D/3dmodel.model', data: modelXML(partTris, finTris, name, separate, iface) },
   ];
   if (session) entries.push({ name: SESSION_PART, data: JSON.stringify(session) });
   return zipStore(entries);

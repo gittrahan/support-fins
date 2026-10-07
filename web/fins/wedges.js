@@ -9,7 +9,7 @@
  */
 import { cutWall } from '../cutout.js';
 import { findWallPatches, patchPoint, patchProbe, zAt } from '../planes.js';
-import { emitTines, PROP, surfaceZAt, tineStepFor } from '../prop.js';
+import { crestOn, emitCrest, emitTines, flatCrestRing, flatCut, PROP, surfaceZAt, tineStepFor } from '../prop.js';
 import { seatedPartTris } from './seating.js';
 
 /**
@@ -121,6 +121,22 @@ function emitBlade(top, ring, uDir, half, out) {
   }
   if (st.length && cutWall(st, full, out, { th: PERP.th, tip: PERP.th, minStations: 3 })) return;
   extrudeRing(ring, uDir, half, out);
+}
+
+/**
+ * The interface crest along a blade's `top`, as sections across it (uDir, signed
+ * the way emitBlade's sections face so the ribbon winds outward), or null when a
+ * station repeats in XY (a vertical step: no run to sweep along).
+ */
+function crestSections(top, uDir, half) {
+  const n = top.length;
+  for (let i = 1; i < n; i++) {
+    if (Math.hypot(top[i][0] - top[i - 1][0], top[i][1] - top[i - 1][1]) < 1e-6) return null;
+  }
+  const rx = top[n - 1][0] - top[0][0], ry = top[n - 1][1] - top[0][1];
+  const sgn = uDir.x * ry - uDir.y * rx >= 0 ? 1 : -1;    // uDir . (ry, -rx), as sweep's sx, sy
+  return top.map((q) => flatCrestRing(
+    (o, z) => [q[0] + uDir.x * sgn * o, q[1] + uDir.y * sgn * o, z], q[2], half));
 }
 
 /**
@@ -268,11 +284,17 @@ export function buildPerpFins(p, topo, rot, offset, opts = {}) {
     const top = contact.map((w) => [w[0], w[1], w[2] - PERP.gap]);
     if (Math.max(...top.map((q) => q[2])) < PERP.minH) continue;
 
+    // With the interface crest on (prop/crest.js) the blade stops at the crest's
+    // cut and the crest rides on it. A vertical step in the contact has no run to
+    // sweep the crest along, so that wedge stays one body.
+    const crest = crestOn() ? crestSections(top, uDir, half) : null;
+    const blade = crest ? top.map((q) => [q[0], q[1], flatCut(q[2])]) : top;
     // ring: up the bed edge, along the top, down the bed edge (closes along the bed)
-    const ring = [[top[0][0], top[0][1], 0], ...top,
-                  [top[top.length - 1][0], top[top.length - 1][1], 0]];
+    const ring = [[blade[0][0], blade[0][1], 0], ...blade,
+                  [blade[blade.length - 1][0], blade[blade.length - 1][1], 0]];
     const before = out.length;
-    emitBlade(top, ring, uDir, half, out);
+    emitBlade(blade, ring, uDir, half, out);
+    if (crest) emitCrest(crest, out);
     partTris ??= seatedPartTris(topo, rot, offset);
     emitFoot([top[0][0], top[0][1], 0], [top[top.length - 1][0], top[top.length - 1][1], 0], uDir, out, partTris);
     if (opts.tines !== false) tineTotal += emitTines(contact, null, topo, rot, offset, out, tineStepFor(opts.tineDensity));

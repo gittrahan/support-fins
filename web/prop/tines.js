@@ -10,6 +10,7 @@ import { insidePart } from '../inside.js';
 import { kissEnds } from '../kiss.js';
 import { boxExtrude, loftExtrude } from '../solids.js';
 import { PROP } from './config.js';
+import { crestOn, markInterface } from './crest.js';
 
 /** Squared distance from point p to triangle (a,b,c). Ericson closest-point. */
 function ptTriDist2(p, a, b, c) {
@@ -160,9 +161,18 @@ export function tineStepFor(density) {
 // vertex coincides, far under anything a slicer resolves.
 const STEP_INSET = 0.01;
 
-export function emitTines(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
-                          minTop = PROP.baseH + 0.2, tineH = PROP.tineH, body = null,
-                          grip = null) {
+export function emitTines(line, tris, topo, rot, offset, out, ...rest) {
+  // with the interface crest on, the whole comb (tines and wall steps) prints in
+  // the interface material: it is what reaches into the part (prop/crest.js)
+  const from = out.length;
+  const n = comb(line, tris, topo, rot, offset, out, ...rest);
+  if (crestOn()) markInterface(out, from);
+  return n;
+}
+
+function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
+              minTop = PROP.baseH + 0.2, tineH = PROP.tineH, body = null,
+              grip = null) {
   if (line.length < 2) return 0;
 
   // arc length along the run, to space nubs by a real distance not a station count

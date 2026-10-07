@@ -38,6 +38,12 @@ export const PROP = {
                     // ~0.4mm lower down the face. Grip, not adhesion, is what the
                     // bottom band needs.
   tipH: 1.5,        // height the tip taper runs
+  // Interface crest (GitHub #21, prop/crest.js): with `iface` on, the top ifaceH
+  // of every wall is split off as its own solid for a toolchanger's second
+  // material. Off (the default), one body as always. 0.6 = three 0.2 mm layers,
+  // inside the 1.5 mm taper, so the crest is just the tip.
+  iface: false,
+  ifaceH: 0.6,
   // Foot half-width. Kept well under maxUnsupportedSpan/2 on purpose: props are
   // laid in ROWS spaced maxUnsupportedSpan apart, so a foot wider than half that
   // spacing overlaps its neighbour and the row's feet fuse into one slab -- the
