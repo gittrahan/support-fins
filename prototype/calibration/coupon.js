@@ -12,6 +12,7 @@ const WEB = new URL('../../web/', import.meta.url).pathname;
 const { buildTopology, analyze } = await import(`${WEB}overhangs.js`);
 const { buildFins } = await import(`${WEB}fins.js`);
 const { writeThreeMF } = await import(`${WEB}threemf.js`);
+const { splitInterface } = await import(`${WEB}prop.js`);
 const { writeBinarySTL } = await import(`${WEB}stl.js`);
 const { MATERIAL } = await import(`${WEB}materials.js`);
 
@@ -27,6 +28,8 @@ export const PLA_TUNABLES = Object.freeze({
   padCustom: { h: 0.5, gap: 0.0, grip: 0.05, margin: 4.0 }, cutout: 'none',
   // the tine shape knobs' defaults (tine coupon): reset every rung, they persist
   tinesPerWall: 0,
+  // Interface material off, and its calibration knobs' defaults (interface coupon)
+  iface: false, ifaceW: 1.0, ifaceGap: null,
 });
 
 function readSTL(b) {
@@ -120,11 +123,15 @@ export function assertClosed(verts, what) {
 export const supportOf = (built) => [...(built.triangles ?? []), ...(built.padTriangles ?? [])];
 
 /** out/<name>-coupon.3mf (part and supports as two objects in register, the site's
- *  Export > 3MF since #199), .stl (merged), -fins.stl. */
+ *  Export > 3MF since #199; an interface crest as a part of the supports), .stl
+ *  (merged), -fins.stl. */
 export async function writeCoupon(c, name, title, sup) {
   assertClosed(sup, `${name} supports`);
   const bytes = async (blob) => new Uint8Array(await blob.arrayBuffer());
-  Deno.writeFileSync(`${c.out}${name}-coupon.3mf`, await bytes(writeThreeMF(c.part, sup, title, { separate: true })));
+  // an interface crest (prop/crest.js) is a part of the supports object, as the site
+  // writes it; a coupon without one writes exactly as before
+  const { body, iface } = splitInterface(sup);
+  Deno.writeFileSync(`${c.out}${name}-coupon.3mf`, await bytes(writeThreeMF(c.part, body, title, { separate: true, iface })));
   Deno.writeFileSync(`${c.out}${name}-coupon.stl`, await bytes(writeBinarySTL([...c.part, ...sup], title)));
   if (sup.length) Deno.writeFileSync(`${c.out}${name}-fins.stl`, await bytes(writeBinarySTL(sup, `${title} supports`)));
   console.log(`wrote ${c.out}${name}-coupon.3mf (+ .stl${sup.length ? ', supports-only .stl' : ''})`);

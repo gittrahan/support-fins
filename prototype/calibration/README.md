@@ -116,6 +116,28 @@ issue 026).
   the two walls the slicer bridges (PrusaSlicer: bridge infill across the ledge,
   over walls along it) -> orient/.
 
+### interface/ -- with a PETG interface (toolchanger), how wide a band, and what gap? (PROP.ifaceW, PROP.ifaceGap)
+For Walls > Interface material > Flat contacts (GitHub #21, `web/prop/crest.js`): the top
+0.6 mm of a wall under a flat underside printed in a material that won't bond to the
+part (PETG under PLA). PETG barely bonds to PLA either, and at the wall's 1.0 mm a
+portal's walls came off their PETG bands mid-print (2026-10-07; the part still printed,
+but it was risky). Bar on the plate, six 16 x 10 mm flat ledges 10 mm up, two walls
+under each from the site's Auto build at that ledge's numbers:
+- **width** (raised on each ledge): 1.0 / 2.0 / 3.0 mm crest. Wider than the wall, the
+  PLA flares out to it at 45° under the band, so the PLA-PETG bond is the crest's
+  whole area. Auto stands one wall per ledge 0.6 mm in from the ledge's outer edge, so
+  there a 2 / 3 mm crest overhangs the edge by 0.4 / 0.9 mm (nothing above it).
+- **gap** (GAP 0 / GAP .2 on the bar, toward each side): 0 = the part prints straight
+  onto the PETG, what PETG-interface users run; 0.2 = one empty layer, PLA's default.
+  Whole layers only (gap/), so these are the two that differ at 0.2 mm layers.
+**Print** PLA part and supports, the `Interface coupon interface` part (inside the
+supports object) PETG, at 0.2 mm layers with a 0.2 first layer. Look for: does each
+wall stay on its band through the print; does the part's underside release clean;
+how each underside looks. The narrowest width that holds and the gap that releases
+clean become Flat contacts' numbers (`PROP.ifaceW`, and `PROP.ifaceGap` or a field).
+Not on the site's Calibrate menu: it needs a toolchanger, and the menu's estimates
+slice one material.
+
 ### orient/ -- does it matter which way a flat overhang's walls run, and how close? (no setting yet)
 Bar on the plate, six identical flat ledges 10 mm up (16.6 deep x 17.2 wide), walls
 from Draw's drawnWall at the default 0.2 gap. Near side ACROSS: walls along x, across
