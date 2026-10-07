@@ -74,9 +74,13 @@ a different gap off its cube: 0, 0.08, 0.12, 0.16, 0.2, 0.3 mm, written on each 
   which may not be those.
 
 ## Bore (`bore/print/bore-coupon.3mf`)
-A block with four sideways holes, 3, 5, 8 and 12 mm across (the size is written above each), each with a
-wall inside. Pull each wall out of the open end. Tell us which came out clean and
-which broke or stuck. That tells us how small a hole the tool should still support.
+A block with eight sideways holes in two sets of four, 3, 5, 8 and 12 mm across (the size
+is written at the front of each, the set's letter at the back). Set **A**'s holes each have
+one wall running along the hole, the way the site supports them. Set **X**'s have three
+walls running across the hole instead. Pull every wall out of an open end (an X wall
+slides out along the hole). Tell us which came out clean and which broke or stuck, and
+whether A or X left the smoother hole ceiling. That tells us how small a hole the tool
+should still support, and which way its walls should run.
 
 ## Sampler (`sampler/print/sampler-coupon.3mf`)
 One part with every hard shape at once, supported the way the site does it in

@@ -40,7 +40,7 @@ export const COUPONS = [
   {
     name: 'Bore', file: 'bore-coupon.3mf',
     sets: 'No setting yet: tells us how small a hole to support',
-    how: 'A block with four sideways holes, 3 to 12 mm across, a wall in each. Pull each wall out of its open end and tell us which came out clean and which broke or stuck.',
+    how: 'A block with two sets of sideways holes, 3 to 12 mm across. In set A one wall runs along each hole, the way the site does it; in set X three walls run across it. Pull every wall out of an open end (an X wall slides out along the hole) and tell us which came out clean, which broke or stuck, and whether A or X left the smoother ceiling.',
   },
   {
     name: 'Sampler', file: 'sampler-coupon.3mf',

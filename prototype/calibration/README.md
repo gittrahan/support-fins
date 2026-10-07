@@ -175,11 +175,23 @@ loose is a result. The 3MF is re-packed deflated (the brim mesh is ~64k triangle
 local issue 007); no merged STL in `print/`.
 - **waiting on print.**
 
-### bore/ -- do walls inside a sideways hole pull out clean, and from what size?
-Block on the plate with through-bores along y, 1: 3, 2: 5, 3: 8, 4: 12 mm across,
-centred 9 mm up. One Auto build at the defaults (nothing varied): one wall along each
-bore's axis, inside the bore, running out the open end; 0 unserved. Checks the
-2026-09-27 reversal (bores DO get supported) on a printed part.
+### bore/ -- do walls inside a sideways hole pull out clean, from what size, and which way?
+Block on the plate with eight through-bores along y, two sets of 3 / 5 / 8 / 12 mm,
+centred 9 mm up; each has its size raised at the front and its set's letter at the back.
+- **A** (bores 1-4, ALONG): the site's Auto build at the defaults, one wall along each
+  bore's axis, running out the open end; 0 unserved. Checks the 2026-09-27 reversal
+  (bores DO get supported) on a printed part.
+- **X** (bores 5-8, ACROSS, added 2026-10-07 on Matthew's ask): the same bores with the
+  walls turned 90 deg -- three Draw walls (drawnWall) across each bore at y -6 / 0 / 6,
+  spanning 80 % of its width, standing on the bore's floor (foot gap) with tines at its
+  ceiling: 2.4 x 2.7, 4.0 x 4.8, 6.4 x 7.7, 9.6 x 11.8 mm (length x height). Shaped to
+  the bore's cross-section, a cross wall can still slide out along the bore; it may come
+  out easier, and the orient coupon found walls across the slicer's bridge lines beat
+  walls along them. Nothing touches the part (checked: 0 mm3 overlap).
+For a user: pull every wall out an open end; note per bore clean / broke / stuck, and
+whether A or X left the better ceiling. If X wins, a bore's wall direction is worth
+changing in the engine.
+- **v1 (A only): waiting on print; not printed.** Replaced by this build.
 - **waiting on print.**
 
 ### sampler/ -- one part with every hard shape, as the site supports it (no setting)
