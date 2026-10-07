@@ -28,6 +28,7 @@ COUPONS = [
     ('gap', 'gap-coupon.3mf'),
     ('grip', 'grip-coupon.3mf'),
     ('pad', 'pad-coupon.3mf'),
+    ('cutout', 'cutout-coupon.3mf'),
     ('bore', 'bore-coupon.3mf'),
     ('sampler', 'sampler-coupon.3mf'),
 ]

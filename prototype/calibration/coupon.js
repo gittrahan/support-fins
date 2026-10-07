@@ -95,8 +95,11 @@ export function keep(c, verts, [x0, x1, y0, y1]) {
   return kept;
 }
 
-/** Throws unless every edge of the vertex list is shared by exactly two triangles
- *  (closed bodies: what a slicer needs, and what the site exports). */
+/** Throws unless every edge of the vertex list is shared by an even number of
+ *  triangles: closed bodies, what a slicer needs and what the site exports. Even, not
+ *  exactly two: a cut wall (Walls > Cutouts) is overlapping closed solids -- bands,
+ *  posts, cells -- that meet along shared edges (4 or 6 uses); only an odd count is
+ *  a hole in a body. */
 export function assertClosed(verts, what) {
   const edges = new Map();
   const key = (a, b) => { const s = `${a}`, t = `${b}`; return s < t ? `${s}|${t}` : `${t}|${s}`; };
@@ -106,8 +109,8 @@ export function assertClosed(verts, what) {
       edges.set(e, (edges.get(e) ?? 0) + 1);
     }
   }
-  const open = [...edges.values()].filter((n) => n !== 2).length;
-  if (open) throw new Error(`${what}: ${open} edges not shared by exactly two triangles`);
+  const open = [...edges.values()].filter((n) => n % 2).length;
+  if (open) throw new Error(`${what}: ${open} edges used an odd number of times (a hole in a body)`);
 }
 
 /** All of a build's support triangles: walls, wedges, braces and the bed pad. */

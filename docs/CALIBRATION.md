@@ -18,6 +18,7 @@ they're also in `prototype/calibration/<name>/print/`.
 | Grip | how many tines hold each wall | Tines ▸ Tine grip |
 | Span | how wide a bare stretch your printer bridges (tells us, for now) | Walls ▸ Wide-face coverage (Auto) |
 | Pad | how the bed pad lets go | Clearances ▸ Bed pad ▸ Custom ▸ Pad gap |
+| Cutouts | which holes your walls can have and still stand | Walls ▸ Cutouts |
 | Bore | whether holes pull clean (no setting: tells us) | — |
 | Sampler | nothing: every hard shape at once, to see what you get | — |
 
@@ -72,6 +73,17 @@ a different gap off its cube: 0, 0.08, 0.12, 0.16, 0.2, 0.3 mm, written on each 
   **Pad gap**, and set the other three the way the test print had them: **Pad thickness
   0.2, Pad grip 0, Pad spread 4**. Custom starts from whatever pad the part had before,
   which may not be those.
+
+## Cutouts (`cutout/print/cutout-coupon.3mf`)
+Five tall ledges, each held by walls cut with one **Cutouts** style, written on top:
+NONE, DIAMOND, TRIANGLE, ARCH and LATTICE. Cutouts open the middle of a tall wall to
+save plastic; its top, foot and ends stay solid, and every hole has a pointed roof so
+it prints without bridging. Before snapping anything off, check every wall stood and
+every ledge printed flat. Then snap the walls off.
+- A cut wall leaned, sagged at a hole or broke apart instead of snapping off whole →
+  that style is too open for your printer.
+- Use the **most open style whose walls all held**. On this coupon Diamond and Triangle
+  use about 22 % less support plastic than solid walls, Arch and Lattice about a third less.
 
 ## Bore (`bore/print/bore-coupon.3mf`)
 A block with eight sideways holes in two sets of four, 3, 5, 8 and 12 mm across (the size

@@ -38,6 +38,11 @@ export const COUPONS = [
     how: 'Six cubes on an edge, each held down only by a pad 0 to 0.3 mm off it. A cube came loose = gap too big; a pad won\'t peel or tears the edge = too small. Use the biggest gap whose cube stayed put, with Pad thickness 0.2, Pad grip 0 and Pad spread 4.',
   },
   {
+    name: 'Cutouts', file: 'cutout-coupon.3mf',
+    sets: 'Sets Walls ▸ Cutouts',
+    how: 'Five tall ledges, each held by walls cut with one style: NONE, DIAMOND, TRIANGLE, ARCH, LATTICE. Check every wall stood and every ledge printed flat, then snap the walls off. A wall that leaned, sagged at a hole or broke apart: that style is too open. Use the most open style whose walls all held; Arch and Lattice save about a third of the support plastic.',
+  },
+  {
     name: 'Bore', file: 'bore-coupon.3mf',
     sets: 'No setting yet: tells us how small a hole to support',
     how: 'A block with two sets of sideways holes, 3 to 12 mm across. In set A one wall runs along each hole, the way the site does it; in set X three walls run across it. Pull every wall out of an open end (an X wall slides out along the hole) and tell us which came out clean, which broke or stuck, and whether A or X left the smoother ceiling.',

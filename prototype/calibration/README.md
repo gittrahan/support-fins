@@ -175,6 +175,20 @@ loose is a result. The 3MF is re-packed deflated (the brim mesh is ~64k triangle
 local issue 007); no merged STL in `print/`.
 - **waiting on print.**
 
+### cutout/ -- what does each Cutouts style do to a tall wall? (Walls > Cutouts, CUT.pattern)
+Bar on the plate, five identical 28 x 14 mm flat ledges 25 mm up (three near side,
+two far); the site's Auto build per ledge with Cutouts 1: none, 2: diamond,
+3: triangle, 4: arch, 5: lattice (style raised on top). Tall on purpose: cutouts open
+only a wall's middle, and a short wall stays solid. Two walls a ledge. Support volume
+per ledge (build.js; a cut wall's overlapping solids read a little high): none 1572,
+diamond 1230 (78 %), triangle 1230 (78 %), arch 1043 (66 %), lattice 1048 (67 %) mm3.
+For a user: the most open style whose walls stood, held their ledge flat and snapped
+off whole. Built for the Calibrate menu; also shows the Lattice style off.
+Found building it: a cut wall's solids meet along shared edges (4 or 6 triangles to
+an edge), which coupon.js's closed check refused; it now refuses only odd counts (a
+hole in a body).
+- **waiting on print.**
+
 ### bore/ -- do walls inside a sideways hole pull out clean, from what size, and which way?
 Block on the plate with eight through-bores along y, two sets of 3 / 5 / 8 / 12 mm,
 centred 9 mm up; each has its size raised at the front and its set's letter at the back.
