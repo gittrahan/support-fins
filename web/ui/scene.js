@@ -106,8 +106,17 @@ export function frame(size) {
   controls.update();
 }
 
-/** Upload a triangle list into the scene, or null if there is nothing to show. */
-export function meshFrom(tris, material) {
+/** The interface crest's colour (prop/crest.js): the second material's part. */
+export const ifaceMaterial = new THREE.MeshStandardMaterial({
+  color: 0x9b6bff, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide,
+});
+
+/**
+ * Upload a triangle list into the scene, or null if there is nothing to show.
+ * Given `iface`, the interface crest's tagged triangles (v[3] === 1) draw in it:
+ * one geometry group per run, so a face index still addresses `tris` as before.
+ */
+export function meshFrom(tris, material, iface = null) {
   if (!tris.length) return null;
   const arr = new Float32Array(tris.length * 3);
   for (let i = 0; i < tris.length; i++) {
@@ -118,7 +127,18 @@ export function meshFrom(tris, material) {
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
   g.computeVertexNormals();
-  const m = new THREE.Mesh(g, material);
+  let mat = material;
+  if (iface && tris.some((v) => v[3] === 1)) {
+    for (let i = 0; i < tris.length; ) {
+      const k = tris[i][3] === 1 ? 1 : 0;
+      let j = i + 3;
+      while (j < tris.length && (tris[j][3] === 1 ? 1 : 0) === k) j += 3;
+      g.addGroup(i, j - i, k);
+      i = j;
+    }
+    mat = [material, iface];
+  }
+  const m = new THREE.Mesh(g, mat);
   scene.add(m);
   return m;
 }

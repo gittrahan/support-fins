@@ -11,6 +11,7 @@ import {
   finMode, finsVisible, materialDensity, syncSectionSums, autoLike,
 } from './settings.js';
 import { analysisTiming } from './part.js';
+import { ifaceMaterial } from './scene.js';
 import { activeAdded, finMaterial, padMaterial } from './finbuild.js';
 
 /**
@@ -162,8 +163,8 @@ function setFinNote(lead, detail) {
  * the exact bug M5's scoreboard was built on.
  */
 function updateDrawReadout(built, ms) {
-  finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = false;
-  finMaterial.opacity = padMaterial.opacity = drawMaterial.opacity = 1;
+  finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = ifaceMaterial.transparent = false;
+  finMaterial.opacity = padMaterial.opacity = drawMaterial.opacity = ifaceMaterial.opacity = 1;
   const box = el('s-fins');
   el('s-pad').textContent = built ? padStatus(built) : '—';
 

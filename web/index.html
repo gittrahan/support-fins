@@ -364,6 +364,12 @@
         <option value="lattice" data-i18n="Lattice">Lattice</option>
       </select>
     </label>
+    <!-- Interface material (GitHub #21): for a toolchanger. The top 0.6 mm of every
+         wall and its tines become their own object in the 3MF, shown purple, to print
+         in a second material that won't bond to the part (PETG under PLA). -->
+    <label class="check" title="For a printer with two or more toolheads. The top 0.6 mm of every wall, and its tines, export as their own object, shown purple: set it to a material that won't bond to the part (PETG under PLA) for a clean release. 3MF only.">
+      <input type="checkbox" id="iface">Interface material <span class="mut">toolchanger</span>
+    </label>
     <!-- Wide-face row density: an overhang face too wide for one corner brace gets a
          ROW of fins (a wide tilted plate would otherwise sag between two braces).
          This sets the row pitch: Sparse = fewer fins / less plastic, Dense = more.

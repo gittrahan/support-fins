@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { drawnWall } from '../draw.js';
 import { swayAtFace, faceIsUpright } from '../sway.js';
 import { el } from './dom.js';
-import { viewport, renderer, scene, camera, meshFrom, raycaster, pointer } from './scene.js';
+import { viewport, renderer, scene, camera, meshFrom, ifaceMaterial, raycaster, pointer } from './scene.js';
 import { removedIds } from './remove.js';
 import { histPush } from './history.js';
 import { updateReadout } from './readout.js';
@@ -169,7 +169,7 @@ export function rebuildDrawn() {
     if (r.ok) for (const t of r.tris) drawnTris.push(t);
     w.triEnd = drawnTris.length / 3;
   }
-  drawnMesh = meshFrom(drawnTris, drawMaterial);
+  drawnMesh = meshFrom(drawnTris, drawMaterial, ifaceMaterial);
   syncSelection();
 }
 

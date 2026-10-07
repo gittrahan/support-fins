@@ -46,6 +46,7 @@ const SITE_EXCLUDED = {
   'fin-mode': 'plugins run Auto; Draw needs the site\'s canvas',
   'gap': 'hand-typed clearance; the material sets it',
   'pad-h': 'Custom pad', 'pad-gap': 'Custom pad', 'pad-grip': 'Custom pad', 'pad-margin': 'Custom pad',
+  'iface': 'a third 3MF object for a second material; the plugins hand the host one body',
 };
 
 Deno.test('options.json is well formed', () => {

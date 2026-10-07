@@ -181,6 +181,14 @@ el('cutout').addEventListener('change', () => {
 // Plate only (#218): read by every build, auto in the Worker and drawn on the page.
 el('plate-only').addEventListener('change', () => refreshFins());
 
+// Interface material (GitHub #21): each wall's top band and its tines become their
+// own solid, exported as a third 3MF object. PROP.iface is read fresh by every wall
+// sweep -- the drawn walls here, the auto walls in the Worker via tunables.
+el('iface').addEventListener('change', () => {
+  PROP.iface = el('iface').checked;
+  refreshFins();
+});
+
 // Material profiles (PLA/PETG clearances) live in ../materials.js, shared with the
 // plugins' engine entry. These objects are read fresh on every build, so applying a
 // profile + rebuilding is all it takes.
@@ -308,6 +316,7 @@ export function initSettings() {
   syncPadStyle();
   syncSway();
   CUT.pattern = el('cutout').value;   // a reload can keep the browser's last pick
+  PROP.iface = el('iface').checked;
   applyMaterial(el('material').value);   // sync density + tunables to the initial choice
 }
 

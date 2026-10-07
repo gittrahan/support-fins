@@ -3,6 +3,7 @@
  */
 import { writeBinarySTL, download } from '../stl.js';
 import { writeThreeMF } from '../threemf.js';
+import { splitInterface } from '../prop.js';
 import { el } from './dom.js';
 import { part, topology, lastResult, rotM3, partName } from './part.js';
 import { activeAdded } from './finbuild.js';
@@ -57,8 +58,13 @@ const FORMATS = {
   // site offers only this form: the old one-object assembly kept the pair from being
   // arranged apart, too small a gain for tines that fuse. It also carries the
   // session (ui/session.js), so opening it here again brings the drawn walls back.
-  'export-3mf': (g) => [writeThreeMF(g.partTris, g.finTris, g.base, { separate: true, session: sessionOf(g.partTris) }),
-                        `${g.base}-fins.3mf`],
+  // With Interface material on, the walls' tops and the tines go in a third object
+  // to set to the second filament (prop/crest.js); off, there are none to split.
+  'export-3mf': (g) => {
+    const { body, iface } = splitInterface(g.finTris);
+    return [writeThreeMF(g.partTris, body, g.base, { separate: true, iface, session: sessionOf(g.partTris) }),
+            `${g.base}-fins.3mf`];
+  },
   // Just the fins + pad (issue #5). One body, so 3MF would add nothing over STL.
   'export-fins': (g) => [writeBinarySTL(g.finTris, `${g.base} fins`), `${g.base}-fins-only.stl`],
 };

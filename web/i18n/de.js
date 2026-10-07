@@ -304,5 +304,8 @@ export default {
   "This prints clean lying flat. You only need fins if you’re tilting it for strength.": "Druckt flach aufliegend sauber. Stützen werden nur benötigt, wenn das Teil für mehr Stabilität geneigt wird.",
   "This prints clean lying flat. You only need fins if you're tilting it for strength.": "Druckt flach aufliegend sauber. Stützen werden nur benötigt, wenn das Teil für mehr Stabilität geneigt wird.",
   "no sway braces: the upright sides are blocked by other parts of the model in this pose.": "Keine Stützrippen: Die aufrechten Seiten sind in dieser Lage durch andere Modellteile blockiert.",
-  "of support material added": "Stützmaterial hinzugefügt"
+  "of support material added": "Stützmaterial hinzugefügt",
+  "Interface material": "Kontaktmaterial",
+  "toolchanger": "Werkzeugwechsler",
+  "For a printer with two or more toolheads. The top 0.6 mm of every wall, and its tines, export as their own object, shown purple: set it to a material that won't bond to the part (PETG under PLA) for a clean release. 3MF only.": "Für Drucker mit zwei oder mehr Druckköpfen. Die oberen 0,6 mm jeder Wand und ihre Haltezacken werden als eigenes Objekt exportiert (lila dargestellt): einem Material zuweisen, das nicht am Bauteil haftet (PETG unter PLA), für ein sauberes Ablösen. Nur 3MF."
 };
