@@ -119,9 +119,10 @@ issue 026).
 ### interface/ -- with a PETG interface (toolchanger), how wide a band, and what gap? (PROP.ifaceW, PROP.ifaceGap)
 For Walls > Interface material > Flat contacts (GitHub #21, `web/prop/crest.js`): the top
 0.6 mm of a wall under a flat underside printed in a material that won't bond to the
-part (PETG under PLA). PETG barely bonds to PLA either, and at the wall's 1.0 mm a
-portal's walls came off their PETG bands mid-print (2026-10-07; the part still printed,
-but it was risky). Bar on the plate, six 16 x 10 mm flat ledges 10 mm up, two walls
+part (PETG under PLA). PETG barely bonds to PLA either: on the first build, whose
+crest was the wall's tapered tip (~0.4-0.6 mm wide), a portal's walls came off their
+PETG bands mid-print (2026-10-07; the part still printed, but it was risky). Flat
+contacts now keeps the wall's full 1.0 mm; this asks whether more is needed. Bar on the plate, six 16 x 10 mm flat ledges 10 mm up, two walls
 under each from the site's Auto build at that ledge's numbers:
 - **width** (raised on each ledge): 1.0 / 2.0 / 3.0 mm crest. Wider than the wall, the
   PLA flares out to it at 45° under the band, so the PLA-PETG bond is the crest's

@@ -3,8 +3,9 @@
 second material that won't bond to the part (PETG under PLA) -- Walls > Interface
 material > Flat contacts. Two questions on one print:
 
-  WIDTH  the PETG band sits on the PLA wall, and PETG barely bonds to PLA: at the
-         wall's 1.0 mm a portal's walls came off their bands mid-print (2026-10-07).
+  WIDTH  the PETG band sits on the PLA wall, and PETG barely bonds to PLA: on a band
+         the width of the wall's tapered tip (~0.4-0.6 mm) a portal's walls came off
+         their bands mid-print (2026-10-07).
          Wider crests stand on a 45deg flare of the wall, so the PLA under the PETG is
          as wide as it: 1.0 / 2.0 / 3.0 mm (PROP.ifaceW).
   GAP    PETG doesn't fuse to PLA, so the part can print straight onto it (gap 0, no

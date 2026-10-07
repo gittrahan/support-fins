@@ -53,8 +53,9 @@ export const PROP = {
   // width x the tilt, crestTop, so its edge keeps the gap)
   ifaceFlatDeg: 10,
   // Calibration-only (prototype/calibration/interface/): a flat crest's width (the
-  // PLA under it flares out to match: the PLA-PETG bond is that area; a 1.0 crest
-  // came off its wall mid-print) and the gap over it (null = the material's).
+  // PLA under it flares out to match: the PLA-PETG bond is that area; a crest the
+  // width of the tapered tip came off its wall mid-print) and the gap over it
+  // (null = the material's).
   ifaceW: 1.0,
   ifaceGap: null,
   // Foot half-width. Kept well under maxUnsupportedSpan/2 on purpose: props are
