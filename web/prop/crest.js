@@ -58,27 +58,23 @@ export function splitInterface(tris) {
  * section: a wall shorter than twice the band keeps its lower half as body.
  * Returns null when the crest is off, else:
  *   cut    the body's new top
- *   zt     the body's taper start (ztip, or just under `cut` when the band reaches
- *          below the taper)
- *   wc     the body's half-width at `cut`
- *   ring   (P, o) => the crest section: 6 vertices from CREST_OVERLAP under `cut`
- *          to `top`, mirrored about the wall's centre (o = across offset). Six
- *          always, so a ribbon of them never changes vertex count: a short wall's
- *          kink at ztip, or a point on the taper line where the band sits inside it.
+ *   zt     the body's taper start: ztip, or just under `cut` when the band reaches
+ *          below the taper (a short wall), so the cut always lands ON the taper
+ *   wc     the body's half-width at `cut`, always under th/2
+ *   ring   (P) => the crest section, a trapezoid from CREST_OVERLAP under `cut` to
+ *          `top`, mirrored about the wall's centre. Both sides lie on the one taper
+ *          line, so no section repeats a corner or lines three up in a row: a
+ *          collinear corner made a zero-area triangle in each ribbon end cap.
  */
 export function crestCut(top, ztip, floor, th = PROP.th, tip = PROP.tip) {
   if (!crestOn()) return null;
   const cut = Math.max(top - PROP.ifaceH, (floor + top) / 2);
-  const half = (z) => (z <= ztip ? th / 2
-    : th / 2 - ((th - tip) / 2) * ((z - ztip) / Math.max(1e-6, top - ztip)));
   const zt = Math.min(ztip, cut - Math.min(0.05, (cut - floor) / 2));
-  const cb = cut - CREST_OVERLAP;
-  const zm = ztip > cb ? ztip : (cb + top) / 2;
-  const wb = half(cb), wm = half(zm);
+  const half = (z) => th / 2 - ((th - tip) / 2) * (Math.max(0, z - zt) / Math.max(1e-6, top - zt));
+  const cb = cut - CREST_OVERLAP, wb = half(cb);
   return {
     cut, zt, wc: half(cut),
-    ring: (P) => [P(+wb, cb), P(+wm, zm), P(+tip / 2, top),
-                  P(-tip / 2, top), P(-wm, zm), P(-wb, cb)],
+    ring: (P) => [P(+wb, cb), P(+tip / 2, top), P(-tip / 2, top), P(-wb, cb)],
   };
 }
 

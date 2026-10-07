@@ -7,7 +7,7 @@
 //   - the crest is the band at the top: no body vertex rises into it;
 //   - the 3MF writes the crest as a third object, in register, and reads it back.
 
-import { WEB, assert, block, loadModel, analyze, fins, prop, rotX, isClosed } from './_util.js';
+import { WEB, assert, block, blockTopo, loadModel, analyze, fins, prop, rotX, isClosed } from './_util.js';
 
 const { writeThreeMF, readThreeMF } = await import(`${WEB}threemf.js`);
 const { drawnWall } = await import(`${WEB}draw.js`);
@@ -38,6 +38,18 @@ function volume(tris) {
   return V;
 }
 
+/** Triangles with (near) zero area: a slicer reports them as degenerate facets. */
+function zeroArea(tris) {
+  let n = 0;
+  for (let i = 0; i < tris.length; i += 3) {
+    const [a, b, c] = [tris[i], tris[i + 1], tris[i + 2]];
+    const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+    const x = u[1] * v[2] - u[2] * v[1], y = u[2] * v[0] - u[0] * v[2], z = u[0] * v[1] - u[1] * v[0];
+    if (Math.hypot(x, y, z) / 2 < 1e-6) n++;
+  }
+  return n;
+}
+
 /** Off tags nothing; on splits the same plastic into a closed body and crest. */
 function checkSplit(off, on) {
   assert(off.length > 0, 'no supports to split');
@@ -48,6 +60,10 @@ function checkSplit(off, on) {
   assert(isClosed(iface), 'the crest is not closed');
   const vb = volume(body), vi = volume(iface), v0 = volume(off);
   assert(vb > 0 && vi > 0, `wound inward: body ${vb}, crest ${vi}`);
+  // the split adds no sliver the one-body build did not have (a collinear corner in
+  // a section made one in each ribbon end cap)
+  const z0 = zeroArea(off), zb = zeroArea(body), zi = zeroArea(iface);
+  assert(zb + zi <= z0, `zero-area triangles: ${z0} off, ${zb} body + ${zi} crest on`);
   // the split moves plastic between the two, it does not add or lose any
   assert(Math.abs(vb + vi - v0) < 0.005 * v0, `body ${vb.toFixed(1)} + crest ${vi.toFixed(1)} vs one body ${v0.toFixed(1)}`);
 }
@@ -113,6 +129,25 @@ Deno.test('interface crest: the body stops under the crest of every wall', () =>
     if (lo !== undefined) worst = Math.max(worst, v[2] - lo);
   }
   assert(worst <= 0.011, `a body vertex stands ${worst.toFixed(3)} mm into the crest`);
+});
+
+Deno.test('interface crest: sway brace tines are interface too', () => {
+  // a 150 mm post, the tall part tests/sway.test.js braces
+  const topo = blockTopo(-20, 20, -15, 15, 0, 150);
+  const rot = rotX(0);
+  const res = analyze(topo, 45, rot);
+  const run = (iface) => {
+    PROP.iface = iface;
+    try {
+      return fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true, layerHeight: 0.2, sway: { on: true } });
+    } finally { PROP.iface = false; }
+  };
+  const off = run(false), on = run(true);
+  assert(on.sway.tines > 0, `no sway tines to tag (${on.sway.reason ?? 'no brace'})`);
+  // with nothing overhanging on the post, every tagged triangle is a brace tine
+  const tagged = on.triangles.filter((v) => v[3] === 1).length / 3;
+  assert(tagged === on.sway.tines * 12, `${tagged} tagged triangles, want ${on.sway.tines} tines x 12`);
+  assert(off.triangles.every((v) => v[3] === undefined), 'off, a brace tine is tagged');
 });
 
 Deno.test('interface crest: the 3MF writes it as a third object, in register', async () => {

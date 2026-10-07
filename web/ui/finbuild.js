@@ -120,6 +120,7 @@ export function swayOpts() {
            reach: num('sway-depth', 15) / 100,
            gap: PROP.gap,
            tines: el('tines').checked,
+           iface: PROP.iface,
            layerHeight: el('layer-height').valueAsNumber };
 }
 

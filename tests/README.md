@@ -127,7 +127,9 @@ no DOM), so a change to a verdict or a solver can't silently drift:
   standing on the part (lifted and welded): the body and the crest each come out
   **closed and outward-wound**, and between them they are **the same plastic** as the
   one-body build (within 0.5%: only the 0.01 mm overlap);
+- the split adds **no zero-area triangle** the one-body build did not have;
 - **no body vertex rises into its crest**;
+- a **sway brace's tines** are tagged too;
 - the separate 3MF writes the crest as a **third object** sharing the part's transform
   and reads back as three; the locked form folds it into the supports.
 
