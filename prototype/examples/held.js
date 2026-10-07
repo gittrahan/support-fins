@@ -7,7 +7,7 @@ export { MUST, HOLE, LOW };
  * Which overhang faces a build actually holds -- the one rule probe.js and compare.js
  * share. A face counts as HELD when a wall-top point lies within maxUnsupportedSpan/2
  * of its centroid in plan and 0..1.5 mm below it, or it sits on the plate (z < 0.6),
- * or on the bed pad: the pad's top under its centroid is at most PAD_REACH below it
+ * or on the bed pad: the pad's top under its centroid is at most gap + 0.3 mm (0.5) below it
  * (or above it -- the pad's tack). A cleat sole on studs 0.7 mm up, over a 0.5 mm
  * pad, is held by the pad as a shim would hold it.
  * The rule itself (reachOf, classify) lives in web/fins/coverage.js, which the engine's
@@ -24,7 +24,7 @@ export { MUST, HOLE, LOW };
  * something, except tiny holes (a model issue -- they stay flagged, unsupported);
  * the near-plate strip is reported apart until a shim is coupon-tested.
  */
-export const PAD_REACH = PROP.gap + 0.3;   // a pad up to this far under a face holds it
+// A pad up to gap + 0.3 mm under a face holds it (read per call: a material profile sets PROP.gap).
 
 export function heldFaces(topo, res, rot, build, R) {
   const { pos } = topo;
@@ -58,16 +58,17 @@ export function heldFaces(topo, res, rot, build, R) {
            low: by[LOW][0], lowHeld: by[LOW][1] };
 }
 
-/** (x, y, z) -> is the bed pad's top under (x, y) within PAD_REACH below z (or above
+/** (x, y, z) -> is the bed pad's top under (x, y) within gap + 0.3 mm below z (or above
  *  it)? `pad` is the build's padTriangles, one vertex per entry. The top is the
  *  highest pad surface: the lowest of the pad mirrored in z. */
 function padUnder(pad) {
   if (!pad?.length) return () => false;
   const flip = new Float64Array(pad.length * 3);
+  const reach = PROP.gap + 0.3;
   pad.forEach((v, i) => { flip[i * 3] = v[0]; flip[i * 3 + 1] = v[1]; flip[i * 3 + 2] = -v[2]; });
   return (x, y, z) => {
     const m = surfaceZAt(flip, x, y);
-    return m !== null && z + m <= PAD_REACH;
+    return m !== null && z + m <= reach;
   };
 }
 

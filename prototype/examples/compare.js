@@ -34,7 +34,7 @@ function build(raster) {
   const walls = [];
   for (const q of r.props) for (const [a, e] of q.triRanges) for (let i = a; i < e; i += 3)
     walls.push([r.triangles[i], r.triangles[i + 1], r.triangles[i + 2], q.raster ? 1 : 0]);
-  const h = heldFaces(topo, res, rot, { fins: r.props }, PROP.maxUnsupportedSpan / 2);
+  const h = heldFaces(topo, res, rot, { fins: r.props, padTriangles: r.padTriangles }, PROP.maxUnsupportedSpan / 2);
   const held = h.faces.map(([f, hd]) => [f, hd]);
   const heldFrac = h.area ? h.held / h.area : null;
   return { walls, held, heldFrac, nWalls: r.props.length };
