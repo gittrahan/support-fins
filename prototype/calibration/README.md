@@ -181,7 +181,7 @@ bore's axis, inside the bore, running out the open end; 0 unserved. Checks the
 ### torture/ -- one part with every hard shape, as the site supports it (no setting)
 Not a rung coupon: a showcase that sets nothing. A spine on the plate with, front:
 40 / 30 / 20 deg ramps rising 10 mm (angle raised on top), a 20 mm ball, a 2 mm
-ledge 18 mm out and 24 mm up; back: a table (30 mm flat bridge, 14 up), a 26 mm
+ledge 18 mm out and 24 mm up; back: a table (28 mm flat bridge between its legs, 14 up), a 26 mm
 mushroom cap on a 5 mm stem, a cave (18 x 14 flat ceiling); through the spine:
 3 / 6 / 12 mm sideways holes (size raised above each); on the end: an arch tunnel.
 One build in Full coverage (mode 'full') at every other default, all supports kept.

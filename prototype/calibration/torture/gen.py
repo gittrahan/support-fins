@@ -7,7 +7,7 @@ Along a spine block on the plate (x 0-126, y -7..7, 30 mm tall), clockwise from 
 front left:
 
     front (-y)  ramps at 40 / 30 / 20 deg rising 10 mm, a 20 mm ball, a 2 mm ledge 18 mm out
-    back  (+y)  a table (30 mm flat bridge), a 26 mm mushroom cap on a 5 mm stem, a cave
+    back  (+y)  a table (28 mm flat bridge between its legs), a 26 mm mushroom cap on a 5 mm stem, a cave
     through     sideways holes 3 / 6 / 12 mm across, along y
     end         an arch tunnel (x 0 end)
 
