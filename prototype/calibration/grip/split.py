@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Grip coupon, split: the same part and walls as print/grip-coupon.3mf, but saved as TWO
 objects -- the part, and every support as its own object -- the way Clough42 splits his
-designed support ("Split to objects", not parts; local reference in the repo owner's notes,
-GitHub #38). As one object the slicer runs one perimeter through part and tine, so the tine
+designed support ("Split to objects", not parts; GitHub #38). As one object the slicer runs one perimeter through part and tine, so the tine
 welds; as two, each keeps its own perimeter and the tine only touches.
 
 Supports are cut at the part's surface first (anything inside the part removed: tines already

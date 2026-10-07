@@ -198,7 +198,7 @@ tines (`built.props[i].tines` is right), so build.js counts from props.
   makes the slicer run one perimeter through part and tine (a weld); two keep their own.
   **2026-10-06, PLA:** loads and slices as wanted in Bambu Studio and PrusaSlicer; marks
   "a little bit better" than the merged print -- an improvement on a steep overhang, not
-  as much as hoped. Decision: the site exports supports as their own object.
+  as much as hoped. Decision: build a site export with supports as their own object (not built yet).
 
 ### tine/ -- does a separate-object (KISS) tine leave a fainter mark, or is it just fewer tines?
 **v2 (current).** Bar on the plate with fifteen 40 deg ledges, 8 on the near side
