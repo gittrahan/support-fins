@@ -6,7 +6,6 @@
  *   deno run -A prototype/calibration/sampler/build.js
  */
 import { loadCoupon, finsWith, supportOf, writeCoupon } from '../coupon.js';
-const { writeThreeMF } = await import(new URL('../../../web/threemf.js', import.meta.url).pathname);
 
 const c = loadCoupon(import.meta.url);
 const built = finsWith(c, { mode: 'full' });
@@ -16,9 +15,5 @@ console.log('walls', kinds, 'fill walls', built.fill?.walls ?? built.fins.filter
   'tines', built.tines, 'pad', !!built.pad);
 console.log('fill', JSON.stringify(built.fill, (k, v) => (Array.isArray(v) && v.length > 8 ? `[${v.length}]` : v)));
 const sup = supportOf(built);
+// writeCoupon writes the supports as their own object, like the site's Export > 3MF (#199)
 await writeCoupon(c, 'sampler', 'Sampler', sup);
-// what the site's Export > 3MF writes now: supports as their own object (#199), so the tines
-// only touch the part -- the print to judge (it replaces writeCoupon's one-object file)
-Deno.writeFileSync(`${c.out}sampler-coupon.3mf`,
-  new Uint8Array(await writeThreeMF(c.part, sup, 'Sampler', { separate: true }).arrayBuffer()));
-console.log('sampler-coupon.3mf = supports as their own object');
