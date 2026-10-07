@@ -9,17 +9,17 @@
     "gap-coupon.3mf": {
       "minutes": 20,
       "grams": 7.5,
-      "sha256": "7df81d14dbc28208d6f33acc7697a99d88d265688d0ff14d06e5f19b4669edd0"
+      "sha256": "2b1925e118e4526164776d51fc57febb7eec12531ad14ac6fed9fd636c2612d7"
     },
     "grip-coupon.3mf": {
-      "minutes": 62,
+      "minutes": 63,
       "grams": 24.3,
-      "sha256": "eccd18cf88e04db49248d33d7fabb275ebe81f7497c4c6566eee4e79115c2685"
+      "sha256": "5307efbbdadac70189c640b2371b44925ce4d4a317513ce805b3dbf5d62ae3d7"
     },
     "pad-coupon.3mf": {
-      "minutes": 33,
+      "minutes": 34,
       "grams": 11.9,
-      "sha256": "c75aa6533c4cad80acd8a7035673fb7480dfd54f64cfb984528a8f1095cb986a"
+      "sha256": "ea940ba86f203e3af0c42cfa281a912c3b90484be9165fb3f5a3144a9cad4d26"
     },
     "bore-coupon.3mf": {
       "minutes": 22,

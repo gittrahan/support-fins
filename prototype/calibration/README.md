@@ -28,9 +28,13 @@ PrusaSlicer's command line for the time and filament the menu shows
 (`web/calibration/coupons.json`). `tests/calibrate.test.js` fails if a copy is stale.
 
 `out/` is git-ignored. The files actually printed are committed in `<name>/print/`
-(.3mf with the part and walls as two parts of ONE object -- a slicer unions them, as it
-does the site's 3MF -- one merged .stl, a render), so a
-coupon can be reprinted as-is even after the engine moves on. Record each print's result below, with the date and the
+(.3mf, one merged .stl, a render), so a coupon can be reprinted as-is even after the
+engine moves on. The .3mf has the part and supports as TWO objects in register, as the
+site's Export > 3MF writes them since #199 (the slicer keeps them apart, so a tine only
+touches the part); never Arrange them apart. Files printed before that were one object;
+`separate.py` converted gap, grip, pad, span and lip in place on 2026-10-07 with their
+meshes unchanged (slender, foot, orient keep the one-object form they were printed in;
+tine/ has its own split). Record each print's result below, with the date and the
 setting it decided; the number itself goes in `web/prop/config.js` with a pointer here.
 
 ## Coupons

@@ -113,11 +113,12 @@ export function assertClosed(verts, what) {
 /** All of a build's support triangles: walls, wedges, braces and the bed pad. */
 export const supportOf = (built) => [...(built.triangles ?? []), ...(built.padTriangles ?? [])];
 
-/** out/<name>-coupon.3mf (part + supports as two objects), .stl (merged), -fins.stl. */
+/** out/<name>-coupon.3mf (part and supports as two objects in register, the site's
+ *  Export > 3MF since #199), .stl (merged), -fins.stl. */
 export async function writeCoupon(c, name, title, sup) {
   assertClosed(sup, `${name} supports`);
   const bytes = async (blob) => new Uint8Array(await blob.arrayBuffer());
-  Deno.writeFileSync(`${c.out}${name}-coupon.3mf`, await bytes(writeThreeMF(c.part, sup, title)));
+  Deno.writeFileSync(`${c.out}${name}-coupon.3mf`, await bytes(writeThreeMF(c.part, sup, title, { separate: true })));
   Deno.writeFileSync(`${c.out}${name}-coupon.stl`, await bytes(writeBinarySTL([...c.part, ...sup], title)));
   if (sup.length) Deno.writeFileSync(`${c.out}${name}-fins.stl`, await bytes(writeBinarySTL(sup, `${title} supports`)));
   console.log(`wrote ${c.out}${name}-coupon.3mf (+ .stl${sup.length ? ', supports-only .stl' : ''})`);
