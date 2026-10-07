@@ -122,14 +122,16 @@ no DOM), so a change to a verdict or a solver can't silently drift:
   `opts.tunables` (the Worker has its own copy of `cutout.js`).
 
 **`interface.test.js`** -- the interface crest (GitHub #21, `web/prop/crest.js`):
-- off, **nothing is tagged** (the rest of the suite pins off as unchanged);
-- on, for prop walls with tines, a wedge, Full, a cut wall, squat walls, and a wall
-  standing on the part (lifted and welded): the body and the crest each come out
-  **closed and outward-wound**, and between them they are **the same plastic** as the
-  one-body build (within 0.5%: only the 0.01 mm overlap);
-- the split adds **no zero-area triangle** the one-body build did not have;
+- off, **nothing is tagged** (the sweep pins off as byte-identical);
+- **everywhere**, for prop walls with tines, a wedge, Full, a cut wall, squat walls, and
+  **flat contacts** on a wall standing on the part (lifted and welded) and the portal's
+  flat ceiling: body and crest each come out **closed and outward-wound**, **lose no
+  plastic** of the one-body build (a flat crest adds only its untapered tip, < 5%), and
+  add **no zero-area triangle**;
+- flat contacts give a flat ceiling a **full-width** (th) crest, and a 35° cube's tilted
+  underside and its tines **none**;
 - **no body vertex rises into its crest**;
-- a **sway brace's tines** are tagged too;
+- everywhere, a **sway brace's tines** are tagged too;
 - the separate 3MF writes the crest as a **part of the supports object** (a floating
   object of its own is refused by Orca) and reads back with every triangle; the locked
   form folds it into the supports.

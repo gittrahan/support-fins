@@ -128,19 +128,28 @@ welts.
   cut -- their tines anchor across the whole blade.
 
 - **Interface material (optional, off by default).** GitHub #21: a toolchanger can
-  print the part-facing band of every support in a second material that won't bond to
-  the part (PETG under PLA). With `PROP.iface` on (`web/prop/crest.js`), each wall --
-  prop, part-attached, squat, Draw/fill, wedge blade -- is split `PROP.ifaceH` = 0.6 mm
-  (three 0.2 mm layers, inside the 1.5 mm tip taper) below its top: the body below, the
-  crest above, the crest reaching 0.01 mm down into the body so the two overlap. The
-  tines and their wall steps are interface too, and so are sway braces' tines. The 3MF export writes the interface as a
-  second part of the supports object, `<name> interface` (an object of its own starts
-  in mid-air, and Orca refuses it: "empty first layer"). The gap
-  stays the material's: whether PETG lets it close is a coupon question. Not split yet:
-  a sway rib's own inner edge (a vertical contact the full height of the rib), the
-  bottom of a wall standing on the part (its foot, footGap above the part, stays body),
-  and a wedge whose contact line steps straight up (no run to sweep a crest along; that
-  wedge stays one body).
+  print the part-facing band of a support in a second material that won't bond to the
+  part (PETG under PLA). `PROP.iface` (`web/prop/crest.js`) is a mode:
+  - **Flat contacts** (the default when on): a wall station gets a crest only where
+    the part's underside above it is within `ifaceFlatDeg` = 10° of level. There the
+    crest is `PROP.ifaceH` = 0.6 mm (three 0.2 mm layers) of the wall's full 1.0 mm
+    (two lines), no tip taper: the taper only exists so fused PLA snaps off, and it
+    left one PETG line with nothing to bond to. 10° keeps the full-width edge 0.09 mm
+    off the part, under the gap. Tines stay in the body material. That is how PETG
+    interfaces are used (flat undersides come out like top surfaces) and costs a few
+    layers of tool changes. A cube at 35° gets none: its first print (crest
+    everywhere) couldn't lay the PETG on the PLA, climbing through every layer.
+  - **Everywhere**: every wall top (on a slope it keeps the tip's taper, or its edge
+    would rise into the part) and the tines, sway braces' included.
+  The crest reaches 0.01 mm down into the body (they overlap); every wall kind is split
+  -- prop, part-attached, squat, Draw/fill, and a wedge blade when all of its contact is
+  a crest. The 3MF export writes the interface as a second part of the supports object,
+  `<name> interface` (an object of its own starts in mid-air, and Orca refuses it:
+  "empty first layer"); the readout says when the mode is on and no wall got one. The
+  gap stays the material's: what it should be over PETG (0 / 0.1 / 0.2) is a coupon
+  question. Not split: a sway rib's own inner edge (a vertical contact the full height
+  of the rib), the foot of a wall standing on the part, and a wedge whose contact line
+  steps straight up.
 
 ## Bed pad styles — `PAD.style` in `web/fins/pad.js`
 

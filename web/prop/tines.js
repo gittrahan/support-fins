@@ -162,11 +162,13 @@ export function tineStepFor(density) {
 const STEP_INSET = 0.01;
 
 export function emitTines(line, tris, topo, rot, offset, out, ...rest) {
-  // with the interface crest on, the whole comb (tines and wall steps) prints in
-  // the interface material: it is what reaches into the part (prop/crest.js)
+  // with the interface crest on everywhere, the whole comb (tines and wall steps)
+  // prints in the interface material: it is what reaches into the part. Not under
+  // 'flat': a tine grips a sideways face, where the interface would climb through
+  // every layer (prop/crest.js).
   const from = out.length;
   const n = comb(line, tris, topo, rot, offset, out, ...rest);
-  if (crestOn()) markInterface(out, from);
+  if (crestOn() && PROP.iface === 'all') markInterface(out, from);
   return n;
 }
 

@@ -34,7 +34,7 @@
  */
 import { floatingPieces } from './pieces.js';
 import { findWallPatches } from './planes.js';
-import { buildProps, noProps, PROP } from './prop.js';
+import { buildProps, crestOn, crestPart, noProps, PROP } from './prop.js';
 import { buildSwayBraces } from './sway.js';
 import { CUT, CUTOUT_PATTERNS } from './cutout.js';
 import { FIN } from './fins/config.js';
@@ -96,8 +96,8 @@ export function applyTunables(t) {
   set(PERP, 'gap', t.propGap);
   // Not a clearance, but module state with the same Worker problem.
   if (CUTOUT_PATTERNS.includes(t.cutout)) CUT.pattern = t.cutout;
-  // So is the interface crest's switch (GitHub #21, prop/crest.js).
-  if (typeof t.iface === 'boolean') PROP.iface = t.iface;
+  // So is the interface crest's mode (GitHub #21, prop/crest.js).
+  if ([false, 'flat', 'all'].includes(t.iface)) PROP.iface = t.iface;
 }
 
 /**
@@ -121,6 +121,8 @@ export function buildFins(topo, result, rot, opts = {}) {
 
 function buildFinsAndBraces(topo, result, rot, opts = {}) {
   applyTunables(opts.tunables);
+  // the interface crest's 'flat' test reads the underside off the seated part
+  crestPart(crestOn() ? seatedPartTris(topo, rot, result.offset) : null);
   const built = buildFinsCore(topo, result, rot, opts);
   // Sway braces are an optional ADD-ON to whatever the mode placed (sway.js): a
   // tall part still needs its overhangs held, and bracing its sides is a

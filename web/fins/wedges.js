@@ -9,7 +9,7 @@
  */
 import { cutWall } from '../cutout.js';
 import { findWallPatches, patchPoint, patchProbe, zAt } from '../planes.js';
-import { crestOn, emitCrest, emitTines, flatCrestRing, flatCut, PROP, surfaceZAt, tineStepFor } from '../prop.js';
+import { crestKinds, emitCrest, emitTines, flatCrestRing, flatCut, PROP, surfaceZAt, tineStepFor } from '../prop.js';
 import { seatedPartTris } from './seating.js';
 
 /**
@@ -285,9 +285,12 @@ export function buildPerpFins(p, topo, rot, offset, opts = {}) {
     if (Math.max(...top.map((q) => q[2])) < PERP.minH) continue;
 
     // With the interface crest on (prop/crest.js) the blade stops at the crest's
-    // cut and the crest rides on it. A vertical step in the contact has no run to
-    // sweep the crest along, so that wedge stays one body.
-    const crest = crestOn() ? crestSections(top, uDir, half) : null;
+    // cut and the crest rides on it -- the whole blade or none of it: its top is
+    // flat, so it can't step down where the crest ends. 'flat' crests a wedge only
+    // under a level contact (a wedge serves a leaning face, so rarely). A vertical
+    // step in the contact has no run to sweep the crest along: one body.
+    const kinds = crestKinds(contact);
+    const crest = kinds?.every(Boolean) ? crestSections(top, uDir, half) : null;
     const blade = crest ? top.map((q) => [q[0], q[1], flatCut(q[2])]) : top;
     // ring: up the bed edge, along the top, down the bed edge (closes along the bed)
     const ring = [[blade[0][0], blade[0][1], 0], ...blade,

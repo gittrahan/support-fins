@@ -16,7 +16,7 @@
  * into a watertight wall, reusing prop/sweep.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
-import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor } from './prop.js';
+import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor, crestPart } from './prop.js';
 
 /**
  * A hand-drawn wall may be much shorter than an auto wall (PROP.minSpan, 7 mm): the user
@@ -196,6 +196,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     return { ok: false, reason: `wall too short — ${len.toFixed(1)}mm, needs ${DRAW_MIN_LEN}mm` };
   }
   const out = [];
+  crestPart(tris);         // the interface crest's 'flat' test reads the underside here
   // A drawn wall grips the part with the same tine comb the auto fins use, when
   // Tines is on. emitTines needs the part in topology form (for bite direction), so
   // it only runs when the caller passes topo/rot/offset -- the live preview omits

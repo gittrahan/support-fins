@@ -10,7 +10,7 @@ import { ribbon } from '../solids.js';
 import { longestRun, stationCertified, stationIsClear, welds } from './clearance.js';
 import { PROP } from './config.js';
 import { settleTop } from './contact.js';
-import { crestCut, emitCrest } from './crest.js';
+import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
 
 /**
  * Sweep a SQUAT breakaway wall: a thin wall necking to the breakaway tip, on a
@@ -22,6 +22,7 @@ import { crestCut, emitCrest } from './crest.js';
  */
 export function sweepSquat(line, zBed, out) {
   const wall = [], brim = [], crest = [];
+  const kinds = crestKinds(line);          // the interface crest's plan, null when off
   const brimTop = zBed + PROP.squatBrimH;
   for (let i = 0; i < line.length; i++) {
     const p = line[i];
@@ -39,9 +40,9 @@ export function sweepSquat(line, zBed, out) {
     // neck to the tip over whatever height is left above the brim
     const ztip = Math.max(top - PROP.tipH, brimTop + 0.05);
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
-    // with the interface crest on, the stem stops at the crest's cut
-    const c = crestCut(top, ztip, brimTop);
-    if (c) crest.push(c.ring(P));
+    // where the interface crest runs, the stem stops at the crest's cut
+    const c = crestCut(top, ztip, brimTop, kinds?.[i]);
+    crest.push(c?.ring(P) ?? null);
     const [zt, zTop, wTop] = c ? [c.zt, c.cut, c.wc] : [ztip, top, PROP.tip / 2];
 
     // the stem: bed to breakaway tip, th-wide then necking to the contact tip
@@ -55,9 +56,10 @@ export function sweepSquat(line, zBed, out) {
       P(-PROP.squatBrimW, brimTop), P(-PROP.squatBrimW, zBed),
     ]);
   }
+  const from = out.length;
   ribbon(wall, out);
   ribbon(brim, out);
-  emitCrest(crest, out);
+  if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
   return true;
 }
 

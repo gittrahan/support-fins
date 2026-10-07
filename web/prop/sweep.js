@@ -9,7 +9,7 @@
 import { cutWall } from '../cutout.js';
 import { ribbon } from '../solids.js';
 import { PROP } from './config.js';
-import { crestCut, emitCrest } from './crest.js';
+import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
 
 /**
  * Foot half-width for a wall of height `h`.
@@ -57,6 +57,7 @@ export function profileHalf(z, top) {
  */
 export function sweep(line, zBed, out, minH = PROP.minHeight) {
   const wall = [], flange = [], st = [], crest = [];
+  const kinds = crestKinds(line);          // the interface crest's plan, null when off
   for (let i = 0; i < line.length; i++) {
     const p = line[i];
     const a = line[Math.max(0, i - 1)];
@@ -77,9 +78,9 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
     const ztip = Math.max(top - PROP.tipH, zBed + flangeH + 0.1);
     const baseTop = zBed + flangeH;
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
-    // with the interface crest on, the stem stops at the crest's cut
-    const c = crestCut(top, ztip, zBed);
-    if (c) crest.push(c.ring(P));
+    // where the interface crest runs, the stem stops at the crest's cut
+    const c = crestCut(top, ztip, zBed, kinds?.[i]);
+    crest.push(c?.ring(P) ?? null);
     const [zt, zTop, wTop] = c ? [c.zt, c.cut, c.wc] : [ztip, top, PROP.tip / 2];
 
     // the stem: a straight thin wall from the bed up to the breakaway tip
@@ -94,9 +95,10 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
     st.push({ p, sx, sy, top: zTop, ztip: zt, tipHalf: wTop, bot: zBed, botTip: baseTop, taperBot: false });
   }
 
+  const from = out.length;
   if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
   ribbon(flange, out);
-  emitCrest(crest, out);
+  if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
   return true;
 }
 
@@ -135,6 +137,7 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
   // both sides together: sideFloors' tilt assumes one gap added to both, and a
   // plate side left down under a chamfer's toe ran 0.07 mm off the part
   const wall = [], st = [], crest = [];
+  const kinds = crestKinds(topLine);       // the interface crest's plan, null when off
   for (let i = 0; i < topLine.length; i++) {
     const p = topLine[i];
     const a = topLine[Math.max(0, i - 1)];
@@ -167,9 +170,9 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     const taper = Math.min(PROP.tipH, welded ? h / 2 : h - 0.1);
     const zBotTip = welded ? bot + taper : bHi;
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
-    // with the interface crest on, the wall stops at the crest's cut
-    const c = crestCut(top, top - taper, zBotTip);
-    if (c) crest.push(c.ring(P));
+    // where the interface crest runs, the wall stops at the crest's cut
+    const c = crestCut(top, top - taper, zBotTip, kinds?.[i]);
+    crest.push(c?.ring(P) ?? null);
     const [zTopTip, zTop, wTop] = c ? [c.zt, c.cut, c.wc] : [top - taper, top, PROP.tip / 2];
 
     // one closed section: th-wide through the middle, tip-wide at the top and,
@@ -186,8 +189,9 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     st.push({ p, sx, sy, top: zTop, ztip: zTopTip, tipHalf: wTop, bot: bHi, botTip: zBotTip, taperBot: welded, botN: bN, botP: bP });
   }
 
+  const from = out.length;
   if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
-  emitCrest(crest, out);
+  if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
   return true;
 }
 

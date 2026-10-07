@@ -351,9 +351,10 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
       const outline = (h) => [[ov, -half], [e[h][0], -half], [e[h][1], half], [ov, half]];
       const local = [];
       loftExtrude(outline('bot'), outline('top'), bot, top, PT, local);
-      // with Interface material on, a tine prints in the interface filament, tagged
-      // the way prop/crest.js tags the walls' (a 4th vertex component, v[3] = 1)
-      if (opts.iface) for (const v of local) v[3] = 1;
+      // with Interface material on everywhere, a tine prints in the interface
+      // filament, tagged the way prop/crest.js tags the walls' (a 4th vertex
+      // component, v[3] = 1); not under 'flat', which leaves sideways grip alone
+      if (opts.iface === 'all') for (const v of local) v[3] = 1;
       pushSolid(local, out);
       tines++;
       if (bot < firstGrip) firstGrip = bot;
