@@ -113,6 +113,7 @@ export function applyTunables(t) {
  */
 export function buildFins(topo, result, rot, opts = {}) {
   const built = buildFinsAndBraces(topo, result, rot, opts);
+  crestPart(null);   // the crest's part is only for this build (a Worker keeps no mesh)
   // A piece of the part that starts in mid-air (a cut clean through, a loose
   // body) needs saying no matter what was placed: see floatingPieces.
   built.floating = floatingPieces(topo, result, rot);

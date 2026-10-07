@@ -347,7 +347,9 @@ export function cutWall(st, full, out, wall) {
   // the wall is too short for any zone the two meet in the middle.
   const zHi = [], zLo = [];
   for (const q of st) {
-    const hi = q.ztip - CUT.rail, lo = q.botTip + CUT.rail;
+    // under a flat interface crest ztip is the crest's cut; the holes still stop
+    // where the wall's taper began (holeTop), so the crest takes no plastic from them
+    const hi = (q.holeTop ?? q.ztip) - CUT.rail, lo = q.botTip + CUT.rail;
     const m = (hi + lo) / 2;
     zHi.push(hi > lo ? hi : m);
     zLo.push(hi > lo ? lo : m);

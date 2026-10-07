@@ -13,7 +13,7 @@ import {
 } from './settings.js';
 import { analysisTiming } from './part.js';
 import { ifaceMaterial } from './scene.js';
-import { activeAdded, finMaterial, padMaterial } from './finbuild.js';
+import { activeAdded, activeWalls, finMaterial, padMaterial } from './finbuild.js';
 
 /**
  * Why did this part get no fins, in terms the user can act on?
@@ -143,12 +143,13 @@ export function updateReadout(built, ms) {
 }
 
 /**
- * Interface material is on but no wall top got a crest (every contact tilted, in
- * 'flat' mode): say so, or the export quietly has no interface part to set.
+ * Flat contacts is on and there are walls, but no wall top got a crest (every contact
+ * tilted): say so, or the export quietly has no interface part to set. Walls only --
+ * a pad alone is no support to put an interface on.
  */
 function ifaceNote() {
-  if (!PROP.iface) return null;
-  const tris = activeAdded();
+  if (PROP.iface !== 'flat') return null;
+  const tris = activeWalls();
   if (!tris.length || tris.some((v) => v[3] === 1)) return null;
   return 'Interface material: no flat contacts here, so every support prints in one material';
 }

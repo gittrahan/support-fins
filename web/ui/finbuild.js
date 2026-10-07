@@ -45,12 +45,17 @@ export const padMaterial = new THREE.MeshStandardMaterial({
 export let lastBuilt = null;       // last buildFins result, kept for the bed pad + seating readout
 /** The walls + pad the CURRENT mode contributes to the export and the fit check. */
 export function activeAdded() {
+  return [...activeWalls(), ...padTris];
+}
+
+/** The walls alone (activeAdded without the pad). */
+export function activeWalls() {
   // Both auto modes bake their geometry into finTris (refreshFins' else branch):
   // Suggest → gripping fins + fallback props, Combined fin → gripping fins only.
   // Only Draw leaves it empty and exports the hand-drawn walls instead.
   const auto = finMode === 'draw' ? [] : finTris;
   const drawn = drawShown() ? drawnTris : [];
-  return [...auto, ...drawn, ...padTris];
+  return [...auto, ...drawn];
 }
 
 /**

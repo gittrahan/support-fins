@@ -7,7 +7,7 @@
 //   - the crest is the band at the top: no body vertex rises into it;
 //   - the 3MF writes the crest as a third object, in register, and reads it back.
 
-import { WEB, assert, block, blockTopo, loadModel, analyze, fins, prop, rotX, isClosed } from './_util.js';
+import { WEB, assert, block, blockTopo, loadModel, analyze, fins, prop, rotX, rotY, isClosed } from './_util.js';
 
 const { writeThreeMF, readThreeMF } = await import(`${WEB}threemf.js`);
 const { drawnWall } = await import(`${WEB}draw.js`);
@@ -84,6 +84,21 @@ for (const [name, rot, opts] of CASES) {
   const label = `${name}${opts.mode ? ` ${opts.mode}` : ''}${opts.cutout ? ` ${opts.cutout}` : ''}`;
   Deno.test(`interface crest: ${label}, everywhere -- no plastic lost, split into two closed solids`, () => {
     checkSplit(build(name, rot, { ...opts, iface: false }), build(name, rot, { ...opts, iface: 'all' }));
+  });
+}
+
+// 'flat' on walls that mix flat and tilted stations, under cutouts (the holes keep
+// their old ceiling: a flat crest's cut must not let them climb and take plastic),
+// and on the near-bed ledge's squat walls.
+const FLAT_CASES = [
+  ['lbracket', rotY(8), { cutout: 'lattice' }],
+  ['staircase', rotY(8), { cutout: 'lattice' }],
+  ['plus', rotX(90), { cutout: 'diamond' }],
+  ['lowledge', rotX(0), {}],
+];
+for (const [name, rot, opts] of FLAT_CASES) {
+  Deno.test(`interface crest: ${name}${opts.cutout ? ` ${opts.cutout}` : ''}, flat contacts -- no plastic lost, split into two closed solids`, () => {
+    checkSplit(build(name, rot, { ...opts, iface: false }), build(name, rot, { ...opts, iface: 'flat' }));
   });
 }
 

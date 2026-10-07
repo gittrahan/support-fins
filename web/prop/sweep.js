@@ -92,7 +92,7 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
     flange.push([
       P(+foot, zBed), P(+foot, baseTop), P(-foot, baseTop), P(-foot, zBed),
     ]);
-    st.push({ p, sx, sy, top: zTop, ztip: zt, tipHalf: wTop, bot: zBed, botTip: baseTop, taperBot: false });
+    st.push({ p, sx, sy, top: zTop, ztip: zt, holeTop: ztip, tipHalf: wTop, bot: zBed, botTip: baseTop, taperBot: false });
   }
 
   const from = out.length;
@@ -186,7 +186,7 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
       P(+PROP.th / 2, bP), P(+PROP.th / 2, zTopTip), P(+wTop, zTop),
       P(-wTop, zTop), P(-PROP.th / 2, zTopTip), P(-PROP.th / 2, bN),
     ]);
-    st.push({ p, sx, sy, top: zTop, ztip: zTopTip, tipHalf: wTop, bot: bHi, botTip: zBotTip, taperBot: welded, botN: bN, botP: bP });
+    st.push({ p, sx, sy, top: zTop, ztip: zTopTip, holeTop: top - taper, tipHalf: wTop, bot: bHi, botTip: zBotTip, taperBot: welded, botN: bN, botP: bP });
   }
 
   const from = out.length;
