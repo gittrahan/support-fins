@@ -3,41 +3,86 @@
 Pad gap) to hold the part down and still peel off clean? Too small welds the pad
 on; too big lets the part go.
 
-The one coupon that is SEVERAL pieces, on purpose: a bed pad holds a part that
-barely touches the plate, so each rung is its own 15 mm cube standing on an edge,
-held only by its pad (a cube that comes loose mid-print is the result, not a lost
-coupon). Each cube is its own part (out/cube_<k>.stl): build.js runs the site's
-Auto build on each one alone, with Bed pad = Custom at Light's numbers and that
-cube's Pad gap, so every cube gets the pad the site would give it -- built
-together, their contacts line up and the engine lays ONE pad under all six.
-Each cube has its pad gap (mm) raised on a face.
+ONE piece (Matthew: no loose cubes): a keel -- a bar whose underside is a knife
+edge, so it meets the bed along a line -- with pointed arches cut out of that edge
+so it stands on four short feet. Each foot gets its own pad at its own Pad gap. The
+keel's sides (above a 1.5 mm 45 deg edge), the arches and the ramps at the ends all rise at 60 deg, steeper than
+the 45 deg overhang limit, so nothing but the pads holds the bar (a square bar on
+its edge leaned at 45 deg, and Auto braced those faces with wedges). A foot whose
+pad stands too far off lifts at that corner; a pad that won't peel, or tears the
+edge, is too close.
+
+The engine lays ONE pad under all of a part's bed contact, so build.js builds each
+foot's pad on its own post: out/foot_<k>.stl is the bar cut at the arch apexes
+either side of foot k (above the pad, so the pad sees the same part it would under
+the whole bar). out/coupon_part.stl is the whole bar. The pad's oval is centred on
+the contact's mean VERTEX, so a foot with a flat end face (many vertices at one
+end) got a lopsided pad that reached the next one; the end ramps keep every foot
+alike. Each foot has its pad gap (mm) raised on the top above it.
 
     python3 prototype/calibration/pad/gen.py && deno run -A prototype/calibration/pad/build.js
 """
-import json
+import math
 import sys
 from pathlib import Path
 
 import trimesh
+from shapely.geometry import Polygon
+from trimesh.creation import extrude_polygon
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from coupon import bx, label  # noqa: E402
+from coupon import label, write  # noqa: E402
 
-GAPS = [0, 0.08, 0.12, 0.16, 0.2, 0.3]   # 0.12 = Light's brim gap; under ~0.1 slicers close it
-S, STEP = 15.0, 28.0
+GAPS = [0, 0.12, 0.2, 0.3]   # 0.12 = Light's brim gap; under ~0.1 slicers close it
+B = 12.0                     # keel width (mm)
+H = 20.0                     # keel height
+FOOT = 12.0                  # each foot's length on the bed
+ARCH = 12.0                  # arch width at the bed: the pads (spread 4) stay ~2.7 mm apart
+RISE = math.radians(60)      # every slope under the bar, clear of the 45 deg overhang limit
+EDGE = 1.5                   # ...but the keel's bottom 1.5 mm is a 45 deg edge, a cube's on its
+                             # edge (the pad's case), too short for a wedge (PERP.minH 2)
+t = 1 / math.tan(RISE)       # x per mm of rise
+L = len(GAPS) * (FOOT + ARCH)   # foot to foot, plus half an arch's width at each end
+xs = [(k + 0.5) * (FOOT + ARCH) for k in range(len(GAPS))]   # foot centres
+apex = ARCH / 2 / t
+
+
+def prism(poly, plane, length):
+    """The polygon `poly`, drawn in the yz plane (extruded along x, from 0) or in
+    the xz plane (extruded across y, centred on y = 0)."""
+    m = extrude_polygon(Polygon(poly), length)
+    if plane == 'yz':      # drawn as (y, z) in xy, extruded along z -> along x
+        m.apply_transform([[0, 0, 1, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
+    else:                  # drawn as (x, z) in xy, extruded along z -> across y
+        m.apply_transform(trimesh.transformations.rotation_matrix(math.pi / 2, [1, 0, 0]))
+        m.apply_translation([0, length / 2, 0])
+    return m
+
+
+x0b, x1b = ARCH / 2 - (H + 1) * t, L - ARCH / 2 + (H + 1) * t
+zs = EDGE + (B / 2 - EDGE) / t     # where the 60 deg sides meet the keel's walls
+keel = prism([(0, 0), (EDGE, EDGE), (B / 2, zs), (B / 2, H), (-B / 2, H), (-B / 2, zs), (-EDGE, EDGE)], 'yz', x1b - x0b)
+keel.apply_translation([x0b, 0, 0])
+cuts = [prism([(xc - ARCH / 2 - t, -1), (xc + ARCH / 2 + t, -1), (xc, apex)], 'xz', B + 2)
+        for xc in ((a + b) / 2 for a, b in zip(xs, xs[1:]))]
+cuts.append(prism([(x0b - 1, -1), (ARCH / 2 + t, -1), (ARCH / 2 - (H + 1) * t, H + 1), (x0b - 1, H + 1)], 'xz', B + 2))
+cuts.append(prism([(x1b + 1, -1), (L - ARCH / 2 - t, -1), (L - ARCH / 2 + (H + 1) * t, H + 1), (x1b + 1, H + 1)], 'xz', B + 2))
+bar = trimesh.boolean.difference([keel] + cuts, engine='manifold')
+bar = trimesh.boolean.union([bar] + [m for x, g in zip(xs, GAPS) for m in label(f'{g:g}', x, 0, H, size=5)],
+                            engine='manifold')
 
 out = Path(__file__).parent / 'out'
 out.mkdir(exist_ok=True)
 rungs = []
-for k, gap in enumerate(GAPS):
-    cube = trimesh.boolean.union([bx(-S / 2, S / 2, -S / 2, S / 2, -S / 2, S / 2)]
-                                 + label(f'{gap:g}', 0, 0, S / 2, size=3.5),
-                                 engine='manifold')
-    assert cube.is_watertight and len(cube.split(only_watertight=False)) == 1
-    cube.apply_transform(trimesh.transformations.rotation_matrix(0.7853981634, [1, 0, 0]))   # onto an edge
-    cube.apply_translation([0, 0, -cube.bounds[0][2]])
-    cube.export(out / f'cube_{k + 1}.stl')
-    rungs.append({'id': k + 1, 'padGap': gap, 'x': k * STEP, 'file': f'cube_{k + 1}.stl'})
-json.dump(rungs, open(out / 'rungs.json', 'w'), indent=1)
-print(f'pad coupon: {len(GAPS)} cubes, {STEP:.0f} mm apart')
-for r in rungs: print(f"  cube {r['id']}: pad gap {r['padGap']} mm")
+for k, (x, g) in enumerate(zip(xs, GAPS)):
+    lo, hi = max(x0b, x - FOOT / 2 - ARCH / 2), min(x1b, x + FOOT / 2 + ARCH / 2)
+    post = trimesh.boolean.intersection([bar, prism([(lo, -1), (hi, -1), (hi, H + 2), (lo, H + 2)], 'xz', B + 2)],
+                                        engine='manifold')
+    assert post.is_watertight and len(post.split(only_watertight=False)) == 1
+    post.export(out / f'foot_{k + 1}.stl')
+    rungs.append({'id': k + 1, 'padGap': g, 'x': x, 'span': [lo, hi], 'file': f'foot_{k + 1}.stl'})
+write(__file__, [bar], rungs)
+ext = bar.bounds[1] - bar.bounds[0]
+print(f'pad coupon: one bar {ext[0]:.0f} x {ext[1]:.0f} x {ext[2]:.1f} mm, {len(GAPS)} feet {FOOT:g} mm long, '
+      f'arches {ARCH:g} mm wide and {apex:.1f} mm high')
+for r in rungs: print(f"  foot {r['id']} at x {r['x']:g}: pad gap {r['padGap']} mm")

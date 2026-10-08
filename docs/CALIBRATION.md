@@ -65,11 +65,13 @@ as it moves right: on this shelf the middle position leaves a wider bare stretch
 bare stretch your printer can bridge.
 
 ## Pad (`pad/print/pad-coupon.3mf`)
-Six cubes standing on an edge. A pad is all that holds each one down. Each pad stands
-a different gap off its cube: 0, 0.08, 0.12, 0.16, 0.2, 0.3 mm, written on each cube.
-- Cube came loose mid-print → gap too big.
-- Pad won't peel, or tears the cube's edge → gap too small.
-- Use the **biggest gap whose cube stayed put**. Set Bed pad to **Custom**, put it in
+One bar standing on four short knife-edge feet, with arches between them. A pad is all
+that holds each foot down. Each pad stands a different gap off its foot: 0, 0.12, 0.2,
+0.3 mm, written on top above it.
+- A foot lifted at its corner → gap too big. (The other feet keep the bar down, so a
+  gap that's too big shows as a lift, not a lost part.)
+- Pad won't peel, or tears the foot's edge → gap too small.
+- Use the **biggest gap whose foot stayed down**. Set Bed pad to **Custom**, put it in
   **Pad gap**, and set the other three the way the test print had them: **Pad thickness
   0.2, Pad grip 0, Pad spread 4**. Custom starts from whatever pad the part had before,
   which may not be those.
