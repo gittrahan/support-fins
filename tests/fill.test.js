@@ -162,3 +162,23 @@ Deno.test('fill: pass 2 walls a low ledge with a squat wall (stations under minH
   const fw = f.props.filter((q) => q.fill);
   assert(fw.length === 1 && fw[0].squat, `expected one squat fill wall, got ${fw.map((q) => `h${q.height.toFixed(1)}${q.squat ? ' squat' : ''}`).join(', ') || 'none'}`);
 });
+
+Deno.test('fill: tall fill walls are tied into a frame -- ties built, outside the part, under each wall\'s tip taper', async () => {
+  const { PROP } = await import('../web/prop.js');
+  const hex = loadModel('hexprism'), rot30 = rotX(30), r = analyze(hex, 45, rot30);
+  const f = fins.buildFins(hex, r, rot30, { ...OPTS, mode: 'full' });
+  assert(f.fill.ties > 0, `the hexprism at X30 gets ties (${f.fill.ties})`);
+  let struts = 0;
+  for (const w of f.fins.filter((q) => q.fill)) {
+    // a wall's ranges: the wall, then its ribs (if any), then its ties
+    const p = f.props.find((q) => q.fill && q.line === w.line);
+    for (const [a, z] of w.triRanges.slice(p.braces ? 2 : 1)) {
+      const tie = f.triangles.slice(a, z);
+      struts += tie.length;
+      assert(insideCount(hex, rot30, r.offset, tie) === 0, 'a tie vertex inside the part');
+      const top = Math.max(...tie.map((v) => v[2])), wallTop = Math.min(...w.line.map((s) => s[2]));
+      assert(top <= wallTop - PROP.gap - PROP.tipH - 1 + 1e-6, `tie top ${top.toFixed(2)} into the tip taper (wall top ${wallTop.toFixed(2)})`);
+    }
+  }
+  assert(struts > 0, 'the ties are in the walls\' triangle ranges');
+});

@@ -11,7 +11,9 @@
  *
  * Struts stop under the lower wall's tip taper (1 mm under it, as ribs do) and at
  * TIE.rise of its height, so the contact, the gap and the tines are untouched. Each
- * end runs th/2 into its wall (overlapping solids, never flush). A tie is built only
+ * end runs TIE.into past its wall's centreline (overlapping solids, never flush; met
+ * at a slant a corner can show through the far face, so the part clearance is checked
+ * out to the ends). A tie is built only
  * where the part stays sideClear off every strut, from both walls' plate stations
  * (v1: no ties landing on the part), and only if `clear(tris)` (the caller's check
  * against the other supports) passes.
@@ -29,6 +31,8 @@ export const TIE = {
   rise: 0.7,      // ties stop at this share of the lower wall's height
   perWall: 2,     // ties a wall takes part in, nearest neighbours first
   step: 0.25,     // mm: part clearance sampled this finely along a strut
+  into: 0.35,     // mm: a strut's end runs this far past each wall's centreline -- inside
+                  // the wall (th/2 = 0.5) square on, never ending flush on its far face
 };
 
 /** Does the part come within sideClear of the strut from (u0, z0) to (u1, z1) (bottom
@@ -62,20 +66,24 @@ export function tieWalls(a, b, zMax, tris, zBed, out) {
   if (span < TIE.minSpan || span > TIE.maxSpan) return 0;
   const d = [dx / span, dy / span], o = [a[0], a[1]];
   const climb = span * TIE.slope;                 // one strut's rise
-  const n = Math.floor((zMax - zBed - TIE.thick) / climb);
+  const e = TIE.into;
+  // the last strut's top, at its far end (TIE.into past the wall), stays under zMax
+  const n = Math.floor((zMax - zBed - TIE.thick - e * TIE.slope) / climb);
   if (n < 1) return 0;
   const struts = [];
   for (let s = 0; s < n; s++) {
     // even struts A -> B, odd B -> A; each starts where the last one ended
     const [u0, u1] = s % 2 ? [span, 0] : [0, span];
     const z0 = zBed + s * climb, z1 = z0 + climb;
-    if (strutHitsPart(tris, o, d, u0, z0, u1, z1)) return 0;
+    // out to its ends: past each wall's centreline, where a slanted corner can show
+    const g = s % 2 ? -1 : 1, rise = e * TIE.slope;
+    if (strutHitsPart(tris, o, d, u0 - g * e, Math.max(zBed, z0 - rise), u1 + g * e, z1 + rise)) return 0;
     struts.push([u0, z0, u1, z1]);
   }
   const h = PROP.th / 2;
   for (const [u0, z0, u1, z1] of struts) {
-    // th/2 into each wall at both ends (overlapping solids), along the strut's slope
-    const s = Math.sign(u1 - u0), e0 = u0 - s * h, e1 = u1 + s * h;
+    // TIE.into past each wall's centreline (overlapping solids), along the strut's slope
+    const s = Math.sign(u1 - u0), e0 = u0 - s * e, e1 = u1 + s * e;
     const zAt = (u) => z0 + (z1 - z0) * (u - u0) / (u1 - u0);
     const lo = Math.max(zBed, zAt(e0));
     // (u, z) parallelogram, extruded across: frame (u, z, v) right-handed, v = u x z

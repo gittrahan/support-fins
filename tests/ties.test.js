@@ -19,7 +19,7 @@ Deno.test('ties: two walls 6 mm apart get a zigzag of 55deg struts, under the li
   const out = [];
   const n = tieWalls([0, 0], [6, 0], 30, NONE, 0, out);
   const climb = 6 * TIE.slope;
-  assert(n === Math.floor((30 - TIE.thick) / climb), `struts ${n}`);
+  assert(n === Math.floor((30 - TIE.thick - TIE.into * TIE.slope) / climb), `struts ${n}`);
   const zs = out.map((v) => v[2]);
   assert(Math.min(...zs) >= -1e-9, 'nothing under the plate');
   assert(Math.max(...zs) <= 30 + 1e-9, `struts stop under the limit (top ${Math.max(...zs).toFixed(2)})`);
@@ -29,7 +29,7 @@ Deno.test('ties: two walls 6 mm apart get a zigzag of 55deg struts, under the li
   for (let s = 0; s < n; s++) {
     const v = vol(out, s * per, (s + 1) * per);
     assert(v > 0, `strut ${s} wound inward (${v.toFixed(3)})`);
-    const len = (6 + PROP.th) * PROP.th * TIE.thick;     // run x across x depth (a sheared box)
+    const len = (6 + 2 * TIE.into) * PROP.th * TIE.thick; // run x across x depth (a sheared box)
     assert(Math.abs(v - len) < 0.35 * len, `strut ${s} volume ${v.toFixed(2)} vs ~${len.toFixed(2)}`);
   }
   // every strut rises at TIE.slope: printable without support
@@ -59,4 +59,22 @@ Deno.test('ties: a part between the walls keeps the tie out (sideClear, or insid
   // ...and inside sideClear: refused
   const near = block(0, 6, off - 0.1, off + 3, 0, 20);
   assert(tieWalls([0, 0], [6, 0], 30, near, 0, []) === 0, 'a part within sideClear of the tie');
+});
+
+Deno.test('ties: the top strut\'s far end stays under the limit, and no end sits flush on a wall face (review)', () => {
+  // zMax a whole number of climbs over thick: the last strut's top at the wall line is
+  // exactly zMax, and its end past the line rose another into x slope
+  const climb = 6 * TIE.slope;
+  for (const zMax of [3 * climb + TIE.thick, 3 * climb + TIE.thick + 0.3, 30]) {
+    const out = [];
+    assert(tieWalls([0, 0], [6, 0], zMax, NONE, 0, out) > 0, `no tie under ${zMax.toFixed(2)}`);
+    const top = Math.max(...out.map((v) => v[2]));
+    assert(top <= zMax + 1e-9, `top ${top.toFixed(3)} over the limit ${zMax.toFixed(3)}`);
+  }
+  // square on, the ends stop inside a th-thick wall: never on its far face
+  const out = [];
+  tieWalls([0, 0], [6, 0], 30, NONE, 0, out);
+  const xs = out.map((v) => v[0]);
+  assert(Math.min(...xs) > -PROP.th / 2 + 0.05 && Math.max(...xs) < 6 + PROP.th / 2 - 0.05,
+    `ends at ${Math.min(...xs).toFixed(2)} / ${Math.max(...xs).toFixed(2)}, wall faces at +-${PROP.th / 2}`);
 });
