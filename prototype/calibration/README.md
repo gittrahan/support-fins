@@ -177,11 +177,36 @@ spread 4) and Pad gap 1: 0, 2: 0.12 (Light), 3: 0.2, 4: 0.3 mm; build.js checks 
 pads are >= 2 mm apart (2.7). Where each pad's top crosses the first-layer cut,
 measured off the foot's first-layer outline: 0.0 / 0.133 / 0.2 / 0.3. The pad's oval
 is centred on the contact's mean vertex, so a foot with a flat end face got a lopsided
-pad; the end ramps keep all four feet alike. 3MF re-packed deflated (local issue 007).
+pad; the end ramps keep the four feet near alike (the end feet's pads run 21.3 mm, the
+middle two 20, 0.67 mm toward the bar's middle). 3MF re-packed deflated (local issue 007).
 For a user: a foot lifted at its corner = gap too big (the other feet keep the bar down,
 so too big shows as a lift, never a lost part); a pad that won't peel or tears the edge
 = too small. 21 min, 8.8 g.
 - **waiting on print.**
+
+### cutout/ -- what does each Cutouts style do to a tall wall? (Walls > Cutouts, CUT.pattern)
+Bar on the plate, five identical 28 x 14 mm flat ledges 25 mm up (three near side,
+two far); the site's Auto build per ledge with Cutouts 1: none, 2: diamond,
+3: triangle, 4: arch, 5: lattice (style raised on top). Tall on purpose: cutouts open
+only a wall's middle, and a short wall stays solid. Two walls a ledge. Support volume
+per ledge (build.js; a cut wall's overlapping solids read a little high): none 1572,
+diamond 1230 (78 %), triangle 1230 (78 %), arch 1043 (66 %), lattice 1048 (67 %) mm3.
+For a user: the most open style whose walls stood, held their ledge flat and snapped
+off whole. Built for the Calibrate menu; also shows the Lattice style off.
+- **2026-10-07, PLA (Matthew):** every cut wall printed perfectly, all five styles --
+  but every LEDGE was bad: the overhang printed in midair and hung down; the inner wall
+  looked badly placed. Kept in the Calibrate menu: it's the wall test, and the walls
+  passed. Why the ledges failed: in Matthew's slice the ledges' first layer ran PARALLEL to
+  the walls -- the orient coupon's junk case -- though PrusaSlicer's default profile
+  bridges across them. Same walls, different bridge direction: the slicer (or how it
+  was set up) picks it, so a wall layout that only works across the bridge is a gamble
+  (local issue 038).
+Found building it: a cut wall's solids share edges (4 or 6 triangles to an edge), which
+coupon.js's closed check refused; it now checks every directed edge has its reverse
+(closed, consistently wound bodies). Most of those shared edges are FLUSH, not
+overlapping -- web/cutout.js stacks slab pieces that meet exactly at their boundary
+(CUT.eps grows pieces only across the strip sides and into the bands). Already on
+main; it breaks the overlap-never-flush rule, so it's a follow-up.
 
 ### bore/ -- do walls inside a sideways hole pull out clean, from what size, and which way?
 Block on the plate with eight through-bores along y, two sets of 3 / 5 / 8 / 12 mm,

@@ -14,11 +14,11 @@ edge, is too close.
 
 The engine lays ONE pad under all of a part's bed contact, so build.js builds each
 foot's pad on its own post: out/foot_<k>.stl is the bar cut at the arch apexes
-either side of foot k (above the pad, so the pad sees the same part it would under
+either side of foot k, or at the same height up the end ramp (above the pad, so the pad sees the same part it would under
 the whole bar). out/coupon_part.stl is the whole bar. The pad's oval is centred on
 the contact's mean VERTEX, so a foot with a flat end face (many vertices at one
-end) got a lopsided pad that reached the next one; the end ramps keep every foot
-alike. Each foot has its pad gap (mm) raised on the top above it.
+end) got a lopsided pad that reached the next one; with the end ramps the end
+feet's pads run only 1.3 mm longer than the middle two's. Each foot has its pad gap (mm) raised on the top above it.
 
     python3 prototype/calibration/pad/gen.py && deno run -A prototype/calibration/pad/build.js
 """
