@@ -121,10 +121,12 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
  */
 export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
   const welded = PROP.footGap <= 0;
-  // only the PART gets the gap: where the floor is open plate (floorLine's 0) the
-  // bottom stands on it -- lifted, a wall over the plate floated 0.2 mm in the air
-  // with nothing for the slicer to start it on (a figure's hand over the plate)
-  const lift = (z) => (z > 0 ? z + PROP.footGap : z);
+  // only the PART gets the gap: a station whose floor is open plate all across
+  // (floorLine's 0, the highest surface under the wall's width) stands on it --
+  // lifted, a wall over the plate floated 0.2 mm in the air with nothing for the
+  // slicer to start it on (a figure's hand over the plate). Decided per STATION,
+  // both sides together: sideFloors' tilt assumes one gap added to both, and a
+  // plate side left down under a chamfer's toe ran 0.07 mm off the part
   const wall = [], st = [];
   for (let i = 0; i < topLine.length; i++) {
     const p = topLine[i];
@@ -137,7 +139,8 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     const sx = ry, sy = -rx;                 // horizontal, across the wall
 
     const top = p[2] - PROP.gap;
-    const bot = lift(botLine[i][2]);
+    const g = botLine[i][2] > 0 ? PROP.footGap : 0;
+    const bot = botLine[i][2] + g;
     // judged on the headroom, not the lifted wall: the gap must not change
     // WHICH walls exist (hub_corner X60 lost a 31 mm wall to a 1.6 mm station)
     if (top - botLine[i][2] < minH) return false;
@@ -147,7 +150,7 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     // headroom check above keeps >= minH - footGap over the plain floor + gap --
     // 1.3 at minHeight, 0.4 for Draw's squat minH)
     const side = (k) => (welded || botLine[i].length < 5 ? bot
-      : Math.min(lift(botLine[i][k]), top - 0.5));
+      : Math.min(botLine[i][k] + g, top - 0.5));
     const bN = side(3), bP = side(4);
     const bHi = Math.max(bN, bP);
     const h = top - bHi;
