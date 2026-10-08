@@ -114,6 +114,9 @@ el('show-rings').addEventListener('change', (e) => {
 export function setGizmo() {
   const on = showRings && !!part && !drawActive() && !layActive() && !removeActive();
   gizmo.enabled = on;
+  // A disabled gizmo stops tracking hover, so a ring hovered last would stay
+  // "under the pointer" and app.js would swallow the next pick for it.
+  if (!on) gizmo.axis = null;
   const helper = gizmo.getHelper ? gizmo.getHelper() : gizmo;
   helper.visible = on;
 }
