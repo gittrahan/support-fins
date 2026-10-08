@@ -132,7 +132,7 @@
   <button class="btn sm" id="undo" title="Undo (⌘/Ctrl+Z)" disabled>Undo</button>
   <button class="btn sm" id="redo" title="Redo (⇧⌘/Ctrl+Shift+Z)" disabled>Redo</button>
   <p class="readout"><span id="rot-now">X 0° · Y 0° · Z 0°</span><span id="rot-delta"></span></p>
-  <p class="hint">Drag the rings to turn it, or:</p>
+  <p class="hint" id="rings-hint">Drag the rings to turn it, or:</p>
   <button class="btn sm" id="lay-face"
           title="Click this, then click a face to set it flat on the bed. Off by default so a stray click can't re-lay the part.">Lay a face flat</button>
   <!-- Automatic strength view: no input. The faint frames show how the print is
@@ -142,6 +142,11 @@
   <div class="layerview">
     <label class="check layers-toggle" title="Show the horizontal print layers around the part.">
       <input type="checkbox" id="show-layers">Show layers
+    </label>
+    <!-- The rings cover the part on a small screen (#53). Off hides them; the
+         buttons above and Lay a face flat still turn it. Remembered (optional). -->
+    <label class="check layers-toggle" title="The rotate rings around the part. Off hides them; Rotate 90°, Reset and Lay a face flat still turn the part.">
+      <input type="checkbox" id="show-rings" checked>Show rotate rings
     </label>
   </div>
   <div class="suggest">
