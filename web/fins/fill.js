@@ -42,7 +42,7 @@
  * quality first, surface the dropped overhang.
  */
 import { drawnLine, drawnWall, DRAW_MIN_LEN } from '../draw.js';
-import { braceWall, footFor, PART_BAND, PROP, surfaceHitsAt } from '../prop.js';
+import { BRACE, braceWall, footFor, PART_BAND, PROP, surfaceHitsAt, TIE, tieWalls } from '../prop.js';
 import { classify, reachOf, PLATE_Z, MUST } from './coverage.js';
 import { seatedPartTris } from './seating.js';
 
@@ -222,6 +222,9 @@ function lineAt(pts, across, ux, uy, off, R, bridge, axis) {
  */
 const lowest = (low) => (low ? PROP.minHeightSquat : PROP.minHeight) + PROP.gap;
 
+/** boxGrid `skip` for a joined wall: the fill pass's own walls (never Auto's). */
+const isFill = (tag) => !!tag?.fill;
+
 /**
  * The stretch of candidate line `c` a wall can follow, checked BEFORE drawnWall
  * (which costs ~100 ms on a 250k-face part): stations every PROP.stationStep at
@@ -312,23 +315,27 @@ function settledStretch(c, tris, redAt, others, relax = null, low = false) {
  * its own: `part` -- where part is under the station (a chin over the chest), from
  * that part up, where drawnWall stands it (part-attached); `flange` -- on the plate,
  * its flange may JOIN the flanges already there (one base under a crowded figure,
- * peeled off with all its walls) and only the stem above FLANGE_TOP keeps clear.
+ * peeled off with all its walls) and only the stem above FLANGE_TOP keeps clear;
+ * `join` -- the fill pass's own walls don't count at all (a wall that crosses or
+ * butts into another fill wall is one support with it: a cleat sole at 45deg needs
+ * walls down its slope, across the one along it). Auto's walls always do.
  */
 function stationClear(p, tris, others, relax = null) {
   const w = PROP.th / 2 + PROP.sideClear;
+  const skip = relax?.join ? isFill : null;
   if (relax?.part) {
     // the nearest surface below, if it faces UP (a down-facing one below is another
     // overhang's underside, with air under it)
     let below = null;
     for (const h of surfaceHitsAt(tris, p[0], p[1])) if (h[0] < p[2] - 1 && (!below || h[0] > below[0])) below = h;
     if (below && below[1] > 0 && below[0] > PROP.gap + 0.5) {
-      return !others.hitsBox([p[0] - w, p[1] - w, below[0], p[0] + w, p[1] + w, p[2]]);
+      return !others.hitsBox([p[0] - w, p[1] - w, below[0], p[0] + w, p[1] + w, p[2]], skip);
     }
   }
-  if (relax?.flange) return !others.hitsBox([p[0] - w, p[1] - w, FLANGE_TOP, p[0] + w, p[1] + w, p[2]]);
+  if (relax?.flange) return !others.hitsBox([p[0] - w, p[1] - w, FLANGE_TOP, p[0] + w, p[1] + w, p[2]], skip);
   const wf = footFor(p[2] - PROP.gap) + PROP.sideClear;
-  return !others.hitsBox([p[0] - w, p[1] - w, PROP.baseH, p[0] + w, p[1] + w, p[2]])
-    && !others.hitsBox([p[0] - wf, p[1] - wf, 0, p[0] + wf, p[1] + wf, PROP.baseH + PROP.gap]);
+  return !others.hitsBox([p[0] - w, p[1] - w, PROP.baseH, p[0] + w, p[1] + w, p[2]], skip)
+    && !others.hitsBox([p[0] - wf, p[1] - wf, 0, p[0] + wf, p[1] + wf, PROP.baseH + PROP.gap], skip);
 }
 
 /** The points of group g (indices into pts) within FILL.local in plan and FILL.localZ
@@ -400,18 +407,23 @@ function boxGrid() {
     }
   };
   return {
-    add(tris) {
+    // `tag` marks whose triangles these are ({ fill, k }: fill wall k and its ribs; null:
+    // Auto's), so a check can `skip(tag)` some -- a joined wall may meet another fill
+    // wall, never Auto's; a tie meets its own two walls
+    add(tris, tag = null) {
       for (let i = 0; i + 2 < tris.length; i += 3) {
         boxesOf(tris[i], tris[i + 1], tris[i + 2], (bx) => cellsOf(bx, 0, (k) => {
+          bx.tag = tag;
           let g = grid.get(k); if (!g) grid.set(k, (g = [])); g.push(bx);
         }));
       }
     },
-    hitsBox(b) {
+    hitsBox(b, skip = null) {
       let hit = false;
       cellsOf(b, 0, (k) => {
         if (hit) return;
         for (const o of grid.get(k) || []) {
+          if (skip && skip(o.tag)) continue;
           if (b[0] <= o[3] && o[0] <= b[3] && b[1] <= o[4] && o[1] <= b[4] && b[2] <= o[5] && o[2] <= b[5]) { hit = true; return; }
         }
       });
@@ -420,13 +432,14 @@ function boxGrid() {
     // `shared`: two pieces that both start in the flange band, either one wholly
     // within it (top at or under FLANGE_TOP), are the second pass's joined base, not
     // a hit -- a base on the part, above the band, never is
-    hits(tris, pad, shared = false) {
+    hits(tris, pad, shared = false, skip = null) {
       let hit = false;
       const test = (b) => {
         if (hit) return;
         cellsOf(b, pad, (k) => {
           if (hit) return;
           for (const o of grid.get(k) || []) {
+            if (skip && skip(o.tag)) continue;
             if (b[0] - pad <= o[3] && o[0] <= b[3] + pad && b[1] - pad <= o[4] && o[1] <= b[4] + pad &&
                 b[2] - pad <= o[5] && o[2] <= b[5] + pad && !(shared && Math.max(b[2], o[2]) <= FLANGE_TOP && Math.min(b[5], o[5]) <= FLANGE_TOP)) { hit = true; return; }
           }
@@ -483,6 +496,48 @@ function braceFill(props, floors, triangles, tris, autoTris) {
 }
 
 /**
+ * TIES, after the ribs: each fill wall standing tall on the plate is tied to its
+ * nearest neighbours (prop/ties.js), closest pairs first, TIE.perWall each -- a
+ * forest of thin walls becomes a frame. A tie keeps sideClear off every support but
+ * its own two walls (Auto's, the other fill walls, their ribs and ties). Appends to
+ * `triangles`; the struts join wall A's triRanges. Returns how many ties.
+ */
+function tieFill(props, floors, triangles, tris, others) {
+  // per wall: its plate stations as [x, y, zMax], zMax where its ties must stop
+  const plate = props.map((q, k) => {
+    if (!floors[k] || q.height < TIE.minHeight) return [];
+    return q.line.map((p, i) => [p[0], p[1], Math.min(TIE.rise * (p[2] - PROP.gap), p[2] - PROP.gap - PROP.tipH - 1), floors[k][i]])
+      .filter((p) => p[3] <= BRACE.onPlate);
+  });
+  const pairs = [];
+  for (let k = 0; k < props.length; k++) for (let j = k + 1; j < props.length; j++) {
+    let best = null;
+    for (const a of plate[k]) for (const b of plate[j]) {
+      const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (d >= TIE.minSpan && d <= TIE.maxSpan && (!best || d < best.d)) best = { d, a, b, k, j };
+    }
+    if (best) pairs.push(best);
+  }
+  pairs.sort((p, q) => p.d - q.d);
+  const count = props.map(() => 0);
+  let n = 0;
+  for (const { a, b, k, j } of pairs) {
+    if (count[k] >= TIE.perWall || count[j] >= TIE.perWall) continue;
+    const out = [];
+    if (!tieWalls(a, b, Math.min(a[2], b[2]), tris, 0, out)) continue;
+    if (others.hits(out, PROP.sideClear, true, (t) => t?.fill && (t.k === k || t.k === j))) continue;
+    const at = triangles.length;
+    for (const t of out) triangles.push(t);
+    props[k].triRanges.push([at, triangles.length]);
+    others.add(out, { fill: true, k });
+    props[k].ties = (props[k].ties ?? 0) + 1;
+    count[k]++; count[j]++;
+    n++;
+  }
+  return n;
+}
+
+/**
  * The fill pass. `built` is Auto's result (fins with their contact lines, and
  * every support triangle in `triangles`). Returns the added walls:
  * { triangles, props, tines, unserved: { area, pts }, stats }.
@@ -519,7 +574,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
   // gets a try.
   const wallFor = (live, g, local = false) => {
     const redAt = redGrid(g.map((i) => live[i]));
-    let aims = null, builds = 0, partOk = local, flangeOk = local;
+    let aims = null, builds = 0, partOk = local, flangeOk = local, joinOk = local;
     // the first of `cands` that builds, keeps off every support and holds new red:
     // true; CAP; aims (this group's tries are used up); or null (none built)
     const tryLines = (cands) => {
@@ -541,17 +596,29 @@ export function fillCoverage(topo, result, rot, opts, built) {
           c = quick && settledStretch(quick, tris, redAt, others, relax, local);
           relaxed = !!c;
         }
+        // ...and last, JOINED: crossing or meeting another fill wall (never Auto's or
+        // the part), until one it lets through builds into Auto's
+        let joined = false;
+        if (!c && joinOk) {
+          stats.checks++;
+          const relax = { part: partOk, flange: true, join: true };
+          quick = underStretch(c0, tris, redAt, others, relax, local);
+          c = quick && settledStretch(quick, tris, redAt, others, relax, local);
+          joined = !!c;
+        }
         if (!c) { stats.refused['no underside to follow'] = (stats.refused['no underside to follow'] ?? 0) + 1; continue; }
         // a group whose lines keep passing the checks but won't build (part under it,
         // no headroom) stops here: each drawnWall is ~0.2 s on a 250k-face part
         if (builds++ >= FILL.groupTries) return aims;
         stats.tries++;
         const r = drawnWall(c.a, c.b, tris, 0, drawOpts);
-        const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0] : others.hits(r.tris, PROP.sideClear, local) ? 'touches a support' : null;
+        const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0]
+          : others.hits(r.tris, PROP.sideClear, local, joined ? isFill : null) ? 'touches a support' : null;
         if (why) {
           stats.refused[why] = (stats.refused[why] ?? 0) + 1;
-          // (the relaxation that let it through: on the part, or on the plate)
-          if (relaxed && why === 'touches a support') { if (r.partAttached) partOk = false; else flangeOk = false; }
+          // (the relaxation that let it through: on the part, on the plate, or joined)
+          if (joined && why === 'touches a support') joinOk = false;
+          else if (relaxed && why === 'touches a support') { if (r.partAttached) partOk = false; else flangeOk = false; }
           continue;
         }
         const reach = reachOf(r.top, R);
@@ -560,10 +627,12 @@ export function fillCoverage(topo, result, rot, opts, built) {
         if (gain < FILL.minGain) { stats.refused['holds no new red'] = (stats.refused['holds no new red'] ?? 0) + 1; continue; }
         const at = triangles.length;
         for (const t of r.tris) triangles.push(t);
-        others.add(r.tris);
+        others.add(r.tris, { fill: true, k: props.length });
         for (const p of r.top) near.add(p);
         props.push({ line: r.top, triRanges: [[at, triangles.length]], height: r.height, span: r.length,
-                     tines: r.tines ?? 0, partAttached: !!r.partAttached, squat: !!r.squat, fill: true });
+                     tines: r.tines ?? 0, partAttached: !!r.partAttached, squat: !!r.squat, fill: true,
+                     joined: joined || undefined });
+        if (joined) stats.joined = (stats.joined ?? 0) + 1;
         floors.push(r.floors ?? null);
         tines += r.tines ?? 0;
         stats.walls++;
@@ -585,7 +654,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
     while (rest.length) {
       const sub = localPatch(live, rest);
       builds = 0;
-      partOk = flangeOk = true;
+      partOk = flangeOk = joinOk = true;
       // (one bridge: a patch is at most 2 x FILL.local across)
       const r = tryLines(candidateLines(live, sub, R, FILL.bridge, true));
       if (r === true || r === CAP) return r;
@@ -636,6 +705,8 @@ export function fillCoverage(topo, result, rot, opts, built) {
     }
   }
   stats.ribs = braceFill(props, floors, triangles, tris, built.triangles ?? []);
+  props.forEach((q, k) => { for (const [a, b] of q.triRanges.slice(1)) others.add(triangles.slice(a, b), { fill: true, k }); });
+  stats.ties = tieFill(props, floors, triangles, tris, others);
   const left = pts.filter((p) => !near(p[0], p[1], p[2]));
   stats.capped = full() && left.some((p) => !dead.has(p));
   return { triangles, props, tines,

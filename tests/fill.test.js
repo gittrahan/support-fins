@@ -62,22 +62,24 @@ Deno.test('fill: no added wall is inside the part', () => {
   assert(n === 0, `${n} fill vertices inside the part`);
 });
 
-Deno.test('fill: added walls keep sideClear off every other support, Auto\'s and each other (fused walls do not break away)', () => {
+Deno.test('fill: added walls keep sideClear off every other support, Auto\'s and each other (fused walls do not break away) -- a joined wall only off Auto\'s', () => {
   const box = (t, i) => [0, 1, 2].map((k) => Math.min(t[i][k], t[i + 1][k], t[i + 2][k]))
     .concat([0, 1, 2].map((k) => Math.max(t[i][k], t[i + 1][k], t[i + 2][k])));
   const pad = 0.3;   // a hair under PROP.sideClear (0.35)
   const touch = (b, o) => b[0] - pad <= o[3] && o[0] <= b[3] + pad && b[1] - pad <= o[4] && o[1] <= b[4] + pad
     && b[2] - pad <= o[5] && o[2] <= b[5] + pad;
   // every support as its own list of triangle boxes: Auto's as one, each fill wall apart
-  const walls = [[]];
+  const walls = [[]], joined = [false];
   for (let i = 0; i < auto.triangles.length; i += 3) walls[0].push(box(auto.triangles, i));
   for (const f of full.fins.filter((w) => w.fill)) {
     const [a, z] = f.triRanges[0], bs = [];
     for (let i = a; i < z; i += 3) bs.push(box(full.triangles, i));
     walls.push(bs);
+    joined.push(!!f.joined);
   }
   assert(walls.length > 2, 'needs two fill walls to check them against each other');
   for (let w = 1; w < walls.length; w++) for (let v = 0; v < w; v++) {
+    if (v > 0 && joined[w]) continue;   // crosses or meets a fill wall on purpose: one support with it
     for (const b of walls[w]) for (const o of walls[v]) assert(!touch(b, o), `fill wall ${w} within ${pad} mm of support ${v}`);
   }
 });
