@@ -28,6 +28,7 @@ import { buildExportGeometry } from './ui/export.js';
 import './ui/plugins.js';
 import './ui/calibrate.js';
 import './ui/topbar.js';
+import './ui/navigation.js';
 import { updateReadout } from './ui/readout.js';
 import {
   drawnWalls, drawnTris, drawStart, selectedWall, drawActive, sizeMarkers, clearPreview,
@@ -109,6 +110,15 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   // a drag is an orbit, not a pick
   if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
 
+  // A right CLICK cancels; a right DRAG is an orbit or pan (the Onshape preset
+  // orbits on it) and leaves the wall in progress alone. Decided here, on release,
+  // not in contextmenu: macOS fires that on the press, before any drag.
+  // Ctrl+click is the Mac's right click (one-button trackpads), and nothing else
+  // uses a Ctrl+click here, so it cancels on every platform.
+  if (e.button === 2 || (e.button === 0 && e.ctrlKey)) { cancelArmed(); return; }
+  // Only the left button picks: a middle click is navigation in the CAD presets.
+  if (e.button !== 0) return;
+
   // Remove-fins mode: one click drops just the fin under the pointer.
   if (removeActive()) {
     clickRemove(e);
@@ -143,12 +153,16 @@ addEventListener('keydown', (e) => {
     selectWall(selectedWall);        // toggles it off
   }
 });
+/** Right-click (pointerup above): the same cancel as Escape for an armed mode. */
+function cancelArmed() {
+  if (removeActive()) { cancelRemove(); return; }
+  if (layActive()) { cancelLay(); return; }
+  if (drawActive() && drawStart) { clearPreview(); updateReadout(lastBuilt); }
+}
+// No browser menu over the viewport while a mode is armed (the orbit controls
+// suppress it too, but not while a ring drag has them disabled).
 renderer.domElement.addEventListener('contextmenu', (e) => {
-  if (removeActive()) { e.preventDefault(); cancelRemove(); return; }
-  if (layActive()) { e.preventDefault(); cancelLay(); return; }
-  if (!drawActive()) return;
-  e.preventDefault();
-  if (drawStart) { clearPreview(); updateReadout(lastBuilt); }
+  if (removeActive() || layActive() || drawActive()) e.preventDefault();
 });
 
 // ----------------------------------------------------------------- main loop
