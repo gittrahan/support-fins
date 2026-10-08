@@ -213,6 +213,16 @@ function lineAt(pts, across, ux, uy, off, R, bridge, axis) {
 }
 
 /**
+ * The lowest top a line's station may have. Pass 1 asks for full walls (minHeight:
+ * the plate rows and squat walls below that are Auto's). Pass 2 (`low`, patch by
+ * patch, after pass 1's walls are in) goes down to drawnWall's squat floor,
+ * minHeightSquat: a figure's cleat soles at 1.2-2.4 mm over the plate that Auto
+ * dropped as slivers. Pass 1 at that floor spent the 40-wall cap on low walls first
+ * and left a bust's chest bare.
+ */
+const lowest = (low) => (low ? PROP.minHeightSquat : PROP.minHeight) + PROP.gap;
+
+/**
  * The stretch of candidate line `c` a wall can follow, checked BEFORE drawnWall
  * (which costs ~100 ms on a 250k-face part): stations every PROP.stationStep at
  * the surface nearest the line's height there (drawnLine's pick, through prop's
@@ -224,7 +234,7 @@ function lineAt(pts, across, ux, uy, off, R, bridge, axis) {
  * (`redAt`), as { a, b } surface points; null when none is DRAW_MIN_LEN long.
  * Between patches the underside still carries a bridge.
  */
-function underStretch(c, tris, redAt, others, relax = null) {
+function underStretch(c, tris, redAt, others, relax = null, low = false) {
   const dx = c.b[0] - c.a[0], dy = c.b[1] - c.a[1], len = Math.hypot(dx, dy);
   const n = Math.max(PROP.minStations - 1, Math.ceil(len / PROP.stationStep));
   const top = [];
@@ -236,10 +246,10 @@ function underStretch(c, tris, redAt, others, relax = null) {
     top.push(hit === null ? null : [x, y, hit[0], hit[1]]);
   }
   const ok = top.map((p) => {
-    // too low for a full wall: drawnWall refuses a whole line for one such station
-    // (a line down a cube's 40deg underside to its plate edge); the plate rows
-    // and squat walls are Auto's for that band
-    if (!p || p[3] >= 0 || p[2] < PROP.minHeight + PROP.gap) return false;
+    // too low for the wall asked for (`low`, settledStretch's): drawnWall refuses a
+    // whole line for one station under minHeightSquat (a line down a cube's 40deg
+    // underside to its plate edge)
+    if (!p || p[3] >= 0 || p[2] < lowest(low)) return false;
     return stationClear(p, tris, others, relax);
   });
   let pick = null, from = -1, red = 0;
@@ -269,7 +279,7 @@ function underStretch(c, tris, redAt, others, relax = null) {
  * most leftover red (`redAt`), as { a, b } surface points; null when none is
  * DRAW_MIN_LEN long. Between patches the underside still carries a bridge.
  */
-function settledStretch(c, tris, redAt, others, relax = null) {
+function settledStretch(c, tris, redAt, others, relax = null, low = false) {
   const top = drawnLine(c.a, c.b, tris, PROP.stationStep, PART_BAND, true);
   if (!top) return null;
   const down = top.map((p) => {
@@ -278,7 +288,7 @@ function settledStretch(c, tris, redAt, others, relax = null) {
       const d = Math.abs(h[0] - p[2]);
       if (d < 1 && (!best || d < Math.abs(best[0] - p[2]))) best = h;
     }
-    if (best === null || best[1] >= 0 || p[2] < PROP.minHeight + PROP.gap) return false;
+    if (best === null || best[1] >= 0 || p[2] < lowest(low)) return false;
     return stationClear(p, tris, others, relax);
   });
   let pick = null, from = 0, red = 0;
@@ -517,8 +527,8 @@ export function fillCoverage(topo, result, rot, opts, built) {
         if (full()) return CAP;
         aims ??= c0.aims;
         stats.checks++;
-        let quick = underStretch(c0, tris, redAt, others);
-        let c = quick && settledStretch(quick, tris, redAt, others);
+        let quick = underStretch(c0, tris, redAt, others, null, local);
+        let c = quick && settledStretch(quick, tris, redAt, others, null, local);
         // ...and relaxed (stationClear): standing on the part where there is part under
         // it (a chin over the chest, its plate below taken), its flange joining the
         // flanges on the plate. Tried second, each only until a wall it let through
@@ -527,8 +537,8 @@ export function fillCoverage(topo, result, rot, opts, built) {
         if (!c && (partOk || flangeOk)) {
           stats.checks++;
           const relax = { part: partOk, flange: flangeOk };
-          quick = underStretch(c0, tris, redAt, others, relax);
-          c = quick && settledStretch(quick, tris, redAt, others, relax);
+          quick = underStretch(c0, tris, redAt, others, relax, local);
+          c = quick && settledStretch(quick, tris, redAt, others, relax, local);
           relaxed = !!c;
         }
         if (!c) { stats.refused['no underside to follow'] = (stats.refused['no underside to follow'] ?? 0) + 1; continue; }
