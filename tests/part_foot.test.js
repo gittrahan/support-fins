@@ -213,3 +213,16 @@ Deno.test('part foot: a floor just past MAX_DROP keeps the capped tilt, its corn
       `${down} down: lowest point ${z.toFixed(3)}, expected ${5 - 2.75 + PROP.footGap} (tilted MAX_DROP)`);
   }
 });
+
+Deno.test('part foot: where the floor is open plate the bottom stands on the plate, not footGap over it', () => {
+  // the base block under only the left half: the wall stands on the part there,
+  // and runs down to the plate past its edge -- lifted, that end floated 0.2 mm
+  // over the plate with nothing for the slicer to start it on (a figure's hands)
+  const half = new Float32Array([...block(-40, 0, -10, 10, 0, 5), ...block(-40, 40, -10, 10, 35, 39)]);
+  const r = drawnWall([-30, 0, 35], [30, 0, 35], half, 0);
+  assert(r.ok && r.partAttached, `expected a part-attached wall: ${r.reason}`);
+  const lowAt = (keep) => Math.min(...r.tris.filter(keep).map((p) => p[2]));
+  const plate = lowAt((p) => p[0] > 2), part = lowAt((p) => p[0] < -2);
+  assert(Math.abs(plate) < 1e-6, `over the plate the lowest point is ${plate.toFixed(3)}, expected 0`);
+  assert(Math.abs(part - 5.2) < 1e-6, `over the part the lowest point is ${part.toFixed(3)}, expected 5.2`);
+});

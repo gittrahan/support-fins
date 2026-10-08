@@ -113,12 +113,18 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
  * was the only one that scarred the part (local issue 009). The first layer
  * sags across the gap, so the bottom keeps the full wall thickness -- two lines
  * over air, not one 0.6 mm tip line that could peel. footGap 0 welds as before.
+ * Over open plate (a floor of 0) there is no part to scar, so no gap: the bottom
+ * stands on the plate.
  *
  * `minH` is the least headroom a station needs (Draw mode passes minHeightSquat
  * for a squat wall the user asked for by hand; Auto keeps minHeight).
  */
 export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
   const welded = PROP.footGap <= 0;
+  // only the PART gets the gap: where the floor is open plate (floorLine's 0) the
+  // bottom stands on it -- lifted, a wall over the plate floated 0.2 mm in the air
+  // with nothing for the slicer to start it on (a figure's hand over the plate)
+  const lift = (z) => (z > 0 ? z + PROP.footGap : z);
   const wall = [], st = [];
   for (let i = 0; i < topLine.length; i++) {
     const p = topLine[i];
@@ -131,17 +137,17 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     const sx = ry, sy = -rx;                 // horizontal, across the wall
 
     const top = p[2] - PROP.gap;
-    const bot = botLine[i][2] + PROP.footGap;
+    const bot = lift(botLine[i][2]);
     // judged on the headroom, not the lifted wall: the gap must not change
     // WHICH walls exist (hub_corner X60 lost a 31 mm wall to a 1.6 mm station)
-    if (top - bot + PROP.footGap < minH) return false;
+    if (top - botLine[i][2] < minH) return false;
     // a lifted bottom tilts with the floor under each side (floorLine's
     // sideFloors); welded, or with no side floors, it is level at `bot`
     // (a molded side can sit above `bot`: never within 0.5 of the top, which the
     // headroom check above keeps >= minH - footGap over the plain floor + gap --
     // 1.3 at minHeight, 0.4 for Draw's squat minH)
     const side = (k) => (welded || botLine[i].length < 5 ? bot
-      : Math.min(botLine[i][k] + PROP.footGap, top - 0.5));
+      : Math.min(lift(botLine[i][k]), top - 0.5));
     const bN = side(3), bP = side(4);
     const bHi = Math.max(bN, bP);
     const h = top - bHi;
