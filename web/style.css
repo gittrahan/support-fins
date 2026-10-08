@@ -460,6 +460,7 @@ html, body {
   color: var(--dim);
 }
 #fin-opts select,
+#orient .nav-pick select,
 #fin-opts input[type=number] {
   padding: 4px 8px;
   border: 1px solid var(--line);
@@ -696,6 +697,10 @@ html, body {
 /* ---------- automatic layer view ---------- */
 #orient .layerview { flex-basis: 100%; margin-top: 8px; }
 .layers-toggle { color: var(--dim); font-size: 12px; }
+#orient .navview { flex-basis: 100%; margin-top: 6px; }
+.nav-pick { color: var(--dim); font-size: 12px; }
+#orient .nav-pick select { margin-left: 6px; padding: 2px 6px; font-size: 12px; }
+#orient .navview .hint { margin: 4px 0 0; }
 
 /* ---------- strength arrow (load direction) ---------- */
 #orient .loadfx .loadfx-lede { flex-basis: 100%; margin: 0 0 3px;

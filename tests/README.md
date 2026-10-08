@@ -163,6 +163,13 @@ use it; the site parses with three.js's `STLLoader`):
 - ASCII with CRLF, exponents, upper-case keywords and a BOM reads;
 - a **truncated, empty or non-STL** file throws instead of opening blank.
 
+**`navpresets.test.js`** -- the Mouse menu's presets (`web/ui/navpresets.js`, #53):
+- **Default** is the old OrbitControls mapping (left orbits, right pans);
+- every preset can orbit and pan with a mouse button (a held modifier swaps the two);
+- the CAD presets (Fusion, Onshape, SolidWorks, Blender) leave **left-drag** unbound,
+  so left stays the picking button, and bind the packages' own buttons;
+- an unknown remembered key falls back to Default.
+
 **`step.test.js`** -- STEP import through the real vendored OpenCascade WASM (the
 same `stepObjects()` the app's worker output goes through):
 - a STEP is recognised by its **content** (the `ISO-10303-21;` magic), not its name;

@@ -42,6 +42,7 @@ const SITE_EXCLUDED = {
   'vx': 'site build-volume preview', 'vy': 'site build-volume preview', 'vz': 'site build-volume preview',
   'plugins-computer': 'picks which plugin download to offer',
   'show-layers': 'site display', 'highlight-small': 'site display', 'show-rings': 'site display',
+  'nav-preset': 'site mouse navigation',
   'fin-mode': 'plugins run Auto; Draw needs the site\'s canvas',
   'gap': 'hand-typed clearance; the material sets it',
   'pad-h': 'Custom pad', 'pad-gap': 'Custom pad', 'pad-grip': 'Custom pad', 'pad-margin': 'Custom pad',

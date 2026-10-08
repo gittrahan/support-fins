@@ -149,6 +149,13 @@
       <input type="checkbox" id="show-rings" checked>Show rotate rings
     </label>
   </div>
+  <!-- Mouse navigation preset (#53): which button orbits / pans, to match the CAD
+       package the user's hands already know. ui/navigation.js; remembered (optional). -->
+  <div class="navview">
+    <label class="nav-pick">Mouse <select id="nav-preset"
+        aria-describedby="nav-hint"></select></label>
+    <p class="hint" id="nav-hint"></p>
+  </div>
   <div class="suggest">
     <div class="suggest-head">
       <button class="btn sm" id="suggest-orient">Suggest orientation</button>
