@@ -33,7 +33,10 @@ from trimesh.creation import extrude_polygon
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from coupon import label, write  # noqa: E402
 
-GAPS = [0, 0.12, 0.2]       # 0.12 = Light's brim gap; under ~0.1 slicers close it (0.3 dropped: 2026-10-08 print)
+GAPS = [0.12, 0, 0.2]       # 0.12 = Light's brim gap; under ~0.1 slicers close it (0.3 dropped: 2026-10-08 print).
+                             # The touching 0 foot is the middle one, so a foot that lets go lifts
+                             # only its own end instead of levering the rest off (the first bar's
+                             # 0 was at one end)
 B = 12.0                     # keel width (mm)
 H = 13.0                     # keel height: low, so a foot that lets go doesn't lever the rest off
 FOOT = 25.0                  # each foot's length on the bed (12 gave ~24 mm of outline, near minGripOutline 20)

@@ -173,9 +173,10 @@ square bar on its edge got wedges under its 45 deg faces, which would have held 
 down). The engine lays ONE pad under all of a part's bed contact, so each foot's pad is
 built ALONE on its post (out/foot_<k>.stl, the bar cut at the arch apexes, above the
 pad) with Auto, Bed pad = Custom at Light's numbers (h 0.2, grip 0, spread 4) and Pad
-gap 1: 0, 2: 0.12 (Light), 3: 0.2 mm; build.js checks the pads are >= 2 mm apart (3).
+gap 1: 0.12 (Light), 2: 0, 3: 0.2 mm (the touching 0 in the middle anchors the bar, so
+a foot that lets go lifts only its own end); build.js checks the pads are >= 2 mm apart (3).
 Where each pad's top crosses the first-layer cut, measured off the foot's first-layer
-outline: 0.0 / 0.133 / 0.2. The pad's oval is centred on the contact's mean vertex, so
+outline: 0.133 / 0.0 / 0.2. The pad's oval is centred on the contact's mean vertex, so
 a foot with a flat end face got a lopsided pad; the end ramps keep the feet alike. 3MF
 re-packed deflated (local issue 007). For a user: a foot lifted at its corner = gap too
 big; a pad that won't peel or tears the edge = too small. 15 min, 6.3 g.
