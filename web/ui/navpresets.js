@@ -40,5 +40,7 @@ export const NAV_PRESETS = {
   },
 };
 
-/** The preset for a stored key, falling back to Default for an unknown one. */
-export const navPreset = (key) => NAV_PRESETS[key] ?? NAV_PRESETS.default;
+/** The preset for a stored key, falling back to Default for an unknown one (own
+ *  keys only: a corrupted 'toString' must not come back as a function). */
+export const hasNavPreset = (key) => Object.hasOwn(NAV_PRESETS, key);
+export const navPreset = (key) => (hasNavPreset(key) ? NAV_PRESETS[key] : NAV_PRESETS.default);

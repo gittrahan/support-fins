@@ -4,7 +4,7 @@
  */
 import { el } from './dom.js';
 import { renderer, controls } from './scene.js';
-import { NAV_PRESETS, navPreset } from './navpresets.js';
+import { NAV_PRESETS, navPreset, hasNavPreset } from './navpresets.js';
 
 const NAV_KEY = 'sf.navPreset';
 const menu = el('nav-preset');
@@ -19,7 +19,7 @@ function apply(key) {
 
 let saved = 'default';
 try { saved = localStorage.getItem(NAV_KEY) ?? 'default'; } catch { /* storage off */ }
-menu.value = NAV_PRESETS[saved] ? saved : 'default';
+menu.value = hasNavPreset(saved) ? saved : 'default';
 apply(menu.value);
 menu.addEventListener('change', () => {
   try { localStorage.setItem(NAV_KEY, menu.value); } catch { /* storage off */ }

@@ -40,4 +40,5 @@ Deno.test('navpresets: the chords match the packages', () => {
 Deno.test('navpresets: an unknown stored key falls back to Default', () => {
   assert(navPreset('maya') === NAV_PRESETS.default);
   assert(navPreset(undefined) === NAV_PRESETS.default);
+  assert(navPreset('toString') === NAV_PRESETS.default, 'prototype key leaked through');
 });
