@@ -5,7 +5,7 @@ on; too big lets the part go.
 
 ONE piece (Matthew: no loose cubes): a keel -- a bar whose underside is a knife
 edge, so it meets the bed along a line -- with pointed arches cut out of that edge
-so it stands on four short feet. Each foot gets its own pad at its own Pad gap. The
+so it stands on three long feet. Each foot gets its own pad at its own Pad gap. The
 keel's sides (above a 1.5 mm 45 deg edge), the arches and the ramps at the ends all rise at 60 deg, steeper than
 the 45 deg overhang limit, so nothing but the pads holds the bar (a square bar on
 its edge leaned at 45 deg, and Auto braced those faces with wedges). A foot whose
@@ -18,7 +18,7 @@ either side of foot k, or at the same height up the end ramp (above the pad, so 
 the whole bar). out/coupon_part.stl is the whole bar. The pad's oval is centred on
 the contact's mean VERTEX, so a foot with a flat end face (many vertices at one
 end) got a lopsided pad that reached the next one; with the end ramps the end
-feet's pads run only 1.3 mm longer than the middle two's. Each foot has its pad gap (mm) raised on the top above it.
+feet's pads come out like the middle one's. Each foot has its pad gap (mm) raised on the top above it.
 
     python3 prototype/calibration/pad/gen.py && deno run -A prototype/calibration/pad/build.js
 """
@@ -33,11 +33,11 @@ from trimesh.creation import extrude_polygon
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from coupon import label, write  # noqa: E402
 
-GAPS = [0, 0.12, 0.2, 0.3]   # 0.12 = Light's brim gap; under ~0.1 slicers close it
+GAPS = [0, 0.12, 0.2]       # 0.12 = Light's brim gap; under ~0.1 slicers close it (0.3 dropped: 2026-10-08 print)
 B = 12.0                     # keel width (mm)
-H = 20.0                     # keel height
-FOOT = 12.0                  # each foot's length on the bed
-ARCH = 12.0                  # arch width at the bed: the pads (spread 4) stay ~2.7 mm apart
+H = 13.0                     # keel height: low, so a foot that lets go doesn't lever the rest off
+FOOT = 25.0                  # each foot's length on the bed (12 gave ~24 mm of outline, near minGripOutline 20)
+ARCH = 11.0                  # arch width at the bed (apex 9.5 mm, under the 13 mm keel)
 RISE = math.radians(60)      # every slope under the bar, clear of the 45 deg overhang limit
 EDGE = 1.5                   # ...but the keel's bottom 1.5 mm is a 45 deg edge, a cube's on its
                              # edge (the pad's case), too short for a wedge (PERP.minH 2)

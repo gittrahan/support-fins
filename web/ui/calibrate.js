@@ -35,7 +35,7 @@ export const COUPONS = [
   {
     name: 'Pad', file: 'pad-coupon.3mf',
     sets: 'Sets Clearances ▸ Bed pad ▸ Custom ▸ Pad gap',
-    how: 'One bar on four knife-edge feet, each held down only by its own pad, 0 to 0.3 mm off it. A foot lifted at its corner = gap too big; a pad won\'t peel or tears the edge = too small. Use the biggest gap whose foot stayed down, with Pad thickness 0.2, Pad grip 0 and Pad spread 4.',
+    how: 'One bar on three knife-edge feet, each held down only by its own pad, 0 to 0.2 mm off it. A foot lifted at its corner = gap too big; a pad won\'t peel or tears the edge = too small. Use the biggest gap whose foot stayed down, with Pad thickness 0.2, Pad grip 0 and Pad spread 4.',
   },
   {
     name: 'Cutouts', file: 'cutout-coupon.3mf',

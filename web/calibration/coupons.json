@@ -17,9 +17,9 @@
       "sha256": "5307efbbdadac70189c640b2371b44925ce4d4a317513ce805b3dbf5d62ae3d7"
     },
     "pad-coupon.3mf": {
-      "minutes": 21,
-      "grams": 8.8,
-      "sha256": "8ba4f170b334fbd4b915c9c62c2e5a68e9949e5a8f9e8ae0f5396379e2d79b55"
+      "minutes": 15,
+      "grams": 6.3,
+      "sha256": "8ddddc07cf1b03ea0521feb4a692c7e46353433aae19fded13d1629b59d1ce9f"
     },
     "cutout-coupon.3mf": {
       "minutes": 61,

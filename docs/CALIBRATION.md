@@ -65,9 +65,9 @@ as it moves right: on this shelf the middle position leaves a wider bare stretch
 bare stretch your printer can bridge.
 
 ## Pad (`pad/print/pad-coupon.3mf`)
-One bar standing on four short knife-edge feet, with arches between them. A pad is all
-that holds each foot down. Each pad stands a different gap off its foot: 0, 0.12, 0.2,
-0.3 mm, written on top above it.
+One bar standing on three knife-edge feet, with arches between them. A pad is all that
+holds each foot down. Each pad stands a different gap off its foot: 0, 0.12, 0.2 mm,
+written on top above it.
 - A foot lifted at its corner → gap too big. (The other feet keep the bar down, so a
   gap that's too big shows as a lift, not a lost part.)
 - Pad won't peel, or tears the foot's edge → gap too small.

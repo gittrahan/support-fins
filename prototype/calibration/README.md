@@ -164,25 +164,27 @@ STLs only). For a user: the shallowest clean ramp is the Overhang setting.
   not a number to type. **waiting on print.**
 
 ### pad/ -- how far off the part should the bed pad stand? (Bed pad > Custom > Pad gap)
-One piece (rebuilt 2026-10-08; it was six loose cubes): a
-keel 107 x 12 x 20.6 mm whose underside is a knife edge, with 60 deg pointed arches cut
-out of it so it stands on four 12 mm feet. Each foot's bottom 1.5 mm is a 45 deg edge
-(a cube's on its edge, the pad's case; the slicer prints it as one line on layers 1-2);
-above that the sides, arches and end ramps rise at 60 deg, so Auto gives the whole bar
-nothing but its pad (a square bar on its edge got wedges under its 45 deg faces, which
-would have held it down). The engine lays ONE pad under all of a part's bed contact, so
-each foot's pad is built ALONE on its post (out/foot_<k>.stl, the bar cut at the arch
-apexes, above the pad) with Auto, Bed pad = Custom at Light's numbers (h 0.2, grip 0,
-spread 4) and Pad gap 1: 0, 2: 0.12 (Light), 3: 0.2, 4: 0.3 mm; build.js checks the
-pads are >= 2 mm apart (2.7). Where each pad's top crosses the first-layer cut,
-measured off the foot's first-layer outline: 0.0 / 0.133 / 0.2 / 0.3. The pad's oval
-is centred on the contact's mean vertex, so a foot with a flat end face got a lopsided
-pad; the end ramps keep the four feet near alike (the end feet's pads run 21.3 mm, the
-middle two 20, 0.67 mm toward the bar's middle). 3MF re-packed deflated (local issue 007).
-For a user: a foot lifted at its corner = gap too big (the other feet keep the bar down,
-so too big shows as a lift, never a lost part); a pad that won't peel or tears the edge
-= too small. 21 min, 8.8 g.
-- **waiting on print.**
+One piece (rebuilt 2026-10-08; it was six loose cubes): a keel 112 x 12 x 13.6 mm whose
+underside is a knife edge, with 60 deg pointed arches cut out of it so it stands on
+three 25 mm feet. Each foot's bottom 1.5 mm is a 45 deg edge (a cube's on its edge, the
+pad's case; the slicer prints it as one line on layers 1-2); above that the sides,
+arches and end ramps rise at 60 deg, so Auto gives the whole bar nothing but its pad (a
+square bar on its edge got wedges under its 45 deg faces, which would have held it
+down). The engine lays ONE pad under all of a part's bed contact, so each foot's pad is
+built ALONE on its post (out/foot_<k>.stl, the bar cut at the arch apexes, above the
+pad) with Auto, Bed pad = Custom at Light's numbers (h 0.2, grip 0, spread 4) and Pad
+gap 1: 0, 2: 0.12 (Light), 3: 0.2 mm; build.js checks the pads are >= 2 mm apart (3).
+Where each pad's top crosses the first-layer cut, measured off the foot's first-layer
+outline: 0.0 / 0.133 / 0.2. The pad's oval is centred on the contact's mean vertex, so
+a foot with a flat end face got a lopsided pad; the end ramps keep the feet alike. 3MF
+re-packed deflated (local issue 007). For a user: a foot lifted at its corner = gap too
+big; a pad that won't peel or tears the edge = too small. 15 min, 6.3 g.
+- **2026-10-08, PLA, first bar (FAILED, inconclusive):** four 12 mm feet at 0 / 0.12 /
+  0.2 / 0.3 under a 20 mm keel. Foot 2 or 3 (0.12 or 0.2) let go first and the whole bar
+  came apart, so no gap could be read. Taken as the coupon's fault: each foot had ~24 mm
+  of first-layer outline (minGripOutline is 20) under a tall bar with leverage on a 0.2
+  mm line. Rebuilt: three 25 mm feet (0.3 dropped), keel 13 mm.
+- **waiting on print** (the rebuilt bar).
 
 ### cutout/ -- what does each Cutouts style do to a tall wall? (Walls > Cutouts, CUT.pattern)
 Bar on the plate, five identical 28 x 14 mm flat ledges 25 mm up (three near side,
