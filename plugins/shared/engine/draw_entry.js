@@ -47,7 +47,7 @@ export function drawWall(positions, a, b, options = {}) {
   applyTunables(tunables);
   const r = drawnWall(seat(a), seat(b), tris, 0, {
     tines: opts.tines, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
-    topo, rot: IDENTITY3, offset: off,
+    plateOnly: opts.plateOnly, topo, rot: IDENTITY3, offset: off,
   });
   if (!r.ok) return { ok: false, reason: r.reason };
   return {

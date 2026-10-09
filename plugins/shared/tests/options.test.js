@@ -166,7 +166,7 @@ Deno.test('optionsFromDialog: nests, checks, drops sway when off', () => {
 Deno.test('dialog defaults build exactly the engine defaults', () => {
   const defaults = Object.fromEntries(OPTS.map((x) => [x.key, x.default]));
   const same = (a, b) => a.length > 0 && a.length === b.length && a.every((v, i) => v === b[i]);
-  const lbracket = posedLbracket(), bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));
+  const lbracket = posed(), bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));
   assert(same(computeFins(lbracket, optionsFromDialog(defaults)).triangles, computeFins(lbracket, {}).triangles),
          'lbracket: dialog defaults differ from engine defaults');
   const swayOn = { ...defaults, 'sway.on': true };
@@ -174,9 +174,11 @@ Deno.test('dialog defaults build exactly the engine defaults', () => {
          'bar: dialog sway defaults differ from sway.js defaults');
 });
 
-// lbracket tilted 35 deg about Y: gets walls, tines and a pad, so every option shows.
-function posedLbracket() {
-  const pos = readSTL(Deno.readFileSync(`${MODELS}lbracket.stl`)), m = rotY(35);
+// A model tilted about Y. The lbracket at 35 deg gets walls, tines and a pad, so every
+// option shows -- but Plate only needs a wall standing on the part, which it has none
+// of: the portal on its side at Y90 stands its one wall on its lower leg.
+function posed(name = 'lbracket', deg = 35) {
+  const pos = readSTL(Deno.readFileSync(`${MODELS}${name}.stl`)), m = rotY(deg);
   const out = new Float64Array(pos.length);
   for (let i = 0; i < pos.length; i += 3) {
     const x = pos[i], y = pos[i + 1], z = pos[i + 2];
@@ -197,10 +199,11 @@ function changesFins(part, o, base, build) {
 }
 
 Deno.test('every option reaches the geometry (no dead dialog control)', () => {
-  const lbracket = posedLbracket();
+  const lbracket = posed();
   const bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));  // upright: braced
   try {
     const plain = computeFins(lbracket, {}).triangles;
+    const portal = posed('portal', 90);
     const braced = computeFins(bar, { sway: { on: true } }).triangles;
     for (const o of OPTS) {
       const [, sub] = o.key.split('.');
@@ -208,6 +211,8 @@ Deno.test('every option reaches the geometry (no dead dialog control)', () => {
         ? changesFins(bar, o, computeFins(bar, {}).triangles, (v) => computeFins(bar, { sway: { on: v } }))
         : sub
           ? changesFins(bar, o, braced, (v) => computeFins(bar, { sway: { on: true, [sub]: v } }))
+          : o.key === 'plateOnly'
+            ? changesFins(portal, o, computeFins(portal, {}).triangles, (v) => computeFins(portal, { plateOnly: v }))
           : changesFins(lbracket, o, plain, (v) => computeFins(lbracket, { [o.key]: v }));
       assert(ok, `${o.key}: no value it offers changes the fins`);
     }

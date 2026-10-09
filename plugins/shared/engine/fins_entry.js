@@ -30,6 +30,7 @@ export const ENGINE_DEFAULTS = Object.freeze({
   tines: OPTION.tines.default,
   tineDensity: OPTION.tineDensity.default,   // 0..1 (the site's slider / 100)
   coverage: OPTION.coverage.default,         // 0..1 (the site's slider / 100)
+  plateOnly: OPTION.plateOnly.default,       // supports on the plate only, none on the part (#218)
   layerHeight: OPTION.layerHeight.default,   // a slicer host passes its own
   threshold: DEFAULT_THRESHOLD,              // degrees; options.json's default is pinned to it
   material: OPTION.material.default,   // key of web/materials.js MATERIAL
@@ -146,6 +147,7 @@ export function computeFins(positions, options = {}) {
   const built = buildFins(topo, result, IDENTITY3, {
     mode: opts.mode, bedPad: opts.bedPad && opts.padStyle !== 'off', tines: opts.tines,
     tineDensity: opts.tineDensity, layerHeight: opts.layerHeight, coverage: opts.coverage,
+    plateOnly: opts.plateOnly,
     // `sway` is forwarded whole, so a host passes the same object the website's
     // options panel builds; buildFins ignores it unless `on` is set. Like the site
     // (ui/finbuild.js swayOpts), braces take the material's gap unless the

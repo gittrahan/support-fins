@@ -76,11 +76,12 @@ def test_units_on_the_way_to_the_engine():
     set_to = {"Material": "PETG", "Overhang": 50.0, "Tines": False, "TineGrip": 35,
               "LayerHeight": Quantity(0.16), "BedPad": "Sure hold", "SwayBraces": True,
               "BraceGripFrom": 12.0, "BraceTineSpacing": 8.0, "BraceDepth": 20,
-              "Cutouts": "Lattice", "WideFaceCoverage": 100}
+              "Cutouts": "Lattice", "WideFaceCoverage": 100, "PlateOnly": True}
     values = props.dialog_values(SCHEMA, lambda n: set_to[n])
     assert values == {"material": "petg", "threshold": 50.0, "tines": False, "tineDensity": 0.35,
                       "layerHeight": 0.16, "padStyle": "sure", "sway.on": True, "sway.gripFrom": 12.0,
-                      "sway.tineSpacing": 8.0, "sway.reach": 0.2, "cutout": "lattice", "coverage": 1.0}
+                      "sway.tineSpacing": 8.0, "sway.reach": 0.2, "cutout": "lattice", "coverage": 1.0,
+                      "plateOnly": True}
 
 
 def test_bounded_numbers_carry_the_engines_range():

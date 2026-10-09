@@ -136,6 +136,7 @@ export function rebuildDrawn() {
   const drawOpts = { tines: el('tines').checked,
                      tineDensity: el('tine-density').valueAsNumber / 100,
                      layerHeight: el('layer-height').valueAsNumber,
+                     plateOnly: el('plate-only').checked,
                      topo: topology, rot: rotM3.elements, offset: lastResult.offset };
   const wa = new THREE.Vector3(), wb = new THREE.Vector3();
   // Everything a hand-placed brace has to keep clear of: Auto's braces and walls

@@ -374,6 +374,12 @@
       <span><span data-i18n="Wide-face coverage">Wide-face coverage</span> <span class="mut"><span data-i18n="sparse">sparse</span> ⟶ <span data-i18n="dense">dense</span></span></span>
       <input type="range" id="coverage" min="0" max="100" step="5" value="50">
     </label>
+    <!-- Plate only (#218): every support stands on the build plate, none on the part
+         itself. An overhang with part under it is left bare and the readout says how
+         many; Draw refuses a line over the part with the reason. -->
+    <label data-i18n-title class="check" title="Stand every support on the build plate, never on the part itself. An overhang with part under it is left unsupported, and the readout says how many.">
+      <input type="checkbox" id="plate-only"><span data-i18n="Plate only">Plate only</span> <span class="mut" data-i18n="no supports on the part">no supports on the part</span>
+    </label>
     <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
          Shown only in Suggest mode (toggled in ui/settings.js). Per-fin removal (Auto only,
          shown via ui/remove.js syncRemoveUI): arm a click-to-remove mode, hover lights a

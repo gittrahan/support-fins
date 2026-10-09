@@ -178,6 +178,8 @@ el('cutout').addEventListener('change', () => {
   CUT.pattern = el('cutout').value;
   refreshFins();
 });
+// Plate only (#218): read by every build, auto in the Worker and drawn on the page.
+el('plate-only').addEventListener('change', () => refreshFins());
 
 // Material profiles (PLA/PETG clearances) live in ../materials.js, shared with the
 // plugins' engine entry. These objects are read fresh on every build, so applying a
@@ -262,7 +264,8 @@ export function syncSectionSums() {
   el('sum-clearances').textContent =
     `${el('gap').value} mm gap · pad ${el('bed-pad').selectedOptions[0].textContent.toLowerCase()}`;
   const cut = el('cutout').value;
-  el('sum-walls').textContent = cut === 'none' ? 'solid' : `${sel('cutout').toLowerCase()} cutouts`;
+  el('sum-walls').textContent = (cut === 'none' ? 'solid' : `${sel('cutout').toLowerCase()} cutouts`)
+    + (el('plate-only').checked ? ' · plate only' : '');
   el('sum-sway').textContent = el('sway').checked
     ? `${el('sway-spacing').value} mm tines · ${el('sway-depth').value}% deep`
       + (el('sway-from').valueAsNumber > 0 ? ` · from ${el('sway-from').value} mm` : '')

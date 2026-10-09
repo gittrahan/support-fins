@@ -38,6 +38,10 @@ function explainNoFins(b) {
   if (b.mode === 'prop') {
     const s = b.skipped ?? {};
     if (!b.rejected.sites) return 'no overhangs to prop in this orientation';
+    if (s.onPart) {
+      return 'part of the model sits under these overhangs, and Plate only is on — '
+           + 'untick it to stand supports on the part, or rotate';
+    }
     // Named in the order that tells the user the most. Each is a different
     // stage of the search, and lumping them into "blocked" is what let M5 be
     // recorded as working on a part where it built nothing.
@@ -408,6 +412,13 @@ function updateFinReadout(built, ms) {
               + 'too shallow for a fin this way up. Tilt the part steeper so a fin can '
               + 'follow it (try Suggest orientation), or add a wall by hand.');
     }
+  }
+  // Plate only (#218) left these bare: say so, so the red isn't a mystery
+  const onPart = built.skipped?.onPart ?? 0;
+  if (onPart) {
+    help.push(`${onPart} support${onPart === 1 ? ' was' : 's were'} left off because part of `
+      + 'the model sits under the overhang and Plate only is on. Untick it to stand '
+      + 'them on the part.');
   }
   // Sway braces were asked for, so say what they did -- and why, if nothing.
   if (sw) {
