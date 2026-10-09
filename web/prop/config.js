@@ -38,14 +38,17 @@ export const PROP = {
                     // ~0.4mm lower down the face. Grip, not adhesion, is what the
                     // bottom band needs.
   tipH: 1.5,        // height the tip taper runs
-  // Interface crest (GitHub #21, prop/crest.js): the top ifaceH of a wall split off
+  // Interface crest (GitHub #21, prop/crest.js): the top ifaceLayers of a wall split off
   // as its own solid for a toolchanger's second material. iface: false (off, one
   // body as always), 'flat' (only under an underside within ifaceFlatDeg of level:
   // where a PETG interface works, a few layers of tool changes) or 'all' (every
-  // wall top, a tool change every layer a tilted contact climbs through). 0.6 =
-  // three 0.2 mm layers, the solid band PETG-interface users print.
+  // wall top, a tool change every layer a tilted contact climbs through).
+  // ifaceLayers: how many of the print's layers (the "Layer height" field, as the
+  // tines) the crest is. 1: one PETG layer, one tool change each way per flat
+  // contact; the 0.6 mm (three layers) it was cost two more for no clear gain on a
+  // two-line wall top (Matthew, 2026-10-09).
   iface: false,
-  ifaceH: 0.6,
+  ifaceLayers: 1,
   // 'flat': 10deg keeps a th-wide crest's edge 0.09 mm off the part (under the gap)
   ifaceFlatDeg: 10,
   // Foot half-width. Kept well under maxUnsupportedSpan/2 on purpose: props are

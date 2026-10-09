@@ -196,7 +196,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     return { ok: false, reason: `wall too short — ${len.toFixed(1)}mm, needs ${DRAW_MIN_LEN}mm` };
   }
   const out = [];
-  if (crestOn()) crestPart(tris);   // the interface crest's 'flat' test reads the underside here
+  if (crestOn()) crestPart(tris, opts.layerHeight);   // the interface crest's 'flat' test reads the underside here
   // A drawn wall grips the part with the same tine comb the auto fins use, when
   // Tines is on. emitTines needs the part in topology form (for bite direction), so
   // it only runs when the caller passes topo/rot/offset -- the live preview omits

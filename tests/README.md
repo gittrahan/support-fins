@@ -130,6 +130,7 @@ no DOM), so a change to a verdict or a solver can't silently drift:
   add **no zero-area triangle**;
 - flat contacts give a flat ceiling a **full-width** (th) crest, and a 35° cube's tilted
   underside and its tines **none**;
+- the crest is **one layer** of the Layer height field (0.2 and 0.3 mm);
 - **no body vertex rises into its crest**;
 - everywhere, a **sway brace's tines** are tagged too;
 - the separate 3MF writes the crest as a **part of the supports object** (a floating

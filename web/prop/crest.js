@@ -12,7 +12,8 @@
  * PETG, laid on a narrow tip, would not print on the PLA (a cube at 35deg, the first
  * print). 'all' crests every station anyway: the user's call per part. false: off.
  *
- * THE SPLIT. A crest station's wall is cut `PROP.ifaceH` below its top: the BODY
+ * THE SPLIT. A crest station's wall is cut `crestH()` (`PROP.ifaceLayers` of the
+ * print's layers) below its top: the BODY
  * below, the CREST above, both closed solids, the crest reaching CREST_OVERLAP down
  * into the body (never flush). Under a flat contact the crest keeps the wall's full
  * `th` (two lines): the tip only narrows so fused PLA snaps off, and here it would
@@ -41,13 +42,16 @@ import { surfaceHitsAt } from './surface.js';
 const CREST_OVERLAP = 0.01;
 
 /** Is the crest on (either mode)? */
-export const crestOn = () => !!PROP.iface && PROP.ifaceH > 0;
+export const crestOn = () => !!PROP.iface && PROP.ifaceLayers > 0;
 
-// The seated part the 'flat' test reads the underside from: set at each build's
-// entry (buildFins, drawnWall), which hold it in print space. A flat array of
-// [x,y,z] x 3 per triangle, the form surfaceHitsAt takes.
-let part = null;
-export function crestPart(tris) { part = tris; }
+// The seated part the 'flat' test reads the underside from, and the print's layer
+// height: set at each build's entry (buildFins, drawnWall), which hold the part in
+// print space. A flat array of [x,y,z] x 3 per triangle, the form surfaceHitsAt takes.
+let part = null, layerH = PROP.tineH;
+export function crestPart(tris, layerHeight) { part = tris; layerH = layerHeight || PROP.tineH; }
+
+/** The crest's height: `PROP.ifaceLayers` whole layers of the print. */
+export const crestH = () => PROP.ifaceLayers * layerH;
 
 /** Is the part's underside at contact point p (x, y, surface z) flat enough? */
 function flatAt(p) {
@@ -138,7 +142,7 @@ export function splitInterface(tris) {
  */
 export function crestCut(top, ztip, floor, kind, th = PROP.th, tip = PROP.tip) {
   if (!kind) return null;
-  const cut = Math.max(top - PROP.ifaceH, (floor + top) / 2);
+  const cut = Math.max(top - crestH(), (floor + top) / 2);
   const cb = cut - CREST_OVERLAP;
   if (kind === 'flat') {
     return { cut, zt: cut, wc: th / 2,
@@ -158,7 +162,7 @@ export function crestCut(top, ztip, floor, kind, th = PROP.th, tip = PROP.tip) {
  * (the same rule as crestCut, the bed as floor), `flatCrestRing` the band from
  * CREST_OVERLAP under that cut to `top`, `half` either side.
  */
-export const flatCut = (top) => Math.max(top - PROP.ifaceH, top / 2);
+export const flatCut = (top) => Math.max(top - crestH(), top / 2);
 export function flatCrestRing(P, top, half) {
   const cb = flatCut(top) - CREST_OVERLAP;
   return [P(+half, cb), P(+half, top), P(-half, top), P(-half, cb)];

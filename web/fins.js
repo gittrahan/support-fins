@@ -123,7 +123,7 @@ export function buildFins(topo, result, rot, opts = {}) {
 function buildFinsAndBraces(topo, result, rot, opts = {}) {
   applyTunables(opts.tunables);
   // the interface crest's 'flat' test reads the underside off the seated part
-  crestPart(crestOn() ? seatedPartTris(topo, rot, result.offset) : null);
+  crestPart(crestOn() ? seatedPartTris(topo, rot, result.offset) : null, opts.layerHeight);
   const built = buildFinsCore(topo, result, rot, opts);
   // Sway braces are an optional ADD-ON to whatever the mode placed (sway.js): a
   // tall part still needs its overhangs held, and bracing its sides is a

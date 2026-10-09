@@ -14,14 +14,14 @@ const { drawnWall } = await import(`${WEB}draw.js`);
 const { CUT } = await import(`${WEB}cutout.js`);
 const { PROP, splitInterface } = prop;
 
-function build(name, rot, { iface, mode = 'auto', cutout = 'none' } = {}) {
+function build(name, rot, { iface, mode = 'auto', cutout = 'none', layerHeight } = {}) {
   const topo = loadModel(name);
   const was = [PROP.iface, CUT.pattern];
   PROP.iface = iface;
   CUT.pattern = cutout;
   try {
     // the app's call (CLAUDE.md): analyze(topo, 45, rot), then buildFins
-    return fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode, bedPad: true }).triangles;
+    return fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode, bedPad: true, layerHeight }).triangles;
   } finally {
     [PROP.iface, CUT.pattern] = was;
   }
@@ -119,6 +119,19 @@ Deno.test('interface crest: flat contacts -- a flat ceiling gets a full-width cr
   const width = Math.min(span(0), span(1));
   assert(Math.abs(width - PROP.th) < 1e-6, `crest top ${width.toFixed(3)} mm wide, want the wall's ${PROP.th}`);
 });
+
+// ...one layer of the print tall (PROP.ifaceLayers, the Layer height field): one
+// tool change each way per flat contact. It reaches CREST_OVERLAP (0.01) into the body.
+for (const layerHeight of [0.2, 0.3]) {
+  Deno.test(`interface crest: flat contacts -- the crest is one ${layerHeight} mm layer`, () => {
+    const { iface } = splitInterface(build('portal', rotX(90), { iface: 'flat', layerHeight }));
+    const zTop = Math.max(...iface.map((v) => v[2]));
+    const top0 = iface.find((v) => zTop - v[2] < 1e-6);
+    const near = iface.filter((v) => Math.hypot(v[0] - top0[0], v[1] - top0[1]) < 3);
+    const h = zTop - Math.min(...near.map((v) => v[2]));
+    assert(Math.abs(h - (layerHeight + 0.01)) < 1e-6, `crest ${h.toFixed(3)} mm tall, want ${layerHeight} + 0.01`);
+  });
+}
 
 // ...and a tilted underside gets none: on the 35deg cube every contact leans, and the
 // first print showed PETG won't lay down on PLA climbing every layer. The tines stay
