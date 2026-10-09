@@ -135,7 +135,16 @@ function modelXML(partTris, finTris, title, separate) {
 const CONTENT_TYPES = '<?xml version="1.0" encoding="UTF-8"?>\n' +
   '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
   `<Default Extension="rels" ContentType="${CT_RELS}"/>` +
-  `<Default Extension="model" ContentType="${CT_MODEL}"/></Types>`;
+  `<Default Extension="model" ContentType="${CT_MODEL}"/>` +
+  '<Default Extension="json" ContentType="application/json"/></Types>';
+
+/**
+ * The site's own state, carried beside the model so a 3MF it exported can be
+ * opened again with the supports the user placed by hand (#214): the drawn walls
+ * as points, the fin mode and the settings. A slicer ignores an extra part in the
+ * package; a re-save in one drops it, and the file then opens as a plain part.
+ */
+export const SESSION_PART = 'Metadata/support_fins.json';
 
 const ROOT_RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
   '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' +
@@ -145,16 +154,19 @@ const ROOT_RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
  * @param partTris  the model geometry, print space
  * @param finTris   the fins + pad, print space (may be empty)
  * @param name      written as the model Title (and the objects' names)
- * @param opts      { separate }: true = part and fins as two objects (see the
- *                  header); default false = one locked object
+ * @param opts      { separate, session }: separate true = part and fins as two
+ *                  objects (see the header), default false = one locked object;
+ *                  session = the site's state, written to SESSION_PART
  * @returns Blob    a .3mf package
  */
-export function writeThreeMF(partTris, finTris, name = 'Support Fins', { separate = false } = {}) {
-  return zipStore([
+export function writeThreeMF(partTris, finTris, name = 'Support Fins', { separate = false, session = null } = {}) {
+  const entries = [
     { name: '[Content_Types].xml', data: CONTENT_TYPES },
     { name: '_rels/.rels', data: ROOT_RELS },
     { name: '3D/3dmodel.model', data: modelXML(partTris, finTris, name, separate) },
-  ]);
+  ];
+  if (session) entries.push({ name: SESSION_PART, data: JSON.stringify(session) });
+  return zipStore(entries);
 }
 
 // ---------------------------------------------------------------- 3MF reader
@@ -482,7 +494,8 @@ function findRootPart(parts) {
  *   unit,
  *   objects: [{ name, positions:Float32Array, tris, meshes, skipped, dropped, bbox }],
  *   positions: Float32Array,   // every object merged -- the simple single-part path
- *   meshes, items, skipped, dropped   // aggregate across objects
+ *   meshes, items, skipped, dropped,  // aggregate across objects
+ *   session,                   // SESSION_PART's object when the site wrote one, else null
  * }
  *   Each object's `positions` is flat [x,y,z] x 3 per triangle, the same layout
  *   STLLoader produces, so the caller builds a BufferGeometry from any of them.
@@ -555,7 +568,18 @@ export async function readThreeMF(bytes) {
     items: objects.length,
     skipped: agg.skipped,
     dropped: agg.dropped,
+    session: readSession(parts),
   };
+}
+
+/** SESSION_PART, parsed; null when absent or unreadable (the file is still a part). */
+function readSession(parts) {
+  const data = parts.get(SESSION_PART);
+  if (!data) return null;
+  try {
+    const s = JSON.parse(new TextDecoder().decode(data));
+    return s && typeof s === 'object' && s.v === 1 ? s : null;
+  } catch { return null; }
 }
 
 /** Concatenate the per-object position arrays into one merged soup. */
