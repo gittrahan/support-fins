@@ -44,6 +44,12 @@ const readForm = () => Object.fromEntries(FORM_IDS.map((id) => {
 let settled = readForm();
 let restoring = false;
 
+// Not this part's settings but the viewer's own (how it is drawn, the mouse): a
+// session saved in a 3MF (ui/session.js) leaves them as they are.
+const VIEWER_IDS = new Set(['highlight-small', 'show-layers', 'show-rings', 'nav-preset']);
+/** The part's settings as they stand, for a saved session. */
+export const sessionForm = () => Object.fromEntries(Object.entries(settled).filter(([id]) => !VIEWER_IDS.has(id)));
+
 function snapshot() {
   const q = part.quaternion;
   return {
@@ -113,7 +119,8 @@ function restoreForm(form) {
   }
 }
 
-function restoreState(s) {
+/** Apply a whole state, as undo does (ui/session.js builds one from a saved 3MF). */
+export function restoreState(s) {
   part.quaternion.set(s.quat[0], s.quat[1], s.quat[2], s.quat[3]);
   setDrawnWalls(s.walls.map((w) => ({ kind: w.kind, face: w.face, a: w.a.clone(), b: w.b?.clone(),
                                        ok: false, info: null })));

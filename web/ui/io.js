@@ -9,9 +9,13 @@ import { readThreeMF } from '../threemf.js';
 import { isStep, readStep, warmStep } from '../step.js';
 import { el } from './dom.js';
 import { part, setPart } from './part.js';
+import { partObjectOf, restoreSession } from './session.js';
 
 export let importNote = '';
 export let lastImportMeta = null;
+// A session saved in the 3MF just read (ui/session.js), restored once setPart has
+// the part: taken by afterLoad, so it never reaches a later file.
+let pendingSession = null;
 
 export function renderImportNote() {
   if (!lastImportMeta) return '';
@@ -28,6 +32,13 @@ export function renderImportNote() {
     }
     if (m.skipped) notes.push(isDe ? `${m.skipped} Stütz-/nicht druckbare(n) Körper ignoriert` : `ignored ${m.skipped} support/non-printable ${m.skipped === 1 ? 'body' : 'bodies'}`);
     if (m.unit && m.unit !== 'millimeter') notes.push(isDe ? `von ${m.unit} nach mm konvertiert` : `converted from ${m.unit} to mm`);
+    if (m.restored != null) {
+      notes.push(isDe ? `${m.restored} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt`
+                      : `restored ${m.restored} hand-placed support${m.restored === 1 ? '' : 's'} and the settings`);
+    } else if (m.session === 'mismatch') {
+      notes.push(isDe ? 'gespeicherte Stützen nicht geladen: das Bauteil wurde seit dem Export geändert'
+                      : 'saved supports not loaded: the part changed since it was exported');
+    }
     return notes.length ? `3MF: ${notes.join('; ')}.` : '';
   }
   return importNote;
@@ -150,12 +161,15 @@ async function parseModel(buffer) {
   if (isStep(buffer)) return parseStep(buffer);
   if (!isZip(buffer)) return loader.parse(buffer);
 
-  const { objects, unit, skipped } = await readThreeMF(new Uint8Array(buffer));
+  const { objects, unit, skipped, session } = await readThreeMF(new Uint8Array(buffer));
 
   // One object loads straight in; a plate of several goes to the picker so the
-  // user chooses which body to fin rather than us merging distinct models.
-  let chosen = objects;
-  if (objects.length > 1) {
+  // user chooses which body to fin rather than us merging distinct models. A file
+  // the site exported (it carries a session) is the part and its supports: the part
+  // loads, and the supports come back from the session, not as a mesh.
+  const own = session ? partObjectOf(objects) : null;
+  let chosen = own ? [own] : objects;
+  if (!own && objects.length > 1) {
     chosen = await pickObjects(objects);
     if (!chosen) return null;               // cancelled: keep the current part
   }
@@ -182,8 +196,10 @@ async function parseModel(buffer) {
     chosenName: chosen[0]?.name,
     meshes: chosen[0]?.meshes ?? 1,
     skipped,
-    unit
+    unit,
+    session: own ? 'pending' : null,
   };
+  pendingSession = own ? session : null;
   importNote = renderImportNote();
 
   return geometry;
@@ -221,11 +237,26 @@ async function parseStep(buffer) {
   return geometryFromPositions(mergeObjectPositions(chosen));
 }
 
+/** setPart, then the saved session if the file carried one (the import note says
+ *  how many supports came back, or why none did). */
+function afterLoad(geometry, name) {
+  setPart(geometry, name);
+  const s = pendingSession;
+  pendingSession = null;
+  if (!s || !lastImportMeta) return;
+  let n = null;
+  try { n = restoreSession(s); } catch (err) { console.error(err); }
+  lastImportMeta.restored = n;
+  lastImportMeta.session = n == null ? 'mismatch' : 'restored';
+  importNote = renderImportNote();
+  el('s-import-note').textContent = importNote;    // the load's report already ran
+}
+
 async function loadFile(file) {
   if (!file) return;
   try {
     const geometry = await parseModel(await file.arrayBuffer());
-    if (geometry) setPart(geometry, file.name);
+    if (geometry) afterLoad(geometry, file.name);
   } catch (err) {
     console.error(err);
     alert(`Could not read ${file.name}:\n${err.message}`);
@@ -248,7 +279,7 @@ export async function loadURL(url) {
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const geometry = await parseModel(await res.arrayBuffer());
   if (!geometry) return;                       // picker cancelled
-  setPart(geometry, url.split('/').pop());
+  afterLoad(geometry, url.split('/').pop());
   // Drop ?stl= once it has been consumed: the path is nobody's business but the
   // user's, and a stale one in the address bar is misleading after they open a
   // different file.

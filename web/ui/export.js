@@ -6,6 +6,7 @@ import { writeThreeMF } from '../threemf.js';
 import { el } from './dom.js';
 import { part, topology, lastResult, rotM3, partName } from './part.js';
 import { activeAdded } from './finbuild.js';
+import { sessionOf } from './session.js';
 
 /**
  * Export the part AS ORIENTED, seated on the plate, with the fins as extra
@@ -54,8 +55,10 @@ const FORMATS = {
   // It writes the supports as their OWN object, so the slicer slices them apart and
   // a tine only touches the part (GitHub #38, the grip coupon's split print). The
   // site offers only this form: the old one-object assembly kept the pair from being
-  // arranged apart, too small a gain for tines that fuse.
-  'export-3mf': (g) => [writeThreeMF(g.partTris, g.finTris, g.base, { separate: true }), `${g.base}-fins.3mf`],
+  // arranged apart, too small a gain for tines that fuse. It also carries the
+  // session (ui/session.js), so opening it here again brings the drawn walls back.
+  'export-3mf': (g) => [writeThreeMF(g.partTris, g.finTris, g.base, { separate: true, session: sessionOf(g.partTris) }),
+                        `${g.base}-fins.3mf`],
   // Just the fins + pad (issue #5). One body, so 3MF would add nothing over STL.
   'export-fins': (g) => [writeBinarySTL(g.finTris, `${g.base} fins`), `${g.base}-fins-only.stl`],
 };
