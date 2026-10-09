@@ -559,7 +559,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
   const others = boxGrid();
   others.add(built.triangles ?? []);
   const drawOpts = { under: true, tines: opts.tines ?? true, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
-                     topo, rot, offset: result.offset };
+                     plateOnly: opts.plateOnly === true, topo, rot, offset: result.offset };
   let tines = 0;
   const floors = [];               // each kept wall's bottom z per station (drawnWall), for the braces
   const dead = new Set();          // points no line could serve
@@ -574,7 +574,8 @@ export function fillCoverage(topo, result, rot, opts, built) {
   // gets a try.
   const wallFor = (live, g, local = false) => {
     const redAt = redGrid(g.map((i) => live[i]));
-    let aims = null, builds = 0, partOk = local, flangeOk = local, joinOk = local;
+    // (Plate only: never the retry that stands a wall on the part)
+    let aims = null, builds = 0, partOk = local && !drawOpts.plateOnly, flangeOk = local, joinOk = local;
     // the first of `cands` that builds, keeps off every support and holds new red:
     // true; CAP; aims (this group's tries are used up); or null (none built)
     const tryLines = (cands) => {

@@ -84,7 +84,7 @@ export function noProps() {
   return {
     triangles: [], props: [], served: 0, volume: 0,
     skipped: { noLine: 0, wanders: 0, stub: 0, blocked: 0,
-               degenerate: 0, buried: 0, weld: 0, sliver: 0 },
+               degenerate: 0, buried: 0, weld: 0, sliver: 0, onPart: 0 },
   };
 }
 
@@ -172,7 +172,11 @@ function buildPass(topo, result, rot, opts, raster) {
   // within a generation.
   let nextId = 0;
   const skipped = { noLine: 0, wanders: 0, stub: 0, blocked: 0,
-                    degenerate: 0, buried: 0, weld: 0, sliver: 0 };
+                    degenerate: 0, buried: 0, weld: 0, sliver: 0, onPart: 0 };
+  // Plate only (#218): every support stands on the plate. A line with part under it
+  // is the part-attached path's, so it is dropped and counted (onPart), never
+  // stilted to the plate through the part.
+  const plateOnly = opts.plateOnly === true;
   const v = [0, 0, 0];
 
   // The whole part, seated once, for the part-attached floor probe: the floor a
@@ -345,6 +349,7 @@ function buildPass(topo, result, rot, opts, raster) {
       // the plate path's own `line` is untouched.
       const tri0 = out.length;
       const pa = buildPartAttached(line, partTris, topo, rot, off, out);
+      if (plateOnly && (pa.ok || pa.floored)) { out.length = tri0; skipped.onPart++; continue; }
       if (pa.ok && patch.smallTube) {
         // A small tube's line is new to this path, so hold its wall to the same
         // measured clearance the plate path demands (see the sweep below): on

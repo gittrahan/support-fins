@@ -191,5 +191,12 @@ no stress models needed):
   refuses a roof; `buildFins` without the option is unchanged;
 - a brace straight across a channel from another is **refused**, a staggered one is not.
 
+**`plate_only.test.js`** -- Plate only (#218), every support on the build plate:
+- a drawn line with part under it is **refused, naming the setting**; over open plate
+  the wall is byte-identical;
+- Auto and Full on the portal at Y90 build **no wall on the part** and count the
+  dropped one (`skipped.onPart`), never stilting it through the part;
+- off by default, and a part with nothing over it is unchanged.
+
 See `docs/FIN-SPEC.md` for the spec these encode. `prototype/stress/run.js` is the
 broader sweep (all models × poses) for eyeballing; this suite is the pass/fail gate.
