@@ -41,6 +41,15 @@ for (const mode of ['auto', 'full']) {
     const b = fins.buildFins(topo, res2, rot, { mode, bedPad: true, plateOnly: true });
     assert(!b.props.some((q) => q.partAttached), `${mode}: a wall still stands on the part`);
     assert(b.skipped.onPart > 0, `${mode}: the dropped wall isn't counted`);
+    // every support that IS built reaches down to the plate
+    for (const f of b.fins) {
+      let low = Infinity;
+      for (const [i, j] of f.triRanges) for (let k = i; k < j; k++) low = Math.min(low, b.triangles[k][2]);
+      assert(low < 0.5, `${mode}: a ${f.kind} bottoms out at z ${low.toFixed(2)}, off the plate`);
+    }
+    // Full refuses lines over the part before building them, not one wall at a time
+    // until it hits its try limit (and then blames the limit)
+    if (mode === 'full') assert(!b.fill.capped, `full: capped after ${b.fill.tries} tries`);
   });
 }
 

@@ -319,10 +319,15 @@ function settledStretch(c, tris, redAt, others, relax = null, low = false) {
  * `join` -- the fill pass's own walls don't count at all (a wall that crosses or
  * butts into another fill wall is one support with it: a cleat sole at 45deg needs
  * walls down its slope, across the one along it). Auto's walls always do.
+ * `plate` (Plate only, #218, on every try): any part between the station and the
+ * plate refuses it here, before drawnWall is asked and refuses it at length.
  */
 function stationClear(p, tris, others, relax = null) {
   const w = PROP.th / 2 + PROP.sideClear;
   const skip = relax?.join ? isFill : null;
+  if (relax?.plate) {
+    for (const h of surfaceHitsAt(tris, p[0], p[1])) if (h[0] < p[2] - 1 && h[0] > PROP.gap + 0.5) return false;
+  }
   if (relax?.part) {
     // the nearest surface below, if it faces UP (a down-facing one below is another
     // overhang's underside, with air under it)
@@ -558,8 +563,11 @@ export function fillCoverage(topo, result, rot, opts, built) {
   const tris = seatedPartTris(topo, rot, result.offset);
   const others = boxGrid();
   others.add(built.triangles ?? []);
+  // Plate only (#218): no wall on the part -- never the retry that stands one there,
+  // and every try refuses a station with part under it (stationClear's `plate`)
+  const plateOnly = opts.plateOnly === true, strict = plateOnly ? { plate: true } : null;
   const drawOpts = { under: true, tines: opts.tines ?? true, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
-                     plateOnly: opts.plateOnly === true, topo, rot, offset: result.offset };
+                     plateOnly, topo, rot, offset: result.offset };
   let tines = 0;
   const floors = [];               // each kept wall's bottom z per station (drawnWall), for the braces
   const dead = new Set();          // points no line could serve
@@ -574,8 +582,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
   // gets a try.
   const wallFor = (live, g, local = false) => {
     const redAt = redGrid(g.map((i) => live[i]));
-    // (Plate only: never the retry that stands a wall on the part)
-    let aims = null, builds = 0, partOk = local && !drawOpts.plateOnly, flangeOk = local, joinOk = local;
+    let aims = null, builds = 0, partOk = local && !plateOnly, flangeOk = local, joinOk = local;
     // the first of `cands` that builds, keeps off every support and holds new red:
     // true; CAP; aims (this group's tries are used up); or null (none built)
     const tryLines = (cands) => {
@@ -583,8 +590,8 @@ export function fillCoverage(topo, result, rot, opts, built) {
         if (full()) return CAP;
         aims ??= c0.aims;
         stats.checks++;
-        let quick = underStretch(c0, tris, redAt, others, null, local);
-        let c = quick && settledStretch(quick, tris, redAt, others, null, local);
+        let quick = underStretch(c0, tris, redAt, others, strict, local);
+        let c = quick && settledStretch(quick, tris, redAt, others, strict, local);
         // ...and relaxed (stationClear): standing on the part where there is part under
         // it (a chin over the chest, its plate below taken), its flange joining the
         // flanges on the plate. Tried second, each only until a wall it let through
@@ -592,7 +599,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
         let relaxed = false;
         if (!c && (partOk || flangeOk)) {
           stats.checks++;
-          const relax = { part: partOk, flange: flangeOk };
+          const relax = { part: partOk, flange: flangeOk, plate: plateOnly };
           quick = underStretch(c0, tris, redAt, others, relax, local);
           c = quick && settledStretch(quick, tris, redAt, others, relax, local);
           relaxed = !!c;
@@ -602,7 +609,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
         let joined = false;
         if (!c && joinOk) {
           stats.checks++;
-          const relax = { part: partOk, flange: true, join: true };
+          const relax = { part: partOk, flange: true, join: true, plate: plateOnly };
           quick = underStretch(c0, tris, redAt, others, relax, local);
           c = quick && settledStretch(quick, tris, redAt, others, relax, local);
           joined = !!c;
@@ -655,7 +662,8 @@ export function fillCoverage(topo, result, rot, opts, built) {
     while (rest.length) {
       const sub = localPatch(live, rest);
       builds = 0;
-      partOk = flangeOk = joinOk = true;
+      partOk = !plateOnly;
+      flangeOk = joinOk = true;
       // (one bridge: a patch is at most 2 x FILL.local across)
       const r = tryLines(candidateLines(live, sub, R, FILL.bridge, true));
       if (r === true || r === CAP) return r;
