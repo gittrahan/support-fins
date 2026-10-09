@@ -339,11 +339,11 @@ function placeSway(hit) {
   updateFit();
 }
 
-/** Show the Draw controls (hint + Clear) only while hand-placement is live,
- *  and word the hint for what the click does: a support fin in Draw, a two-point
- *  wall in the Suggest "+ Add" augment. */
+/** Show Clear whenever hand-drawn walls are shown (they stay in Suggest after
+ *  "+ Add" is switched off), but the click hint only while a click places one. */
 export function syncDrawControls() {
   el('draw-controls').hidden = !drawShown();
+  el('draw-hint').hidden = !drawActive();
   el('draw-hint').innerHTML = t('Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Click an upright side once to stand a sway brace against it. Esc or right-click cancels.');
 }
 
