@@ -89,15 +89,20 @@ function settable(id, v) {
   return true;
 }
 /** Is `s` whole? Checked before anything is applied, so a hand-edited file can't
- *  leave the page half restored. */
+ *  leave the page half restored. (The settings are not part of it: see formOf.) */
 function readable(s) {
   if (s.finMode !== undefined && ![...el('fin-mode').options].some((o) => o.value === s.finMode)) return false;
   if (s.finsVisible !== undefined && typeof s.finsVisible !== 'boolean') return false;
-  if (s.form !== undefined && (typeof s.form !== 'object' || !Object.entries(s.form).every(([id, v]) => settable(id, v)))) return false;
   if (s.removed !== undefined && !(Array.isArray(s.removed) && s.removed.every((x) => typeof x === 'string'))) return false;
   return Array.isArray(s.walls ?? []) && (s.walls ?? []).every((w) =>
     w && point(w.a) && (w.kind === 'sway' || (w.kind === undefined && point(w.b))));
 }
+
+/** The saved settings each field can take. One it can't -- a number field left
+ *  blank, a menu option a later version renamed -- keeps the field as it is rather
+ *  than costing the user the walls they drew. */
+const formOf = (form) => (form && typeof form === 'object'
+  ? Object.fromEntries(Object.entries(form).filter(([id, v]) => settable(id, v))) : {});
 
 /**
  * Restore `s` onto the part setPart just loaded: { n } supports restored, or
@@ -122,7 +127,7 @@ export function restoreSession(s) {
   restoreState({
     quat: [0, 0, 0, 1], walls, load: null, removedSigs: s.removed ?? [],
     finMode: s.finMode ?? finMode, finsVisible: s.finsVisible ?? true, drawAugment: false,
-    form: s.form ?? {},
+    form: formOf(s.form),
   });
   resetHistory();          // a fresh part: undo starts here, not at the plain load
   return { n: walls.length };
