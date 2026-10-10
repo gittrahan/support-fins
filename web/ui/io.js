@@ -32,12 +32,17 @@ export function renderImportNote() {
     }
     if (m.skipped) notes.push(isDe ? `${m.skipped} Stütz-/nicht druckbare(n) Körper ignoriert` : `ignored ${m.skipped} support/non-printable ${m.skipped === 1 ? 'body' : 'bodies'}`);
     if (m.unit && m.unit !== 'millimeter') notes.push(isDe ? `von ${m.unit} nach mm konvertiert` : `converted from ${m.unit} to mm`);
-    if (m.restored != null) {
-      notes.push(isDe ? `${m.restored} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt`
-                      : `restored ${m.restored} hand-placed support${m.restored === 1 ? '' : 's'} and the settings`);
-    } else if (m.session === 'mismatch') {
+    if (m.session === 'restored') {
+      notes.push(m.restored
+        ? (isDe ? `${m.restored} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt`
+                : `restored ${m.restored} hand-placed support${m.restored === 1 ? '' : 's'} and the settings`)
+        : (isDe ? 'die Einstellungen wiederhergestellt' : 'restored the settings'));
+    } else if (m.session === 'changed') {
       notes.push(isDe ? 'gespeicherte Stützen nicht geladen: das Bauteil wurde seit dem Export geändert'
                       : 'saved supports not loaded: the part changed since it was exported');
+    } else if (m.session === 'unreadable') {
+      notes.push(isDe ? 'gespeicherte Stützen nicht geladen: die Sitzungsdaten sind beschädigt'
+                      : 'saved supports not loaded: the saved session is damaged');
     }
     return notes.length ? `3MF: ${notes.join('; ')}.` : '';
   }
@@ -240,14 +245,14 @@ async function parseStep(buffer) {
 /** setPart, then the saved session if the file carried one (the import note says
  *  how many supports came back, or why none did). */
 function afterLoad(geometry, name) {
-  setPart(geometry, name);
   const s = pendingSession;
   pendingSession = null;
+  setPart(geometry, name);
   if (!s || !lastImportMeta) return;
-  let n = null;
-  try { n = restoreSession(s); } catch (err) { console.error(err); }
-  lastImportMeta.restored = n;
-  lastImportMeta.session = n == null ? 'mismatch' : 'restored';
+  let r = { why: 'unreadable' };
+  try { r = restoreSession(s); } catch (err) { console.error(err); }
+  lastImportMeta.restored = r.n ?? null;
+  lastImportMeta.session = r.why ?? 'restored';
   importNote = renderImportNote();
   el('s-import-note').textContent = importNote;    // the load's report already ran
 }
