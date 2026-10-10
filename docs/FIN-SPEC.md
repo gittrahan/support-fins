@@ -132,8 +132,8 @@ welts.
   part (PETG under PLA). `PROP.iface` (`web/prop/crest.js`) is a mode:
   - **Flat contacts** (the default when on): a wall station gets a crest only where
     the part's underside above it is within `ifaceFlatDeg` = 10° of level. There the
-    crest is `PROP.ifaceLayers` = 1 layer (the Layer height field, 0.2 mm) of the wall's full 1.0 mm
-    (two lines), no tip taper: the taper only exists so fused PLA snaps off, and it
+    crest is `PROP.ifaceLayers` = 1 layer (the Layer height field, 0.2 mm) of the wall's full configured thickness
+    (the selected nozzle profile, or the legacy 1.0 mm), no tip taper: the taper only exists so fused PLA snaps off, and it
     left one PETG line with nothing to bond to. 10° keeps the full-width edge 0.09 mm
     off the part, under the gap. Tines stay in the body material. That is how PETG
     interfaces are used (flat undersides come out like top surfaces) and costs a few
@@ -275,3 +275,19 @@ a mess"), and a 45° cleat sole needs walls down its slope that cross the one al
 
 Slant3D says "grip fins" once. Unrelated to the *grip fin* used elsewhere in Matthew's
 CAD work (a tolerance-absorbing feature for mating holes). Don't collide the terms.
+
+## Optional nozzle dimensions
+
+The browser selects 0.4 mm / two lines. Valid nozzle diameters are 0.2–3 mm;
+line count is 2/4/6/8. Body gauge is `nozzle × 1.1 × line count`; prop contacts
+and Sway tines remain one bead wide. Feet widen to encompass the wall and retain
+the existing shapes and clearance certification. Sway gauge is the larger of
+the selected body gauge and `min(2.4, 1.2 + 0.004 × height)` mm. Existing depth
+limits, Auto placement, three-tine grip rules and Draw's upright-side split stay
+unchanged. Layer height accepts 0.08–2.4 mm in the site and shared plugin schema.
+
+A missing or explicitly null nozzle profile resets only profile-driven dimensions
+to the engine's legacy dimensions, even after a profile build in the same module.
+Material clearances are independent. Explicit invalid profiles are ignored.
+Original legacy goldens remain unchanged; four separate profile goldens record
+the intended browser dimension change. See [the guide](NOZZLE-PROFILES.md).

@@ -36,6 +36,7 @@ import { floatingPieces } from './pieces.js';
 import { findWallPatches } from './planes.js';
 import { buildProps, crestOn, crestPart, noProps, PROP } from './prop.js';
 import { buildSwayBraces } from './sway.js';
+import { printDimensions } from './print-profile.js';
 import { CUT, CUTOUT_PATTERNS } from './cutout.js';
 import { FIN } from './fins/config.js';
 import { buildPad, PAD } from './fins/pad.js';
@@ -76,11 +77,34 @@ function coverPitch(coverage) {
  *
  * So the values travel WITH the build request (opts.tunables, structured-cloned like
  * every other option) and are applied here, in whichever instance is doing the work.
- * Unknown or non-finite entries are ignored, and calling this with nothing leaves the
- * defaults alone -- an old caller that doesn't pass tunables behaves exactly as before.
+ * Unknown or non-finite entries are ignored. Omitted nozzle profiles reset only
+ * profile-driven dimensions to legacy defaults; material clearances are independent.
  */
-export function applyTunables(t) {
-  if (!t) return;
+const legacyProfile = [
+  [FIN, ['nozzle', 'wallLines']],
+  [PROP, ['th', 'tip', 'tineW', 'footMin', 'footMax', 'squatBrimW']],
+  [PERP, ['th', 'footHalf']],
+].map(([obj, keys]) => [obj, Object.fromEntries(keys.map((key) => [key, obj[key]]))]);
+
+export function applyTunables(t = {}) {
+  t ??= {};
+  // Omitted profiles mean legacy dimensions; unrelated material/base settings
+  // still travel independently. Explicit invalid profiles remain ignored.
+  if ((!('nozzle' in t) && !('wallLines' in t)) || t.nozzle === null) {
+    for (const [obj, values] of legacyProfile) Object.assign(obj, values);
+  }
+  const profile = printDimensions(t.nozzle, t.wallLines);
+  if (profile) {
+    FIN.nozzle = profile.nozzle;
+    FIN.wallLines = profile.wallLines;
+    PROP.th = PERP.th = profile.wallThickness;
+    // Contacts remain one bead wide, even when the body has eight lines.
+    PROP.tip = PROP.tineW = profile.lineWidth;
+    PROP.footMin = profile.wallThickness / 2 + profile.lineWidth;
+    PROP.footMax = Math.max(3, PROP.footMin);
+    PROP.squatBrimW = Math.max(2.5, PROP.footMin);
+    PERP.footHalf = profile.footHalf;
+  }
   const set = (obj, key, v) => { if (Number.isFinite(v)) obj[key] = v; };
   set(FIN, 'padH', t.padH);
   set(PAD, 'grab', t.padGrab);
@@ -137,7 +161,8 @@ function buildFinsAndBraces(topo, result, rot, opts = {}) {
   // one of those, a brace is no longer a piece that snaps off by itself.
   const walls = (built.fins ?? []).map((f) => f.line).filter((l) => Array.isArray(l) && l.length);
   const sw = buildSwayBraces(topo, result, rot,
-    { ...opts.sway, tines: opts.tines, layerHeight: opts.layerHeight, iface: PROP.iface, avoid: { walls } });
+    { ...printDimensions(FIN.nozzle, FIN.wallLines), ...opts.sway,
+      tines: opts.tines, layerHeight: opts.layerHeight, iface: PROP.iface, avoid: { walls } });
   // Each brace also gets a fin record: the Auto view draws and exports only the
   // triangles some record claims (per-fin removal), so an unrecorded brace would
   // be counted in the readout but never shown or written out.

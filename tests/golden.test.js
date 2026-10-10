@@ -1,5 +1,5 @@
-// GOLDEN OUTPUT: the exact supports the site builds for a few reference scenes, at the
-// site's default settings. Every other test pins counts (walls, tines, coverage), and
+// GOLDEN OUTPUT: legacy engine settings and the browser's current nozzle defaults.
+// Every other test pins counts (walls, tines, coverage), and
 // a change that keeps the counts slips past them -- PR #149's wall steps changed the
 // default cube at X40 on every count-preserving axis, and only Matthew's eye caught it.
 // This file fails on ANY change to the built geometry and says which scene and how.
@@ -24,6 +24,10 @@ import { r3, run } from './_scene.js';
 
 const DIR = fileURLToPath(new URL('./golden/', import.meta.url));
 const UPDATE = Deno.env.get('UPDATE_GOLDEN') === '1';
+// Read actual browser defaults so changing the form changes these golden builds.
+const HTML = Deno.readTextFileSync(new URL('../web/index.html', import.meta.url));
+const defaultValue = (id) => Number(HTML.match(new RegExp(`<input\\b[^>]*id="${id}"[^>]*value="([^"]+)"`))?.[1]);
+const profile = { nozzle: defaultValue('nozzle'), wallLines: defaultValue('wall-lines') };
 
 const SCENES = [
   // Matthew's manual check on the site: cube.stl at X 40.
@@ -45,6 +49,13 @@ const SCENES = [
     .map((e) => e.name.replace(/\.stl$/, '')).sort()
     .flatMap((model) => [{ name: `stress-${model}-up`, model, rot: [0, 0, 0] },
                          { name: `stress-${model}-x40`, model, rot: [40, 0, 0] }]),
+  // New browser defaults: 0.4mm nozzle and two lines. Keep the
+  // existing files above as compatibility coverage for unchanged plugin callers.
+  { name: 'profile-cube-x40-auto', model: 'cube', rot: [40, 0, 0], set: { profile } },
+  { name: 'profile-cube-x40-draw', model: 'cube', rot: [40, 0, 0],
+    draw: [[-15, 13, 13], [15, 13, 13]], set: { profile } },
+  { name: 'profile-cube-x40-petg', model: 'cube', rot: [40, 0, 0], set: { material: 'petg', profile } },
+  { name: 'profile-bar-sway', model: 'bar', rot: [0, 0, 0], set: { sway: true, profile } },
 ];
 
 /** What a reviewer reads in the golden diff, plus a hash that catches everything else. */

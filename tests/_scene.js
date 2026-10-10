@@ -1,16 +1,19 @@
-// The site's build, exactly as the app calls it (ui/pose.js + ui/part.js + ui/finbuild.js
-// finOpts + ui/walls.js), for tests that compare builds: golden.test.js pins the output,
+// Site builds with either legacy dimensions or an explicit nozzle profile, following
+// ui/pose.js + ui/part.js + ui/finbuild.js finOpts + ui/walls.js.
+// For tests that compare builds: golden.test.js pins the output,
 // stability.test.js nudges the pose. Split out so importing `run` doesn't re-register the
 // golden tests.
 
 import { analyze, loadModel, fins } from './_util.js';
 import * as THREE from '../web/vendor/three/three.core.js';
+import { PROP } from '../web/prop.js';
+import { PERP } from '../web/fins/wedges.js';
 
 const { buildFins } = fins;
 const { drawnWall } = await import('../web/draw.js');
 const { MATERIAL } = await import('../web/materials.js');
 
-/** The site's tunables for a material, the form otherwise untouched (finOpts). */
+/** Legacy material tunables; nozzle-profile builds are covered in print_profile.test.js. */
 function tunables(material) {
   const m = MATERIAL[material];
   return { padH: m.padH, padGrab: m.padGrab, propGap: m.propGap,
@@ -19,9 +22,9 @@ function tunables(material) {
            cutout: 'none' };
 }
 
-/** finOpts() with the form untouched, for a material and fin mode. */
-export function siteOpts({ material = 'pla', mode = 'auto', sway = false } = {}) {
-  const t = tunables(material);
+/** Legacy finOpts(), or the browser's nozzle dimensions when profile is supplied. */
+export function siteOpts({ material = 'pla', mode = 'auto', sway = false, profile = null } = {}) {
+  const t = { ...tunables(material), ...profile };
   return {
     mode, bedPad: true, tines: true, tineDensity: 0, layerHeight: 0.2, coverage: 0.5,
     // swayOpts() with its fields at the form's defaults
@@ -62,6 +65,14 @@ function seated(topo, rot, o) {
 }
 
 export function run(scene, rot = sitePose(scene.rot)) {
+  // Profile dimensions are mutable engine settings. Don't let a profile golden
+  // change later legacy scenes, stability comparisons or other callers.
+  const objects = [fins.FIN, PROP, PERP], saved = objects.map((o) => ({ ...o }));
+  try { return runScene(scene, rot); }
+  finally { objects.forEach((o, i) => Object.assign(o, saved[i])); }
+}
+
+function runScene(scene, rot) {
   const topo = loadModel(scene.model);
   const res = analyze(topo, 45, rot);
   if (scene.draw) {

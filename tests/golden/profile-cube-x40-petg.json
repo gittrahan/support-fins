@@ -1,0 +1,74 @@
+{
+  "scene": {
+    "name": "profile-cube-x40-petg",
+    "model": "cube",
+    "rot": [
+      40,
+      0,
+      0
+    ],
+    "set": {
+      "material": "petg",
+      "profile": {
+        "nozzle": 0.4,
+        "wallLines": 2
+      }
+    }
+  },
+  "walls": 3,
+  "tines": 18,
+  "unserved": 0,
+  "triangles": 2124,
+  "padTriangles": 28302,
+  "fins": [
+    {
+      "kind": "prop",
+      "height": 25.412,
+      "length": 29.545,
+      "tines": 0,
+      "from": [
+        13.333,
+        -1.369,
+        0.62
+      ],
+      "to": [
+        13.333,
+        28.177,
+        25.412
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 25.412,
+      "length": 29.545,
+      "tines": 0,
+      "from": [
+        0,
+        -1.369,
+        0.62
+      ],
+      "to": [
+        0,
+        28.177,
+        25.412
+      ]
+    },
+    {
+      "kind": "prop",
+      "height": 25.412,
+      "length": 29.545,
+      "tines": 0,
+      "from": [
+        -13.333,
+        -1.369,
+        0.62
+      ],
+      "to": [
+        -13.333,
+        28.177,
+        25.412
+      ]
+    }
+  ],
+  "sha256": "a81b3f7b68bfa8f6c67fd11d3a65f5e2ad61cabd8fd5d595736e10d1aa921d93"
+}

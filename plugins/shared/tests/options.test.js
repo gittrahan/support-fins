@@ -38,6 +38,8 @@ const SITE_ONLY_CHOICES = { padStyle: ['custom'] };
 // Every site control that is NOT in options.json, and why. A new control on the site
 // fails the test below until it is added to the schema or listed here.
 const SITE_EXCLUDED = {
+  'nozzle': 'browser-only nozzle profile; engine/plugin callers retain legacy dimensions',
+  'wall-lines': 'browser-only nozzle profile; engine/plugin callers retain legacy dimensions',
   'file': 'loading a model is the host\'s job', 'volume': 'site build-volume preview',
   'vx': 'site build-volume preview', 'vy': 'site build-volume preview', 'vz': 'site build-volume preview',
   'plugins-computer': 'picks which plugin download to offer',

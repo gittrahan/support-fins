@@ -109,6 +109,11 @@ function settings(opts = {}) {
     gripFrom: Math.max(0, num(opts.gripFrom, 0)),
     spacing: Math.max(1, num(opts.tineSpacing, SWAY.tineSpacing)),
     reach: Math.max(0.05, Math.min(0.5, num(opts.reach, SWAY.reach))),
+    wallThickness: Number.isFinite(opts.wallThickness) && opts.wallThickness > 0
+      ? opts.wallThickness : null,
+    tineW: Number.isFinite(opts.lineWidth) && opts.lineWidth > 0 ? opts.lineWidth : SWAY.tineW,
+    wallHalf: Number.isFinite(opts.wallHalf) && opts.wallHalf > 0 ? opts.wallHalf : SWAY.wallHalf,
+    footHalf: Number.isFinite(opts.footHalf) && opts.footHalf > 0 ? opts.footHalf : SWAY.footHalf,
     // Auto refuses a brace that would stand a long way up before its first tine;
     // a brace placed BY HAND is built anyway and reports the stilt instead. The
     // tool suggests, the person decides -- the same split as the rest of the app.
@@ -241,7 +246,9 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   if (H < SWAY.minRibH) {
     return { ok: false, reason: `that face only reaches ${fz1.toFixed(0)}mm up — too short to need a brace` };
   }
-  const thFor = (h) => Math.min(SWAY.thMax, SWAY.thMin + SWAY.thPerMm * h);
+  // Selected dimensions can strengthen a rib, never undercut the print-tested floor.
+  const thFor = (h) => Math.max(S.wallThickness ?? 0,
+    Math.min(SWAY.thMax, SWAY.thMin + SWAY.thPerMm * h));
   let th = thFor(H);
 
   // Seat the rib's inner edge on the outermost point of the face INSIDE its own
@@ -268,7 +275,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   let wIn = 0, sIn0 = 0, sInSlope = 0, D0 = 0;
   const shape = () => {
     th = thFor(H);
-    wIn = shiftIn(th / 2 + SWAY.tineW) + S.gap;
+    wIn = shiftIn(th / 2 + S.tineW) + S.gap;
     const a = fr.sOf(patchPoint(p, wIn, uc, tAtZ(p, wIn, 0)));
     const b = fr.sOf(patchPoint(p, wIn, uc, tAtZ(p, wIn, 1)));
     sIn0 = a; sInSlope = b - a;
@@ -299,7 +306,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
 
   // The foot has its own, wider footprint on the plate.
   const sFootOut = sIn(0) + D0 + SWAY.footPad;
-  const footHalfW = th / 2 + SWAY.footHalf;
+  const footHalfW = th / 2 + S.footHalf;
   const footHit = lowestHit(partTris, fr, uc - footHalfW - 0.2, uc + footHalfW + 0.2, [
     (q) => q[2] + 0.1,
     (q) => (SWAY.footH + 0.2) - q[2],
@@ -341,7 +348,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
       // inside the part. Frame: along = into the part (-s) from the face point,
       // across = (z x along), as kissEnds measures it.
       const o = fr.toWorld(sPart, uc, 0), ax = -fr.nh.x, ay = -fr.nh.y;
-      const half = SWAY.tineW / 2;
+      const half = S.tineW / 2;
       // measured from the face point, not the tine's back: `back` only bounds how far
       // out of the face the end may pull back (0.25 mm), well short of the rib (ov)
       const e = kissEnds(topo, rot, offset, o[0], o[1], ax, ay, bot, top,
@@ -392,7 +399,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   }
   // `stilt`: how far it stands holding nothing before its first tine. Auto keeps this
   // small by refusing; a hand-placed brace reports it so the readout can say so.
-  return { ok: true, tris: out, tines, height: H, depth: D0, th, stilt, foot, halfW: footHalfW, levels };
+  return { ok: true, tris: out, tines, height: H, depth: D0, th, stilt, foot, halfW: footHalfW, wallHalf: S.wallHalf, levels };
 }
 
 /** Closest distance between two 2D segments. */
@@ -455,7 +462,7 @@ function levelAt(levels, z) {
  */
 export function swayClashesWall(rib, walls) {
   if (!walls?.length) return false;
-  const need = rib.halfW + SWAY.wallHalf + SWAY.clearance;
+  const need = rib.halfW + (rib.wallHalf ?? SWAY.wallHalf) + SWAY.clearance;
   for (const line of walls) {
     if (!Array.isArray(line) || line.length < 1) continue;
     if (line.length === 1) {

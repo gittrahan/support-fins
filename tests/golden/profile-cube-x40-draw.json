@@ -1,0 +1,41 @@
+{
+  "scene": {
+    "name": "profile-cube-x40-draw",
+    "model": "cube",
+    "rot": [
+      40,
+      0,
+      0
+    ],
+    "draw": [
+      [
+        -15,
+        13,
+        13
+      ],
+      [
+        15,
+        13,
+        13
+      ]
+    ],
+    "set": {
+      "profile": {
+        "nozzle": 0.4,
+        "wallLines": 2
+      }
+    }
+  },
+  "walls": 1,
+  "tines": 6,
+  "unserved": 0,
+  "triangles": 684,
+  "padTriangles": 28302,
+  "fins": [
+    {
+      "height": 12.592,
+      "length": 30
+    }
+  ],
+  "sha256": "65dbc26399c7d3da1ee0f3dd59552a5c1903b0cc9c390254443467656312a144"
+}

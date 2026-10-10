@@ -216,3 +216,11 @@ no stress models needed):
 
 See `docs/FIN-SPEC.md` for the spec these encode. `prototype/stress/run.js` is the
 broader sweep (all models × poses) for eyeballing; this suite is the pass/fail gate.
+
+## Nozzle profile coverage
+
+`print_profile.test.js` measures 2/4/6/8-line wall bodies and one-bead contacts,
+retains the print-tested Sway floor, checks invalid/profile-to-legacy state,
+clearance-aware Auto/Full/Draw generation and metre-high STL/separate-object 3MF
+export. Four `profile-*.json` goldens record the intended 0.4 mm / two-line
+browser profile. Original legacy goldens remain unchanged.

@@ -276,7 +276,7 @@
          into ~1.5 layers and leave welts. Shown only when Tines is on. -->
     <label class="fld row" id="layerh-fld" title="Set this to the layer height you slice at. The grip tines are one layer tall so they snap off clean; if this doesn't match your slicer, the tines tear and leave marks. Default 0.2mm.">
       <span><span data-i18n="Layer height">Layer height</span> <span class="mut">mm</span></span>
-      <input type="number" id="layer-height" min="0.08" max="0.4" step="0.04" value="0.2">
+      <input type="number" id="layer-height" min="0.08" max="2.4" step="0.02" value="0.2">
     </label>
   </details>
 
@@ -351,6 +351,22 @@
 
   <details class="sec" data-sec="walls" open>
     <summary><span class="sec-title" data-i18n="Walls">Walls</span><span class="sec-sum" id="sum-walls"></span></summary>
+    <label class="fld row" title="Nozzle diameter. Support line width is nozzle × 1.1. Set your slicer line width to match.">
+      <span>Nozzle <span class="mut">mm</span></span>
+      <input type="number" id="nozzle" min="0.2" max="3" step="0.1" value="0.4" list="nozzle-sizes">
+      <datalist id="nozzle-sizes">
+        <option value="0.4"><option value="0.6"><option value="0.8"><option value="1.0">
+        <option value="1.2"><option value="1.6"><option value="2.0"><option value="2.4">
+      </datalist>
+    </label>
+    <label class="fld" title="Wall thickness = nozzle × 1.1 × line count. More lines make thicker fins and sway braces. Contacts stay one line wide for removal.">
+      <span>Fin thickness <output id="wall-thickness" class="mut" for="nozzle wall-lines">0.88 mm</output></span>
+      <input type="range" id="wall-lines" aria-label="Fin wall line count" min="2" max="8" step="2" value="2" list="wall-line-stops">
+      <datalist id="wall-line-stops">
+        <option value="2" label="2"><option value="4" label="4"><option value="6" label="6"><option value="8" label="8">
+      </datalist>
+      <output id="wall-lines-value" class="mut" for="wall-lines">2 lines</output>
+    </label>
     <!-- Cutouts (issue #34): holes through the middle of each breakaway wall to
          save filament. Every hole has a pointed roof (>=45deg) so nothing bridges;
          the contact top, foot and ends stay solid, and a wall too short for a hole

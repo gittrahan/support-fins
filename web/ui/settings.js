@@ -4,10 +4,11 @@ import { t } from './i18n.js';
  * tines, sway braces, gap, cutouts, material profile, and the collapsible
  * sections with their one-line recaps. Owns finsVisible / finMode / drawAugment.
  */
-import { FIN, PAD } from '../fins.js';
+import { FIN, PAD, applyTunables } from '../fins.js';
 import { PROP } from '../prop.js';
 import { CUT } from '../cutout.js';
 import { MATERIAL } from '../materials.js';
+import { printDimensions } from '../print-profile.js';
 import { el } from './dom.js';
 import { histPush } from './history.js';
 import { removeMode, syncRemoveUI, cancelRemove } from './remove.js';
@@ -121,6 +122,17 @@ let refreshTimer = null;
 function debouncedRefresh(ms = 180) {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(() => { refreshTimer = null; refreshFins(); }, ms);
+}
+function syncPrintProfile() {
+  const p = printDimensions(el('nozzle').valueAsNumber, el('wall-lines').valueAsNumber);
+  if (!p) return;
+  applyTunables({ nozzle: p.nozzle, wallLines: p.wallLines });
+  el('wall-lines-value').textContent = `${p.wallLines} lines`;
+  el('wall-thickness').textContent = `${+p.wallThickness.toFixed(3)} mm`;
+  syncSectionSums();
+}
+for (const id of ['nozzle', 'wall-lines']) {
+  el(id).addEventListener('input', () => { syncPrintProfile(); debouncedRefresh(); });
 }
 // Tine grip only means anything when the tines are on, so hide its slider with the
 // toggle (keeps the panel honest -- no dead control).
@@ -274,7 +286,7 @@ export function syncSectionSums() {
   el('sum-clearances').textContent =
     `${el('gap').value} mm gap · pad ${el('bed-pad').selectedOptions[0].textContent.toLowerCase()}`;
   const cut = el('cutout').value;
-  el('sum-walls').textContent = (cut === 'none' ? 'solid' : `${sel('cutout').toLowerCase()} cutouts`)
+  el('sum-walls').textContent = `${+PROP.th.toFixed(3)} mm · ` + (cut === 'none' ? 'solid' : `${sel('cutout').toLowerCase()} cutouts`)
     + (el('plate-only').checked ? ' · plate only' : '');
   el('sum-sway').textContent = el('sway').checked
     ? `${el('sway-spacing').value} mm tines · ${el('sway-depth').value}% deep`
@@ -314,6 +326,7 @@ el('augment-toggle').addEventListener('click', () => {
 /** Bring the pad, tine, sway, cutout and material state in line with the controls
  *  (a reload can keep the browser's last values). Called once at startup. */
 export function initSettings() {
+  syncPrintProfile();
   syncTineGrip();
   syncPadStyle();
   syncSway();

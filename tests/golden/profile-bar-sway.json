@@ -1,0 +1,90 @@
+{
+  "scene": {
+    "name": "profile-bar-sway",
+    "model": "bar",
+    "rot": [
+      0,
+      0,
+      0
+    ],
+    "set": {
+      "sway": true,
+      "profile": {
+        "nozzle": 0.4,
+        "wallLines": 2
+      }
+    }
+  },
+  "walls": 0,
+  "tines": 0,
+  "unserved": 0,
+  "triangles": 816,
+  "padTriangles": 0,
+  "fins": [
+    {
+      "kind": "sway",
+      "height": 89,
+      "length": 13.35,
+      "tines": 15,
+      "from": [
+        -8.2,
+        4,
+        0
+      ],
+      "to": [
+        -24.55,
+        4,
+        0
+      ]
+    },
+    {
+      "kind": "sway",
+      "height": 89,
+      "length": 13.35,
+      "tines": 15,
+      "from": [
+        -4,
+        -8.2,
+        0
+      ],
+      "to": [
+        -4,
+        -24.55,
+        0
+      ]
+    },
+    {
+      "kind": "sway",
+      "height": 89,
+      "length": 13.35,
+      "tines": 15,
+      "from": [
+        4,
+        8.2,
+        0
+      ],
+      "to": [
+        4,
+        24.55,
+        0
+      ]
+    },
+    {
+      "kind": "sway",
+      "height": 89,
+      "length": 13.35,
+      "tines": 15,
+      "from": [
+        8.2,
+        -4,
+        0
+      ],
+      "to": [
+        24.55,
+        -4,
+        0
+      ]
+    }
+  ],
+  "sha256": "a863342ef5d07a1d546ed1c96ed5d86792771b6508e53258ea8bb717b2ffb051"
+}
