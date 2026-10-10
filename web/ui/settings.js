@@ -9,6 +9,7 @@ import { PROP } from '../prop.js';
 import { CUT } from '../cutout.js';
 import { MATERIAL } from '../materials.js';
 import { el } from './dom.js';
+import { setBuildPending } from './build-status.js';
 import { histPush } from './history.js';
 import { removeMode, syncRemoveUI, cancelRemove } from './remove.js';
 import { setDrawMsg, clearPreview, syncDrawControls } from './walls.js';
@@ -25,10 +26,7 @@ export function setFinsVisible(v) { finsVisible = v; }
 // vertical. A user who loads a part and exports should get the support that
 // supports.
 //
-// DEFAULT IS 'auto': click "Add fins" and the tool places the supports for you
-// (tined combined fins on the grippable overhangs, plain props on the rest). Draw
-// is the by-hand path. ('prop' still exists internally -- Draw calls it for the
-// bed pad + seating verdict, and it is the geometry Auto props with.)
+// Preserve Auto as the upstream browser default; restored form choices still apply.
 export let finMode = 'auto';
 export function setFinMode(v) { finMode = v; }
 // FULL COVERAGE ('full', fins/fill.js) is Auto plus walls under the red Auto left
@@ -120,7 +118,11 @@ for (const id of Object.values(PAD_FIELDS)) {
 let refreshTimer = null;
 function debouncedRefresh(ms = 180) {
   clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(() => { refreshTimer = null; refreshFins(); }, ms);
+  setBuildPending('settings', finsVisible);
+  refreshTimer = setTimeout(() => {
+    refreshTimer = null;
+    try { refreshFins(); } finally { setBuildPending('settings', false); }
+  }, ms);
 }
 // Tine grip only means anything when the tines are on, so hide its slider with the
 // toggle (keeps the panel honest -- no dead control).
@@ -314,6 +316,8 @@ el('augment-toggle').addEventListener('click', () => {
 /** Bring the pad, tine, sway, cutout and material state in line with the controls
  *  (a reload can keep the browser's last values). Called once at startup. */
 export function initSettings() {
+  finMode = el('fin-mode').value;
+  syncCoverageUI();
   syncTineGrip();
   syncPadStyle();
   syncSway();

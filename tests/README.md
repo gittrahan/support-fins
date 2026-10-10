@@ -10,6 +10,19 @@ deno test --allow-read tests/
 
 ## What's pinned (and why it exists)
 
+Use **deno test -A tests/** for the complete Deno 2 suite, including the golden
+environment flag, STEP kernel and real worker tests. Windows paths with spaces are
+handled by the shared URL-to-path helper.
+
+**adaptive_draw.test.js** compares real 1/2/4-worker output byte for byte, including
+triangle ownership, mixed Sway requests, rejected walls, pose/model replacement and
+Plate only. **cpu_policy.test.js** covers hardware/memory ceilings, warm trials,
+performance backoff, response-delay hysteresis, pressure during a batch and child
+worker failure. **draw_worker.test.js** covers seating equivalence and latest-only
+queue cancellation/priorities. **build_activity.test.js** pins the busy notice across
+overlapping stages. Browser and synthetic benchmarks are documented in
+[PERFORMANCE.md](../docs/PERFORMANCE.md).
+
 Each of these is a regression that actually shipped once. The tests are the
 fence around it.
 

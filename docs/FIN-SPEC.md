@@ -34,6 +34,12 @@ entire point, not a refinement.**
 
 ## Why the tines must be horizontal
 
+Browser placement keeps the Auto default. In Draw, the seating/pad pass does not place automatic
+supports. Draw geometry and previews run off-thread; independent ordinary-wall
+candidates can run in parallel, while Sway acceptance, earlier-brace avoidance and
+export triangle ranges retain their original request order. Worker count never
+changes precision or placement thresholds. See [CPU policy](PERFORMANCE.md).
+
 A horizontal tine prints as **one continuous layer line**: the nozzle travels along the
 fin, crosses into the tine, into the part, and back out — **no retraction**. It is a
 single strong bead.

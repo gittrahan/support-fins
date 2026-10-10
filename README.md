@@ -49,6 +49,19 @@ the way up (auto, or click an upright side in Draw), STL, 3MF and STEP import, S
 
 Still open: scale-aware fin profiles, and the bed pad on tilted exports.
 
+The browser starts in **Auto**. Choose Draw to add supports by hand;
+Draw computes seating and the bed pad without generating discarded Auto
+walls. Manual walls, Sway braces and previews run in a cached background worker;
+“Calculating in background…” appears during longer jobs. Export waits for the current
+geometry, including queued setting changes.
+
+For larger batches of independent drawn walls, CPU use adapts from one worker to at
+most half the browser-reported logical processors, capped at four and further limited
+by estimated model-copy memory. It backs off when the page responds slowly or parallel
+work fails to show a gain. Auto and Sway placement decisions remain ordered.
+See [performance and CPU policy](docs/PERFORMANCE.md) for measurements, tradeoffs and
+reproducible browser tests.
+
 ### Sway braces for tall parts
 
 Tall, slender parts have a problem the fins were never built for: nothing overhangs, but

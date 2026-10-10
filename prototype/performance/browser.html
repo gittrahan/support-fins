@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>Support Fins — adaptive worker benchmark</title>
+<style>
+body { background: #161b22; color: #eef2f6; font: 16px system-ui; max-width: 900px; margin: 40px auto; }
+button, select { font: inherit; padding: 8px; }
+table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+td, th { text-align: left; padding: 8px; border-bottom: 1px solid #526070; }
+</style>
+<h1>Adaptive worker benchmark</h1>
+<p>Public synthetic 196,620-triangle cantilever, 32 independent Draw walls.
+Each rebuild must produce exactly the same geometry. Worker startup is included.</p>
+<label>CPU hint <select id="cores"><option value="auto">Browser reported</option>
+<option value="2">2 logical processors</option><option value="4">4 logical processors</option></select></label>
+<button id="run">Run eight rebuilds</button>
+<button id="ping">Responsiveness check: 0</button>
+<p id="status" role="status">Ready.</p>
+<table><thead><tr><th>Rebuild</th><th>Workers</th><th>Time, ms</th><th>Geometry</th></tr></thead><tbody id="rows"></tbody></table>
+<script type="module">
+import { buildTopology } from '../../web/overhangs.js';
+import { LatestWorker } from '../../web/worker-queue.js';
+import { densePlate } from './fixture.js';
+let clicks = 0;
+document.querySelector('#ping').onclick = (e) => e.target.textContent = 'Responsiveness check: ' + ++clicks;
+document.querySelector('#run').onclick = async () => {
+  const run = document.querySelector('#run'), status = document.querySelector('#status');
+  run.disabled = true; document.querySelector('#rows').replaceChildren();
+  const queue = new LatestWorker(new URL('../../web/drawworker.js', import.meta.url));
+  try {
+    const pos = densePlate(128), topo = buildTopology({ getAttribute: () => ({ array: pos }) });
+    const selected = document.querySelector('#cores').value;
+    const job = { kind: 'build', rot: [1,0,0,0,1,0,0,0,1], result: { offset: { x:0,y:0,z:0 } },
+      hardware: { cores: selected === 'auto' ? navigator.hardwareConcurrency : +selected,
+        memory: navigator.deviceMemory },
+      options: { tunables: {}, draw: { tines:false, layerHeight:0.2 }, sway: {} },
+      requests: Array.from({ length:32 }, (_,i) => ({ a:[-40,-50+i*3,100],b:[40,-50+i*3,100] })) };
+    let reference;
+    for (let i = 0; i < 8; i++) {
+      status.textContent = 'Calculating in background… rebuild ' + (i+1);
+      const start = performance.now(), reply = await queue.run('build', topo, job);
+      const ms = performance.now() - start, current = JSON.stringify(reply.built);
+      if (reply.fallback) throw new Error(reply.fallback);
+      if (reference && current !== reference) throw new Error('Geometry changed');
+      reference = current;
+      const row = document.createElement('tr');
+      for (const value of [i+1, reply.workers, ms.toFixed(1), 'Identical']) {
+        const td = document.createElement('td'); td.textContent = value; row.append(td);
+      }
+      document.querySelector('#rows').append(row);
+    }
+    status.textContent = 'Complete. Exact geometry preserved. CPU hint: ' + job.hardware.cores
+      + '; memory hint: ' + (job.hardware.memory ?? 'unavailable') + ' GiB.';
+  } catch (error) { status.textContent = 'Failed: ' + error.message; }
+  finally { queue.dispose(); run.disabled = false; }
+};
+</script>
+</html>
