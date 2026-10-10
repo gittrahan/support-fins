@@ -65,9 +65,9 @@ export function run(scene, rot = sitePose(scene.rot)) {
   const topo = loadModel(scene.model);
   const res = analyze(topo, 45, rot);
   if (scene.draw) {
-    // Draw: the site still builds in 'prop' mode for the bed pad it exports
-    // (finbuild.js), then sweeps each drawn wall (walls.js rebuildDrawn).
-    const opts = siteOpts({ ...scene.set, mode: 'prop' });
+    // Draw: the site builds only the seating + bed pad it exports (mode 'draw',
+    // finbuild.js), then sweeps each drawn wall (walls.js rebuildDrawn).
+    const opts = siteOpts({ ...scene.set, mode: 'draw' });
     const b = buildFins(topo, res, rot, opts);
     const r = drawnWall(scene.draw[0], scene.draw[1], seated(topo, rot, res.offset), 0,
       { tines: opts.tines, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,

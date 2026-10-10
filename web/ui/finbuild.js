@@ -95,7 +95,7 @@ function clearSpinner() {
 }
 
 function finOpts() {
-  return { mode: finMode === 'draw' ? 'prop' : finMode,
+  return { mode: finMode,
            bedPad: el('bed-pad').value !== 'off',
            plateOnly: el('plate-only').checked,
            tines: el('tines').checked,

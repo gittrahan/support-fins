@@ -108,7 +108,9 @@ export function applyTunables(t) {
  *                      wedges under the faces no wall reached), or 'full'
  *                      (Auto, then fins/fill.js's walls under the red it left
  *                      bare; `fill` reports what no wall could reach). 'stabilize' is
- *                      an old name for 'auto'; any other mode builds 'prop'.
+ *                      an old name for 'auto'; 'draw' builds only the
+ *                      seating + bed pad (the site's Draw mode places its own
+ *                      walls and braces); any other mode builds 'prop'.
  * @param opts.bedPad   add the pad when bed contact is too small to hold
  */
 export function buildFins(topo, result, rot, opts = {}) {
@@ -128,7 +130,8 @@ function buildFinsAndBraces(topo, result, rot, opts = {}) {
   // Sway braces are an optional ADD-ON to whatever the mode placed (sway.js): a
   // tall part still needs its overhangs held, and bracing its sides is a
   // separate job on separate faces.
-  if (!opts.sway?.on) return built;
+  // Draw stands its braces by hand (ui/walls.js), so it never gets Auto's.
+  if (opts.mode === 'draw' || !opts.sway?.on) return built;
   // Braces run LAST, so everything this mode placed is already on the plate: hand
   // the props' and wedges' centrelines over as things to stand clear of. Fused to
   // one of those, a brace is no longer a piece that snaps off by itself.
@@ -333,7 +336,9 @@ function buildFinsCore(topo, result, rot, opts = {}) {
   // written for -- while the readout said "rotate", which is exactly the
   // advice the printed evidence contradicts. Refuse only when the user has
   // turned the pad off.
-  const built = seating.kind === 'point' && !pad
+  // Draw builds no walls here: it exports only the pad and hand-placed walls, so a
+  // full prop pass would be thrown away (1 s+ on a big part).
+  const built = mode === 'draw' || (seating.kind === 'point' && !pad)
     ? noProps() : buildProps(topo, result, rot, opts);
   return {
     triangles: built.triangles, padTriangles: padOut, pad, mode,
