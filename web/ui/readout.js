@@ -371,7 +371,7 @@ function updateFinReadout(built, ms) {
       : 'this part balances on one point with nothing under it. Turn the bed pad on, or rotate until it sits down');
   }
   if (padNote(built)) lead.push(padNote(built));
-  if (built.floating) {
+  if (built.floating?.length) {
     const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || (typeof localStorage !== 'undefined' && localStorage.getItem('support_fins_lang') === 'de');
     const n = built.floating.length;
     const drop = built.floating[0].drop.toFixed(1);
