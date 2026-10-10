@@ -115,7 +115,9 @@ export function surfaceZAt(tris, x, y) {
 }
 
 /**
- * ...and with each height, its triangle's unit normal z: [z, nz] (unordered).
+ * ...and with each height, its triangle's unit normal z: [z, nz], in triangle-index
+ * order (a grid cell lists its triangles by index) -- draw.js's nearest-hit picks
+ * break ties on that order, as they did on the linear scan this replaced.
  * Which way a surface faces, through the same grid -- the fill pass (fins/fill.js)
  * asks whether a station is under the part, and on a thin shell (a chair cast as a
  * skin) parity inside-tests can't say.
@@ -143,9 +145,8 @@ export function surfaceHitsAt(tris, x, y) {
  * `surfaceZAt` returns only the LOWEST, which is what a bed-attached prop wants
  * (the underside it clears). A PART-ATTACHED support instead needs the surfaces
  * in BETWEEN -- the floor it stands on lives above the plate and below the
- * overhang -- so keep them all. The same ray test as draw.js's own copy, which
- * picks the height nearest the drawn line (order-sensitive on a tie) and still
- * scans linearly.
+ * overhang -- so keep them all. The same ray test draw.js uses (through
+ * surfaceHitsAt) to pick the height nearest the drawn line.
  */
 export function surfaceZsAt(tris, x, y) {
   // Through the same XY grid as surfaceZAt: floorLine queries the WHOLE part
