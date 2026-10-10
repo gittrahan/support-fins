@@ -14,12 +14,13 @@
 // bracket next to a separate 10 mm peg.
 
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import { WEB, fins, buildTopology, analyze, rotX, isClosed, assert, assertClose } from './_util.js';
 
 const { isStep, stepObjects, STEP_PARAMS } = await import(`${WEB}step.js`);
 
-const FIX = new URL('./fixtures/', import.meta.url).pathname;
-const OCCT = `${WEB}vendor/occt-import-js-0.0.23/`;
+const FIX = fileURLToPath(new URL('./fixtures/', import.meta.url));
+const OCCT = fileURLToPath(new URL('../web/vendor/occt-import-js-0.0.23/', import.meta.url));
 
 const occtimportjs = createRequire(import.meta.url)(`${OCCT}occt-import-js.js`);
 const occt = await occtimportjs({ wasmBinary: Deno.readFileSync(`${OCCT}occt-import-js.wasm`) });

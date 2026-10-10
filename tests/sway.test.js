@@ -13,7 +13,7 @@ import { block, blockTopo, buildTopology, analyze, fins, insideCount, isClosed, 
 
 const topoOf = (pos) => buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
 
-const WEB = new URL('../web/', import.meta.url).pathname;
+const WEB = new URL('../web/', import.meta.url).href;
 const sway = await import(`${WEB}sway.js`);
 const { insidePart } = await import(`${WEB}inside.js`);
 

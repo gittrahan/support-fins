@@ -2,8 +2,12 @@
 // --allow-read tests/` runs offline. The support engine is pure geometry, so
 // every test is: build some geometry, assert an invariant on the triangle soup.
 
-export const WEB = new URL('../web/', import.meta.url).pathname;
-export const MODELS = new URL('../prototype/stress/models/', import.meta.url).pathname;
+import { fileURLToPath } from 'node:url';
+
+// WEB is used in import(): keep it a URL string. MODELS is read from disk: make it a
+// filesystem path. URL.pathname is neither on Windows (leading slash, %20 for spaces).
+export const WEB = new URL('../web/', import.meta.url).href;
+export const MODELS = fileURLToPath(new URL('../prototype/stress/models/', import.meta.url));
 
 export const { buildTopology, analyze } = await import(`${WEB}overhangs.js`);
 export const fins = await import(`${WEB}fins.js`);

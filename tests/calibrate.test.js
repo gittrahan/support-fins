@@ -12,7 +12,7 @@ const DIR = new URL('../web/calibration/', import.meta.url);
 const PROTO = new URL('../prototype/calibration/', import.meta.url);
 
 // calibrate.js touches the DOM on import, so read its file list from the source
-const src = await Deno.readTextFile(`${WEB}ui/calibrate.js`);
+const src = await Deno.readTextFile(new URL('ui/calibrate.js', WEB));
 const files = [...src.matchAll(/file: '([^']+)'/g)].map((m) => m[1]);
 const est = JSON.parse(await Deno.readTextFile(new URL('coupons.json', DIR)));
 

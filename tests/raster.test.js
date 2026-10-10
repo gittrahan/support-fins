@@ -3,10 +3,11 @@
 // curved underside the tube route gave nothing), it never costs grip or wedges,
 // and `raster: false` builds the normal pass alone. The short-wall last resort
 // (fins/shortwalls.js) is off throughout: it fills what raster:false leaves bare.
+import { fileURLToPath } from 'node:url';
 import { buildTopology, analyze, fins, prop, assert, readSTL, rotX, loadModel } from './_util.js';
 import { gripRise } from '../web/prop/raster.js';
 
-const FIXTURES = new URL('./fixtures/', import.meta.url).pathname;   // gen_curved.py
+const FIXTURES = fileURLToPath(new URL('./fixtures/', import.meta.url));   // gen_curved.py
 const example = (name) => {
   const pos = readSTL(Deno.readFileSync(`${FIXTURES}${name}.stl`));
   return buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });

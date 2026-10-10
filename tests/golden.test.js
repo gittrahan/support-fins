@@ -19,9 +19,10 @@
 // (fins.js applyTunables), so reading defaults back from FIN / PAD / PROP would carry
 // one scene's material into the next -- the PETG scene did, into four PLA goldens.
 
+import { fileURLToPath } from 'node:url';
 import { r3, run } from './_scene.js';
 
-const DIR = new URL('./golden/', import.meta.url).pathname;
+const DIR = fileURLToPath(new URL('./golden/', import.meta.url));
 const UPDATE = Deno.env.get('UPDATE_GOLDEN') === '1';
 
 const SCENES = [

@@ -12,6 +12,7 @@
 //     file is exit 1 and the other files still get their fins.
 //
 //   deno test -A plugins/cli/tests/
+import { fileURLToPath } from 'node:url';
 import { run, pose, rotationMatrix, parseArgs } from '../cli.js';
 import { computeFins, ENGINE_DEFAULTS } from '../../shared/engine/fins_entry.js';
 import { reportLine } from '../../shared/engine/report.js';
@@ -251,7 +252,7 @@ Deno.test('cli: the summary line says what was left unsupported, word for word w
     py = new Deno.Command('python3', {
       args: ['-c', 'import sys, json; sys.path.insert(0, sys.argv[1]); from supportfins_host import host_report; '
         + 'print(json.dumps([host_report(s) for s in json.loads(sys.argv[2])]))',
-      new URL('../../shared/py/', import.meta.url).pathname, JSON.stringify(samples)],
+      fileURLToPath(new URL('../../shared/py/', import.meta.url)), JSON.stringify(samples)],
       stdout: 'piped', stderr: 'piped',
     }).outputSync();
   } catch { return; }   // no python3 here: the JS line is still pinned above
