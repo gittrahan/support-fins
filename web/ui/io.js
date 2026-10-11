@@ -1,9 +1,9 @@
+import { inGerman } from './i18n.js';
 /**
  * File import: sniff the format, read STL / 3MF / STEP into one flat position
  * array, let the user pick objects from a multi-object file, and hand the
  * geometry to setPart(). Also the file input and drag-and-drop.
  */
-import { inGerman } from './i18n.js';
 import * as THREE from 'three';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { readThreeMF } from '../threemf.js';
