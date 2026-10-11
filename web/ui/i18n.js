@@ -28,6 +28,10 @@ function initialLang() {
 
 export let currentLang = initialLang();
 
+/** Is the page in German? From currentLang, which initialLang/setLanguage keep in step
+ *  with storage -- reading localStorage here threw where the browser blocks it. */
+export const inGerman = () => currentLang === 'de';
+
 if (!SUPPORTED_LANGS[currentLang]) currentLang = 'en';
 
 export const norm = (s) => (s || '')

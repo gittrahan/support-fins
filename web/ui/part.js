@@ -1,4 +1,4 @@
-import { t } from './i18n.js';
+import { t, inGerman } from './i18n.js';
 /**
  * The part: loading a mesh onto the plate (setPart), re-analysing and shading it
  * in its current pose (shade), the stats panel, the build-volume fit check, and
@@ -165,7 +165,7 @@ export function paintOverhangs(res = lastResult) {
   // The slivers keep their own amber swatch, so the amber faces have a name even
   // when this pose has no region the tool supports.
   const sOver = el('s-over');
-  const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || localStorage.getItem('support_fins_lang') === 'de';
+  const isDe = inGerman();
   const regCount = res.regions.length;
   if (regCount === 0) {
     sOver.textContent = isDe ? 'keine' : 'none';
@@ -376,7 +376,7 @@ export function syncPartLanguage() {
     if (note) el('s-import-note').textContent = note;
   }
   if (!lastShadeRes) return;
-  const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || (typeof localStorage !== 'undefined' && localStorage.getItem('support_fins_lang') === 'de');
+  const isDe = inGerman();
   const dropped = lastShadeRes.rawRegionCount - lastShadeRes.regions.length;
   const regCount = lastShadeRes.regions.length;
   const sOver = el('s-over');

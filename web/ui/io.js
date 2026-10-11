@@ -3,6 +3,7 @@
  * array, let the user pick objects from a multi-object file, and hand the
  * geometry to setPart(). Also the file input and drag-and-drop.
  */
+import { inGerman } from './i18n.js';
 import * as THREE from 'three';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { readThreeMF } from '../threemf.js';
@@ -19,7 +20,7 @@ let pendingSession = null;
 
 export function renderImportNote() {
   if (!lastImportMeta) return '';
-  const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || (typeof localStorage !== 'undefined' && localStorage.getItem('support_fins_lang') === 'de');
+  const isDe = inGerman();
   const m = lastImportMeta;
   const notes = [];
   if (m.type === '3MF') {
@@ -184,7 +185,7 @@ async function parseModel(buffer) {
   // Say what we decided for them: which/how many bodies, any support bodies left
   // on the plate, and any unit conversion.
   const notes = [];
-  const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || (typeof localStorage !== 'undefined' && localStorage.getItem('support_fins_lang') === 'de');
+  const isDe = inGerman();
   if (objects.length > 1) {
     notes.push(chosen.length === 1
       ? (isDe ? `„${chosen[0].name}“ von ${objects.length} Objekten importiert` : `imported “${chosen[0].name}” of ${objects.length} objects`)

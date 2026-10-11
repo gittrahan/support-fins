@@ -1,4 +1,4 @@
-import { t, tn } from './i18n.js';
+import { t, tn, inGerman } from './i18n.js';
 /**
  * Suggest orientation: rank a few printable poses, list them with their fin count
  * and the "no support" / "bores clean" verdicts, and turn the part on a click.
@@ -151,7 +151,7 @@ el('suggest-orient').addEventListener('click', () => {
       el('suggest-body').hidden = false;
       if (!candidates.length || confidence === 'none') {
         el('suggest-list').hidden = true;
-        const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || (typeof localStorage !== 'undefined' && localStorage.getItem('support_fins_lang') === 'de');
+        const isDe = inGerman();
         el('suggest-note').textContent = confidence === 'none'
           ? (isDe ? 'Keine druckbare Ausrichtung: Dieses Bauteil balanciert in jedem Winkel auf einem Punkt.' : 'No printable orientation: this part balances on a point at every angle.')
           : (isDe ? 'Keine Vorschläge für dieses Bauteil.' : 'Nothing to suggest for this part.');

@@ -1,4 +1,4 @@
-import { t, tn, currentLang } from './i18n.js';
+import { t, tn, inGerman } from './i18n.js';
 /**
  * The status readout: the Fins/Pad rows, the note under them and its (i), the
  * grams receipt, and why a part got no fins.
@@ -30,7 +30,7 @@ function explainNoFins(b) {
   // something that was never the problem. This outranks every mode-specific
   // reason below.
   if (b.seating?.kind === 'point' && !b.pad) {
-    const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || (typeof localStorage !== 'undefined' && localStorage.getItem('support_fins_lang') === 'de');
+    const isDe = inGerman();
     return isDe
       ? 'Dieses Bauteil berührt die Druckplatte nur an einem einzelnen Punkt und hat daher keinen Stand. Aktivieren Sie den Stützfuß, um es zu stützen, oder drehen Sie es, bis es auf einer Fläche oder Kante aufliegt.'
       : 'this part touches the plate at a single point, so it has nothing to '
@@ -313,7 +313,7 @@ function updateFinReadout(built, ms) {
     ? `${autoTxt || drawnTxt ? ' + ' : ''}${sw.count} sway brace${sw.count === 1 ? '' : 's'}`
       + (sw.tines ? ` · ${sw.tines} brace tines` : '')
     : '';
-  const isDeReadout = (typeof currentLang !== 'undefined' && currentLang === 'de') || (typeof localStorage !== 'undefined' && localStorage.getItem('support_fins_lang') === 'de');
+  const isDeReadout = inGerman();
   box.textContent = (autoTxt + drawnTxt + swayTxt + removedTxt) || (isDeReadout ? 'keine möglich' : 'none possible');
   box.classList.toggle('warn', n === 0 && !drawnOk && !sw?.count);
 
@@ -372,7 +372,7 @@ function updateFinReadout(built, ms) {
   }
   if (padNote(built)) lead.push(padNote(built));
   if (built.floating?.length) {
-    const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || (typeof localStorage !== 'undefined' && localStorage.getItem('support_fins_lang') === 'de');
+    const isDe = inGerman();
     const n = built.floating.length;
     const drop = built.floating[0].drop.toFixed(1);
     lead.push(isDe
@@ -384,7 +384,7 @@ function updateFinReadout(built, ms) {
          + ', held only by supports. Check the model is one piece (a hole or cut may go right through)'));
   }
   if (built.sagRisk) {
-    const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || (typeof localStorage !== 'undefined' && localStorage.getItem('support_fins_lang') === 'de');
+    const isDe = inGerman();
     lead.push(isDe
       ? 'Die Abdeckung liegt unter der Empfehlung gegen Durchhängen, sodass ein breiter Überhang zwischen den Stützen durchhängen kann — Schieberegler nach rechts ziehen, falls sich die Fläche durchbiegt'
       : ('coverage is below the anti-sag guide, so a broad overhang may sag '
@@ -394,7 +394,7 @@ function updateFinReadout(built, ms) {
   // the red it couldn't reach, never hidden.
   const fl = built.fill;
   if (fl) {
-    const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || localStorage.getItem('support_fins_lang') === 'de';
+    const isDe = inGerman();
     if (fl.walls) {
       help.push(isDe
         ? `Vollständige Abdeckung fügte ${fl.walls} Wand/Wände unter Überhängen hinzu, die Auto frei gelassen hatte.`
@@ -417,7 +417,7 @@ function updateFinReadout(built, ms) {
   }
   // (in Full coverage the fill's own line above says what is still bare)
   if (built.unserved && !fl) {
-    const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || localStorage.getItem('support_fins_lang') === 'de';
+    const isDe = inGerman();
     const one = built.unserved === 1;
     if (isDe) {
       help.push(`${built.unserved} ${one ? 'Überhang ist' : 'Überhänge sind'} `
@@ -433,7 +433,7 @@ function updateFinReadout(built, ms) {
   // Plate only (#218) left these bare: say so, so the red isn't a mystery
   const onPart = built.skipped?.onPart ?? 0;
   if (onPart) {
-    const isDe = (typeof currentLang !== 'undefined' && currentLang === 'de') || localStorage.getItem('support_fins_lang') === 'de';
+    const isDe = inGerman();
     help.push(isDe
       ? `${onPart} ${onPart === 1 ? 'Stütze wurde' : 'Stützen wurden'} gekürzt oder weggelassen, weil `
         + 'Bauteil unter dem Überhang liegt und „Nur Druckplatte“ aktiv ist. Deaktivieren Sie es, '
