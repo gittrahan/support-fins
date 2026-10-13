@@ -58,8 +58,22 @@ export function downhillLines(regionPts, regionTris, step = PROP.stationStep,
     if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1];
   }
 
-  // The top edge: footprint samples one step uphill of which the region ends.
-  // The mean downhill direction (area-free: per sample) orders them across the slope.
+  // The top edge: footprint samples from which the region ends within `grid` of
+  // climbing. The climb is followed in quarter steps, re-aimed each time: one
+  // straight step uphill on a CURVED slope (a spiral ramp's underside) cuts across
+  // the curve and leaves through the side edges, which then read as the top.
+  const leavesUphill = (x, y) => {
+    for (let s = 0; s < 4; s++) {
+      const g = grad(regionTris, x, y);
+      if (!g) return true;
+      const m = Math.hypot(g[0], g[1]);
+      if (m < minSlope) return false;
+      x += (g[0] / m) * (grid / 4); y += (g[1] / m) * (grid / 4);
+    }
+    return surfaceZAt(regionTris, x, y) === null;
+  };
+  // The top samples' own mean downhill orders them across the slope: on a curved
+  // region the whole region's mean is a chord that foreshortens the top edge.
   const top = [];
   let mx = 0, my = 0, sloped = 0, n = 0;
   for (let y = y0 + grid / 2; y < y1; y += grid) {
@@ -70,8 +84,7 @@ export function downhillLines(regionPts, regionTris, step = PROP.stationStep,
       const m = Math.hypot(g[0], g[1]);
       if (m < minSlope) continue;
       sloped++;
-      mx -= g[0] / m; my -= g[1] / m;
-      if (surfaceZAt(regionTris, x + (g[0] / m) * grid, y + (g[1] / m) * grid) === null) top.push([x, y]);
+      if (leavesUphill(x, y)) { top.push([x, y]); mx -= g[0] / m; my -= g[1] / m; }
     }
   }
   if (!n || sloped < n / 2 || !top.length) return null;     // mostly level: rows' job
