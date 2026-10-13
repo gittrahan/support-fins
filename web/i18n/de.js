@@ -12,9 +12,7 @@ export default {
   "The rotate rings around the part. Off hides them; Rotate 90°, Reset and Lay a face flat still turn the part.": "Die Drehringe um das Bauteil. Aus blendet sie aus; 90° drehen, Zurücksetzen und Fläche flach auflegen drehen das Bauteil weiterhin.",
   "times and filament from {profile}; yours will differ": "Druckzeit und Materialverbrauch geschätzt mit {profile}; tatsächliche Werte hängen von Ihrem Drucker ab.",
   "Download": "Herunterladen",
-"The filament you'll print in. PETG fuses to supports much harder than PLA, so PETG loosens the gaps, shrinks the tine bite, and gives the bed pad a gap instead of a bite. PLA keeps the tighter grip.": "Das Filament, mit dem gedruckt wird. PETG verschmilzt deutlich fester mit Stützen als PLA, daher vergrößert PETG die Abstände, verringert den Eingriff der Zacken und versieht den Stützfuß mit einem Spalt statt Verankerung. PLA behält den festeren Halt.",
 
-  "The filament you'll print in. PETG fuses to supports much harder than PLA, so PETG loosens the gaps and gives the bed pad a gap instead of a tack. PLA keeps the tighter grip.": "Das Filament, mit dem gedruckt wird. PETG verschmilzt deutlich stärker mit Stützen als PLA, daher vergrößert PETG die Abstände und versieht den Stützfuß mit einem Spalt statt Haftung. PLA behält den festeren Halt.",
   "No build for {name}": "Kein Build für {name}",
 
   "Pad thickness mm": "Stützfußdicke mm",
@@ -236,7 +234,6 @@ export default {
   "Walls": "Stützwände",
   "Display": "Ansicht",
 
-  "Material": "Material",
   "Placement": "Platzierung",
   "Auto — place supports for me": "Auto — Stützen automatisch platzieren",
   "Full coverage — every overhang": "Volle Abdeckung — jeder Überhang",

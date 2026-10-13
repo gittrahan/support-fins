@@ -10,8 +10,6 @@ export default {
   "The rotate rings around the part. Off hides them; Rotate 90°, Reset and Lay a face flat still turn the part.": "Os anéis de rotação em volta da peça. Desligado os esconde; Girar 90°, Zerar e Apoiar uma face na mesa continuam girando a peça.",
   "times and filament from {profile}; yours will differ": "tempos e filamento do perfil {profile}; os seus vão variar",
   "Download": "Baixar",
-  "The filament you'll print in. PETG fuses to supports much harder than PLA, so PETG loosens the gaps, shrinks the tine bite, and gives the bed pad a gap instead of a bite. PLA keeps the tighter grip.": "O filamento que você vai usar. O PETG gruda nos suportes bem mais que o PLA, então com PETG as folgas aumentam, os dentes mordem menos e a base na mesa ganha uma folga em vez de morder a peça. O PLA mantém a pega mais firme.",
-  "The filament you'll print in. PETG fuses to supports much harder than PLA, so PETG loosens the gaps and gives the bed pad a gap instead of a tack. PLA keeps the tighter grip.": "O filamento que você vai usar. O PETG gruda nos suportes bem mais que o PLA, então com PETG as folgas aumentam e a base na mesa ganha uma folga em vez de colar na peça. O PLA mantém a pega mais firme.",
   "No build for {name}": "Sem versão para {name}",
 
   "Pad thickness mm": "Espessura da base mm",
@@ -212,7 +210,6 @@ export default {
   "Sway braces": "Escoras laterais",
   "Walls": "Paredes",
   "Display": "Exibição",
-  "Material": "Material",
   "Placement": "Posicionamento",
   "Auto — place supports for me": "Automático — coloca para mim",
   "Draw — place them by hand": "Desenhar — posiciono à mão",

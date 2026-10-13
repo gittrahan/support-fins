@@ -108,8 +108,8 @@ function finOpts() {
            sway: autoLike() && el('sway').checked ? { on: true, ...swayOpts() } : undefined,
            // The clearances have to travel WITH the request: the build runs in a
            // Worker with its own copy of fins.js / prop.js, which never sees what
-           // applyMaterial and the gap fields set on this page's copy (fins.js
-           // applyTunables). Without this, Auto mode always built PLA's numbers.
+           // the gap and pad fields set on this page's copy (fins.js
+           // applyTunables). Without this, Auto mode always built the defaults.
            tunables: { padH: FIN.padH,
                        padGrab: PAD.grab, padStyle: PAD.style, padCustom: { ...PAD.custom },
                        propGap: PROP.gap,
@@ -119,7 +119,7 @@ function finOpts() {
 }
 
 /** The Sway braces settings. The gap is passed explicitly -- sway.js takes the
- *  material's number as an option instead of reading FIN/PROP itself. */
+ *  clearance (PROP.gap) as an option instead of reading FIN/PROP itself. */
 export function swayOpts() {
   const num = (id, d) => (Number.isFinite(el(id).valueAsNumber) ? el(id).valueAsNumber : d);
   return { uncappedDepth: el('full-brace-depth').checked, gripFrom: num('sway-from', 0),

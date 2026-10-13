@@ -35,6 +35,8 @@ function siteControl(id) {
 const fromSite = (o, v) => (o.percent ? Number(v) / 100 : Number(v));
 // Options the site shows that a plugin dialog deliberately leaves out (options.json $comment).
 const SITE_ONLY_CHOICES = { padStyle: ['custom'] };
+// Options a plugin dialog still has that the site dropped, and why.
+const PLUGIN_ONLY = { material: 'the site dropped its PLA/PETG dropdown; the plugins\' goes next' };
 // Every site control that is NOT in options.json, and why. A new control on the site
 // fails the test below until it is added to the schema or listed here.
 const SITE_EXCLUDED = {
@@ -76,6 +78,7 @@ Deno.test('options.json is well formed', () => {
 
 Deno.test('every default, range and choice is the website\'s', () => {
   for (const o of OPTS) {
+    if (PLUGIN_ONLY[o.key]) continue;
     const site = siteControl(o.site);
     if (o.type === 'bool') {
       assert(site.type === 'checkbox', `${o.key}: #${o.site} is not a checkbox`);

@@ -78,7 +78,7 @@ el('fin-mode').addEventListener('change', (e) => {
   refreshFins();
 });
 // Bed pad style (PAD.style in fins/pad.js). Only Custom shows the pad's numbers; the
-// presets keep theirs fixed (Sure hold's follow the material profile). Switching
+// presets keep theirs fixed (Sure hold's are FIN.padH and PAD.grab). Switching
 // to Custom starts it from whichever preset was showing, so a tweak begins from
 // numbers that are known to print rather than from blanks.
 const PAD_FIELDS = { h: 'pad-h', gap: 'pad-gap', grip: 'pad-grip', margin: 'pad-margin' };
@@ -194,28 +194,9 @@ el('iface').addEventListener('change', () => {
   refreshFins();
 });
 
-// Material profiles (PLA/PETG clearances) live in ../materials.js, shared with the
-// plugins' engine entry. These objects are read fresh on every build, so applying a
-// profile + rebuilding is all it takes.
-export let materialDensity = MATERIAL.pla.density;
-
-function applyMaterial(name) {
-  const m = MATERIAL[name] || MATERIAL.pla;
-  FIN.padH = m.padH;
-  PAD.grab = m.padGrab;
-  PROP.gap = m.propGap;
-  materialDensity = m.density;
-  // Reflect the profile's clearances in the exposed tunables so the numbers on
-  // screen match what will actually print (and a later hand-tweak starts from the
-  // material's baseline, not PLA's).
-  el('gap').value = m.propGap;
-  syncSectionSums();
-}
-
-el('material').addEventListener('change', () => {
-  applyMaterial(el('material').value);
-  debouncedRefresh();
-});
+// The grams receipt's filament density: PLA's (../materials.js). The PLA/PETG
+// dropdown is gone -- PETG's wider gap is the Support gap field's to set.
+export const materialDensity = MATERIAL.pla.density;
 
 // Nozzle size scales the support widths (../nozzle.js); this page's copy is set
 // here for Draw, and the Worker gets it in the build's tunables. It is the
@@ -285,7 +266,7 @@ el('highlight-small').addEventListener('change', (e) => {
 /** Refill each section's collapsed recap from the controls' current values. */
 export function syncSectionSums() {
   const sel = (id) => el(id).selectedOptions[0]?.textContent.split(' —')[0] ?? '';
-  el('sum-setup').textContent = `${sel('material')} · ${el('nozzle').value} mm · ${sel('fin-mode')}`;
+  el('sum-setup').textContent = `${el('nozzle').value} mm · ${sel('fin-mode')}`;
   const grip = el('tine-density').valueAsNumber;
   el('sum-tines').textContent = el('tines').checked
     ? `${grip <= 20 ? 'light' : grip >= 80 ? 'firm' : 'medium'} grip · ${el('layer-height').value} mm`
@@ -330,7 +311,7 @@ el('augment-toggle').addEventListener('click', () => {
   refreshFins();
 });
 
-/** Bring the pad, tine, sway, cutout, material and nozzle state in line with the controls
+/** Bring the pad, tine, sway, cutout and nozzle state in line with the controls
  *  (a reload can keep the browser's last values). Called once at startup. */
 export function initSettings() {
   syncTineGrip();
@@ -338,7 +319,8 @@ export function initSettings() {
   syncSway();
   CUT.pattern = el('cutout').value;   // a reload can keep the browser's last pick
   PROP.iface = ifaceMode();
-  applyMaterial(el('material').value);   // sync density + tunables to the initial choice
+  const gap = el('gap').valueAsNumber;   // ...and its last Support gap (wireGap's range)
+  if (Number.isFinite(gap)) PROP.gap = Math.min(0.4, Math.max(0.1, gap));
   applyNozzle(Number(el('nozzle').value));   // ...and the widths to the remembered nozzle
 }
 

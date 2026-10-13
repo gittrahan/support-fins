@@ -28,10 +28,9 @@ let redoStack = [];
 
 // EVERY SETTING is undoable too (Matthew: "every action should be redo-able"). The
 // fields' own handlers apply them, so a restore writes the values back and fires the
-// same events a hand edit would. `material` first: choosing one rewrites the gap and
-// pad fields, which the snapshot then sets back on top. Not the build volume: that is
-// the printer, saved across visits, not an edit to this part.
-const FORM_IDS = ['material', 'nozzle', 'thr', 'tines', 'tine-density', 'layer-height', 'gap',
+// same events a hand edit would. Not the build volume: that is the printer, saved
+// across visits, not an edit to this part.
+const FORM_IDS = ['nozzle', 'thr', 'tines', 'tine-density', 'layer-height', 'gap',
   'bed-pad', 'pad-h', 'pad-gap', 'pad-grip', 'pad-margin', 'sway', 'sway-from',
   'sway-spacing', 'sway-depth', 'full-brace-depth', 'cutout', 'iface', 'coverage', 'plate-only', 'highlight-small', 'show-layers',
   'show-rings', 'nav-preset'];
@@ -69,9 +68,9 @@ document.addEventListener('change', (e) => {
   histPush();
 }, true);
 // ...and the values to compare the NEXT edit against, read once the field's own
-// handlers have run (bubbling up to window comes after them): choosing a material
-// rewrites the gap and pad fields. Not a microtask -- a real event runs microtasks
-// between listeners, before the material handler, and PETG's gap went down as PLA's.
+// handlers have run (bubbling up to window comes after them), in case a handler
+// rewrites other fields. Not a microtask -- a real event runs microtasks between
+// listeners, before the field's own handler.
 addEventListener('change', (e) => {
   if (restoring || !FORM_IDS.includes(e.target?.id)) return;
   settled = readForm();
