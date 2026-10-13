@@ -353,8 +353,8 @@ steps([
     "<b>Transform</b> feature. By default the <b>Top</b> plane is the build plate.",
     "Open <b>Custom features</b> " + ARROW + " <b>Support-Fins FS</b> and select the part under "
     "<b>Parts to support</b>.",
-    "Under <b>Print settings</b>, set <b>Layer height</b> to your slicer's layer height and choose the "
-    "<b>Material</b>.",
+    "Under <b>Print settings</b>, set <b>Layer height</b> to your slicer's layer height, <b>Nozzle</b> "
+    "to your printer's nozzle size, and choose the <b>Material</b>.",
     "Check the preview. Turn on <b>Show detected overhangs</b> to see which faces were found. Adjust "
     "<b>Overhang ribs</b>, and turn on <b>Side bracing fins</b> if the part rests on an edge or corner.",
     "Click <b>OK</b>. The supports appear as orange parts named <i>&lt;part&gt; support 1, 2 \u2026</i>, and "
@@ -416,6 +416,8 @@ subsection("3.5  Print Settings")
 table(["Option", "Description"], [
     ["Layer height (tine height)", "Set this to your slicer's layer height. Each tine is exactly one layer tall "
      "and lined up with the layers, so it prints as a single strand that snaps clean."],
+    ["Nozzle", "Your printer's nozzle diameter (default 0.4 mm). Tines and contact tips are one bead wide, so "
+     "they scale with it both ways; the ribs and side fins only get thicker for a bigger nozzle."],
     ["Material", "Sets the clearances. PETG sticks to supports much harder than PLA, so it gets bigger gaps, "
      "shallower side-fin tines and a pad that stands just off the part. <b>Custom</b> shows every value."],
     ["Support gap", "Custom only. Air gap between the supports and the part."],

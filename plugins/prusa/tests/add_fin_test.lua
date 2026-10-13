@@ -104,12 +104,14 @@ end
 
 -- steps: unturned, 1.2 thick; rail: the turned one; tines: one layer, one bead;
 -- the rest is foot.
+-- The fin and tine widths for the nozzle under test (0.4: 1.2 and 0.5).
+FIN_D, TINE_D = 1.2, 0.5
 local function pieces()
     local p = {steps = {emitted.main}, tines = {}, foot = {}}
     for _, a in ipairs(emitted.vols) do
         if a.rotate then p.rail = a
-        elseif near(d(a), 1.2) then p.steps[#p.steps+1] = a
-        elseif near(d(a), 0.5) and near(h(a), LAYER) then p.tines[#p.tines+1] = a
+        elseif near(d(a), FIN_D) then p.steps[#p.steps+1] = a
+        elseif near(d(a), TINE_D) and near(h(a), LAYER) then p.tines[#p.tines+1] = a
         else p.foot[#p.foot+1] = a end
     end
     table.sort(p.steps, function(a, b) return a.z0 < b.z0 end)
@@ -152,7 +154,7 @@ local function check_fin(deg, H, tines_on)
     chk("below the rail the fill steps one layer at a time", fine)
     chk("each fill step fuses into the one below",  joined)
     chk("flat top, never a point (>= 1.2 mm)",      near(w(st[#st]), top_w) and top_w >= 1.2)
-    chk("fin is 1.2 mm thick",                      near(d(st[1]), 1.2) and near(st[1].y0, 0))
+    chk("fin is " .. FIN_D .. " mm thick",            near(d(st[1]), FIN_D) and near(st[1].y0, 0))
 
     chk("slope rail is one turned cube",            rail ~= nil)
     if rail then
@@ -169,7 +171,7 @@ local function check_fin(deg, H, tines_on)
         for _, c in ipairs(rail.c) do if c.top then lo, hi = math.min(lo, c.z), math.max(hi, c.z) end end
         chk("rail covers the slope right to the top", near(hi, H, 1e-6))
         chk("rail starts within 1.5 mm of the plate", lo <= 1.5 + E)
-        chk("rail is the fin's thickness, on it",   near(rail.y0, 0) and near(d(rail), 1.2))
+        chk("rail is the fin's thickness, on it",   near(rail.y0, 0) and near(d(rail), FIN_D))
         local touches = false
         for _, s in ipairs(st) do if overlaps(rail, s) then touches = true end end
         chk("rail fuses into the fill",             touches)
@@ -190,7 +192,7 @@ local function check_fin(deg, H, tines_on)
     chk("part keeps the slope's level gap off the foot's top layer",
         fx0 - (foot_top / tn - 0.2 / sn) >= 0.2 / sn - 1e-6)
     chk("foot runs 3 mm past the back edge (more if short)", math.max(slab.x1, rnd.x1) >= back + 3 - E)
-    chk("foot is 9 mm wide, centred",               near(d(slab), 9) and near((slab.y0+slab.y1)/2, 0.6))
+    chk("foot is 9 mm wide, centred",               near(d(slab), 9) and near((slab.y0+slab.y1)/2, FIN_D / 2))
     chk("foot ~0.6 mm, whole layers",               on_grid(foot_top) and near(foot_top, 0.6, LAYER/2 + E))
 
     if tines_on then
@@ -206,7 +208,7 @@ local function check_fin(deg, H, tines_on)
             local gx = n.x1 - n.z1 / tn                   -- grip past the slope at the top
             if gx < 0.4 - E or gx > 0.4 + 1.0 / tn + 0.1 + E then grip = false end
             if not on_grid(n.z1) then grid = false end
-            if n.z0 < foot_top or n.z1 > H - 0.5 + E or not near((n.y0+n.y1)/2, 0.6) then inside = false end
+            if n.z0 < foot_top or n.z1 > H - 0.5 + E or not near((n.y0+n.y1)/2, FIN_D / 2) then inside = false end
         end
         chk("every tine sinks into the fin",        join)
         chk("every tine crosses the gap and bites exactly 0.5 into the part", bite)
@@ -257,6 +259,14 @@ print("Add-a-Fin checks (no preset -> 0.2 grid):")
 execute({angle=45, fin_height=25, tines=true})
 check_fin(45, 25, true)
 api.project.current_bed = real_bed
+
+for _, n in ipairs{{0.8, 2.4, 1.0}, {0.6, 1.8, 0.75}, {0.2, 1.2, 0.25}, {5, 2.4, 1.0}} do
+    FIN_D, TINE_D = n[2], n[3]
+    print(("Add-a-Fin checks (nozzle %s: fin %s, tine %s):"):format(n[1], n[2], n[3]))
+    execute({angle=45, fin_height=25, tines=true, nozzle=n[1]})
+    check_fin(45, 25, true)
+end
+FIN_D, TINE_D = 1.2, 0.5
 
 print("Add-a-Fin checks (clamped: 5 deg -> 20, 1 mm -> 5 mm):")
 execute({angle=5, fin_height=1, tines=true})

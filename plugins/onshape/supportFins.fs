@@ -105,6 +105,12 @@ const LAYER_BOUNDS =
     (inch)       : 0.008
 } as LengthBoundSpec;
 
+const NOZZLE_BOUNDS =
+{
+    (millimeter) : [0.2, 0.4, 0.8],
+    (inch)       : 0.016
+} as LengthBoundSpec;
+
 const GAP_BOUNDS =
 {
     (millimeter) : [0.05, 0.2, 2.0],
@@ -349,6 +355,10 @@ export const supportFins = defineFeature(function(context is Context, id is Id, 
                          "Description" : "Set this to your slicer's layer height. Each tine is exactly one layer tall and lined up with the layers, so it prints as a single strand that snaps clean." }
             isLength(definition.layerHeight, LAYER_BOUNDS);
 
+            annotation { "Name" : "Nozzle",
+                         "Description" : "Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one." }
+            isLength(definition.nozzle, NOZZLE_BOUNDS);
+
             annotation { "Name" : "Material", "Default" : SupportMaterial.PLA,
                          "Description" : "Sets the clearances. PETG sticks to supports much harder than PLA, so it gets bigger gaps and shallower tines. Custom exposes every value." }
             definition.material is SupportMaterial;
@@ -452,6 +462,15 @@ function resolveConfig(definition is map) returns map
         "maxFins"  : definition.maxFins is number ? definition.maxFins : 2,
         "finLean"  : definition.finMaxLean is ValueWithUnits ? definition.finMaxLean : 45 * degree
     };
+
+    // Every width is a 0.4 nozzle's (the same rule as the website's Nozzle field):
+    // the one-bead tine and the contact tip scale with the nozzle both ways, the
+    // walls only grow. A feature saved before the field existed builds at 0.4.
+    const k = (definition.nozzle is ValueWithUnits ? definition.nozzle : 0.4 * millimeter) / (0.4 * millimeter);
+    cfg.tineW = TINE_W * k;
+    cfg.propTip = PROP_TIP * k;
+    cfg.propTh = PROP_TH * max(1, k);
+    cfg.finTh = FIN_TH * max(1, k);
 
     if (definition.material == SupportMaterial.PETG)
     {
@@ -676,7 +695,7 @@ function supportPart(context is Context, pid is Id, part is Query, bedPlane is P
 
     // ── Prop tines ───────────────────────────────────────────────────────────
     result.tines += emitBoxes(context, pid + "propTines", env, propTines,
-                              -TINE_OVERLAP, cfg.propBite, TINE_W / 2);
+                              -TINE_OVERLAP, cfg.propBite, cfg.tineW / 2);
 
     // ── Merge each support into one body, drop floaters ─────────────────────
     var merged = size(evaluateQuery(context, supQ)) < 2;
@@ -1200,7 +1219,7 @@ function buildPropWall(context is Context, wid is Id, env is map, plan is map, c
     const stemPts = concatenateArrays([[vector(r0, zero)], simplifyPolyline(stemTop, tol),
                                        [vector(rn, zero), vector(r0, zero)]]);
 
-    extrudeProfile(context, wid, "tip", plan, c, tipPts, PROP_TIP);
+    extrudeProfile(context, wid, "tip", plan, c, tipPts, env.cfg.propTip);
 
     // flange half-width scales with height but never overlaps the next wall's
     const spanCap = max(PROP_FOOT_MIN, (env.cfg.maxSpan - 1 * millimeter) / 2);
@@ -1212,7 +1231,7 @@ function buildPropWall(context is Context, wid is Id, env is map, plan is map, c
     }
     else
     {
-        extrudeProfile(context, wid, "stem", plan, c, stemPts, PROP_TH);
+        extrudeProfile(context, wid, "stem", plan, c, stemPts, env.cfg.propTh);
         const foot = max(PROP_FOOT_MIN, min(min(PROP_FOOT_MAX, spanCap), maxTop * PROP_FOOT_RATIO));
         localBox(context, wid + "flange", plan.cs,
                  vector(r0, c - foot, zero), vector(rn, c + foot, env.cfg.baseH));
@@ -1286,7 +1305,7 @@ function propTineAnchors(context is Context, env is map, plan is map, c is Value
 
     // sloped wall: anchor the comb at the lowest station that grips
     const uTop = total - min(step / 2, TINE_TOP_CLEAR);
-    var u = min(TINE_W / 2, step / 2);
+    var u = min(env.cfg.tineW / 2, step / 2);
     var anchored = false;
     while (u <= uTop && !anchored)
     {
@@ -1303,7 +1322,7 @@ function propTineAnchors(context is Context, env is map, plan is map, c is Value
         }
         if (!anchored)
         {
-            u += min(TINE_W, step / 2);
+            u += min(env.cfg.tineW, step / 2);
         }
     }
     if (!anchored)
@@ -1722,9 +1741,9 @@ function buildFinAt(context is Context, fid is Id, env is map, s is map, win is 
     const u1 = win.u1;
     const gap = env.cfg.finGap;
     const layer = env.cfg.layer;
-    const rr = FIN_TH / 2;
+    const rr = env.cfg.finTh / 2;
     const wIn = gap;
-    const wOut = gap + FIN_TH;
+    const wOut = gap + env.cfg.finTh;
 
     // height of face-frame point (w, t) above the plate: zO + w*nz + t*tz
     const tBedIn = (-s.zO - wIn * s.nz) / s.tz;
@@ -1823,7 +1842,7 @@ function buildFinAt(context is Context, fid is Id, env is map, s is map, win is 
         }
     }
 
-    const inset = min(TINE_W, (u1 - u0) / 4);
+    const inset = min(env.cfg.tineW, (u1 - u0) / 4);
     const sA = u0 + inset;
     const sB = u1 - inset;
     const nU = sB > sA ? max(2, ceil((sB - sA) / FIN_TINE_SPACING) + 1) : 1;
@@ -1852,7 +1871,7 @@ function buildFinAt(context is Context, fid is Id, env is map, s is map, win is 
 
     // tine spans from grip-deep in the wall to bite-deep in the part, measured normal to the face
     const count = emitBoxes(context, fid + "tines", env, anchors,
-                            -(gap + FIN_TINE_GRIP) / s.h, env.cfg.finBite / s.h, TINE_W / 2);
+                            -(gap + FIN_TINE_GRIP) / s.h, env.cfg.finBite / s.h, env.cfg.tineW / 2);
     return { "ok" : true, "tines" : count };
 }
 

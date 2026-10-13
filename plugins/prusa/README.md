@@ -15,8 +15,11 @@ flat directory with a single menu entry:
   strand that fuses in and snaps clean (`docs/FIN-SPEC.md`). The top of the slope ends in a
   short flat (1.2 mm, a little more when steep), never a point. Params: **Slope Angle** (20–70°, default 45), **Fin Height**,
   a **Gripping Tines** toggle, and **Tine Spacing** (default 6 mm, the sway braces' printed
-  spacing; at least 1 mm). Tines spread evenly from just above the foot to just under the
-  top, about Tine Spacing apart along the slope (snapping to the layer grid can stretch a gap
+  spacing; at least 1 mm), and **Nozzle** (default 0.4 mm, 0.2–0.8): the tines are one bead,
+  so they scale with it both ways (0.75 mm at 0.6), and the 1.2 mm fin only thickens for a
+  bigger nozzle (1.8 at 0.6), as on the site. Set it by hand: the plugin reads only the bed's
+  print preset (the layer grid), not the printer's nozzle. Tines spread evenly from just above
+  the foot to just under the top, about Tine Spacing apart along the slope (snapping to the layer grid can stretch a gap
   by up to a layer), so both ends always grip. Tines always keep at least one bare layer
   between them, so a tight spacing on a shallow slope never fuses two into a 2-layer band. A
   fin never gets fewer than 3 (the site's grip floor), so a huge spacing still leaves 3. A 25 mm
@@ -89,7 +92,7 @@ inside a `com.printfins.support-fins/` folder), and importers need
 ## Verify (must be done in a running 3.0 slicer — it can't be unit-tested)
 
 1. **Support Fins → Add a Fin** appears; the dialog shows Slope Angle, Fin Height, the Gripping
-   Tines toggle and Tine Spacing.
+   Tines toggle, Tine Spacing and Nozzle.
 2. Generate with defaults → a 45° right triangle, 25 tall, its slope climbing toward +X with
    7 small tines spread along it, a straight back edge, and a foot running from near the low tip to past the back edge.
    Preview of the intended shapes at 30/45/60°: `~/Downloads/support-fin-prusa-preview.png`.

@@ -39,7 +39,8 @@ info = {
         {name = "angle",      label = "Slope Angle [deg]", type = "float", default = 45},
         {name = "fin_height", label = "Fin Height [mm]",   type = "float", default = 25},
         {name = "tines",      label = "Gripping Tines",    type = "bool",  default = true},
-        {name = "tine_step",  label = "Tine Spacing [mm]", type = "float", default = 6}
+        {name = "tine_step",  label = "Tine Spacing [mm]", type = "float", default = 6},
+        {name = "nozzle",     label = "Nozzle [mm]",       type = "float", default = 0.4}
     }
 }
 
@@ -60,6 +61,11 @@ local MIN_STEP     = 1.0    -- Tine Spacing never tighter than this [mm]
 local MIN_TINES    = 3      -- grip floor: a fin gets at least this many (PROP.minGripTines)
 local TOP_CLEAR    = 0.5    -- bare slope kept at the top (PROP.tineTopClear) [mm]
 local MIN_ANGLE, MAX_ANGLE = 20, 70
+-- Every width above is a 0.4 nozzle's. The tine is one bead, so it scales with the
+-- nozzle both ways; the fin's thickness only grows (a finer nozzle doesn't stiffen
+-- it). The same rule as the website's Nozzle field.
+local NOZZLE_REF   = 0.4
+local MIN_NOZZLE, MAX_NOZZLE = 0.2, 0.8
 local MIN_H        = 5.0
 
 -- The print's layer grid: tops at first, first + layer, ... A tine must fill
@@ -96,6 +102,8 @@ function execute(opts)
     local sn, cs, tn = math.sin(th), math.cos(th), math.tan(th)
     local H     = math.max(MIN_H, opts.fin_height)
     local run   = H / tn                         -- level run of the slope
+    local k     = math.max(MIN_NOZZLE, math.min(MAX_NOZZLE, tonumber(opts.nozzle) or NOZZLE_REF)) / NOZZLE_REF
+    local fin_th, tine_w = FIN_TH * math.max(1, k), TINE_W * k
     -- the flat is wide enough for the rail's far corner, so the rail runs the
     -- slope's full length even when steep
     local top_w = math.max(TOP_W, RAIL_T * sn)
@@ -118,7 +126,7 @@ function execute(opts)
         local z1 = math.min(H, z0 + ((z0 < z_rail - 1e-6) and layer or STEP_H))
         local x0 = z1 / tn
         local lo = (z0 > 0) and (z0 - OVERLAP) or 0
-        fin:add { mesh = api.make_cube(back - x0, FIN_TH, z1 - lo), x = x0, y = 0, z = lo }
+        fin:add { mesh = api.make_cube(back - x0, fin_th, z1 - lo), x = x0, y = 0, z = lo }
         steps[#steps + 1] = { z0 = z0, z1 = z1, x0 = x0 }
         z0 = z1
     end
@@ -131,7 +139,7 @@ function execute(opts)
     local s1 = slope
     if s1 > s0 then
         fin:add {
-            mesh = api.make_cube(s1 - s0, FIN_TH, RAIL_T),
+            mesh = api.make_cube(s1 - s0, fin_th, RAIL_T),
             rotate = { y = -deg },
             x = s0 * cs + RAIL_T * sn,
             y = 0,
@@ -144,7 +152,7 @@ function execute(opts)
     -- gap, GAP/sin, off the foot's top layer -- a vertical GAP closes to 0.07 mm
     -- level at 70 deg and welds), to BASE_PAD past the back edge.
     local br = BASE_W * 0.5
-    local cy = FIN_TH * 0.5
+    local cy = fin_th * 0.5
     local fx0 = base_h / tn
     local bx  = math.max(fx0 + br, back + BASE_PAD - br)   -- round end's centre
     fin:add { mesh = api.make_cube(bx - fx0, BASE_W, base_h), x = fx0, y = cy - br, z = 0 }
@@ -186,9 +194,9 @@ function execute(opts)
             local xa = x_mid - GAP / sn - BITE
             local xb = math.max(x_top + TINE_GRIP, x_step + OVERLAP)
             fin:add {
-                mesh = api.make_cube(xb - xa, TINE_W, layer),
+                mesh = api.make_cube(xb - xa, tine_w, layer),
                 x = xa,
-                y = cy - TINE_W * 0.5,
+                y = cy - tine_w * 0.5,
                 z = top - layer
             }
         end
