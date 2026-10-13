@@ -47,14 +47,15 @@
  *
  * Each module imports only modules above it in this list and never prop.js.
  */
-import { solidClearance } from './inside.js';
+import { insidePart, solidClearance } from './inside.js';
 import { MIN_REGION_AREA } from './overhangs.js';
 import { buildPartAttached } from './prop/attached.js';
 import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified, stationIsClear, tallBody, tallSpan, welds, withLowTails } from './prop/clearance.js';
 import { PROP } from './prop/config.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
+import { DOWNHILL, downhillLines } from './prop/downhill.js';
 import { latticeStruts, strutPatches } from './prop/lattice.js';
-import { rasterRest, rasterTracks, withRaster } from './prop/raster.js';
+import { raceAgainst, rasterRest, rasterTracks, withRaster } from './prop/raster.js';
 import { tubeRivalry } from './prop/rival.js';
 import { buildSquatBed } from './prop/squat.js';
 import { seat } from './prop/surface.js';
@@ -125,9 +126,33 @@ export function coverRowSpan(coverage) {
 export function buildProps(topo, result, rot, opts = {}) {
   const capFrom = globalThis.__TINECAP?.length ?? 0;    // tests' tine capture: see withRaster
   const normal = buildPass(topo, result, rot, opts, null);
-  if (opts.raster === false) return normal;
-  return withRaster(topo, result, rot, opts, normal, capFrom,
-                    (regions) => buildPass(topo, result, rot, opts, regions));
+  const base = opts.raster === false ? normal
+    : withRaster(topo, result, rot, opts, normal, capFrom,
+                 (regions) => buildPass(topo, result, rot, opts, regions));
+  // Downhill walls (issue #25): walls that run down the overhang and follow it to
+  // the plate, raced per region against what the passes above built -- a region
+  // swaps only when they hold more. opts.downhill === true only: Auto turns it on
+  // and judges the whole build (fins/downhill.js); a direct call is unchanged.
+  if (opts.downhill !== true) return base;
+  const off0 = result.offset;
+  return raceAgainst(topo, result, rot, opts, base, capFrom, (regions) => {
+    const pass = buildPass(topo, result, rot, { ...opts, downhillRegions: regions }, null);
+    // A downhill wall starts at the region's top edge, where the overhang meets the
+    // part: a flank lying exactly flush with a part face there reads as clear to
+    // the weld check and the station probes (lbracket Y20 on the plugin path: 45
+    // flank vertices inside the part). Any wall vertex inside the part drops the
+    // wall -- the wall's own triangles (`wallRange`), not its tines, which bite in
+    // by design.
+    pass.props = pass.props.filter((q) => {
+      if (!q.wallRange) return true;
+      for (let i = q.wallRange[0]; i < q.wallRange[1]; i++) {
+        const v = pass.triangles[i];
+        if (insidePart(topo, rot, off0, v[0], v[1], v[2])) return false;
+      }
+      return true;
+    });
+    return pass;
+  }, 'downhill', DOWNHILL.maxGrow, DOWNHILL.race);
 }
 
 /**
@@ -163,6 +188,7 @@ function buildPass(topo, result, rot, opts, raster) {
   const off = result.offset;
   const withTines = opts.tines === true;
   const only = opts.onlyRegions ?? null, short = opts.shortWalls === true;
+  const downhill = opts.downhillRegions ?? null;
   // tines emitted; sagRisk: the user chose sub-cap spacing AND a real row landed wide
   const tally = { tines: 0, sagRisk: false, sagRegions: new Set() };
 
@@ -251,6 +277,15 @@ function buildPass(topo, result, rot, opts, raster) {
         gx += v[0]; gy += v[1]; gz += v[2];
       }
       regionPts.push([gx / 3, gy / 3, gz / 3]);
+    }
+
+    // Downhill pass (prop/downhill.js): walls down the region's slope, for the
+    // regions in `opts.downhillRegions` only -- the race in buildProps decides.
+    if (downhill) {
+      if (!downhill.has(ri)) continue;
+      const lines = downhillLines(regionPts, regionTris, step);
+      if (lines) patches.push({ faces: rFaces, area: regionArea, region: ri, tris: regionTris, lines });
+      continue;
     }
 
     // Raster pass: the whole footprint's tracks, no tube route, no split.
@@ -533,7 +568,7 @@ function buildPass(topo, result, rot, opts, raster) {
         servedRegions.add(patch.region);
         // The grip comb: nubs along this wall's settled top that bite into the
         // part. `settled` carries the surface z; emitTines subtracts the gap.
-        const c0 = capAt(), grip = { z: Infinity };
+        const c0 = capAt(), grip = { z: Infinity }, wallEnd = out.length;
         const nT = withTines ? emitTines(settled, regionTris, topo, rot, off, out, tineStepEff, undefined, tineHeight,
                                          tallBody(settledBody), grip) : 0;
         tally.tines += nT;
@@ -551,6 +586,7 @@ function buildPass(topo, result, rot, opts, raster) {
           // it, so on the successful try it points at this wall. emitTines just
           // pushed its tines right after, so wall + tines are one contiguous segment.
           triRanges: [[before, out.length]],
+          ...(downhill ? { wallRange: [before, wallEnd] } : {}),   // the wall without its tines
         });
         for (let k = run[0] + run2[0]; k < run[0] + run2[1]; k++) claimed[k] = true;
         placed = true;

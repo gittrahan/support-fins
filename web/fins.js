@@ -43,6 +43,7 @@ import { bedContact, seatedPartTris, seatingOf } from './fins/seating.js';
 import { lastResortWalls } from './fins/shortwalls.js';
 import { fillCoverage } from './fins/fill.js';
 import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
+import { judgeDownhill } from './fins/downhill.js';
 import { applyNozzle } from './nozzle.js';
 
 // Moved into web/fins/ (one module per concern); re-exported here so every
@@ -214,6 +215,13 @@ function buildFinsCore(topo, result, rot, opts = {}) {
   // leaning-fin machinery (rankSites / chooseSpan / buildFin) was deleted once
   // nothing reached it; git history has it.
   if (mode === 'auto' || mode === 'stabilize' || mode === 'full') {
+    // Downhill walls (issue #25) stay only if the whole build is no worse for them:
+    // see fins/downhill.js. Unset = judge both; true / false = build that one.
+    // (`raster: false` is the tests' normal-pass-alone switch: no races at all.)
+    if (opts.downhill === undefined) {
+      if (opts.raster === false) return buildFinsCore(topo, result, rot, { ...opts, downhill: false });
+      return judgeDownhill(topo, result, rot, (downhill) => buildFinsCore(topo, result, rot, { ...opts, downhill }));
+    }
     const withTines = opts.tines ?? true;
     // Wide-face coverage (0 sparse .. 1 dense) drives how densely a broad face is
     // lined -- the prop rows (buildProps reads opts.coverage, forwarded below) and

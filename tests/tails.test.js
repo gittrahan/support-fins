@@ -14,9 +14,9 @@ const mul = (a, b) => {           // 3x3 col-major, as prototype/stress/run.js
     for (let k = 0; k < 3; k++) m[c * 3 + r] += a[k * 3 + r] * b[c * 3 + k];
   return m;
 };
-function build(topo, rot, coverage = 0.5) {
+function build(topo, rot, coverage = 0.5, extra = {}) {
   globalThis.__TINECAP = [];
-  const b = fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode: 'auto', bedPad: true, tines: true, coverage });
+  const b = fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode: 'auto', bedPad: true, tines: true, coverage, ...extra });
   const caps = globalThis.__TINECAP;
   globalThis.__TINECAP = undefined;
   return { b, lowTine: caps.length ? Math.min(...caps.map((t) => t.z)) : Infinity };
@@ -79,7 +79,9 @@ Deno.test('tails: a tail tip does not count as a wall under a neighbouring face 
 Deno.test('tails: the squat pass only yields stations the built wall covers (torus X45)', () => {
   // The squat ledge at x -11.7..-6.7 sits next to a BLOCKED tall station, not a
   // built wall; deferring it to a "tail" that never got built left it bare.
-  const { b } = build(loadModel('torus'), rotX(45));
+  // Downhill walls off: they take this ledge over on main's torus X45 (and hold more of
+  // it, 70 -> 75%), so the squat pass this pins only builds without them.
+  const { b } = build(loadModel('torus'), rotX(45), 0.5, { downhill: false });
   const squat = b.props.filter((p) => p.squat && p.line[0][0] < -6);
   assert(squat.length >= 1, 'torus lost its squat wall on the low ledge');
 });
