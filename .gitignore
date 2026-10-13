@@ -40,3 +40,4 @@ plugins/solidworks/build/
 plugins/blender/build/
 # user-reported parts (other people's files): measured locally, never committed
 prototype/examples/reports/
+.prettierrc
