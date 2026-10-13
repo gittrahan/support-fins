@@ -13,6 +13,7 @@
  *     --web <checkout>/web               build with another checkout's engine (scored by THIS
  *                                        checkout's held.js, so both runs use one ruler)
  *     --json <file>                      every row as JSON, for probe_diff.js
+ *     --opts <json>                      extra buildFins options merged into the call
  *     --angle <deg>                      the Overhang slider (default 45)
  *     --mode auto|full                   the Placement mode built (default auto; full = Full
  *                                        coverage, Auto plus fins/fill.js)
@@ -58,7 +59,8 @@ const rows = [];
 if (dump) Deno.mkdirSync(dump, { recursive: true });
 const MODE = opt('--mode') ?? 'auto';
 const ANGLE = +(opt('--angle') ?? 45);
-const valued = new Set(['--dir', '--poses', '--dump', '--web', '--json', '--mode', '--angle'].map((k) => opt(k)).filter(Boolean));
+const EXTRA = JSON.parse(opt('--opts') ?? '{}');   // extra buildFins options, e.g. '{"downhill":true}'
+const valued = new Set(['--dir', '--poses', '--dump', '--web', '--json', '--mode', '--angle', '--opts'].map((k) => opt(k)).filter(Boolean));
 const want = args.filter((a) => !a.startsWith('-') && !valued.has(a));
 const files = [...Deno.readDirSync(dir)].map((f) => f.name).filter((n) => n.toLowerCase().endsWith('.stl'))
   .filter((n) => !want.length || want.includes(n.replace(/\.stl$/i, ''))).sort();
@@ -77,7 +79,7 @@ for (const f of files) {
     if (!rot) { console.log(pad(f.slice(0, W), W) + pad(pose, 10) + '(no such pose)'); continue; }
     const res = analyze(topo, ANGLE, rot);
     const t0 = performance.now();
-    const b = buildFins(topo, res, rot, { mode: MODE, bedPad: true, tines: true });
+    const b = buildFins(topo, res, rot, { mode: MODE, bedPad: true, tines: true, ...EXTRA });
     const secs = (performance.now() - t0) / 1000;
     const h = heldFaces(topo, res, rot, b, R);
     const walls = b.props ?? [];
