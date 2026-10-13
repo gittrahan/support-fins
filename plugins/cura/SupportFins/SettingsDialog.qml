@@ -111,6 +111,12 @@ UM.Dialog
                         id: sliderControl
                         RowLayout
                         {
+                            id: sliderRow
+                            spacing: UM.Theme.getSize("default_margin").width
+                            // The value is ours in a fixed-width column for every slider, not
+                            // Cura's badge: that floats above the handle over the row above
+                            // (#242). Sized for the widest value so it never shifts as the slider moves.
+                            function shown(v) { return Math.round(v / opt.step) * opt.step + (opt.percent ? "%" : opt.hint) }
                             UM.Slider
                             {
                                 id: slider
@@ -120,14 +126,16 @@ UM.Dialog
                                 stepSize: opt.step
                                 snapMode: Slider.SnapAlways
                                 value: opt.value
-                                // Cura's badge always reads "%": only right for a percent option
-                                indicatorVisible: opt.percent
+                                indicatorVisible: false
                                 onValueChanged: manager.setValue(opt.key, value)
                             }
                             UM.Label
                             {
-                                visible: !opt.percent
-                                text: Math.round(slider.value / opt.step) * opt.step + opt.hint
+                                text: sliderRow.shown(slider.value)
+                                horizontalAlignment: Text.AlignRight
+                                wrapMode: Text.NoWrap
+                                Layout.preferredWidth: widest.advanceWidth
+                                TextMetrics { id: widest; font: UM.Theme.getFont("default"); text: sliderRow.shown(opt.max) }
                             }
                         }
                     }
