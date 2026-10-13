@@ -193,21 +193,34 @@ const byRegion = (props) => {
  * wedge loop in fins.js emits again for real.
  */
 export function withRaster(topo, result, rot, opts, normal, capFrom, rasterPass) {
+  return raceAgainst(topo, result, rot, opts, normal, capFrom, rasterPass, 'raster');
+}
+
+/**
+ * withRaster's race, for any second placement: `pass(regions)` builds it over the
+ * regions `normal` left partly bare, and each region keeps whichever holds more.
+ * `tag` names it on the kept walls (`q[tag]`) and in the count (`<tag>Regions`).
+ * `maxGrow` (null = no limit): a region whose second-pass walls weigh over this x
+ * the normal walls' volume never swaps -- a sliver more area is not worth it.
+ * `rel`: the share of the normal walls' held area the second pass must add (RACE_REL).
+ * Downhill lines (prop/downhill.js) race through here as 'downhill'.
+ */
+export function raceAgainst(topo, result, rot, opts, normal, capFrom, pass, tag, maxGrow = null, rel = RACE_REL) {
   const faces = overhangFaces(topo, result, rot);
   const want = rasterWanted(faces, result, normal);
   if (!want.size) return normal;
   const cap = globalThis.__TINECAP;
   const capNormal = cap ? cap.slice() : null;
   if (cap) globalThis.__TINECAP = [];
-  const raster = rasterPass(want);
+  const raster = pass(want);
   if (opts.rasterVeto) raster.props = raster.props.filter((q) => !opts.rasterVeto(q, normal.props));
   const capRaster = globalThis.__TINECAP;
   globalThis.__TINECAP = cap;
-  const raced = raceRegions(faces, result, normal, raster);
-  if (!raced.rasterRegions) return normal;
+  const raced = raceRegions(faces, result, normal, raster, tag, maxGrow, rel);
+  if (!raced[`${tag}Regions`]) return normal;
   if (cap) {
     cap.length = capFrom;
-    for (const q of raced.props) if (q.caps) cap.push(...(q.raster ? capRaster : capNormal).slice(...q.caps));
+    for (const q of raced.props) if (q.caps) cap.push(...(q[tag] ? capRaster : capNormal).slice(...q.caps));
   }
   return raced;
 }
@@ -284,7 +297,7 @@ function keepers(qa, qb, near) {
  * be counted as skipped there. Over-reporting a skip is the safe direction --
  * the readout never claims a region was served that wasn't.
  */
-function raceRegions(faces, result, a, b) {
+function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = RACE_REL) {
   const A = byRegion(a.props), B = byRegion(b.props);
   const out = [], props = [], served = new Set();
   let tines = 0, volume = 0, swapped = 0, sagRisk = a.sagRisk;
@@ -295,7 +308,7 @@ function raceRegions(faces, result, a, b) {
       for (let i = s; i < e; i++) out.push(build.triangles[i]);
       triRanges.push([r0, out.length]);
     }
-    props.push({ ...q, id: props.length, triRanges, raster: build === b });
+    props.push({ ...q, id: props.length, triRanges, [tag]: build === b });
     served.add(q.region);
     tines += q.tines ?? 0;
     volume += q.volume ?? 0;
@@ -307,7 +320,9 @@ function raceRegions(faces, result, a, b) {
       const near = nearRegion(faces, ri);
       const ha = qa.length ? heldBy(near, wallTops(qa)) : 0;
       const hb = heldBy(near, wallTops(qb));
-      if (hb > ha + Math.max(RACE_ABS, RACE_REL * ha)) extra = keepers(qa, qb, near);
+      const vol = (qs) => qs.reduce((v, q) => v + (q.volume ?? 0), 0);
+      const tooHeavy = maxGrow !== null && qa.length && vol(qb) > maxGrow * vol(qa);
+      if (!tooHeavy && hb > ha + Math.max(RACE_ABS, rel * ha)) extra = keepers(qa, qb, near);
     }
     if (!extra) { for (const q of qa) take(a, q); continue; }
     swapped++;
@@ -316,5 +331,6 @@ function raceRegions(faces, result, a, b) {
     for (const q of extra) take(a, q);
   }
   return { triangles: out, props, skipped: a.skipped, served: served.size,
-           servedRegions: [...served], tines, sagRisk, volume, rasterRegions: swapped };
+           servedRegions: [...served], tines, sagRisk, volume, [`${tag}Regions`]: swapped,
+           ...(tag !== 'raster' && a.rasterRegions !== undefined ? { rasterRegions: a.rasterRegions } : {}) };
 }
