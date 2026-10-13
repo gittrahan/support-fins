@@ -99,8 +99,16 @@ export function downhillLines(regionPts, regionTris, step = PROP.stationStep,
 
   // Trace each seed down the steepest descent, `step` at a time, until it leaves
   // the region, levels out, turns back, or meets a line already traced.
-  const lines = [];
-  const near = (x, y) => lines.some((l) => l.some((q) => Math.hypot(q[0] - x, q[1] - y) < join));
+  // `near`: within `join` of an earlier line, through a plan hash of their stations
+  // (a linear scan of every station was O(lines^2 x steps^2) on a wide region)
+  const lines = [], cells = new Map(), key = (i, j) => i * 100003 + j;
+  const near = (x, y) => {
+    const i0 = Math.floor(x / join), j0 = Math.floor(y / join);
+    for (let i = i0 - 1; i <= i0 + 1; i++) for (let j = j0 - 1; j <= j0 + 1; j++) {
+      for (const q of cells.get(key(i, j)) ?? []) if (Math.hypot(q[0] - x, q[1] - y) < join) return true;
+    }
+    return false;
+  };
   for (const s of seeds) {
     const line = [];
     let x = s[0], y = s[1], px = 0, py = 0;
@@ -116,7 +124,12 @@ export function downhillLines(regionPts, regionTris, step = PROP.stationStep,
       px = dx; py = dy;
       x += dx * step; y += dy * step;
     }
-    if (line.length >= PROP.minStations) lines.push(line);
+    if (line.length < PROP.minStations) continue;
+    lines.push(line);
+    for (const q of line) {
+      const k = key(Math.floor(q[0] / join), Math.floor(q[1] / join));
+      (cells.get(k) ?? cells.set(k, []).get(k)).push(q);
+    }
   }
   return lines.length ? lines : null;
 }

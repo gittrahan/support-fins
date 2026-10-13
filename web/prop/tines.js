@@ -299,9 +299,10 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
                     [-e, half - e], [-PROP.tineOverlap + e, half - e]];
       boxExtrude(step, wallTop - tineH / 2, tineBot + tineH / 2, P, out);
     }
-    // Test seam: tests/tines_realparts.test.js sets globalThis.__TINECAP to an array
-    // and reads back each tine's seed + bite heading to verify grip on real parts
-    // through the whole pipeline. Undefined in the browser -> a zero-cost noop.
+    // Capture seam: tests set globalThis.__TINECAP to an array, and so does Auto's
+    // downhill judge (fins/downhill.js) to read each build's lowest tine.
+    // Each tine's seed + bite heading; tests/tines_realparts.test.js reads them back
+    // to verify grip on real parts through the whole pipeline. Unset -> a noop.
     if (globalThis.__TINECAP) globalThis.__TINECAP.push({ x, y, z: zMid, biteX: dirx, biteY: diry });
     count++;
     return true;

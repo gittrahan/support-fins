@@ -81,8 +81,8 @@ Deno.test('downhill: a level ceiling has no downhill to follow', () => {
   assert(downhillLines(pts, tris) === null, 'a flat ceiling got downhill lines');
 });
 
-Deno.test('downhill: downhill:false builds exactly what the race-free placement does', () => {
-  // the judge's fallback: off must be the plain build, with no downhill wall in it
+Deno.test('downhill: downhill:false places no downhill wall', () => {
+  // the judge's fallback build
   const topo = example('issue25_curve');
   const { b } = build(topo, { downhill: false });
   assert(!b.props.some((q) => q.downhill), 'downhill:false placed a downhill wall');

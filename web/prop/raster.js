@@ -220,7 +220,14 @@ export function raceAgainst(topo, result, rot, opts, normal, capFrom, pass, tag,
   if (!raced[`${tag}Regions`]) return normal;
   if (cap) {
     cap.length = capFrom;
-    for (const q of raced.props) if (q.caps) cap.push(...(q[tag] ? capRaster : capNormal).slice(...q.caps));
+    // ...and each kept wall's `caps` re-pointed into the rebuilt capture, so a second
+    // race (downhill, after raster) slices the right tines out of it
+    for (const q of raced.props) {
+      if (!q.caps) continue;
+      const from = cap.length;
+      cap.push(...(q[tag] ? capRaster : capNormal).slice(...q.caps));
+      q.caps = [from, cap.length];
+    }
   }
   return raced;
 }
@@ -331,6 +338,5 @@ function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = 
     for (const q of extra) take(a, q);
   }
   return { triangles: out, props, skipped: a.skipped, served: served.size,
-           servedRegions: [...served], tines, sagRisk, volume, [`${tag}Regions`]: swapped,
-           ...(tag !== 'raster' && a.rasterRegions !== undefined ? { rasterRegions: a.rasterRegions } : {}) };
+           servedRegions: [...served], tines, sagRisk, volume, [`${tag}Regions`]: swapped };
 }

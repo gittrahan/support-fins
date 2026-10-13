@@ -18,11 +18,10 @@ import { classify, HOLE, PLATE_Z, reachOf } from './coverage.js';
  * near-plate strip (LOW) -- a squat wall's ledge counts (torus X45, tests/tails.test.js).
  * A tiny hole's ceiling is exempt, as on the scoreboard.
  */
-export function heldArea(topo, result, rot, built) {
+export function heldArea(topo, result, rot, built, cls = classify(topo, result, rot)) {
   const tops = [];
   for (const w of built.fins ?? []) for (const p of w.line ?? []) tops.push(p);
   const near = reachOf(tops, PROP.maxUnsupportedSpan / 2);
-  const cls = classify(topo, result, rot);
   const { pos, nFaces, area } = topo, off = result.offset;
   let held = 0;
   for (let f = 0; f < nFaces; f++) {
@@ -61,16 +60,20 @@ export function judgeDownhill(topo, result, rot, build) {
     for (const t of caps) if (t.z < low) low = t.z;
     return { b, caps, low };
   };
-  const a = run(true);
-  let keep = a;
-  if (usedDownhill(a.b)) {
-    const n = run(false);
-    const worse = heldArea(topo, result, rot, a.b) < heldArea(topo, result, rot, n.b) - 1e-6
-      || a.low > n.low + (Number.isFinite(n.low) ? gripRise(n.low) : 0)
-      || wedges(a.b) < wedges(n.b);
-    if (worse) keep = n;
+  try {
+    const a = run(true);
+    let keep = a;
+    if (usedDownhill(a.b)) {
+      const n = run(false);
+      const cls = classify(topo, result, rot);
+      const worse = heldArea(topo, result, rot, a.b, cls) < heldArea(topo, result, rot, n.b, cls) - 1e-6
+        || a.low > n.low + (Number.isFinite(n.low) ? gripRise(n.low) : 0)
+        || wedges(a.b) < wedges(n.b);
+      if (worse) keep = n;
+    }
+    if (outer) outer.push(...keep.caps);
+    return keep.b;
+  } finally {
+    globalThis.__TINECAP = outer;   // a throwing build must not leave the capture on
   }
-  globalThis.__TINECAP = outer;
-  if (outer) outer.push(...keep.caps);
-  return keep.b;
 }
