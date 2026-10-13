@@ -271,6 +271,23 @@ a mess"), and a 45° cleat sole needs walls down its slope that cross the one al
 | clearance | `sideClear` (0.35) off the part (none inside it); off every support but its own two walls | a fused tie doesn't break away from the part |
 | order | after the ribs | ties don't take plate or room from walls or ribs |
 
+## Downhill walls (Auto and Full) — `web/prop/downhill.js`, `web/fins/downhill.js`
+
+Not printed yet. Issue #25: walls that run down an overhang and follow it to the plate,
+one at each end of its top edge and one in the middle, bending with the surface where it
+curves. The wall itself is the ordinary plate wall; only placement and the race are new.
+
+| feature | value | rationale |
+|---|---|---|
+| direction | the surface's steepest descent, traced in **1 mm** stations (`stationStep`) | across a downhill wall the surface is level, so its top settles clear on both flanks; walls along a 45° slope failed every clearance probe (#125's edge paths, 0 walls on the #25 part) |
+| seeds | the region's top edge (sampled on a **1 mm** grid), both ends **1 mm** in, and evenly between at ≤ `maxUnsupportedSpan` (**12 mm**) | the reporter's three lines: each edge and the middle |
+| stop | leaving the region, slope under **0.05**, turning back, or within **3 mm** of an earlier line | converging lines join instead of crowding |
+| level region | no line when under half the region slopes | a ceiling has no downhill; rows keep it |
+| race | per region against the other placements (`raceAgainst`): must hold **3%** more (raster needs 10%), weigh ≤ **1.5×**, never raise the region's lowest tine | the #25 part's bend is +9.8% |
+| no flush flank | a downhill wall with any vertex (tines aside) inside the part is dropped before the race | a flank flush with a part face at the top edge read as clear (lbracket Y20, plugin path) |
+| whole build | when a region swaps, the part is also built without downhill walls; the downhill build stays only if it holds ≥ the overhang (MUST + near-plate), its lowest tine rises ≤ `gripRise`, and no wedge is lost | wedges, short walls and the fill pass build around the race's result, which it can't see |
+| switch | `opts.downhill`: unset = race + judge (Auto, Full); `false` = off; `buildProps` alone only with `true` | |
+
 ## Naming
 
 Slant3D says "grip fins" once. Unrelated to the *grip fin* used elsewhere in Matthew's
