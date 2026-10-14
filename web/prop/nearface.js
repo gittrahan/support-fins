@@ -82,21 +82,17 @@ function indexFor(topo, rot, offset) {
     const h = Math.sqrt(hLo * hHi);
     if (cellsAt(h) > target) hLo = h; else hHi = h;
   }
+  // Coarsen until the lists fit; at one cell every face is listed once, so it ends.
   let h = hHi, grid;
-  for (;;) {
-    grid = bucket(S, nF, lo, h, dimsFor(h));
-    if (grid || cellsAt(h) === 1) break;
-    h *= 1.5;
-  }
-  if (!grid) grid = bucket(S, nF, lo, h, dimsFor(h), true);
+  while (!(grid = bucket(S, nF, lo, h, dimsFor(h)))) h *= 1.5;
   const idx = { key, S, lo, h, ...grid, stamp: new Uint32Array(nF), gen: 0, d2: new Float64Array(nF) };
   _index.set(topo, idx);
   return idx;
 }
 
 /** Bucket every face into the cells its box overlaps (CSR), or null when the
- *  lists run past MAX_LISTED per face and `force` is not set. */
-function bucket(S, nF, lo, h, dims, force = false) {
+ *  lists run past MAX_LISTED per face. */
+function bucket(S, nF, lo, h, dims) {
   const [nx, ny, nz] = dims;
   const ci = (v, k) => Math.min(dims[k] - 1, Math.max(0, Math.floor((v - lo[k]) / h)));
   const spans = new Int32Array(nF * 6);
@@ -110,7 +106,7 @@ function bucket(S, nF, lo, h, dims, force = false) {
     }
     listed += (spans[f * 6 + 1] - spans[f * 6] + 1) * (spans[f * 6 + 3] - spans[f * 6 + 2] + 1)
       * (spans[f * 6 + 5] - spans[f * 6 + 4] + 1);
-    if (!force && listed > MAX_LISTED * nF + (1 << 20)) return null;
+    if (listed > MAX_LISTED * nF + (1 << 20)) return null;
   }
   const nCells = nx * ny * nz;
   const start = new Int32Array(nCells + 1);
@@ -179,11 +175,16 @@ export function nearestFaces(topo, rot, offset, px, py, pz) {
   const rMax = Math.max(nx, ny, nz);
   for (let r = 0; r <= rMax && !seen.length; r++) {
     for (let a = Math.max(0, c0[0] - r); a <= Math.min(nx - 1, c0[0] + r); a++)
-      for (let b = Math.max(0, c0[1] - r); b <= Math.min(ny - 1, c0[1] + r); b++)
-        for (let c = Math.max(0, c0[2] - r); c <= Math.min(nz - 1, c0[2] + r); c++) {
-          if (Math.max(Math.abs(a - c0[0]), Math.abs(b - c0[1]), Math.abs(c - c0[2])) !== r) continue;
-          scanCell(a, b, c, measure);
+      for (let b = Math.max(0, c0[1] - r); b <= Math.min(ny - 1, c0[1] + r); b++) {
+        // only the ring's shell: a full column on its sides, just the two caps inside
+        const side = Math.abs(a - c0[0]) === r || Math.abs(b - c0[1]) === r;
+        if (side) {
+          for (let c = Math.max(0, c0[2] - r); c <= Math.min(nz - 1, c0[2] + r); c++) scanCell(a, b, c, measure);
+        } else {
+          if (c0[2] - r >= 0) scanCell(a, b, c0[2] - r, measure);
+          if (c0[2] + r < nz) scanCell(a, b, c0[2] + r, measure);
         }
+      }
   }
   let ub = Infinity;
   for (const f of seen) if (d2[f] < ub) ub = d2[f];
