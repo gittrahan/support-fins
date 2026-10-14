@@ -7,7 +7,8 @@ import { t, tn } from './i18n.js';
 import * as THREE from 'three';
 import { buildTopology, analyze, DEFAULT_THRESHOLD, MIN_REGION_AREA } from '../overhangs.js';
 import { el } from './dom.js';
-import { scene, controls, frame } from './scene.js';
+import { scene, controls, frame, clip } from './scene.js';
+import { setSection } from './section.js';
 import { removeMode, cancelRemove, resetRemovals } from './remove.js';
 import { resetHistory } from './history.js';
 import { importNote, renderImportNote } from './io.js';
@@ -23,8 +24,18 @@ import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff, roughness: 0.62, metalness: 0.05,
-  vertexColors: true, side: THREE.DoubleSide,
+  vertexColors: true, side: THREE.DoubleSide, clippingPlanes: clip,
 });
+// With a section cut, the back faces you see are the inside of the material the
+// plane went through: paint them one flat, unlit slate so the cut reads as solid
+// (a darkened lit shade read as just another face) and the inside surfaces --
+// red where they overhang -- stand out against it. Only compiled in while a cut
+// is on: three.js rebuilds the program when the clipping plane count changes.
+partMaterial.onBeforeCompile = (sh) => {
+  sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>',
+    '#include <opaque_fragment>\n#if NUM_CLIPPING_PLANES > 0\n'
+    + 'if (!gl_FrontFacing) gl_FragColor.rgb = vec3(0.09, 0.10, 0.13);\n#endif');
+};
 export let part = null;
 export let partName = '';
 export let topology = null;      // welded adjacency, rebuilt only when the mesh changes
@@ -109,6 +120,7 @@ export function setPart(geometry, filename) {
   resetLoad();
   hideSuggestions();
   setLayPlacing(false);
+  setSection(false);     // the old part's cut means nothing on the new one
   controls.enabled = true;
   syncLoadUI();
   setGizmo();

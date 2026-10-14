@@ -697,6 +697,9 @@ html, body {
 /* ---------- automatic layer view ---------- */
 #orient .layerview { flex-basis: 100%; margin-top: 8px; }
 .layers-toggle { color: var(--dim); font-size: 12px; }
+#orient .sectionview { flex-basis: 100%; margin-top: 6px; }
+#section-tools { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+#section-tools[hidden] { display: none; }
 #orient .navview { flex-basis: 100%; margin-top: 6px; }
 .nav-pick { color: var(--dim); font-size: 12px; }
 #orient .nav-pick select { margin-left: 6px; padding: 2px 6px; font-size: 12px; }

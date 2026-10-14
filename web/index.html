@@ -156,6 +156,24 @@
       <input type="checkbox" id="show-rings" checked><span data-i18n="Show rotate rings">Show rotate rings</span>
     </label>
   </div>
+  <!-- Section view (#250): a plane that hides the part and supports on one side,
+       to see and draw inside a bore. View only, never exported. ui/section.js. -->
+  <div class="sectionview">
+    <label data-i18n-title class="check layers-toggle" title="Cut the view with a plane to see inside the part. Clicks reach only what is still shown. View only: the export is whole.">
+      <input type="checkbox" id="section"><span data-i18n="Section view">Section view</span>
+    </label>
+    <div id="section-tools" hidden>
+      <button class="btn sm primary" id="section-move" aria-pressed="true" data-i18n-title data-i18n="Move"
+              title="Drag the arrows to slide the plane. Click again to put the handle away.">Move</button>
+      <button class="btn sm" id="section-turn" aria-pressed="false" data-i18n-title data-i18n="Turn"
+              title="Drag the rings to tilt the plane. Click again to put the handle away.">Turn</button>
+      <button class="btn sm" id="section-flip" data-i18n-title data-i18n="Flip"
+              title="Show the other side of the cut instead.">Flip</button>
+      <button class="btn sm" id="section-x" aria-label="Cut across X, through the part's centre">X</button>
+      <button class="btn sm" id="section-y" aria-label="Cut across Y, through the part's centre">Y</button>
+      <button class="btn sm" id="section-z" aria-label="Cut across Z, through the part's centre">Z</button>
+    </div>
+  </div>
   <!-- Mouse navigation preset (#53): which button orbits / pans, to match the CAD
        package the user's hands already know. ui/navigation.js; remembered (optional). -->
   <div class="navview">

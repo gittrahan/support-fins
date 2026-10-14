@@ -1,4 +1,12 @@
 export default {
+  "Section view": "Schnittansicht",
+  "Cut the view with a plane to see inside the part. Clicks reach only what is still shown. View only: the export is whole.": "Die Ansicht mit einer Ebene schneiden, um ins Bauteil zu sehen. Klicks erreichen nur, was noch sichtbar ist. Nur Ansicht: der Export bleibt vollständig.",
+  "Move": "Verschieben",
+  "Turn": "Drehen",
+  "Flip": "Umkehren",
+  "Drag the arrows to slide the plane. Click again to put the handle away.": "Die Pfeile ziehen, um die Ebene zu verschieben. Erneut klicken blendet den Griff aus.",
+  "Drag the rings to tilt the plane. Click again to put the handle away.": "Die Ringe ziehen, um die Ebene zu kippen. Erneut klicken blendet den Griff aus.",
+  "Show the other side of the cut instead.": "Stattdessen die andere Seite des Schnitts zeigen.",
   "Full brace depth": "Volle Streben-Tiefe",
   "Use the selected Brace depth percentage beyond the usual 60 mm limit. Larger braces need more plate space and material; collisions can shorten or refuse them. Off keeps the 60 mm limit.": "Den gewählten Prozentsatz für die Streben-Tiefe auch über die übliche Grenze von 60 mm hinaus verwenden. Größere Streben benötigen mehr Platz auf dem Druckbett und mehr Material; bei Kollisionen werden sie verkürzt oder abgelehnt. Aus behält die Grenze von 60 mm.",
   "Middle-drag orbits, Shift + middle-drag pans, wheel zooms.": "Mittlere Maustaste ziehen dreht die Ansicht, Umschalt + mittlere Maustaste ziehen verschiebt, Mausrad zoomt.",

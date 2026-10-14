@@ -7,7 +7,8 @@ import { t } from './i18n.js';
 import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { el } from './dom.js';
-import { renderer, scene, camera, controls, raycaster, pointer } from './scene.js';
+import { renderer, scene, camera, controls, raycaster, pointer, clip } from './scene.js';
+import { keptHit, planeHandleShown } from './section.js';
 import { removeActive } from './remove.js';
 import { histPush, beginGesture, commitGesture } from './history.js';
 import { hideSuggestions, clearSuggestionMark } from './suggest.js';
@@ -111,9 +112,11 @@ el('show-rings').addEventListener('change', (e) => {
 
 /** Enable the rotate gizmo only when NOT drawing or laying a face flat --
  *  its handles would otherwise swallow the clicks those modes need -- and
- *  only while "Show rotate rings" is on. */
+ *  only while "Show rotate rings" is on. The section plane's handle takes
+ *  its place while that is up: two sets of handles on one part is a misclick. */
 export function setGizmo() {
-  const on = showRings && !!part && !drawActive() && !layActive() && !removeActive();
+  const on = showRings && !!part && !drawActive() && !layActive() && !removeActive()
+    && !planeHandleShown();
   gizmo.enabled = on;
   // A disabled gizmo stops tracking hover, so a ring hovered last would stay
   // "under the pointer" and app.js would swallow the next pick for it.
@@ -181,7 +184,7 @@ hoverGeom.setAttribute(
 export const hoverFace = new THREE.Mesh(hoverGeom, new THREE.MeshBasicMaterial({
   color: 0x4da3ff, transparent: true, opacity: 0.6, side: THREE.DoubleSide,
   depthTest: true, polygonOffset: true,
-  polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+  polygonOffsetFactor: -4, polygonOffsetUnits: -4, clippingPlanes: clip,
 }));
 hoverFace.visible = false;
 hoverFace.renderOrder = 1;
@@ -193,7 +196,7 @@ export function pickFace(ev) {
   pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1,
               -((ev.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObject(part, false)[0];
+  const hit = keptHit(raycaster.intersectObject(part, false));
   return hit && hit.faceIndex != null ? hit : null;
 }
 

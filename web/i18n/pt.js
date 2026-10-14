@@ -1,4 +1,12 @@
 export default {
+  "Section view": "Vista em corte",
+  "Cut the view with a plane to see inside the part. Clicks reach only what is still shown. View only: the export is whole.": "Corte a vista com um plano para ver o interior da peça. Os cliques só alcançam o que continua visível. Só a vista: a exportação sai inteira.",
+  "Move": "Mover",
+  "Turn": "Girar",
+  "Flip": "Inverter",
+  "Drag the arrows to slide the plane. Click again to put the handle away.": "Arraste as setas para deslizar o plano. Clique de novo para esconder a alça.",
+  "Drag the rings to tilt the plane. Click again to put the handle away.": "Arraste os anéis para inclinar o plano. Clique de novo para esconder a alça.",
+  "Show the other side of the cut instead.": "Mostrar o outro lado do corte.",
   "Middle-drag orbits, Shift + middle-drag pans, wheel zooms.": "Arrastar com o botão do meio gira a vista, Shift + botão do meio move, a roda dá zoom.",
   "Middle-drag orbits, Ctrl + middle-drag pans, wheel zooms.": "Arrastar com o botão do meio gira a vista, Ctrl + botão do meio move, a roda dá zoom.",
   "Right-drag orbits, middle- or Ctrl + right-drag pans, wheel zooms.": "Arrastar com o botão direito gira a vista, botão do meio ou Ctrl + botão direito move, a roda dá zoom.",

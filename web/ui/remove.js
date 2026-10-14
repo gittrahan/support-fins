@@ -8,7 +8,8 @@ import { t } from './i18n.js';
  */
 import * as THREE from 'three';
 import { el } from './dom.js';
-import { scene, renderer, camera, raycaster, pointer, meshFrom } from './scene.js';
+import { scene, renderer, camera, raycaster, pointer, meshFrom, clip } from './scene.js';
+import { keptHit } from './section.js';
 import { setGizmo } from './pose.js';
 import { part, updateFit } from './part.js';
 import { finsVisible, autoLike, drawAugment, setDrawAugment, syncAugmentUI } from './settings.js';
@@ -39,7 +40,7 @@ let triToFin = [];           // filtered finMesh triangle index → finRecords i
 const hoverFinMaterial = new THREE.MeshStandardMaterial({
   color: 0xff4d4d, roughness: 0.6, metalness: 0.0, transparent: true, opacity: 0.55,
   side: THREE.DoubleSide, depthTest: true, polygonOffset: true,
-  polygonOffsetFactor: -4, polygonOffsetUnits: -4,
+  polygonOffsetFactor: -4, polygonOffsetUnits: -4, clippingPlanes: clip,
 });
 
 /** Spatial signature: kind + rounded line midpoint + height + bearing. A content
@@ -118,7 +119,7 @@ function pickFin(ev) {
   pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1,
               -((ev.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObject(finMesh, false)[0];
+  const hit = keptHit(raycaster.intersectObject(finMesh, false));
   if (!hit || hit.faceIndex == null) return null;
   const fi = triToFin[hit.faceIndex];
   return fi != null ? finRecords[fi] : null;

@@ -39,6 +39,7 @@ import { finTris, padTris, lastBuilt } from './ui/finbuild.js';
 import { initSettings } from './ui/settings.js';
 import { part, topology, rotM3, lastResult, threshold } from './ui/part.js';
 import { gizmo, hoverFace, layActive, cancelLay, layHover, layClick } from './ui/pose.js';
+import { planeBusy } from './ui/section.js';
 
 // ------------------------------------------------------------------ keyboard
 
@@ -68,6 +69,13 @@ addEventListener('keydown', (e) => {
 
 let pressAt = null;
 renderer.domElement.addEventListener('pointermove', (ev) => {
+  // The section plane's handle is under the pointer or being dragged: it owns the
+  // pointer, and no pick should light up through it.
+  if (planeBusy()) {
+    hoverFace.visible = false;
+    clearFinHover();
+    return;
+  }
   // Remove-fins mode: hover lights the fin a click would drop, in red.
   if (removeActive()) {
     hoverFace.visible = false;
@@ -110,6 +118,8 @@ renderer.domElement.addEventListener('pointerup', (e) => {
 
   // a drag is an orbit, not a pick
   if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
+  // a click on the section plane's handle is the handle's, not a pick
+  if (planeBusy()) return;
 
   // A right CLICK cancels; a right DRAG is an orbit or pan (the Onshape preset
   // orbits on it) and leaves the wall in progress alone. Decided here, on release,

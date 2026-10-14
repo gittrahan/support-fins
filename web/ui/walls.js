@@ -9,7 +9,8 @@ import * as THREE from 'three';
 import { drawnWall } from '../draw.js';
 import { swayAtFace, faceIsUpright } from '../sway.js';
 import { el } from './dom.js';
-import { viewport, renderer, scene, camera, meshFrom, ifaceMaterial, raycaster, pointer } from './scene.js';
+import { viewport, renderer, scene, camera, meshFrom, ifaceMaterial, raycaster, pointer, clip } from './scene.js';
+import { keptHit } from './section.js';
 import { removedIds } from './remove.js';
 import { histPush } from './history.js';
 import { updateReadout } from './readout.js';
@@ -36,11 +37,12 @@ let printTrisDirty = true;
 
 export const drawMaterial = new THREE.MeshStandardMaterial({
   color: 0x59d98e, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide,
+  clippingPlanes: clip,
 });
 // A live, translucent preview of the wall the current drag would make.
 const ghostMaterial = new THREE.MeshStandardMaterial({
   color: 0x8ff0bd, roughness: 0.7, transparent: true, opacity: 0.45,
-  side: THREE.DoubleSide,
+  side: THREE.DoubleSide, clippingPlanes: clip,
 });
 let ghostMesh = null;
 
@@ -183,6 +185,7 @@ let selMesh = null;
 const selMaterial = new THREE.MeshStandardMaterial({
   color: 0xffb347, roughness: 0.6, metalness: 0.0, side: THREE.DoubleSide,
   polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1,
+  clippingPlanes: clip,
 });
 
 /** Re-draw the highlight for the current selection, or clear a stale one. */
@@ -204,9 +207,9 @@ function pickSupport(ev) {
   pointer.set(((ev.clientX - r.left) / r.width) * 2 - 1,
               -((ev.clientY - r.top) / r.height) * 2 + 1);
   raycaster.setFromCamera(pointer, camera);
-  const hit = raycaster.intersectObject(drawnMesh, false)[0];
+  const hit = keptHit(raycaster.intersectObject(drawnMesh, false));
   if (!hit || hit.faceIndex == null) return null;
-  const onPart = part ? raycaster.intersectObject(part, false)[0] : null;
+  const onPart = part ? keptHit(raycaster.intersectObject(part, false)) : null;
   if (onPart && onPart.distance < hit.distance) return null;   // the part is in front
   return drawnWalls.find((w) => w.ok && hit.faceIndex >= w.triStart && hit.faceIndex < w.triEnd) ?? null;
 }

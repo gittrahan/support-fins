@@ -9,7 +9,7 @@ import { PROP } from '../prop.js';
 import { CUT } from '../cutout.js';
 import { nozzle, wallLines } from '../nozzle.js';
 import { el } from './dom.js';
-import { scene, meshFrom, ifaceMaterial } from './scene.js';
+import { scene, meshFrom, ifaceMaterial, clip } from './scene.js';
 import {
   removeMode, syncRemoveUI, cancelRemove, clearFinHover, adoptFins, forgetFins,
 } from './remove.js';
@@ -35,12 +35,14 @@ export function setFinTris(tris) {
 
 export const finMaterial = new THREE.MeshStandardMaterial({
   color: 0x59d98e, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide,
+  clippingPlanes: clip,
 });
 // The pad is not a fin -- it is a modification to how the part meets the plate,
 // and the user has to be able to see at a glance which is which before they
 // commit to an export.
 export const padMaterial = new THREE.MeshStandardMaterial({
   color: 0xe8b64c, roughness: 0.8, metalness: 0.0, side: THREE.DoubleSide,
+  clippingPlanes: clip,
 });
 
 export let lastBuilt = null;       // last buildFins result, kept for the bed pad + seating readout

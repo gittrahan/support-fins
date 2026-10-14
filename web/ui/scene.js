@@ -24,6 +24,10 @@ renderer.domElement.setAttribute(
   'aria-label', 'Interactive 3D preview of the loaded part. Orientation and support '
   + 'stats are reported as text in the panel on the left.');
 viewport.appendChild(renderer.domElement);
+// Section view (section.js): the model materials share this array as their
+// clippingPlanes, so the cut is one push / clear. Guides and the plate never clip.
+renderer.localClippingEnabled = true;
+export const clip = [];
 
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x14161a);
@@ -109,6 +113,7 @@ export function frame(size) {
 /** The interface crest's colour (prop/crest.js): the second material's part. */
 export const ifaceMaterial = new THREE.MeshStandardMaterial({
   color: 0x9b6bff, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide,
+  clippingPlanes: clip,
 });
 
 /**
