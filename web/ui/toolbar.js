@@ -8,7 +8,8 @@
  *   - one popover at a time: opening another closes it, but the tool stays on
  *     (its badge stays lit) -- click the lit badge to bring its settings back;
  *   - click the badge whose popover is open: the tool turns off.
- * The bar shows once a part is loaded (showToolbar, from part.js).
+ * The bar shows once a part is loaded (showToolbar, from part.js); nothing
+ * unloads a part, so it is never hidden again. Esc folds the open popover.
  */
 import { el } from './dom.js';
 
@@ -34,6 +35,7 @@ function render() {
 export function addBadge(id, { pop, isOn, setOn }) {
   const b = { btn: el(id), pop: pop ? el(pop) : null, isOn, setOn };
   badges.set(id, b);
+  if (pop) b.btn.setAttribute('aria-controls', pop);
   b.btn.addEventListener('click', () => {
     if (!isOn()) { setOn(true); openId = isOn() ? id : null; }
     else if (openId !== id) openId = id;
@@ -42,6 +44,11 @@ export function addBadge(id, { pop, isOn, setOn }) {
   });
   return render;
 }
+
+// Esc folds the open popover away; the tool stays on.
+addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && openId) { openId = null; render(); }
+});
 
 /** Show the bar (a part is loaded) or hide it. */
 export function showToolbar(v) {
