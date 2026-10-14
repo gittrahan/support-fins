@@ -7,7 +7,7 @@
 import { WEB, assert, assertClose, block, buildTopology, analyze, fins } from './_util.js';
 
 const { readThreeMF } = await import(`${WEB}threemf.js`);
-const { cutNegatives } = await import(`${WEB}cut.js`);
+const { cutNegatives, setManifoldWasm } = await import(`${WEB}cut.js`);
 
 const FIX = new URL('./fixtures/negative-parts/', import.meta.url);
 const posAttr = (arr) => ({ getAttribute: (k) => (k === 'position' ? { array: arr } : null) });
@@ -48,7 +48,7 @@ for (const file of ['bambu.3mf', 'orca.3mf', 'prusaslicer3.3mf']) {
   Deno.test(`cut: ${file} -- the cube loses exactly the negative cube's overlap`, async () => {
     const o = (await readThreeMF(await Deno.readFile(new URL(file, FIX)))).objects[0];
     const c = await cutNegatives(o);
-    assert(c.cut === 1 && c.uncut === 0 && !c.open, `cut ${c.cut}, uncut ${c.uncut}, open ${c.open}`);
+    assert(c.cut === 1 && c.uncut === 0 && !c.why, `cut ${c.cut}, uncut ${c.uncut}, why ${c.why}`);
     const want = 40 ** 3 - overlap(bounds(o.positions), bounds(o.extras[0].positions));
     assert(want < 40 ** 3 - 1, 'fixture: the negative should cut into the cube');
     assertClose(volume(c.positions), want, 0.05, 'cut volume');
@@ -78,13 +78,48 @@ Deno.test('cut: a negative that is open (not just debris) is not cut, and says s
   const open = block(2, 8, 2, 8, -1, 5).slice(0, 9 * 8);   // 8 of its 12 faces
   const positions = block(0, 10, 0, 10, 0, 10);
   const c = await cutNegatives({ positions, colors: null, extras: [neg(open)] });
-  assert(c.cut === 0 && c.uncut === 1 && !c.open && c.positions === positions, JSON.stringify({ ...c, positions: 0 }));
+  assert(c.cut === 0 && c.uncut === 1 && !c.why && c.positions === positions, JSON.stringify({ ...c, positions: 0 }));
 });
 
 Deno.test('cut: a part that is not a closed solid is not cut at all, and says so', async () => {
   const positions = block(0, 10, 0, 10, 0, 10).slice(0, 9 * 10);
   const c = await cutNegatives({ positions, colors: null, extras: [neg(block(2, 8, 2, 8, -1, 5))] });
-  assert(c.open && c.cut === 0 && c.positions === positions, JSON.stringify({ ...c, positions: 0 }));
+  assert(c.why === 'open' && c.cut === 0 && c.positions === positions, JSON.stringify({ ...c, positions: 0 }));
+});
+
+Deno.test('cut: the part is never repaired -- a part with sliver debris is not cut, and says so', async () => {
+  // the shell-and-debris repair is for negatives only: dropping any of the part
+  // would change what prints without a word
+  const positions = cat(block(0, 10, 0, 10, 0, 10), new Float32Array([20, 0, 0, 21, 0, 0, 20, 1, 0]));
+  const c = await cutNegatives({ positions, colors: null, extras: [neg(block(2, 8, 2, 8, -1, 5))] });
+  assert(c.why === 'open' && c.positions === positions, JSON.stringify({ ...c, positions: 0 }));
+});
+
+Deno.test('cut: a negative wound inside out still cuts (it does not add its volume)', async () => {
+  const inside = block(5, 15, 5, 15, 5, 15);
+  for (let i = 0; i < inside.length; i += 9) {          // swap corners 2 and 3 of every face
+    for (let k = 0; k < 3; k++) [inside[i + 3 + k], inside[i + 6 + k]] = [inside[i + 6 + k], inside[i + 3 + k]];
+  }
+  assert(volume(inside) < 0, 'fixture: the tool should be inside out');
+  const c = await cutNegatives({ positions: block(0, 10, 0, 10, 0, 10), colors: null, extras: [neg(inside)] });
+  assertClose(volume(c.positions), 1000 - 125, 1e-3, 'cut volume');
+});
+
+Deno.test('cut: negatives that remove the whole part leave it uncut, and say so', async () => {
+  const positions = block(0, 10, 0, 10, 0, 10);
+  const c = await cutNegatives({ positions, colors: null, extras: [neg(block(-1, 11, -1, 11, -1, 11))] });
+  assert(c.why === 'whole' && c.positions === positions, JSON.stringify({ ...c, positions: 0 }));
+});
+
+Deno.test('cut: a cutter that will not load leaves the part uncut, says so, and is retried', async () => {
+  const positions = block(0, 10, 0, 10, 0, 10);
+  const obj = { positions, colors: null, extras: [neg(block(5, 15, 5, 15, 5, 15))] };
+  setManifoldWasm(new Uint8Array([0, 1, 2, 3]));        // not WASM: the load fails
+  const c = await cutNegatives(obj);
+  assert(c.why === 'load' && c.positions === positions, JSON.stringify({ ...c, positions: 0 }));
+  setManifoldWasm(null);                                  // back to the vendor folder
+  const d = await cutNegatives(obj);
+  assert(d.cut === 1, `not retried after a failed load: ${JSON.stringify({ ...d, positions: 0 })}`);
 });
 
 // --- colours ----------------------------------------------------------------

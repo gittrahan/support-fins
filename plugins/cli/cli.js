@@ -177,7 +177,9 @@ async function readPart(path, bytes, object, warn = () => {}) {
     const prepared = async (o) => {
       const c = await cutNegatives(o);
       const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-      if (c.open) warn('negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape');
+      const why = { open: 'the part is not a closed solid, so its fins are for the uncut shape',
+        whole: 'they would remove the whole part', load: 'the cutter did not load' }[c.why];
+      if (why) warn(`negative parts not cut: ${why}`);
       else if (c.uncut) warn(`${plural(c.uncut, 'negative part', 'negative parts')} not cut: not a closed solid`);
       const rest = (o.extras ?? []).filter((e) => e.kind !== 'negative').length;
       if (rest) warn(`left out ${plural(rest, 'modifier/support blocker', 'modifiers/support blockers')}: `

@@ -35,7 +35,9 @@ export function renderImportNote() {
     // a slicer's negative parts are cut out, so the fins are for what prints; its
     // modifiers / support blockers change no shape and are left out (#104)
     if (m.cut) notes.push(tn('cut out {n} negative part', 'cut out {n} negative parts', m.cut));
-    if (m.open) notes.push(t('negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape'));
+    if (m.why === 'open') notes.push(t('negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape'));
+    else if (m.why === 'whole') notes.push(t('negative parts not cut: they would remove the whole part'));
+    else if (m.why === 'load') notes.push(t('negative parts not cut: the cutter did not load (try opening the file again)'));
     else if (m.uncut) notes.push(tn('{n} negative part not cut: it is not a closed solid',
       '{n} negative parts not cut: they are not closed solids', m.uncut));
     if (m.extras) notes.push(tn('left out {n} modifier/support blocker: not in the export yet, re-add it in your slicer',
@@ -214,7 +216,7 @@ async function parseModel(buffer) {
     extras: chosen.reduce((n, o) => n + (o.extras?.filter((e) => e.kind !== 'negative').length ?? 0), 0),
     cut: cuts.cut,
     uncut: cuts.uncut,
-    open: cuts.open,
+    why: cuts.why,
     unit,
     session: own ? 'pending' : null,
   };
@@ -230,7 +232,7 @@ async function parseModel(buffer) {
  * so under the spinner; a file with none costs nothing.
  */
 async function cutChosen(chosen) {
-  const tally = { objects: chosen, cut: 0, uncut: 0, open: false };
+  const tally = { objects: chosen, cut: 0, uncut: 0, why: null };
   if (!chosen.some((o) => o.extras?.some((e) => e.kind === 'negative'))) return tally;
   const spinner = el('spinner');
   const label = spinner.lastChild.textContent;
@@ -241,7 +243,7 @@ async function cutChosen(chosen) {
     tally.objects = [];
     for (const o of chosen) {
       const c = await cutNegatives(o);
-      tally.cut += c.cut; tally.uncut += c.uncut; tally.open ||= c.open;
+      tally.cut += c.cut; tally.uncut += c.uncut; tally.why ||= c.why;
       tally.objects.push({ ...o, positions: c.positions, colors: c.colors });
     }
   } finally {

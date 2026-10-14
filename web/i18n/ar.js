@@ -334,6 +334,8 @@ export default {
   "merged {n} bodies into one part": "تم دمج {n} من الأجسام في قطعة واحدة",
   "ignored {n} support/non-printable bodies": { one: "تم تجاهل {n} جسم دعم أو جسم غير قابل للطباعة", other: "تم تجاهل {n} من أجسام الدعم أو الأجسام غير القابلة للطباعة" },
   "cut out {n} negative parts": { one: "تم قطع {n} جزء سالب", other: "تم قطع {n} من الأجزاء السالبة" },
+  "negative parts not cut: they would remove the whole part": "لم تُقطع الأجزاء السالبة: ستزيل القطعة بأكملها",
+  "negative parts not cut: the cutter did not load (try opening the file again)": "لم تُقطع الأجزاء السالبة: لم تُحمَّل أداة القطع (حاول فتح الملف مرة أخرى)",
   "negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape": "لم تُقطع الأجزاء السالبة: القطعة ليست جسمًا مغلقًا، لذا الزعانف للشكل غير المقطوع",
   "{n} negative parts not cut: they are not closed solids": { one: "لم يُقطع {n} جزء سالب: ليس جسمًا مغلقًا", other: "لم تُقطع {n} من الأجزاء السالبة: ليست أجسامًا مغلقة" },
   "left out {n} modifiers/support blockers: not in the export yet, re-add them in your slicer": { one: "تم استبعاد {n} مُعدِّل أو مانع دعم: ليس في التصدير بعد، أعد إضافته في برنامج التقطيع", other: "تم استبعاد {n} من المُعدِّلات أو موانع الدعم: ليست في التصدير بعد، أعد إضافتها في برنامج التقطيع" },

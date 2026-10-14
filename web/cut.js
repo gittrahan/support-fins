@@ -34,7 +34,7 @@ async function manifold() {
     const w = await m.default(wasmBinary ? { wasmBinary } : {});
     w.setup();
     return w;
-  });
+  }).catch((e) => { wasm = null; throw e; });    // a failed download is retried next file
   return wasm;
 }
 
@@ -43,7 +43,7 @@ async function manifold() {
  * (from Manifold.reserveIDs) marks every triangle as the part's, through any
  * union of its shells and the cut.
  */
-function meshOf(w, positions, faceID, id) {
+function meshOf(w, positions, faceID, id, outward = false) {
   const index = new Map();
   const verts = [];
   const tri = new Uint32Array(positions.length / 3);
@@ -54,11 +54,27 @@ function meshOf(w, positions, faceID, id) {
     if (i === undefined) { i = verts.length / 3; index.set(key, i); verts.push(x, y, z); }
     tri[v] = i;
   }
+  // A shell wound inside out is, to Manifold, a hole: subtracting it ADDS its
+  // volume. A slicer cuts by the shape, whichever way it is wound, so a negative
+  // part is turned outward first (signed volume > 0).
+  if (outward && signedVolume(positions) < 0) {
+    for (let t = 0; t < tri.length; t += 3) { const a = tri[t + 1]; tri[t + 1] = tri[t + 2]; tri[t + 2] = a; }
+  }
   const mesh = new w.Mesh({ numProp: 3, vertProperties: new Float32Array(verts), triVerts: tri,
     ...(faceID ? { faceID } : {}),
     ...(id != null ? { runIndex: new Uint32Array([0, tri.length]), runOriginalID: new Uint32Array([id]) } : {}) });
   mesh.merge();          // weld near-coincident points along open edges, best effort
   return mesh;
+}
+
+function signedVolume(p) {
+  let v = 0;
+  for (let i = 0; i < p.length; i += 9) {
+    v += p[i] * (p[i + 4] * p[i + 8] - p[i + 5] * p[i + 7])
+       - p[i + 1] * (p[i + 3] * p[i + 8] - p[i + 5] * p[i + 6])
+       + p[i + 2] * (p[i + 3] * p[i + 7] - p[i + 4] * p[i + 6]);
+  }
+  return v / 6;
 }
 
 const tryManifold = (w, mesh) => {
@@ -76,6 +92,8 @@ const tryManifold = (w, mesh) => {
 // shell by shell it is. The slivers enclose nothing, so dropping them is safe
 // while they are this small a share of the SURFACE -- area, not count: a missing
 // face is few triangles but much area, a sliver many triangles and next to none.
+// Only a NEGATIVE part gets this: dropping any of the part itself would change
+// what prints without a word.
 const MAX_STRAY = 0.01;
 
 function area(positions, t) {
@@ -90,7 +108,7 @@ function area(positions, t) {
  * triangles, as one solid -- or null when the open ones are more than
  * MAX_STRAY of the area (then it is not a solid with debris, it is open).
  */
-function shellsOf(w, positions, faceID, id) {
+function shellsOf(w, positions) {
   const nT = positions.length / 9;
   const index = new Map();
   const tv = new Uint32Array(nT * 3);
@@ -125,7 +143,7 @@ function shellsOf(w, positions, faceID, id) {
   for (const ts of shells.values()) {
     const p = new Float32Array(ts.length * 9);
     ts.forEach((t, j) => p.set(positions.subarray(t * 9, t * 9 + 9), j * 9));
-    const s = tryManifold(w, meshOf(w, p, faceID ? Uint32Array.from(ts, (t) => faceID[t]) : null, id));
+    const s = tryManifold(w, meshOf(w, p, null, null, true));
     if (s) solids.push(s); else for (const t of ts) stray += area(positions, t);
   }
   if (!solids.length || stray > MAX_STRAY * total) { for (const s of solids) s.delete(); return null; }
@@ -135,33 +153,37 @@ function shellsOf(w, positions, faceID, id) {
   return all;
 }
 
-/** A closed solid, or null when the mesh is not one (even shell by shell). */
-function solidOf(w, positions, faceID, id) {
-  return tryManifold(w, meshOf(w, positions, faceID, id)) ?? shellsOf(w, positions, faceID, id);
-}
+/** The part as a closed solid, or null when it is not one. */
+const partSolid = (w, positions, faceID, id) => tryManifold(w, meshOf(w, positions, faceID, id));
+
+/** A negative part as a closed solid, outward, even shell by shell; or null. */
+const negativeSolid = (w, positions) => tryManifold(w, meshOf(w, positions, null, null, true)) ?? shellsOf(w, positions);
 
 /**
  * Cut an object's negative parts out of it.
  * @param obj  a readThreeMF object: { positions, colors, extras }
- * @returns { positions, colors, cut, uncut, open }: the cut part (the input's
+ * @returns { positions, colors, cut, uncut, why }: the cut part (the input's
  *   own positions/colors when nothing was cut), how many negative parts were cut
- *   and how many were not, and `open` true when that is because the PART is not
- *   a closed solid (then none is cut); otherwise an uncut one is not closed itself.
+ *   and how many were not, and why NONE was, when that is the whole object's
+ *   reason: 'open' (the part is not a closed solid), 'whole' (the negatives
+ *   remove all of it) or 'load' (the cutter would not load). With `why` null an
+ *   uncut negative part is not a closed solid itself.
  */
 export async function cutNegatives(obj) {
   const negs = (obj.extras ?? []).filter((e) => e.kind === 'negative');
-  const same = { positions: obj.positions, colors: obj.colors ?? null, cut: 0, uncut: negs.length, open: false };
+  const same = { positions: obj.positions, colors: obj.colors ?? null, cut: 0, uncut: negs.length, why: null };
   if (!negs.length) return same;
 
-  const w = await manifold();
+  let w;
+  try { w = await manifold(); } catch { return { ...same, why: 'load' }; }
   const nTri = obj.positions.length / 9;
   const partID = w.Manifold.reserveIDs(1);
-  const part = solidOf(w, obj.positions, Uint32Array.from({ length: nTri }, (_, i) => i), partID);
-  if (!part) return { ...same, open: true };
+  const part = partSolid(w, obj.positions, Uint32Array.from({ length: nTri }, (_, i) => i), partID);
+  if (!part) return { ...same, why: 'open' };
 
   const tools = [];
   for (const n of negs) {
-    const s = solidOf(w, n.positions, null);
+    const s = negativeSolid(w, n.positions);
     if (s) tools.push(s);
   }
   if (!tools.length) { part.delete(); return same; }
@@ -172,13 +194,14 @@ export async function cutNegatives(obj) {
   for (const s of new Set([part, tool, result, ...tools])) s.delete();
 
   const { vertProperties: vp, triVerts: tv, numProp: np, faceID, runIndex, runOriginalID } = out;
+  if (!tv.length) return { ...same, why: 'whole' };
   const positions = new Float32Array(tv.length * 3);
   for (let i = 0; i < tv.length; i++) {
     const o = tv[i] * np;
     positions[i * 3] = vp[o]; positions[i * 3 + 1] = vp[o + 1]; positions[i * 3 + 2] = vp[o + 2];
   }
   return { positions, colors: carryColors(obj, positions, faceID, runIndex, runOriginalID, partID),
-    cut: tools.length, uncut: negs.length - tools.length, open: false };
+    cut: tools.length, uncut: negs.length - tools.length, why: null };
 }
 
 /**

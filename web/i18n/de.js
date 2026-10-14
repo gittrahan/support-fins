@@ -340,6 +340,8 @@ export default {
   "merged {n} bodies into one part": "{n} Körper zu einem Bauteil zusammengeführt",
   "ignored {n} support/non-printable bodies": { one: "{n} Stütz-/nicht druckbare(n) Körper ignoriert", other: "{n} Stütz-/nicht druckbare(n) Körper ignoriert" },
   "cut out {n} negative parts": { one: "{n} Negativteil ausgeschnitten", other: "{n} Negativteile ausgeschnitten" },
+  "negative parts not cut: they would remove the whole part": "Negativteile nicht ausgeschnitten: sie würden das ganze Teil entfernen",
+  "negative parts not cut: the cutter did not load (try opening the file again)": "Negativteile nicht ausgeschnitten: das Schneidwerkzeug wurde nicht geladen (Datei erneut öffnen)",
   "negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape": "Negativteile nicht ausgeschnitten: das Teil ist kein geschlossener Körper, die Finnen gelten der ungeschnittenen Form",
   "{n} negative parts not cut: they are not closed solids": { one: "{n} Negativteil nicht ausgeschnitten: es ist kein geschlossener Körper", other: "{n} Negativteile nicht ausgeschnitten: sie sind keine geschlossenen Körper" },
   "left out {n} modifiers/support blockers: not in the export yet, re-add them in your slicer": { one: "{n} Modifikator/Stützblocker weggelassen: noch nicht im Export, im Slicer neu hinzufügen", other: "{n} Modifikatoren/Stützblocker weggelassen: noch nicht im Export, im Slicer neu hinzufügen" },
