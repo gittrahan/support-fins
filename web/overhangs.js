@@ -32,18 +32,22 @@ export const ANGLE_EPS = 1e-4;        // ~0.008 degrees of slack
 export const IDENTITY3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
 /** Quantise to 1e-3 mm so vertices shared between triangles weld together. */
+const NaN_KEY = Number.MAX_VALUE;          // never a real quantised coordinate (rounds of v*1000 overflow to Infinity first)
 const q3 = (v) => {
   const q = Math.round(v * 1000);
   return q === q ? q + 0 : NaN_KEY;        // +0: -0 welds with 0; every NaN welds together
 };
-const NaN_KEY = Number.MAX_VALUE;          // never a real quantised coordinate (rounds of v*1000 overflow to Infinity first)
 
 // The welds below key on numbers through open-addressed hash tables. They used to
 // key on strings in a Map (`${qx},${qy},${qz}`, `${a}_${b}`), which welded a
-// 1.5M-face part in 2.5 s on the page thread at load. Same keys, same equality
+// 1.5M-face part in 3.5 s on the page thread at load. Same keys, same equality
 // (a number's string is unique to it, bar -0 and NaN, handled in q3), same
 // first-seen ids, so the topology is identical.
 const mix = (h, v) => Math.imul(h ^ (v | 0) ^ ((v / 4294967296) | 0), 0x9e3779b1);
+// imul's low bits see only the input's low bits, and the table index IS the low
+// bits: fold the high half down, or a part on a power-of-two micron grid piles
+// into a few slots (45x slower on a 65.536 mm grid).
+const slot = (h, cap) => (h ^ (h >>> 16)) & (cap - 1);
 function tableSize(n) {
   let cap = 16;
   while (cap < n * 2) cap *= 2;
@@ -96,7 +100,7 @@ export function buildTopology(geometry) {
 
     for (let i = 0; i < 3; i++) {
       const qx = q3(pos[o + i * 3]), qy = q3(pos[o + i * 3 + 1]), qz = q3(pos[o + i * 3 + 2]);
-      let h = mix(mix(mix(0x811c9dc5, qx), qy), qz) & (vCap - 1);
+      let h = slot(mix(mix(mix(0x811c9dc5, qx), qy), qz), vCap);
       let id;
       for (;;) {
         id = vSlot[h];
@@ -124,7 +128,7 @@ export function buildTopology(geometry) {
     for (let i = 0; i < 3; i++) {
       const u = vid[f * 3 + i], v = vid[f * 3 + ((i + 1) % 3)];
       const a = u < v ? u : v, b = u < v ? v : u;
-      let h = mix(mix(0x811c9dc5, a), b) & (eCap - 1);
+      let h = slot(mix(mix(0x811c9dc5, a), b), eCap);
       for (;;) {
         const e = eSlot[h];
         if (e < 0) {

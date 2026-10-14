@@ -58,6 +58,8 @@ Deno.test('the weld keeps the old key edge cases: -0, half-micron rounding, NaN,
     ...tri([1e30, 2e30, -3e30], [1e30, 2e30, -3e30], [1, 0, 0]),
     ...tri([0, 0, 0], [1, 0, 0], [0, 1, 0]),                 // an exact duplicate face
     ...tri([5, 5, 5], [5, 5, 5], [5, 5, 5]),                 // a point
+    ...tri([Infinity, 0, 0], [-Infinity, 0, 0], [Infinity, 0, 0]),
+    ...tri([3e38, 0, 0], [3e38, 0, 0], [-3e38, 1, 1]),     // float32-sized huge
   ]);
   same(pos, 'edge cases');
 });
