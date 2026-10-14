@@ -568,6 +568,22 @@ Deno.test('3MF colours: Bambu/Orca paint_color survives fins + export on the sam
   assert(!xml.includes('xmlns:slic3rpe'), 'Bambu paint declared the PrusaSlicer namespace');
 });
 
+Deno.test('3MF colours: paint inside a Bambu object file (p:path) comes through', async () => {
+  // Bambu/Orca keep each mesh in 3D/Objects/object_N.model; the paint is there
+  const part = colouredCube((i) => code(i) ? ` paint_color="${code(i)}"` : '')
+    .replace(/<build>.*<\/build>/, '');
+  const root = `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}"><resources>`
+    + '<object id="10" type="model"><components>'
+    + '<component p:path="/3D/Objects/object_1.model" objectid="1" transform="1 0 0 0 1 0 0 0 1 5 0 0"/>'
+    + '</components></object></resources><build><item objectid="10"/></build></model>';
+  const r = await readThreeMF(await packParts([
+    { name: '3D/3dmodel.model', data: root },
+    { name: '3D/Objects/object_1.model', data: part },
+  ]));
+  const p = r.objects[0].colors.paint;
+  for (let i = 0; i < TRIS; i++) assert((p[i]?.v ?? '') === code(i), `tri ${i}: ${p[i]?.v}`);
+});
+
 Deno.test('3MF colours: PrusaSlicer mmu_segmentation goes back out under its own name', async () => {
   const ns = ' xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06"';
   const src = await readThreeMF(await pack(colouredCube(

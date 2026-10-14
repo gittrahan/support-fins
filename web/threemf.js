@@ -409,6 +409,7 @@ function parseModelXML(xml) {
   const objects = new Map();   // id -> { type, name, verts, tris, components, paint, rgb }
   const items = [];            // { objectid, transform }
   const groups = new Map();    // material/colour group id -> ['#RRGGBB', ...]
+  const codes = new Map();     // paint string -> its own copy, shared by every repeat
   let unit = 'millimeter';
   let cur = null;              // object being filled
   let group = null;            // <basematerials>/<colorgroup> being filled
@@ -457,7 +458,14 @@ function parseModelXML(xml) {
         // import -> export path keeps, so it stays valid however the part turns.
         for (const name of PAINT_ATTRS) {
           const v = a[name];
-          if (v) { (cur.paint ??= [])[t] = { name, v }; break; }
+          if (!v) continue;
+          // A scanned value is a slice that keeps the WHOLE decoded model file
+          // alive while it lives (a V8 sliced string) -- and the colours live for
+          // the session. ' ' + v flattens into a fresh string; the map shares it.
+          let own = codes.get(v);
+          if (own === undefined) codes.set(v, own = { name, v: (' ' + v).slice(1) });
+          (cur.paint ??= [])[t] = own;
+          break;
         }
         const pid = a.pid ?? cur.pid, pi = a.p1 ?? cur.pindex;
         const c = pid != null && groups.get(String(pid))?.[+(pi ?? 0)];
