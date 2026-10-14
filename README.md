@@ -51,7 +51,7 @@ Still open: scale-aware fin profiles, and the bed pad on tilted exports.
 
 ### Nozzle size and wall lines
 
-Set **Nozzle** (0.2–3.0 mm) to your printer's nozzle and the support widths follow it;
+Set **Nozzle** (0.2–2.0 mm) to your printer's nozzle and the support widths follow it;
 **Wall lines** (2 / 4 / 6 / 8) makes walls, wedges and sway braces thicker for tall parts.
 The contact tip and tines stay one line wide either way. See
 [the nozzle guide](docs/NOZZLE.md) for the sizes and what to check in the slicer.

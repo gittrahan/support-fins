@@ -4,7 +4,7 @@
 // It reaches the Worker in opts.tunables.nozzle, like the gap.
 
 import { tiltedBlockTopo, analyze, fins, prop, assert, assertClose, loadModel, rotX, insideCount } from './_util.js';
-import { applyNozzle, applyWallLines } from '../web/nozzle.js';
+import { applyNozzle, applyWallLines, wallLinesFit, WALL_LINES } from '../web/nozzle.js';
 import { SWAY } from '../web/sway.js';
 import { PERP } from '../web/fins/wedges.js';
 
@@ -130,18 +130,49 @@ Deno.test('wall lines: a squat brim stays under half the row spacing', () => {
 });
 
 
-// Large-format nozzles (after #210): the same rule, up to 3 mm.
-Deno.test('nozzle: large-format sizes scale like the rest, up to 3 mm', () => {
+// Large-format nozzles (after #210): the same rule, up to 2.0 mm.
+Deno.test('nozzle: large-format sizes scale like the rest, up to 2.0 mm', () => {
   const base = knobs();
   try {
     applyNozzle(2.0);
     assertClose(prop.PROP.th, base.th * 5, 1e-9, 'wall at 2.0');
     assertClose(prop.PROP.tineW, base.tineW * 5, 1e-9, 'tine at 2.0');
-    applyNozzle(3.0);
-    assertClose(prop.PROP.tip, base.tip * 7.5, 1e-9, 'tip at 3.0');
-    applyNozzle(3.5);
-    assertClose(prop.PROP.tip, base.tip * 7.5, 1e-9, 'a 3.5 nozzle was taken');
+    assertClose(prop.PROP.tip, base.tip * 5, 1e-9, 'tip at 2.0');
+    applyNozzle(2.5);
+    assertClose(prop.PROP.tip, base.tip * 5, 1e-9, 'a 2.5 nozzle was taken');
     const v4 = volumeAt(0.4), v20 = volumeAt(2.0);
     assert(v20 > v4 * 2, `2.0 nozzle built ${v20.toFixed(0)} mm3 vs 0.4's ${v4.toFixed(0)}`);
+  } finally { applyNozzle(0.4); }
+});
+
+// Review: rows of walls are maxUnsupportedSpan (12 mm) apart, so a wall over TH_MAX
+// (a 2.0 nozzle at 4 lines: 10 mm) and its feet would fuse a row into one block.
+Deno.test('nozzle: every offered nozzle x wall lines stays under half the row spacing', () => {
+  try {
+    for (const d of [0.2, 0.25, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]) {
+      applyNozzle(d);
+      for (const n of WALL_LINES) {
+        applyWallLines(n);
+        const half = prop.PROP.maxUnsupportedSpan / 2;
+        assert(prop.PROP.th <= half && PERP.th <= half, `${d} x ${n}: wall ${prop.PROP.th}, wedge ${PERP.th}`);
+        assert(prop.PROP.footMin < half - 0.5, `${d} x ${n}: foot ${prop.PROP.footMin} fuses the row`);
+        if (wallLinesFit(n, d)) assertClose(prop.PROP.th, 0.5 * Math.max(1, d / 0.4) * n, 1e-9, `${d} x ${n} offered but capped`);
+      }
+    }
+  } finally { applyNozzle(0.4); applyWallLines(2); }
+});
+
+// Review: the contact tip grows with the nozzle (1.5 mm at 1.0, 3 at 2.0) past the 0.5
+// reach, so on a curved underside the tines all but vanished (sphere 30 -> 6 at 2.0).
+Deno.test('nozzle: a large nozzle still grips a curved underside, nothing inside the part', () => {
+  try {
+    const topo = loadModel('sphere'), rot = rotX(45), res = analyze(topo, 45, rot);
+    const at = (nozzle, tines) => fins.buildFins(topo, res, rot,
+      { mode: 'auto', bedPad: false, tines, tunables: { nozzle, wallLines: 2 } });
+    const t4 = at(0.4, true).tines, t20 = at(2.0, true).tines;
+    assert(t20 >= t4 * 0.7, `sphere X45: ${t20} tines at 2.0 vs ${t4} at 0.4`);
+    const bare = at(2.0, false);
+    const n = insideCount(topo, rot, res.offset, bare.triangles);
+    assert(n === 0, `${n} support vertices inside the sphere at 2.0 (tines off)`);
   } finally { applyNozzle(0.4); }
 });

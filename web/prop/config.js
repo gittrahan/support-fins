@@ -212,6 +212,7 @@ export const PROP = {
   // spaced wall-length / n. 0 = off (the default; spacing rules decide). Calibration
   // knob (tunables.tinesPerWall), the tine coupon's how-few-still-hold row.
   tinesPerWall: 0,
+  tineReachTip: 0,   // added to the reach past a contact tip wider than 0.4's (nozzle.js)
   tineReach: 0.5,    // how far out a tine looks for the part, horizontally: a tine is
                      // placed only if solid lies at this reach (the slope gate is
                      // gap/reach), and kissEnds searches up to 2x it for the surface the

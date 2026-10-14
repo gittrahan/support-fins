@@ -212,7 +212,7 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
   // tuned 0.2 layer's reach-to-layer ratio; 0.2 and thinner are unchanged. Capped at
   // 0.6's: a host's own layer height (a slicer plugin) can be thicker than the site's
   // field allows, and kissEnds looks out to twice the reach.
-  const reach = PROP.tineReach * Math.min(3, Math.max(1, tineH / PROP.tineH));
+  const reach = PROP.tineReach * Math.min(3, Math.max(1, tineH / PROP.tineH)) + PROP.tineReachTip;
 
   // half the tine's WIDTH across the run -- one nozzle bead (PROP.tineW), NOT the
   // wall thickness. Building it th-wide made a 1mm divot, ~2x Slant3D's spec.

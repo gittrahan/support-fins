@@ -8,7 +8,7 @@ import { FIN, PAD } from '../fins.js';
 import { PROP } from '../prop.js';
 import { CUT } from '../cutout.js';
 import { MATERIAL } from '../materials.js';
-import { applyNozzle, applyWallLines } from '../nozzle.js';
+import { applyNozzle, applyWallLines, wallLinesFit } from '../nozzle.js';
 import { el } from './dom.js';
 import { histPush } from './history.js';
 import { removeMode, syncRemoveUI, cancelRemove } from './remove.js';
@@ -209,6 +209,7 @@ try {
 } catch { /* storage off */ }
 el('nozzle').addEventListener('change', () => {
   applyNozzle(Number(el('nozzle').value));
+  fitWallLines();
   try { localStorage.setItem(NOZZLE_KEY, el('nozzle').value); } catch { /* storage off */ }
   syncSectionSums();
   debouncedRefresh();
@@ -216,8 +217,20 @@ el('nozzle').addEventListener('change', () => {
 
 // Wall lines thicken the walls, wedges and braces (../nozzle.js). A setting of this
 // part, unlike the nozzle: undoable and saved with a session.
+// A big nozzle offers only the line counts whose wall stays under TH_MAX (nozzle.js):
+// wider would fuse a row of walls into one block. A count it can't take (a session
+// saved at 8 lines, opened under a 2.0 nozzle) drops to the widest that fits.
+function fitWallLines() {
+  const f = el('wall-lines');
+  for (const o of f.options) o.disabled = !wallLinesFit(Number(o.value));
+  if (f.selectedOptions[0]?.disabled) {
+    f.value = [...f.options].filter((o) => !o.disabled).pop().value;
+    applyWallLines(Number(f.value));
+  }
+}
 el('wall-lines').addEventListener('change', () => {
   applyWallLines(Number(el('wall-lines').value));
+  fitWallLines();
   syncSectionSums();
   debouncedRefresh();
 });
@@ -332,6 +345,7 @@ export function initSettings() {
   if (Number.isFinite(gap)) PROP.gap = Math.min(0.4, Math.max(0.1, gap));
   applyNozzle(Number(el('nozzle').value));   // ...and the widths to the remembered nozzle
   applyWallLines(Number(el('wall-lines').value));
+  fitWallLines();
 }
 
 window.addEventListener('languagechange', () => { if (typeof syncSectionSums === "function") syncSectionSums(); el('fins-toggle').textContent = finsVisible ? t('Fins on') : t('Add fins'); el('augment-toggle').textContent = drawAugment ? t('Done adding walls') : t('+ Add walls by hand'); });
