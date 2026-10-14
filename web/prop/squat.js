@@ -6,7 +6,7 @@
  * Split out of prop.js, which re-exports the public names.
  */
 import { solidClearance } from '../inside.js';
-import { ribbon } from '../solids.js';
+import { ribbon, roundedFlange } from '../solids.js';
 import { longestRun, stationCertified, stationIsClear, welds } from './clearance.js';
 import { PROP } from './config.js';
 import { settleTop } from './contact.js';
@@ -58,7 +58,7 @@ export function sweepSquat(line, zBed, out) {
   }
   const from = out.length;
   ribbon(wall, out);
-  ribbon(brim, out);
+  if (PROP.roundFeet) roundedFlange(brim, out); else ribbon(brim, out);
   if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
   return true;
 }

@@ -7,7 +7,7 @@
  * Split out of prop.js, which re-exports the public names.
  */
 import { cutWall } from '../cutout.js';
-import { ribbon } from '../solids.js';
+import { ribbon, roundedFlange } from '../solids.js';
 import { PROP } from './config.js';
 import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
 
@@ -97,7 +97,7 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
 
   const from = out.length;
   if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
-  ribbon(flange, out);
+  if (PROP.roundFeet) roundedFlange(flange, out); else ribbon(flange, out);
   if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
   return true;
 }

@@ -222,3 +222,8 @@ braces, unchanged capped/short geometry, expanded-foot collisions with the part
 and existing supports, collision-limited height/depth, real Auto worker on/off
 requests, removal ownership and STL/component-3MF export with interface tags.
 Full brace depth starts off in the browser; legacy goldens stay unchanged.
+`rounded_feet.test.js` checks inscribed corner arcs and overlapping segment joints,
+ordinary/squat/wedge/Sway bodies and interface contacts, clearance, removal ranges,
+opt-in-to-legacy reset and STL/component-3MF export on a synthetic metre-high post.
+The browser toggle starts off; legacy geometry references are unchanged. Physical
+adhesion and tall-print stability still need comparison prints.

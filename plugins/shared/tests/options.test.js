@@ -51,6 +51,7 @@ const SITE_EXCLUDED = {
   'pad-h': 'Custom pad', 'pad-gap': 'Custom pad', 'pad-grip': 'Custom pad', 'pad-margin': 'Custom pad',
   'iface': 'a third 3MF object for a second material; the plugins hand the host one body',
   'nozzle': 'site first; the plugins build at 0.4 until their dialogs take it (web/nozzle.js)',
+  'rounded-feet': 'browser opt-in foot shape; plugin defaults keep the original feet',
 };
 
 Deno.test('options.json is well formed', () => {

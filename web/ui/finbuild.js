@@ -110,7 +110,7 @@ function finOpts() {
            // Worker with its own copy of fins.js / prop.js, which never sees what
            // the gap and pad fields set on this page's copy (fins.js
            // applyTunables). Without this, Auto mode always built the defaults.
-           tunables: { padH: FIN.padH,
+           tunables: { roundFeet: FIN.roundFeet, padH: FIN.padH,
                        padGrab: PAD.grab, padStyle: PAD.style, padCustom: { ...PAD.custom },
                        propGap: PROP.gap,
                        cutout: CUT.pattern,
@@ -122,7 +122,8 @@ function finOpts() {
  *  clearance (PROP.gap) as an option instead of reading FIN/PROP itself. */
 export function swayOpts() {
   const num = (id, d) => (Number.isFinite(el(id).valueAsNumber) ? el(id).valueAsNumber : d);
-  return { uncappedDepth: el('full-brace-depth').checked, gripFrom: num('sway-from', 0),
+  return { roundFeet: FIN.roundFeet, uncappedDepth: el('full-brace-depth').checked,
+           gripFrom: num('sway-from', 0),
            tineSpacing: num('sway-spacing', 6),
            reach: num('sway-depth', 15) / 100,
            gap: PROP.gap,

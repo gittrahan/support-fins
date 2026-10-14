@@ -7,6 +7,7 @@
  */
 
 export const FIN = {
+  roundFeet: false,
   // --- from docs/FIN-SPEC.md, stated on camera. Do not "tune" these. ---
   tineH: 0.2,         // = slicer layer height: a tine must be ONE layer so it prints
                       // as a single continuous bead (see prop/config.js tineH / FIN-SPEC)

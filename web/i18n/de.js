@@ -1,6 +1,8 @@
 export default {
   "Full brace depth": "Volle Streben-Tiefe",
   "Use the selected Brace depth percentage beyond the usual 60 mm limit. Larger braces need more plate space and material; collisions can shorten or refuse them. Off keeps the 60 mm limit.": "Den gewählten Prozentsatz für die Streben-Tiefe auch über die übliche Grenze von 60 mm hinaus verwenden. Größere Streben benötigen mehr Platz auf dem Druckbett und mehr Material; bei Kollisionen werden sie verkürzt oder abgelehnt. Aus behält die Grenze von 60 mm.",
+  "Rounded feet": "Abgerundete Stützfüße",
+  "Round support foot corners inside the existing clearance envelope. Off keeps the original feet. Rounded feet still need a slicer and print check.": "Ecken der Stützfüße innerhalb des bisherigen Freiraums abrunden. Aus behält die ursprünglichen Füße. Abgerundete Füße müssen noch im Slicer und im Druck geprüft werden.",
   "Middle-drag orbits, Shift + middle-drag pans, wheel zooms.": "Mittlere Maustaste ziehen dreht die Ansicht, Umschalt + mittlere Maustaste ziehen verschiebt, Mausrad zoomt.",
   "Middle-drag orbits, Ctrl + middle-drag pans, wheel zooms.": "Mittlere Maustaste ziehen dreht die Ansicht, Strg + mittlere Maustaste ziehen verschiebt, Mausrad zoomt.",
   "Right-drag orbits, middle- or Ctrl + right-drag pans, wheel zooms.": "Rechte Maustaste ziehen dreht die Ansicht, mittlere Maustaste oder Strg + rechte Maustaste ziehen verschiebt, Mausrad zoomt.",

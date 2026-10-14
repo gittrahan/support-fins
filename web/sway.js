@@ -33,7 +33,7 @@
 import { findWallPatches, patchProbe, patchPoint, tAtZ } from './planes.js';
 import { insidePart } from './inside.js';
 import { kissEnds } from './kiss.js';
-import { loftExtrude } from './solids.js';
+import { loftExtrude, roundedPolygon } from './solids.js';
 
 export const SWAY = {
   // which faces take a brace
@@ -110,6 +110,7 @@ function settings(opts = {}) {
     spacing: Math.max(1, num(opts.tineSpacing, SWAY.tineSpacing)),
     reach: Math.max(0.05, Math.min(0.5, num(opts.reach, SWAY.reach))),
     uncappedDepth: opts.uncappedDepth === true,
+    roundFeet: opts.roundFeet === true,
     // Auto refuses a brace that would stand a long way up before its first tine;
     // a brace placed BY HAND is built anyway and reports the stilt instead. The
     // tool suggests, the person decides -- the same split as the rest of the app.
@@ -315,7 +316,8 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   const P = (s, z, uu) => fr.toWorld(s, uu, z);
   prism([[sIn(0), 0], [sIn(0) + D0, 0], [sIn(H) + SWAY.topDepth, H], [sIn(H), H]],
         uc - th / 2, uc + th / 2, P, out);
-  prism([[sIn(0), uc - footHalfW], [sFootOut, uc - footHalfW], [sFootOut, uc + footHalfW], [sIn(0), uc + footHalfW]],
+  const footPoly = [[sIn(0), uc - footHalfW], [sFootOut, uc - footHalfW], [sFootOut, uc + footHalfW], [sIn(0), uc + footHalfW]];
+  prism(S.roundFeet ? roundedPolygon(footPoly, footHalfW) : footPoly,
         0, SWAY.footH, (s, uu, z) => fr.toWorld(s, uu, z), out);
 
   // Tines: evenly spaced up the face, each snapped into exactly one layer cell.

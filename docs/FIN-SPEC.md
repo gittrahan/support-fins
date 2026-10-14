@@ -333,3 +333,21 @@ The plugins build at 0.4 for now. Tine reach (`PROP.tineReach`
 0.8 tine stands proud of the tip is unprinted. The comb's scan step follows the tine
 width, so a 0.2 comb can land a tine or two fewer. The nozzle is a printer setting:
 remembered across visits, left alone by a loaded session.
+## Optional rounded bed feet
+
+`tunables.roundFeet: true` rounds ordinary, squat and wedge feet; Auto Sway
+inherits it, and direct Sway callers may pass `roundFeet: true`. Browser default
+is off. Omitted/false/null tunables restore legacy feet on reused engine instances,
+without resetting material clearances. Undo/redo and saved 3MF sessions retain the
+browser setting. Feet standing on the part itself are unchanged.
+
+Eight-step corner arcs are inscribed in the existing clearance envelope. Normal
+and squat flanges round only their outside ends. Internal segment caps are inset
+up to 0.005 mm and connecting solids overlap up to 0.01 mm below the lower roof;
+the joints do not expand the checked contour. Wedge and Sway feet use the same
+inscribed polygon rounding. Contact crests and tines retain their geometry and
+interface tags; the added foot triangles remain owned by their support record.
+
+Rounding reduces first-layer corner area. Geometry checks are not print validation
+of adhesion or metre-high stability. Compare the first layers in the slicer and
+print-test before adopting it for tall parts. Legacy geometry goldens stay unchanged.

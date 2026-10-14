@@ -78,10 +78,11 @@ function coverPitch(coverage) {
  *
  * So the values travel WITH the build request (opts.tunables, structured-cloned like
  * every other option) and are applied here, in whichever instance is doing the work.
- * Unknown or non-finite entries are ignored, and calling this with nothing leaves the
- * defaults alone -- an old caller that doesn't pass tunables behaves exactly as before.
+ * Unknown or non-finite entries are ignored. Omitted rounded-foot settings reset
+ * that opt-in geometry to legacy feet, without changing material clearances.
  */
-export function applyTunables(t) {
+export function applyTunables(t = {}) {
+  FIN.roundFeet = PROP.roundFeet = PERP.roundFeet = t?.roundFeet === true;
   if (!t) return;
   const set = (obj, key, v) => { if (Number.isFinite(v)) obj[key] = v; };
   set(FIN, 'padH', t.padH);
@@ -141,7 +142,7 @@ function buildFinsAndBraces(topo, result, rot, opts = {}) {
   // one of those, a brace is no longer a piece that snaps off by itself.
   const walls = (built.fins ?? []).map((f) => f.line).filter((l) => Array.isArray(l) && l.length);
   const sw = buildSwayBraces(topo, result, rot,
-    { ...opts.sway, tines: opts.tines, layerHeight: opts.layerHeight, iface: PROP.iface, avoid: { walls } });
+    { roundFeet: FIN.roundFeet, ...opts.sway, tines: opts.tines, layerHeight: opts.layerHeight, iface: PROP.iface, avoid: { walls } });
   // Each brace also gets a fin record: the Auto view draws and exports only the
   // triangles some record claims (per-fin removal), so an unrecorded brace would
   // be counted in the readout but never shown or written out.

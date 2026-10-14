@@ -11,6 +11,7 @@ import { cutWall } from '../cutout.js';
 import { findWallPatches, patchPoint, patchProbe, zAt } from '../planes.js';
 import { crestKinds, emitCrest, emitTines, flatCrestRing, flatCut, PROP, surfaceZAt, tineStepFor } from '../prop.js';
 import { seatedPartTris } from './seating.js';
+import { boxExtrude, roundedPolygon } from '../solids.js';
 
 /**
  * DRAW mode support: every grippable face in this pose, and a map from any face
@@ -47,6 +48,7 @@ export function gripPatches(topo, result, rot) {
  * the same perpendicular T-rib Matthew approved on the cube.
  */
 export const PERP = {
+  roundFeet: false,
   th: 1.2,        // wedge thickness (thin across the face)
   gap: 0.2,       // breakaway clearance under the contact (matches PROP/FIN)
   footHalf: 3.0,  // foot flange half-width past the wedge, each side
@@ -188,8 +190,13 @@ function emitFoot(a, b, uDir, out, partTris = null) {
     s1 = best[1] < hl ? best[1] - PERP.gap : best[1];
   }
   const rect = [[s0, -hw], [s1, -hw], [s1, hw], [s0, hw]];
-  const lo = rect.map(([s, w]) => P(s, w, 0)), hi = rect.map(([s, w]) => P(s, w, PERP.footH));
   const local = [];
+  if (PERP.roundFeet) {
+    boxExtrude(roundedPolygon(rect, hw), 0, PERP.footH, P, local);
+    pushSolid(local, out);
+    return;
+  }
+  const lo = rect.map(([s, w]) => P(s, w, 0)), hi = rect.map(([s, w]) => P(s, w, PERP.footH));
   for (let i = 0; i < 4; i++) { const j = (i + 1) % 4; local.push(lo[i], lo[j], hi[j], lo[i], hi[j], hi[i]); }
   for (let i = 1; i < 3; i++) local.push(hi[0], hi[i], hi[i + 1], lo[0], lo[i + 1], lo[i]);
   pushSolid(local, out);

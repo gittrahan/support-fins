@@ -49,6 +49,18 @@ the way up (auto, or click an upright side in Draw), STL, 3MF and STEP import, S
 
 Still open: scale-aware fin profiles, and the bed pad on tilted exports.
 
+### Rounded support feet
+
+**Walls → Rounded feet** optionally rounds the corners of bed-standing wall,
+squat, wedge and Sway feet inside their existing clearance envelope. It starts
+off, so existing geometry stays unchanged. The choice is undoable and saved in
+3MF sessions. Engine callers opt in with `tunables: { roundFeet: true }`;
+direct Sway callers use `roundFeet: true`. Omitted/false restores ordinary feet.
+Segment joints overlap inside the foot contour rather than meeting face to face.
+Rounding removes corner area; plate adhesion and tall-print stability have not
+been physically compared. Check the sliced first layers and print-test before
+using it for tall parts.
+
 ### Sway braces for tall parts
 
 **Full brace depth** is an optional checkbox under Sway. It starts off, keeping

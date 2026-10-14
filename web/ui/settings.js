@@ -123,6 +123,10 @@ function debouncedRefresh(ms = 180) {
   clearTimeout(refreshTimer);
   refreshTimer = setTimeout(() => { refreshTimer = null; refreshFins(); }, ms);
 }
+el('rounded-feet').addEventListener('input', () => {
+  FIN.roundFeet = PROP.roundFeet = el('rounded-feet').checked;
+  debouncedRefresh();
+});
 // Tine grip only means anything when the tines are on, so hide its slider with the
 // toggle (keeps the panel honest -- no dead control).
 // Tine grip + layer height only matter when Tines is on -- hide both otherwise.
@@ -191,6 +195,7 @@ el('plate-only').addEventListener('change', () => refreshFins());
 const ifaceMode = () => ({ flat: 'flat', all: 'all' })[el('iface').value] ?? false;
 el('iface').addEventListener('change', () => {
   PROP.iface = ifaceMode();
+  FIN.roundFeet = PROP.roundFeet = el('rounded-feet').checked;
   refreshFins();
 });
 
