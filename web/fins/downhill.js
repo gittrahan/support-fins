@@ -45,12 +45,19 @@ const wedges = (built) => (built.fins ?? []).filter((f) => f.kind === 'wedge').l
 
 /**
  * Auto's build, with downhill walls only where they leave the part better off.
- * `build(downhill)` is buildFinsCore with opts.downhill set. The lowest grip is each
- * build's lowest KEPT tine, read through the tine capture (tines.js's
+ * `build(downhill)` is buildFinsCore with opts.downhill set.
+ */
+export const judgeDownhill = (topo, result, rot, build) => judgeSwap(topo, result, rot, build, usedDownhill);
+
+/**
+ * `build(true)` unless `used` says it swapped something and it is worse than
+ * `build(false)`: holds less overhang, grips higher, or loses a wedge. Downhill
+ * walls and curved walls (fins/curved.js) are judged through here. The lowest grip
+ * is each build's lowest KEPT tine, read through the tine capture (tines.js's
  * globalThis.__TINECAP, which the races already trim to the walls they keep); a
  * caller's own capture ends up holding the returned build's tines only.
  */
-export function judgeDownhill(topo, result, rot, build) {
+export function judgeSwap(topo, result, rot, build, used) {
   const outer = globalThis.__TINECAP;
   const run = (flag) => {
     globalThis.__TINECAP = [];
@@ -63,7 +70,7 @@ export function judgeDownhill(topo, result, rot, build) {
   try {
     const a = run(true);
     let keep = a;
-    if (usedDownhill(a.b)) {
+    if (used(a.b)) {
       const n = run(false);
       const cls = classify(topo, result, rot);
       const worse = heldArea(topo, result, rot, a.b, cls) < heldArea(topo, result, rot, n.b, cls) - 1e-6

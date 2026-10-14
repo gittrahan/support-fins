@@ -332,8 +332,9 @@ function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = 
       const hb = heldBy(near, wallTops(qb));
       const vol = (qs) => qs.reduce((v, q) => v + (q.volume ?? 0), 0);
       if (lenient?.(qb)) {
-        // as much and something, at any weight (raceAgainst's `lenient`)
-        if (hb > 0 && hb >= ha - 1e-6) extra = keepers(qa, qb, near);
+        // as much, at any weight (raceAgainst's `lenient`); a region with no other
+        // walls still needs RACE_ABS, so a sliver doesn't bring in a heavy wall
+        if (hb >= ha - 1e-6 && hb > (qa.length ? 0 : RACE_ABS)) extra = keepers(qa, qb, near);
       } else {
         const tooHeavy = maxGrow !== null && qa.length && vol(qb) > maxGrow * vol(qa);
         if (!tooHeavy && hb > ha + Math.max(RACE_ABS, rel * ha)) extra = keepers(qa, qb, near);

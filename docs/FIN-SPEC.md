@@ -325,9 +325,11 @@ Not printed yet. Off by default; Auto and Full only, site only (plugins later).
 
 | feature | value | rationale |
 |---|---|---|
-| bend | the most a wall's top line's heading swings from its first, each read over **3** stations (3 mm) | one station's wobble isn't a bend |
-| bending region | any of its downhill walls bends > **20°** | a starting value, not print-tested; the spiral ramp's arcs turn 71–78° |
-| race, ticked | a bending region swaps when its downhill walls hold **≥** the other walls (and > 0), at any weight; the grip rule and the whole-build check stand | the arcs hold what straight walls do at ~1.5× the plastic, so the race above never picks them; the box is the user choosing plastic for the curve |
+| bend | the spread of a wall's top-line headings, each read over **3 mm** of line, unwrapped, **10%** trimmed at each end of the range; 0 under 6 mm of line | one wandering chord where the line starts off the climb isn't a bend (a quarter arc reads ~70°) |
+| bending region | any of its downhill walls bends > **20°** | a starting value, not print-tested; the spiral ramp's arcs read 34–60° |
+| race, ticked | a bending region swaps when its downhill walls hold **≥** the other walls, at any weight (a region with no other walls: > `RACE_ABS`, **5 mm²**); the grip rule stands | the arcs hold what straight walls do at ~1.5× the plastic, so the race above never picks them; the box is the user choosing plastic for the curve |
+| whole build | `web/fins/curved.js`: ticked, the unticked build is built too; the curved one stays only if it holds ≥ the overhang, its lowest tine rises ≤ `gripRise`, and no wedge is lost | the downhill check compares against the build without downhill walls, not the unticked one; the walls around a swap can come out differently |
+| Full | can cost plastic for no gain: the fill pass may already hold what a curve holds (torus, held equal, +12% plastic) | the box is the user's trade, so equal holds keep the curve |
 | switch | `opts.curvedWalls === true`; anything else is the race above, byte for byte | |
 
 ## Naming

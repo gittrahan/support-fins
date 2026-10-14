@@ -12,26 +12,36 @@
 export const CURVED = {
   minBend: 20,   // deg: a wall that turns less than this in plan is straight (a starting
                  // value, not print-tested: the spiral ramp's arcs turn far more)
-  chord: 3,      // stations (1 mm apart): the heading is read over this many, not one,
-                 // so a wobbling station doesn't read as a bend
+  chord: 3,      // mm: the heading is read over this much of the line, not one station
+  trim: 0.1,     // the share of headings dropped at each extreme: one wandering chord
+                 // (where the line starts off the climb) doesn't read as a bend
 };
 
 /**
- * How far a wall's top line turns in plan (deg): the most any later heading swings
- * from its first. Both measured over `chord` stations. 0 for a line too short to tell.
+ * How far a wall's top line turns in plan (deg): the spread of its headings, each
+ * read over `chord` mm of line (stations needn't be evenly spaced), unwrapped along
+ * the line, with `trim` of them dropped at each end of the range. 0 for a line
+ * under two chords long: too short to tell a bend from a wobble.
  */
 export function lineBend(line) {
-  const k = CURVED.chord;
-  if (line.length < 2 * k) return 0;
-  const head = (i) => Math.atan2(line[i + k][1] - line[i][1], line[i + k][0] - line[i][0]);
-  const h0 = head(0);
-  let most = 0;
-  for (let i = 1; i + k < line.length; i++) {
-    let d = Math.abs(head(i) - h0);
-    if (d > Math.PI) d = 2 * Math.PI - d;
-    if (d > most) most = d;
+  const { chord, trim } = CURVED;
+  const heads = [];
+  let j = 0, prev = null;
+  for (let i = 0; i < line.length; i++) {
+    if (j < i) j = i;
+    while (j < line.length && Math.hypot(line[j][0] - line[i][0], line[j][1] - line[i][1]) < chord) j++;
+    if (j === line.length) break;
+    let h = Math.atan2(line[j][1] - line[i][1], line[j][0] - line[i][0]);
+    if (prev !== null) h = prev + Math.atan2(Math.sin(h - prev), Math.cos(h - prev));   // unwrap
+    heads.push(h);
+    prev = h;
   }
-  return (most * 180) / Math.PI;
+  let run = 0;
+  for (let i = 1; i < line.length; i++) run += Math.hypot(line[i][0] - line[i - 1][0], line[i][1] - line[i - 1][1]);
+  if (run < 2 * chord || !heads.length) return 0;
+  heads.sort((a, b) => a - b);
+  const cut = Math.floor(trim * heads.length);
+  return ((heads[heads.length - 1 - cut] - heads[cut]) * 180) / Math.PI;
 }
 
 /** Does any of a region's walls bend past CURVED.minBend? raceAgainst's `lenient`. */

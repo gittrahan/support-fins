@@ -26,7 +26,7 @@ const build = (topo, extra = {}) => {
 const same = (a, b) => a.triangles.length === b.triangles.length
   && a.triangles.every((t, i) => t.every((v, k) => v === b.triangles[i][k]));
 
-Deno.test('curved: a straight line has no bend, a quarter arc about 90 deg', () => {
+Deno.test('curved: a straight line has no bend, a quarter arc a clear one, a wobbling start none', () => {
   const straight = Array.from({ length: 20 }, (_, i) => [i, 0.5 * i, 10 - i]);
   assert(lineBend(straight) < 1e-6, `straight line bends ${lineBend(straight)}`);
   const R = 20, arc = Array.from({ length: 32 }, (_, i) => {
@@ -34,8 +34,15 @@ Deno.test('curved: a straight line has no bend, a quarter arc about 90 deg', () 
     return [R * Math.cos(a), R * Math.sin(a), 10];
   });
   const b = lineBend(arc);
-  assert(b > 80 && b < 95, `quarter arc read as ${b.toFixed(1)} deg`);
+  // the trimmed spread reads a 90 deg arc short of 90, but far past minBend
+  assert(b > 2 * CURVED.minBend && b < 95, `quarter arc read as ${b.toFixed(1)} deg`);
   assert(lineBend([[0, 0, 0], [1, 0, 0]]) === 0, 'a two-station line must read as straight');
+  // a straight wall whose first station sits 1 mm off the line (the climb's start)
+  const wobble = straight.map((p, i) => (i === 0 ? [p[0], p[1] + 1, p[2]] : p));
+  assert(lineBend(wobble) < CURVED.minBend, `a wobbling start read as a ${lineBend(wobble).toFixed(1)} deg bend`);
+  // stations needn't be 1 mm apart: the same arc at half the stations reads the same
+  const sparse = arc.filter((_, i) => i % 2 === 0);
+  assert(Math.abs(lineBend(sparse) - b) < 10, `sparse arc ${lineBend(sparse).toFixed(1)} vs ${b.toFixed(1)}`);
 });
 
 Deno.test('curved: the spiral ramp gets walls that follow its curve, holding as much', () => {
