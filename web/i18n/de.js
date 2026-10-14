@@ -1,6 +1,6 @@
 export default {
   "Section": "Schnitt",
-  "Cut the view with a plane to see and draw inside the part. Drag the arrow (or Shift + scroll) to push the cut, the rings to tilt it. Click again to turn it off. View only: the export is whole.": "Die Ansicht mit einer Ebene schneiden, um im Bauteil zu sehen und zu zeichnen. Den Pfeil ziehen (oder Umschalt + Mausrad) schiebt den Schnitt, die Ringe kippen ihn. Erneut klicken schaltet ihn aus. Nur Ansicht: der Export bleibt vollständig.",
+  "Cut the view with a plane to see and draw inside the part. Drag the arrow or the sheet (or Shift + scroll) to push the cut, the rings to tilt it. Click again to turn it off. View only: the export is whole.": "Die Ansicht mit einer Ebene schneiden, um im Bauteil zu sehen und zu zeichnen. Den Pfeil oder die Fläche ziehen (oder Umschalt + Mausrad) schiebt den Schnitt, die Ringe kippen ihn. Erneut klicken schaltet ihn aus. Nur Ansicht: der Export bleibt vollständig.",
   "Ghost": "Glas",
   "Hide": "Ausblenden",
   "Re-aim": "Neu ausrichten",

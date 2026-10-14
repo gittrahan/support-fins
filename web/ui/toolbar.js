@@ -10,6 +10,10 @@
  *   - click the badge whose popover is open: the tool turns off.
  * The bar shows once a part is loaded (showToolbar, from part.js); nothing
  * unloads a part, so it is never hidden again. Esc folds the open popover.
+ *
+ * It sits bottom-left, badges filling in from the left, just right of the
+ * rotate panel (#orient) -- or at the window's edge when there is no room there
+ * (a phone, where the panels stack) or no panel.
  */
 import { el } from './dom.js';
 
@@ -25,7 +29,21 @@ function render() {
     b.btn.setAttribute('aria-expanded', String(openId === id));
     if (b.pop) b.pop.hidden = openId !== id;
   }
+  place();
 }
+
+const GAP = 12, EDGE = 14;
+/** Park the bar just right of the rotate panel, if it fits there. */
+function place() {
+  const bar = el('viewbar');
+  if (bar.hidden) return;
+  const o = el('orient').getBoundingClientRect();
+  let left = o.width ? o.right + GAP : EDGE;
+  if (left + bar.offsetWidth > innerWidth - EDGE) left = EDGE;
+  bar.style.left = `${left}px`;
+}
+addEventListener('resize', place);
+new ResizeObserver(place).observe(el('orient'));
 
 /**
  * Register a badge. `id` is its button in #viewbar; `pop` (optional) the id of its
@@ -53,4 +71,5 @@ addEventListener('keydown', (e) => {
 /** Show the bar (a part is loaded) or hide it. */
 export function showToolbar(v) {
   el('viewbar').hidden = !v;
+  place();
 }

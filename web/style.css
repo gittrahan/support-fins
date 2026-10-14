@@ -759,59 +759,62 @@ html, body {
 .over-warn:empty { display: none; }
 
 /* ---------- view toolbar (ui/toolbar.js) ---------- */
-/* Bottom centre of the 3D view, between the two rails: a row of badges, the open
-   badge's settings in a card above it. Pointer events only on the pieces, so the
-   space around them still orbits the scene. */
+/* Bottom-left of the 3D view: badges fill in from the left, just right of the
+   rotate panel (toolbar.js sets `left` from it), the open badge's settings in a
+   card above, left-aligned. Frosted glass so the scene shows through. Pointer
+   events only on the pieces, so the space around them still orbits the scene. */
 #viewbar {
+  --glass: color-mix(in srgb, var(--panel) 52%, transparent);
+  --glass-line: color-mix(in srgb, #fff 9%, transparent);
   position: fixed;
-  left: 50%; bottom: 14px;
-  transform: translateX(-50%);
+  left: 14px; bottom: 14px;
   z-index: 3;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  width: max-content;            /* left:50% alone would shrink it to half the screen */
-  max-width: calc(100vw - 32px);
+  align-items: flex-start;
+  gap: 5px;
+  width: max-content;
+  max-width: calc(100vw - 28px);
   pointer-events: none;
 }
 #viewbar > * { pointer-events: auto; }
-.vb-badges {
+.vb-badges, .vb-pop {
   display: flex;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--panel) 88%, transparent);
-  backdrop-filter: blur(6px);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--glass-line);
+  border-radius: 9px;
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  backdrop-filter: blur(14px) saturate(160%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent), 0 4px 18px rgb(0 0 0 / 0.28);
 }
+.vb-pop { flex-wrap: wrap; }
 .vb-badge {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 11px;
+  gap: 5px;
+  padding: 3px 8px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 6px;
   background: none;
   color: var(--text);
   font: inherit;
+  font-size: 12px;
   cursor: pointer;
 }
-.vb-badge .ico { width: 16px; height: 16px; }
-.vb-badge:hover { background: var(--btn-hi); color: var(--accent); }
-.vb-badge.on { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.vb-badge[aria-expanded="true"] { background: var(--accent); color: #06121f; }
-.vb-pop {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 4px;
-  padding: 6px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--panel) 92%, transparent);
-  backdrop-filter: blur(6px);
+.vb-badge .ico { width: 14px; height: 14px; }
+.vb-badge:hover { background: color-mix(in srgb, #fff 8%, transparent); color: var(--accent); }
+.vb-badge.on { border-color: color-mix(in srgb, var(--accent) 70%, transparent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.vb-badge[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 85%, transparent); color: #06121f; }
+.vb-pop .btn {
+  padding: 2px 8px;
+  font-size: 12px;
+  border-color: var(--glass-line);
+  background: color-mix(in srgb, var(--btn) 55%, transparent);
+  box-shadow: none;
 }
+.vb-pop .btn.primary { background: color-mix(in srgb, var(--accent) 85%, transparent); border-color: transparent; }
 .vb-pop .seg { display: inline-flex; }
 .vb-pop .seg .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .vb-pop .seg .btn:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }

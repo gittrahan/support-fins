@@ -12,6 +12,8 @@
  *
  * One handle, no modes: an arrow pushes the cut along its normal, two rings tilt
  * it. Spinning it about its own normal changes nothing, so that ring is left off.
+ * The sheet itself pushes too: grab it anywhere outside the part's outline (over
+ * the part, a click is the part's) and drag.
  *
  * `plane` is in world space, but the cut is held in the PART's frame (followPart):
  * turn the part and the cut turns with it, so it stays on the bore it was opening.
@@ -34,7 +36,8 @@ let ghost = true;
 try { ghost = localStorage.getItem(GHOST_KEY) !== '0'; } catch { /* storage off */ }
 
 // The plane's handle: a translucent square plus its outline. Its local +Z is the
-// kept side. Not clipped (it is the tool, not the model) and never picked.
+// kept side. Not clipped (it is the tool, not the model); no pick lands on it,
+// but it can be grabbed and dragged (below).
 const handle = new THREE.Group();
 const sheet = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
   color: 0x4da3ff, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false,
@@ -174,7 +177,103 @@ export function keptHit(hits) {
 /** The plane's handle is up: the part's rings step aside for it. */
 export const planeHandleShown = () => sectionOn;
 /** The pointer is on (or dragging) a plane handle: app.js leaves the click to it. */
-export const planeBusy = () => sectionOn && grips.some((g) => g.dragging || !!g.axis);
+export const planeBusy = () => sectionOn && (!!sheetDrag || grips.some((g) => g.dragging || !!g.axis));
+
+// ---- the sheet: grab it and drag to push the cut ---------------------------
+// Only where the sheet is NOT over the solid part: there a press is the part's
+// (Draw, select, Lay flat), and clicks go through the glass to it. Nor near the
+// handle's centre, where the arrow and rings are -- on touch there is no hover to
+// tell, so a margin keeps the sheet from stealing a press meant for them.
+const ray = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const SHEET = 0.08, SHEET_HOT = 0.18;
+const HANDLE_PX = 80;
+let sheetDrag = null;          // { id, p0, h0, n, y0, wpp } while dragging
+let hot = false, cursorWas = '';
+
+function aim(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  return r;
+}
+
+/** Where a press would grab the sheet, or null (off it, over the part, at the handle). */
+function sheetPoint(e) {
+  if (!sectionOn || grips.some((g) => g.dragging || g.axis)) return null;
+  const r = aim(e);
+  const c = handle.position.clone().project(camera);
+  const cx = r.left + (c.x + 1) / 2 * r.width, cy = r.top + (1 - c.y) / 2 * r.height;
+  if (Math.hypot(e.clientX - cx, e.clientY - cy) < HANDLE_PX) return null;
+  ray.layers.set(0);
+  const hit = ray.intersectObject(sheet)[0];
+  if (!hit) return null;
+  ray.layers.set(MODEL);
+  if (keptHit(ray.intersectObjects(scene.children, true))) return null;
+  return hit.point;
+}
+
+function setHot(v) {
+  if (v === hot) return;
+  hot = v;
+  sheet.material.opacity = v ? SHEET_HOT : SHEET;
+  const st = renderer.domElement.style;
+  if (v) { cursorWas = st.cursor; st.cursor = 'grab'; } else st.cursor = cursorWas;
+}
+
+// Capture phase, ahead of OrbitControls, TransformControls and app.js's picks: a
+// press that grabs the sheet is the sheet's alone.
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (e.button !== 0) return;
+  const p0 = sheetPoint(e);
+  if (!p0) return;
+  e.stopImmediatePropagation();
+  e.preventDefault();
+  const r = renderer.domElement.getBoundingClientRect();
+  const dist = camera.position.distanceTo(p0);
+  sheetDrag = {
+    id: e.pointerId, p0, h0: handle.position.clone(), n: plane.normal.clone(), y0: e.clientY,
+    // mm per pixel at the sheet, for the face-on case below
+    wpp: 2 * dist * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / r.height,
+  };
+  renderer.domElement.setPointerCapture(e.pointerId);
+  setHot(true);
+  renderer.domElement.style.cursor = 'grabbing';
+}, { capture: true });
+
+const dragPlane = new THREE.Plane();
+const v3 = new THREE.Vector3();
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (!sheetDrag) { setHot(!e.buttons && !!sheetPoint(e)); return; }   // not mid-orbit
+  if (e.pointerId !== sheetDrag.id) return;
+  const { p0, h0, n } = sheetDrag;
+  const look = camera.getWorldDirection(new THREE.Vector3());
+  // Slide along the normal: on the plane through it that faces the camera most.
+  // Looking (nearly) square at the sheet there is no such plane -- then up the
+  // screen pushes it away from you, like Shift + scroll.
+  const across = look.clone().addScaledVector(n, -look.dot(n));
+  let t;
+  if (across.length() > 0.25) {
+    aim(e);
+    dragPlane.setFromNormalAndCoplanarPoint(across.normalize(), p0);
+    if (!ray.ray.intersectPlane(dragPlane, v3)) return;
+    t = v3.sub(p0).dot(n);
+  } else {
+    t = (sheetDrag.y0 - e.clientY) * sheetDrag.wpp * Math.sign(look.dot(n));
+  }
+  handle.position.copy(h0).addScaledVector(n, t);
+  syncPlane();
+  holdInPart();
+}, { capture: true });
+
+function endSheetDrag(e) {
+  if (!sheetDrag || e.pointerId !== sheetDrag.id) return;
+  sheetDrag = null;
+  renderer.domElement.style.cursor = 'grab';
+  setHot(!!sheetPoint(e));
+}
+renderer.domElement.addEventListener('pointerup', endSheetDrag, { capture: true });
+renderer.domElement.addEventListener('pointercancel', endSheetDrag, { capture: true });
 
 // ---- ghost: the cut-away half as glass --------------------------------------
 // A second pass over the model only (scene.js's MODEL layer: part, fins, pad, walls),
@@ -209,6 +308,7 @@ function syncGizmo() {
     (g.getHelper ? g.getHelper() : g).visible = sectionOn;
   }
   handle.visible = sectionOn;
+  if (!sectionOn) { sheetDrag = null; setHot(false); }
 }
 
 function syncUI() {
