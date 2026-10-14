@@ -107,6 +107,8 @@ function finOpts() {
            plateOnly: el('plate-only').checked,
            longWalls: el('long-walls').checked,   // Full coverage only (fins/rows.js)
            tallRibs: el('tall-ribs').checked,     // face ribs on tall walls (fins/tall.js)
+           // Curved walls (prop/curved.js): Auto and Full only, like sway
+           curvedWalls: autoLike() && el('curved-walls').checked ? true : undefined,
            tines: el('tines').checked,
            tineDensity: el('tine-density').valueAsNumber / 100,
            layerHeight: el('layer-height').valueAsNumber,

@@ -103,9 +103,9 @@ function readable(s) {
  *  than costing the user the walls they drew. */
 const formOf = (form) => (form && typeof form === 'object'
   // a session saved before Wall lines was built at 2, not at what the page has now,
-  // and before Long walls and tall-wall ribs without them (the nozzle and the viewer's settings stay as
-  // this browser has them, even from a file saved before they were left out)
-  ? { 'wall-lines': '2', 'long-walls': false, 'tall-ribs': false, ...Object.fromEntries(Object.entries(form)
+  // and before Long walls, tall-wall ribs and Curved walls without them (the nozzle and the viewer's
+  // settings stay as this browser has them, even from a file saved before they were left out)
+  ? { 'wall-lines': '2', 'long-walls': false, 'tall-ribs': false, 'curved-walls': false, ...Object.fromEntries(Object.entries(form)
     .filter(([id, v]) => !VIEWER_IDS.has(id) && settable(id, v))) } : {});
 
 /**
