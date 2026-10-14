@@ -24,6 +24,7 @@ import { el } from './dom.js';
 import { renderer, scene, camera, controls, clip, MODEL } from './scene.js';
 import { part } from './part.js';
 import { setGizmo } from './pose.js';
+import { addBadge } from './toolbar.js';
 
 export const plane = new THREE.Plane();
 const ghostPlane = new THREE.Plane();     // the same cut, keeping the other side
@@ -211,10 +212,7 @@ function syncGizmo() {
 }
 
 function syncUI() {
-  const b = el('section');
-  b.classList.toggle('primary', sectionOn);
-  b.setAttribute('aria-pressed', String(sectionOn));
-  el('section-tools').hidden = !sectionOn;
+  syncBadge();
   for (const [id, on] of [['section-ghost', ghost], ['section-hide', !ghost]]) {
     el(id).classList.toggle('primary', on);
     el(id).setAttribute('aria-pressed', String(on));
@@ -235,13 +233,10 @@ export function setSection(on) {
   setGizmo();
 }
 
-// The button sits in the Display header: a click on it must not fold the section,
-// and switching on opens it, so the cut's own controls are in view.
-el('section').addEventListener('click', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  setSection(!sectionOn);
-  if (sectionOn) el('section').closest('details').open = true;
+// Its badge in the view toolbar (toolbar.js): on aims the cut at the view and
+// opens Ghost/Hide, Flip and Re-aim above it.
+const syncBadge = addBadge('section', {
+  pop: 'section-pop', isOn: () => sectionOn, setOn: (v) => setSection(v),
 });
 
 for (const [id, v] of [['section-ghost', true], ['section-hide', false]]) {

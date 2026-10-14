@@ -429,24 +429,7 @@
        way, so turning it off never hides that they exist. Remembered in
        localStorage (optional). -->
   <details class="sec" data-sec="display">
-    <summary><span class="sec-title" data-i18n="Display">Display</span><span class="sec-sum" id="sum-display"></span>
-      <!-- Section view (#250): cut the part with a plane to see and draw inside a
-           bore. In the header so it's there with the section folded. ui/section.js. -->
-      <button type="button" class="btn sm sec-btn" id="section" aria-pressed="false" data-i18n-title
-              title="Cut the view with a plane to see and draw inside the part. Drag the arrow (or Shift + scroll) to push the cut, the rings to tilt it. View only: the export is whole."><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h7.5v9H2z" fill="currentColor" opacity=".35"/><path d="M9.5 1.5v13M2 3.5h12v9H2z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg><span data-i18n="Section">Section</span></button>
-    </summary>
-    <div id="section-tools" hidden>
-      <span class="seg" role="group" aria-label="What the cut does to the near half">
-        <button type="button" class="btn sm primary" id="section-ghost" aria-pressed="true" data-i18n-title data-i18n="Ghost"
-                title="Show the cut-away half as faint glass. Clicks go through it.">Ghost</button><button
-                type="button" class="btn sm" id="section-hide" aria-pressed="false" data-i18n-title data-i18n="Hide"
-                title="Leave the cut-away half out entirely.">Hide</button>
-      </span>
-      <button type="button" class="btn sm" id="section-flip" data-i18n-title data-i18n="Flip"
-              title="Show the other side of the cut instead.">Flip</button>
-      <button type="button" class="btn sm" id="section-reset" data-i18n-title data-i18n="Re-aim"
-              title="Aim the cut at the current view again, through the part's centre.">Re-aim</button>
-    </div>
+    <summary><span class="sec-title" data-i18n="Display">Display</span><span class="sec-sum" id="sum-display"></span></summary>
     <label class="check" title="Shade overhangs too small for a fin amber, with a card saying they print unsupported. Off drops the highlight and the card; the readout still counts them.">
       <input type="checkbox" id="highlight-small" checked><span data-i18n="Highlight small overhangs">Highlight small overhangs</span>
     </label>
@@ -489,6 +472,31 @@
 </div><!-- /right-rail -->
 
 <div id="fps">—</div>
+
+<!-- The view toolbar (ui/toolbar.js): view tools as badges along the bottom of the
+     3D view, slicer-style. A click turns a tool on and opens its settings above it;
+     one popover at a time; a click on the open badge turns the tool off. Shown once
+     a part is loaded. -->
+<div id="viewbar" hidden>
+  <!-- Section view (#250): cut the part with a plane to see and draw inside a bore.
+       ui/section.js. View only: never reaches the build or the export. -->
+  <div class="vb-pop" id="section-pop" hidden>
+    <span class="seg" role="group" aria-label="What the cut does to the near half">
+      <button type="button" class="btn sm primary" id="section-ghost" aria-pressed="true" data-i18n-title data-i18n="Ghost"
+              title="Show the cut-away half as faint glass. Clicks go through it.">Ghost</button><button
+              type="button" class="btn sm" id="section-hide" aria-pressed="false" data-i18n-title data-i18n="Hide"
+              title="Leave the cut-away half out entirely.">Hide</button>
+    </span>
+    <button type="button" class="btn sm" id="section-flip" data-i18n-title data-i18n="Flip"
+            title="Show the other side of the cut instead.">Flip</button>
+    <button type="button" class="btn sm" id="section-reset" data-i18n-title data-i18n="Re-aim"
+            title="Aim the cut at the current view again, through the part's centre.">Re-aim</button>
+  </div>
+  <div class="vb-badges" role="toolbar" aria-label="View tools">
+    <button type="button" class="vb-badge" id="section" aria-pressed="false" aria-expanded="false" data-i18n-title
+            title="Cut the view with a plane to see and draw inside the part. Drag the arrow (or Shift + scroll) to push the cut, the rings to tilt it. Click again to turn it off. View only: the export is whole."><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 3.5h7.5v9H2z" fill="currentColor" opacity=".35"/><path d="M9.5 1.5v13M2 3.5h12v9H2z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg><span data-i18n="Section">Section</span></button>
+  </div>
+</div>
 
 <div id="drop">
   <div class="inner">

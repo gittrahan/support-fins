@@ -1,6 +1,6 @@
 export default {
   "Section": "Corte",
-  "Cut the view with a plane to see and draw inside the part. Drag the arrow (or Shift + scroll) to push the cut, the rings to tilt it. View only: the export is whole.": "Corte a vista com um plano para ver e desenhar dentro da peça. Arraste a seta (ou Shift + rolagem) para empurrar o corte e os anéis para incliná-lo. Só a vista: a exportação sai inteira.",
+  "Cut the view with a plane to see and draw inside the part. Drag the arrow (or Shift + scroll) to push the cut, the rings to tilt it. Click again to turn it off. View only: the export is whole.": "Corte a vista com um plano para ver e desenhar dentro da peça. Arraste a seta (ou Shift + rolagem) para empurrar o corte e os anéis para incliná-lo. Clique de novo para desligá-lo. Só a vista: a exportação sai inteira.",
   "Ghost": "Vidro",
   "Hide": "Ocultar",
   "Re-aim": "Reapontar",

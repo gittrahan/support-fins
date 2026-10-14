@@ -9,6 +9,7 @@ import { buildTopology, analyze, DEFAULT_THRESHOLD, MIN_REGION_AREA } from '../o
 import { el } from './dom.js';
 import { scene, controls, frame, clip, MODEL } from './scene.js';
 import { setSection, followPart } from './section.js';
+import { showToolbar } from './toolbar.js';
 import { removeMode, cancelRemove, resetRemovals } from './remove.js';
 import { resetHistory } from './history.js';
 import { importNote, renderImportNote } from './io.js';
@@ -100,6 +101,7 @@ export function setPart(geometry, filename) {
   part.quaternion.identity();
   gizmo.attach(part);
   el('orient').hidden = false;
+  showToolbar(true);
 
   // A new part starts with no hand-drawn walls and a fresh print-space cache.
   setDrawnWalls([]);
