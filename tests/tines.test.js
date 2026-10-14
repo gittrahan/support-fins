@@ -183,11 +183,20 @@ Deno.test('tines: a wedge tine is one layer tall and clear of the part at its mi
   const topo = loadModel('portal'), rot = rotX(45), res = analyze(topo, 45, rot);
   for (const lh of [0.2, 0.6]) {
     const b = buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true, layerHeight: lh });
-    // a tine is a small box; the wedge's blade and foot are not
-    const tines = b.fins.filter((f) => f.kind === 'wedge')
-      .flatMap((w) => w.triRanges.flatMap(([s, e]) => tineBoxes(b.triangles.slice(s, e)).tines))
-      .filter((t) => t.hi[2] - t.lo[2] < 1 && Math.max(t.hi[0] - t.lo[0], t.hi[1] - t.lo[1]) < 3);
-    assert(tines.length >= 10, `${lh}: portal X45 wedges have ${tines.length} tines`);
+    // a wedge's tines are pushed last, 36 verts each: walk back from its range's end
+    // while the chunk is a small box (the blade and foot ahead of them are not)
+    const tines = [];
+    for (const w of b.fins.filter((f) => f.kind === 'wedge')) {
+      for (const [s, e] of w.triRanges) {
+        for (let i = e - 36; i >= s; i -= 36) {
+          const t = tineBoxes(b.triangles.slice(i, i + 36)).tines[0];
+          if (t.hi[2] - t.lo[2] >= 1 || Math.max(t.hi[0] - t.lo[0], t.hi[1] - t.lo[1]) >= 3) break;
+          tines.push(t);
+        }
+      }
+    }
+    // portal X45's tines are all on its wedges
+    assert(tines.length === b.tines, `${lh}: found ${tines.length} wedge tines of ${b.tines}`);
     for (const t of tines) {
       assertClose(t.hi[2] - t.lo[2], lh, 1e-6, `${lh}: a wedge tine is ${(t.hi[2] - t.lo[2]).toFixed(2)} tall`);
       const mid = (t.lo[2] + t.hi[2]) / 2, cx = (t.lo[0] + t.hi[0]) / 2, cy = (t.lo[1] + t.hi[1]) / 2;

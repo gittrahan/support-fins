@@ -360,8 +360,8 @@ reach-to-layer ratio brings thick layers back to the 0.2 count (228 / 220; buste
 tine top, snapped to the layer line, can sit up to half a layer above the underside,
 above the mid-layer a slicer samples.
 A wedge's tines follow the layer too: they were always 0.2 tall with the 0.2 reach, a
-third of a 0.6 layer, which the slicer drops or merges (portal X45 at 0.6: 32 tines, all
-0.2 tall, now 0.6).
+third of a 0.6 layer, which the slicer drops or merges (portal X45 at 0.6: 41 tines, all
+0.2 tall; now 42, 0.6 tall).
 
 ### Wall lines
 
