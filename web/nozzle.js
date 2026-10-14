@@ -33,7 +33,7 @@ export const WALL_LINES = Object.freeze([2, 4, 6, 8]);
 // The 0.4 numbers, captured before anything scales them.
 const BASE = Object.freeze({
   th: PROP.th, tip: PROP.tip, tineW: PROP.tineW, tipH: PROP.tipH,
-  footMin: PROP.footMin, footMax: PROP.footMax, squatBrimW: PROP.squatBrimW,
+  footMin: PROP.footMin, footMax: PROP.footMax, squatBrimW: PROP.squatBrimW, edgeInset: PROP.edgeInset,
   perpTh: PERP.th,
   swayTineW: SWAY.tineW, swayThMin: SWAY.thMin, swayThMax: SWAY.thMax, swayThPerMm: SWAY.thPerMm,
   wallHalf: SWAY.wallHalf,
@@ -89,4 +89,8 @@ function rescale() {
   // the probe stops finding the part (a sphere at 45deg: 30 tines at 0.4, 6 at 2.0).
   // The extra half-tip is added to the reach (prop/tines.js); 0.4 and finer add nothing.
   PROP.tineReachTip = Math.max(0, (PROP.tip - BASE.tip) / 2);
+  // A free edge's outermost row stands in from the edge by the 0.4 tip's half and a
+  // bit: at 2.0 the 3 mm tip and its 2.5 mm tines hung 1.2 mm past a cube's edge,
+  // tabs out of the side instead of under the part. It steps in as the tip widens.
+  PROP.edgeInset = BASE.edgeInset + PROP.tineReachTip;
 }

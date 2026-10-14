@@ -171,7 +171,7 @@ export const PROP = {
   // (prototype/calibration/slender/) a 4 mm lip past a mid-ledge wall curled on
   // every ledge. Between two rows the first layer is a bridge; past the last one
   // it is a cantilever. An ATTACHED edge (the part carries on) keeps its bridge.
-  edgeInset: 0.6,
+  edgeInset: 0.6,   // grows with a nozzle's wider tip (nozzle.js)
   // ...but only under a near-FLAT underside: the curl is a first layer printed
   // as a sheet over air past the last wall. A steeper face steps out only
   // layerH / tan(angle) per layer -- 0.2 mm at 45deg, nothing to curl -- and a

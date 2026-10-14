@@ -340,6 +340,10 @@ measured from the wall's centre, and a tip wider than 0.4's 0.6 swallowed the 0.
 on a curved underside the tines all but vanished (sphere at 45°: 30 at 0.4, 6 at 2.0).
 The extra half-tip, `max(0, (tip − 0.6) / 2)`, is added to the reach: 0.15 at 0.6, 0.3 at
 0.8, 1.2 at 2.0 (sphere: 26). 0.4 and finer add nothing.
+**A free edge's outermost row steps in by the same amount** (`PROP.edgeInset`, 0.6 +
+that extra half-tip): at a fixed 0.6 a 2.0 nozzle's 3 mm tip and 2.5 mm tines hung 1.2 mm
+past the part's edge -- tabs out of the wall's side (cube at X30). The tip's face stays
+0.3 mm inside the edge at every nozzle; the wider wall body below it may reach past.
 The plugins build at 0.4 for now. The comb's scan step follows the tine
 width, so a 0.2 comb can land a tine or two fewer. The nozzle is a printer setting:
 remembered across visits, left alone by a loaded session.

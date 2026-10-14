@@ -176,3 +176,20 @@ Deno.test('nozzle: a large nozzle still grips a curved underside, nothing inside
     assert(n === 0, `${n} support vertices inside the sphere at 2.0 (tines off)`);
   } finally { applyNozzle(0.4); }
 });
+
+// Matthew's cube at X30, 2.0: the edge rows stood 0.6 mm in, as at 0.4, so the 3 mm tip
+// and its 2.5 mm tines hung past the cube's sides -- tabs out of the wall, not under the
+// part. The edge inset grows with the tip; every tine stays inside the cube's 40 mm.
+Deno.test('nozzle: an edge row keeps its tip and tines under the part', () => {
+  try {
+    const topo = loadModel('cube'), rot = rotX(30), res = analyze(topo, 45, rot);
+    for (const nozzle of [0.4, 1.0, 2.0]) {
+      globalThis.__TINECAP = [];
+      fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: false, tines: true, tunables: { nozzle, wallLines: 2 } });
+      const cap = globalThis.__TINECAP;
+      assert(cap.length > 0, `no tines at ${nozzle}`);
+      const out = Math.max(...cap.map((t) => Math.abs(t.x))) + Math.max(prop.PROP.tip, prop.PROP.tineW) / 2;
+      assert(out < 20, `${nozzle}: an edge tip reaches x ${out.toFixed(2)}, past the cube's side at 20`);
+    }
+  } finally { globalThis.__TINECAP = undefined; applyNozzle(0.4); }
+});
