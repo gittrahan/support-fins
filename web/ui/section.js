@@ -182,14 +182,15 @@ export const planeBusy = () => sectionOn && (!!sheetDrag || grips.some((g) => g.
 // ---- the sheet: grab it and drag to push the cut ---------------------------
 // Only where the sheet is NOT over the solid part: there a press is the part's
 // (Draw, select, Lay flat), and clicks go through the glass to it. Nor near the
-// handle's centre, where the arrow and rings are -- on touch there is no hover to
-// tell, so a margin keeps the sheet from stealing a press meant for them.
+// handle's centre, where the arrow and rings are. Mouse and pen only: the sheet
+// covers most of the space around the part, and on touch -- no hover to warn you --
+// one-finger orbit there matters more.
 const ray = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
 const SHEET = 0.08, SHEET_HOT = 0.18;
 const HANDLE_PX = 80;
-let sheetDrag = null;          // { id, p0, h0, n, y0, wpp } while dragging
-let hot = false, cursorWas = '';
+let sheetDrag = null;          // { id, p0, h0, n, y0, wpp, orbit } while dragging
+let hot = false;
 
 function aim(e) {
   const r = renderer.domElement.getBoundingClientRect();
@@ -200,7 +201,7 @@ function aim(e) {
 
 /** Where a press would grab the sheet, or null (off it, over the part, at the handle). */
 function sheetPoint(e) {
-  if (!sectionOn || grips.some((g) => g.dragging || g.axis)) return null;
+  if (!sectionOn || e.pointerType === 'touch' || grips.some((g) => g.dragging || g.axis)) return null;
   const r = aim(e);
   const c = handle.position.clone().project(camera);
   const cx = r.left + (c.x + 1) / 2 * r.width, cy = r.top + (1 - c.y) / 2 * r.height;
@@ -213,29 +214,40 @@ function sheetPoint(e) {
   return hit.point;
 }
 
+/** Light the sheet (and the grab cursor) while a press there would grab it. */
 function setHot(v) {
   if (v === hot) return;
   hot = v;
   sheet.material.opacity = v ? SHEET_HOT : SHEET;
   const st = renderer.domElement.style;
-  if (v) { cursorWas = st.cursor; st.cursor = 'grab'; } else st.cursor = cursorWas;
+  if (v) st.cursor = 'grab';
+  else if (st.cursor === 'grab' || st.cursor === 'grabbing') st.cursor = '';
 }
 
-// Capture phase, ahead of OrbitControls, TransformControls and app.js's picks: a
-// press that grabs the sheet is the sheet's alone.
+// Hover: at most one model raycast a frame, not one per mouse event.
+let hoverEv = null;
+function hoverSoon(e) {
+  if (!hoverEv) requestAnimationFrame(() => { setHot(!sheetDrag && !!sheetPoint(hoverEv)); hoverEv = null; });
+  hoverEv = e;
+}
+
+// Capture phase, so it runs ahead of OrbitControls, TransformControls and app.js.
+// A grab parks the orbit for the press (the event still reaches everyone else:
+// app.js reads planeBusy() and leaves the click alone; open menus still close).
+// Ctrl+click is the Mac's right click: that cancels, it doesn't grab.
 renderer.domElement.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0) return;
+  if (e.button !== 0 || e.ctrlKey || sheetDrag) return;
   const p0 = sheetPoint(e);
   if (!p0) return;
-  e.stopImmediatePropagation();
-  e.preventDefault();
   const r = renderer.domElement.getBoundingClientRect();
   const dist = camera.position.distanceTo(p0);
   sheetDrag = {
     id: e.pointerId, p0, h0: handle.position.clone(), n: plane.normal.clone(), y0: e.clientY,
     // mm per pixel at the sheet, for the face-on case below
     wpp: 2 * dist * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2) / r.height,
+    orbit: controls.enabled,
   };
+  controls.enabled = false;
   renderer.domElement.setPointerCapture(e.pointerId);
   setHot(true);
   renderer.domElement.style.cursor = 'grabbing';
@@ -243,8 +255,9 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 
 const dragPlane = new THREE.Plane();
 const v3 = new THREE.Vector3();
+const mid = new THREE.Vector3();
 renderer.domElement.addEventListener('pointermove', (e) => {
-  if (!sheetDrag) { setHot(!e.buttons && !!sheetPoint(e)); return; }   // not mid-orbit
+  if (!sheetDrag) { if (!e.buttons) hoverSoon(e); else setHot(false); return; }   // not mid-orbit
   if (e.pointerId !== sheetDrag.id) return;
   const { p0, h0, n } = sheetDrag;
   const look = camera.getWorldDirection(new THREE.Vector3());
@@ -261,6 +274,10 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   } else {
     t = (sheetDrag.y0 - e.clientY) * sheetDrag.wpp * Math.sign(look.dot(n));
   }
+  // Keep the cut within the part's reach: near the drag plane's horizon t runs off.
+  const box = partBox(), reach = box.getSize(v3).length() / 2;
+  const off = h0.clone().sub(box.getCenter(mid)).dot(n);
+  t = THREE.MathUtils.clamp(t, -reach - off, reach - off);
   handle.position.copy(h0).addScaledVector(n, t);
   syncPlane();
   holdInPart();
@@ -268,12 +285,19 @@ renderer.domElement.addEventListener('pointermove', (e) => {
 
 function endSheetDrag(e) {
   if (!sheetDrag || e.pointerId !== sheetDrag.id) return;
+  controls.enabled = sheetDrag.orbit;
   sheetDrag = null;
   renderer.domElement.style.cursor = 'grab';
   setHot(!!sheetPoint(e));
 }
 renderer.domElement.addEventListener('pointerup', endSheetDrag, { capture: true });
 renderer.domElement.addEventListener('pointercancel', endSheetDrag, { capture: true });
+renderer.domElement.addEventListener('pointerleave', () => { if (!sheetDrag) setHot(false); });
+// Draw / Lay flat / Remove set their own cursor on the same move, after this
+// module's capture listener: put the grab hand back once they're done.
+addEventListener('pointermove', () => {
+  if (hot && !sheetDrag) renderer.domElement.style.cursor = 'grab';
+});
 
 // ---- ghost: the cut-away half as glass --------------------------------------
 // A second pass over the model only (scene.js's MODEL layer: part, fins, pad, walls),
@@ -308,7 +332,11 @@ function syncGizmo() {
     (g.getHelper ? g.getHelper() : g).visible = sectionOn;
   }
   handle.visible = sectionOn;
-  if (!sectionOn) { sheetDrag = null; setHot(false); }
+  if (!sectionOn) {
+    if (sheetDrag) controls.enabled = sheetDrag.orbit;
+    sheetDrag = null;
+    setHot(false);
+  }
 }
 
 function syncUI() {
