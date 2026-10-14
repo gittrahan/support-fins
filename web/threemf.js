@@ -630,10 +630,16 @@ function parsePrusaConfig(configXML) {
  *
  * `sink(role)` is where a triangle goes: role null is the part, any other is one
  * non-printing part's { kind, name } (PART_KIND), its own soup. `role` is the
- * one this subtree inherits; `roles` is only passed for a BUILD ITEM's object,
- * where the slicer configs name its parts -- `roles.parts` by component objectid
- * (Bambu/Orca), `roles.ranges` by triangle index (PrusaSlicer).
+ * one this subtree inherits. `roles` is what the slicer configs say: `parts`,
+ * only at a BUILD ITEM's object, names its components by objectid (Bambu/Orca,
+ * PrusaSlicer 3); `ranges(path, id)` names a mesh's triangles by index at any
+ * depth (PrusaSlicer 2: a second instance is a wrapper object pointing at the
+ * first one's mesh, and the config names only the mesh's object).
+ * A part used twice is two extras, each its own shell, as the slicer has them.
  */
+// a config's role, copied per use: each occurrence gets its own soup (and name)
+const named = (r) => r && { ...r };
+
 function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles = null) {
   const part = getPart(path);
   const obj = part && part.objects.get(id);
@@ -647,7 +653,7 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
   seen.add(key);
 
   const { verts, tris } = obj;
-  const ranges = roles?.ranges;
+  const ranges = role ? null : roles?.ranges?.(path, id);
   let partTris = 0;
   for (let t = 0; t < tris.length; t += 3) {
     // A triangle indexing a vertex that does not exist is a broken file. Check
@@ -684,7 +690,7 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
   for (const c of obj.components) {
     const childPath = c.path ? partName(c.path) : path;
     emitObject(getPart, childPath, c.objectid, compose(c.transform, m), sink, seen, stats,
-      roles?.parts?.get(c.objectid) ?? role);
+      named(roles?.parts?.get(c.objectid)) ?? role, roles && { ranges: roles.ranges });
   }
   seen.delete(key);
 }
@@ -791,7 +797,8 @@ export async function readThreeMF(bytes) {
       return extra.get(role);
     };
     const stats = { meshes: 0, skipped: 0, dropped: 0, missing: 0 };
-    const roles = { parts: slicerParts.get(item.objectid), ranges: prusaVols.get(item.objectid) };
+    const roles = { parts: slicerParts.get(item.objectid),
+      ranges: (path, id) => (path === rootName ? prusaVols.get(id) : null) };
     emitObject(getPart, rootName, item.objectid, item.transform, sink, new Set(), stats, null, roles);
     // Fold stats first: a build item that was ALL support/dangling emits nothing
     // but its skipped count still has to be reported, not dropped with the item.

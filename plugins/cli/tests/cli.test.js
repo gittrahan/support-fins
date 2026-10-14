@@ -261,3 +261,10 @@ Deno.test('cli: the summary line says what was left unsupported, word for word w
   const want = JSON.parse(new TextDecoder().decode(py.stdout));
   samples.forEach((s, i) => assert(reportLine(s) === want[i], `JS "${reportLine(s)}" vs Python "${want[i]}"`));
 });
+
+Deno.test('cli: a slicer\'s negative part is left out of the part, with a warning (#104)', async () => {
+  const orca = await Deno.readFile(new URL('../../../tests/fixtures/negative-parts/orca.3mf', import.meta.url));
+  const r = await cli(['cube.3mf', '-o', 'out.3mf'], { 'cube.3mf': orca });
+  assert(r.code === 0, `exit ${r.code}: ${r.err.join(' | ')}`);
+  assert(r.err.some((l) => /left out 1 negative part\/modifier/.test(l)), `no warning: ${JSON.stringify(r.err)}`);
+});

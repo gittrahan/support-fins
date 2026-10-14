@@ -558,6 +558,76 @@ Deno.test('3MF an object that is only non-printing parts is not offered as a par
   assert(threw, 'a file that is all negative part opened as a part');
 });
 
+Deno.test('3MF PrusaSlicer 2: a second instance (a wrapper over the first one\'s mesh) keeps its negative out', async () => {
+  // PrusaSlicer 2 writes instance 1 as the mesh and each further instance as an
+  // object whose one component points at it; the config names only the mesh's id.
+  const verts = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [5, 0, 0], [6, 0, 0], [5, 1, 0]]
+    .map((p) => `<vertex x="${p[0]}" y="${p[1]}" z="${p[2]}"/>`).join('');
+  const model = `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}"><resources>`
+    + `<object id="1" type="model"><mesh><vertices>${verts}</vertices><triangles>`
+    + '<triangle v1="0" v2="1" v3="2"/><triangle v1="3" v2="4" v3="5"/></triangles></mesh></object>'
+    + '<object id="2" type="model"><components><component objectid="1"/></components></object>'
+    + '</resources><build><item objectid="1"/><item objectid="2" transform="1 0 0 0 1 0 0 0 1 20 0 0"/></build></model>';
+  const config = '<?xml version="1.0"?><config><object id="1" instances_count="2">'
+    + `<volume firstid="0" lastid="0">${vtype('ModelPart')}</volume><volume firstid="1" lastid="1">${vtype('NegativeVolume')}</volume>`
+    + '</object></config>';
+  const r = await readThreeMF(await packParts([
+    { name: '3D/3dmodel.model', data: model },
+    { name: 'Metadata/Slic3r_PE_model.config', data: config },
+  ]));
+  assert(r.objects.length === 2, `got ${r.objects.length} objects`);
+  for (const [i, o] of r.objects.entries()) {
+    assert(o.tris === 1 && o.extras.length === 1 && o.extras[0].kind === 'negative',
+      `instance ${i + 1}: part ${o.tris} tris, ${o.extras.length} extras -- the negative read solid`);
+  }
+});
+
+Deno.test('3MF one negative part placed twice is two extras, each its own shell', async () => {
+  const root = `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}"><resources>`
+    + '<object id="10" type="model"><components>'
+    + '<component p:path="/3D/Objects/o.model" objectid="1"/>'
+    + '<component p:path="/3D/Objects/o.model" objectid="2" transform="1 0 0 0 1 0 0 0 1 7 0 0"/>'
+    + '<component p:path="/3D/Objects/o.model" objectid="2" transform="1 0 0 0 1 0 0 0 1 20 0 0"/>'
+    + '</components></object></resources><build><item objectid="10"/></build></model>';
+  const obj = triPart(1, 2).replace('</resources>',
+    triPart(2, 1).match(/<object[\s\S]*<\/object>/)[0] + '</resources>');
+  const config = '<?xml version="1.0"?><config><object id="10">'
+    + '<part id="1" subtype="normal_part"/><part id="2" subtype="negative_part"/></object></config>';
+  const o = (await readThreeMF(await packParts([
+    { name: '3D/3dmodel.model', data: root },
+    { name: '3D/Objects/o.model', data: obj },
+    { name: 'Metadata/model_settings.config', data: config },
+  ]))).objects[0];
+  assert(o.tris === 1 && o.extras.length === 2, `part ${o.tris} tris, ${o.extras.length} extras, want 1 and 2`);
+  const xs = o.extras.map((e) => bounds(e.positions).lo[0]).sort((a, b) => a - b);
+  assert(xs[0] === 7 && xs[1] === 20, `extras at x ${xs}, want 7 and 20`);
+});
+
+Deno.test('3MF Bambu plate: two objects whose part ids collide each keep their own negative', async () => {
+  // part ids are scoped to their object (both use 1 and 2): only the second
+  // object's part 2 is negative
+  const root = `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}"><resources>`
+    + '<object id="10" type="model"><components><component p:path="/3D/Objects/a.model" objectid="1"/>'
+    + '<component p:path="/3D/Objects/a.model" objectid="2"/></components></object>'
+    + '<object id="20" type="model"><components><component p:path="/3D/Objects/b.model" objectid="1"/>'
+    + '<component p:path="/3D/Objects/b.model" objectid="2" transform="1 0 0 0 1 0 0 0 1 7 0 0"/></components></object>'
+    + '</resources><build><item objectid="10"/><item objectid="20"/></build></model>';
+  const two = (e) => triPart(1, e).replace('</resources>', triPart(2, e).match(/<object[\s\S]*<\/object>/)[0] + '</resources>');
+  const config = '<?xml version="1.0"?><config>'
+    + '<object id="10"><part id="1" subtype="normal_part"/><part id="2" subtype="normal_part"/></object>'
+    + '<object id="20"><part id="1" subtype="normal_part"/><part id="2" subtype="negative_part"/></object></config>';
+  const r = await readThreeMF(await packParts([
+    { name: '3D/3dmodel.model', data: root },
+    { name: '3D/Objects/a.model', data: two(1) },
+    { name: '3D/Objects/b.model', data: two(3) },
+    { name: 'Metadata/model_settings.config', data: config },
+  ]));
+  const [a, b] = r.objects;
+  assert(a.tris === 2 && a.extras.length === 0, `first object: ${a.tris} tris, ${a.extras.length} extras, want 2 and 0`);
+  assert(b.tris === 1 && b.extras.length === 1 && bounds(b.extras[0].positions).lo[0] === 7,
+    `second object: ${b.tris} tris, ${b.extras.length} extras`);
+});
+
 // The real files: a 40 mm cube with a negative cube cut into an edge, saved as a
 // project by each slicer (tests/fixtures/negative-parts/, stripped to the model
 // and the part-type config). Orca types the negative part "model" (it read solid);

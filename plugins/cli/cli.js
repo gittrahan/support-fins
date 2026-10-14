@@ -160,7 +160,7 @@ const triples = (flat, add = [0, 0, 0]) => {
 
 // --- one file ---------------------------------------------------------------
 
-async function readPart(path, bytes, object) {
+async function readPart(path, bytes, object, warn = () => {}) {
   if (/\.3mf$/i.test(path)) {
     // Our own export holds part + fins as one object: finning it would put fins
     // under the old fins. Refuse rather than print that.
@@ -170,7 +170,14 @@ async function readPart(path, bytes, object) {
     }
     const m = await readThreeMF(bytes);
     const objs = m.objects || [];
-    if (objs.length <= 1 && object === null) return m.positions;
+    // a slicer's negative parts / modifiers (#104) are not the part, and not in
+    // the output: say so rather than drop them quietly
+    const leftOut = (os) => {
+      const n = os.reduce((k, o) => k + (o.extras?.length ?? 0), 0);
+      if (n) warn(`left out ${n} negative part${n === 1 ? '' : 's'}/modifier${n === 1 ? '' : 's'}: `
+        + 'not in the output, re-add in your slicer');
+    };
+    if (objs.length <= 1 && object === null) { leftOut(objs); return m.positions; }
     if (object === null) {
       throw new Error(`has ${objs.length} objects (${objs.map((o, i) => `${i + 1} ${o.name}`).join(', ')}); `
         + 'pick one with --object');
@@ -178,6 +185,7 @@ async function readPart(path, bytes, object) {
     const byIndex = /^\d+$/.test(object) ? objs[Number(object) - 1] : null;
     const pick = byIndex || objs.find((o) => o.name === object);
     if (!pick) throw new Error(`no object ${JSON.stringify(object)}; it has ${objs.map((o) => o.name).join(', ')}`);
+    leftOut([pick]);
     return pick.positions;
   }
   if (/\.stl$/i.test(path)) return readSTL(bytes);
@@ -200,7 +208,8 @@ export async function finFile(input, args, io, engineOptions) {
   if (!/\.(3mf|stl)$/i.test(output)) throw new Error(`output ${output}: write .3mf or .stl`);
   if (args.finsOnly && !/\.stl$/i.test(output)) throw new Error('--fins-only writes an .stl');
   if (sameFile(output, input)) throw new Error(`won't overwrite the input; pick another -o`);
-  const posed = pose(await readPart(input, await io.read(input), args.object), args.rot);
+  const posed = pose(await readPart(input, await io.read(input), args.object,
+    (line) => io.err(`support-fins: ${input}: warning: ${line}`)), args.rot);
   const { triangles, offset, stats } = computeFins(posed, engineOptions);
   const name = (input.split(/[\\/]/).pop() || 'part').replace(/\.(stl|3mf)$/i, '');
   if (args.finsOnly && triangles.length === 0) {
