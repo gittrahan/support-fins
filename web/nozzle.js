@@ -39,7 +39,7 @@ export let wallLines = 2;
 
 /** Scale the support widths for this nozzle diameter (mm). Junk is ignored. */
 export function applyNozzle(d) {
-  if (!Number.isFinite(d) || d < 0.1 || d > 1.2) return;
+  if (!Number.isFinite(d) || d < 0.1 || d > 3) return;
   nozzle = d;
   rescale();
 }

@@ -314,7 +314,7 @@ nor the Draw worker/CPU changes.
 ## Nozzle size — `web/nozzle.js`
 
 Every width above is for a **0.4 mm nozzle**. The site's Nozzle field (0.2 / 0.25 /
-0.4 / 0.6 / 0.8, default 0.4) scales them by `k = nozzle / 0.4`:
+0.4 / 0.6 / 0.8, and 1.0-3.0 for large-format printers after #210; default 0.4) scales them by `k = nozzle / 0.4`:
 
 | width | 0.4 | rule | 0.6 | 0.8 | 0.2 |
 |---|---|---|---|---|---|
@@ -328,6 +328,9 @@ One-line features (tines, tip) follow the nozzle both ways. The structural width
 only grow: a finer nozzle doesn't make a free-standing wall stiffer. Heights (tine
 height, gaps, pad) follow the layer height, not the nozzle. 0.4 is the tuned
 geometry, unchanged. The other sizes are this scaling rule, not printed coupons.
+**Large nozzles** (1.0–3.0) follow the same rule: a 2.0 nozzle builds a 5 mm wall and
+a 3 mm tip. Layer height stays capped at 0.6: the gap, the flanges and the pad are fixed
+heights tuned for thin layers, and a 0.2 mm gap disappears into a 1 mm layer.
 The plugins build at 0.4 for now. Tine reach (`PROP.tineReach`
 0.5) is NOT scaled by the nozzle: at 0.8 the contact tip's half-width (0.6) passes it, so how far a
 0.8 tine stands proud of the tip is unprinted. The comb's scan step follows the tine

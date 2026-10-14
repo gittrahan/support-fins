@@ -129,3 +129,19 @@ Deno.test('wall lines: a squat brim stays under half the row spacing', () => {
   } finally { applyNozzle(0.4); applyWallLines(2); }
 });
 
+
+// Large-format nozzles (after #210): the same rule, up to 3 mm.
+Deno.test('nozzle: large-format sizes scale like the rest, up to 3 mm', () => {
+  const base = knobs();
+  try {
+    applyNozzle(2.0);
+    assertClose(prop.PROP.th, base.th * 5, 1e-9, 'wall at 2.0');
+    assertClose(prop.PROP.tineW, base.tineW * 5, 1e-9, 'tine at 2.0');
+    applyNozzle(3.0);
+    assertClose(prop.PROP.tip, base.tip * 7.5, 1e-9, 'tip at 3.0');
+    applyNozzle(3.5);
+    assertClose(prop.PROP.tip, base.tip * 7.5, 1e-9, 'a 3.5 nozzle was taken');
+    const v4 = volumeAt(0.4), v20 = volumeAt(2.0);
+    assert(v20 > v4 * 2, `2.0 nozzle built ${v20.toFixed(0)} mm3 vs 0.4's ${v4.toFixed(0)}`);
+  } finally { applyNozzle(0.4); }
+});
