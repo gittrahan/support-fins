@@ -82,6 +82,13 @@ welts.
   vs kiss, sectioned at every mid-layer: 0 mm2 lost, 0.02 mm2 gained (spots where the
   0.5 box stopped short of the face). What welds is the part's next layer printing
   onto the tine (local issue 027).
+  The end is the FIRST solid along the line (2026-10-14): the search probed at 2× the
+  reach and bisected back, so a part thinner than that left both probes in air past it
+  (the full reach, run through), and a second piece beyond a thin near one pulled the end
+  out through the near one. A 0.1 mm walk up to the old answer catches both; where it
+  finds nothing the end is unchanged to the bit. Across the sweep's 324 auto builds, 107
+  tine corners moved, each off 0.02-0.75 mm of solid (median 0.42 shorter); no count,
+  wall or coverage changed. Cone, needle and tube at X40 had them at 0.2 layers.
 - **Draw mode builds smaller walls than Auto** (2026-10-03, local issue 011). A drawn
   wall needs only **2 mm** of line (`DRAW_MIN_LEN` in `draw.js`; Auto's `minSpan` is 7),
   because the user is pointing at one small overhang Auto doesn't reach -- a cleat, a

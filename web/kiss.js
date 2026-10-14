@@ -21,12 +21,13 @@ import { insidePart } from './inside.js';
  * tine still has to reach solid within `reach`.
  *
  * Per corner: no solid within reach on that line and height -> the full `reach`
- * (the old shape); solid already back over the wall end -> TRIM_MIN past it.
+ * (the old shape); solid already back over the wall end -> TRIM_MIN past it;
+ * otherwise the FIRST solid along the line, never a farther piece past a thin one.
  * Distances are from (x, y): a wall tine's seed on the wall top, a sway tine's
  * point on the face (prop/tines.js, sway.js). `back` bounds how far behind that the
  * end may pull back. Returns { bot: [left, right], top: [...] }.
  */
-const TRIM_KISS = 0.01, TRIM_MIN = 0.05, TRIM_Z = 0.01;
+const TRIM_KISS = 0.01, TRIM_MIN = 0.05, TRIM_Z = 0.01, STEP = 0.1;
 export function kissEnds(topo, rot, offset, x, y, dx, dy, zb, zt, { half, back, reach: R }) {
   // The end may lean out past `reach` at the bottom: on a 40 deg underside the
   // surface there is ~0.24 mm farther than at the top, and capping it at the reach cut
@@ -35,16 +36,29 @@ export function kissEnds(topo, rot, offset, x, y, dx, dy, zb, zt, { half, back, 
   const reach = (s, z) => {
     const px = x - dy * s, py = y + dx * s;      // across = z x along, as emitTines
     const inside = (d) => insidePart(topo, rot, offset, px + dx * d, py + dy * d, z);
+    const bisect = (lo, hi, n) => {             // air at lo, solid at hi
+      for (let i = 0; i < n; i++) {
+        const mid = (lo + hi) / 2;
+        if (inside(mid)) hi = mid; else lo = mid;
+      }
+      return hi;
+    };
     // far probe first; a part thinner than that can put it in air past the part, so
     // fall back to `reach` itself before giving up
-    let lo = lo0, hi = inside(far) ? far : inside(R) ? R : null;
-    if (hi === null) return R;      // no solid within reach: the old length
-    if (inside(lo)) return lo0;                 // the part already reaches back over the wall
-    for (let i = 0; i < 14; i++) {              // ~0.0001 mm on a 1.25 span
-      const mid = (lo + hi) / 2;
-      if (inside(mid)) hi = mid; else lo = mid;
+    const hi = inside(far) ? far : inside(R) ? R : null;
+    if (hi !== null && inside(lo0)) return lo0; // the part already reaches back over the wall
+    // ~0.0001 mm on a 1.25 span; no solid within reach: the old length
+    const e = hi === null ? R : bisect(lo0, hi, 14);
+    // That search can pass solid: a part thinner than the probe leaves both probes in
+    // air past it (the full reach, run through the part), and bisecting back from a
+    // second piece beyond a thin near one ends on the far piece. Walk the line up to
+    // the answer; the first solid sample short of it is the face. Where it isn't, the
+    // answer stands as it was.
+    let prev = lo0;
+    for (let d = lo0 + STEP; d < e - STEP / 2; prev = d, d += STEP) {
+      if (inside(d)) return (prev === lo0 && inside(lo0) ? lo0 : bisect(prev, d, 10) + TRIM_KISS);
     }
-    return hi + TRIM_KISS;
+    return hi === null ? R : e + TRIM_KISS;
   };
   // measured a hair inside the layer (a part face can sit exactly on a layer line),
   // then carried out to the tine's real bottom and top along the same lean
