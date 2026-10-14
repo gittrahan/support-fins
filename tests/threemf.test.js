@@ -12,8 +12,8 @@
 
 import { WEB, MODELS, assert, assertClose, block, readSTL, buildTopology, analyze, rotX } from './_util.js';
 
-const { writeThreeMF, readThreeMF } = await import(`${WEB}threemf.js`);
-const { zipStore } = await import(`${WEB}zip.js`);
+const { writeThreeMF, readThreeMF, mergeColors } = await import(`${WEB}threemf.js`);
+const { zipStore, unzip } = await import(`${WEB}zip.js`);
 
 const REL = 'http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel';
 
@@ -518,6 +518,112 @@ Deno.test('3MF a component that references its own object does not loop', async 
     + '</resources><build><item objectid="2"/></build></model>';
   const r = await readThreeMF(await pack(xml));
   assert(r.positions.length === 9, `self-cycle gave ${r.positions.length / 9} tris, want 1`);
+});
+
+// --- colours (GitHub #236) -------------------------------------------------
+// A painted or coloured part keeps its colours through fins + export: the reader
+// keeps each triangle's colour beside it, and the writer puts it back on the same
+// triangle. The fins stay uncoloured.
+
+/** The cube as one object, every triangle's extra attributes from `attr(i)`. */
+function colouredCube(attr, { ns = '', resources = '', objAttrs = '' } = {}) {
+  let verts = '', faces = '';
+  for (const p of CUBE) verts += `<vertex x="${p[0]}" y="${p[1]}" z="${p[2]}"/>`;
+  for (let i = 0; i < CUBE.length; i += 3) {
+    faces += `<triangle v1="${i}" v2="${i + 1}" v3="${i + 2}"${attr(i / 3)}/>`;
+  }
+  return `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}"${ns}><resources>${resources}`
+    + `<object id="1" type="model"${objAttrs}><mesh><vertices>${verts}</vertices>`
+    + `<triangles>${faces}</triangles></mesh></object></resources><build><item objectid="1"/></build></model>`;
+}
+
+/** Write `partTris` + a fin with `colors`, read it back; also the model XML. */
+async function roundTrip(partTris, colors) {
+  const fin = [[3, 0, 0], [4, 0, 0], [3, 1, 0]];
+  const blob = writeThreeMF(partTris, fin, 'painted', { separate: true, colors });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const xml = new TextDecoder().decode((await unzip(bytes)).get('3D/3dmodel.model'));
+  return { r: await readThreeMF(bytes), xml };
+}
+
+const TRIS = CUBE.length / 3;
+// Bambu-style codes (opaque to us; any string the slicer wrote)
+const code = (i) => (i % 3 ? `${i}C` : '');
+
+Deno.test('3MF colours: Bambu/Orca paint_color survives fins + export on the same triangles', async () => {
+  const src = await readThreeMF(await pack(colouredCube((i) => code(i) ? ` paint_color="${code(i)}"` : '')));
+  const c = src.objects[0].colors;
+  assert(c, 'painted part read no colours');
+  for (let i = 0; i < TRIS; i++) {
+    assert((c.paint[i]?.v ?? '') === code(i), `tri ${i}: read ${c.paint[i]?.v}, want ${code(i)}`);
+  }
+
+  const { r, xml } = await roundTrip(CUBE, c);
+  const [part, fins] = r.objects;
+  assert(!fins.colors, 'the supports object came back coloured');
+  for (let i = 0; i < TRIS; i++) {
+    const p = part.colors.paint[i];
+    assert((p?.v ?? '') === code(i) && (!p || p.name === 'paint_color'), `tri ${i} after export: ${JSON.stringify(p)}`);
+  }
+  assert(!xml.includes('xmlns:slic3rpe'), 'Bambu paint declared the PrusaSlicer namespace');
+});
+
+Deno.test('3MF colours: PrusaSlicer mmu_segmentation goes back out under its own name', async () => {
+  const ns = ' xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06"';
+  const src = await readThreeMF(await pack(colouredCube(
+    (i) => code(i) ? ` slic3rpe:mmu_segmentation="${code(i)}"` : '', { ns })));
+  const { r, xml } = await roundTrip(CUBE, src.objects[0].colors);
+  assert(xml.includes(ns), 'a slic3rpe: attribute needs its namespace declared');
+  assert(xml.includes('slic3rpe:mmu_segmentation="1C"'), 'Prusa paint not written under its own name');
+  const p = r.objects[0].colors.paint;
+  for (let i = 0; i < TRIS; i++) assert((p[i]?.v ?? '') === code(i), `tri ${i}: ${p[i]?.v}`);
+});
+
+Deno.test('3MF colours: core materials resolve per triangle (object default, p1 override, colorgroup)', async () => {
+  const resources = '<basematerials id="7"><base name="red" displaycolor="#FF0000"/>'
+    + '<base name="blue" displaycolor="#0000FF"/></basematerials>'
+    + '<m:colorgroup id="8"><m:color color="#00FF00FF"/></m:colorgroup>';
+  // object default red; triangle 1 blue; triangle 2 the colour group's green
+  const attr = (i) => i === 1 ? ' p1="1"' : i === 2 ? ' pid="8" p1="0"' : '';
+  const src = await readThreeMF(await pack(colouredCube(attr, { resources, objAttrs: ' pid="7" pindex="0"' })));
+  const want = (i) => i === 1 ? '#0000FF' : i === 2 ? '#00FF00FF' : '#FF0000';
+  const c = src.objects[0].colors;
+  for (let i = 0; i < TRIS; i++) assert(c.rgb[i] === want(i), `tri ${i}: ${c.rgb[i]}, want ${want(i)}`);
+
+  const { r, xml } = await roundTrip(CUBE, c);
+  assert(/<basematerials id="5">/.test(xml) && /<object id="1"[^>]* pid="5"/.test(xml), 'no material table on the part');
+  assert(!/<object id="2"[^>]* pid=/.test(xml), 'the supports got a material');
+  for (let i = 0; i < TRIS; i++) assert(r.objects[0].colors.rgb[i] === want(i), `tri ${i} after export`);
+});
+
+Deno.test('3MF colours: a degenerate triangle the writer drops does not shift the others', async () => {
+  // a zero-area triangle in the middle: written without it, and every colour
+  // after it still lands on its own triangle
+  const tris = [...CUBE.slice(0, 6), [0, 0, 0], [0, 0, 0], [1, 1, 1], ...CUBE.slice(6)];
+  const n = tris.length / 3;
+  const colors = { paint: [], rgb: [] };
+  for (let i = 0; i < n; i++) colors.paint[i] = { name: 'paint_color', v: `${i}` };
+  const { r } = await roundTrip(tris, colors);
+  const got = r.objects[0].colors.paint.map((p) => +p.v);
+  const want = [...Array(n).keys()].filter((i) => i !== 2);
+  assert(got.join() === want.join(), `colours ${got}, want ${want}`);
+});
+
+Deno.test('3MF colours: an uncoloured part reads none and writes none', async () => {
+  const src = await readThreeMF(await pack(colouredCube(() => '')));
+  assert(src.objects[0].colors === null, 'plain part read colours');
+  const { xml } = await roundTrip(CUBE, null);
+  assert(!/pid=|basematerials|paint_color/.test(xml), 'plain part wrote colour markup');
+});
+
+Deno.test('3MF colours: merged objects keep their colours at the right offsets', () => {
+  const a = { positions: new Float32Array(2 * 9), colors: { paint: [, { name: 'paint_color', v: 'A' }], rgb: [] } };
+  const b = { positions: new Float32Array(3 * 9), colors: null };
+  const c = { positions: new Float32Array(1 * 9), colors: { paint: [], rgb: ['#123456'] } };
+  const m = mergeColors([a, b, c]);
+  assert(m.paint[1].v === 'A' && m.paint.filter(Boolean).length === 1, 'paint offset');
+  assert(m.rgb[5] === '#123456' && m.rgb.filter(Boolean).length === 1, 'rgb offset');
+  assert(mergeColors([b]) === null, 'no colours should merge to null');
 });
 
 // --- integration: a 3MF part drives the real overhang engine ---------------

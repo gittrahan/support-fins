@@ -43,7 +43,7 @@ export function buildExportGeometry() {
   // in Suggest -- plus the pad, all already in print space
   const finTris = [...activeAdded()];
   const base = partName.replace(/\.(stl|3mf|step|stp)$/i, '') || 'part';
-  return { partTris, finTris, base };
+  return { partTris, finTris, base, colors: part.geometry.userData.colors ?? null };
 }
 
 // The three formats. All share the print-space geometry, so a fins-only STL
@@ -63,7 +63,8 @@ const FORMATS = {
   // are none to split.
   'export-3mf': (g) => {
     const { body, iface } = splitInterface(g.finTris);
-    return [writeThreeMF(g.partTris, body, g.base, { separate: true, iface, session: sessionOf(g.partTris) }),
+    return [writeThreeMF(g.partTris, body, g.base,
+                         { separate: true, iface, colors: g.colors, session: sessionOf(g.partTris) }),
             `${g.base}-fins.3mf`];
   },
   // Just the fins + pad (issue #5). One body, so 3MF would add nothing over STL.

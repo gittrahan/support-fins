@@ -52,7 +52,7 @@ function fmt(n) {
  * identical transform of the same source point), which restores shared topology
  * and shrinks the file; anything that doesn't merge is left as-is and slices fine.
  */
-function meshXML(tris) {
+function meshXML(tris, triAttrs = null) {
   const index = new Map();
   const verts = [];
   const faces = [];
@@ -71,7 +71,10 @@ function meshXML(tris) {
     }
     // Drop any triangle that collapsed to a line/point after the merge; a
     // degenerate face is invalid 3MF and some readers reject the whole model.
-    if (idx[0] !== idx[1] && idx[1] !== idx[2] && idx[0] !== idx[2]) faces.push(idx);
+    if (idx[0] !== idx[1] && idx[1] !== idx[2] && idx[0] !== idx[2]) {
+      if (triAttrs) idx.push(triAttrs(t / 3));
+      faces.push(idx);
+    }
   }
 
   const v = new Array(verts.length);
@@ -82,12 +85,62 @@ function meshXML(tris) {
   const f = new Array(faces.length);
   for (let i = 0; i < faces.length; i++) {
     const t = faces[i];
-    f[i] = `<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"/>`;
+    f[i] = `<triangle v1="${t[0]}" v2="${t[1]}" v3="${t[2]}"${t[3] || ''}/>`;
   }
   return `<mesh><vertices>${v.join('')}</vertices><triangles>${f.join('')}</triangles></mesh>`;
 }
 
 const esc = (s) => String(s).replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
+
+/**
+ * A part's colours (GitHub #236), so a painted part keeps them through the export.
+ * PartColors = { paint, rgb }, both sparse arrays by triangle index (a hole is an
+ * uncoloured triangle):
+ *   paint[i]  { name, v }: a slicer's painted-colour attribute, verbatim -- Bambu
+ *             Studio / OrcaSlicer write paint_color, PrusaSlicer its own
+ *             slic3rpe:mmu_segmentation. Each reads only its own name, so it goes
+ *             back out under the name it came in with.
+ *   rgb[i]    '#RRGGBB[AA]': the core spec's colour (a <basematerials> or
+ *             <m:colorgroup> entry), written back as one <basematerials> table.
+ * The fins stay uncoloured: they are their own object, on whatever filament the
+ * slicer gives them.
+ */
+export const PAINT_ATTRS = ['paint_color', 'slic3rpe:mmu_segmentation'];
+const NS_SLIC3RPE = 'http://schemas.slic3r.org/3mf/2017/06';
+const MATERIALS_ID = 5;     // past the objects' ids 1-4 (one id space per file)
+
+/** Several objects' PartColors as one, in the order their triangles are merged;
+ *  null when none of them has any. */
+export function mergeColors(objs) {
+  if (!objs.some((o) => o.colors)) return null;
+  const all = { paint: [], rgb: [] };
+  let off = 0;
+  for (const o of objs) {
+    if (o.colors) {
+      o.colors.paint.forEach((p, i) => { all.paint[off + i] = p; });
+      o.colors.rgb.forEach((c, i) => { all.rgb[off + i] = c; });
+    }
+    off += o.positions.length / 9;
+  }
+  return all;
+}
+
+/** The part's colours as a <basematerials> table + a per-triangle attribute string. */
+function colorXML(colors) {
+  if (!colors) return { table: '', pid: '', triAttrs: null };
+  const palette = [...new Set(colors.rgb.filter(Boolean))];
+  const at = new Map(palette.map((c, i) => [c, i]));
+  return {
+    table: palette.length ? `<basematerials id="${MATERIALS_ID}">` +
+      palette.map((c, i) => `<base name="Color ${i + 1}" displaycolor="${esc(c)}"/>`).join('') +
+      '</basematerials>' : '',
+    pid: palette.length ? ` pid="${MATERIALS_ID}" pindex="0"` : '',
+    triAttrs: (i) => {
+      const c = colors.rgb[i], p = colors.paint[i];
+      return (c ? ` p1="${at.get(c)}"` : '') + (p ? ` ${p.name}="${esc(p.v)}"` : '');
+    },
+  };
+}
 
 // Where a SEPARATE export opens: two objects keep their 3MF positions (a single one
 // gets centred by the slicer), and print space is centred on the origin, so the pair
@@ -105,9 +158,10 @@ function bedShift(tris) {
   return [Math.max(SEPARATE_CENTRE - (lx + hx) / 2, 5 - lx), Math.max(SEPARATE_CENTRE - (ly + hy) / 2, 5 - ly)];
 }
 
-function modelXML(partTris, finTris, title, separate, iface) {
+function modelXML(partTris, finTris, title, separate, iface, colors) {
   const name = esc(title);
-  const objects = [`<object id="1" type="model" name="${name}">${meshXML(partTris)}</object>`];
+  const col = colorXML(colors);
+  const objects = [`<object id="1" type="model" name="${name}"${col.pid}>${meshXML(partTris, col.triAttrs)}</object>`];
   let build = '<item objectid="1"/>';
   // the interface crest is its own object only in the separate form; locked, it
   // is just more of the supports
@@ -142,11 +196,13 @@ function modelXML(partTris, finTris, title, separate, iface) {
     }
   }
 
+  const slic3rpe = colors?.paint.some((p) => p.name.startsWith('slic3rpe:'))
+    ? ` xmlns:slic3rpe="${NS_SLIC3RPE}"` : '';
   return '<?xml version="1.0" encoding="UTF-8"?>\n' +
-    `<model unit="millimeter" xml:lang="en-US" xmlns="${NS_CORE}">` +
+    `<model unit="millimeter" xml:lang="en-US" xmlns="${NS_CORE}"${slic3rpe}>` +
     '<metadata name="Application">Support Fins</metadata>' +
     `<metadata name="Title">${name}</metadata>` +
-    `<resources>${objects.join('')}</resources>` +
+    `<resources>${col.table}${objects.join('')}</resources>` +
     `<build>${build}</build></model>`;
 }
 
@@ -178,13 +234,14 @@ const ROOT_RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
  *                  { iface }: the interface crest's triangles (prop/crest.js),
  *                  written separate as a second part of the supports object,
  *                  "<name> interface", for the slicer to give a second filament
+ *                  { colors }: the part's PartColors, by triangle of partTris
  * @returns Blob    a .3mf package
  */
-export function writeThreeMF(partTris, finTris, name = 'Support Fins', { separate = false, session = null, iface = [] } = {}) {
+export function writeThreeMF(partTris, finTris, name = 'Support Fins', { separate = false, session = null, iface = [], colors = null } = {}) {
   const entries = [
     { name: '[Content_Types].xml', data: CONTENT_TYPES },
     { name: '_rels/.rels', data: ROOT_RELS },
-    { name: '3D/3dmodel.model', data: modelXML(partTris, finTris, name, separate, iface) },
+    { name: '3D/3dmodel.model', data: modelXML(partTris, finTris, name, separate, iface, colors) },
   ];
   if (session) entries.push({ name: SESSION_PART, data: JSON.stringify(session) });
   return zipStore(entries);
@@ -349,10 +406,12 @@ const SKIP_TYPES = new Set(['support', 'surface', 'other']);
 
 /** Parse one 3D/*.model part into { objects, items, unit }. */
 function parseModelXML(xml) {
-  const objects = new Map();   // id -> { type, name, verts, tris, components }
+  const objects = new Map();   // id -> { type, name, verts, tris, components, paint, rgb }
   const items = [];            // { objectid, transform }
+  const groups = new Map();    // material/colour group id -> ['#RRGGBB', ...]
   let unit = 'millimeter';
   let cur = null;              // object being filled
+  let group = null;            // <basematerials>/<colorgroup> being filled
   let inVertices = false;
 
   scanXML(xml, (tag, a, selfClosing) => {
@@ -360,8 +419,24 @@ function parseModelXML(xml) {
       case 'model':
         if (a.unit) unit = a.unit;
         break;
+      // Colour as the core spec states it (a material table and an index per
+      // triangle). Resources precede the objects that use them, so a triangle's
+      // colour resolves as it is read. Ids are per part file, like object ids.
+      case 'basematerials':
+      case 'colorgroup':
+        group = [];
+        groups.set(String(a.id), group);
+        if (selfClosing) group = null;
+        break;
+      case 'base':
+        if (group) group.push(a.displaycolor || '');
+        break;
+      case 'color':
+        if (group) group.push(a.color || '');
+        break;
       case 'object':
-        cur = { type: a.type || 'model', name: a.name || '', verts: [], tris: [], components: [] };
+        cur = { type: a.type || 'model', name: a.name || '', verts: [], tris: [], components: [],
+                pid: a.pid, pindex: a.pindex, paint: null, rgb: null };
         objects.set(String(a.id), cur);
         if (selfClosing) cur = null;
         break;
@@ -373,9 +448,22 @@ function parseModelXML(xml) {
         // and only <vertices> children are mesh points.
         if (cur && inVertices) cur.verts.push(+a.x || 0, +a.y || 0, +a.z || 0);
         break;
-      case 'triangle':
-        if (cur) cur.tris.push(+a.v1, +a.v2, +a.v3);
+      case 'triangle': {
+        if (!cur) break;
+        const t = cur.tris.length / 3;
+        cur.tris.push(+a.v1, +a.v2, +a.v3);
+        // A slicer's painted colours (PAINT_ATTRS), kept verbatim: the string
+        // subdivides THIS triangle against its own vertex order, which the whole
+        // import -> export path keeps, so it stays valid however the part turns.
+        for (const name of PAINT_ATTRS) {
+          const v = a[name];
+          if (v) { (cur.paint ??= [])[t] = { name, v }; break; }
+        }
+        const pid = a.pid ?? cur.pid, pi = a.p1 ?? cur.pindex;
+        const c = pid != null && groups.get(String(pid))?.[+(pi ?? 0)];
+        if (c) (cur.rgb ??= [])[t] = c;
         break;
+      }
       case 'component':
         // p:path (production extension) points the objectid at a DIFFERENT part
         // file; absent, the objectid resolves within this same file.
@@ -395,6 +483,7 @@ function parseModelXML(xml) {
     const t = local(tag);
     if (t === 'object') cur = null;
     else if (t === 'vertices') inVertices = false;
+    else if (t === 'basematerials' || t === 'colorgroup') group = null;
   });
 
   return { objects, items, unit };
@@ -432,7 +521,7 @@ function parseObjectNames(configXML) {
  * `seen` breaks a component cycle: a malformed file can reference itself, the
  * spec forbids it, so bailing is correct rather than recursing forever.
  */
-function emitObject(getPart, path, id, m, out, seen, stats) {
+function emitObject(getPart, path, id, m, out, seen, stats, col) {
   const part = getPart(path);
   const obj = part && part.objects.get(id);
   if (!obj) { stats.missing++; return; }        // dangling ref: a broken file
@@ -453,6 +542,9 @@ function emitObject(getPart, path, id, m, out, seen, stats) {
       stats.dropped++;
       continue;
     }
+    const k = out.length / 9;
+    if (obj.paint?.[t / 3]) col.paint[k] = obj.paint[t / 3];
+    if (obj.rgb?.[t / 3]) col.rgb[k] = obj.rgb[t / 3];
     for (const o of [o0, o1, o2]) {
       const x = verts[o], y = verts[o + 1], z = verts[o + 2];
       if (m) {
@@ -468,7 +560,7 @@ function emitObject(getPart, path, id, m, out, seen, stats) {
 
   for (const c of obj.components) {
     const childPath = c.path ? partName(c.path) : path;
-    emitObject(getPart, childPath, c.objectid, compose(c.transform, m), out, seen, stats);
+    emitObject(getPart, childPath, c.objectid, compose(c.transform, m), out, seen, stats, col);
   }
   seen.delete(key);
 }
@@ -513,13 +605,14 @@ function findRootPart(parts) {
  * @param bytes  Uint8Array of the whole .3mf file
  * @returns {
  *   unit,
- *   objects: [{ name, positions:Float32Array, tris, meshes, skipped, dropped, bbox }],
+ *   objects: [{ name, positions:Float32Array, tris, meshes, skipped, dropped, bbox, colors }],
  *   positions: Float32Array,   // every object merged -- the simple single-part path
  *   meshes, items, skipped, dropped,  // aggregate across objects
  *   session,                   // SESSION_PART's object when the site wrote one, else null
  * }
  *   Each object's `positions` is flat [x,y,z] x 3 per triangle, the same layout
  *   STLLoader produces, so the caller builds a BufferGeometry from any of them.
+ *   `colors` is null, or the object's colours by triangle index (see PartColors).
  */
 export async function readThreeMF(bytes) {
   const parts = await unzip(bytes);
@@ -558,7 +651,8 @@ export async function readThreeMF(bytes) {
   for (const item of roots) {
     const out = [];
     const stats = { meshes: 0, skipped: 0, dropped: 0, missing: 0 };
-    emitObject(getPart, rootName, item.objectid, item.transform, out, new Set(), stats);
+    const col = { paint: [], rgb: [] };
+    emitObject(getPart, rootName, item.objectid, item.transform, out, new Set(), stats, col);
     // Fold stats first: a build item that was ALL support/dangling emits nothing
     // but its skipped count still has to be reported, not dropped with the item.
     agg.meshes += stats.meshes; agg.skipped += stats.skipped; agg.dropped += stats.dropped;
@@ -576,6 +670,7 @@ export async function readThreeMF(bytes) {
       skipped: stats.skipped,
       dropped: stats.dropped,
       bbox: bbox(positions),
+      colors: col.paint.length || col.rgb.length ? col : null,
     });
   }
 

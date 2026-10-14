@@ -6,7 +6,7 @@ import { t, tn } from './i18n.js';
  */
 import * as THREE from 'three';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
-import { readThreeMF } from '../threemf.js';
+import { readThreeMF, mergeColors } from '../threemf.js';
 import { isStep, readStep, warmStep } from '../step.js';
 import { el } from './dom.js';
 import { part, setPart } from './part.js';
@@ -177,6 +177,9 @@ async function parseModel(buffer) {
   }
 
   const geometry = geometryFromPositions(mergeObjectPositions(chosen));
+  // the part's painted/material colours, by triangle, for the 3MF export (#236);
+  // the triangles keep their order all the way there
+  geometry.userData.colors = mergeColors(chosen);
 
   // Say what we decided for them: which/how many bodies, any support bodies left
   // on the plate, and any unit conversion.
