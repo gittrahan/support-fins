@@ -49,6 +49,11 @@ asks for the faces it aims at, gives **exactly** the full scan's answer: the sam
 faces, the same ties (probes on vertices and edge midpoints), in face order, on nine
 stress models in three poses, and again after the pose changes.
 
+**`weld.test.js`** -- `buildTopology`'s weld (numeric hash tables) gives **exactly** the
+topology the old string-keyed Map did: vertex and edge counts and every adjacency pair
+in order, on every stress model, a shuffled dense grid jittered under the weld step,
+and the key edge cases (-0, half-micron rounding, NaN, huge coordinates, duplicates).
+
 **`bores.test.js`** -- bores get supported (reversed 2026-09-27 after print tests):
 - a bore's ceiling gets a **part-attached wall on the bore floor**, flagged `inBore`;
 - that wall runs **along the bore axis**, so it pulls out an open end;
