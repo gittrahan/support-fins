@@ -32,8 +32,23 @@ export const ANGLE_EPS = 1e-4;        // ~0.008 degrees of slack
 export const IDENTITY3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
 /** Quantise to 1e-3 mm so vertices shared between triangles weld together. */
-const key3 = (x, y, z) =>
-  `${Math.round(x * 1000)},${Math.round(y * 1000)},${Math.round(z * 1000)}`;
+const q3 = (v) => {
+  const q = Math.round(v * 1000);
+  return q === q ? q + 0 : NaN_KEY;        // +0: -0 welds with 0; every NaN welds together
+};
+const NaN_KEY = Number.MAX_VALUE;          // never a real quantised coordinate (rounds of v*1000 overflow to Infinity first)
+
+// The welds below key on numbers through open-addressed hash tables. They used to
+// key on strings in a Map (`${qx},${qy},${qz}`, `${a}_${b}`), which welded a
+// 1.5M-face part in 2.5 s on the page thread at load. Same keys, same equality
+// (a number's string is unique to it, bar -0 and NaN, handled in q3), same
+// first-seen ids, so the topology is identical.
+const mix = (h, v) => Math.imul(h ^ (v | 0) ^ ((v / 4294967296) | 0), 0x9e3779b1);
+function tableSize(n) {
+  let cap = 16;
+  while (cap < n * 2) cap *= 2;
+  return cap;
+}
 
 /**
  * Per-face geometry + face adjacency for a non-indexed STL BufferGeometry.
@@ -49,7 +64,11 @@ export function buildTopology(geometry) {
   const nrm = new Float64Array(nFaces * 3);
   const area = new Float64Array(nFaces);
 
-  const weld = new Map();
+  // vertex weld: slot -> id, with the id's quantised key in vk
+  const vCap = tableSize(nFaces * 3);
+  const vSlot = new Int32Array(vCap).fill(-1);
+  const vk = new Float64Array(nFaces * 9);
+  let nVerts = 0;
   const vid = new Int32Array(nFaces * 3);
 
   for (let f = 0; f < nFaces; f++) {
@@ -76,23 +95,45 @@ export function buildTopology(geometry) {
     area[f] = 0.5 * len;
 
     for (let i = 0; i < 3; i++) {
-      const k = key3(pos[o + i * 3], pos[o + i * 3 + 1], pos[o + i * 3 + 2]);
-      let id = weld.get(k);
-      if (id === undefined) weld.set(k, (id = weld.size));
+      const qx = q3(pos[o + i * 3]), qy = q3(pos[o + i * 3 + 1]), qz = q3(pos[o + i * 3 + 2]);
+      let h = mix(mix(mix(0x811c9dc5, qx), qy), qz) & (vCap - 1);
+      let id;
+      for (;;) {
+        id = vSlot[h];
+        if (id < 0) {
+          id = vSlot[h] = nVerts++;
+          vk[id * 3] = qx; vk[id * 3 + 1] = qy; vk[id * 3 + 2] = qz;
+          break;
+        }
+        if (vk[id * 3] === qx && vk[id * 3 + 1] === qy && vk[id * 3 + 2] === qz) break;
+        h = (h + 1) & (vCap - 1);
+      }
       vid[f * 3 + i] = id;
     }
   }
 
   // face adjacency via shared welded edges
-  const firstFace = new Map();
+  // edge -> the first face that had it: slot -> edge number, edge's ends in ek
+  const eCap = tableSize(nFaces * 3);
+  const eSlot = new Int32Array(eCap).fill(-1);
+  const ek = new Int32Array(nFaces * 6);
+  const eFace = new Int32Array(nFaces * 3);
+  let nEdges = 0;
   const adjA = [], adjB = [];
   for (let f = 0; f < nFaces; f++) {
     for (let i = 0; i < 3; i++) {
-      const a = vid[f * 3 + i], b = vid[f * 3 + ((i + 1) % 3)];
-      const k = a < b ? `${a}_${b}` : `${b}_${a}`;
-      const prev = firstFace.get(k);
-      if (prev === undefined) firstFace.set(k, f);
-      else { adjA.push(prev); adjB.push(f); }
+      const u = vid[f * 3 + i], v = vid[f * 3 + ((i + 1) % 3)];
+      const a = u < v ? u : v, b = u < v ? v : u;
+      let h = mix(mix(0x811c9dc5, a), b) & (eCap - 1);
+      for (;;) {
+        const e = eSlot[h];
+        if (e < 0) {
+          eSlot[h] = nEdges; ek[nEdges * 2] = a; ek[nEdges * 2 + 1] = b; eFace[nEdges++] = f;
+          break;
+        }
+        if (ek[e * 2] === a && ek[e * 2 + 1] === b) { adjA.push(eFace[e]); adjB.push(f); break; }
+        h = (h + 1) & (eCap - 1);
+      }
     }
   }
 
@@ -100,8 +141,8 @@ export function buildTopology(geometry) {
     pos, nFaces, nrm, area,
     adjA: Int32Array.from(adjA),
     adjB: Int32Array.from(adjB),
-    vertexCount: weld.size,
-    edgeCount: firstFace.size,
+    vertexCount: nVerts,
+    edgeCount: nEdges,
     // scratch, reused across analyze() calls so a gizmo drag allocates nothing
     _zr: new Float64Array(nFaces * 3),
     _parent: new Int32Array(nFaces),
