@@ -3,3 +3,6 @@
 # new URL -- so browsers may keep it for a year instead of re-checking each visit.
 /vendor/occt-import-js-0.0.23/*
   Cache-Control: public, max-age=31536000, immutable
+# The negative-part cut's Manifold (~0.5 MB), versioned the same way.
+/vendor/manifold-3d-3.5.4/*
+  Cache-Control: public, max-age=31536000, immutable

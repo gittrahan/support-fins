@@ -19,20 +19,31 @@
  * paint, since the paint string subdivides the ORIGINAL triangle.
  */
 
-const MANIFOLD = './vendor/manifold-3d-3.5.4/manifold.js';
 let wasm = null;
+let wasmBinary = null;
+
+/**
+ * For a host that cannot fetch the vendor folder beside this file -- the CLI's
+ * one-file bundle carries the WASM inside it (plugins/cli/build.py).
+ */
+export function setManifoldWasm(bytes) { wasmBinary = bytes; wasm = null; }
 
 async function manifold() {
-  wasm ??= import(MANIFOLD).then(async (m) => {
-    const w = await m.default();
+  // a literal path, so a bundler pulls the loader in
+  wasm ??= import('./vendor/manifold-3d-3.5.4/manifold.js').then(async (m) => {
+    const w = await m.default(wasmBinary ? { wasmBinary } : {});
     w.setup();
     return w;
   });
   return wasm;
 }
 
-/** A triangle soup -> Manifold's indexed mesh, exact-equal points welded. */
-function meshOf(w, positions, faceID) {
+/**
+ * A triangle soup -> Manifold's indexed mesh, exact-equal points welded. `id`
+ * (from Manifold.reserveIDs) marks every triangle as the part's, through any
+ * union of its shells and the cut.
+ */
+function meshOf(w, positions, faceID, id) {
   const index = new Map();
   const verts = [];
   const tri = new Uint32Array(positions.length / 3);
@@ -44,47 +55,116 @@ function meshOf(w, positions, faceID) {
     tri[v] = i;
   }
   const mesh = new w.Mesh({ numProp: 3, vertProperties: new Float32Array(verts), triVerts: tri,
-    ...(faceID ? { faceID } : {}) });
+    ...(faceID ? { faceID } : {}),
+    ...(id != null ? { runIndex: new Uint32Array([0, tri.length]), runOriginalID: new Uint32Array([id]) } : {}) });
   mesh.merge();          // weld near-coincident points along open edges, best effort
   return mesh;
 }
 
-/** A closed solid, or null when the mesh is not one. */
-function solidOf(w, positions, faceID) {
+const tryManifold = (w, mesh) => {
   try {
-    const s = new w.Manifold(meshOf(w, positions, faceID));
-    if (s.status() !== 'NoError' || s.isEmpty()) { s.delete(); return null; }
-    return s;
-  } catch { return null; }
+    const s = new w.Manifold(mesh);
+    if (s.status() === 'NoError' && !s.isEmpty()) return s;
+    s.delete();
+  } catch { /* not manifold */ }
+  return null;
+};
+
+// A scanned negative (a candle for a mould) is typically several closed shells
+// touching along a few edges, plus loose sliver triangles: me-candle's is 4
+// shells of 576310 triangles and 52 stray ones. As one mesh it is not manifold;
+// shell by shell it is. The slivers enclose nothing, so dropping them is safe
+// while they are this small a share of the SURFACE -- area, not count: a missing
+// face is few triangles but much area, a sliver many triangles and next to none.
+const MAX_STRAY = 0.01;
+
+function area(positions, t) {
+  const o = t * 9, p = positions;
+  const ux = p[o + 3] - p[o], uy = p[o + 4] - p[o + 1], uz = p[o + 5] - p[o + 2];
+  const vx = p[o + 6] - p[o], vy = p[o + 7] - p[o + 1], vz = p[o + 8] - p[o + 2];
+  return Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx) / 2;
+}
+
+/**
+ * The mesh's closed shells, split where an edge is shared by other than two
+ * triangles, as one solid -- or null when the open ones are more than
+ * MAX_STRAY of the area (then it is not a solid with debris, it is open).
+ */
+function shellsOf(w, positions, faceID, id) {
+  const nT = positions.length / 9;
+  const index = new Map();
+  const tv = new Uint32Array(nT * 3);
+  for (let v = 0; v < tv.length; v++) {
+    const key = `${positions[v * 3]},${positions[v * 3 + 1]},${positions[v * 3 + 2]}`;
+    let i = index.get(key);
+    if (i === undefined) index.set(key, i = index.size);
+    tv[v] = i;
+  }
+  const edges = new Map();
+  for (let t = 0; t < nT; t++) {
+    for (let k = 0; k < 3; k++) {
+      const a = tv[t * 3 + k], b = tv[t * 3 + (k + 1) % 3];
+      const key = a < b ? `${a},${b}` : `${b},${a}`;
+      const list = edges.get(key);
+      if (list) list.push(t); else edges.set(key, [t]);
+    }
+  }
+  const up = Int32Array.from({ length: nT }, (_, i) => i);
+  const root = (x) => { while (up[x] !== x) x = up[x] = up[up[x]]; return x; };
+  for (const ts of edges.values()) if (ts.length === 2) up[root(ts[0])] = root(ts[1]);
+  const shells = new Map();
+  for (let t = 0; t < nT; t++) {
+    const r = root(t);
+    const list = shells.get(r);
+    if (list) list.push(t); else shells.set(r, [t]);
+  }
+
+  const solids = [];
+  let stray = 0, total = 0;
+  for (let t = 0; t < nT; t++) total += area(positions, t);
+  for (const ts of shells.values()) {
+    const p = new Float32Array(ts.length * 9);
+    ts.forEach((t, j) => p.set(positions.subarray(t * 9, t * 9 + 9), j * 9));
+    const s = tryManifold(w, meshOf(w, p, faceID ? Uint32Array.from(ts, (t) => faceID[t]) : null, id));
+    if (s) solids.push(s); else for (const t of ts) stray += area(positions, t);
+  }
+  if (!solids.length || stray > MAX_STRAY * total) { for (const s of solids) s.delete(); return null; }
+  if (solids.length === 1) return solids[0];
+  const all = w.Manifold.union(solids);
+  for (const s of solids) s.delete();
+  return all;
+}
+
+/** A closed solid, or null when the mesh is not one (even shell by shell). */
+function solidOf(w, positions, faceID, id) {
+  return tryManifold(w, meshOf(w, positions, faceID, id)) ?? shellsOf(w, positions, faceID, id);
 }
 
 /**
  * Cut an object's negative parts out of it.
  * @param obj  a readThreeMF object: { positions, colors, extras }
- * @returns { positions, colors, cut, failed }: the cut part (the input's own
- *   positions/colors when there is nothing to cut), how many negative parts were
- *   cut, and why the rest were not -- null, 'part' (the part is not a closed
- *   solid: nothing was cut) or 'negative' (some negative part is not one: it
- *   was skipped).
+ * @returns { positions, colors, cut, uncut, open }: the cut part (the input's
+ *   own positions/colors when nothing was cut), how many negative parts were cut
+ *   and how many were not, and `open` true when that is because the PART is not
+ *   a closed solid (then none is cut); otherwise an uncut one is not closed itself.
  */
 export async function cutNegatives(obj) {
   const negs = (obj.extras ?? []).filter((e) => e.kind === 'negative');
-  const same = { positions: obj.positions, colors: obj.colors ?? null, cut: 0, failed: null };
+  const same = { positions: obj.positions, colors: obj.colors ?? null, cut: 0, uncut: negs.length, open: false };
   if (!negs.length) return same;
 
   const w = await manifold();
   const nTri = obj.positions.length / 9;
-  const part = solidOf(w, obj.positions, Uint32Array.from({ length: nTri }, (_, i) => i));
-  if (!part) return { ...same, failed: 'part' };
-  const partID = part.originalID();
+  const partID = w.Manifold.reserveIDs(1);
+  const part = solidOf(w, obj.positions, Uint32Array.from({ length: nTri }, (_, i) => i), partID);
+  if (!part) return { ...same, open: true };
 
   const tools = [];
-  let failed = null;
   for (const n of negs) {
     const s = solidOf(w, n.positions, null);
-    if (s) tools.push(s); else failed = 'negative';
+    if (s) tools.push(s);
   }
-  if (!tools.length) { part.delete(); return { ...same, failed }; }
+  if (!tools.length) { part.delete(); return same; }
 
   const tool = tools.length === 1 ? tools[0] : w.Manifold.union(tools);
   const result = part.subtract(tool);
@@ -98,7 +178,7 @@ export async function cutNegatives(obj) {
     positions[i * 3] = vp[o]; positions[i * 3 + 1] = vp[o + 1]; positions[i * 3 + 2] = vp[o + 2];
   }
   return { positions, colors: carryColors(obj, positions, faceID, runIndex, runOriginalID, partID),
-    cut: tools.length, failed };
+    cut: tools.length, uncut: negs.length - tools.length, open: false };
 }
 
 /**

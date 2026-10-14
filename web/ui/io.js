@@ -7,6 +7,7 @@ import { t, tn } from './i18n.js';
 import * as THREE from 'three';
 import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { readThreeMF, mergeColors } from '../threemf.js';
+import { cutNegatives } from '../cut.js';
 import { isStep, readStep, warmStep } from '../step.js';
 import { el } from './dom.js';
 import { part, setPart } from './part.js';
@@ -31,10 +32,14 @@ export function renderImportNote() {
       notes.push(t('merged {n} bodies into one part', { n: m.meshes }));
     }
     if (m.skipped) notes.push(tn('ignored {n} support/non-printable body', 'ignored {n} support/non-printable bodies', m.skipped));
-    // a slicer's negative parts / modifiers / blockers (#104): kept out of the part
-    // so a cut is not finned as solid, but not exported yet
-    if (m.extras) notes.push(tn('left out {n} negative part/modifier: not in the export yet, re-add it in your slicer',
-      'left out {n} negative parts/modifiers: not in the export yet, re-add them in your slicer', m.extras));
+    // a slicer's negative parts are cut out, so the fins are for what prints; its
+    // modifiers / support blockers change no shape and are left out (#104)
+    if (m.cut) notes.push(tn('cut out {n} negative part', 'cut out {n} negative parts', m.cut));
+    if (m.open) notes.push(t('negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape'));
+    else if (m.uncut) notes.push(tn('{n} negative part not cut: it is not a closed solid',
+      '{n} negative parts not cut: they are not closed solids', m.uncut));
+    if (m.extras) notes.push(tn('left out {n} modifier/support blocker: not in the export yet, re-add it in your slicer',
+      'left out {n} modifiers/support blockers: not in the export yet, re-add them in your slicer', m.extras));
     if (m.unit && m.unit !== 'millimeter') notes.push(t('converted from {unit} to mm', { unit: m.unit }));
     if (m.session === 'restored') {
       notes.push(m.restored
@@ -180,6 +185,8 @@ async function parseModel(buffer) {
     if (!chosen) return null;               // cancelled: keep the current part
   }
 
+  const cuts = await cutChosen(chosen);
+  chosen = cuts.objects;
   const geometry = geometryFromPositions(mergeObjectPositions(chosen));
   // the part's painted/material colours, by triangle, for the 3MF export (#236);
   // the triangles keep their order all the way there
@@ -204,7 +211,10 @@ async function parseModel(buffer) {
     chosenName: chosen[0]?.name,
     meshes: chosen[0]?.meshes ?? 1,
     skipped,
-    extras: chosen.reduce((n, o) => n + (o.extras?.length ?? 0), 0),
+    extras: chosen.reduce((n, o) => n + (o.extras?.filter((e) => e.kind !== 'negative').length ?? 0), 0),
+    cut: cuts.cut,
+    uncut: cuts.uncut,
+    open: cuts.open,
     unit,
     session: own ? 'pending' : null,
   };
@@ -212,6 +222,33 @@ async function parseModel(buffer) {
   importNote = renderImportNote();
 
   return geometry;
+}
+
+/**
+ * Cut each chosen object's negative parts out of it (cut.js), so the fins are
+ * built for the shape that prints. Up to a few seconds on a scanned negative,
+ * so under the spinner; a file with none costs nothing.
+ */
+async function cutChosen(chosen) {
+  const tally = { objects: chosen, cut: 0, uncut: 0, open: false };
+  if (!chosen.some((o) => o.extras?.some((e) => e.kind === 'negative'))) return tally;
+  const spinner = el('spinner');
+  const label = spinner.lastChild.textContent;
+  spinner.lastChild.textContent = t('cutting negative parts…');
+  spinner.classList.add('show');
+  await new Promise((r) => requestAnimationFrame(() => setTimeout(r)));   // let it paint first
+  try {
+    tally.objects = [];
+    for (const o of chosen) {
+      const c = await cutNegatives(o);
+      tally.cut += c.cut; tally.uncut += c.uncut; tally.open ||= c.open;
+      tally.objects.push({ ...o, positions: c.positions, colors: c.colors });
+    }
+  } finally {
+    spinner.classList.remove('show');
+    spinner.lastChild.textContent = label;
+  }
+  return tally;
 }
 
 /**

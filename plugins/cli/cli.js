@@ -10,6 +10,7 @@ import { computeFins, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from '.
 import { reportLine } from '../shared/engine/report.js';
 import { readSTL, writeBinarySTL } from '../../web/stl.js';
 import { readThreeMF, writeThreeMF } from '../../web/threemf.js';
+import { cutNegatives } from '../../web/cut.js';
 import { unzip } from '../../web/zip.js';
 
 // --- flags from options.json -------------------------------------------------
@@ -170,14 +171,20 @@ async function readPart(path, bytes, object, warn = () => {}) {
     }
     const m = await readThreeMF(bytes);
     const objs = m.objects || [];
-    // a slicer's negative parts / modifiers (#104) are not the part, and not in
-    // the output: say so rather than drop them quietly
-    const leftOut = (os) => {
-      const n = os.reduce((k, o) => k + (o.extras?.length ?? 0), 0);
-      if (n) warn(`left out ${n} negative part${n === 1 ? '' : 's'}/modifier${n === 1 ? '' : 's'}: `
+    // a slicer's negative parts are cut out, as on the site; its modifiers and
+    // support blockers are not the part, and not in the output (#104) -- said,
+    // not dropped quietly
+    const prepared = async (o) => {
+      const c = await cutNegatives(o);
+      const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+      if (c.open) warn('negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape');
+      else if (c.uncut) warn(`${plural(c.uncut, 'negative part', 'negative parts')} not cut: not a closed solid`);
+      const rest = (o.extras ?? []).filter((e) => e.kind !== 'negative').length;
+      if (rest) warn(`left out ${plural(rest, 'modifier/support blocker', 'modifiers/support blockers')}: `
         + 'not in the output, re-add in your slicer');
+      return c.positions;
     };
-    if (objs.length <= 1 && object === null) { leftOut(objs); return m.positions; }
+    if (objs.length <= 1 && object === null) return objs.length ? prepared(objs[0]) : m.positions;
     if (object === null) {
       throw new Error(`has ${objs.length} objects (${objs.map((o, i) => `${i + 1} ${o.name}`).join(', ')}); `
         + 'pick one with --object');
@@ -185,8 +192,7 @@ async function readPart(path, bytes, object, warn = () => {}) {
     const byIndex = /^\d+$/.test(object) ? objs[Number(object) - 1] : null;
     const pick = byIndex || objs.find((o) => o.name === object);
     if (!pick) throw new Error(`no object ${JSON.stringify(object)}; it has ${objs.map((o) => o.name).join(', ')}`);
-    leftOut([pick]);
-    return pick.positions;
+    return prepared(pick);
   }
   if (/\.stl$/i.test(path)) return readSTL(bytes);
   throw new Error('reads .stl and .3mf only');

@@ -262,9 +262,11 @@ Deno.test('cli: the summary line says what was left unsupported, word for word w
   samples.forEach((s, i) => assert(reportLine(s) === want[i], `JS "${reportLine(s)}" vs Python "${want[i]}"`));
 });
 
-Deno.test('cli: a slicer\'s negative part is left out of the part, with a warning (#104)', async () => {
+Deno.test('cli: a slicer\'s negative part is cut out of the part (#104)', async () => {
   const orca = await Deno.readFile(new URL('../../../tests/fixtures/negative-parts/orca.3mf', import.meta.url));
   const r = await cli(['cube.3mf', '-o', 'out.3mf'], { 'cube.3mf': orca });
-  assert(r.code === 0, `exit ${r.code}: ${r.err.join(' | ')}`);
-  assert(r.err.some((l) => /left out 1 negative part\/modifier/.test(l)), `no warning: ${JSON.stringify(r.err)}`);
+  assert(r.code === 0 && r.err.length === 0, `exit ${r.code}: ${r.err.join(' | ')}`);
+  const out = await readThreeMF(r.fs.get('out.3mf'));
+  // the 40 mm cube with a corner cut away: more than its 12 triangles
+  assert(out.objects[0].tris > 12, `the part came out ${out.objects[0].tris} triangles: not cut`);
 });

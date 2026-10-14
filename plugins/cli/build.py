@@ -22,14 +22,32 @@ sys.path.insert(0, str(HERE.parent / "shared"))
 from bundle import esbuild_cmd  # noqa: E402
 
 
+# The negative-part cut (web/cut.js) loads Manifold's WASM from beside its loader;
+# a one-file download has no beside, so the bytes ride in the bundle (~0.5 MB) and
+# are handed over before the command line starts.
+ENTRY = '''import {{ setManifoldWasm }} from {cut!r};
+import wasm from {wasm!r};
+setManifoldWasm(wasm);
+await import({cli!r});
+'''
+
+
 def build():
     OUT.parent.mkdir(parents=True, exist_ok=True)
+    entry = OUT.parent / "entry.js"
+    entry.write_text(ENTRY.format(
+        cut=str(ROOT / "web" / "cut.js"),
+        wasm=str(ROOT / "web" / "vendor" / "manifold-3d-3.5.4" / "manifold.wasm"),
+        cli=str(HERE / "support-fins.js")))
     # --platform=node leaves node:fs (the Node branch's dynamic import) external;
     # Deno never reaches it.
-    subprocess.run(esbuild_cmd() + [
-        str(HERE / "support-fins.js"), "--bundle", "--format=esm", "--platform=node",
-        "--target=es2022", f"--outfile={OUT}", "--log-level=warning",
-    ], check=True)
+    try:
+        subprocess.run(esbuild_cmd() + [
+            str(entry), "--bundle", "--format=esm", "--platform=node", "--loader:.wasm=binary",
+            "--target=es2022", f"--outfile={OUT}", "--log-level=warning",
+        ], check=True)
+    finally:
+        entry.unlink(missing_ok=True)
     return OUT
 
 
