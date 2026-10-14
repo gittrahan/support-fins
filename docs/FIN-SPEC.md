@@ -319,6 +319,17 @@ curves. The wall itself is the ordinary plate wall; only placement and the race 
 | whole build | when a region swaps, the part is also built without downhill walls; the downhill build stays only if it holds ≥ the overhang (MUST + near-plate), its lowest tine rises ≤ `gripRise`, and no wedge is lost | wedges, short walls and the fill pass build around the race's result, which it can't see |
 | switch | `opts.downhill`: unset = race + judge (Auto, Full); `false` = off; `buildProps` alone only with `true` | |
 
+### Curved walls checkbox — `web/prop/curved.js`
+
+Not printed yet. Off by default; Auto and Full only, site only (plugins later).
+
+| feature | value | rationale |
+|---|---|---|
+| bend | the most a wall's top line's heading swings from its first, each read over **3** stations (3 mm) | one station's wobble isn't a bend |
+| bending region | any of its downhill walls bends > **20°** | a starting value, not print-tested; the spiral ramp's arcs turn 71–78° |
+| race, ticked | a bending region swaps when its downhill walls hold **≥** the other walls (and > 0), at any weight; the grip rule and the whole-build check stand | the arcs hold what straight walls do at ~1.5× the plastic, so the race above never picks them; the box is the user choosing plastic for the curve |
+| switch | `opts.curvedWalls === true`; anything else is the race above, byte for byte | |
+
 ## Naming
 
 Slant3D says "grip fins" once. Unrelated to the *grip fin* used elsewhere in Matthew's

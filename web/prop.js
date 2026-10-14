@@ -44,6 +44,8 @@
  *   rival.js      a small tube against the patch path: the region keeps the better
  *   raster.js     walls across a region's whole footprint, raced against the rest
  *   lattice.js    a net of struts cut back into struts (the raster slot's contender for a net)
+ *   downhill.js   walls that run down an overhang and follow it to the plate (#25)
+ *   curved.js     the Curved walls checkbox: when a bending downhill wall wins its race
  *
  * Each module imports only modules above it in this list and never prop.js.
  */
@@ -53,6 +55,7 @@ import { buildPartAttached } from './prop/attached.js';
 import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified, stationIsClear, tallBody, tallSpan, welds, withLowTails } from './prop/clearance.js';
 import { PROP } from './prop/config.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
+import { bends } from './prop/curved.js';
 import { DOWNHILL, downhillLines } from './prop/downhill.js';
 import { latticeStruts, strutPatches } from './prop/lattice.js';
 import { raceAgainst, rasterRest, rasterTracks, withRaster } from './prop/raster.js';
@@ -152,7 +155,10 @@ export function buildProps(topo, result, rot, opts = {}) {
       return true;
     });
     return pass;
-  }, 'downhill', DOWNHILL.maxGrow, DOWNHILL.race);
+  }, 'downhill', DOWNHILL.maxGrow, DOWNHILL.race,
+  // Curved walls (prop/curved.js): with the box ticked a bending wall needs only
+  // to hold as much; unticked, the race is the one above, unchanged
+  opts.curvedWalls === true ? bends : null);
 }
 
 /**
