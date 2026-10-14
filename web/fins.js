@@ -236,7 +236,8 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // (wedgeVeto).
     const wedgeable = findWallPatches(topo, rot, result.offset).filter((p) =>
       p.n.z < -0.05 && p.area >= PERP.minArea && (p.u1 - p.u0) >= PERP.minWidth);
-    const wedgeOpts = { tines: withTines, pitch: covPitch, tineDensity: opts.tineDensity };
+    const wedgeOpts = { tines: withTines, pitch: covPitch, tineDensity: opts.tineDensity,
+                        layerHeight: opts.layerHeight };
     const base = buildFinsCore(topo, result, rot, { ...opts, mode: 'prop', tines: withTines,
       rasterVeto: wedgeVeto(wedgeable, topo, rot, result.offset, wedgeOpts) });
 

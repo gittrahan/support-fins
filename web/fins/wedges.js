@@ -317,7 +317,10 @@ export function buildPerpFins(p, topo, rot, offset, opts = {}) {
     if (crest) emitCrest(crest, out);
     partTris ??= seatedPartTris(topo, rot, offset);
     emitFoot([top[0][0], top[0][1], 0], [top[top.length - 1][0], top[top.length - 1][1], 0], uDir, out, partTris);
-    if (opts.tines !== false) tineTotal += emitTines(contact, null, topo, rot, offset, out, tineStepFor(opts.tineDensity));
+    // a tine is one layer tall, as a wall's (prop.js): at 0.2 on a 0.6 layer the
+    // slicer drops it or merges it, and the reach grows with it (prop/tines.js)
+    if (opts.tines !== false) tineTotal += emitTines(contact, null, topo, rot, offset, out,
+      tineStepFor(opts.tineDensity), undefined, opts.layerHeight ?? PROP.tineH);
     if (out.length > before) {
       count++;
       // One wedge = ring + foot + its tines, all pushed contiguously since
