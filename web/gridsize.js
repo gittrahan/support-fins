@@ -14,7 +14,7 @@
  * touch, and a long wall triangle over sub-millimetre cells is thousands of
  * empty cells.
  */
-const FACES_PER_CELL = 4;
+const FACES_PER_CELL = 1;
 const MAX_SIDE = 2048;
 const MIN_SIDE = 64;
 const MIN_CELL_MM = 0.5;

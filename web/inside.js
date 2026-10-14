@@ -25,10 +25,17 @@
 import { gridDims } from './gridsize.js';
 
 const EPS = 1e-9;
+// solidClearance switches to the coarse grid past this many fine cells a box
+const COARSE_CELLS = 64;
 
 /**
  * Bucket every triangle by its (y, z) extent in the mesh's own frame, so a ray
  * cast along +x only has to consider the triangles in one column.
+ *
+ * Two levels. The fine grid is sized to the mesh (gridsize.js) for the point and
+ * small-box queries; `coarse` is the old fixed 64 x 64, for solidClearance's
+ * boxes around a big wall triangle, which would walk thousands of fine cells
+ * (that walk alone was half of a 512 mm figure's build).
  */
 function buildGrid(topo) {
   if (topo._insideGrid) return topo._insideGrid;
@@ -40,18 +47,23 @@ function buildGrid(topo) {
     if (y < minY) minY = y; if (y > maxY) maxY = y;
     if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
   }
-  // cells per axis sized to the mesh (gridsize.js), at least the old 64
   const [NY, NZ] = gridDims(maxY - minY, maxZ - minZ, nFaces);
-  const sy = NY / Math.max(1e-6, maxY - minY);
-  const sz = NZ / Math.max(1e-6, maxZ - minZ);
-  const cell = (y, z) => {
-    const a = Math.min(NY - 1, Math.max(0, Math.floor((y - minY) * sy)));
-    const b = Math.min(NZ - 1, Math.max(0, Math.floor((z - minZ) * sz)));
+  const grid = bucketYZ(pos, nFaces, minY, maxY, minZ, maxZ, NY, NZ);
+  grid.cell = (y, z) => {
+    const a = Math.min(NY - 1, Math.max(0, Math.floor((y - minY) * grid.sy)));
+    const b = Math.min(NZ - 1, Math.max(0, Math.floor((z - minZ) * grid.sz)));
     return a * NZ + b;
   };
+  grid.coarse = NY === 64 && NZ === 64
+    ? grid : bucketYZ(pos, nFaces, minY, maxY, minZ, maxZ, 64, 64);
+  return (topo._insideGrid = grid);
+}
 
-  // counting sort into CSR, so there is one flat Int32Array rather than a
-  // little array per cell
+/** NY x NZ cells over [minY, maxY] x [minZ, maxZ], as CSR (one flat Int32Array
+ *  rather than a little array per cell), each cell's faces ascending. */
+function bucketYZ(pos, nFaces, minY, maxY, minZ, maxZ, NY, NZ) {
+  const sy = NY / Math.max(1e-6, maxY - minY);
+  const sz = NZ / Math.max(1e-6, maxZ - minZ);
   const counts = new Int32Array(NY * NZ + 1);
   const span = (f) => {
     const o = f * 9;
@@ -80,9 +92,7 @@ function buildGrid(topo) {
       for (let b = b0; b <= b1; b++) items[cur[a * NZ + b]++] = f;
     }
   }
-
-  return (topo._insideGrid = { start: counts, items, cell,
-                               minY, minZ, sy, sz, NY, NZ });
+  return { start: counts, items, minY, minZ, sy, sz, NY, NZ };
 }
 
 /** Closest point on triangle `f` to (px, py, pz), all in the mesh's own frame. */
@@ -293,16 +303,28 @@ export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
       if (q[1] < yLo) yLo = q[1]; if (q[1] > yHi) yHi = q[1];
       if (q[2] < zLo) zLo = q[2]; if (q[2] > zHi) zHi = q[2];
     }
-    const a0 = clampA(Math.floor((yLo - rMax - grid.minY) * grid.sy));
-    const a1 = clampA(Math.floor((yHi + rMax - grid.minY) * grid.sy));
-    const b0 = clampB(Math.floor((zLo - rMax - grid.minZ) * grid.sz));
-    const b1 = clampB(Math.floor((zHi + rMax - grid.minZ) * grid.sz));
+    // the fine grid unless this triangle's box spans more than COARSE_CELLS of
+    // it; then the coarse one (fewer, fuller cells beat a walk of empty ones)
+    let g = grid;
+    let a0 = clampA(Math.floor((yLo - rMax - g.minY) * g.sy));
+    let a1 = clampA(Math.floor((yHi + rMax - g.minY) * g.sy));
+    let b0 = clampB(Math.floor((zLo - rMax - g.minZ) * g.sz));
+    let b1 = clampB(Math.floor((zHi + rMax - g.minZ) * g.sz));
+    if ((a1 - a0 + 1) * (b1 - b0 + 1) > COARSE_CELLS) {
+      g = grid.coarse;
+      const cA = (v) => Math.min(g.NY - 1, Math.max(0, v));
+      const cB = (v) => Math.min(g.NZ - 1, Math.max(0, v));
+      a0 = cA(Math.floor((yLo - rMax - g.minY) * g.sy));
+      a1 = cA(Math.floor((yHi + rMax - g.minY) * g.sy));
+      b0 = cB(Math.floor((zLo - rMax - g.minZ) * g.sz));
+      b1 = cB(Math.floor((zHi + rMax - g.minZ) * g.sz));
+    }
 
     for (let a = a0; a <= a1; a++) {
       for (let b = b0; b <= b1; b++) {
-        const c = a * grid.NZ + b;
-        for (let i = grid.start[c]; i < grid.start[c + 1]; i++) {
-          const f = grid.items[i];
+        const c = a * g.NZ + b;
+        for (let i = g.start[c]; i < g.start[c + 1]; i++) {
+          const f = g.items[i];
           if (seen[f] === gen) continue;   // this part tri already measured vs this wall tri
           seen[f] = gen;
           const o = f * 9;

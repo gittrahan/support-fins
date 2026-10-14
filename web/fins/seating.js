@@ -13,8 +13,23 @@ import { FIN } from './config.js';
  * `surfaceZAt` needs to know how low the part hangs over each pad cell. Built
  * only when a pad is actually wanted (small bed contact), so the full-mesh pass
  * is not paid on every well-seated part.
+ *
+ * The same array comes back for the same pose (callers only read it), so the
+ * surface grid surface.js caches on it is built once per pose, not once per
+ * caller: buildPerpFins seats the part for each wedge candidate, and rebuilding
+ * a 250k-face grid each time was a tenth of a big part's build.
  */
+const _seated = new WeakMap();
 export function seatedPartTris(topo, rot, offset) {
+  const key = `${rot.join(',')}|${offset.x},${offset.y},${offset.z}`;
+  const hit = _seated.get(topo);
+  if (hit && hit.key === key) return hit.tris;
+  const tris = seat(topo, rot, offset);
+  _seated.set(topo, { key, tris });
+  return tris;
+}
+
+function seat(topo, rot, offset) {
   const { pos, nFaces } = topo;
   const { x: ox, y: oy, z: oz } = offset;
   const tris = new Float64Array(nFaces * 9);
