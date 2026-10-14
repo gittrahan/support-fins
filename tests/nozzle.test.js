@@ -3,7 +3,7 @@
 // tip) scale both ways; the structural widths (wall, wedge, brace rib) only grow.
 // It reaches the Worker in opts.tunables.nozzle, like the gap.
 
-import { tiltedBlockTopo, analyze, fins, prop, assert, assertClose } from './_util.js';
+import { tiltedBlockTopo, analyze, fins, prop, assert, assertClose, loadModel, rotX, insideCount } from './_util.js';
 import { applyNozzle, applyWallLines } from '../web/nozzle.js';
 import { SWAY } from '../web/sway.js';
 import { PERP } from '../web/fins/wedges.js';
@@ -105,3 +105,27 @@ Deno.test('wall lines: reach the build through tunables', () => {
     assert(v4 > v2 * 1.5, `4 lines built ${v4.toFixed(0)} mm3, not thicker than 2's ${v2.toFixed(0)}`);
   } finally { applyNozzle(0.4); applyWallLines(2); }
 });
+
+// Review: a thick wedge's flat top rode the centreline's contact, so on a curved face
+// its edges dug into the part (0.45 mm at 8 lines on a tilted cylinder).
+Deno.test('wall lines: a thick wedge stays out of a curved face', () => {
+  try {
+    for (const name of ['cylinder', 'tube']) {
+      const topo = loadModel(name), rot = rotX(45), res = analyze(topo, 45, rot);
+      const b = fins.buildFins(topo, res, rot,
+        { mode: 'auto', bedPad: false, tines: false, tunables: { nozzle: 0.4, wallLines: 8 } });
+      assert(b.fins.some((f) => f.kind === 'wedge'), `${name}: no wedge built`);
+      const n = insideCount(topo, rot, res.offset, b.triangles);
+      assert(n === 0, `${name}: ${n} wedge vertices inside the part at 8 lines`);
+    }
+  } finally { applyWallLines(2); }
+});
+
+Deno.test('wall lines: a squat brim stays under half the row spacing', () => {
+  try {
+    applyNozzle(0.8); applyWallLines(8);
+    assert(prop.PROP.squatBrimW < prop.PROP.maxUnsupportedSpan / 2,
+           `brim half-width ${prop.PROP.squatBrimW} fuses neighbouring rows`);
+  } finally { applyNozzle(0.4); applyWallLines(2); }
+});
+

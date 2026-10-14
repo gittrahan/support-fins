@@ -9,7 +9,7 @@
  */
 import { cutWall } from '../cutout.js';
 import { findWallPatches, patchPoint, patchProbe, zAt } from '../planes.js';
-import { crestKinds, emitCrest, emitTines, flatCrestRing, flatCut, PROP, surfaceZAt, tineStepFor } from '../prop.js';
+import { crestKinds, emitCrest, emitTines, flatCrestRing, flatCut, PROP, surfaceHitsAt, surfaceZAt, tineStepFor } from '../prop.js';
 import { seatedPartTris } from './seating.js';
 
 /**
@@ -62,6 +62,9 @@ export const PERP = {
   minArea: 500,
   minWidth: 22,
 };
+// The tuned wedge's thickness: its contact is read on the centreline, which a 1.2 mm
+// top rides fine. A thicker one (Wall lines, nozzle.js) is also read at its edges.
+const TH0 = PERP.th;
 
 /** Push a closed solid, flipping winding to outward if its signed volume is negative. */
 function pushSolid(local, out) {
@@ -262,6 +265,7 @@ export function perpColumns(p, lo, hi, pitch) {
 export function buildPerpFins(p, topo, rot, offset, opts = {}) {
   const uDir = { x: p.u.x, y: p.u.y };            // horizontal, across the face (unit)
   const half = PERP.th / 2;
+  const edge = PERP.th > TH0;   // a thicker blade than the tuned one: read its edges too
   const lo = p.u0 + PERP.inset, hi = p.u1 - PERP.inset;
   if (hi - lo <= 0) return { triangles: [], tines: 0, count: 0, wedges: [] };
   const out = [];
@@ -278,6 +282,19 @@ export function buildPerpFins(p, topo, rot, offset, opts = {}) {
       const dev = patchProbe(p, uc, t);
       if (dev === null) { if (contact.length) break; else continue; }
       const w = patchPoint(p, dev, uc, t);
+      // The blade's top is flat across its width: on a curved face it rides the
+      // lowest of the underside at its centre and at both edges, or an edge digs in.
+      if (edge) {
+        partTris ??= seatedPartTris(topo, rot, offset);
+        const zc = w[2];
+        for (const sg of [-1, 1]) {
+          let near = null;   // the down-facing surface nearest the centre's contact
+          for (const [z, nz] of surfaceHitsAt(partTris, w[0] + sg * half * uDir.x, w[1] + sg * half * uDir.y)) {
+            if (nz < 0 && (near === null || Math.abs(z - zc) < Math.abs(near - zc))) near = z;
+          }
+          if (near !== null && near < w[2]) w[2] = near;
+        }
+      }
       if (w[2] > 0.3) contact.push(w);
     }
     if (contact.length < 2) continue;

@@ -102,7 +102,8 @@ function readable(s) {
  *  blank, a menu option a later version renamed -- keeps the field as it is rather
  *  than costing the user the walls they drew. */
 const formOf = (form) => (form && typeof form === 'object'
-  ? Object.fromEntries(Object.entries(form).filter(([id, v]) => settable(id, v))) : {});
+  // a session saved before Wall lines was built at 2, not at what the page has now
+  ? { 'wall-lines': '2', ...Object.fromEntries(Object.entries(form).filter(([id, v]) => settable(id, v))) } : {});
 
 /**
  * Restore `s` onto the part setPart just loaded: { n } supports restored, or

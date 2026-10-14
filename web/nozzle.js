@@ -70,7 +70,8 @@ function rescale() {
   const wider = (PROP.th - BASE.th) / 2;
   PROP.footMin = BASE.footMin + wider;
   PROP.footMax = BASE.footMax + wider;
-  PROP.squatBrimW = BASE.squatBrimW + wider;
+  // ...but a brim stays under half the row spacing, or neighbouring rows' brims fuse.
+  PROP.squatBrimW = Math.min(BASE.squatBrimW + wider, (PROP.maxUnsupportedSpan - 1) / 2);
   // The neck into the tip: a 4 mm wall necking to 0.6 over the 1.5 mm taper would
   // overhang. A neck that would lean flatter than 55deg gets the height to stand at 55.
   const neck = (PROP.th - PROP.tip) / 2;
