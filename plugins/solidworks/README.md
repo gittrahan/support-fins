@@ -39,7 +39,7 @@ Windows 11 and current Windows 10; the add-in says so if it's missing).
    standing on the Top Plane; *Front Plane (Z up)* for one modelled Z up; or *Selected face*:
    select the flat face the part stands on, then press **Read part**. Whichever side of the
    face the part is on is up.
-3. **Settings**: the website's (material, overhang angle, tines, tine grip, layer height,
+3. **Settings**: the website's (overhang angle, tines, tine grip, layer height, support gap,
    bed pad, sway braces, cutouts, wide-face coverage), built from the same
    [`options.json`](../shared/engine/options.json) every plugin uses. **Layer height must
    match your slicer**: the tines are one layer tall. Settings are remembered.

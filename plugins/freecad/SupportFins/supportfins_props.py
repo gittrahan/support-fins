@@ -15,6 +15,9 @@ dialog's, not a limit, so it's an App::PropertyLength and any positive value goe
 import re
 
 GROUP = "Support Fins"
+# Settings an older add-on saved that the engine no longer takes: PLA/PETG Material
+# became the Support gap. Removed from a restored file, so it can't sit there doing nothing.
+RETIRED = ("Material",)
 
 
 def prop_name(option):

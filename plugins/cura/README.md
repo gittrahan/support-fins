@@ -66,11 +66,11 @@ ln -s "$PWD/plugins/cura/build/SupportFins" ~/Library/Application\ Support/cura/
 - Layer height comes from the active profile, so the tines land on real layers.
 
 **Settings: Extensions › Support Fins › Support Fins Settings…** The website's settings
-(material, overhang angle, tines and grip, bed pad, sway braces, cutouts, coverage), with its
+(overhang angle, tines and grip, support gap, bed pad, sway braces, cutouts, coverage), with its
 defaults and tooltips; *Add Support Fins* stays one click and uses what you saved. The dialog is
 built from the shared `plugins/shared/engine/options.json`, so a new setting on the site shows
-up here at the next build. Material starts as **Match Cura**: PLA or PETG follow the filament
-loaded for the part's extruder, anything else prints with PLA's numbers and the readout says so.
+up here at the next build. Printing PETG? Set Support gap to 0.3: it fuses to supports
+harder than PLA.
 
 **Tines touch the part rather than bite into it.** Cura's *Remove Mesh Intersection* (a global
 setting, on by default) trims the overlap between the part and the fins object, so each tine

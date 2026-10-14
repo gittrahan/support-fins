@@ -100,11 +100,11 @@ c.view_layer.update()
 assert ui.out_of_date(part, scene) == "the part moved"
 generate()
 assert ui.out_of_date(part, scene) is None
-scene.support_fins.material = "petg"
+scene.support_fins.gap = 0.3
 assert ui.out_of_date(part, scene) == "the settings changed"
 generate()
 assert part["sf_report"].startswith("4 walls, ")
-scene.support_fins.material = "pla"
+scene.support_fins.gap = 0.2
 generate()
 bm = bmesh.new()
 bm.from_mesh(part.data)

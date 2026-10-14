@@ -67,16 +67,6 @@ icon::import(path : "abefb5afa905b59c44256585", version : "f6c32f7274276435879a1
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
 
-export enum SupportMaterial
-{
-    annotation { "Name" : "PLA" }
-    PLA,
-    annotation { "Name" : "PETG" }
-    PETG,
-    annotation { "Name" : "Custom" }
-    CUSTOM
-}
-
 export enum StabilizeMode
 {
     annotation { "Name" : "Off" }
@@ -115,30 +105,6 @@ const GAP_BOUNDS =
 {
     (millimeter) : [0.05, 0.2, 2.0],
     (inch)       : 0.008
-} as LengthBoundSpec;
-
-const PROP_BITE_BOUNDS =
-{
-    (millimeter) : [0.05, 0.5, 3.0],
-    (inch)       : 0.02
-} as LengthBoundSpec;
-
-const FIN_BITE_BOUNDS =
-{
-    (millimeter) : [0.05, 0.3, 3.0],
-    (inch)       : 0.012
-} as LengthBoundSpec;
-
-const PAD_HEIGHT_BOUNDS =
-{
-    (millimeter) : [0.1, 0.6, 3.0],
-    (inch)       : 0.02
-} as LengthBoundSpec;
-
-const PAD_GRAB_BOUNDS =
-{
-    (millimeter) : [-1.0, 0.05, 1.0],
-    (inch)       : 0.002
 } as LengthBoundSpec;
 
 const SPAN_BOUNDS =
@@ -359,32 +325,9 @@ export const supportFins = defineFeature(function(context is Context, id is Id, 
                          "Description" : "Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one." }
             isLength(definition.nozzle, NOZZLE_BOUNDS);
 
-            annotation { "Name" : "Material", "Default" : SupportMaterial.PLA,
-                         "Description" : "Sets the clearances. PETG sticks to supports much harder than PLA, so it gets bigger gaps and shallower tines. Custom exposes every value." }
-            definition.material is SupportMaterial;
-
-            if (definition.material == SupportMaterial.CUSTOM)
-            {
-                annotation { "Name" : "Support gap",
-                             "Description" : "Air gap between the supports and the part. Larger = easier removal, rougher underside." }
-                isLength(definition.supportGap, GAP_BOUNDS);
-
-                annotation { "Name" : "Rib tine bite",
-                             "Description" : "How far each rib tine reaches into the part. Smaller = smaller marks, weaker grip." }
-                isLength(definition.propBite, PROP_BITE_BOUNDS);
-
-                annotation { "Name" : "Side fin tine bite",
-                             "Description" : "How far each side-fin tine reaches into the part." }
-                isLength(definition.finBite, FIN_BITE_BOUNDS);
-
-                annotation { "Name" : "Base height (rib flanges + pad)",
-                             "Description" : "Height of everything lying on the bed: the rib flanges and the bed pad share it, so they meet with no step. Rounded to whole layers." }
-                isLength(definition.padHeight, PAD_HEIGHT_BOUNDS);
-
-                annotation { "Name" : "Pad grab (negative = gap)",
-                             "Description" : "How far the pad overlaps the part's underside to hold it. Negative leaves a gap instead, for easier removal." }
-                isLength(definition.padGrab, PAD_GRAB_BOUNDS);
-            }
+            annotation { "Name" : "Support gap",
+                         "Description" : "Air gap between the supports and the part. Larger = easier removal, rougher underside. PETG fuses to supports harder than PLA: try 0.3 mm." }
+            isLength(definition.supportGap, GAP_BOUNDS);
         }
 
         annotation { "Name" : "Show detected overhangs", "Default" : false,
@@ -443,13 +386,15 @@ export const supportFins = defineFeature(function(context is Context, id is Id, 
 
 // ─── Configuration ────────────────────────────────────────────────────────────
 
-/** Material clearances, mirroring web/ui/settings.js MATERIAL. */
+/** Clearances: the site's defaults (web/materials.js PLA) and the Support gap. */
 function resolveConfig(definition is map) returns map
 {
+    // A feature saved before Support gap was always shown builds at the site's 0.2.
+    const gap = definition.supportGap is ValueWithUnits ? definition.supportGap : 0.2 * millimeter;
     var cfg = {
         "layer"    : definition.layerHeight,
-        "propGap"  : 0.2 * millimeter,
-        "finGap"   : 0.2 * millimeter,
+        "propGap"  : gap,
+        "finGap"   : gap,
         "propBite" : 0.5 * millimeter,
         "finBite"  : 0.30 * millimeter,
         "baseH"    : 0.6 * millimeter,   // rib flanges, squat brims and the pad: one height, no step
@@ -472,25 +417,6 @@ function resolveConfig(definition is map) returns map
     cfg.propTh = PROP_TH * max(1, k);
     cfg.finTh = FIN_TH * max(1, k);
 
-    if (definition.material == SupportMaterial.PETG)
-    {
-        // PETG welds to a support far harder than PLA: more clearance everywhere,
-        // and the pad stands a hair below the part instead of tacking to it.
-        cfg.propGap = 0.3 * millimeter;
-        cfg.finGap = 0.3 * millimeter;
-        cfg.finBite = 0.15 * millimeter;
-        cfg.baseH = 0.4 * millimeter;
-        cfg.padGrab = -0.1 * millimeter;
-    }
-    else if (definition.material == SupportMaterial.CUSTOM)
-    {
-        cfg.propGap = definition.supportGap;
-        cfg.finGap = definition.supportGap;
-        cfg.propBite = definition.propBite;
-        cfg.finBite = definition.finBite;
-        cfg.baseH = definition.padHeight;
-        cfg.padGrab = definition.padGrab;
-    }
     // whole layers only, so the pad and the flanges it meets top out on the same layer
     cfg.baseH = max(cfg.layer, round(cfg.baseH / cfg.layer) * cfg.layer);
     return cfg;

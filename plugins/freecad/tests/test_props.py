@@ -44,7 +44,7 @@ def test_every_option_is_one_property():
 
 
 @pytest.mark.parametrize("key,name,kind", [
-    ("material", "Material", "App::PropertyEnumeration"),
+    ("gap", "SupportGap", "App::PropertyFloatConstraint"),
     ("threshold", "Overhang", "App::PropertyFloatConstraint"),
     ("tines", "Tines", "App::PropertyBool"),
     ("tineDensity", "TineGrip", "App::PropertyPercent"),
@@ -73,12 +73,12 @@ def test_defaults_read_back_as_the_sites_defaults():
 
 
 def test_units_on_the_way_to_the_engine():
-    set_to = {"Material": "PETG", "Overhang": 50.0, "Tines": False, "TineGrip": 35,
+    set_to = {"SupportGap": 0.3, "Overhang": 50.0, "Tines": False, "TineGrip": 35,
               "LayerHeight": Quantity(0.16), "BedPad": "Sure hold", "SwayBraces": True,
               "BraceGripFrom": 12.0, "BraceTineSpacing": 8.0, "BraceDepth": 20,
               "Cutouts": "Lattice", "WideFaceCoverage": 100, "PlateOnly": True}
     values = props.dialog_values(SCHEMA, lambda n: set_to[n])
-    assert values == {"material": "petg", "threshold": 50.0, "tines": False, "tineDensity": 0.35,
+    assert values == {"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 0.35,
                       "layerHeight": 0.16, "padStyle": "sure", "sway.on": True, "sway.gripFrom": 12.0,
                       "sway.tineSpacing": 8.0, "sway.reach": 0.2, "cutout": "lattice", "coverage": 1.0,
                       "plateOnly": True}
@@ -107,3 +107,8 @@ def test_a_label_clash_is_refused():
     bad["options"].append(dict(bad["options"][0], key="other"))
     with pytest.raises(ValueError, match="duplicate property names"):
         props.specs(bad)
+
+
+def test_retired_settings_are_not_current_ones():
+    # a restored file drops these; one that came back would be deleted on open
+    assert not set(props.RETIRED) & {s["name"] for s in SPECS}

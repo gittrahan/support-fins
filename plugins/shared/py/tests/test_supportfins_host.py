@@ -132,14 +132,14 @@ def test_options_reach_the_engine(ctx):
 def test_dialog_values_go_through_the_engine(ctx):
     schema = host.host_schema(ctx)
     assert any(o["key"] == "padStyle" for o in schema["options"])
-    opts = host.host_options(ctx, {"material": "petg", "sway.on": "true", "sway.reach": 0.2,
+    opts = host.host_options(ctx, {"gap": 0.3, "sway.on": "true", "sway.reach": 0.2,
                                    "tines": "False", "layerHeight": None})
-    assert opts == {"material": "petg", "tines": False, "sway": {"on": True, "reach": 0.2}}
+    assert opts == {"gap": 0.3, "tines": False, "sway": {"on": True, "reach": 0.2}}
     with pytest.raises(Exception, match="coverage"):
         host.host_options(ctx, {"coverage": 50})   # forgot the /100: refused, not clamped
     assert host.host_visible(ctx, "tineDensity", {}) is True
     assert host.host_visible(ctx, "tineDensity", {"tines": False}) is False
-    fins, stats = host.host_compute(ctx, lbracket_35(), {**host.host_options(ctx, {"material": "petg"}),
+    fins, stats = host.host_compute(ctx, lbracket_35(), {**host.host_options(ctx, {"gap": 0.3}),
                                                           "layerHeight": 0.2})
     assert stats["braces"] == 4
 

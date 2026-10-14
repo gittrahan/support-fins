@@ -65,8 +65,8 @@ To work on the code instead, make a copy of the document, or paste
 2. **Support-Fins FS** → select the part.
 3. **Print settings** → set **Layer height** to the slicer's layer height (each tine is one
    layer, snapped to the layer grid), set **Nozzle** to your printer's nozzle (default 0.4 mm;
-   tines and contact tips scale with it, walls only thicken, as on the site) and pick **PLA**
-   or **PETG** (the `MATERIAL` profiles from `web/ui/settings.js`).
+   tines and contact tips scale with it, walls only thicken, as on the site). **Support gap**
+   is the site's (default 0.2 mm); for PETG try 0.3.
 4. Optionally turn on **Side bracing fins** for a part balanced on an edge or corner.
 5. Select the part and all its orange supports → **Export** → STL, as one file.
 
@@ -89,7 +89,7 @@ Geometry and constants follow the web engine and `FIN-SPEC.md`. Where this port 
 - **The rib tip steps rather than tapers.** The tip is a 0.6 mm wall over the top 1.5 mm of
   a 1.0 mm stem, instead of `profileHalf`'s linear neck.
 - **One base height.** Rib flanges, squat-wall brims and the pad share one height
-  (PLA 0.6 mm, PETG 0.4 mm, rounded to whole layers), so they meet without a step. Side-fin
+  (0.6 mm, rounded to whole layers), so they meet without a step. Side-fin
   bases stay at the spec's 1 mm.
 - **Side fins are sized to the face outline.** The fin rises only as high as the face
   reaches across its whole length, so a tilted square face (a diamond) gets a fin in the

@@ -23,9 +23,9 @@ def host():
     return mod, mod.host_engine((BUILT / "fins_engine.js").read_text(encoding="utf-8"))
 
 
-def test_first_run_is_the_sites_defaults_with_curas_material():
+def test_first_run_is_the_sites_defaults():
     values = settings.load(SCHEMA, "")
-    assert values["material"] == settings.MATCH_CURA
+    assert values["gap"] == 0.2
     assert values["coverage"] == 0.5 and values["tines"] is True and values["padStyle"] == "auto"
     assert "layerHeight" not in values          # Cura's profile supplies it, never asked
 
@@ -37,49 +37,30 @@ def test_a_broken_or_old_preference_falls_back_to_defaults():
     assert kept["coverage"] == 0.8 and "retired_option" not in kept
     # strings as a settings file hands them back; nonsense is the default, not a guess
     odd = settings.load(SCHEMA, json.dumps({"tines": "false", "coverage": "0.25", "threshold": 400,
-                                            "cutout": "stars", "material": "petg"}))
+                                            "cutout": "stars", "gap": "0.3", "material": "cura"}))
     assert odd["tines"] is False and odd["coverage"] == 0.25 and odd["threshold"] == 45
-    assert odd["cutout"] == "none" and odd["material"] == "petg"
-    rows = {r["key"]: r for r in settings.rows(SCHEMA, odd, "PLA")}
+    assert odd["cutout"] == "none" and odd["gap"] == 0.3
+    assert "material" not in odd                            # the retired Match Cura choice
+    rows = {r["key"]: r for r in settings.rows(SCHEMA, odd)}
     assert rows["tines"]["value"] is False                  # the dialog shows it off
     assert settings.load(SCHEMA, settings.dump(kept)) == kept
 
 
-@pytest.mark.parametrize("cura, material, says", [
-    ("PLA", "pla", "PLA (Cura has PLA)"),
-    ("Tough PLA", "pla", "PLA (Cura has Tough PLA)"),
-    ("PETG", "petg", "PETG (Cura has PETG)"),
-    ("CPE", "petg", "PETG (Cura has CPE)"),          # copolyesters weld like PETG
-    ("CPE+", "petg", "PETG (Cura has CPE+)"),
-    ("PET CF", "petg", "PETG (Cura has PET CF)"),
-    ("PCTG", "petg", "PETG (Cura has PCTG)"),
-    ("PLA-Wood", "pla", "PLA (Cura has PLA-Wood)"),
-    ("ABS", "pla", "no profile"),
-    ("PEBA", "pla", "no profile"),                   # PE... but not a copolyester
-    (None, "pla", "no material"),
-    ("empty", "pla", "no material"),
-])
-def test_match_cura_follows_the_loaded_filament(cura, material, says):
-    got, note = settings.cura_material(cura)
-    assert got == material and says in note
-
-
-def test_engine_values_resolve_the_material_and_add_curas_layer_height():
+def test_engine_values_add_curas_layer_height():
     values = settings.load(SCHEMA, "")
-    out, note = settings.engine_values(values, "PETG", 0.12)
-    assert out["material"] == "petg" and out["layerHeight"] == 0.12 and "PETG" in note
-    pinned, note = settings.engine_values(dict(values, material="pla"), "PETG", 0.2)
-    assert pinned["material"] == "pla" and note == "PLA (set in Support Fins settings)"   # the user's pick beats Cura's
+    out = settings.engine_values(values, 0.12)
+    assert out["layerHeight"] == 0.12 and out["gap"] == 0.2
+    assert "layerHeight" not in values                      # the saved values are left alone
 
 
-def test_dialog_rows_show_percents_and_curas_material():
-    rows = {r["key"]: r for r in settings.rows(SCHEMA, settings.load(SCHEMA, ""), "PETG")}
+def test_dialog_rows_show_percents_and_the_gap():
+    rows = {r["key"]: r for r in settings.rows(SCHEMA, settings.load(SCHEMA, ""))}
     assert "layerHeight" not in rows
     assert (rows["coverage"]["value"], rows["coverage"]["max"], rows["coverage"]["step"]) == (50, 100, 5)
     assert rows["sway.reach"]["value"] == 15              # not 15.000000000000002
-    mat = rows["material"]
-    assert mat["choices"][0] == {"value": "cura", "label": "Match Cura (now PETG)"} and mat["index"] == 0
-    assert settings.rows(SCHEMA, {}, "ABS")[0]["choices"][0]["label"] == "Match Cura (now PLA, no profile for ABS)"
+    gap = rows["gap"]
+    assert (gap["value"], gap["min"], gap["max"], gap["step"], gap["label"]) == (0.2, 0.1, 0.4, 0.05, "Support gap")
+    assert settings.from_dialog(SCHEMA, "gap", "0,3") == 0.3                  # decimal comma, mm as is
     assert settings.from_dialog(SCHEMA, "coverage", 50) == 0.5
     assert settings.from_dialog(SCHEMA, "threshold", 40) == 40
     assert settings.from_dialog(SCHEMA, "sway.tineSpacing", "12,5") == 12.5   # decimal comma
@@ -100,7 +81,7 @@ def test_save_errors_speak_the_dialogs_language(host):
 
 
 def test_each_section_heading_appears_once():
-    heads = [r["section"] for r in settings.rows(SCHEMA, {}, "PLA") if r["section"]]
+    heads = [r["section"] for r in settings.rows(SCHEMA, {}) if r["section"]]
     assert heads == [s["label"] for s in SCHEMA["sections"]]
 
 
@@ -130,12 +111,12 @@ def test_saved_settings_reach_the_engine(host):
     engine_part = lbracket() @ rot_x(35).T
     engine_part[..., 2] -= engine_part[..., 2].min()
     soup = frames.part_soup(frames.cura_from_engine(engine_part).reshape(-1, 3))
-    defaults, _ = settings.engine_values(settings.load(SCHEMA, ""), "PLA", 0.2)
+    defaults = settings.engine_values(settings.load(SCHEMA, ""), 0.2)
     _, stats = mod.host_compute(ctx, soup, mod.host_options(ctx, defaults))
     assert (stats["braces"], stats["tines"]) == (4, 20)      # the site's result, as PR 1
     # stored like Cura's preferences hand them back: "false" is off, not on
     stored = settings.load(SCHEMA, json.dumps({"tines": "false", "coverage": 0.5}))
-    off, _ = settings.engine_values(stored, "PLA", 0.2)
+    off = settings.engine_values(stored, 0.2)
     _, stats = mod.host_compute(ctx, soup, mod.host_options(ctx, off))
     assert stats["tines"] == 0 and stats["braces"] + stats["props"] == 4   # plain walls, still 4
     assert mod.host_report(stats) == "4 walls, 0 tines"

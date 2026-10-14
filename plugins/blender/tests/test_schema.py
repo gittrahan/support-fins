@@ -47,12 +47,12 @@ def test_defaults_read_back_as_the_sites_defaults():
 
 
 def test_units_on_the_way_to_the_engine():
-    set_to = {"material": "petg", "threshold": 50.0, "tines": False, "tineDensity": 35.0,
+    set_to = {"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 35.0,
               "layerHeight": 0.16, "padStyle": "sure", "sway_on": True, "sway_gripFrom": 12.0,
               "sway_tineSpacing": 8.0, "sway_reach": 20.0, "cutout": "lattice", "coverage": 100.0,
               "plateOnly": True}
     values = schema.dialog_values(SCHEMA, lambda n: set_to[n])
-    assert values == pytest.approx({"material": "petg", "threshold": 50.0, "tines": False, "tineDensity": 0.35,
+    assert values == pytest.approx({"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 0.35,
                                     "layerHeight": 0.16, "padStyle": "sure", "sway.on": True,
                                     "sway.gripFrom": 12.0, "sway.tineSpacing": 8.0, "sway.reach": 0.2,
                                     "cutout": "lattice", "coverage": 1.0, "plateOnly": True})
@@ -89,7 +89,7 @@ def test_the_engine_takes_what_the_panel_sends(engine):
     host, ctx = engine
     by_name = {s["name"]: s for s in SPECS}
     defaults = host.host_options(ctx, schema.dialog_values(SCHEMA, lambda n: by_name[n]["default"]))
-    assert defaults["material"] == "pla" and "sway" not in defaults      # sway off: not sent
+    assert defaults["gap"] == 0.2 and "sway" not in defaults      # sway off: not sent
     tops = {s["name"]: s.get("max", s.get("soft_max")) if s["kind"] == "float" else s["default"] for s in SPECS}
     tops["sway_on"] = True
     opts = host.host_options(ctx, schema.dialog_values(SCHEMA, lambda n: tops[n]))

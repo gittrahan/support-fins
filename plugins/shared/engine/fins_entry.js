@@ -33,7 +33,7 @@ export const ENGINE_DEFAULTS = Object.freeze({
   plateOnly: OPTION.plateOnly.default,       // supports on the plate only, none on the part (#218)
   layerHeight: OPTION.layerHeight.default,   // a slicer host passes its own
   threshold: DEFAULT_THRESHOLD,              // degrees; options.json's default is pinned to it
-  material: OPTION.material.default,   // key of web/materials.js MATERIAL
+  gap: OPTION.gap.default,             // mm: the site's Support gap (PROP.gap)
   padStyle: OPTION.padStyle.default,   // one of PAD_STYLES
   cutout: OPTION.cutout.default,       // one of web/cutout.js CUTOUT_PATTERNS
   // Sway braces (web/sway.js), off by default exactly as on the website. Pass
@@ -135,7 +135,7 @@ export { SCHEMA as OPTIONS_SCHEMA };
  */
 export function computeFins(positions, options = {}) {
   const opts = { ...ENGINE_DEFAULTS, ...options };
-  const { mat, tunables } = clearances(opts);
+  const { tunables } = clearances(opts);
   const { pos, shift } = seatSoup(positions);
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   const result = analyze(topo, opts.threshold, IDENTITY3);
@@ -150,10 +150,10 @@ export function computeFins(positions, options = {}) {
     plateOnly: opts.plateOnly,
     // `sway` is forwarded whole, so a host passes the same object the website's
     // options panel builds; buildFins ignores it unless `on` is set. Like the site
-    // (ui/finbuild.js swayOpts), braces take the material's gap unless the
+    // (ui/finbuild.js swayOpts), braces take the Support gap unless the
     // host sets its own. A null from the host (Python None) counts as unset, or it
-    // would drop sway.js back to PLA's numbers under PETG.
-    sway: opts.sway ? { gap: mat.propGap,
+    // would drop sway.js back to its own 0.2 under a wider gap.
+    sway: opts.sway ? { gap: tunables.propGap,
                         ...Object.fromEntries(Object.entries(opts.sway).filter(([, v]) => v != null)) }
                     : undefined,
     tunables,

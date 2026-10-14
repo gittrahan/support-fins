@@ -1,5 +1,5 @@
-// The entry's material / pad / cutout options: a plugin picking PETG, a pad style or
-// a wall cutout gets what the website builds with the same picks.
+// The entry's gap / pad / cutout options: a plugin setting a wider Support gap, a pad
+// style or a wall cutout gets what the website builds with the same picks.
 //
 //   deno test --allow-read plugins/shared/tests/
 import { computeFins, ENGINE_DEFAULTS } from '../engine/fins_entry.js';
@@ -36,7 +36,7 @@ function centred(pos) {
   }
   // ...and snapped to 1 nm exactly as fins_entry.js does: without it, the engine's
   // tine placement moves under the ~1e-13 mm residue (ENGINE-SENSITIVITY.md) and the
-  // site and the entry differ by a few tines whatever the material.
+  // site and the entry differ by a few tines whatever the gap.
   const snap = (v) => Math.round(v * 1e6) / 1e6;
   const o = new Float64Array(pos.length);
   for (let i = 0; i < pos.length; i += 3) {
@@ -54,53 +54,54 @@ const resetPla = () => computeFins(PART, OPTS);
 const flat = (b) => Float64Array.from([...b.triangles, ...(b.padTriangles || [])].flatMap((v) => [v[0], v[1], v[2]]));
 
 // FIRST in the file on purpose: it reads the engine's built-in numbers before any
-// build here has applied a profile. The entry's default (PLA) must BE those numbers,
-// or a retune in web/fins/config.js etc. that skips materials.js would silently
-// leave every plugin on the old value.
-Deno.test('PLA profile = the engine\'s built-in clearances', () => {
-  const pla = MATERIAL.pla;
+// build here has set clearances. The entry's defaults (PLA's pad, the Support gap's
+// default) must BE those numbers, or a retune in web/fins/config.js etc. that skips
+// materials.js would silently leave every plugin on the old value.
+Deno.test('entry defaults = the engine\'s built-in clearances', () => {
+  const pla = MATERIAL.pla, gap = ENGINE_DEFAULTS.gap;
+  assert(gap === pla.propGap, `default gap ${gap}, PLA's ${pla.propGap}`);
   const pairs = [['FIN.padH', fins.FIN.padH, pla.padH],
-                 ['PAD.grab', fins.PAD.grab, pla.padGrab], ['PROP.gap', PROP.gap, pla.propGap],
-                 ['PERP.gap', PERP.gap, pla.propGap], ['SWAY.gap', SWAY.gap, pla.propGap],
+                 ['PAD.grab', fins.PAD.grab, pla.padGrab], ['PROP.gap', PROP.gap, gap],
+                 ['PERP.gap', PERP.gap, gap], ['SWAY.gap', SWAY.gap, gap],
                  ['PAD.style', fins.PAD.style, ENGINE_DEFAULTS.padStyle], ['CUT.pattern', CUT.pattern, ENGINE_DEFAULTS.cutout]];
   for (const [name, engine, profile] of pairs) assert(engine === profile, `${name} is ${engine}, the plugins' default ${profile}`);
 });
 
-Deno.test('defaults are PLA, Auto pad, no cutout: the website defaults', () => {
-  assert(ENGINE_DEFAULTS.material === 'pla' && ENGINE_DEFAULTS.padStyle === 'auto'
+Deno.test('defaults are gap 0.2, Auto pad, no cutout: the website defaults', () => {
+  assert(ENGINE_DEFAULTS.gap === 0.2 && ENGINE_DEFAULTS.padStyle === 'auto'
          && ENGINE_DEFAULTS.cutout === 'none', 'defaults moved');
   const plain = computeFins(PART, OPTS).triangles;
-  const explicit = computeFins(PART, { ...OPTS, material: 'pla', padStyle: 'auto', cutout: 'none' }).triangles;
+  const explicit = computeFins(PART, { ...OPTS, gap: 0.2, padStyle: 'auto', cutout: 'none' }).triangles;
   assert(same(plain, explicit), 'spelling out the defaults changed the fins');
 });
 
-Deno.test('PETG: same fins as the website builds for PETG, and not PLA\'s', () => {
+Deno.test('gap 0.3: same fins as the website builds with Support gap 0.3, and not 0.2\'s', () => {
   try {
-    const pla = computeFins(PART, OPTS);
-    const petg = computeFins(PART, { ...OPTS, material: 'petg', padStyle: 'sure' });
-    assert(!same(pla.triangles, petg.triangles), 'PETG built PLA\'s geometry');
-    // The website: the same posed part, with the tunables ui/finbuild.js sends for PETG.
-    // Compared vertex by vertex, not by counts -- PLA and PETG place the same walls and
-    // tines on this part; only the clearances move (Sure hold, so padH and padGrab show).
-    const m = MATERIAL.petg, topo = topoOf(centred(PART));
+    const narrow = computeFins(PART, OPTS);
+    const wide = computeFins(PART, { ...OPTS, gap: 0.3, padStyle: 'sure' });
+    assert(!same(narrow.triangles, wide.triangles), 'gap 0.3 built gap 0.2\'s geometry');
+    // The website: the same posed part, with the tunables ui/finbuild.js sends for a
+    // 0.3 gap. Compared vertex by vertex, not by counts -- both gaps place the same
+    // walls and tines on this part; only the clearance moves.
+    const m = MATERIAL.pla, topo = topoOf(centred(PART));
     const web = flat(fins.buildFins(topo, analyze(topo, 45, IDENTITY3), IDENTITY3, { ...OPTS,
-      tunables: { padH: m.padH, padGrab: m.padGrab, propGap: m.propGap,
+      tunables: { padH: m.padH, padGrab: m.padGrab, propGap: 0.3,
                   padStyle: 'sure', cutout: 'none' } }));
-    assert(web.length === petg.triangles.length, `${petg.triangles.length / 9} vs site ${web.length / 9} triangles`);
+    assert(web.length === wide.triangles.length, `${wide.triangles.length / 9} vs site ${web.length / 9} triangles`);
     let worst = 0;
-    for (let i = 0; i < web.length; i++) worst = Math.max(worst, Math.abs(web[i] - petg.triangles[i]));
-    assert(worst < 1e-4, `PETG fins are ${worst} mm off the site's`);
+    for (let i = 0; i < web.length; i++) worst = Math.max(worst, Math.abs(web[i] - wide.triangles[i]));
+    assert(worst < 1e-4, `gap 0.3 fins are ${worst} mm off the site's`);
   } finally { resetPla(); }
 });
 
-Deno.test('one engine, many calls: PETG never leaks into the next PLA build', () => {
+Deno.test('one engine, many calls: a wide gap never leaks into the next default build', () => {
   try {
     const before = computeFins(PART, OPTS).triangles;
-    const petg1 = computeFins(PART, { ...OPTS, material: 'petg', padStyle: 'sure', cutout: 'diamond' }).triangles;
+    const wide1 = computeFins(PART, { ...OPTS, gap: 0.3, padStyle: 'sure', cutout: 'diamond' }).triangles;
     const after = computeFins(PART, OPTS).triangles;
-    const petg2 = computeFins(PART, { ...OPTS, material: 'petg', padStyle: 'sure', cutout: 'diamond' }).triangles;
-    assert(same(before, after), 'PLA after PETG differs from PLA before it');
-    assert(same(petg1, petg2), 'PETG differs between two calls');
+    const wide2 = computeFins(PART, { ...OPTS, gap: 0.3, padStyle: 'sure', cutout: 'diamond' }).triangles;
+    assert(same(before, after), 'the default build after gap 0.3 differs from the one before it');
+    assert(same(wide1, wide2), 'gap 0.3 differs between two calls');
   } finally { resetPla(); }
 });
 
@@ -155,21 +156,21 @@ Deno.test('cutout: holes in the walls, still closed solids', () => {
   } finally { resetPla(); }
 });
 
-Deno.test('sway braces take the material\'s clearances; a null from the host is unset', () => {
+Deno.test('sway braces take the Support gap; a null from the host is unset', () => {
   try {
     const bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));  // upright: braced
-    const petg = (sway) => computeFins(bar, { ...OPTS, material: 'petg', sway: { on: true, ...sway } });
-    const byMaterial = petg({});
-    assert(byMaterial.stats.swayBraces >= 1, `no sway braces on the bar (${byMaterial.stats.swayReason})`);
-    assert(same(byMaterial.triangles, petg({ gap: null }).triangles),
-           'gap: null dropped the braces off PETG\'s numbers');
-    const plaBraces = petg({ gap: MATERIAL.pla.propGap });
-    assert(!same(byMaterial.triangles, plaBraces.triangles), 'PETG braces built with PLA\'s gap');
+    const wide = (sway) => computeFins(bar, { ...OPTS, gap: 0.3, sway: { on: true, ...sway } });
+    const byGap = wide({});
+    assert(byGap.stats.swayBraces >= 1, `no sway braces on the bar (${byGap.stats.swayReason})`);
+    assert(same(byGap.triangles, wide({ gap: null }).triangles),
+           'sway gap: null dropped the braces off the 0.3 Support gap');
+    const narrowBraces = wide({ gap: 0.2 });
+    assert(!same(byGap.triangles, narrowBraces.triangles), 'braces ignored the 0.3 Support gap');
   } finally { resetPla(); }
 });
 
-Deno.test('unknown material / pad style / cutout is refused, not silently PLA', () => {
-  for (const bad of [{ material: 'abs' }, { padStyle: 'custom' }, { cutout: 'stars' }]) {
+Deno.test('a bad gap / pad style / cutout, or the old material option, is refused', () => {
+  for (const bad of [{ gap: 3 }, { gap: '0.3' }, { material: 'petg' }, { padStyle: 'custom' }, { cutout: 'stars' }]) {
     let threw = false;
     try { computeFins(PART, { ...OPTS, ...bad }); } catch { threw = true; }
     assert(threw, `accepted ${JSON.stringify(bad)}`);

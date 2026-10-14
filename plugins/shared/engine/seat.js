@@ -13,22 +13,35 @@ export function pick(name, value, allowed) {
   return value;
 }
 
+// The site's Support gap field's range (#gap in web/index.html, options.json's gap).
+// Refused rather than clamped, as optionsFromDialog does: a host calling computeFins
+// directly with 3 (forgot it is mm, not tenths) would print welded supports.
+const GAP_MIN = 0.1, GAP_MAX = 0.4;
+function gapOf(gap) {
+  if (!(typeof gap === 'number' && gap >= GAP_MIN && gap <= GAP_MAX)) {
+    throw new Error(`gap must be ${GAP_MIN}..${GAP_MAX}, got ${JSON.stringify(gap)}`);
+  }
+  return gap;
+}
+
 /**
- * The material's numbers and the clearances buildFins / applyTunables take, exactly
- * as the site's build request sends them (ui/finbuild.js). ALWAYS the full set:
- * they land in module state, and a plugin's V8 context lives across calls, so a
- * partial set would let a PETG run's clearances leak into the next PLA run.
+ * The clearances buildFins / applyTunables take, exactly as the site's build request
+ * sends them (ui/finbuild.js): PLA's pad numbers, as on the site, and the Support
+ * gap. ALWAYS the full set: they land in module state, and a plugin's V8 context
+ * lives across calls, so a partial set would let one run's gap leak into the next.
  * `opts` is ENGINE_DEFAULTS merged with the host's options.
  */
 export function clearances(opts) {
-  const mat = MATERIAL[pick('material', opts.material, Object.keys(MATERIAL))];
+  // The PLA/PETG choice is gone (the site dropped it first): refuse it out loud
+  // rather than quietly build a host's PETG request at PLA's gap.
+  if (opts.material !== undefined) throw new Error('material is no longer an option: pass gap (0.3 for PETG)');
   const tunables = {
-    padH: mat.padH, padGrab: mat.padGrab, propGap: mat.propGap,
+    padH: MATERIAL.pla.padH, padGrab: MATERIAL.pla.padGrab, propGap: gapOf(opts.gap),
     // Off builds no pad, so which style it carries doesn't matter; Auto keeps it valid.
     padStyle: pick('padStyle', opts.padStyle, PAD_STYLES) === 'off' ? 'auto' : opts.padStyle,
     cutout: pick('cutout', opts.cutout, CUTOUT_PATTERNS),
   };
-  return { mat, tunables };
+  return { tunables };
 }
 
 /**

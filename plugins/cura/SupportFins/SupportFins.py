@@ -152,20 +152,17 @@ class SupportFins(QObject, Extension):
         app = CuraApplication.getInstance()
         layer = app.getGlobalContainerStack().getProperty("layer_height", "value")
         saved = settings.load(self.schema(), app.getPreferences().getValue(settings.PREF))
-        soups, poses, values, notes = [], [], [], []
+        soups, poses = [], []
         for part in parts:
             md = part.getMeshData().getTransformed(part.getWorldTransformation())
             soups.append(frames.part_soup(md.getVertices(),
                                           md.getIndices() if md.hasIndices() else None))
             poses.append(part.getWorldTransformation().getData().copy())
-            v, note = settings.engine_values(saved, self._material_type(part), layer)
-            values.append(v)
-            notes.append(note)
         self._progress = Message("Computing fins…", lifetime=0, dismissable=False,
                                  progress=-1, title=TITLE)
         self._progress.show()
-        self._pending = (parts, poses, notes, list(skipped))
-        self._job = FinsJob(soups, values)
+        self._pending = (parts, poses, list(skipped))
+        self._job = FinsJob(soups, [settings.engine_values(saved, layer)] * len(parts))
         # A bound method, not a lambda: Uranium's Signal holds plain functions weakly.
         self._job.finished.connect(self._onJobFinished)
         self._job.start()
@@ -175,7 +172,7 @@ class SupportFins(QObject, Extension):
         CuraApplication.getInstance().callLater(self._finished, job)
 
     def _finished(self, job):
-        parts, poses, notes, skipped = self._pending
+        parts, poses, skipped = self._pending
         self._job = self._pending = None
         if self._visible_pending:
             self._update_visible()       # the dialog changed while the engine was busy
@@ -189,7 +186,7 @@ class SupportFins(QObject, Extension):
             return
         lines = []
         op = GroupedOperation()
-        for part, pose, note, (fins, stats) in zip(parts, poses, notes, job.getResult()):
+        for part, pose, (fins, stats) in zip(parts, poses, job.getResult()):
             name = part.getName()
             if part.getParent() is None:
                 continue                                  # deleted while computing
@@ -208,8 +205,7 @@ class SupportFins(QObject, Extension):
                 # the world position, and Cura's drop-to-plate leaves children alone.
                 op.addOperation(AddSceneNodeOperation(node, part.getParent()))
                 op.addOperation(SetParentOperation(node, part))
-            lines.append((f"{name}: " if len(parts) > 1 else "") + host.host_report(stats)
-                         + f"; material {note}")
+            lines.append((f"{name}: " if len(parts) > 1 else "") + host.host_report(stats))
         op.push()
         lines += skipped
         stack = CuraApplication.getInstance().getGlobalContainerStack()
@@ -229,8 +225,8 @@ class SupportFins(QObject, Extension):
         plate = CuraApplication.getInstance().getMultiBuildPlateModel().activeBuildPlate
         node.addDecorator(BuildPlateDecorator(plate))
         node.addDecorator(SliceableObjectDecorator())
-        # Print the fins with the part's extruder: its material is the one "Match Cura"
-        # read, and a new node would otherwise take extruder 1.
+        # Print the fins with the part's extruder (its filament), or a new node would
+        # take extruder 1.
         extruder = part.callDecoration("getActiveExtruder")
         if extruder:
             node.callDecoration("setActiveExtruder", extruder)
@@ -247,14 +243,6 @@ class SupportFins(QObject, Extension):
     # -- selection ------------------------------------------------------------------
     def _selected_parts(self):
         return scope.selected_parts(Selection.getAllSelectedObjects(), is_fins)
-
-    def _material_type(self, part):
-        """Cura's material type ("PLA", "PETG", ...) loaded for this part's extruder."""
-        mgr = CuraApplication.getInstance().getExtruderManager()
-        pos = part.callDecoration("getActiveExtruderPosition")
-        stack = mgr.getExtruderStack(int(pos)) if pos is not None else None
-        stack = stack or mgr.getActiveExtruderStack()
-        return stack.material.getMetaDataEntry("material") if stack else None
 
     # -- stale fins ------------------------------------------------------------------
     # State lives ON the part (support_fins_*), not in dicts keyed by id(): ids are
@@ -316,7 +304,7 @@ class SupportFins(QObject, Extension):
     def showSettings(self):
         app = CuraApplication.getInstance()
         self._draft = settings.load(self.schema(), app.getPreferences().getValue(settings.PREF))
-        self._rows = settings.rows(self.schema(), self._draft, self._material_type_for_dialog())
+        self._rows = settings.rows(self.schema(), self._draft)
         self._set_error("")
         self._update_visible()
         self.rowsChanged.emit()
@@ -324,13 +312,6 @@ class SupportFins(QObject, Extension):
             self._dialog = app.createQmlComponent(os.path.join(HERE, "SettingsDialog.qml"), {"manager": self})
         if self._dialog is not None:
             self._dialog.show()
-
-    def _material_type_for_dialog(self):
-        parts = self._selected_parts()
-        if parts:
-            return self._material_type(parts[0])
-        stack = CuraApplication.getInstance().getExtruderManager().getActiveExtruderStack()
-        return stack.material.getMetaDataEntry("material") if stack else None
 
     rowsChanged = pyqtSignal()
     visibleChanged = pyqtSignal()
@@ -363,7 +344,7 @@ class SupportFins(QObject, Extension):
             self._set_error("Still computing fins. Save again in a moment.")
             return False
         try:
-            host.host_options(engine(), settings.engine_values(self._draft, None, layer)[0])
+            host.host_options(engine(), settings.engine_values(self._draft, layer))
         except Exception as e:  # the engine names the bad setting
             self._set_error("Not saved: " + settings.friendly_error(self.schema(), str(e)))
             return False
@@ -375,8 +356,6 @@ class SupportFins(QObject, Extension):
 
     def _update_visible(self):
         values = dict(self._draft)
-        if values.get("material") == settings.MATCH_CURA:
-            values.pop("material")   # not an engine value; visibility never depends on it
         if not LOCK.acquire(blocking=False):
             self._visible_pending = True          # a compute is running: catch up after it
             return

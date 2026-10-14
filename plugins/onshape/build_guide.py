@@ -354,7 +354,7 @@ steps([
     "Open <b>Custom features</b> " + ARROW + " <b>Support-Fins FS</b> and select the part under "
     "<b>Parts to support</b>.",
     "Under <b>Print settings</b>, set <b>Layer height</b> to your slicer's layer height, <b>Nozzle</b> "
-    "to your printer's nozzle size, and choose the <b>Material</b>.",
+    "to your printer's nozzle size, and, for PETG, widen the <b>Support gap</b>.",
     "Check the preview. Turn on <b>Show detected overhangs</b> to see which faces were found. Adjust "
     "<b>Overhang ribs</b>, and turn on <b>Side bracing fins</b> if the part rests on an edge or corner.",
     "Click <b>OK</b>. The supports appear as orange parts named <i>&lt;part&gt; support 1, 2 \u2026</i>, and "
@@ -418,24 +418,11 @@ table(["Option", "Description"], [
      "and lined up with the layers, so it prints as a single strand that snaps clean."],
     ["Nozzle", "Your printer's nozzle diameter (default 0.4 mm). Tines and contact tips are one bead wide, so "
      "they scale with it both ways; the ribs and side fins only get thicker for a bigger nozzle."],
-    ["Material", "Sets the clearances. PETG sticks to supports much harder than PLA, so it gets bigger gaps, "
-     "shallower side-fin tines and a pad that stands just off the part. <b>Custom</b> shows every value."],
-    ["Support gap", "Custom only. Air gap between the supports and the part."],
-    ["Rib tine bite / Side fin tine bite", "Custom only. How far tines reach into the part. Smaller leaves "
-     "smaller marks and grips less."],
-    ["Base height / Pad grab", "Custom only. Height of everything lying on the bed (the rib flanges and the "
-     "pad share it, so they meet with no step), and how far the pad overlaps the part's underside. A negative "
-     "grab leaves a gap instead. Base height is rounded to whole layers."],
+    ["Support gap", "Air gap between the supports and the part (default 0.2 mm, the website's). Bigger "
+     "comes off easier and leaves a rougher underside. PETG sticks to supports much harder than PLA: "
+     "try 0.3 mm."],
     ["Show detected overhangs", "Highlights the overhang faces that were found, in red."],
 ], [1.3, 4])
-P("The material presets use these values:")
-table(["Setting", "PLA", "PETG"], [
-    ["Support gap", "0.2 mm", "0.3 mm"],
-    ["Rib tine bite", "0.5 mm", "0.5 mm"],
-    ["Side fin tine bite", "0.3 mm", "0.15 mm"],
-    ["Base height (flanges + pad)", "0.6 mm", "0.4 mm"],
-    ["Pad grab", "+0.05 mm (tacked on)", "\u22120.1 mm (gap, touching only at the resting edge)"],
-], [1.3, 1.6, 2.4])
 
 section(4, "How the Supports Are Built")
 subsection("4.1  Overhang ribs")
@@ -520,7 +507,7 @@ bullets([
     "To remove a rib or fin, bend it sideways, in the plane of the layers. The tines fatigue and snap, "
     "leaving small, faint marks. Pulling straight off tears them out instead.",
     "Peel the bed pad off from its outer edge toward the part.",
-    "For PETG, choose the PETG material. PETG bonds to supports far harder than PLA does.",
+    "For PETG, set <b>Support gap</b> to 0.3 mm. PETG bonds to supports far harder than PLA does.",
 ])
 
 section(7, "Troubleshooting")

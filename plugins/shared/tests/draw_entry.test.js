@@ -1,7 +1,7 @@
 // drawWall (draw_entry.js): Draw mode for the plugins. Pins that it is the
 // website's drawn wall (web/draw.js drawnWall, called the way web/ui/walls.js
 // calls it), that it doesn't move with where the part sits on the plate, and that
-// its material clearances are applied every call and don't leak between calls.
+// its clearances are applied every call and don't leak between calls.
 //
 //   deno test --allow-read plugins/shared/tests/
 import { drawWall } from '../engine/draw_entry.js';
@@ -33,13 +33,13 @@ const add = (p, d) => p.map((v, i) => v + d[i]);
 const PLATE = [137.25, 88.5, 3.0];
 
 // The site's call (web/ui/walls.js rebuildDrawn): the part in the print frame
-// (analyze's offset applied), the clicks in that frame, the material's tunables set.
-function siteWall(pos, a, b, material = 'pla', layerHeight = 0.2) {
+// (analyze's offset applied), the clicks in that frame, the gap's tunables set.
+function siteWall(pos, a, b, gap = 0.2, layerHeight = 0.2) {
   const topo = buildTopology({ getAttribute: () => ({ array: pos }) });
   const res = analyze(topo, 45, IDENTITY3);
   const o = [res.offset.x, res.offset.y, res.offset.z];
-  const m = MATERIAL[material];
-  applyTunables({ padH: m.padH, padGrab: m.padGrab, propGap: m.propGap });
+  const m = MATERIAL.pla;
+  applyTunables({ padH: m.padH, padGrab: m.padGrab, propGap: gap });
   return drawnWall(add(a, o), add(b, o), moved(pos, o), 0,
     { tines: true, tineDensity: 0, layerHeight, topo, rot: IDENTITY3, offset: res.offset });
 }
@@ -86,25 +86,26 @@ Deno.test('drawWall: the same wall anywhere on the plate', () => {
   assert(worst < 1e-4, `mapped-back walls differ by ${worst} mm`);
 });
 
-Deno.test('drawWall: PETG is the site\'s PETG wall, and does not leak into the next PLA one', () => {
+Deno.test('drawWall: gap 0.3 is the site\'s 0.3 wall, and does not leak into the next default one', () => {
   const { pos, a, b } = tiltedBlock();
-  const pla = drawWall(pos, a, b, {});
-  const petg = drawWall(pos, a, b, { material: 'petg' });
-  const site = siteWall(pos, a, b, 'petg');
-  assert(petg.ok && site.ok, 'PETG wall failed');
-  assert(petg.triangles.length === site.tris.length * 3 && petg.stats.tines === site.tines, 'PETG wall differs from the site\'s');
-  assert(!(petg.triangles.length === pla.triangles.length && petg.triangles.every((v, i) => v === pla.triangles[i])),
-    'PETG wall is identical to PLA: the material never reached it');
+  const narrow = drawWall(pos, a, b, {});
+  const wide = drawWall(pos, a, b, { gap: 0.3 });
+  const site = siteWall(pos, a, b, 0.3);
+  assert(wide.ok && site.ok, 'gap 0.3 wall failed');
+  const d = worst(back(wide), siteBack(site, pos));
+  assert(wide.stats.tines === site.tines && d < 1e-4, `gap 0.3 wall sits ${d} mm from the site's`);
+  assert(!(wide.triangles.length === narrow.triangles.length && wide.triangles.every((v, i) => v === narrow.triangles[i])),
+    'gap 0.3 wall is identical to 0.2: the gap never reached it');
   const again = drawWall(pos, a, b, {});
-  assert(again.triangles.length === pla.triangles.length && again.triangles.every((v, i) => v === pla.triangles[i]),
-    'a PLA wall after a PETG one differs: clearances leaked');
+  assert(again.triangles.length === narrow.triangles.length && again.triangles.every((v, i) => v === narrow.triangles[i]),
+    'a default wall after a 0.3 one differs: clearances leaked');
 });
 
 Deno.test('drawWall: the layer height reaches the wall (one-layer tines)', () => {
   const { pos, a, b } = tiltedBlock();
   for (const lh of [0.1, 0.3]) {
     const r = drawWall(pos, a, b, { layerHeight: lh });
-    const site = siteWall(pos, a, b, 'pla', lh);
+    const site = siteWall(pos, a, b, 0.2, lh);
     const d = worst(back(r), siteBack(site, pos));
     assert(d < 1e-4, `layer ${lh}: the wall sits ${d} mm from the site's`);
   }
@@ -127,14 +128,14 @@ Deno.test('drawWall refuses bad endpoints and bad options', () => {
     assert(threw, `accepted b = ${JSON.stringify(bad)}`);
   }
   let threw = false;
-  try { drawWall(pos, a, b, { material: 'abs' }); } catch { threw = true; }
-  assert(threw, 'accepted an unknown material');
+  try { drawWall(pos, a, b, { gap: 0.05 }); } catch { threw = true; }
+  assert(threw, 'accepted a gap under the site\'s 0.1');
 });
 
 Deno.test('drawWall leaves the next computeFins unchanged', () => {
   const { pos, a, b } = tiltedBlock();
   const before = computeFins(pos, {});
-  drawWall(pos, a, b, { material: 'petg', cutout: 'lattice' });
+  drawWall(pos, a, b, { gap: 0.3, cutout: 'lattice' });
   const after = computeFins(pos, {});
   assert(after.triangles.length === before.triangles.length && after.triangles.every((v, i) => v === before.triangles[i]),
     'computeFins after a drawWall differs from before it');

@@ -147,14 +147,15 @@ Deno.test('cli: flags reach the engine in the site\'s units', async () => {
   assert(JSON.stringify(dense) === JSON.stringify(want), '--coverage 100 is the entry\'s coverage 1');
   const nopad = JSON.parse((await cli(['lb.stl', '--rot', '0,35,0', '--json', '--pad-style', 'off'])).out[0]).stats;
   assert(base.padTriangles > 0 && nopad.padTriangles === 0, 'pad style off drops the pad');
-  const a = parseArgs(['x.stl', '--sway', '--sway-reach', '20', '--material', 'petg']);
-  assert(a.dialog['sway.on'] === true && a.dialog['sway.reach'] === 0.2 && a.dialog.material === 'petg', JSON.stringify(a.dialog));
+  const a = parseArgs(['x.stl', '--sway', '--sway-reach', '20', '--gap', '0.3']);
+  assert(a.dialog['sway.on'] === true && a.dialog['sway.reach'] === 0.2 && a.dialog.gap === 0.3, JSON.stringify(a.dialog));
 });
 
 Deno.test('cli: bad arguments are exit 2 with a message in the flag\'s own units', async () => {
   const cases = [
     [['lb.stl', '--coverage', '150'], /--coverage must be 0\.\.100, got 150/],
-    [['lb.stl', '--material', 'abs'], /--material must be one of pla, petg/],
+    [['lb.stl', '--gap', '3'], /--gap must be 0\.1\.\.0\.4, got 3/],
+    [['lb.stl', '--pad-style', 'custom'], /--pad-style must be one of off, auto, light, sure/],
     [['lb.stl', '--frobnicate'], /unknown option --frobnicate/],
     [['lb.stl', '--rot', '35'], /--rot takes three angles/],
     [['lb.stl', '--layer-height', 'thick'], /--layer-height must be a number/],

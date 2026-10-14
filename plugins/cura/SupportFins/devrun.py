@@ -2,7 +2,7 @@
 this file:
 
     {"rotate_x": 35, "slice": true,
-     "settings": {"material": "petg", "tines": "false"}, "dialog": true, "stale": true}
+     "settings": {"gap": 0.3, "tines": "false"}, "dialog": true, "stale": true}
 
 Then every model opened (e.g. `open -a "UltiMaker Cura" part.stl`) is tilted, gets
 fins, and is put through re-run / undo / remove / undo; each step goes to

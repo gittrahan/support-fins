@@ -127,9 +127,9 @@ plugin, method bodies for the module); keep it that way.
 
 ## Notes / possible polish
 
-- **Material.** Gap 0.2 is the site's PLA default (`PROP`). PETG wants bigger gaps; a material
-  choice could follow the gap coupon's PETG print. (Tine reach isn't a material setting: tines
-  end at the part's surface.)
+- **Support gap.** Fixed at 0.2, the site's default (`PROP`). PETG wants a bigger gap; the site
+  and the other plugins have a Support gap setting this dialog could take. (Tine reach isn't a
+  gap setting: tines end at the part's surface.)
 - **Distribution:** optionally PR to
   [leotrax3d/prusaslicer-plugins-unofficial](https://github.com/leotrax3d/prusaslicer-plugins-unofficial)
   for reach + its CI and signing/release workflow, keeping the canonical copy here.

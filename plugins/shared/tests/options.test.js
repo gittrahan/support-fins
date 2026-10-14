@@ -7,7 +7,6 @@
 import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible } from '../engine/fins_entry.js';
 import { DEFAULT_THRESHOLD } from '../../../web/overhangs.js';
 import { readSTL, MODELS, rotY, assert } from '../../../tests/_util.js';
-import { MATERIAL } from '../../../web/materials.js';
 import { CUTOUT_PATTERNS } from '../../../web/cutout.js';
 import { SWAY } from '../../../web/sway.js';
 
@@ -35,8 +34,6 @@ function siteControl(id) {
 const fromSite = (o, v) => (o.percent ? Number(v) / 100 : Number(v));
 // Options the site shows that a plugin dialog deliberately leaves out (options.json $comment).
 const SITE_ONLY_CHOICES = { padStyle: ['custom'] };
-// Options a plugin dialog still has that the site dropped, and why.
-const PLUGIN_ONLY = { material: 'the site dropped its PLA/PETG dropdown; the plugins\' goes next' };
 // Every site control that is NOT in options.json, and why. A new control on the site
 // fails the test below until it is added to the schema or listed here.
 const SITE_EXCLUDED = {
@@ -47,7 +44,6 @@ const SITE_EXCLUDED = {
   'show-layers': 'site display', 'highlight-small': 'site display', 'show-rings': 'site display',
   'nav-preset': 'site mouse navigation',
   'fin-mode': 'plugins run Auto; Draw needs the site\'s canvas',
-  'gap': 'hand-typed clearance; the material sets it',
   'pad-h': 'Custom pad', 'pad-gap': 'Custom pad', 'pad-grip': 'Custom pad', 'pad-margin': 'Custom pad',
   'iface': 'a third 3MF object for a second material; the plugins hand the host one body',
   'nozzle': 'site first; the plugins build at 0.4 until their dialogs take it (web/nozzle.js)',
@@ -78,7 +74,6 @@ Deno.test('options.json is well formed', () => {
 
 Deno.test('every default, range and choice is the website\'s', () => {
   for (const o of OPTS) {
-    if (PLUGIN_ONLY[o.key]) continue;
     const site = siteControl(o.site);
     if (o.type === 'bool') {
       assert(site.type === 'checkbox', `${o.key}: #${o.site} is not a checkbox`);
@@ -109,7 +104,6 @@ Deno.test('every site control is in the schema or left out on purpose', () => {
 
 Deno.test('the choices are exactly what the engine knows', () => {
   const values = (k) => byKey[k].choices.map((c) => c.value);
-  assert(values('material').join() === Object.keys(MATERIAL).join(), 'material choices vs web/materials.js');
   assert(values('cutout').join() === CUTOUT_PATTERNS.join(), 'cutout choices vs web/cutout.js');
   // and the entry takes every choice offered (pad styles are the entry's own list)
   const cube = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}cube.stl`)));
@@ -146,12 +140,12 @@ Deno.test('optionVisible hides exactly what the site hides (web/ui/settings.js)'
   for (const k of ['sway.gripFrom', 'sway.tineSpacing']) {
     assert(shown(k, { 'sway.on': true }) && !shown(k, { 'sway.on': true, tines: false }), `${k} follows sway AND tines`);
   }
-  for (const k of ['material', 'threshold', 'padStyle', 'cutout', 'coverage', 'tines', 'sway.on']) assert(shown(k, {}), `${k} always shown`);
+  for (const k of ['gap', 'threshold', 'padStyle', 'cutout', 'coverage', 'tines', 'sway.on']) assert(shown(k, {}), `${k} always shown`);
 });
 
 Deno.test('optionsFromDialog: nests, checks, drops sway when off', () => {
-  const o = optionsFromDialog({ material: 'petg', 'sway.on': 'True', 'sway.reach': 0.2, coverage: '0.25', tines: 'false' });
-  assert(o.material === 'petg' && o.coverage === 0.25 && o.tines === false, JSON.stringify(o));
+  const o = optionsFromDialog({ gap: '0.3', 'sway.on': 'True', 'sway.reach': 0.2, coverage: '0.25', tines: 'false' });
+  assert(o.gap === 0.3 && o.coverage === 0.25 && o.tines === false, JSON.stringify(o));
   assert(o.sway.on === true && o.sway.reach === 0.2, `sway not nested: ${JSON.stringify(o.sway)}`);
   assert(!('sway' in optionsFromDialog({ 'sway.on': false, 'sway.reach': 0.2 })), 'sway sent while off');
   assert(!('sway' in optionsFromDialog({ 'sway.on': 'false', 'sway.reach': 0.2 })), '"false" turned sway on');

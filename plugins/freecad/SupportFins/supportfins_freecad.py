@@ -122,8 +122,11 @@ class SupportFins:
 
     def add_properties(self, obj):
         """Adds whatever is missing, so a file saved by an older add-on gains new
-        engine options (at their defaults) when it opens."""
+        engine options (at their defaults) when it opens, and drops retired ones."""
         have = set(obj.PropertiesList)
+        for name in props.RETIRED:
+            if name in have and name not in SETTING_NAMES:
+                obj.removeProperty(name)
 
         def add(kind, name, group, tip, value=None, enum=None):
             if name in have:

@@ -11,8 +11,8 @@ engine/fins_entry.js    posed triangle soup in (mm, z up) -> fin + bed-pad trian
                         faces the site paints red, and amber: too small to fin)
 engine/draw_entry.js    Draw mode: the same soup + two points -> one hand-drawn wall
                         (web/draw.js drawnWall, called the way the site calls it)
-engine/seat.js          what both entries do first: centre + snap the part, pick the
-                        material's clearances -- so a wall doesn't move with plate position
+engine/seat.js          what both entries do first: centre + snap the part, set the
+                        clearances -- so a wall doesn't move with plate position
 engine/bridge.js        base64 in/out for Python hosts running the bundle in V8 (mini-racer)
 engine/options.json     the settings every plugin dialog is built from: key, type, default,
                         range or choices, label, tooltip, section, when it shows. Defaults,
