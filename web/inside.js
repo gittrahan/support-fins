@@ -22,7 +22,8 @@
  * test saves.
  */
 
-const GRID = 64;          // buckets per axis; 64^2 over a part is plenty
+import { gridDims } from './gridsize.js';
+
 const EPS = 1e-9;
 
 /**
@@ -39,47 +40,49 @@ function buildGrid(topo) {
     if (y < minY) minY = y; if (y > maxY) maxY = y;
     if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
   }
-  const sy = GRID / Math.max(1e-6, maxY - minY);
-  const sz = GRID / Math.max(1e-6, maxZ - minZ);
+  // cells per axis sized to the mesh (gridsize.js), at least the old 64
+  const [NY, NZ] = gridDims(maxY - minY, maxZ - minZ, nFaces);
+  const sy = NY / Math.max(1e-6, maxY - minY);
+  const sz = NZ / Math.max(1e-6, maxZ - minZ);
   const cell = (y, z) => {
-    const a = Math.min(GRID - 1, Math.max(0, Math.floor((y - minY) * sy)));
-    const b = Math.min(GRID - 1, Math.max(0, Math.floor((z - minZ) * sz)));
-    return a * GRID + b;
+    const a = Math.min(NY - 1, Math.max(0, Math.floor((y - minY) * sy)));
+    const b = Math.min(NZ - 1, Math.max(0, Math.floor((z - minZ) * sz)));
+    return a * NZ + b;
   };
 
-  // counting sort into CSR, so there is one flat Int32Array rather than 4096
-  // little arrays
-  const counts = new Int32Array(GRID * GRID + 1);
+  // counting sort into CSR, so there is one flat Int32Array rather than a
+  // little array per cell
+  const counts = new Int32Array(NY * NZ + 1);
   const span = (f) => {
     const o = f * 9;
     const y0 = Math.min(pos[o + 1], pos[o + 4], pos[o + 7]);
     const y1 = Math.max(pos[o + 1], pos[o + 4], pos[o + 7]);
     const z0 = Math.min(pos[o + 2], pos[o + 5], pos[o + 8]);
     const z1 = Math.max(pos[o + 2], pos[o + 5], pos[o + 8]);
-    return [Math.min(GRID - 1, Math.max(0, Math.floor((y0 - minY) * sy))),
-            Math.min(GRID - 1, Math.max(0, Math.floor((y1 - minY) * sy))),
-            Math.min(GRID - 1, Math.max(0, Math.floor((z0 - minZ) * sz))),
-            Math.min(GRID - 1, Math.max(0, Math.floor((z1 - minZ) * sz)))];
+    return [Math.min(NY - 1, Math.max(0, Math.floor((y0 - minY) * sy))),
+            Math.min(NY - 1, Math.max(0, Math.floor((y1 - minY) * sy))),
+            Math.min(NZ - 1, Math.max(0, Math.floor((z0 - minZ) * sz))),
+            Math.min(NZ - 1, Math.max(0, Math.floor((z1 - minZ) * sz)))];
   };
 
   for (let f = 0; f < nFaces; f++) {
     const [a0, a1, b0, b1] = span(f);
     for (let a = a0; a <= a1; a++) {
-      for (let b = b0; b <= b1; b++) counts[a * GRID + b + 1]++;
+      for (let b = b0; b <= b1; b++) counts[a * NZ + b + 1]++;
     }
   }
-  for (let i = 0; i < GRID * GRID; i++) counts[i + 1] += counts[i];
-  const items = new Int32Array(counts[GRID * GRID]);
-  const cur = counts.slice(0, GRID * GRID);
+  for (let i = 0; i < NY * NZ; i++) counts[i + 1] += counts[i];
+  const items = new Int32Array(counts[NY * NZ]);
+  const cur = counts.slice(0, NY * NZ);
   for (let f = 0; f < nFaces; f++) {
     const [a0, a1, b0, b1] = span(f);
     for (let a = a0; a <= a1; a++) {
-      for (let b = b0; b <= b1; b++) items[cur[a * GRID + b]++] = f;
+      for (let b = b0; b <= b1; b++) items[cur[a * NZ + b]++] = f;
     }
   }
 
   return (topo._insideGrid = { start: counts, items, cell,
-                               minY, minZ, sy, sz });
+                               minY, minZ, sy, sz, NY, NZ });
 }
 
 /** Closest point on triangle `f` to (px, py, pz), all in the mesh's own frame. */
@@ -146,8 +149,8 @@ function triClosest(pos, f, px, py, pz) {
  * interface (above, meant to be `gap` away) from a flank approach (sideways,
  * meant to be clear). Same 0.7 cone the checker uses.
  *
- * Bounded by `rMax` so the grid's 3x3 cell neighbourhood suffices; with 64
- * cells per axis on real parts a cell is well over 0.5mm. Triangles spanning
+ * Bounded by `rMax`, so only the cells within reach are walked (gridsize.js
+ * keeps a cell at least 0.5mm). Triangles spanning
  * several cells are tested more than once rather than deduplicated -- a repeat
  * distance test is cheaper than the bookkeeping.
  */
@@ -160,16 +163,17 @@ export function nearestPart(topo, rot, offset, qx, qy, qz, rMax = 0.45) {
   const oy = rot[3] * x + rot[4] * y + rot[5] * z;
   const oz = rot[6] * x + rot[7] * y + rot[8] * z;
 
-  const clamp = (v) => Math.min(GRID - 1, Math.max(0, v));
-  const a0 = clamp(Math.floor((oy - rMax - grid.minY) * grid.sy));
-  const a1 = clamp(Math.floor((oy + rMax - grid.minY) * grid.sy));
-  const b0 = clamp(Math.floor((oz - rMax - grid.minZ) * grid.sz));
-  const b1 = clamp(Math.floor((oz + rMax - grid.minZ) * grid.sz));
+  const clampA = (v) => Math.min(grid.NY - 1, Math.max(0, v));
+  const clampB = (v) => Math.min(grid.NZ - 1, Math.max(0, v));
+  const a0 = clampA(Math.floor((oy - rMax - grid.minY) * grid.sy));
+  const a1 = clampA(Math.floor((oy + rMax - grid.minY) * grid.sy));
+  const b0 = clampB(Math.floor((oz - rMax - grid.minZ) * grid.sz));
+  const b1 = clampB(Math.floor((oz + rMax - grid.minZ) * grid.sz));
 
   let best = rMax * rMax, bx = 0, by = 0, bz = 0, found = false;
   for (let a = a0; a <= a1; a++) {
     for (let b = b0; b <= b1; b++) {
-      const c = a * GRID + b;
+      const c = a * grid.NZ + b;
       for (let i = grid.start[c]; i < grid.start[c + 1]; i++) {
         const q = triClosest(pos, grid.items[i], ox, oy, oz);
         const dx = q[0] - ox, dy = q[1] - oy, dz = q[2] - oz;
@@ -248,7 +252,8 @@ const dist2 = (p, q) => {
 export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
   const { pos } = topo;
   const grid = buildGrid(topo);
-  const clamp = (v) => Math.min(GRID - 1, Math.max(0, v));
+  const clampA = (v) => Math.min(grid.NY - 1, Math.max(0, v));
+  const clampB = (v) => Math.min(grid.NZ - 1, Math.max(0, v));
 
   // un-rotate the solid's vertices into the mesh frame once
   const mv = new Array(verts.length);
@@ -288,14 +293,14 @@ export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
       if (q[1] < yLo) yLo = q[1]; if (q[1] > yHi) yHi = q[1];
       if (q[2] < zLo) zLo = q[2]; if (q[2] > zHi) zHi = q[2];
     }
-    const a0 = clamp(Math.floor((yLo - rMax - grid.minY) * grid.sy));
-    const a1 = clamp(Math.floor((yHi + rMax - grid.minY) * grid.sy));
-    const b0 = clamp(Math.floor((zLo - rMax - grid.minZ) * grid.sz));
-    const b1 = clamp(Math.floor((zHi + rMax - grid.minZ) * grid.sz));
+    const a0 = clampA(Math.floor((yLo - rMax - grid.minY) * grid.sy));
+    const a1 = clampA(Math.floor((yHi + rMax - grid.minY) * grid.sy));
+    const b0 = clampB(Math.floor((zLo - rMax - grid.minZ) * grid.sz));
+    const b1 = clampB(Math.floor((zHi + rMax - grid.minZ) * grid.sz));
 
     for (let a = a0; a <= a1; a++) {
       for (let b = b0; b <= b1; b++) {
-        const c = a * GRID + b;
+        const c = a * grid.NZ + b;
         for (let i = grid.start[c]; i < grid.start[c + 1]; i++) {
           const f = grid.items[i];
           if (seen[f] === gen) continue;   // this part tri already measured vs this wall tri

@@ -5,6 +5,7 @@
  *
  * Split out of prop.js, which re-exports the public names.
  */
+import { gridDims } from '../gridsize.js';
 
 /** Rotate + seat one raw vertex into print space. */
 export function seat(pos, i, rot, off, out) {
@@ -40,7 +41,6 @@ export function seat(pos, i, rot, off, out) {
 // station) pay the O(n) build once and then hit only a cell's worth of candidates.
 // If a caller hands a fresh array each call the build is O(n) -- exactly the old
 // linear cost, never worse. Same barycentric test + lowest-z semantics as before.
-const ZGRID = 64;
 const _zGrids = new WeakMap();
 function buildZGrid(tris) {
   let g = _zGrids.get(tris);
@@ -51,29 +51,31 @@ function buildZGrid(tris) {
     if (x < minX) minX = x; if (x > maxX) maxX = x;
     if (y < minY) minY = y; if (y > maxY) maxY = y;
   }
-  const sx = ZGRID / Math.max(1e-6, maxX - minX);
-  const sy = ZGRID / Math.max(1e-6, maxY - minY);
-  const cx = (x) => Math.min(ZGRID - 1, Math.max(0, Math.floor((x - minX) * sx)));
-  const cy = (y) => Math.min(ZGRID - 1, Math.max(0, Math.floor((y - minY) * sy)));
+  // cells per axis sized to the mesh (gridsize.js), at least the old 64
+  const [NX, NY] = gridDims(maxX - minX, maxY - minY, tris.length / 9);
+  const sx = NX / Math.max(1e-6, maxX - minX);
+  const sy = NY / Math.max(1e-6, maxY - minY);
+  const cx = (x) => Math.min(NX - 1, Math.max(0, Math.floor((x - minX) * sx)));
+  const cy = (y) => Math.min(NY - 1, Math.max(0, Math.floor((y - minY) * sy)));
   const span = (f) => {
     const ax = tris[f], ay = tris[f + 1], bx = tris[f + 3], by = tris[f + 4],
           dx = tris[f + 6], dy = tris[f + 7];
     return [cx(Math.min(ax, bx, dx)), cx(Math.max(ax, bx, dx)),
             cy(Math.min(ay, by, dy)), cy(Math.max(ay, by, dy))];
   };
-  const counts = new Int32Array(ZGRID * ZGRID + 1);
+  const counts = new Int32Array(NX * NY + 1);
   for (let f = 0; f < tris.length; f += 9) {
     const [a0, a1, b0, b1] = span(f);
-    for (let a = a0; a <= a1; a++) for (let b = b0; b <= b1; b++) counts[a * ZGRID + b + 1]++;
+    for (let a = a0; a <= a1; a++) for (let b = b0; b <= b1; b++) counts[a * NY + b + 1]++;
   }
-  for (let i = 0; i < ZGRID * ZGRID; i++) counts[i + 1] += counts[i];
-  const items = new Int32Array(counts[ZGRID * ZGRID]);
-  const cur = counts.slice(0, ZGRID * ZGRID);
+  for (let i = 0; i < NX * NY; i++) counts[i + 1] += counts[i];
+  const items = new Int32Array(counts[NX * NY]);
+  const cur = counts.slice(0, NX * NY);
   for (let f = 0; f < tris.length; f += 9) {
     const [a0, a1, b0, b1] = span(f);
-    for (let a = a0; a <= a1; a++) for (let b = b0; b <= b1; b++) items[cur[a * ZGRID + b]++] = f;
+    for (let a = a0; a <= a1; a++) for (let b = b0; b <= b1; b++) items[cur[a * NY + b]++] = f;
   }
-  g = { start: counts, items, minX, minY, maxX, maxY, sx, sy };
+  g = { start: counts, items, minX, minY, maxX, maxY, sx, sy, NX, NY };
   _zGrids.set(tris, g);
   return g;
 }
@@ -82,9 +84,9 @@ function buildZGrid(tris) {
 function cellOf(g, x, y) {
   const e = 1e-9;
   if (x < g.minX - e || x > g.maxX + e || y < g.minY - e || y > g.maxY + e) return null;
-  const a = Math.min(ZGRID - 1, Math.max(0, Math.floor((x - g.minX) * g.sx)));
-  const b = Math.min(ZGRID - 1, Math.max(0, Math.floor((y - g.minY) * g.sy)));
-  return a * ZGRID + b;
+  const a = Math.min(g.NX - 1, Math.max(0, Math.floor((x - g.minX) * g.sx)));
+  const b = Math.min(g.NY - 1, Math.max(0, Math.floor((y - g.minY) * g.sy)));
+  return a * g.NY + b;
 }
 
 // Height of triangle `i` of `tris` at column (x, y), or null if the column misses it.
