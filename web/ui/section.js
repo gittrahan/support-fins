@@ -56,7 +56,11 @@ function grip(mode) {
   g.setSize(0.7);
   g.attach(handle);
   g.enabled = false;
-  scene.add(g.getHelper ? g.getHelper() : g);
+  // Hidden until the section is on: attached to the (hidden) handle, its rings
+  // would otherwise draw at the origin over the empty page.
+  const helper = g.getHelper ? g.getHelper() : g;
+  helper.visible = false;
+  scene.add(helper);
   g.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
   g.addEventListener('objectChange', () => { syncPlane(); holdInPart(); });
   return g;
