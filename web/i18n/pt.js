@@ -237,6 +237,8 @@ export default {
   "Brace tine spacing": "Espaçamento dos dentes da escora",
   "Brace depth": "Profundidade da escora",
   "% of height": "% da altura",
+  "Wall lines": "Linhas da parede",
+  "How many nozzle lines thick the walls, wedges and sway braces are. 2 is the standard wall. More lines make stiffer supports for tall parts. The contact tip and tines stay one line wide, so the supports still break off the same way.": "Quantas linhas do bico têm as paredes, cunhas e nervuras de apoio. 2 é a parede padrão. Mais linhas deixam os suportes mais rígidos para peças altas. A ponta de contato e os dentes continuam com uma linha de largura, então os suportes se soltam do mesmo jeito.",
   "Cutouts": "Recortes",
   "None": "Nenhum",
   "Diamond": "Losango",

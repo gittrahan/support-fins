@@ -355,6 +355,16 @@
 
   <details class="sec" data-sec="walls" open>
     <summary><span class="sec-title" data-i18n="Walls">Walls</span><span class="sec-sum" id="sum-walls"></span></summary>
+    <!-- Wall lines (web/nozzle.js, after #210): lines across a wall, for a tall part
+         or a big printer. 2 is the tuned wall; the tip and tines stay one line. -->
+    <label data-i18n-title class="fld row" title="How many nozzle lines thick the walls, wedges and sway braces are. 2 is the standard wall. More lines make stiffer supports for tall parts. The contact tip and tines stay one line wide, so the supports still break off the same way.">
+      <span data-i18n="Wall lines">Wall lines</span><select id="wall-lines">
+        <option value="2" selected>2</option>
+        <option value="4">4</option>
+        <option value="6">6</option>
+        <option value="8">8</option>
+      </select>
+    </label>
     <!-- Cutouts (issue #34): holes through the middle of each breakaway wall to
          save filament. Every hole has a pointed roof (>=45deg) so nothing bridges;
          the contact top, foot and ends stay solid, and a wall too short for a hole

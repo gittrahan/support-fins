@@ -4,7 +4,7 @@
 // It reaches the Worker in opts.tunables.nozzle, like the gap.
 
 import { tiltedBlockTopo, analyze, fins, prop, assert, assertClose } from './_util.js';
-import { applyNozzle } from '../web/nozzle.js';
+import { applyNozzle, applyWallLines } from '../web/nozzle.js';
 import { SWAY } from '../web/sway.js';
 import { PERP } from '../web/fins/wedges.js';
 
@@ -14,11 +14,11 @@ const knobs = () => ({ th: prop.PROP.th, tip: prop.PROP.tip, tineW: prop.PROP.ti
   swayThPerMm: SWAY.thPerMm, wallHalf: SWAY.wallHalf });
 
 /** Volume of the supports built for a tilted block (no bed pad), at this nozzle. */
-function volumeAt(nozzle) {
+function volumeAt(nozzle, wallLines = 2) {
   const topo = tiltedBlockTopo(-20, 20, -15, 15, 0, 30, 45);
   const res = analyze(topo, 45, IDENTITY);
   const built = fins.buildFins(topo, res, IDENTITY,
-    { mode: 'auto', bedPad: false, tines: true, tunables: { nozzle } });
+    { mode: 'auto', bedPad: false, tines: true, tunables: { nozzle, wallLines } });
   const t = built.triangles;
   assert(t.length > 0, `nothing built at nozzle ${nozzle}`);
   // Overlapping solids count twice -- fine for comparing one part at two nozzles.
@@ -72,4 +72,36 @@ Deno.test('nozzle: reaches the build through tunables', () => {
     assert(v8 > v4 * 1.3, `0.8 nozzle built ${v8.toFixed(0)} mm3, not wider than 0.4's ${v4.toFixed(0)}`);
     assert(v2 <= v4, `0.2 nozzle built more (${v2.toFixed(0)}) than 0.4 (${v4.toFixed(0)})`);
   } finally { applyNozzle(0.4); }
+});
+
+// Wall lines (after GitHub #210): the walls, wedges and braces thicken; the tip and
+// tines stay one line; the feet keep their margin and the neck stays steep.
+Deno.test('wall lines: 2 is the tuned wall, more lines thicken only the structure', () => {
+  const base = knobs();
+  const feet = () => [prop.PROP.footMin, prop.PROP.footMax, prop.PROP.squatBrimW, prop.PROP.tipH];
+  const feet0 = feet();
+  try {
+    applyWallLines(4);
+    assertClose(prop.PROP.th, 2 * base.th, 1e-9, 'wall at 4 lines');
+    assertClose(PERP.th, 2 * base.perpTh, 1e-9, 'wedge at 4 lines');
+    assert(prop.PROP.tip === base.tip && prop.PROP.tineW === base.tineW && SWAY.tineW === base.swayTineW,
+           'the tip or a tine widened with the wall lines');
+    assert(SWAY.thMin >= prop.PROP.th, 'a brace rib is thinner than the wall');
+    applyWallLines(8);
+    assertClose(prop.PROP.footMin - prop.PROP.th / 2, feet0[0] - base.th / 2, 1e-9, 'foot margin past the face');
+    const lean = Math.atan2(prop.PROP.tipH, (prop.PROP.th - prop.PROP.tip) / 2) * 180 / Math.PI;
+    assert(lean >= 55 - 1e-9, `an 8-line neck leans ${lean.toFixed(1)}deg`);
+    for (const v of [3, 0, NaN, '4', undefined]) applyWallLines(v);
+    assertClose(prop.PROP.th, 4 * base.th, 1e-9, 'junk wall lines moved the wall');
+    applyWallLines(2);
+    assert(JSON.stringify(knobs()) === JSON.stringify(base) && JSON.stringify(feet()) === JSON.stringify(feet0),
+           'back to 2 lines is not the tuned numbers');
+  } finally { applyWallLines(2); }
+});
+
+Deno.test('wall lines: reach the build through tunables', () => {
+  try {
+    const v2 = volumeAt(0.4, 2), v4 = volumeAt(0.4, 4);
+    assert(v4 > v2 * 1.5, `4 lines built ${v4.toFixed(0)} mm3, not thicker than 2's ${v2.toFixed(0)}`);
+  } finally { applyNozzle(0.4); applyWallLines(2); }
 });

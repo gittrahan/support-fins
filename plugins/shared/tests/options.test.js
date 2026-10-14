@@ -46,6 +46,7 @@ const SITE_EXCLUDED = {
   'fin-mode': 'plugins run Auto; Draw needs the site\'s canvas',
   'pad-h': 'Custom pad', 'pad-gap': 'Custom pad', 'pad-grip': 'Custom pad', 'pad-margin': 'Custom pad',
   'iface': 'a third 3MF object for a second material; the plugins hand the host one body',
+  'wall-lines': 'site first, with the nozzle; the plugins build 2-line walls (web/nozzle.js)',
   'nozzle': 'site first; the plugins build at 0.4 until their dialogs take it (web/nozzle.js)',
 };
 

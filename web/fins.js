@@ -44,7 +44,7 @@ import { lastResortWalls } from './fins/shortwalls.js';
 import { fillCoverage } from './fins/fill.js';
 import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
 import { judgeDownhill } from './fins/downhill.js';
-import { applyNozzle } from './nozzle.js';
+import { applyNozzle, applyWallLines } from './nozzle.js';
 
 // Moved into web/fins/ (one module per concern); re-exported here so every
 // importer of fins.js is unchanged.
@@ -100,8 +100,9 @@ export function applyTunables(t) {
   if (CUTOUT_PATTERNS.includes(t.cutout)) CUT.pattern = t.cutout;
   // So is the interface crest's mode (GitHub #21, prop/crest.js).
   if ([false, 'flat', 'all'].includes(t.iface)) PROP.iface = t.iface;
-  // And the nozzle, which scales the support widths (nozzle.js).
+  // And the nozzle and wall lines, which scale the support widths (nozzle.js).
   if (t.nozzle !== undefined) applyNozzle(t.nozzle);
+  if (t.wallLines !== undefined) applyWallLines(t.wallLines);
 }
 
 /**

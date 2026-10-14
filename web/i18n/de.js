@@ -263,6 +263,8 @@ export default {
   "Brace tine spacing": "Rippen-Zackenabstand",
   "Brace depth": "Rippen-Tiefe",
   "% of height": "% der Höhe",
+  "Wall lines": "Wandbahnen",
+  "How many nozzle lines thick the walls, wedges and sway braces are. 2 is the standard wall. More lines make stiffer supports for tall parts. The contact tip and tines stay one line wide, so the supports still break off the same way.": "Wie viele Düsenbahnen dick Wände, Keile und Stützrippen sind. 2 ist die Standardwand. Mehr Bahnen machen die Stützen für hohe Teile steifer. Kontaktspitze und Haltezacken bleiben eine Bahn breit, damit sich die Stützen weiterhin gleich abbrechen lassen.",
   "Cutouts": "Aussparungen",
   "None": "Keine",
   "Diamond": "Raute",

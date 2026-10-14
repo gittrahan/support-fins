@@ -333,3 +333,24 @@ The plugins build at 0.4 for now. Tine reach (`PROP.tineReach`
 0.8 tine stands proud of the tip is unprinted. The comb's scan step follows the tine
 width, so a 0.2 comb can land a tine or two fewer. The nozzle is a printer setting:
 remembered across visits, left alone by a loaded session.
+
+### Wall lines
+
+The Walls section's **Wall lines** (2 / 4 / 6 / 8, default 2) thickens the structure
+for a tall part or a big printer, after Per Hjort's nozzle profiles (#210). With
+`m = lines / 2`:
+
+| width | rule | 0.4, 4 lines | 0.4, 8 lines |
+|---|---|---|---|
+| wall (`PROP.th`) | × max(1, k) × m | 2.0 | 4.0 |
+| wedge (`PERP.th`) | × max(1, k) × m | 2.4 | 4.8 |
+| brace rib (`SWAY.thMin`, `thMax`) | at least the wall | 2.0–2.4 | 4.0 |
+| feet (`footMin`, `footMax`, `squatBrimW`) | + the wall's extra half-width | 2.1, 3.5, 3.0 | 3.1, 4.5, 4.0 |
+| neck into the tip (`PROP.tipH`) | max(1.5, neck run × tan 55°) | 1.5 | 2.43 |
+| tip, tines | unchanged: one line | 0.6, 0.5 | 0.6, 0.5 |
+
+The feet are half-widths from the wall's centre, so they move out with its face.
+The neck rule only lifts a taper that would lean flatter than 55°. 2 lines is the
+tuned wall, unchanged. A thicker wall fits fewer places: on a tight part some
+overhangs lose their wall, and the readout reports them. It is a setting of the part
+(undoable, saved with a session), not the printer. The plugins build 2 lines.
