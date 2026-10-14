@@ -506,7 +506,9 @@ function parseModelXML(xml) {
  *   Bambu/Orca  Metadata/model_settings.config, <object id=ROOT><part id=N
  *               subtype="negative_part">, N being the objectid of one of the root
  *               object's <component>s (each part is a component);
- *   PrusaSlicer Metadata/Slic3r_PE_model.config, <object id=ROOT><volume
+ *   PrusaSlicer 3 Metadata/PrusaSlicer3_project.json, the same shape as Bambu's
+ *               as JSON: objects[{ id: ROOT, volumes[{ id: N, type: "NegativeVolume" }] }];
+ *   PrusaSlicer 2 Metadata/Slic3r_PE_model.config, <object id=ROOT><volume
  *               firstid lastid> + metadata volume_type="NegativeVolume", a range
  *               of the root object's OWN triangles (one mesh holds every part).
  * Read as part geometry, a negative part comes in as solid -- the hole it cut is
@@ -557,6 +559,27 @@ function parseBambuConfig(configXML) {
     else if (t === 'part') curPart = null;
   });
   return { names, parts };
+}
+
+/**
+ * PrusaSlicer 3's Metadata/PrusaSlicer3_project.json: objects[{ id, volumes[{ id,
+ * type }] }], the same shape as Bambu's -- the object is the build item's, each
+ * volume one of its components. Merged into `parts` (parseBambuConfig's). The
+ * name is not in the JSON; emitObject takes it from the volume's own object.
+ */
+function addPrusa3Parts(json, parts) {
+  if (!json) return;
+  let d;
+  try { d = JSON.parse(json); } catch { return; }
+  for (const o of Array.isArray(d?.objects) ? d.objects : []) {
+    for (const v of Array.isArray(o?.volumes) ? o.volumes : []) {
+      const kind = PART_KIND[v?.type];
+      if (!kind || o.id == null || v.id == null) continue;
+      const id = String(o.id);
+      if (!parts.has(id)) parts.set(id, new Map());
+      parts.get(id).set(String(v.id), { kind, name: '' });
+    }
+  }
 }
 
 /**
@@ -620,6 +643,7 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
   // Bambu writes a non-printing part as type="other": the config naming it wins,
   // so it is kept by kind instead of skipped as unknown geometry.
   if (SKIP_TYPES.has(obj.type) && !role) { stats.skipped++; return; }
+  if (role && !role.name && obj.name) role.name = stripExt(obj.name);
   seen.add(key);
 
   const { verts, tris } = obj;
@@ -737,7 +761,8 @@ export async function readThreeMF(bytes) {
   const unit = root.unit;
   const scale = UNIT_MM[unit] ?? 1;
   const text = (name) => (parts.has(name) ? new TextDecoder().decode(parts.get(name)) : null);
-  const { names, parts: bambuParts } = parseBambuConfig(text('Metadata/model_settings.config'));
+  const { names, parts: slicerParts } = parseBambuConfig(text('Metadata/model_settings.config'));
+  addPrusa3Parts(text('Metadata/PrusaSlicer3_project.json'), slicerParts);
   const prusaVols = parsePrusaConfig(text('Metadata/Slic3r_PE_model.config'));
 
   // Each <build><item> is one pickable object. No <build> is a valid-but-empty
@@ -766,7 +791,7 @@ export async function readThreeMF(bytes) {
       return extra.get(role);
     };
     const stats = { meshes: 0, skipped: 0, dropped: 0, missing: 0 };
-    const roles = { parts: bambuParts.get(item.objectid), ranges: prusaVols.get(item.objectid) };
+    const roles = { parts: slicerParts.get(item.objectid), ranges: prusaVols.get(item.objectid) };
     emitObject(getPart, rootName, item.objectid, item.transform, sink, new Set(), stats, null, roles);
     // Fold stats first: a build item that was ALL support/dangling emits nothing
     // but its skipped count still has to be reported, not dropped with the item.

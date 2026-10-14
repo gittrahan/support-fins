@@ -496,7 +496,7 @@ Deno.test('3MF Bambu negative part stays out of the part, kept by kind (#104)', 
   assert(bounds(o.extras[0].positions).lo[0] === 7, `negative at x ${bounds(o.extras[0].positions).lo[0]}, want 7`);
 });
 
-Deno.test('3MF Bambu: a negative part typed "model" (OrcaSlicer, older Bambu) is still not solid', async () => {
+Deno.test('3MF Bambu: a negative part typed "model" (OrcaSlicer) is still not solid', async () => {
   const o = (await bambuParts({ type: 'model' })).objects[0];
   assert(o.tris === 1 && o.extras[0]?.kind === 'negative', `part ${o.tris} tris, extras ${o.extras.length}`);
 });
@@ -557,6 +557,27 @@ Deno.test('3MF an object that is only non-printing parts is not offered as a par
   try { await prusaVolumes([[0, 2, vtype('NegativeVolume')]]); } catch { threw = true; }
   assert(threw, 'a file that is all negative part opened as a part');
 });
+
+// The real files: a 40 mm cube with a negative cube cut into an edge, saved as a
+// project by each slicer (tests/fixtures/negative-parts/, stripped to the model
+// and the part-type config). Orca types the negative part "model" (it read solid);
+// Bambu "other" (it was dropped); PrusaSlicer 3 names it in PrusaSlicer3_project.json.
+const NEG_FIX = new URL('./fixtures/negative-parts/', import.meta.url);
+for (const [file, name] of [['bambu.3mf', 'Generic-Cube'], ['orca.3mf', 'Generic-Cube'], ['prusaslicer3.3mf', 'Cube']]) {
+  Deno.test(`3MF real ${file}: the cube is the part, the negative cube is kept beside it`, async () => {
+    const r = await readThreeMF(await Deno.readFile(new URL(file, NEG_FIX)));
+    assert(r.objects.length === 1 && r.skipped === 0, `${r.objects.length} objects, ${r.skipped} skipped`);
+    const o = r.objects[0];
+    const b = bounds(o.positions);
+    assert(o.tris === 12 && b.hi.every((h, k) => Math.abs(h - b.lo[k] - 40) < 1e-3),
+      `part is ${o.tris} tris, ${b.hi.map((h, k) => h - b.lo[k])} mm: the negative got in`);
+    assert(o.extras.length === 1 && o.extras[0].kind === 'negative' && o.extras[0].name === name,
+      `extras ${JSON.stringify(o.extras.map((e) => [e.kind, e.name]))}`);
+    // placed where the slicer put it: cutting into the cube, not at the origin
+    const n = bounds(o.extras[0].positions);
+    assert([0, 1, 2].every((k) => n.lo[k] < b.hi[k] && n.hi[k] > b.lo[k]), 'the negative part does not overlap the cube');
+  });
+}
 
 // --- unit: more production-extension shapes --------------------------------
 
