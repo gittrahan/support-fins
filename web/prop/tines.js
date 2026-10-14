@@ -205,6 +205,13 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
     : Math.min(stepArg, total / PROP.minGripTines);
   if (total < step && !(PROP.tinesPerWall > 0)) return 0;
 
+  // How far out a tine looks for the part. The probe sits at the tine's mid-height,
+  // half a layer under the underside, so under a shallow underside a thicker layer
+  // needs a longer reach to find solid: at a fixed 0.5 a 0.6 mm layer lost every tine
+  // under an underside within ~31deg of level (0.2 mm: ~11deg). The reach keeps the
+  // tuned 0.2 layer's reach-to-layer ratio; 0.2 and thinner are unchanged.
+  const reach = PROP.tineReach * Math.max(1, tineH / PROP.tineH);
+
   // half the tine's WIDTH across the run -- one nozzle bead (PROP.tineW), NOT the
   // wall thickness. Building it th-wide made a 1mm divot, ~2x Slant3D's spec.
   const half = PROP.tineW / 2;
@@ -261,7 +268,7 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
     // nub's full reach to actually land inside the part, or skip it (honest -- no
     // tine gripping air, no tine on a ceiling too shallow to grab sideways).
     const bd = squareToRun(biteDirsAt(topo, rot, offset, x, y, zMid), line, k).find((c) =>
-      insidePart(topo, rot, offset, x + c.x * PROP.tineReach, y + c.y * PROP.tineReach, zMid));
+      insidePart(topo, rot, offset, x + c.x * reach, y + c.y * reach, zMid));
     if (!bd) return false;
     const dirx = bd.x, diry = bd.y;
 
@@ -273,7 +280,7 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
     // quad in (along, across): from -overlap (into the wall) to where the tine meets
     // the part, its end leaning with the surface between bottom and top (kissEnds).
     const e = kissEnds(topo, rot, offset, x, y, dirx, diry, tineBot, tineTop,
-                       { half, back: PROP.tineOverlap, reach: PROP.tineReach });
+                       { half, back: PROP.tineOverlap, reach });
     const ov = -PROP.tineOverlap;
     const outline = (h) => [[ov, -half], [e[h][0], -half], [e[h][1], half], [ov, half]];
     loftExtrude(outline('bot'), outline('top'), tineBot, tineTop, P, out);

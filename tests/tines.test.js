@@ -127,3 +127,23 @@ Deno.test('emitTines: an overhang the tooth cannot reach into gets no tine (hone
   const n = emitTines(line, null, topo, rot, offset, out);
   assert(n === 0 && out.length === 0, `expected no tines gripping air, got ${n}`);
 });
+
+// Thick layers (local finding 2026-10-14): the tine's probe sits half a layer under the
+// underside, so at a fixed 0.5 mm reach a 0.6 mm layer found no solid under an underside
+// within ~31deg of level and every wall built with no tines (0.4 mm: ~22deg). The reach
+// now keeps the 0.2 layer's ratio, so a thick layer grips what a 0.2 layer grips.
+Deno.test('tines: a thick layer grips a shallow underside like a 0.2 layer', async () => {
+  const { analyze } = await import('../web/overhangs.js');
+  const { buildFins } = await import('../web/fins.js');
+  const I = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  for (const tilt of [20, 30]) {
+    const topo = tiltedBlockTopo(-20, 20, -15, 15, 0, 30, tilt), res = analyze(topo, 45, I);
+    const at = (layerHeight) => buildFins(topo, res, I, { mode: 'auto', bedPad: false, tines: true, layerHeight });
+    const thin = at(0.2);
+    assert(thin.tines > 0, `tilt ${tilt}: no tines at 0.2`);
+    for (const lh of [0.3, 0.4, 0.6]) {
+      const b = at(lh);
+      assert(b.tines >= thin.tines, `tilt ${tilt}, ${lh} mm layers: ${b.tines} tines vs ${thin.tines} at 0.2`);
+    }
+  }
+});

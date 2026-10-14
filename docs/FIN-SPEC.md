@@ -73,7 +73,7 @@ welts.
   vertical face tall enough to stand a fin against. **That ~65% ceiling is why manual fin
   placement is a core feature, not a fallback.**
 - **Tines kiss the part's surface** (2026-10-02). A tine is placed only where its
-  `tineReach` (0.5) reach lands in the part, but it's built only up to the surface: its
+  `tineReach` (0.5, at a 0.2 layer) reach lands in the part, but it's built only up to the surface: its
   end follows the part, measured at each side edge at the tine's bottom and top
   (`kissEnds`), so on a slope the end leans with the underside and nothing of the tine
   sits inside the part (+0.01 mm, so the two overlap rather than sit flush). Top and
@@ -329,10 +329,21 @@ only grow: a finer nozzle doesn't make a free-standing wall stiffer. Heights (ti
 height, gaps, pad) follow the layer height, not the nozzle. 0.4 is the tuned
 geometry, unchanged. The other sizes are this scaling rule, not printed coupons.
 The plugins build at 0.4 for now. Tine reach (`PROP.tineReach`
-0.5) is NOT scaled: at 0.8 the contact tip's half-width (0.6) passes it, so how far a
+0.5) is NOT scaled by the nozzle: at 0.8 the contact tip's half-width (0.6) passes it, so how far a
 0.8 tine stands proud of the tip is unprinted. The comb's scan step follows the tine
 width, so a 0.2 comb can land a tine or two fewer. The nozzle is a printer setting:
 remembered across visits, left alone by a loaded session.
+
+**Tine reach follows the layer height** (2026-10-14): `tineReach × max(1, layer / 0.2)`.
+The reach probe sits at the tine's mid-height, half a layer under the underside, so
+under a shallow underside it only finds solid when `reach · tan θ > layer / 2`. At a
+fixed 0.5 that cut off ~17° at 0.3 mm layers, ~22° at 0.4 and ~31° at 0.6, and every
+wall under a flatter underside built with no tines (the M4 front upright: 223 tines at
+0.2, 117 at 0.4, 53 at 0.6; buster upright: none at 0.4). Keeping the 0.2 layer's
+reach-to-layer ratio brings thick layers back to the 0.2 count (228 / 220; buster 15 /
+10). 0.2 and thinner are unchanged. The ends still kiss the surface; a thick layer's
+tine top, snapped to the layer line, can sit up to half a layer above the underside,
+above the mid-layer a slicer samples.
 
 ### Wall lines
 
