@@ -9,7 +9,7 @@ import * as THREE from 'three';
 import { drawnWall } from '../draw.js';
 import { swayAtFace, faceIsUpright } from '../sway.js';
 import { el } from './dom.js';
-import { viewport, renderer, scene, camera, meshFrom, ifaceMaterial, raycaster, pointer, clip } from './scene.js';
+import { viewport, renderer, scene, camera, meshFrom, ifaceMaterial, raycaster, pointer, clip, MODEL } from './scene.js';
 import { keptHit } from './section.js';
 import { removedIds } from './remove.js';
 import { histPush } from './history.js';
@@ -196,6 +196,7 @@ function syncSelection() {
   }
   if (selectedWall) {
     selMesh = meshFrom(drawnTris.slice(selectedWall.triStart * 3, selectedWall.triEnd * 3), selMaterial);
+    selMesh?.layers.disable(MODEL);   // an overlay: the section's glass draws the wall once
   }
   el('draw-remove').hidden = !selectedWall;
 }
@@ -268,7 +269,7 @@ function updatePreview(hitPoint) {
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); ghostMesh = null; }
     const tris = partPrintTriangles();
     const r = drawnWall([q[0].x, q[0].y, q[0].z], [q[1].x, q[1].y, q[1].z], tris, 0);
-    if (r.ok) ghostMesh = meshFrom(r.tris, ghostMaterial);
+    if (r.ok) { ghostMesh = meshFrom(r.tris, ghostMaterial); ghostMesh?.layers.disable(MODEL); }
   });
 }
 

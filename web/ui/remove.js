@@ -8,7 +8,7 @@ import { t } from './i18n.js';
  */
 import * as THREE from 'three';
 import { el } from './dom.js';
-import { scene, renderer, camera, raycaster, pointer, meshFrom, clip } from './scene.js';
+import { scene, renderer, camera, raycaster, pointer, meshFrom, clip, MODEL } from './scene.js';
 import { keptHit } from './section.js';
 import { setGizmo } from './pose.js';
 import { part, updateFit } from './part.js';
@@ -177,6 +177,7 @@ export function hoverRemove(ev) {
     if (rec.id !== hoverFinId) {
       if (hoverFinMesh) { scene.remove(hoverFinMesh); hoverFinMesh.geometry.dispose(); }
       hoverFinMesh = meshFrom(finTrisForRecord(rec), hoverFinMaterial);
+      hoverFinMesh?.layers.disable(MODEL);   // an overlay: the section's glass draws the fin once
       hoverFinId = rec.id;
     }
     renderer.domElement.style.cursor = 'pointer';

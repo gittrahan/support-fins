@@ -72,14 +72,29 @@ const SNAP = THREE.MathUtils.degToRad(5);
 tilt.setRotationSnap(SNAP);
 addEventListener('keydown', (e) => { if (e.key === 'Shift') tilt.setRotationSnap(null); });
 addEventListener('keyup', (e) => { if (e.key === 'Shift') tilt.setRotationSnap(SNAP); });
-// Where the arrow crosses a ring, the arrow wins: a capture listener runs before
-// either control's own pointerdown and benches the rings for that one press.
-renderer.domElement.addEventListener('pointerdown', () => {
-  if (sectionOn && push.axis) tilt.enabled = false;
-}, { capture: true });
-renderer.domElement.addEventListener('pointerup', () => {
-  tilt.enabled = sectionOn;
-}, { capture: true });
+// Where the arrow crosses a ring, the arrow wins. `push` was created first, so its
+// pointerdown runs first; once it has grabbed the arrow, the rings sit this press
+// out. (Read from its own event, not a hover axis: touch never hovers.)
+push.addEventListener('mouseDown', () => { tilt.enabled = false; });
+for (const type of ['pointerup', 'pointercancel']) {
+  renderer.domElement.addEventListener(type, () => { tilt.enabled = sectionOn; }, { capture: true });
+}
+
+// Shift + scroll pushes the cut 1 mm a notch, scrolling away pushing it deeper.
+// The arrow can't do it when you look square at the cut (TransformControls hides
+// an axis pointing at the eye) -- the very view the default aim gives a bore seen
+// from the side. Captured ahead of OrbitControls so it doesn't zoom as well.
+renderer.domElement.addEventListener('wheel', (e) => {
+  if (!sectionOn || !e.shiftKey) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  const d = e.deltaY || e.deltaX;            // macOS turns Shift+scroll sideways
+  if (!d) return;
+  const away = camera.getWorldDirection(new THREE.Vector3()).dot(plane.normal) >= 0 ? 1 : -1;
+  handle.translateZ(-Math.sign(d) * away);   // scrolling up/away: deeper
+  syncPlane();
+  holdInPart();
+}, { capture: true, passive: false });
 
 const nrm = new THREE.Vector3();
 /** Read the handle's pose into the clipping plane (and its ghost twin). */
