@@ -697,9 +697,13 @@ html, body {
 /* ---------- automatic layer view ---------- */
 #orient .layerview { flex-basis: 100%; margin-top: 8px; }
 .layers-toggle { color: var(--dim); font-size: 12px; }
-#orient .sectionview { flex-basis: 100%; margin-top: 6px; }
-#section-tools { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+#fin-opts .sec-btn { flex: none; align-self: center; display: inline-flex; align-items: center; gap: 4px; }
+#fin-opts .sec-btn .ico { width: 13px; height: 13px; }
+#section-tools { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 2px; }
 #section-tools[hidden] { display: none; }
+#section-tools .seg { display: inline-flex; }
+#section-tools .seg .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+#section-tools .seg .btn:last-child { border-top-left-radius: 0; border-bottom-left-radius: 0; margin-left: -1px; }
 #orient .navview { flex-basis: 100%; margin-top: 6px; }
 .nav-pick { color: var(--dim); font-size: 12px; }
 #orient .nav-pick select { margin-left: 6px; padding: 2px 6px; font-size: 12px; }

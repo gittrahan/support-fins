@@ -39,7 +39,7 @@ import { finTris, padTris, lastBuilt } from './ui/finbuild.js';
 import { initSettings } from './ui/settings.js';
 import { part, topology, rotM3, lastResult, threshold } from './ui/part.js';
 import { gizmo, hoverFace, layActive, cancelLay, layHover, layClick } from './ui/pose.js';
-import { planeBusy } from './ui/section.js';
+import { planeBusy, renderGhost } from './ui/section.js';
 
 // ------------------------------------------------------------------ keyboard
 
@@ -190,6 +190,7 @@ function tick(now) {
   controls.update();
   sizeMarkers();
   renderer.render(scene, camera);
+  renderGhost();
   if (++frames >= 20) {
     fpsEl.textContent = `${Math.round((frames * 1000) / (now - last))} fps`;
     frames = 0;

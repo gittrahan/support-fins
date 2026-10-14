@@ -28,6 +28,9 @@ viewport.appendChild(renderer.domElement);
 // clippingPlanes, so the cut is one push / clear. Guides and the plate never clip.
 renderer.localClippingEnabled = true;
 export const clip = [];
+// The model (part + every support mesh) also sits on this layer, so the section's
+// ghost pass can draw just the model again. The lights join it to light that pass.
+export const MODEL = 1;
 
 export const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x14161a);
@@ -54,6 +57,7 @@ scene.add(fill);
 const under = new THREE.DirectionalLight(0xffffff, 0.9);
 under.position.set(-0.35, 0.55, -1.2);
 scene.add(under);
+for (const l of scene.children) l.layers.enable(MODEL);
 
 // ------------------------------------------------------------------ the plate
 
@@ -144,6 +148,7 @@ export function meshFrom(tris, material, iface = null) {
     mat = [material, iface];
   }
   const m = new THREE.Mesh(g, mat);
+  m.layers.enable(MODEL);
   scene.add(m);
   return m;
 }

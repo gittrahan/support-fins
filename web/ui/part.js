@@ -7,7 +7,7 @@ import { t, tn } from './i18n.js';
 import * as THREE from 'three';
 import { buildTopology, analyze, DEFAULT_THRESHOLD, MIN_REGION_AREA } from '../overhangs.js';
 import { el } from './dom.js';
-import { scene, controls, frame, clip } from './scene.js';
+import { scene, controls, frame, clip, MODEL } from './scene.js';
 import { setSection, followPart } from './section.js';
 import { removeMode, cancelRemove, resetRemovals } from './remove.js';
 import { resetHistory } from './history.js';
@@ -82,6 +82,7 @@ export function setPart(geometry, filename) {
   geometry.computeBoundingBox();
 
   part = new THREE.Mesh(geometry, partMaterial);
+  part.layers.enable(MODEL);
   part.add(hoverFace);
   hoverFace.visible = false;
   scene.add(part);

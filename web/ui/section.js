@@ -7,6 +7,11 @@
  * The cut is three.js local clipping: the model materials share scene.js's `clip`
  * array, and switching the section on puts `plane` in it. Picks skip what the cut
  * hides (keptHit), so a click lands on the surface you can see, not the one cut away.
+ * Ghost (the default) draws the cut-away half again as faint glass (renderGhost),
+ * so the part keeps its context; Hide leaves it out. Clicks go through the glass.
+ *
+ * One handle, no modes: an arrow pushes the cut along its normal, two rings tilt
+ * it. Spinning it about its own normal changes nothing, so that ring is left off.
  *
  * `plane` is in world space, but the cut is held in the PART's frame (followPart):
  * turn the part and the cut turns with it, so it stays on the bore it was opening.
@@ -16,19 +21,22 @@
 import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { el } from './dom.js';
-import { renderer, scene, camera, controls, clip } from './scene.js';
+import { renderer, scene, camera, controls, clip, MODEL } from './scene.js';
 import { part } from './part.js';
 import { setGizmo } from './pose.js';
 
 export const plane = new THREE.Plane();
+const ghostPlane = new THREE.Plane();     // the same cut, keeping the other side
 export let sectionOn = false;
-let handleMode = 'translate';      // 'translate' | 'rotate' | null (handle hidden)
+const GHOST_KEY = 'sf.sectionGhost';
+let ghost = true;
+try { ghost = localStorage.getItem(GHOST_KEY) !== '0'; } catch { /* storage off */ }
 
 // The plane's handle: a translucent square plus its outline. Its local +Z is the
 // kept side. Not clipped (it is the tool, not the model) and never picked.
 const handle = new THREE.Group();
 const sheet = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
-  color: 0x4da3ff, transparent: true, opacity: 0.12, side: THREE.DoubleSide, depthWrite: false,
+  color: 0x4da3ff, transparent: true, opacity: 0.08, side: THREE.DoubleSide, depthWrite: false,
 }));
 const rim = new THREE.LineLoop(
   new THREE.BufferGeometry().setFromPoints([
@@ -40,28 +48,46 @@ handle.add(sheet, rim);
 handle.visible = false;
 scene.add(handle);
 
-export const planeGizmo = new TransformControls(camera, renderer.domElement);
-planeGizmo.setSize(0.7);
-// Local space: Move's one arrow slides the cut along its own normal, straight
-// through the part, whatever way it has been turned.
-planeGizmo.setSpace('local');
-planeGizmo.attach(handle);
-const planeHelper = planeGizmo.getHelper ? planeGizmo.getHelper() : planeGizmo;
-scene.add(planeHelper);
-planeGizmo.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
-planeGizmo.addEventListener('objectChange', () => { syncPlane(); holdInPart(); });
+/** One TransformControls per job, both on the handle, both in its local frame. */
+function grip(mode) {
+  const g = new TransformControls(camera, renderer.domElement);
+  g.setMode(mode);
+  g.setSpace('local');
+  g.setSize(0.7);
+  g.attach(handle);
+  g.enabled = false;
+  scene.add(g.getHelper ? g.getHelper() : g);
+  g.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
+  g.addEventListener('objectChange', () => { syncPlane(); holdInPart(); });
+  return g;
+}
+const push = grip('translate');            // the normal arrow only
+push.showX = push.showY = false;
+const tilt = grip('rotate');               // the two in-plane rings only
+tilt.showZ = false;
+tilt.showXYZE = false;
+const grips = [push, tilt];
 // Same 5 degree snap as the part's rings; Shift frees it.
 const SNAP = THREE.MathUtils.degToRad(5);
-planeGizmo.setRotationSnap(SNAP);
-addEventListener('keydown', (e) => { if (e.key === 'Shift') planeGizmo.setRotationSnap(null); });
-addEventListener('keyup', (e) => { if (e.key === 'Shift') planeGizmo.setRotationSnap(SNAP); });
+tilt.setRotationSnap(SNAP);
+addEventListener('keydown', (e) => { if (e.key === 'Shift') tilt.setRotationSnap(null); });
+addEventListener('keyup', (e) => { if (e.key === 'Shift') tilt.setRotationSnap(SNAP); });
+// Where the arrow crosses a ring, the arrow wins: a capture listener runs before
+// either control's own pointerdown and benches the rings for that one press.
+renderer.domElement.addEventListener('pointerdown', () => {
+  if (sectionOn && push.axis) tilt.enabled = false;
+}, { capture: true });
+renderer.domElement.addEventListener('pointerup', () => {
+  tilt.enabled = sectionOn;
+}, { capture: true });
 
 const nrm = new THREE.Vector3();
-/** Read the handle's pose into the clipping plane. */
+/** Read the handle's pose into the clipping plane (and its ghost twin). */
 function syncPlane() {
   handle.updateMatrixWorld();
   nrm.set(0, 0, 1).applyQuaternion(handle.quaternion);
   plane.setFromNormalAndCoplanarPoint(nrm, handle.position);
+  ghostPlane.copy(plane).negate();
 }
 
 // The handle's pose in the part's frame, so the cut follows the part when it turns.
@@ -78,7 +104,7 @@ function holdInPart() {
 
 /** The part turned or reseated (part.js shade): carry the cut along with it. */
 export function followPart() {
-  if (!sectionOn || !part || planeGizmo.dragging) return;
+  if (!sectionOn || !part || grips.some((g) => g.dragging)) return;
   part.updateMatrixWorld();
   m4.multiplyMatrices(part.matrixWorld, inPart);
   m4.decompose(handle.position, handle.quaternion, handle.scale);
@@ -97,10 +123,24 @@ function sizeSheet() {
   rim.scale.set(s, s, 1);
 }
 
-/** Stand the plane through the part's centre with its kept side along `n`. */
-function placeThroughCentre(n) {
+/**
+ * Aim the cut at the view: through the part's centre, square to whichever of the
+ * PART's own axes points most nearly where the camera looks, keeping the far half.
+ * Bores in a CAD part run along its axes, so looking at the side of one and
+ * switching the section on opens it lengthwise -- not the slice across it that a
+ * cut square to the screen would make.
+ */
+function aimAtView() {
+  const look = camera.getWorldDirection(new THREE.Vector3());
+  part.updateMatrixWorld();
+  let best = null, most = -1;
+  for (let i = 0; i < 3; i++) {
+    const a = new THREE.Vector3().setFromMatrixColumn(part.matrixWorld, i).normalize();
+    const d = a.dot(look);
+    if (Math.abs(d) > most) { most = Math.abs(d); best = d < 0 ? a.negate() : a; }
+  }
   partBox().getCenter(handle.position);
-  handle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n.clone().normalize());
+  handle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), best);
   syncPlane();
   holdInPart();
 }
@@ -111,44 +151,64 @@ export function keptHit(hits) {
   return hits.find((h) => plane.distanceToPoint(h.point) >= 0);
 }
 
-/** The plane handle is up and live: the part's rings step aside for it. */
-export const planeHandleShown = () => sectionOn && handleMode !== null;
+/** The plane's handle is up: the part's rings step aside for it. */
+export const planeHandleShown = () => sectionOn;
 /** The pointer is on (or dragging) a plane handle: app.js leaves the click to it. */
-export const planeBusy = () => planeHandleShown() && (planeGizmo.dragging || !!planeGizmo.axis);
+export const planeBusy = () => sectionOn && grips.some((g) => g.dragging || !!g.axis);
+
+// ---- ghost: the cut-away half as glass --------------------------------------
+// A second pass over the model only (scene.js's MODEL layer: part, fins, pad, walls),
+// clipped to the other side, translucent, not writing depth -- so the solid half
+// still hides what is behind it and the glass never blocks a later pick.
+const ghostMat = new THREE.MeshStandardMaterial({
+  color: 0xb9c2d0, roughness: 0.7, transparent: true, opacity: 0.14,
+  depthWrite: false, side: THREE.DoubleSide, clippingPlanes: [ghostPlane],
+});
+
+/** After the main render: draw the cut-away half as glass, if Ghost is on. */
+export function renderGhost() {
+  if (!sectionOn || !ghost) return;
+  const bg = scene.background, autoClear = renderer.autoClear;
+  scene.background = null;
+  renderer.autoClear = false;
+  scene.overrideMaterial = ghostMat;
+  camera.layers.set(MODEL);
+  renderer.render(scene, camera);
+  camera.layers.set(0);
+  scene.overrideMaterial = null;
+  renderer.autoClear = autoClear;
+  scene.background = bg;
+}
+
+// ---- the controls -----------------------------------------------------------
 
 function syncGizmo() {
-  const on = planeHandleShown();
-  planeGizmo.enabled = on;
-  if (!on) planeGizmo.axis = null;
-  if (handleMode) planeGizmo.setMode(handleMode);
-  // Move shows only the normal arrow: sliding the cut within its own plane does nothing.
-  planeGizmo.showX = planeGizmo.showY = handleMode !== 'translate';
-  planeHelper.visible = on;
+  for (const g of grips) {
+    g.enabled = sectionOn;
+    if (!sectionOn) g.axis = null;
+    (g.getHelper ? g.getHelper() : g).visible = sectionOn;
+  }
   handle.visible = sectionOn;
 }
 
 function syncUI() {
-  el('section').checked = sectionOn;
+  const b = el('section');
+  b.classList.toggle('primary', sectionOn);
+  b.setAttribute('aria-pressed', String(sectionOn));
   el('section-tools').hidden = !sectionOn;
-  for (const [id, mode] of [['section-move', 'translate'], ['section-turn', 'rotate']]) {
-    const b = el(id);
-    b.classList.toggle('primary', handleMode === mode);
-    b.setAttribute('aria-pressed', String(handleMode === mode));
+  for (const [id, on] of [['section-ghost', ghost], ['section-hide', !ghost]]) {
+    el(id).classList.toggle('primary', on);
+    el(id).setAttribute('aria-pressed', String(on));
   }
 }
 
-/** Switch the cut on or off. On starts it upright through the part's centre,
- *  facing the camera, hiding the near half -- the cut a horizontal pipe wants. */
+/** Switch the cut on (aimed at the current view) or off. */
 export function setSection(on) {
   sectionOn = !!on && !!part;
   clip.length = 0;
   if (sectionOn) {
     sizeSheet();
-    const look = camera.getWorldDirection(new THREE.Vector3());
-    look.z = 0;
-    if (look.lengthSq() < 1e-6) look.set(0, 1, 0);   // looking straight down
-    placeThroughCentre(look);
-    handleMode = 'translate';
+    aimAtView();
     clip.push(plane);
   }
   syncGizmo();
@@ -156,16 +216,20 @@ export function setSection(on) {
   setGizmo();
 }
 
-el('section').addEventListener('change', (e) => setSection(e.target.checked));
+// The button sits in the Display header: a click on it must not fold the section,
+// and switching on opens it, so the cut's own controls are in view.
+el('section').addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  setSection(!sectionOn);
+  if (sectionOn) el('section').closest('details').open = true;
+});
 
-// Move / Turn pick the handle; clicking the lit one again puts the handle away,
-// leaving the cut in place and the whole view to Draw.
-for (const [id, mode] of [['section-move', 'translate'], ['section-turn', 'rotate']]) {
+for (const [id, v] of [['section-ghost', true], ['section-hide', false]]) {
   el(id).addEventListener('click', () => {
-    handleMode = handleMode === mode ? null : mode;
-    syncGizmo();
+    ghost = v;
+    try { localStorage.setItem(GHOST_KEY, ghost ? '1' : '0'); } catch { /* storage off */ }
     syncUI();
-    setGizmo();
   });
 }
 
@@ -175,14 +239,4 @@ el('section-flip').addEventListener('click', () => {
   holdInPart();
 });
 
-const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0),
-               z: new THREE.Vector3(0, 0, 1) };
-for (const a of ['x', 'y', 'z']) {
-  el(`section-${a}`).addEventListener('click', () => {
-    // keep the side that is kept now: snap to the axis direction nearest the normal
-    const n = AXES[a].clone();
-    if (plane.normal.dot(n) < 0) n.negate();
-    placeThroughCentre(n);
-  });
-}
-
+el('section-reset').addEventListener('click', () => { if (sectionOn) aimAtView(); });
