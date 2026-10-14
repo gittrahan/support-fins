@@ -232,5 +232,10 @@ if (langBtn && langMenu) {
     langMenu.hidden = true;
     langBtn.setAttribute('aria-expanded', 'false');
   });
+  document.getElementById('lang-opt-ar')?.addEventListener('click', () => {
+    setLanguage('ar');
+    langMenu.hidden = true;
+    langBtn.setAttribute('aria-expanded', 'false');
+  });
 }
 updateDomTranslations();
