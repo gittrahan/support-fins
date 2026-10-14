@@ -44,6 +44,11 @@ from `_scene.js`, the site's exact call, shared with `golden.test.js`.
   because its block put the run tangent *into* the part by construction;
 - an overhang a tooth cannot reach into gets **no tine** (no gripping air).
 
+**`nearface.test.js`** -- `nearestFaces` (`web/prop/nearface.js`), the grid each tine
+asks for the faces it aims at, gives **exactly** the full scan's answer: the same
+faces, the same ties (probes on vertices and edge midpoints), in face order, on nine
+stress models in three poses, and again after the pose changes.
+
 **`bores.test.js`** -- bores get supported (reversed 2026-09-27 after print tests):
 - a bore's ceiling gets a **part-attached wall on the bore floor**, flagged `inBore`;
 - that wall runs **along the bore axis**, so it pulls out an open end;
