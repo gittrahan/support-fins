@@ -209,8 +209,10 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
   // half a layer under the underside, so under a shallow underside a thicker layer
   // needs a longer reach to find solid: at a fixed 0.5 a 0.6 mm layer lost every tine
   // under an underside within ~31deg of level (0.2 mm: ~11deg). The reach keeps the
-  // tuned 0.2 layer's reach-to-layer ratio; 0.2 and thinner are unchanged.
-  const reach = PROP.tineReach * Math.max(1, tineH / PROP.tineH);
+  // tuned 0.2 layer's reach-to-layer ratio; 0.2 and thinner are unchanged. Capped at
+  // 0.6's: a host's own layer height (a slicer plugin) can be thicker than the site's
+  // field allows, and kissEnds looks out to twice the reach.
+  const reach = PROP.tineReach * Math.min(3, Math.max(1, tineH / PROP.tineH));
 
   // half the tine's WIDTH across the run -- one nozzle bead (PROP.tineW), NOT the
   // wall thickness. Building it th-wide made a 1mm divot, ~2x Slant3D's spec.

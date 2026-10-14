@@ -334,7 +334,8 @@ The plugins build at 0.4 for now. Tine reach (`PROP.tineReach`
 width, so a 0.2 comb can land a tine or two fewer. The nozzle is a printer setting:
 remembered across visits, left alone by a loaded session.
 
-**Tine reach follows the layer height** (2026-10-14): `tineReach × max(1, layer / 0.2)`.
+**Tine reach follows the layer height** (2026-10-14): `tineReach × max(1, layer / 0.2)`, at
+most 3× (0.6's).
 The reach probe sits at the tine's mid-height, half a layer under the underside, so
 under a shallow underside it only finds solid when `reach · tan θ > layer / 2`. At a
 fixed 0.5 that cut off ~17° at 0.3 mm layers, ~22° at 0.4 and ~31° at 0.6, and every

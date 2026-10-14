@@ -147,3 +147,28 @@ Deno.test('tines: a thick layer grips a shallow underside like a 0.2 layer', asy
     }
   }
 });
+
+// ...and at the slice a slicer reads (the layer's mid-height), a thick-layer tine stays
+// out of the part: its top is snapped to the layer line and can sit above the underside,
+// but each top corner carried down to the mid-layer is clear of the part.
+Deno.test('tines: a thick-layer tine is clear of the part at its mid-layer', async () => {
+  const { analyze } = await import('../web/overhangs.js');
+  const { buildFins } = await import('../web/fins.js');
+  const I = [1, 0, 0, 0, 1, 0, 0, 0, 1];
+  for (const tilt of [20, 35]) {
+    const topo = tiltedBlockTopo(-20, 20, -15, 15, 0, 30, tilt), res = analyze(topo, 45, I);
+    const line = buildFins(topo, res, I, { mode: 'auto', bedPad: false, tines: false }).fins[0].line;
+    const out = [];
+    const n = emitTines(line, null, topo, I, res.offset, out, prop.PROP.tineStep, prop.PROP.baseH + 0.2, 0.6);
+    assert(n > 0, `tilt ${tilt}: no tines at 0.6 mm layers`);
+    for (const t of tineBoxes(out).tines) {
+      const mid = (t.lo[2] + t.hi[2]) / 2, cx = (t.lo[0] + t.hi[0]) / 2, cy = (t.lo[1] + t.hi[1]) / 2;
+      for (const v of t.verts.filter((q) => q[2] > t.hi[2] - 1e-6)) {
+        // 0.02 back toward the tine's centre: the end overlaps the part by 0.01 on purpose
+        const dx = cx - v[0], dy = cy - v[1], d = Math.hypot(dx, dy) || 1;
+        assert(!insidePart(topo, I, res.offset, v[0] + (dx / d) * 0.02, v[1] + (dy / d) * 0.02, mid),
+               `tilt ${tilt}: a tine top corner is inside the part at its mid-layer (z ${mid.toFixed(2)})`);
+      }
+    }
+  }
+});
