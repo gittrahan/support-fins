@@ -68,6 +68,7 @@ addEventListener('keydown', (e) => {
 // One set of viewport listeners, routed by mode: remove, then draw, then lay flat.
 
 let pressAt = null;
+let pressOnPlane = false;   // the press landed on the section plane's handle
 renderer.domElement.addEventListener('pointermove', (ev) => {
   // The section plane's handle is under the pointer or being dragged: it owns the
   // pointer, and no pick should light up through it.
@@ -109,6 +110,9 @@ renderer.domElement.addEventListener('pointerleave', () => {
 
 renderer.domElement.addEventListener('pointerdown', (e) => {
   pressAt = { x: e.clientX, y: e.clientY };
+  // Read at the press: the plane's TransformControls listens first, so it has set
+  // its axis by now -- and on release it clears it before this module's pointerup.
+  pressOnPlane = planeBusy();
 });
 
 renderer.domElement.addEventListener('pointerup', (e) => {
@@ -119,7 +123,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   // a drag is an orbit, not a pick
   if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
   // a click on the section plane's handle is the handle's, not a pick
-  if (planeBusy()) return;
+  if (pressOnPlane) return;
 
   // A right CLICK cancels; a right DRAG is an orbit or pan (the Onshape preset
   // orbits on it) and leaves the wall in progress alone. Decided here, on release,

@@ -8,8 +8,10 @@
  * array, and switching the section on puts `plane` in it. Picks skip what the cut
  * hides (keptHit), so a click lands on the surface you can see, not the one cut away.
  *
- * `plane` is in WORLD space and stays put while the part turns. Its normal points
- * at the side that is KEPT (three.js discards where the signed distance is < 0).
+ * `plane` is in world space, but the cut is held in the PART's frame (followPart):
+ * turn the part and the cut turns with it, so it stays on the bore it was opening.
+ * Its normal points at the side that is KEPT (three.js discards where the signed
+ * distance is < 0).
  */
 import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
@@ -40,11 +42,14 @@ scene.add(handle);
 
 export const planeGizmo = new TransformControls(camera, renderer.domElement);
 planeGizmo.setSize(0.7);
+// Local space: Move's one arrow slides the cut along its own normal, straight
+// through the part, whatever way it has been turned.
+planeGizmo.setSpace('local');
 planeGizmo.attach(handle);
 const planeHelper = planeGizmo.getHelper ? planeGizmo.getHelper() : planeGizmo;
 scene.add(planeHelper);
 planeGizmo.addEventListener('dragging-changed', (e) => { controls.enabled = !e.value; });
-planeGizmo.addEventListener('objectChange', syncPlane);
+planeGizmo.addEventListener('objectChange', () => { syncPlane(); holdInPart(); });
 // Same 5 degree snap as the part's rings; Shift frees it.
 const SNAP = THREE.MathUtils.degToRad(5);
 planeGizmo.setRotationSnap(SNAP);
@@ -57,6 +62,27 @@ function syncPlane() {
   handle.updateMatrixWorld();
   nrm.set(0, 0, 1).applyQuaternion(handle.quaternion);
   plane.setFromNormalAndCoplanarPoint(nrm, handle.position);
+}
+
+// The handle's pose in the part's frame, so the cut follows the part when it turns.
+const inPart = new THREE.Matrix4();
+const m4 = new THREE.Matrix4();
+
+/** Remember where the handle sits on the part (after the user or a button moved it). */
+function holdInPart() {
+  if (!part) return;
+  part.updateMatrixWorld();
+  handle.updateMatrix();
+  inPart.copy(part.matrixWorld).invert().multiply(handle.matrix);
+}
+
+/** The part turned or reseated (part.js shade): carry the cut along with it. */
+export function followPart() {
+  if (!sectionOn || !part || planeGizmo.dragging) return;
+  part.updateMatrixWorld();
+  m4.multiplyMatrices(part.matrixWorld, inPart);
+  m4.decompose(handle.position, handle.quaternion, handle.scale);
+  syncPlane();
 }
 
 /** The part's world-space box: where the plane starts and how big it draws. */
@@ -76,6 +102,7 @@ function placeThroughCentre(n) {
   partBox().getCenter(handle.position);
   handle.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n.clone().normalize());
   syncPlane();
+  holdInPart();
 }
 
 /** The first hit the cut leaves visible (hits come sorted nearest first). */
@@ -94,6 +121,8 @@ function syncGizmo() {
   planeGizmo.enabled = on;
   if (!on) planeGizmo.axis = null;
   if (handleMode) planeGizmo.setMode(handleMode);
+  // Move shows only the normal arrow: sliding the cut within its own plane does nothing.
+  planeGizmo.showX = planeGizmo.showY = handleMode !== 'translate';
   planeHelper.visible = on;
   handle.visible = sectionOn;
 }
@@ -143,6 +172,7 @@ for (const [id, mode] of [['section-move', 'translate'], ['section-turn', 'rotat
 el('section-flip').addEventListener('click', () => {
   handle.rotateX(Math.PI);
   syncPlane();
+  holdInPart();
 });
 
 const AXES = { x: new THREE.Vector3(1, 0, 0), y: new THREE.Vector3(0, 1, 0),

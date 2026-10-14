@@ -8,7 +8,7 @@ import * as THREE from 'three';
 import { buildTopology, analyze, DEFAULT_THRESHOLD, MIN_REGION_AREA } from '../overhangs.js';
 import { el } from './dom.js';
 import { scene, controls, frame, clip } from './scene.js';
-import { setSection } from './section.js';
+import { setSection, followPart } from './section.js';
 import { removeMode, cancelRemove, resetRemovals } from './remove.js';
 import { resetHistory } from './history.js';
 import { importNote, renderImportNote } from './io.js';
@@ -271,6 +271,7 @@ export function shade() {
   updateLayerView(size);
   updateLoadReadout();
   syncLoadUI();            // re-light the pad button for the load's new world direction
+  followPart();            // a section cut turns and reseats with the part
   return size;
 }
 
