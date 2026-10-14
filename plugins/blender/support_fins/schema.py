@@ -72,7 +72,10 @@ def dialog_values(schema, read):
     for s in specs(schema):
         v = read(s["name"])
         if s["kind"] == "float":
-            v = float(v) / 100.0 if s["percent"] else float(v)
+            # Blender keeps a FloatProperty as float32: the gap's 0.4 max reads back as
+            # 0.4000000059604645, which the engine refuses as out of range. Six places
+            # drops that noise and nothing a dialog can set.
+            v = round(float(v) / 100.0 if s["percent"] else float(v), 6)
         elif s["kind"] == "bool":
             v = bool(v)
         values[s["key"]] = v

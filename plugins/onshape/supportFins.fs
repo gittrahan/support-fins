@@ -101,9 +101,10 @@ const NOZZLE_BOUNDS =
     (inch)       : 0.016
 } as LengthBoundSpec;
 
+// the site's Support gap field: 0.1-0.4 mm, default 0.2
 const GAP_BOUNDS =
 {
-    (millimeter) : [0.05, 0.2, 2.0],
+    (millimeter) : [0.1, 0.2, 0.4],
     (inch)       : 0.008
 } as LengthBoundSpec;
 

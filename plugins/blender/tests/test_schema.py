@@ -14,6 +14,7 @@ Pinned:
 """
 import json
 import pathlib
+import struct
 import sys
 import zipfile
 import xml.etree.ElementTree as ET
@@ -90,10 +91,14 @@ def test_the_engine_takes_what_the_panel_sends(engine):
     by_name = {s["name"]: s for s in SPECS}
     defaults = host.host_options(ctx, schema.dialog_values(SCHEMA, lambda n: by_name[n]["default"]))
     assert defaults["gap"] == 0.2 and "sway" not in defaults      # sway off: not sent
-    tops = {s["name"]: s.get("max", s.get("soft_max")) if s["kind"] == "float" else s["default"] for s in SPECS}
+    # as Blender hands them back: a FloatProperty is float32, so the gap's 0.4 max
+    # reads as 0.4000000059604645 -- and must still be in range
+    f32 = lambda x: struct.unpack("f", struct.pack("f", x))[0]
+    tops = {s["name"]: f32(s.get("max", s.get("soft_max"))) if s["kind"] == "float" else s["default"] for s in SPECS}
     tops["sway_on"] = True
     opts = host.host_options(ctx, schema.dialog_values(SCHEMA, lambda n: tops[n]))
     assert opts["coverage"] == 1.0 and opts["sway"]["reach"] == 0.5     # 100 % and 50 % arrive / 100
+    assert opts["gap"] == 0.4
 
 
 def test_a_key_clash_is_refused():

@@ -83,8 +83,8 @@ python3 plugins/cura/build.py && python3 -m pytest -q plugins/cura/tests/
 ```
 
 The tests cover the frame mapping (Cura is Y-up, the engine Z-up), the part → engine → fins
-round trip, and the settings layer (`SupportFins/settings.py`: saved values, Match Cura, the
-dialog's rows, stale fins), without Cura. For the Cura side (menu, background job, scene, undo), drop a
+round trip, and the settings layer (`SupportFins/settings.py`: saved values, the dialog's rows,
+stale fins), without Cura. For the Cura side (menu, background job, scene, undo), drop a
 `dev_autorun.json` next to the built plugin and open a model:
 
 ```sh
