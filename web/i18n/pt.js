@@ -308,6 +308,7 @@ export default {
   "merged {n} of {total} objects into one part": "{n} de {total} objetos unidos numa peça só",
   "merged {n} bodies into one part": "{n} corpos unidos numa peça só",
   "ignored {n} support/non-printable bodies": { one: "{n} corpo de suporte/não imprimível ignorado", other: "{n} corpos de suporte/não imprimíveis ignorados" },
+  "left out {n} negative parts/modifiers: not in the export yet, re-add them in your slicer": { one: "{n} peça negativa/modificador deixado de fora: ainda não vai na exportação, adicione de novo no fatiador", other: "{n} peças negativas/modificadores deixados de fora: ainda não vão na exportação, adicione de novo no fatiador" },
   "converted from {unit} to mm": "convertido de {unit} para mm",
   "restored {n} hand-placed supports and the settings": { one: "{n} suporte posto à mão e as configurações restaurados", other: "{n} suportes postos à mão e as configurações restaurados" },
   "restored the settings": "configurações restauradas",

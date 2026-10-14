@@ -498,25 +498,101 @@ function parseModelXML(xml) {
 }
 
 /**
- * Bambu/Orca stash the human object names in Metadata/model_settings.config,
- * keyed by the ROOT object id (the same id the build item references). Returns
- * id -> name, best-effort: absent config or unknown id just falls back to a
- * generic label at the call site.
+ * A slicer's non-printing parts (GitHub #104). Bambu Studio, OrcaSlicer and
+ * PrusaSlicer let a user add a negative part (subtracted from the object), a
+ * modifier (settings for the region it covers) or a support blocker/enforcer --
+ * and every one of them is an ordinary type="model" mesh in the 3D model. What
+ * makes it one is a slicer config beside it:
+ *   Bambu/Orca  Metadata/model_settings.config, <object id=ROOT><part id=N
+ *               subtype="negative_part">, N being the objectid of one of the root
+ *               object's <component>s (each part is a component);
+ *   PrusaSlicer Metadata/Slic3r_PE_model.config, <object id=ROOT><volume
+ *               firstid lastid> + metadata volume_type="NegativeVolume", a range
+ *               of the root object's OWN triangles (one mesh holds every part).
+ * Read as part geometry, a negative part comes in as solid -- the hole it cut is
+ * filled, the fins are analysed against it, and the export prints it. So these
+ * are kept apart from the part, by kind. A missing or unknown type is a part.
  */
-function parseObjectNames(configXML) {
-  const names = new Map();
-  if (!configXML) return names;
-  let curId = null;
+const PART_KIND = {
+  negative_part: 'negative', modifier_part: 'modifier',
+  support_blocker: 'blocker', support_enforcer: 'enforcer',
+  NegativeVolume: 'negative', ParameterModifier: 'modifier',
+  SupportBlocker: 'blocker', SupportEnforcer: 'enforcer',
+};
+
+const stripExt = (s) => s.replace(/\.(stl|3mf|obj|step|stp)$/i, '');
+
+/**
+ * Bambu/Orca's Metadata/model_settings.config: the human object names, keyed by
+ * the ROOT object id (the same id the build item references), and each root
+ * object's non-printing parts, keyed by the part id (= the component objectid).
+ * Best-effort: absent config or unknown id just falls back to a generic label /
+ * a printing part at the call site.
+ *   { names: id -> name, parts: rootId -> (partId -> { kind, name }) }
+ */
+function parseBambuConfig(configXML) {
+  const names = new Map(), parts = new Map();
+  if (!configXML) return { names, parts };
+  let curId = null, curPart = null;
+  scanXML(configXML, (tag, a, selfClosing) => {
+    const t = local(tag);
+    if (t === 'object') curId = a.id != null ? String(a.id) : null;
+    else if (t === 'part' && curId) {
+      const kind = PART_KIND[a.subtype];
+      curPart = kind ? { kind, name: '' } : null;
+      if (curPart) {
+        if (!parts.has(curId)) parts.set(curId, new Map());
+        parts.get(curId).set(String(a.id), curPart);
+      }
+      if (selfClosing) curPart = null;
+    } else if (t === 'metadata' && curId && a.key === 'name' && a.value) {
+      if (curPart) curPart.name ||= stripExt(a.value);
+      // The object-level <metadata key="name"> comes before any <part>'s, and we
+      // keep only the first, so a part filename never shadows the object name.
+      else if (!names.has(curId)) names.set(curId, stripExt(a.value));
+    }
+  }, (tag) => {
+    const t = local(tag);
+    if (t === 'object') curId = null;
+    else if (t === 'part') curPart = null;
+  });
+  return { names, parts };
+}
+
+/**
+ * PrusaSlicer's Metadata/Slic3r_PE_model.config: each root object's non-printing
+ * volumes as triangle ranges (firstid..lastid, inclusive) of its own mesh.
+ *   rootId -> [{ first, last, kind, name }]
+ * Older files mark a modifier with key="modifier" value="1" and no volume_type.
+ */
+function parsePrusaConfig(configXML) {
+  const vols = new Map();
+  if (!configXML) return vols;
+  let curId = null, cur = null;
   scanXML(configXML, (tag, a) => {
     const t = local(tag);
     if (t === 'object') curId = a.id != null ? String(a.id) : null;
-    // The object-level <metadata key="name"> comes before any <part>'s, and we
-    // keep only the first, so a part filename never shadows the object name.
-    else if (t === 'metadata' && curId && a.key === 'name' && a.value && !names.has(curId)) {
-      names.set(curId, a.value.replace(/\.(stl|3mf|obj|step|stp)$/i, ''));
+    else if (t === 'volume' && curId) {
+      cur = { first: +a.firstid, last: +a.lastid, kind: null, name: '', legacy: null };
+      if (!vols.has(curId)) vols.set(curId, []);
+      vols.get(curId).push(cur);
+    } else if (t === 'metadata' && cur) {
+      if (a.key === 'volume_type') cur.kind = PART_KIND[a.value] ?? null;
+      else if (a.key === 'modifier' && a.value === '1') cur.legacy = 'modifier';
+      else if (a.key === 'name' && a.value) cur.name = stripExt(a.value);
     }
-  }, (tag) => { if (local(tag) === 'object') curId = null; });
-  return names;
+  }, (tag) => {
+    const t = local(tag);
+    if (t === 'object') curId = null;
+    else if (t === 'volume') cur = null;
+  });
+  for (const [id, list] of vols) {
+    const kept = list
+      .map((v) => ({ first: v.first, last: v.last, kind: v.kind ?? v.legacy, name: v.name }))
+      .filter((v) => v.kind && Number.isFinite(v.first) && Number.isFinite(v.last));
+    if (kept.length) vols.set(id, kept); else vols.delete(id);
+  }
+  return vols;
 }
 
 /**
@@ -528,17 +604,27 @@ function parseObjectNames(configXML) {
  *
  * `seen` breaks a component cycle: a malformed file can reference itself, the
  * spec forbids it, so bailing is correct rather than recursing forever.
+ *
+ * `sink(role)` is where a triangle goes: role null is the part, any other is one
+ * non-printing part's { kind, name } (PART_KIND), its own soup. `role` is the
+ * one this subtree inherits; `roles` is only passed for a BUILD ITEM's object,
+ * where the slicer configs name its parts -- `roles.parts` by component objectid
+ * (Bambu/Orca), `roles.ranges` by triangle index (PrusaSlicer).
  */
-function emitObject(getPart, path, id, m, out, seen, stats, col) {
+function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles = null) {
   const part = getPart(path);
   const obj = part && part.objects.get(id);
   if (!obj) { stats.missing++; return; }        // dangling ref: a broken file
   const key = `${path} ${id}`;
   if (seen.has(key)) return;
-  if (SKIP_TYPES.has(obj.type)) { stats.skipped++; return; }
+  // Bambu writes a non-printing part as type="other": the config naming it wins,
+  // so it is kept by kind instead of skipped as unknown geometry.
+  if (SKIP_TYPES.has(obj.type) && !role) { stats.skipped++; return; }
   seen.add(key);
 
   const { verts, tris } = obj;
+  const ranges = roles?.ranges;
+  let partTris = 0;
   for (let t = 0; t < tris.length; t += 3) {
     // A triangle indexing a vertex that does not exist is a broken file. Check
     // all three FIRST and drop the whole face -- pushing NaN would silently
@@ -550,9 +636,14 @@ function emitObject(getPart, path, id, m, out, seen, stats, col) {
       stats.dropped++;
       continue;
     }
-    const k = out.length / 9;
-    if (obj.paint?.[t / 3]) col.paint[k] = obj.paint[t / 3];
-    if (obj.rgb?.[t / 3]) col.rgb[k] = obj.rgb[t / 3];
+    const r = ranges ? ranges.find((v) => t / 3 >= v.first && t / 3 <= v.last) ?? role : role;
+    const { out, col } = sink(r);
+    if (!r) partTris++;
+    if (col) {
+      const k = out.length / 9;
+      if (obj.paint?.[t / 3]) col.paint[k] = obj.paint[t / 3];
+      if (obj.rgb?.[t / 3]) col.rgb[k] = obj.rgb[t / 3];
+    }
     for (const o of [o0, o1, o2]) {
       const x = verts[o], y = verts[o + 1], z = verts[o + 2];
       if (m) {
@@ -564,11 +655,12 @@ function emitObject(getPart, path, id, m, out, seen, stats, col) {
       }
     }
   }
-  if (tris.length) stats.meshes++;
+  if (partTris) stats.meshes++;
 
   for (const c of obj.components) {
     const childPath = c.path ? partName(c.path) : path;
-    emitObject(getPart, childPath, c.objectid, compose(c.transform, m), out, seen, stats, col);
+    emitObject(getPart, childPath, c.objectid, compose(c.transform, m), sink, seen, stats,
+      roles?.parts?.get(c.objectid) ?? role);
   }
   seen.delete(key);
 }
@@ -621,6 +713,8 @@ function findRootPart(parts) {
  *   Each object's `positions` is flat [x,y,z] x 3 per triangle, the same layout
  *   STLLoader produces, so the caller builds a BufferGeometry from any of them.
  *   `colors` is null, or the object's colours by triangle index (see PartColors).
+ *   `extras` is the object's non-printing parts (PART_KIND): [{ kind, name,
+ *   positions }], in the same space as `positions` but NOT in it.
  */
 export async function readThreeMF(bytes) {
   const parts = await unzip(bytes);
@@ -642,8 +736,9 @@ export async function readThreeMF(bytes) {
   const root = getPart(rootName);
   const unit = root.unit;
   const scale = UNIT_MM[unit] ?? 1;
-  const names = parseObjectNames(parts.has('Metadata/model_settings.config')
-    ? new TextDecoder().decode(parts.get('Metadata/model_settings.config')) : null);
+  const text = (name) => (parts.has(name) ? new TextDecoder().decode(parts.get(name)) : null);
+  const { names, parts: bambuParts } = parseBambuConfig(text('Metadata/model_settings.config'));
+  const prusaVols = parsePrusaConfig(text('Metadata/Slic3r_PE_model.config'));
 
   // Each <build><item> is one pickable object. No <build> is a valid-but-empty
   // plate; a few CAD exporters omit it, so fall back to the mesh/assembly objects
@@ -654,21 +749,33 @@ export async function readThreeMF(bytes) {
         .filter(([, o]) => o.tris.length || o.components.length)
         .map(([id]) => ({ objectid: id, transform: null }));
 
+  const toMM = (out) => {
+    const positions = new Float32Array(out.length);
+    for (let i = 0; i < out.length; i++) positions[i] = out[i] * scale;
+    return positions;
+  };
+
   const objects = [];
   const agg = { meshes: 0, skipped: 0, dropped: 0 };
   for (const item of roots) {
-    const out = [];
+    const main = { out: [], col: { paint: [], rgb: [] } };
+    const extra = new Map();        // role -> { out }: one soup per non-printing part
+    const sink = (role) => {
+      if (!role) return main;
+      if (!extra.has(role)) extra.set(role, { out: [], col: null });
+      return extra.get(role);
+    };
     const stats = { meshes: 0, skipped: 0, dropped: 0, missing: 0 };
-    const col = { paint: [], rgb: [] };
-    emitObject(getPart, rootName, item.objectid, item.transform, out, new Set(), stats, col);
+    const roles = { parts: bambuParts.get(item.objectid), ranges: prusaVols.get(item.objectid) };
+    emitObject(getPart, rootName, item.objectid, item.transform, sink, new Set(), stats, null, roles);
     // Fold stats first: a build item that was ALL support/dangling emits nothing
     // but its skipped count still has to be reported, not dropped with the item.
     agg.meshes += stats.meshes; agg.skipped += stats.skipped; agg.dropped += stats.dropped;
-    if (!out.length) continue;      // all-skipped/dangling item: not a pickable body
+    // all-skipped/dangling item, or one with only non-printing parts: not a pickable body
+    if (!main.out.length) continue;
 
-    const positions = new Float32Array(out.length);
-    for (let i = 0; i < out.length; i++) positions[i] = out[i] * scale;
-
+    const positions = toMM(main.out);
+    const { col } = main;
     const rootObj = root.objects.get(item.objectid);
     objects.push({
       name: names.get(item.objectid) || (rootObj && rootObj.name) || `Object ${objects.length + 1}`,
@@ -679,6 +786,8 @@ export async function readThreeMF(bytes) {
       dropped: stats.dropped,
       bbox: bbox(positions),
       colors: col.paint.length || col.rgb.length ? col : null,
+      extras: [...extra].filter(([, s]) => s.out.length)
+        .map(([role, s]) => ({ kind: role.kind, name: role.name, positions: toMM(s.out) })),
     });
   }
 

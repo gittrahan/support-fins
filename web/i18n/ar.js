@@ -333,6 +333,7 @@ export default {
   "merged {n} of {total} objects into one part": "تم دمج {n} من أصل {total} من الكائنات في قطعة واحدة",
   "merged {n} bodies into one part": "تم دمج {n} من الأجسام في قطعة واحدة",
   "ignored {n} support/non-printable bodies": { one: "تم تجاهل {n} جسم دعم أو جسم غير قابل للطباعة", other: "تم تجاهل {n} من أجسام الدعم أو الأجسام غير القابلة للطباعة" },
+  "left out {n} negative parts/modifiers: not in the export yet, re-add them in your slicer": { one: "تم استبعاد {n} جزء سالب أو مُعدِّل: ليس في التصدير بعد، أعد إضافته في برنامج التقطيع", other: "تم استبعاد {n} من الأجزاء السالبة أو المُعدِّلات: ليست في التصدير بعد، أعد إضافتها في برنامج التقطيع" },
   "converted from {unit} to mm": "تم التحويل من {unit} إلى mm",
   "restored {n} hand-placed supports and the settings": { one: "تمت استعادة {n} دعامة موضوعة يدوياً والإعدادات", other: "تمت استعادة {n} من الدعامات الموضوعة يدوياً، بالإضافة إلى الإعدادات" },
   "restored the settings": "تمت استعادة الإعدادات",

@@ -339,6 +339,7 @@ export default {
   "merged {n} of {total} objects into one part": "{n} von {total} Objekten zu einem Bauteil zusammengeführt",
   "merged {n} bodies into one part": "{n} Körper zu einem Bauteil zusammengeführt",
   "ignored {n} support/non-printable bodies": { one: "{n} Stütz-/nicht druckbare(n) Körper ignoriert", other: "{n} Stütz-/nicht druckbare(n) Körper ignoriert" },
+  "left out {n} negative parts/modifiers: not in the export yet, re-add them in your slicer": { one: "{n} Negativteil/Modifikator weggelassen: noch nicht im Export, im Slicer neu hinzufügen", other: "{n} Negativteile/Modifikatoren weggelassen: noch nicht im Export, im Slicer neu hinzufügen" },
   "converted from {unit} to mm": "von {unit} nach mm konvertiert",
   "restored {n} hand-placed supports and the settings": { one: "{n} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt", other: "{n} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt" },
   "restored the settings": "die Einstellungen wiederhergestellt",

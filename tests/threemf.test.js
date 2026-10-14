@@ -8,6 +8,7 @@
 //   - ZIP64 archives read, because writers use it for reasons of their own and
 //     not only past the 4GB limit (this shipped broken: a real file was refused);
 //   - support/non-printable bodies stay out of the part geometry;
+//   - a slicer's negative parts / modifiers stay out of it too, kept by kind (#104);
 //   - a malformed file fails loudly rather than opening blank or sheared.
 
 import { WEB, MODELS, assert, assertClose, block, readSTL, buildTopology, analyze, rotX } from './_util.js';
@@ -456,6 +457,105 @@ Deno.test('3MF objects come back separately, named from model_settings.config', 
   assert(r.objects.length === 2, `got ${r.objects.length} objects, want 2`);
   assert(r.objects[0].name === 'waffle' && r.objects[1].name === 'butter',
     `names ${r.objects.map((o) => o.name)}, want waffle, butter (extension stripped)`);
+});
+
+// --- a slicer's negative parts and modifiers (#104) -------------------------
+// Each is an ordinary mesh in the model; only a slicer config says it is not
+// printed. Read as part, a negative part comes in solid: the cut it makes is
+// filled and finned. They come back apart, by kind, in the part's space.
+
+/** A Bambu/Orca object: a printing part and one non-printing part, each a component. */
+async function bambuParts({ subtype = 'negative_part', type = 'other' } = {}) {
+  const root = `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}"><resources>`
+    + '<object id="10" type="model"><components>'
+    + '<component p:path="/3D/Objects/o.model" objectid="1"/>'
+    + '<component p:path="/3D/Objects/o.model" objectid="2" transform="1 0 0 0 1 0 0 0 1 7 0 0"/>'
+    + '</components></object></resources><build><item objectid="10"/></build></model>';
+  const obj = triPart(1, 2).replace('</resources>',
+    triPart(2, 1).match(/<object[\s\S]*<\/object>/)[0].replace('type="model"', `type="${type}"`) + '</resources>');
+  const config = '<?xml version="1.0"?><config><object id="10"><metadata key="name" value="bracket.stl"/>'
+    + '<part id="1" subtype="normal_part"><metadata key="name" value="bracket.stl"/></part>'
+    + `<part id="2" subtype="${subtype}"><metadata key="name" value="Generic-Cylinder"/></part>`
+    + '</object></config>';
+  return readThreeMF(await packParts([
+    { name: '3D/3dmodel.model', data: root },
+    { name: '3D/Objects/o.model', data: obj },
+    { name: 'Metadata/model_settings.config', data: config },
+  ]));
+}
+
+Deno.test('3MF Bambu negative part stays out of the part, kept by kind (#104)', async () => {
+  const r = await bambuParts();
+  const o = r.objects[0];
+  assert(o.name === 'bracket', `object named ${o.name}, not after its part`);
+  assert(o.tris === 1 && bounds(o.positions).hi[0] === 2, `part is ${o.tris} tris, max x ${bounds(o.positions).hi[0]}: the negative got in`);
+  assert(r.skipped === 0, `the negative part counted as ${r.skipped} skipped body`);
+  assert(o.extras.length === 1 && o.extras[0].kind === 'negative' && o.extras[0].name === 'Generic-Cylinder',
+    `extras ${JSON.stringify(o.extras.map((e) => [e.kind, e.name]))}`);
+  // the component's transform applies: the negative sits where the slicer put it
+  assert(bounds(o.extras[0].positions).lo[0] === 7, `negative at x ${bounds(o.extras[0].positions).lo[0]}, want 7`);
+});
+
+Deno.test('3MF Bambu: a negative part typed "model" (OrcaSlicer, older Bambu) is still not solid', async () => {
+  const o = (await bambuParts({ type: 'model' })).objects[0];
+  assert(o.tris === 1 && o.extras[0]?.kind === 'negative', `part ${o.tris} tris, extras ${o.extras.length}`);
+});
+
+Deno.test('3MF Bambu modifier, blocker and enforcer each keep their kind', async () => {
+  for (const [subtype, kind] of [['modifier_part', 'modifier'], ['support_blocker', 'blocker'], ['support_enforcer', 'enforcer']]) {
+    const o = (await bambuParts({ subtype })).objects[0];
+    assert(o.tris === 1 && o.extras[0]?.kind === kind, `${subtype}: part ${o.tris} tris, extra ${o.extras[0]?.kind}`);
+  }
+  const o = (await bambuParts({ subtype: 'normal_part', type: 'model' })).objects[0];
+  assert(o.tris === 2 && o.extras.length === 0, `a second normal part is part: ${o.tris} tris, ${o.extras.length} extras`);
+});
+
+/** A PrusaSlicer object: ONE mesh of three triangles, its volumes as triangle ranges. */
+async function prusaVolumes(volumes, triAttr = '') {
+  const verts = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [5, 0, 0], [6, 0, 0], [5, 1, 0], [9, 0, 0], [10, 0, 0], [9, 1, 0]]
+    .map((p) => `<vertex x="${p[0]}" y="${p[1]}" z="${p[2]}"/>`).join('');
+  const tris = [0, 3, 6].map((v, i) => `<triangle v1="${v}" v2="${v + 1}" v3="${v + 2}"${i === 2 ? triAttr : ''}/>`).join('');
+  const model = `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}" xmlns:slic3rpe="http://schemas.slic3r.org/3mf/2017/06">`
+    + `<resources><object id="1" type="model"><mesh><vertices>${verts}</vertices><triangles>${tris}</triangles></mesh></object>`
+    + '</resources><build><item objectid="1"/></build></model>';
+  const config = '<?xml version="1.0"?><config><object id="1" instances_count="1">'
+    + '<metadata type="object" key="name" value="bracket.stl"/>'
+    + volumes.map(([first, last, meta]) => `<volume firstid="${first}" lastid="${last}">${meta}</volume>`).join('')
+    + '</object></config>';
+  return readThreeMF(await packParts([
+    { name: '3D/3dmodel.model', data: model },
+    { name: 'Metadata/Slic3r_PE_model.config', data: config },
+  ]));
+}
+const vtype = (v, name = 'v') => `<metadata type="volume" key="name" value="${name}"/>`
+  + `<metadata type="volume" key="volume_type" value="${v}"/>`;
+
+Deno.test('3MF PrusaSlicer: volumes are triangle ranges -- the negative one stays out of the part', async () => {
+  const r = await prusaVolumes([[0, 0, vtype('ModelPart')], [1, 1, vtype('NegativeVolume', 'hole.stl')], [2, 2, vtype('ModelPart')]],
+    ' slic3rpe:mmu_segmentation="8"');
+  const o = r.objects[0];
+  assert(o.tris === 2, `part is ${o.tris} tris, want 2 (the negative range got in)`);
+  assert(o.extras.length === 1 && o.extras[0].kind === 'negative' && o.extras[0].name === 'hole',
+    `extras ${JSON.stringify(o.extras.map((e) => [e.kind, e.name]))}`);
+  assert(bounds(o.extras[0].positions).lo[0] === 5, 'the wrong triangle went to the negative part');
+  // the colour of the part's LAST triangle lands on its own index, not shifted by the negative
+  assert(o.colors?.paint[1]?.v === '8' && !o.colors.paint[0], `paint at ${Object.keys(o.colors?.paint ?? {})}, want 1`);
+});
+
+Deno.test('3MF PrusaSlicer: modifier, blocker, enforcer, and an old file\'s modifier="1"', async () => {
+  const o = (await prusaVolumes([[0, 0, vtype('ModelPart')], [1, 1, vtype('ParameterModifier')],
+    [2, 2, '<metadata type="volume" key="modifier" value="1"/>']])).objects[0];
+  assert(o.tris === 1 && o.extras.map((e) => e.kind).join() === 'modifier,modifier', `got ${o.tris} tris, ${o.extras.map((e) => e.kind)}`);
+  const b = (await prusaVolumes([[0, 0, vtype('ModelPart')], [1, 1, vtype('SupportBlocker')], [2, 2, vtype('SupportEnforcer')]])).objects[0];
+  assert(b.extras.map((e) => e.kind).join() === 'blocker,enforcer', `got ${b.extras.map((e) => e.kind)}`);
+});
+
+Deno.test('3MF an object that is only non-printing parts is not offered as a part', async () => {
+  const r = await prusaVolumes([[0, 0, vtype('ModelPart')], [1, 2, vtype('NegativeVolume')]]);
+  assert(r.objects.length === 1 && r.objects[0].tris === 1, 'baseline');
+  let threw = false;
+  try { await prusaVolumes([[0, 2, vtype('NegativeVolume')]]); } catch { threw = true; }
+  assert(threw, 'a file that is all negative part opened as a part');
 });
 
 // --- unit: more production-extension shapes --------------------------------

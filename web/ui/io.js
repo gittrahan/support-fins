@@ -31,6 +31,10 @@ export function renderImportNote() {
       notes.push(t('merged {n} bodies into one part', { n: m.meshes }));
     }
     if (m.skipped) notes.push(tn('ignored {n} support/non-printable body', 'ignored {n} support/non-printable bodies', m.skipped));
+    // a slicer's negative parts / modifiers / blockers (#104): kept out of the part
+    // so a cut is not finned as solid, but not exported yet
+    if (m.extras) notes.push(tn('left out {n} negative part/modifier: not in the export yet, re-add it in your slicer',
+      'left out {n} negative parts/modifiers: not in the export yet, re-add them in your slicer', m.extras));
     if (m.unit && m.unit !== 'millimeter') notes.push(t('converted from {unit} to mm', { unit: m.unit }));
     if (m.session === 'restored') {
       notes.push(m.restored
@@ -200,6 +204,7 @@ async function parseModel(buffer) {
     chosenName: chosen[0]?.name,
     meshes: chosen[0]?.meshes ?? 1,
     skipped,
+    extras: chosen.reduce((n, o) => n + (o.extras?.length ?? 0), 0),
     unit,
     session: own ? 'pending' : null,
   };
