@@ -112,9 +112,11 @@ function zOn(tris, i, x, y) {
 // `lb` is a floor under any height zOn returns for the triangle: zOn accepts
 // barycentrics down to -1e-9, which reaches below the lowest vertex by at most
 // 2e-9 of the triangle's z-range, plus float rounding. Stopping only when a floor
-// is ABOVE the best keeps the minimum exact. Built on first use: surfaceHitsAt and
+// is ABOVE the best keeps the minimum exact. A NaN vertex (a corrupt binary STL)
+// gets a floor of -Infinity: a NaN would make the sort inconsistent, and the plain
+// scan never let such a triangle win anyway. Built on first use: surfaceHitsAt and
 // surfaceZsAt keep the index-ordered lists, where order matters.
-const LOW_FIRST_AFTER = 2000;   // queries per 1000 triangles before a grid sorts
+const LOW_FIRST_AFTER = 2000;   // a grid sorts after 2000 queries, plus 2000 per 1000 triangles
 function lowFirst(g, tris) {
   if (g.low) return g.low;
   const n = tris.length / 9;
@@ -123,6 +125,7 @@ function lowFirst(g, tris) {
     const o = t * 9, a = tris[o + 2], b = tris[o + 5], c = tris[o + 8];
     const lo = Math.min(a, b, c), hi = Math.max(a, b, c);
     lb[t] = lo - 3e-9 * (hi - lo) - 1e-12 * (1 + Math.abs(lo));
+    if (!(lb[t] > -Infinity)) lb[t] = -Infinity;
   }
   // fill the cells in ascending-floor order, so each cell's list comes out sorted
   const order = new Int32Array(n);
