@@ -2,7 +2,7 @@
 
 The Deno suite and the sweep only cover the engine (`fins.js`, `prop.js`, …).
 Nothing else exercises `web/app.js` and `web/ui/`. This covers them: it drives
-the real page in headless Chrome through a fixed script of 85 steps and
+the real page in headless Chrome through a fixed script of 87 steps and
 records everything visible after each step, then diffs that against a base
 build.
 
@@ -18,7 +18,7 @@ deno run -A prototype/ui-smoke/compare.js base.json run.json
 ```
 
 **The script:** load → rotate X, Y → fins on → remove the nearest fin (hover,
-click, Esc, restore, ⌘Z, redo) → PETG → pad Sure hold / Custom / gap / Auto →
+click, Esc, restore, ⌘Z, redo) → Support gap 0.3 → pad Sure hold / Custom / gap / Auto →
 tines off/on → sway → diamond cutouts → coverage 80 → Draw: a wall across the
 overhang, then Esc, undo, clear, and their undos → Auto with the drawn wall →
 "+ Add" on/off → strength arrow up / right / suggest / clear → layer view →

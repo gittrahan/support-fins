@@ -234,7 +234,7 @@ try {
   await click('redo'); await snap('redo');
 
   // Options panel.
-  await setVal('material', 'petg'); await snap('petg');
+  await setVal('gap', '0.3', 'input'); await snap('gap-0.3');
   await setVal('bed-pad', 'sure'); await snap('pad-sure');
   await setVal('bed-pad', 'custom'); await snap('pad-custom');
   await setVal('pad-gap', '0.2', 'input'); await snap('pad-custom-gap');
