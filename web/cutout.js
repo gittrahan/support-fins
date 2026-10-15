@@ -497,7 +497,10 @@ export function cutWall(st, full, out, wall) {
         const A = poly[n], B = poly[(n + 1) % poly.length];
         if (H.every((V) => outside(A, B, V))) cut = [A, B];
       }
-      if (cut) keep(cut[0], cut[1], 0);
+      // nothing separates them only if the piece already overlaps the hole: then
+      // it doesn't grow at all, rather than grow further in
+      if (!cut) return poly;
+      keep(cut[0], cut[1], 0);
     }
     return G;
   };
