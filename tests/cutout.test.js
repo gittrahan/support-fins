@@ -342,7 +342,25 @@ Deno.test('cutout: no welded edge is shared by more than two faces (issue #223)'
     const { over, flat } = sharedEdges(t);
     assert(over === 0 && flat === 0, `${what}: ${over} edges on 3+ faces, ${flat} zero-area faces`);
   };
-  for (const p of PATTERNS) { check(`slab ${p}`, wall(p)); check(`sloped ${p}`, sloped(p)); }
+  // A drawn wall along X has its faces at y = +-th/2. A piece that came out
+  // non-convex folds its fan-triangulated cap, and a folded cap has a face there
+  // turned inward -- the closed and welded-edge checks can't see that.
+  const folded = (t) => {
+    let n = 0;
+    for (let i = 0; i < t.length; i += 3) {
+      const [a, b, c] = [t[i], t[i + 1], t[i + 2]];
+      if (Math.abs(a[1] - b[1]) > 1e-9 || Math.abs(a[1] - c[1]) > 1e-9 || Math.abs(a[1]) < 0.1) continue;
+      const ny = (c[0] - a[0]) * (b[2] - a[2]) - (b[0] - a[0]) * (c[2] - a[2]);
+      if (Math.abs(ny) > 1e-12 && Math.sign(ny) !== Math.sign(a[1])) n++;
+    }
+    return n;
+  };
+  for (const p of PATTERNS) {
+    for (const [what, t] of [[`slab ${p}`, wall(p)], [`sloped ${p}`, sloped(p)]]) {
+      check(what, t);
+      assert(folded(t) === 0, `${what}: ${folded(t)} faces turned inward (a folded piece)`);
+    }
+  }
   const cases = [['wedge', 'x', 60], ['lbracket', 'x', 60], ['cylinder', 'y', 25], ['cube', 'x', 45],
                  ['torus', 'x', 30], ['staircase', 'x', 120]];
   for (const [name, ax, deg] of cases) {
