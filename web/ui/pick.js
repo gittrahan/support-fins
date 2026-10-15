@@ -9,8 +9,8 @@
  * and distance, every hit, so keptHit's section-cut filter sees the same list).
  *
  * Built lazily, on a mesh's first pick, and only for meshes big enough to need it:
- * the build is ~0.6 s on that mini, so paying it at load would undo part of what
- * the faster weld bought, and most visits orbit before they ever pick. `indirect`
+ * the build is ~0.6 s on that mini, about what welding it at load costs, and most
+ * visits orbit before they ever pick. `indirect`
  * keeps the geometry untouched (no index is added, triangle order is unchanged), so
  * nothing else that reads the part's positions or face colours can tell.
  *

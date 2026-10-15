@@ -6,3 +6,6 @@
 # The negative-part cut's Manifold (~0.5 MB), versioned the same way.
 /vendor/manifold-3d-3.5.4/*
   Cache-Control: public, max-age=31536000, immutable
+# Pointer picks' three-mesh-bvh (~290 KB), versioned the same way.
+/vendor/three-mesh-bvh-0.9.15/*
+  Cache-Control: public, max-age=31536000, immutable
