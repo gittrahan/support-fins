@@ -75,7 +75,7 @@ function buildZGrid(tris) {
     const [a0, a1, b0, b1] = span(f);
     for (let a = a0; a <= a1; a++) for (let b = b0; b <= b1; b++) items[cur[a * NY + b]++] = f;
   }
-  g = { start: counts, items, minX, minY, maxX, maxY, sx, sy, NX, NY };
+  g = { start: counts, items, minX, minY, maxX, maxY, sx, sy, NX, NY, asked: 0 };
   _zGrids.set(tris, g);
   return g;
 }
@@ -114,6 +114,7 @@ function zOn(tris, i, x, y) {
 // 2e-9 of the triangle's z-range, plus float rounding. Stopping only when a floor
 // is ABOVE the best keeps the minimum exact. Built on first use: surfaceHitsAt and
 // surfaceZsAt keep the index-ordered lists, where order matters.
+const LOW_FIRST_AFTER = 2000;   // queries per 1000 triangles before a grid sorts
 function lowFirst(g, tris) {
   if (g.low) return g.low;
   const n = tris.length / 9;
@@ -146,13 +147,23 @@ export function surfaceZAt(tris, x, y) {
   const g = buildZGrid(tris);
   const c = cellOf(g, x, y);
   if (c === null) return null;
-  const { items, lb } = lowFirst(g, tris);
   let best = Infinity;
-  for (let k = g.start[c]; k < g.start[c + 1]; k++) {
-    const f = items[k];
-    if (lb[f / 9] > best) break;          // nothing further down this list reaches lower
-    const z = zOn(tris, f, x, y);
-    if (z !== null && z < best) best = z;
+  // Sorting the lists costs about a full pass of queries, so only a grid asked
+  // enough to repay it (the whole part under a bed pad) gets them; a region's or a
+  // patch's few queries scan the plain lists, as before.
+  if (g.low || ++g.asked > LOW_FIRST_AFTER * (1 + tris.length / 9 / 1000)) {
+    const { items, lb } = lowFirst(g, tris);
+    for (let k = g.start[c]; k < g.start[c + 1]; k++) {
+      const f = items[k];
+      if (lb[f / 9] > best) break;          // nothing further down this list reaches lower
+      const z = zOn(tris, f, x, y);
+      if (z !== null && z < best) best = z;
+    }
+  } else {
+    for (let k = g.start[c]; k < g.start[c + 1]; k++) {
+      const z = zOn(tris, g.items[k], x, y);
+      if (z !== null && z < best) best = z;
+    }
   }
   return best === Infinity ? null : best;
 }
