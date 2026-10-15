@@ -602,27 +602,6 @@ html, body {
 .btn.sm { padding: 3px 9px; }
 
 #suggest-note.good { color: #6fcf8b; }   /* the "best support is no support" win */
-/* Collapse/expand the results in place (keeps them, unlike a dismiss). A bare
-   chevron that points right when folded and rotates down when open. */
-.disclosure {
-  flex: 0 0 auto;
-  width: 20px; height: 20px;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: none;
-  background: transparent;
-  color: var(--dim);
-  font-size: 17px;
-  line-height: 1;
-  cursor: pointer;
-  transition: transform .15s ease, color .15s ease;
-  transform: rotate(90deg);            /* expanded: chevron points down */
-}
-.disclosure[aria-expanded="false"] { transform: rotate(0deg); }   /* collapsed: points right */
-.disclosure[hidden] { display: none; }
-.disclosure:hover { color: var(--text); }
 #suggest-list {
   flex-basis: 100%;
   display: flex;
@@ -763,6 +742,9 @@ html, body {
   padding: 8px 10px;
   width: max-content;
   max-width: min(20rem, calc(100vw - 28px));
+  /* a short window (a phone on its side): scroll inside rather than run under the top bar */
+  max-height: calc(100vh - var(--topbar-h) - 60px);
+  overflow-y: auto;
 }
 .vb-pop.wide { max-width: min(22rem, calc(100vw - 28px)); }
 .vb-sep { width: 1px; align-self: stretch; margin: 3px; background: var(--glass-line); }

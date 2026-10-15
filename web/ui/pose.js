@@ -115,8 +115,9 @@ export function setLayPlacing(v) {
 export const layActive = () => layPlacing;
 
 // The Rotate badge in the view toolbar (toolbar.js) holds the 90deg steps, Reset,
-// Lay a face flat and the rings switch below.
-addBadge('rotate-badge', { pop: 'rotate-pop' });
+// Lay a face flat and the rings switch below. Folding it disarms Lay a face flat:
+// its button is the only sign it is armed, and an armed click re-lays the part.
+addBadge('rotate-badge', { pop: 'rotate-pop', onFold: () => { if (layPlacing) cancelLay(); } });
 
 // "Show rotate rings": off hides the rings until turned back on (they cover the
 // part, #53); the 90deg buttons, Reset and Lay a face flat still turn it.

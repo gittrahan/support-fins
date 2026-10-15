@@ -15,7 +15,9 @@
  *     seeing with the popover folded (Strength: a load is set).
  * A popover opens above its own badge, its left edge on the badge's, extending
  * right -- slid back left only as far as the window's edge needs. A click on the
- * 3D view leaves it open (Lay a face flat and Section are used there); Esc folds it.
+ * 3D view leaves it open (Lay a face flat and Section are used there); Esc folds it
+ * and hands focus back to its badge. `onFold` runs when a popover folds, for a mode
+ * armed from inside it that must not stay armed out of sight (Lay a face flat).
  * The bar shows once a part is loaded (showToolbar, from part.js); nothing unloads
  * a part, so it is never hidden again.
  *
@@ -24,10 +26,13 @@
  */
 import { el } from './dom.js';
 
-const badges = new Map();        // id -> { btn, pop, isOn, setOn }
+const badges = new Map();        // id -> { btn, pop, isOn, setOn, onFold }
 let openId = null;               // the badge whose popover is showing
+let shownId = null;              // ...as of the last render, to catch a fold
 
 function render() {
+  if (shownId && shownId !== openId) badges.get(shownId).onFold?.();
+  shownId = openId;
   for (const [id, b] of badges) {
     const on = b.isOn?.() ?? false;
     if (b.setOn && !on && openId === id) openId = null;
@@ -59,23 +64,27 @@ function place() {
     pop.style.left = '0px';
     const at = open.btn.offsetLeft - open.btn.parentElement.scrollLeft;
     const over = left + at + pop.offsetWidth - (innerWidth - EDGE);
-    pop.style.left = `${Math.max(0, at - Math.max(0, over))}px`;
+    // never past the window's left edge either, when the bar sits right of the card
+    pop.style.left = `${Math.max(EDGE - left, at - Math.max(0, over))}px`;
   }
 }
 addEventListener('resize', place);
 const watch = new ResizeObserver(place);
 watch.observe(el('stats'));
 el('left-rail').addEventListener('scroll', place);
-document.querySelector('#viewbar .vb-badges').addEventListener('scroll', place);
+const row = document.querySelector('#viewbar .vb-badges');
+row.addEventListener('scroll', place);
+watch.observe(row);              // a language change resizes the badges
 
 /**
  * Register a badge. `id` is its button in #viewbar; `pop` (optional) the id of its
  * popover there. A tool badge passes `isOn()` (reads the tool's state) and
  * `setOn(v)` (changes it); a panel badge passes neither, or only `isOn` to light
- * up. Returns a sync() for the module to call when that state changes.
+ * up. `onFold()` (optional) runs whenever its popover folds. Returns a sync() for
+ * the module to call when that state changes.
  */
-export function addBadge(id, { pop, isOn, setOn } = {}) {
-  const b = { btn: el(id), pop: pop ? el(pop) : null, isOn, setOn };
+export function addBadge(id, { pop, isOn, setOn, onFold } = {}) {
+  const b = { btn: el(id), pop: pop ? el(pop) : null, isOn, setOn, onFold };
   badges.set(id, b);
   if (pop) b.btn.setAttribute('aria-controls', pop);
   b.btn.addEventListener('click', () => {
@@ -89,9 +98,15 @@ export function addBadge(id, { pop, isOn, setOn } = {}) {
   return render;
 }
 
-// Esc folds the open popover away; a tool stays on.
+// Esc folds the open popover away; a tool stays on. Focus inside it goes back to
+// its badge rather than dropping to the page.
 addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && openId) { openId = null; render(); }
+  if (e.key !== 'Escape' || !openId) return;
+  const b = badges.get(openId);
+  const refocus = b.pop?.contains(document.activeElement);
+  openId = null;
+  render();
+  if (refocus) b.btn.focus();
 });
 
 /** Show the bar (a part is loaded) or hide it. */
