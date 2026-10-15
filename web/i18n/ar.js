@@ -1,5 +1,10 @@
 // Arabic translation
 export default {
+  "Full coverage": "تغطية كاملة",
+  "Draw": "رسم",
+  "Places supports for you.": "يضع الدعامات نيابةً عنك.",
+  "Auto, plus walls under every overhang it leaves bare. More plastic.": "تلقائي، مع جدران تحت كل بروز يتركه دون دعم. بلاستيك أكثر.",
+  "You place each wall: click an overhang face.": "تضع كل جدار بنفسك: انقر على وجه بارز.",
   "Rotate": "تدوير",
   "Suggest": "اقتراح",
   "Strength": "القوة",

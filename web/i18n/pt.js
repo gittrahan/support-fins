@@ -1,4 +1,9 @@
 export default {
+  "Full coverage": "Cobertura total",
+  "Draw": "Desenhar",
+  "Places supports for you.": "Posiciona os suportes para você.",
+  "Auto, plus walls under every overhang it leaves bare. More plastic.": "Auto, mais paredes sob cada saliência que ele deixa sem suporte. Mais plástico.",
+  "You place each wall: click an overhang face.": "Você posiciona cada parede: clique em uma face em balanço.",
   "Rotate": "Girar",
   "Suggest": "Sugerir",
   "Strength": "Resistência",

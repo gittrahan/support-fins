@@ -1,4 +1,9 @@
 export default {
+  "Full coverage": "Volle Abdeckung",
+  "Draw": "Zeichnen",
+  "Places supports for you.": "Platziert die Stützen für Sie.",
+  "Auto, plus walls under every overhang it leaves bare. More plastic.": "Auto, plus Wände unter jedem Überhang, den es frei lässt. Mehr Material.",
+  "You place each wall: click an overhang face.": "Sie setzen jede Wand selbst: Klicken Sie auf eine Überhangfläche.",
   "Rotate": "Drehen",
   "Suggest": "Vorschlag",
   "Strength": "Festigkeit",

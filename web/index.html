@@ -169,9 +169,19 @@
         <option value="2.0">2.0</option>
       </select>
     </label>
-    <label class="fld">
+    <!-- Placement as three buttons (local issue 42) with a one-line note on what the
+         chosen mode does. The <select> stays, hidden, as the one place the mode is
+         kept: undo, a saved session and the UI smoke script read and set it, and the
+         buttons drive it and follow it (ui/settings.js syncModeButtons). -->
+    <div class="fld" id="fin-mode-fld">
       <span data-i18n="Placement">Placement</span>
-      <select id="fin-mode" title="Who places the support." data-i18n-title>
+      <div class="mode-seg" role="group" aria-label="Placement">
+        <button type="button" class="btn sm" data-mode="auto" aria-pressed="true" data-i18n="Auto">Auto</button><button
+                type="button" class="btn sm" data-mode="full" aria-pressed="false" data-i18n="Full coverage">Full coverage</button><button
+                type="button" class="btn sm" data-mode="draw" aria-pressed="false" data-i18n="Draw">Draw</button>
+      </div>
+      <p class="mode-note" id="fin-mode-note"></p>
+      <select id="fin-mode" hidden title="Who places the support." data-i18n-title>
         <!-- AUTO (fins.js mode 'auto') is the default and does everything: a tined
              combined fin on each overhang face steep and flat enough to grip, a plain
              breakaway prop under the shallow/curved ones that can't take a fin. FULL
@@ -184,7 +194,7 @@
         <option value="full" data-i18n="Full coverage — every overhang">Full coverage — every overhang</option>
         <option value="draw" data-i18n="Draw — place them by hand">Draw — place them by hand</option>
       </select>
-    </label>
+    </div>
   </details>
 
   <!-- Combined support toggle: ON = horizontal tines fuse the support to the part

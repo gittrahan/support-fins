@@ -63,9 +63,35 @@ export function syncAugmentUI() {
   el('augment-toggle').textContent = drawAugment ? t('Done adding walls') : t('+ Add walls by hand');
 }
 
+// The Placement buttons drive the hidden #fin-mode select (the one place the mode
+// is kept) and follow it; history.js calls syncModeButtons after an undo sets it.
+const MODE_NOTES = {
+  auto: 'Places supports for you.',
+  full: 'Auto, plus walls under every overhang it leaves bare. More plastic.',
+  draw: 'You place each wall: click an overhang face.',
+};
+export function syncModeButtons() {
+  const v = el('fin-mode').value;
+  for (const b of document.querySelectorAll('#fin-mode-fld [data-mode]')) {
+    b.setAttribute('aria-pressed', String(b.dataset.mode === v));
+  }
+  el('fin-mode-note').textContent = t(MODE_NOTES[v] ?? '');
+}
+for (const b of document.querySelectorAll('#fin-mode-fld [data-mode]')) {
+  b.addEventListener('click', () => {
+    const sel = el('fin-mode');
+    if (sel.value === b.dataset.mode) return;
+    sel.value = b.dataset.mode;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+syncModeButtons();
+window.addEventListener('languagechange', syncModeButtons);
+
 el('fin-mode').addEventListener('change', (e) => {
   histPush();
   finMode = e.target.value;
+  syncModeButtons();
   syncCoverageUI();
   drawAugment = false;      // start each mode with hand-placement off
   if (removeMode) cancelRemove();
