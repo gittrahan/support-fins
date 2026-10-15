@@ -103,7 +103,6 @@ export function setPart(geometry, filename) {
   partName = filename;
   part.quaternion.identity();
   gizmo.attach(part);
-  el('orient').hidden = false;
   showToolbar(true);
 
   // A new part starts with no hand-drawn walls and a fresh print-space cache.

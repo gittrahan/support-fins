@@ -270,12 +270,11 @@ html, body {
 
 /* ---------- left rail ---------- */
 
-/* One scrolling column holds the stats panel and the rotate panel, pinned from
-   under the top bar to the bottom of the screen. When they fit, the rotate panel
-   sits at the bottom (margin-top:auto) exactly as before; when the window is too
-   short, the rail scrolls instead of the two panels overlapping. pointer-events
-   are off on the rail so the empty gap between the panels still orbits the scene,
-   and back on for the panels themselves. */
+/* One scrolling column, pinned from under the top bar to the bottom of the screen,
+   holds the stats card (the pose and view tools moved to the view toolbar, local
+   issue 42). A window too short for the card scrolls the rail; the toolbar steps
+   right of the card when it reaches down beside it. pointer-events are off on the
+   rail so the empty space below the card still orbits the scene. */
 #left-rail {
   position: fixed;
   top: var(--topbar-h); bottom: 14px; left: 14px;
@@ -289,9 +288,6 @@ html, body {
   scrollbar-width: thin;
 }
 #left-rail > * { pointer-events: auto; }
-/* Pins #orient to the bottom when the rail has spare height, but shrinks to 0
-   under pressure so the rail scrolls cleanly instead of the panels overlapping. */
-#left-rail > .rail-spacer { flex: 1 1 0; min-height: 0; pointer-events: none; }
 .rail-spacer[hidden] { display: none; }
 
 /* Right rail: same one-column-that-scrolls trick as #left-rail, for the fin
@@ -460,7 +456,7 @@ html, body {
   color: var(--dim);
 }
 #fin-opts select,
-#orient .nav-pick select,
+.vb-pop .nav-pick select,
 #fin-opts input[type=number] {
   padding: 4px 8px;
   border: 1px solid var(--line);
@@ -586,44 +582,25 @@ html, body {
   font-variant-numeric: tabular-nums;
 }
 
-#orient {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  max-width: 15rem;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--panel) 88%, transparent);
-  backdrop-filter: blur(6px);
-}
-#orient .lbl { color: var(--dim); margin-right: 2px; }
-#orient .readout {
+/* The view toolbar's popovers (ui/toolbar.js): rows of small controls, a dim hint
+   line, the angle readout. */
+.vb-pop .vb-row { flex-basis: 100%; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.vb-pop .lbl { color: var(--dim); font-size: 12px; margin-right: 2px; }
+.vb-pop .readout {
   flex-basis: 100%;
-  margin: 4px 0 0;
+  margin: 0;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
-#orient .readout #rot-delta { color: var(--accent); margin-left: 8px; }
-#orient kbd {
-  padding: 0 4px;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  background: var(--bg);
-  font: inherit;
-  font-size: 11px;
-}
-#orient .hint {
+.vb-pop .readout #rot-delta { color: var(--accent); margin-left: 8px; }
+.vb-pop .hint {
   flex-basis: 100%;
-  margin: 2px 0 0;
+  margin: 0;
   color: var(--dim);
   font-size: 12px;
 }
 .btn.sm { padding: 3px 9px; }
 
-#orient .suggest { flex-basis: 100%; margin-top: 6px; }
-.suggest-head { display: flex; align-items: center; gap: 6px; }
-#orient .suggest #suggest-note { margin-top: 4px; }
 #suggest-note.good { color: #6fcf8b; }   /* the "best support is no support" win */
 /* Collapse/expand the results in place (keeps them, unlike a dismiss). A bare
    chevron that points right when folded and rotates down when open. */
@@ -646,12 +623,11 @@ html, body {
 .disclosure[aria-expanded="false"] { transform: rotate(0deg); }   /* collapsed: points right */
 .disclosure[hidden] { display: none; }
 .disclosure:hover { color: var(--text); }
-#suggest-body[hidden] { display: none; }
 #suggest-list {
+  flex-basis: 100%;
   display: flex;
   flex-direction: column;
   gap: 5px;
-  margin-top: 7px;
 }
 /* One tight line per pose, so three suggestions cost ~90px, not ~280. */
 .suggest-row {
@@ -695,30 +671,21 @@ html, body {
 .suggest-row.free .sr-rank { color: #6fcf8b; }
 
 /* ---------- automatic layer view ---------- */
-#orient .layerview { flex-basis: 100%; margin-top: 8px; }
 .layers-toggle { color: var(--dim); font-size: 12px; }
-#orient .navview { flex-basis: 100%; margin-top: 6px; }
 .nav-pick { color: var(--dim); font-size: 12px; }
-#orient .nav-pick select { margin-left: 6px; padding: 2px 6px; font-size: 12px; }
-#orient .navview .hint { margin: 4px 0 0; }
+.vb-pop .nav-pick select { margin-left: 6px; padding: 2px 6px; font-size: 12px; }
 
 /* ---------- strength arrow (load direction) ---------- */
-#orient .loadfx .loadfx-lede { flex-basis: 100%; margin: 0 0 3px;
+.vb-pop.loadfx .loadfx-lede { flex-basis: 100%; margin: 0 0 3px;
   font-size: 13px; color: var(--text); }
-#orient .loadfx .loadfx-lede strong { color: var(--accent); }
-#orient .loadfx .strength-pad { flex-basis: 100%; display: grid;
+.vb-pop.loadfx .loadfx-lede strong { color: var(--accent); }
+.vb-pop.loadfx .strength-pad { flex-basis: 100%; display: grid;
   grid-template-columns: repeat(2, 1fr); gap: 4px; margin: 2px 0; }
-#orient .loadfx .strength-pad .btn { padding: 5px 6px; font-size: 13px; }
-/* keep the lay-flat button on its own row under the rotate hint */
-#orient #lay-face { flex-basis: 100%; margin-top: 2px; }
-#orient .loadfx { flex-basis: 100%; margin-top: 10px; padding-top: 8px;
-  border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px; }
-#orient .loadfx #load-hint { flex-basis: 100%; margin: 2px 0 0; color: var(--dim); font-size: 12px; }
-#orient .loadfx #load-hint strong { color: var(--text); }
+.vb-pop.loadfx .strength-pad .btn { padding: 5px 6px; font-size: 13px; }
 .btn.sm.active { border-color: var(--accent); color: var(--accent); background: var(--btn-hi); }
 .load-verdict {
   flex-basis: 100%;
-  margin: 4px 0 0;
+  margin: 0;
   padding: 6px 9px;
   border-left: 3px solid var(--dim);
   border-radius: 3px;
@@ -729,7 +696,7 @@ html, body {
 .load-verdict.good  { border-left-color: #6fcf8b; color: #cdeccf; }
 .load-verdict.mixed { border-left-color: #ffb454; color: #f0dcc0; }
 .load-verdict.poor  { border-left-color: #ff6b6b; color: #f2cfcf; }
-#orient .loadfx #load-suggest { flex-basis: 100%; margin-top: 2px; }
+.vb-pop.loadfx #load-suggest { flex-basis: 100%; margin-top: 2px; }
 
 /* ---------- bottom-right status card ---------- */
 #status {
@@ -759,9 +726,9 @@ html, body {
 .over-warn:empty { display: none; }
 
 /* ---------- view toolbar (ui/toolbar.js) ---------- */
-/* Bottom-left of the 3D view: badges fill in from the left, just right of the
-   rotate panel (toolbar.js sets `left` from it), the open badge's settings in a
-   card above, left-aligned. Frosted glass so the scene shows through. Pointer
+/* Bottom-left of the 3D view: badges fill in from the left; the open badge's
+   settings in a card above it, its left edge on the badge's, extending right
+   (toolbar.js sets both lefts). Frosted glass so the scene shows through. Pointer
    events only on the pieces, so the space around them still orbits the scene. */
 #viewbar {
   --glass: color-mix(in srgb, var(--panel) 52%, transparent);
@@ -769,10 +736,6 @@ html, body {
   position: fixed;
   left: 14px; bottom: 14px;
   z-index: 3;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 5px;
   width: max-content;
   max-width: calc(100vw - 28px);
   pointer-events: none;
@@ -789,7 +752,20 @@ html, body {
   backdrop-filter: blur(14px) saturate(160%);
   box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent), 0 4px 18px rgb(0 0 0 / 0.28);
 }
-.vb-pop { flex-wrap: wrap; }
+.vb-badges { align-items: center; overflow-x: auto; scrollbar-width: none; }
+.vb-pop {
+  position: absolute;
+  bottom: calc(100% + 5px);
+  left: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  width: max-content;
+  max-width: min(20rem, calc(100vw - 28px));
+}
+.vb-pop.wide { max-width: min(22rem, calc(100vw - 28px)); }
+.vb-sep { width: 1px; align-self: stretch; margin: 3px; background: var(--glass-line); }
 .vb-badge {
   display: inline-flex;
   align-items: center;
@@ -804,6 +780,14 @@ html, body {
   cursor: pointer;
 }
 .vb-badge .ico { width: 14px; height: 14px; }
+.vb-badge.icon { padding: 3px 6px; }
+/* A phone: icons only (their titles still say what they are), so the whole bar fits. */
+@media (max-width: 600px) {
+  .vb-badge > span { display: none; }
+  .vb-badge { padding: 4px 7px; }
+}
+.vb-badge:disabled { opacity: .35; cursor: default; }
+.vb-badge:disabled:hover { background: none; color: var(--text); }
 .vb-badge:hover { background: color-mix(in srgb, #fff 8%, transparent); color: var(--accent); }
 .vb-badge.on { border-color: color-mix(in srgb, var(--accent) 70%, transparent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .vb-badge[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 85%, transparent); color: #06121f; }
@@ -814,6 +798,8 @@ html, body {
   background: color-mix(in srgb, var(--btn) 55%, transparent);
   box-shadow: none;
 }
+.vb-pop .btn:hover { border-color: var(--accent); }
+.vb-pop .btn.active { border-color: var(--accent); color: var(--accent); }
 .vb-pop .btn.primary { background: color-mix(in srgb, var(--accent) 85%, transparent); border-color: transparent; }
 .vb-pop .seg { display: inline-flex; }
 .vb-pop .seg .btn:first-child { border-top-right-radius: 0; border-bottom-right-radius: 0; }

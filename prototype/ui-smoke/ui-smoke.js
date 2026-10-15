@@ -131,6 +131,9 @@ async function snap(name) {
 }
 
 const click = (id) => page.evaluate((id) => document.getElementById(id).click(), id);
+// A control a base build may not have yet (the toolbar badges, local issue 42):
+// clicked when present, so one script drives both sides of vs-base.sh.
+const clickIf = (id) => page.evaluate((id) => document.getElementById(id)?.click(), id);
 const setVal = (id, v, ev = 'change') => page.evaluate((id, v, ev) => {
   const e = document.getElementById(id);
   if (e.type === 'checkbox') e.checked = v; else e.value = v;
@@ -274,11 +277,11 @@ try {
   await snap('laid');
   await click('undo'); await snap('undo-lay');
 
-  // Suggest orientation.
-  await click('suggest-orient'); await sleep(1500); await snap('suggest');
+  // Suggest orientation (its toolbar badge opens the popover, then the button ranks).
+  await clickIf('suggest-badge'); await click('suggest-orient'); await sleep(1500); await snap('suggest');
   await page.evaluate(() => document.querySelector('#suggest-list button:nth-child(2)')?.click());
   await snap('suggest-2');
-  await click('suggest-toggle'); await snap('suggest-collapsed');
+  await clickIf('suggest-badge'); await snap('suggest-collapsed');
   await click('rot-reset'); await snap('rot-reset');
 
   // Fins off / on, threshold, build volume, then a run of undos.
@@ -377,11 +380,11 @@ try {
     await click('suggest-orient'); await sleep(100); await ranked(); await snap(`${m}-suggest`);
   }
   await importFile(join(MODELS, 'tube.stl'), 'tube.stl');
-  await click('suggest-orient'); await sleep(100); await ranked();
+  await clickIf('suggest-badge'); await click('suggest-orient'); await sleep(100); await ranked();
   await page.evaluate(() => document.querySelector('#suggest-list button')?.click());
   await snap('suggest-best');
-  await click('suggest-toggle'); await snap('suggest-closed');
-  await click('suggest-toggle'); await snap('suggest-reopened');
+  await clickIf('suggest-badge'); await snap('suggest-closed');
+  await clickIf('suggest-badge'); await snap('suggest-reopened');
 
   // A manual turn drops the highlighted row (the list stays): a 90° button, a
   // gizmo ring drag (driven through its own events), then a lay-flat.

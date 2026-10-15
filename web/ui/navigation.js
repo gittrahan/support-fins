@@ -4,6 +4,7 @@ import { t } from './i18n.js';
  * orbit controls. Remembered in localStorage (optional), undoable like every setting.
  */
 import { el } from './dom.js';
+import { addBadge } from './toolbar.js';
 import { renderer, controls } from './scene.js';
 import { NAV_PRESETS, navPreset, hasNavPreset } from './navpresets.js';
 
@@ -45,3 +46,6 @@ window.addEventListener('languagechange', () => {
   renderOptions();
   apply(menu.value);
 });
+
+// The View badge in the toolbar (toolbar.js) holds this preset and Show layers.
+addBadge('view-badge', { pop: 'view-pop' });

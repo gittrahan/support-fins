@@ -1,4 +1,12 @@
 export default {
+  "Rotate": "Girar",
+  "Suggest": "Sugerir",
+  "Strength": "Resistência",
+  "View": "Exibir",
+  "Turn the part: 90° steps, Reset, Lay a face flat and the rotate rings.": "Girar a peça: passos de 90°, Redefinir, Deitar uma face e os anéis de rotação.",
+  "Rank the ways this part could sit on the bed.": "Classificar as posições em que esta peça pode ficar na mesa.",
+  "Strength arrow: which way is the part loaded in use?": "Seta de resistência: em que direção a peça é carregada em uso?",
+  "The mouse preset and the print layers around the part.": "A predefinição do mouse e as camadas de impressão ao redor da peça.",
   "Section": "Corte",
   "Cut the view with a plane to see and draw inside the part. Drag the arrow or the sheet (or Shift + scroll) to push the cut, the rings to tilt it. Click again to turn it off. View only: the export is whole.": "Corte a vista com um plano para ver e desenhar dentro da peça. Arraste a seta ou o plano (ou Shift + rolagem) para empurrar o corte e os anéis para incliná-lo. Clique de novo para desligá-lo. Só a vista: a exportação sai inteira.",
   "Ghost": "Vidro",

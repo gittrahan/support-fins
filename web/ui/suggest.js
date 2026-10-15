@@ -6,6 +6,7 @@ import { t, tn } from './i18n.js';
 import * as THREE from 'three';
 import { suggestOrientations, layerVerdict } from '../orient.js';
 import { el } from './dom.js';
+import { addBadge } from './toolbar.js';
 import { histPush } from './history.js';
 import { part, topology, threshold, shade } from './part.js';
 import { materialDensity } from './settings.js';
@@ -109,8 +110,8 @@ function renderSuggestions() {
 }
 
 /** Clear the suggestion results entirely (new part, or a manual turn that
- *  invalidates the ranking). The disclosure chevron does NOT come through here --
- *  it only collapses/expands what's already there. */
+ *  invalidates the ranking). Folding the toolbar popover does NOT come through
+ *  here -- it only hides what's already there. */
 export function hideSuggestions() {
   // A ranking still running belongs to what is being cleared (a new part, an undo,
   // a reset): drop it, so its list doesn't pop up after the action that cleared it.
@@ -120,10 +121,6 @@ export function hideSuggestions() {
   const note = el('suggest-note');
   note.textContent = '';
   note.className = 'hint';
-  const tog = el('suggest-toggle');
-  tog.hidden = true;
-  tog.setAttribute('aria-expanded', 'true');   // next results open expanded
-  el('suggest-body').hidden = false;
 }
 
 /** A manual turn (ring drag, 90° button, lay flat) moves the part off the pose the
@@ -196,13 +193,6 @@ el('suggest-orient').addEventListener('click', () => {
     const { candidates, confidence } = ranked;
     suggestions = candidates;
     suggestCurBore = curBore;
-    // Fresh results always land expanded, with the collapse chevron available.
-    const tog = el('suggest-toggle');
-    tog.hidden = false;
-    tog.setAttribute('aria-expanded', 'true');
-    tog.setAttribute('aria-label', t('Collapse suggestions'));
-    tog.title = t('Collapse');
-    el('suggest-body').hidden = false;
     if (!candidates.length || confidence === 'none') {
       el('suggest-list').hidden = true;
       el('suggest-note').textContent = confidence === 'none'
@@ -229,15 +219,8 @@ el('suggest-orient').addEventListener('click', () => {
   });
 });
 
-// Collapse/expand the results in place, keeping them (and the ranking) intact.
-el('suggest-toggle').addEventListener('click', () => {
-  const tog = el('suggest-toggle');
-  const open = tog.getAttribute('aria-expanded') !== 'false';
-  const next = !open;
-  tog.setAttribute('aria-expanded', String(next));
-  tog.setAttribute('aria-label', next ? t('Collapse suggestions') : t('Show suggestions'));
-  tog.title = next ? t('Collapse') : t('Show');
-  el('suggest-body').hidden = !next;
-});
+// Its badge in the view toolbar (toolbar.js): folding the popover keeps the list
+// (and the ranking) intact, so reopening it shows the same poses.
+addBadge('suggest-badge', { pop: 'suggest-pop' });
 
 window.addEventListener('languagechange', () => { const btn = el('suggest-orient'); if (btn) btn.textContent = btn.classList.contains('open') ? t('Suggest orientation ▾') : t('Suggest orientation'); });

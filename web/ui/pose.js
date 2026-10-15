@@ -7,6 +7,7 @@ import { t } from './i18n.js';
 import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { el } from './dom.js';
+import { addBadge } from './toolbar.js';
 import { renderer, scene, camera, controls, raycaster, pointer, clip } from './scene.js';
 import { keptHit, planeHandleShown } from './section.js';
 import { removeActive } from './remove.js';
@@ -112,6 +113,10 @@ export function setLayPlacing(v) {
 /** "Lay a face flat" is armed: a face click lays the part on that face. Off by
  *  default so casual clicks orbit instead of silently re-laying the part. */
 export const layActive = () => layPlacing;
+
+// The Rotate badge in the view toolbar (toolbar.js) holds the 90deg steps, Reset,
+// Lay a face flat and the rings switch below.
+addBadge('rotate-badge', { pop: 'rotate-pop' });
 
 // "Show rotate rings": off hides the rings until turned back on (they cover the
 // part, #53); the 90deg buttons, Reset and Lay a face flat still turn it.

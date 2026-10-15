@@ -6,6 +6,7 @@ import { t } from './i18n.js';
 import * as THREE from 'three';
 import { loadAlignment, suggestStrengthPose } from '../orient.js';
 import { el } from './dom.js';
+import { addBadge } from './toolbar.js';
 import { scene } from './scene.js';
 import { histPush } from './history.js';
 import { applySuggestion } from './suggest.js';
@@ -30,6 +31,9 @@ export let loadDir = null;         // THREE.Vector3 unit direction in local spac
 /** Undo/redo put this back directly (setLoadDir below is the user action, with
  *  its own undo step). */
 export function replaceLoadDir(v) { loadDir = v; }
+// Its badge in the view toolbar (toolbar.js): lit while a load is set, so a folded
+// popover still says the arrow is on.
+const syncBadge = addBadge('strength-badge', { pop: 'strength-pop', isOn: () => !!loadDir });
 const loadArrowHelper = new THREE.ArrowHelper(
   new THREE.Vector3(1, 0, 0), new THREE.Vector3(), 10, 0xffb454, 4, 2.6);
 loadArrowHelper.visible = false;
@@ -208,6 +212,7 @@ export function syncLoadUI() {
     el(`load-${key}`).classList.toggle('active', key === activeKey);
   }
   el('load-clear').hidden = !has;
+  syncBadge();
 }
 
 // --------------------------------------------------------------- load arrow

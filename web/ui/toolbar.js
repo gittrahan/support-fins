@@ -1,19 +1,26 @@
 /**
- * The view toolbar: icon badges along the bottom of the 3D view, the way a slicer
- * keeps its view tools. Section (#250) is the first; more view tools join it
- * (local issue 42) by calling addBadge -- nothing here knows what a badge does.
+ * The view toolbar: Undo/Redo and icon badges along the bottom of the 3D view, the
+ * way a slicer keeps its view tools. Rotate, Suggest, Strength, Section (#250) and
+ * View sit in it (local issue 42); each module registers its own badge -- nothing
+ * here knows what a badge does.
  *
- * A badge is a tool that is on or off, with a popover of its key settings:
- *   - click an off badge: the tool turns on and its popover opens;
- *   - one popover at a time: opening another closes it, but the tool stays on
- *     (its badge stays lit) -- click the lit badge to bring its settings back;
- *   - click the badge whose popover is open: the tool turns off.
- * The bar shows once a part is loaded (showToolbar, from part.js); nothing
- * unloads a part, so it is never hidden again. Esc folds the open popover.
+ * Two kinds of badge, one popover open at a time:
+ *   - a tool badge (Section: `setOn` given) is a tool that is on or off. Click an
+ *     off badge: the tool turns on and its popover opens. Opening another popover
+ *     closes this one but the tool stays on (its badge stays lit) -- click the lit
+ *     badge to bring its settings back; click it with its popover open to turn the
+ *     tool off.
+ *   - a panel badge (Rotate, Suggest, Strength, View: no `setOn`) only opens and
+ *     folds its popover. `isOn` (optional) lights it while it holds a state worth
+ *     seeing with the popover folded (Strength: a load is set).
+ * A popover opens above its own badge, its left edge on the badge's, extending
+ * right -- slid back left only as far as the window's edge needs. A click on the
+ * 3D view leaves it open (Lay a face flat and Section are used there); Esc folds it.
+ * The bar shows once a part is loaded (showToolbar, from part.js); nothing unloads
+ * a part, so it is never hidden again.
  *
- * It sits bottom-left, badges filling in from the left, just right of the left
- * pane's cards beside it (the rotate panel) -- or at the window's edge when there
- * is no room there (a phone, where the panels stack) or no card.
+ * It sits bottom-left, at the window's edge -- or just right of the stats card when
+ * a short window has scrolled the card down beside it.
  */
 import { el } from './dom.js';
 
@@ -22,10 +29,10 @@ let openId = null;               // the badge whose popover is showing
 
 function render() {
   for (const [id, b] of badges) {
-    const on = b.isOn();
-    if (!on && openId === id) openId = null;
+    const on = b.isOn?.() ?? false;
+    if (b.setOn && !on && openId === id) openId = null;
     b.btn.classList.toggle('on', on);
-    b.btn.setAttribute('aria-pressed', String(on));
+    if (b.setOn) b.btn.setAttribute('aria-pressed', String(on));
     b.btn.setAttribute('aria-expanded', String(openId === id));
     if (b.pop) b.pop.hidden = openId !== id;
   }
@@ -33,45 +40,56 @@ function render() {
 }
 
 const GAP = 12, EDGE = 14;
-/** Park the bar just right of the left pane's cards beside it, if it fits there. */
+/** Park the bar clear of the stats card, then the open popover above its badge. */
 function place() {
   const bar = el('viewbar');
   if (bar.hidden) return;
   const b = bar.getBoundingClientRect();
   let left = EDGE;
-  // The rotate panel, usually; the wider stats card when a short window scrolls it down.
+  // The stats card, when a short window scrolls the rail down beside the bar.
   for (const card of el('left-rail').children) {
     const r = card.getBoundingClientRect();
     if (r.width && r.bottom > b.top && r.top < b.bottom) left = Math.max(left, r.right + GAP);
   }
   if (left + bar.offsetWidth > innerWidth - EDGE) left = EDGE;
   bar.style.left = `${left}px`;
+  const open = openId && badges.get(openId);
+  if (open?.pop) {
+    const pop = open.pop;
+    pop.style.left = '0px';
+    const at = open.btn.offsetLeft - open.btn.parentElement.scrollLeft;
+    const over = left + at + pop.offsetWidth - (innerWidth - EDGE);
+    pop.style.left = `${Math.max(0, at - Math.max(0, over))}px`;
+  }
 }
 addEventListener('resize', place);
 const watch = new ResizeObserver(place);
-watch.observe(el('orient'));
 watch.observe(el('stats'));
 el('left-rail').addEventListener('scroll', place);
+document.querySelector('#viewbar .vb-badges').addEventListener('scroll', place);
 
 /**
  * Register a badge. `id` is its button in #viewbar; `pop` (optional) the id of its
- * popover there. `isOn()` reads the tool's state, `setOn(v)` changes it. Returns a
- * sync() for the tool to call when it switches itself on or off.
+ * popover there. A tool badge passes `isOn()` (reads the tool's state) and
+ * `setOn(v)` (changes it); a panel badge passes neither, or only `isOn` to light
+ * up. Returns a sync() for the module to call when that state changes.
  */
-export function addBadge(id, { pop, isOn, setOn }) {
+export function addBadge(id, { pop, isOn, setOn } = {}) {
   const b = { btn: el(id), pop: pop ? el(pop) : null, isOn, setOn };
   badges.set(id, b);
   if (pop) b.btn.setAttribute('aria-controls', pop);
   b.btn.addEventListener('click', () => {
-    if (!isOn()) { setOn(true); openId = isOn() ? id : null; }
+    if (!setOn) openId = openId === id ? null : id;
+    else if (!isOn()) { setOn(true); openId = isOn() ? id : null; }
     else if (openId !== id) openId = id;
     else { setOn(false); openId = null; }
     render();
   });
+  if (b.pop) watch.observe(b.pop);   // a list landing in it can widen it past the edge
   return render;
 }
 
-// Esc folds the open popover away; the tool stays on.
+// Esc folds the open popover away; a tool stays on.
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && openId) { openId = null; render(); }
 });
