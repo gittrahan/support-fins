@@ -25,25 +25,38 @@ export function buildExportGeometry() {
   const rot = rotM3.elements;
   const dz = lastResult.offset.z;
   const dx = lastResult.offset.x, dy = lastResult.offset.y;
-  const { pos, nFaces } = topology;
-
-  const partTris = new Array(nFaces * 3);
-  for (let f = 0; f < nFaces; f++) {
-    for (let i = 0; i < 3; i++) {
-      const o = f * 9 + i * 3;
-      const x = pos[o], y = pos[o + 1], z = pos[o + 2];
-      partTris[f * 3 + i] = [
+  const { pos } = topology;
+  // flat local [x,y,z]... (less `shift`: the file's frame back to the part's) to
+  // print-space vertices
+  const toPrint = (flat, shift = [0, 0, 0]) => {
+    const out = new Array(flat.length / 3);
+    for (let v = 0; v < out.length; v++) {
+      const x = flat[v * 3] - shift[0], y = flat[v * 3 + 1] - shift[1], z = flat[v * 3 + 2] - shift[2];
+      out[v] = [
         rot[0] * x + rot[3] * y + rot[6] * z + dx,
         rot[1] * x + rot[4] * y + rot[7] * z + dy,
         rot[2] * x + rot[5] * y + rot[8] * z + dz,
       ];
     }
-  }
+    return out;
+  };
+
+  const partTris = toPrint(pos);
   // whichever walls the live mode contributes -- hand-drawn in Draw, suggested
   // in Suggest -- plus the pad, all already in print space
   const finTris = [...activeAdded()];
   const base = partName.replace(/\.(stl|3mf|step|stp)$/i, '') || 'part';
-  return { partTris, finTris, base, colors: part.geometry.userData.colors ?? null };
+  // A file with a slicer's own parts (#104) goes out as the file had it: the part
+  // uncut, with its negative parts, modifiers and blockers posed the same way --
+  // the fins are for the cut part, which the slicer cuts again. `partTris` stays
+  // the part the fins were built for (the session and the STL use it).
+  const { slicer, centre } = part.geometry.userData;
+  const kept = slicer && centre ? {
+    partTris: toPrint(slicer.positions, centre),
+    colors: slicer.colors,
+    extras: slicer.extras.map((e) => ({ kind: e.kind, name: e.name, settings: e.settings, tris: toPrint(e.positions, centre) })),
+  } : null;
+  return { partTris, finTris, base, colors: part.geometry.userData.colors ?? null, slicer: kept };
 }
 
 // The three formats. All share the print-space geometry, so a fins-only STL
@@ -63,8 +76,9 @@ const FORMATS = {
   // are none to split.
   'export-3mf': (g) => {
     const { body, iface } = splitInterface(g.finTris);
-    return [writeThreeMF(g.partTris, body, g.base,
-                         { separate: true, iface, colors: g.colors, session: sessionOf(g.partTris) }),
+    const own = g.slicer ?? g;
+    return [writeThreeMF(own.partTris, body, g.base, { separate: true, iface, colors: own.colors,
+                           extras: g.slicer?.extras ?? [], session: sessionOf(g.partTris) }),
             `${g.base}-fins.3mf`];
   },
   // Just the fins + pad (issue #5). One body, so 3MF would add nothing over STL.

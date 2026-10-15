@@ -344,7 +344,7 @@ export default {
   "negative parts not cut: the cutter did not load (try opening the file again)": "Negativteile nicht ausgeschnitten: das Schneidwerkzeug wurde nicht geladen (Datei erneut öffnen)",
   "negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape": "Negativteile nicht ausgeschnitten: das Teil ist kein geschlossener Körper, die Finnen gelten der ungeschnittenen Form",
   "{n} negative parts not cut: they are not closed solids": { one: "{n} Negativteil nicht ausgeschnitten: es ist kein geschlossener Körper", other: "{n} Negativteile nicht ausgeschnitten: sie sind keine geschlossenen Körper" },
-  "left out {n} modifiers/support blockers: not in the export yet, re-add them in your slicer": { one: "{n} Modifikator/Stützblocker weggelassen: noch nicht im Export, im Slicer neu hinzufügen", other: "{n} Modifikatoren/Stützblocker weggelassen: noch nicht im Export, im Slicer neu hinzufügen" },
+  "kept {n} modifiers/support blockers for the 3MF export": { one: "{n} Modifikator/Stützblocker für den 3MF-Export behalten", other: "{n} Modifikatoren/Stützblocker für den 3MF-Export behalten" },
   "cutting negative parts…": "Negativteile werden ausgeschnitten…",
   "converted from {unit} to mm": "von {unit} nach mm konvertiert",
   "restored {n} hand-placed supports and the settings": { one: "{n} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt", other: "{n} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt" },

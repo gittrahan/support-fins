@@ -32,16 +32,16 @@ export function renderImportNote() {
       notes.push(t('merged {n} bodies into one part', { n: m.meshes }));
     }
     if (m.skipped) notes.push(tn('ignored {n} support/non-printable body', 'ignored {n} support/non-printable bodies', m.skipped));
-    // a slicer's negative parts are cut out, so the fins are for what prints; its
-    // modifiers / support blockers change no shape and are left out (#104)
+    // a slicer's negative parts are cut out, so the fins are for what prints; they
+    // and its modifiers / support blockers go back out in the 3MF export (#104)
     if (m.cut) notes.push(tn('cut out {n} negative part', 'cut out {n} negative parts', m.cut));
     if (m.why === 'open') notes.push(t('negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape'));
     else if (m.why === 'whole') notes.push(t('negative parts not cut: they would remove the whole part'));
     else if (m.why === 'load') notes.push(t('negative parts not cut: the cutter did not load (try opening the file again)'));
     else if (m.uncut) notes.push(tn('{n} negative part not cut: it is not a closed solid',
       '{n} negative parts not cut: they are not closed solids', m.uncut));
-    if (m.extras) notes.push(tn('left out {n} modifier/support blocker: not in the export yet, re-add it in your slicer',
-      'left out {n} modifiers/support blockers: not in the export yet, re-add them in your slicer', m.extras));
+    if (m.extras) notes.push(tn('kept {n} modifier/support blocker for the 3MF export',
+      'kept {n} modifiers/support blockers for the 3MF export', m.extras));
     if (m.unit && m.unit !== 'millimeter') notes.push(t('converted from {unit} to mm', { unit: m.unit }));
     if (m.session === 'restored') {
       notes.push(m.restored
@@ -188,11 +188,18 @@ async function parseModel(buffer) {
   }
 
   const cuts = await cutChosen(chosen);
-  chosen = cuts.objects;
-  const geometry = geometryFromPositions(mergeObjectPositions(chosen));
+  const geometry = geometryFromPositions(mergeObjectPositions(cuts.objects));
   // the part's painted/material colours, by triangle, for the 3MF export (#236);
   // the triangles keep their order all the way there
-  geometry.userData.colors = mergeColors(chosen);
+  geometry.userData.colors = mergeColors(cuts.objects);
+  // A slicer's own parts go back out in the 3MF export, beside the part AS THE FILE
+  // HAD IT: the slicer makes the cut again, so moving or deleting a negative part
+  // there does what it says, and no paint is lost to the cut (#104).
+  const extras = chosen.flatMap((o) => o.extras ?? []);
+  if (extras.length) {
+    geometry.userData.slicer = { positions: mergeObjectPositions(chosen), colors: mergeColors(chosen), extras };
+  }
+  chosen = cuts.objects;
 
   // Say what we decided for them: which/how many bodies, any support bodies left
   // on the plate, and any unit conversion.

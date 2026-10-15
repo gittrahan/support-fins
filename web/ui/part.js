@@ -68,10 +68,10 @@ export function setPart(geometry, filename) {
   // about its middle and the gizmo sits there rather than at its feet. Seating on
   // the plate is not this transform's job -- analyze() returns the offset for that
   // after the rotation is known.
-  geometry.translate(
-    -(bb.min.x + bb.max.x) / 2,
-    -(bb.min.y + bb.max.y) / 2,
-    -(bb.min.z + bb.max.z) / 2);
+  const centre = [(bb.min.x + bb.max.x) / 2, (bb.min.y + bb.max.y) / 2, (bb.min.z + bb.max.z) / 2];
+  geometry.translate(-centre[0], -centre[1], -centre[2]);
+  // the file's frame, for what the export carries in it (the slicer's parts, #104)
+  geometry.userData.centre = centre;
   // Always recompute shading normals from the winding -- never trust the STL's
   // stored normals. A binary STL carries a per-face normal that STLLoader loads
   // into a `normal` attribute, and exporters routinely write those as zero or

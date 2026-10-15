@@ -313,7 +313,7 @@ export default {
   "negative parts not cut: the cutter did not load (try opening the file again)": "peças negativas não recortadas: o recortador não carregou (abra o arquivo de novo)",
   "negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape": "peças negativas não recortadas: a peça não é um sólido fechado, então as aletas são para a forma sem corte",
   "{n} negative parts not cut: they are not closed solids": { one: "{n} peça negativa não recortada: não é um sólido fechado", other: "{n} peças negativas não recortadas: não são sólidos fechados" },
-  "left out {n} modifiers/support blockers: not in the export yet, re-add them in your slicer": { one: "{n} modificador/bloqueador de suporte deixado de fora: ainda não vai na exportação, adicione de novo no fatiador", other: "{n} modificadores/bloqueadores de suporte deixados de fora: ainda não vão na exportação, adicione de novo no fatiador" },
+  "kept {n} modifiers/support blockers for the 3MF export": { one: "{n} modificador/bloqueador de suporte mantido para a exportação 3MF", other: "{n} modificadores/bloqueadores de suporte mantidos para a exportação 3MF" },
   "cutting negative parts…": "recortando peças negativas…",
   "converted from {unit} to mm": "convertido de {unit} para mm",
   "restored {n} hand-placed supports and the settings": { one: "{n} suporte posto à mão e as configurações restaurados", other: "{n} suportes postos à mão e as configurações restaurados" },

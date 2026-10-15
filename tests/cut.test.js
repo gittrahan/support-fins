@@ -160,3 +160,39 @@ Deno.test('INTEGRATION: the fins are built for the cut cube (the Orca file), not
   // the negative cube cuts the cube's corner up to z 30: a ceiling 30 mm up
   assert(walls(c.positions) > 0, 'no wall under the ceiling the cut opened');
 });
+
+// The export (#104): the part goes out as the file had it, uncut beside its
+// negative part, for the slicer to cut again. Opened here again, it must cut to
+// the same part the fins were built for -- or the saved session ("the part changed")
+// would not restore. Done as the site does it (ui/export.js): the part centred on
+// its cut box, posed, seated; the uncut part and the negative moved the same way.
+for (const file of ['bambu.3mf', 'orca.3mf', 'prusaslicer3.3mf']) {
+  Deno.test(`cut: ${file} exported uncut with its negative, opened again, cuts to the same part`, async () => {
+    const { writeThreeMF } = await import(`${WEB}threemf.js`);
+    const o = (await readThreeMF(await Deno.readFile(new URL(file, FIX)))).objects[0];
+    const c = await cutNegatives(o);
+    const b = bounds(c.positions);
+    const centre = b.lo.map((v, k) => (v + b.hi[k]) / 2);
+    // a quarter turn about x, seated 3 mm up and off to one side
+    const place = (p) => {
+      const out = [];
+      for (let i = 0; i < p.length; i += 3) {
+        const x = p[i] - centre[0], y = p[i + 1] - centre[1], z = p[i + 2] - centre[2];
+        out.push([x + 5, -z, y + 3]);
+      }
+      return out;
+    };
+    const blob = writeThreeMF(place(o.positions), [[0, 0, 0], [1, 0, 0], [0, 1, 0]], 'cube', { separate: true,
+      extras: o.extras.map((e) => ({ ...e, tris: place(e.positions) })) });
+    const back = (await readThreeMF(new Uint8Array(await blob.arrayBuffer()))).objects.find((x) => !/ supports$/.test(x.name));
+    assert(back.tris === 12 && back.extras.length === 1, `read back ${back.tris} tris, ${back.extras.length} extras`);
+    const again = await cutNegatives(back);
+    assert(again.cut === 1, `cut ${again.cut} on the way back in`);
+    // float32 coordinates, ~127 mm from the origin in the PrusaSlicer file
+    assertClose(volume(again.positions), volume(c.positions), 1e-6 * volume(c.positions), 'the cut part\'s volume');
+    const size = (p) => { const q = bounds(p); return q.hi.map((h, k) => h - q.lo[k]); };
+    const [sx, sy, sz] = size(c.positions), s2 = size(again.positions);
+    // the quarter turn: x stays, y and z swap
+    [sx, sz, sy].forEach((v, k) => assertClose(s2[k], v, 1e-3, `size ${'xyz'[k]}`));
+  });
+}
