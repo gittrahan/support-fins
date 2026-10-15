@@ -39,6 +39,7 @@ gizmo.addEventListener('dragging-changed', (e) => {
     // Drag released: reseat onto the plate now the pivot is allowed to move again
     // (shade() holds part.position steady WHILE dragging -- see the note there --
     // so this is the frame that actually drops the turned part back down).
+    shadeQueued = false;     // this full shade stands in for any spaced-out one
     shade();
     // Fins are rebuilt when the drag ENDS, not during it. Placement runs the
     // exact confirmation passes -- containment, clearance, per-tine bite -- and
@@ -64,12 +65,28 @@ addEventListener('keyup', (e) => { if (e.key === 'Shift') gizmo.setRotationSnap(
  * Coalesce re-analysis to one per frame. A high-polling-rate mouse fires
  * pointermove (and so objectChange) well above 60Hz, so an un-throttled drag
  * runs the classify pass several times per displayed frame and stutters.
+ *
+ * And on a heavy part, leave frames between them. The ring turns the part on
+ * pointer move and the scene renders every frame, but a shade that takes 50 ms
+ * (a 1.56M-face mini) run every frame held the whole page at ~15 fps. Waiting
+ * SHADE_GAP x the last shade's cost before the next keeps the turn smooth and
+ * the colours a beat behind; a light part (a few ms) still shades every frame.
+ * Release always shades in full (the dragging-changed handler above).
  */
-let shadeQueued = false;
+const SHADE_GAP = 2;
+let shadeQueued = false, lastShadeEnd = -Infinity, lastShadeMs = 0;
 function requestShade() {
   if (shadeQueued) return;
   shadeQueued = true;
-  requestAnimationFrame(() => { shadeQueued = false; shade(); });
+  requestAnimationFrame(function due(now) {
+    if (!shadeQueued) return;                      // a release shaded already
+    if (now - lastShadeEnd < lastShadeMs * SHADE_GAP) { requestAnimationFrame(due); return; }
+    shadeQueued = false;
+    const t = performance.now();
+    shade();
+    lastShadeEnd = performance.now();
+    lastShadeMs = lastShadeEnd - t;
+  });
 }
 
 function showDelta(axis, radians) {
