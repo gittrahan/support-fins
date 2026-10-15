@@ -41,6 +41,8 @@ Deno.test('mcp: initialize negotiates the protocol and offers tools', async () =
   assert((await handle(rpc('resources/list'), memIO())).error.code === -32601, 'unknown method');
   assert((await handle(rpc('tools/call', { name: 'nope' }), memIO())).error.code === -32602, 'unknown tool');
   assert((await handle({ id: 3 }, memIO())).error.code === -32600, 'not a request');
+  assert((await handle({ jsonrpc: '2.0', id: {}, method: 'ping' }, memIO())).error.code === -32600, 'an id is a string or integer');
+  assert(TOOLS.every((t) => t.annotations.destructiveHint), 'output may replace an existing file: clients should ask');
 });
 
 Deno.test('mcp: the settings schema is the CLI\'s flags, in the site\'s units', async () => {
@@ -80,6 +82,9 @@ Deno.test('mcp: bad input is a tool error that says why, and writes nothing', as
     [{ path: 'missing.stl' }, /No such file: missing\.stl/],
     [{ path: 'lb.stl', output: 'lb.stl' }, /won't overwrite the input/],
     [{ settings: {} }, /path/],
+    [{ path: 'lb.stl', object: {} }, /object is a 1-based number or a name/],
+    [{ path: 'lb.stl', toString: 5 }, /fin_part takes no "toString"/],
+    [{ path: 'lb.stl', settings: { constructor: 1 } }, /unknown setting "constructor"/],
   ];
   for (const [args, want] of cases) {
     const io = memIO();
@@ -87,6 +92,8 @@ Deno.test('mcp: bad input is a tool error that says why, and writes nothing', as
     assert(r.isError && want.test(r.content[0].text), `${JSON.stringify(args)}: ${r.content[0].text}`);
     assert(io.fs.size === 1, `${JSON.stringify(args)} wrote something`);
   }
+  const f3 = await callTool('fins_only', { path: 'lb.stl', output: 'f.3mf' }, memIO());
+  assert(f3.isError && f3.content[0].text === 'fins-only writes an .stl', `errors name settings, not flags: ${f3.content[0].text}`);
   const rot = await callTool('fins_only', { path: 'lb.stl', rot: [0, 35, 0] }, memIO());
   assert(rot.isError && /fins_only takes no "rot"/.test(rot.content[0].text), rot.content[0].text);
   // a setting the math ignores runs, with the CLI's warning in the setting's name

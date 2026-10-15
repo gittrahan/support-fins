@@ -16,7 +16,7 @@ the report are the CLI's, which are the site's (`plugins/shared/engine/computeFi
 | `fins_only` | the fins alone as an STL, lined up with the part where it is in its file: `<part>-fins-only.stl`. Nothing is written when the part needs no fins |
 
 Both take `path` (an `.stl` or `.3mf`; absolute, or relative to where the server
-started), `object` for a 3MF with several objects, and `settings`: every setting the
+started -- which for Claude Desktop is `/`, so give absolute paths there; `~/` works), `object` for a 3MF with several objects, and `settings`: every setting the
 site has, named as the CLI's flags (`coverage`, `tine-density`, `pad-style`, `sway`, ...)
 in the site's units (percent sliders 0-100). The client sees the whole list, with
 defaults and ranges, in the tool schema. `fin_part` also takes `rot`: `[x, y, z]`, the

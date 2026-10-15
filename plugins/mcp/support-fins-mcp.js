@@ -6,7 +6,7 @@
 // stdout is the protocol channel: one JSON-RPC message per line, nothing else.
 // The engine's vendored libraries may log, so console.log and friends go to stderr,
 // set before the engine loads (a static import would run first).
-for (const k of ['log', 'info', 'debug', 'warn']) console[k] = console.error;
+for (const k of ['log', 'info', 'debug', 'warn', 'dir', 'table', 'trace']) console[k] = console.error;
 
 const { handle } = await import('./server.js');
 const path = await import('node:path');

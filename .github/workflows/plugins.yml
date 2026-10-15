@@ -322,7 +322,7 @@ jobs:
           - support-fins-freecad-<platform>.zip: FreeCAD 1.0 add-on, experimental; pick your computer's (mac-arm64, mac-x64, windows-x64, linux-x64, linux-arm64) and unzip into FreeCAD's Mod folder
           - support-fins-solidworks.zip: SolidWorks add-in (Windows), experimental, not yet run in SolidWorks; unzip, run install.bat as administrator
           - support-fins.mjs: command line (Deno or Node 20.10+): node support-fins.mjs part.stl
-          - support-fins-mcp.mjs: MCP server for AI clients (Claude Code, Claude Desktop; Deno or Node 20.10+): claude mcp add support-fins -- node support-fins-mcp.mjs
+          - support-fins-mcp.mjs: MCP server for AI clients (Claude Code, Claude Desktop; Deno or Node 20.10+): claude mcp add support-fins -- node /full/path/to/support-fins-mcp.mjs
 
           Each file's label names its plugin version and the engine commit it was built from."
           if gh release view "$TAG" >/dev/null 2>&1; then

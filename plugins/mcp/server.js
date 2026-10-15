@@ -10,7 +10,8 @@ import { run, OPTION_FLAGS, shown } from '../cli/cli.js';
 
 export const SERVER_VERSION = '0.1.0';
 // newest first; an unknown request gets the newest (the client then decides)
-export const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2025-03-26', '2024-11-05'];
+// (not 2025-03-26: its clients may send JSON-RPC batches, which this server doesn't take)
+export const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2024-11-05'];
 
 const INSTRUCTIONS = [
   'Support Fins (printfins.com) bakes breakaway support walls ("fins") into a part for FDM printing,',
@@ -57,9 +58,10 @@ const SETTINGS = {
 };
 
 const PATH = { type: 'string', description: 'The part: an .stl or .3mf on this computer (absolute path).' };
+// a plain string: some hosts turn tool schemas into other vendors' formats, which refuse type arrays
 const OBJECT = {
-  type: ['string', 'integer'],
-  description: 'Which object of a 3MF with several to fin: 1-based number or name.',
+  type: 'string',
+  description: 'Which object of a 3MF with several to fin: its 1-based number ("2") or its name.',
 };
 
 export const TOOLS = [
@@ -84,7 +86,8 @@ export const TOOLS = [
       required: ['path'],
       additionalProperties: false,
     },
-    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    // destructive: output may name an existing file, which is replaced
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
   },
   {
     name: 'fins_only',
@@ -104,7 +107,8 @@ export const TOOLS = [
       required: ['path'],
       additionalProperties: false,
     },
-    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    // destructive: output may name an existing file, which is replaced
+    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
   },
 ];
 
@@ -117,7 +121,7 @@ export function argvFor(name, a) {
   if (!a || typeof a !== 'object') throw new ToolInputError('arguments must be an object');
   const tool = TOOLS.find((t) => t.name === name);
   for (const k of Object.keys(a)) {
-    if (!(k in tool.inputSchema.properties)) throw new ToolInputError(`${name} takes no "${k}"`);
+    if (!Object.hasOwn(tool.inputSchema.properties, k)) throw new ToolInputError(`${name} takes no "${k}"`);
   }
   if (typeof a.path !== 'string' || a.path === '') throw new ToolInputError('path: the part\'s file, as a string');
   const argv = ['--json'];
@@ -132,7 +136,10 @@ export function argvFor(name, a) {
     }
     argv.push('--rot', a.rot.join(','));
   }
-  if (a.object != null) argv.push('--object', String(a.object));
+  if (a.object != null) {
+    if (typeof a.object !== 'string' && !Number.isInteger(a.object)) throw new ToolInputError('object is a 1-based number or a name');
+    argv.push('--object', String(a.object));
+  }
   const settings = a.settings ?? {};
   if (typeof settings !== 'object' || Array.isArray(settings)) throw new ToolInputError('settings must be an object');
   for (const [k, v] of Object.entries(settings)) {
@@ -174,7 +181,7 @@ export async function callTool(name, args, io) {
   const code = await run(argv, { read: io.read, write: io.write, out: (l) => out.push(l), err: (l) => err.push(l) });
   if (code !== 0) {
     // exit 1: the file's {input, error} line; exit 2: a usage line
-    const msgs = err.map((l) => { try { return JSON.parse(l).error; } catch { return unflag(l); } });
+    const msgs = err.map((l) => { try { return unflag(JSON.parse(l).error); } catch { return unflag(l); } });
     return fail(msgs.join('\n'));
   }
   const r = JSON.parse(out[0]);
@@ -205,6 +212,7 @@ export async function handle(msg, io) {
   }
   const { id, method, params } = msg;
   if (id === undefined) return null;   // notifications/initialized, cancelled, ...: nothing to answer
+  if (typeof id !== 'string' && !Number.isInteger(id)) return rpcError(null, -32600, 'id must be a string or an integer');
   const ok = (result) => ({ jsonrpc: '2.0', id, result });
   try {
     switch (method) {
