@@ -106,9 +106,16 @@ const PLUGINS = [
     install: 'Any Part Studio ▸ Custom features ▸ Add custom features ▸ Fin Supports document ▸ Support-Fins FS, then select the part.',
   },
   {
-    name: 'Command line', needs: 'Deno or Node 20.10+ · fins a whole folder; the Bambu Studio answer',
+    name: 'Command line', needs: 'Deno or Node 20.10+ · fins a whole folder',
+    note: 'The plugin for slicers with no plugin system: Bambu Studio, QIDI Studio, Creality Print, Snapmaker Orca, Flashforge. Fin the part with it (or on this site), then open the 3MF in your slicer with supports off.',
     file: 'support-fins.mjs',
     install: 'node support-fins.mjs part.stl (or deno run -RW support-fins.mjs part.stl) → part-fins.3mf, part + fins. --help lists every setting.',
+  },
+  {
+    name: 'MCP server', needs: 'Node 20.10+ or Deno · for AI apps: Claude Code, Claude Desktop · experimental',
+    note: 'Lets an AI app fin parts on your computer. Also the way in for design tools with an MCP server but no plugins, like LayerLing (self-hosted copies; layerling.com has MCP off): the AI app fins the part you export and brings the fins back in. Small parts for now; for big ones, open the 3MF in your slicer.',
+    file: 'support-fins-mcp.mjs',
+    install: 'Claude Code: claude mcp add support-fins -- node /full/path/to/support-fins-mcp.mjs. Other apps: add an MCP server that runs node with the file\'s full path. Then ask, e.g. "fin bracket.stl tilted 35° on Y".',
   },
 ];
 
