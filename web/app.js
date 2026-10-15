@@ -17,7 +17,7 @@ import { findWallPatches } from './planes.js';
 import { drawnWall } from './draw.js';
 import { el } from './ui/dom.js';
 import {
-  renderer, scene, camera, controls, frame, resize, renderActive, IDLE_MS,
+  renderer, scene, camera, controls, frame, resize, renderActive, requestRender, IDLE_MS,
 } from './ui/scene.js';
 import {
   removeActive, cancelRemove, clearFinHover, hoverRemove, clickRemove,
@@ -186,6 +186,7 @@ const fpsEl = el('fps');
 let frames = 0, last = performance.now();
 
 let lastDraw = -Infinity;
+const camPos = new THREE.Vector3(), camQuat = new THREE.Quaternion();
 function tick(now) {
   requestAnimationFrame(tick);
   // idle: nothing has signalled a change (scene.js, "render on demand") -- draw
@@ -195,9 +196,19 @@ function tick(now) {
     fpsEl.textContent = 'idle';
     frames = 0;
     last = now;
+  } else if (now - lastDraw > 100) {
+    frames = 0;          // back from a pause: don't count the gap as slow frames
+    last = now;
   }
   lastDraw = now;
   controls.update();
+  // OrbitControls only says 'change' past 1 mm of motion, and the tail of its
+  // easing moves less than that a frame: keep drawing while the camera moves at all
+  if (!camPos.equals(camera.position) || !camQuat.equals(camera.quaternion)) {
+    camPos.copy(camera.position);
+    camQuat.copy(camera.quaternion);
+    requestRender(250);
+  }
   sizeMarkers();
   renderer.render(scene, camera);
   renderGhost();
