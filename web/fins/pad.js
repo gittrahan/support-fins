@@ -357,7 +357,9 @@ function brimPad(partTris, contact, e, h, g, grab, layerH, outline, out) {
   // what moves the top (the underside, the gap ring, the first-layer outline the
   // ramp follows), so a block clear of all of them is flat.
   const fineBlk = new Uint8Array(nCB * nRB);
-  const zLim = H + Math.max(0, -grab) + 1e-6;
+  // (the ramp follows the outline cut at zc, which a Custom pad thinner than half a
+  // layer stands below)
+  const zLim = Math.max(H + Math.max(0, -grab), zc) + 1e-6;
   const M = reach + Math.max(g, 0) + cell;
   const ds = (2 * r1) / (nS - 1);
   const clip = [];
@@ -384,8 +386,9 @@ function brimPad(partTris, contact, e, h, g, grab, layerH, outline, out) {
     const aLo = Math.max(0, Math.min(nCB - 1, Math.floor(Math.floor((s0 + r1) / ds) / BLOCK)));
     const aHi = Math.max(0, Math.min(nCB - 1, Math.floor(Math.ceil((s1 + r1) / ds) / BLOCK)));
     for (let a = aLo; a <= aHi; a++) {
-      // f = t / half(s): over the block's columns half runs between its ends (the
-      // ellipse is concave), so the widest f range comes from one of them
+      // f = t / half(s): half is smallest at one of the block's ends (the ellipse is
+      // concave) and at most r2, so t over those bounds the f range (a block
+      // straddling s = 0 peaks inside, but there the row padding below covers it)
       const hA = half(sAt(cb[a])), hB = half(sAt(cb[a + 1]));
       const hMin = Math.min(hA, hB), hMax = Math.max(hA, hB);
       let f0 = -1, f1 = 1;
@@ -408,9 +411,15 @@ function brimPad(partTris, contact, e, h, g, grab, layerH, outline, out) {
     if (!col[r]) { const s = sAt(i); col[r] = vert(s, half(s) * rows[r]); }
     return col[r];
   };
+  // A coarse block's hub: its four corners' mean. The chords between its nodes
+  // make a trapezoid (the columns are straight), and the mean of its corners is
+  // inside it, where a point on the curved ellipse can fall outside near a tip.
   const centre = (a, b) => {
-    const s = (sAt(cb[a]) + sAt(cb[a + 1])) / 2;
-    return vert(s, half(s) * (rows[rb[b]] + rows[rb[b + 1]]) / 2);
+    let x = 0, y = 0;
+    for (const [i, r] of [[cb[a], rb[b]], [cb[a + 1], rb[b]], [cb[a], rb[b + 1]], [cb[a + 1], rb[b + 1]]]) {
+      const v = node(i, r); x += v[0] / 4; y += v[1] / 4;
+    }
+    return [x, y, top(x, y)];
   };
   // Backstop: a coarse block whose corners and centre do not share one top height
   // is not flat after all -- mesh it fine.
@@ -426,34 +435,16 @@ function brimPad(partTris, contact, e, h, g, grab, layerH, outline, out) {
   }
   const isFine = (a, b) => a >= 0 && a < nCB && b >= 0 && b < nRB && fineBlk[a * nRB + b] === 1;
 
-  const tris = [];
-  const tri = (a, b, d) => { if (a !== b && b !== d && d !== a) tris.push(a, b, d); };
-  let quads = 0;
-  for (let a = 0; a < nCB; a++) for (let b = 0; b < nRB; b++) {
+  // A coarse block's top triangles: two, or -- next to a fine block, or on the rim
+  // -- a fan from its hub round its edge, through every lattice node on a side it
+  // shares with a fine block (so no fine vertex sits on a coarse edge: a T-junction
+  // is a crack) and every rim node (so the pad's outline is the full lattice's).
+  const coarse = (a, b) => {
     const i0 = cb[a], i1 = cb[a + 1], r0 = rb[b], r1_ = rb[b + 1];
-    if (isFine(a, b)) {
-      // wound like the tip fans, side wall and bottom (it once ran the other way:
-      // the top was inside-out against the rest, and Bambu, reading a broken pad,
-      // refused the separate-object 3MF over a G-code path conflict with the part)
-      for (let i = i0; i < i1; i++) for (let r = r0; r < r1_; r++) {
-        tri(node(i, r), node(i + 1, r + 1), node(i + 1, r));
-        tri(node(i, r), node(i, r + 1), node(i + 1, r + 1));
-        quads++;
-      }
-      continue;
-    }
-    quads++;
-    // the oval's rim keeps every lattice node too, so the pad's outline is the same
     const sub = [isFine(a - 1, b), isFine(a, b + 1) || b === nRB - 1, isFine(a + 1, b), isFine(a, b - 1) || b === 0];
     if (!sub.some(Boolean)) {
-      tri(node(i0, r0), node(i1, r1_), node(i1, r0));
-      tri(node(i0, r0), node(i0, r1_), node(i1, r1_));
-      continue;
+      return [node(i0, r0), node(i1, r1_), node(i1, r0), node(i0, r0), node(i0, r1_), node(i1, r1_)];
     }
-    // Next to a fine block (or on the rim): fan from the centre round the block's
-    // edge, through every lattice node on a side it shares with a fine block, so
-    // no fine vertex sits on a coarse edge (a T-junction is a crack). Same turn as
-    // the cells.
     const loop = [];
     const add = (v) => { if (loop[loop.length - 1] !== v) loop.push(v); };
     for (let r = r0; r < r1_; r++) if (r === r0 || sub[0]) add(node(i0, r));
@@ -461,8 +452,47 @@ function brimPad(partTris, contact, e, h, g, grab, layerH, outline, out) {
     for (let r = r1_; r > r0; r--) if (r === r1_ || sub[2]) add(node(i1, r));
     for (let i = i1; i > i0; i--) if (i === i1 || sub[3]) add(node(i, r0));
     if (loop[0] === loop[loop.length - 1]) loop.pop();
-    const c = centres.get(a * nRB + b);
-    for (let m = 0; m < loop.length; m++) tri(c, loop[m], loop[(m + 1) % loop.length]);
+    const c = centres.get(a * nRB + b), out = [];
+    for (let m = 0; m < loop.length; m++) out.push(c, loop[m], loop[(m + 1) % loop.length]);
+    return out;
+  };
+  // Every top triangle turns the same way as the cells (clockwise in s, t: negative
+  // area in XY). Near a tip a side curves enough that a fan can fold back over its
+  // neighbours -- reversed facets lying on the top, a broken pad -- so a block whose
+  // triangles do not all turn that way is meshed fine instead, until none fold.
+  const folds = (t) => {
+    for (let m = 0; m < t.length; m += 3) {
+      const [p, q, r] = [t[m], t[m + 1], t[m + 2]];
+      if (p === q || q === r || r === p) continue;
+      if ((q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]) > -1e-12) return true;
+    }
+    return false;
+  };
+  for (let changed = true; changed;) {
+    changed = false;
+    for (let a = 0; a < nCB; a++) for (let b = 0; b < nRB; b++) {
+      if (!isFine(a, b) && folds(coarse(a, b))) { fineBlk[a * nRB + b] = 1; changed = true; }
+    }
+  }
+
+  const tris = [];
+  const tri = (a, b, d) => { if (a !== b && b !== d && d !== a) tris.push(a, b, d); };
+  let quads = 0;
+  for (let a = 0; a < nCB; a++) for (let b = 0; b < nRB; b++) {
+    if (isFine(a, b)) {
+      // wound like the tip fans, side wall and bottom (it once ran the other way:
+      // the top was inside-out against the rest, and Bambu, reading a broken pad,
+      // refused the separate-object 3MF over a G-code path conflict with the part)
+      for (let i = cb[a]; i < cb[a + 1]; i++) for (let r = rb[b]; r < rb[b + 1]; r++) {
+        tri(node(i, r), node(i + 1, r + 1), node(i + 1, r));
+        tri(node(i, r), node(i, r + 1), node(i + 1, r + 1));
+        quads++;
+      }
+      continue;
+    }
+    quads++;
+    const t = coarse(a, b);
+    for (let m = 0; m < t.length; m += 3) tri(t[m], t[m + 1], t[m + 2]);
   }
   // boundary ring (tipL, the +t rim left to right, tipR, the -t rim right to
   // left) -- every rim node is in the top, coarse blocks included -- then its side

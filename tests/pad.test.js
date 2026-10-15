@@ -307,3 +307,28 @@ Deno.test('pad (light): a big pad is fine only near the part, and keeps its gap 
   for (const s of pad) for (const q of ps) min = Math.min(min, segDist(s, q));
   assert(min > 0.1 && min < fins.PAD.brimGap + 0.05, `sliced gap round the post is ${min.toFixed(3)}mm`);
 });
+
+// Near the oval's tips a coarse block's fan could fold back over its neighbours:
+// reversed facets lying on the top, which isClosed and isOriented both pass (the
+// pad that Bambu refused was broken in this way). Every top facet must face up.
+Deno.test('pad (light): no top facet folds over, even at the oval\'s tips', () => {
+  // 10.4 by steps, + margin 4: r1 = 14.400000000000006, which leaves a 1-column
+  // block at the tip
+  let E = 10;
+  for (let k = 0; k < 8; k++) E += 0.05;
+  for (const [contact, part] of [
+    [[[-E, -5], [E, -5], [E, 5], [-E, 5]], block(-3, 3, -3, 3, 0, 10)],
+    [[[-50, -35], [50, -35], [50, 35], [-50, 35]], block(-3, 3, 30, 36, 0, 10)],
+  ]) {
+    const out = [];
+    withStyle('light', () => buildPad(contact, part, out, 0.2));
+    let up = 0, down = 0;
+    for (let i = 0; i < out.length; i += 3) {
+      const [p, q, r] = [out[i], out[i + 1], out[i + 2]];
+      if (Math.min(p[2], q[2], r[2]) <= 0) continue;          // side wall, bottom
+      const nz = (q[0] - p[0]) * (r[1] - p[1]) - (q[1] - p[1]) * (r[0] - p[0]);
+      if (nz > 1e-10) up++; else if (nz < -1e-10) down++;
+    }
+    assert(up > 0 && down === 0, `${down} top facets face down (contact x +-${E})`);
+  }
+});
