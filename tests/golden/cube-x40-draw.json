@@ -24,12 +24,12 @@
   "tines": 6,
   "unserved": 0,
   "triangles": 684,
-  "padTriangles": 28302,
+  "padTriangles": 30632,
   "fins": [
     {
       "height": 12.525,
       "length": 30
     }
   ],
-  "sha256": "e732369394923e9902d92ff24aead0644806adc4b1994eccd7d6505a11b010a4"
+  "sha256": "61633d634b85636c7624426ce4edacfcf6bbce44b9c6837c9a60e5ee29323916"
 }

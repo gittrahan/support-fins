@@ -3,7 +3,8 @@
 // part's flank -- and stay watertight. These pin all three so a revert to the grid
 // (or a broken mesh) fails loudly.
 
-import { loadModel, analyze, fins, isClosed, isOriented, rotX, assert } from './_util.js';
+import { loadModel, analyze, fins, isClosed, isOriented, rotX, assert, block, WEB } from './_util.js';
+const { buildPad } = await import(`${WEB}fins/pad.js`);
 
 // Build with a pad style set for this call only (PAD.style is module state).
 function withStyle(style, fn) {
@@ -285,4 +286,24 @@ Deno.test('pad: the small-foot Sure hold meets the part even on PETG numbers', (
   let min = Infinity;
   for (const s of pad) for (const q of ps) min = Math.min(min, segDist(s, q));
   assert(min < 0.05, `swapped pad stands ${min.toFixed(3)}mm off the sphere's first layer -- it holds nothing`);
+});
+
+// The Light/Custom pad meshes 0.1mm only where the part comes near it. Its rows
+// used to be shared by every column, so one dip near the rim made the whole oval
+// fine: 2M cells under a 128mm figure in Suggest, and a RangeError at 4x. Here a
+// 6mm post stands near the rim of a 108 x 78mm pad.
+Deno.test('pad (light): a big pad is fine only near the part, and keeps its gap there', () => {
+  const part = block(-3, 3, 30, 36, 0, 10);
+  const contact = [[-50, -35], [50, -35], [50, 35], [-50, 35]];
+  const out = [];
+  const p = withStyle('light', () => buildPad(contact, part, out, 0.2));
+  assert(p.r1 > 50 && p.r2 > 35, `pad is ${p.r1} x ${p.r2}, not the big oval`);
+  assert(p.cells < 30000, `${p.cells} cells -- the whole oval went fine`);
+  assert(isClosed(out) && isOriented(out), 'big pad is not one closed, outward solid');
+  const tris = [];
+  for (let i = 0; i < part.length; i += 3) tris.push([part[i], part[i + 1], part[i + 2]]);
+  const ps = sectionSegs(tris, 0.1), pad = sectionSegs(out, 0.1);
+  let min = Infinity;
+  for (const s of pad) for (const q of ps) min = Math.min(min, segDist(s, q));
+  assert(min > 0.1 && min < fins.PAD.brimGap + 0.05, `sliced gap round the post is ${min.toFixed(3)}mm`);
 });

@@ -12,7 +12,7 @@
   "tines": 28,
   "unserved": 0,
   "triangles": 2968,
-  "padTriangles": 68580,
+  "padTriangles": 59022,
   "fins": [
     {
       "kind": "prop",
@@ -111,5 +111,5 @@
       ]
     }
   ],
-  "sha256": "994920221d1211092e90563ab08fb20471ee59ec97876d6b6abc5d7aa940b72c"
+  "sha256": "de05766b36ee3194920a59dc0fb6363b9d4ed9295b7a2bec2069a9eb7187aa84"
 }

@@ -194,8 +194,11 @@ the slicer merged the cube's first bead into the pad (Matthew, 2026-09-24). So t
 0.12 mm, and it is held exactly: the pad's top ramps linearly with the true distance from
 the part's first-layer section, crossing mid-height at the gap, which the mesh's linear
 interpolation preserves. Sliced gap measures ≥ 0.12 mm along a cube's edge at 30–50°,
-≥ 0.107 mm at its rounded end corners. The mesh is 0.1 mm only across the band where the
-part comes within the pad's height (1.2 mm elsewhere).
+≥ 0.107 mm at its rounded end corners. The mesh is 0.1 mm only in the 1.2 mm blocks the
+part comes near (within the gap ring and ramp of any surface below the pad's top), and on
+the rim; every other block is flat and meshes as two triangles. It used to be fine across a
+band of the whole oval, so one dip near the rim made a 128 mm figure's pad 2M cells. A
+coarser grid is not a way out: at 0.3 mm the gap closes to 0.080 mm at a cube's corners.
 
 A **tined** pad (0.3 mm clearance bridged by one-layer tines) was tried first and
 dropped: on the first layer the slots were 0.1–0.3 mm, the perimeters around them
