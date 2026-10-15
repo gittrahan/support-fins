@@ -255,7 +255,8 @@ function spanAt(P, z) {
  * as convex CCW polygons in (s, z). The strip is cut into horizontal slabs at
  * every obstacle corner and wherever an obstacle edge crosses the strip's side;
  * inside a slab every obstacle edge is one straight line, so the solid is a run
- * of trapezoids between neighbouring obstacles -- always convex.
+ * of trapezoids between neighbouring obstacles -- always convex. Pieces in
+ * neighbouring slabs overlap by CUT.eps across the cut between them.
  */
 function stripSolid(s0, s1, zb, zt, obst) {
   const os = obst.filter((P) => P.some((v) => v[0] > s0) && P.some((v) => v[0] < s1)
@@ -274,7 +275,7 @@ function stripSolid(s0, s1, zb, zt, obst) {
   const cuts = [...new Set(zs.filter((z) => z >= zb && z <= zt).map((z) => +z.toFixed(9)))]
     .sort((u, v) => u - v);
   const clampS = (x) => Math.max(s0, Math.min(s1, x));
-  const polys = [];
+  const slabs = [];
   for (let n = 0; n + 1 < cuts.length; n++) {
     const za = cuts[n], zc = cuts[n + 1];
     if (zc - za < 1e-7) continue;
@@ -298,13 +299,68 @@ function stripSolid(s0, s1, zb, zt, obst) {
       L.push(lerp(1));
     }
     R.push(() => s1);
+    const pieces = [];
     for (let g = 0; g < L.length; g++) {
-      const q = [[L[g](za), za], [R[g](za), za], [R[g](zc), zc], [L[g](zc), zc]];
-      const w0 = q[1][0] - q[0][0], w1 = q[2][0] - q[3][0];
-      if (w0 < 1e-7 && w1 < 1e-7) continue;
-      // a zero-width end (a hole's tip) makes the piece a triangle
-      polys.push(w0 < 1e-7 ? [q[0], q[2], q[3]] : w1 < 1e-7 ? [q[0], q[1], q[2]] : q);
+      if (R[g](za) - L[g](za) < 1e-7 && R[g](zc) - L[g](zc) < 1e-7) continue;
+      pieces.push({ L: L[g], R: R[g], lo: za, hi: zc, up: null, down: null });
     }
+    slabs.push({ za, zc, pieces });
+  }
+  // Neighbouring slabs meet at a cut: left there, a piece's top face would lie
+  // flush on the bottom face of the piece above, sharing its edges -- four faces
+  // to an edge, which slicers report as non-manifold (issue #223), and which
+  // breaks the repo's overlap-never-flush rule for pieces the slicer unions. So
+  // at each cut one side reaches CUT.eps across it, into solid: a piece below
+  // grows up into the ONE piece above that covers it, or else each piece above
+  // that it covers grows down into it. Either way the growth is clipped to the
+  // piece it grows into, so it never pokes into a hole.
+  const W = 1e-7;
+  for (let n = 0; n + 1 < slabs.length; n++) {
+    const A = slabs[n], B = slabs[n + 1], z = A.zc;
+    if (B.za - z > 1e-6) continue;                   // not touching: nothing shared
+    const e = Math.min(CUT.eps, (A.zc - A.za) / 2, (B.zc - B.za) / 2);
+    for (const pl of A.pieces) {
+      const l = pl.L(z), r = pl.R(z);
+      if (r - l < W) continue;                       // meets the slab above at a point
+      const over = B.pieces.filter((pu) => pu.R(z) - pu.L(z) >= W && pu.R(z) > l + W && pu.L(z) < r - W);
+      if (over.length === 1 && over[0].L(z) <= l + W && over[0].R(z) >= r - W) {
+        pl.up = { into: over[0], e };
+        continue;
+      }
+      for (const pu of over) {
+        if (!pu.down && pu.L(z) >= l - W && pu.R(z) <= r + W) pu.down = { into: pl, e };
+      }
+    }
+  }
+  const polys = [];
+  for (const p of slabs.flatMap((S) => S.pieces)) {
+    // the piece's own edges, out past the cut by e, kept inside the piece grown into
+    const reach = (g, z) => {
+      if (!g) return null;
+      const l = Math.max(p.L(z), g.into.L(z)), r = Math.min(p.R(z), g.into.R(z));
+      return r - l >= W ? [l, r] : null;
+    };
+    const zd = p.lo - (p.down?.e ?? 0), zu = p.hi + (p.up?.e ?? 0);
+    const dn = reach(p.down, zd), up = reach(p.up, zu);
+    // CCW: along the bottom, up the right side, back along the top, down the left.
+    // A side keeps its corner at the cut wherever it bends there -- narrowed to the
+    // piece it grows into, or clamped to the strip's side -- and always inward, so
+    // the piece stays convex. Dropping that corner cut a sliver off the solid.
+    const lo = [[p.L(p.lo), p.lo], [p.R(p.lo), p.lo]], hi = [[p.L(p.hi), p.hi], [p.R(p.hi), p.hi]];
+    const B = dn ? [[dn[0], zd], [dn[1], zd]] : lo, T = up ? [[up[0], zu], [up[1], zu]] : hi;
+    const bends = (a, b, c) => Math.abs((b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])) > 1e-12;
+    const q = [B[0], B[1]];
+    if (dn && bends(B[1], lo[1], hi[1])) q.push(lo[1]);
+    if (up && bends(lo[1], hi[1], T[1])) q.push(hi[1]);
+    q.push(T[1], T[0]);
+    if (up && bends(T[0], hi[0], lo[0])) q.push(hi[0]);
+    if (dn && bends(hi[0], lo[0], B[0])) q.push(lo[0]);
+    // a zero-width end (a hole's tip) makes the piece a triangle
+    const poly = q.filter((v, i) => {
+      const u = q[(i + 1) % q.length];
+      return Math.abs(u[0] - v[0]) >= W || Math.abs(u[1] - v[1]) >= W;
+    });
+    if (poly.length >= 3) polys.push(poly);
   }
   return polys;
 }
@@ -387,9 +443,11 @@ export function cutWall(st, full, out, wall) {
   for (let i = edges[0]; i <= edges[edges.length - 1]; i++) {
     const q = st[i];
     const P = (o, z) => [q.p[0] + q.sx * o, q.p[1] + q.sy * o, z];
-    // keep each band inside the wall's own profile
-    const ct = Math.max(q.botTip, Math.min(zHi[i], q.ztip - 0.01));
-    const cb = Math.min(q.ztip, Math.max(zLo[i], q.botTip + 0.01));
+    // keep each band inside the wall's own profile. Where the zone has closed up
+    // the bands would meet flush at its middle (issue #223), so they overlap there.
+    const shut = zHi[i] - zLo[i] < 1e-9 ? CUT.eps / 2 : 0;
+    const ct = Math.max(q.botTip, Math.min(zHi[i] - shut, q.ztip - 0.01));
+    const cb = Math.min(q.ztip, Math.max(zLo[i] + shut, q.botTip + 0.01));
     const tq = q.tipHalf ?? tp;                 // narrower when an interface crest sits on it
     top.push([P(+th, ct), P(+th, q.ztip), P(+tq, q.top),
               P(-tq, q.top), P(-th, q.ztip), P(-th, ct)]);
@@ -397,6 +455,20 @@ export function cutWall(st, full, out, wall) {
       ? [P(+tp, q.bot), P(+th, q.botTip), P(+th, cb), P(-th, cb), P(-th, q.botTip), P(-tp, q.bot)]
       : [P(+th, q.botP ?? q.bot), P(+th, cb), P(-th, cb), P(-th, q.botN ?? q.bot)]);  // a tilted lifted bottom (sweepBetween)
   }
+  // Against an end post a band starts 2 * CUT.eps inside it, on the line of its
+  // first segment (same surface): ending at the post's own cap, it shared the
+  // cap's tip edges -- flush, four faces to an edge (issue #223). Twice eps, as the
+  // strips' corners already reach eps into the post, and a band corner landing on
+  // one of theirs would share an edge again.
+  const into = (k, k2) => {
+    const f = 2 * CUT.eps / Math.max(1e-9, Math.abs(s[edges[k]] - s[edges[k] + k2]));
+    for (const band of [top, bot]) {
+      const j = k === 0 ? 0 : band.length - 1, n = j + k2;
+      band[j] = band[j].map((v, m) => v.map((c, d) => c + (c - band[n][m][d]) * f));
+    }
+  };
+  if (top.length > 1 && edges[0] > 0) into(0, 1);
+  if (top.length > 1 && edges[edges.length - 1] < st.length - 1) into(edges.length - 1, -1);
   ribbon(top, out);
   ribbon(bot, out);
   // End posts: the caller's full sections outside the cut span, so the wall's
@@ -428,8 +500,41 @@ export function cutWall(st, full, out, wall) {
     beyond.push([[s[i], zMin - 1], [s[i + 1], zMin - 1], [s[i + 1], zLo[i + 1] - e], [s[i], zLo[i] - e]]);
   }
   const obst = [...holes, ...beyond];
-  const inHole = (u, v) => holes.some((P) => { const m = spanAt(P, v); return m && u > m[0] && u < m[1]; });
+  // Strictly inside a hole: a hair above AND below the point is hole. A corner
+  // slid along a hole's own edge, or along its flat floor, stays ON that edge --
+  // still outside -- and refusing it left the piece flush against the next strip's
+  // at a shared corner (issue #223).
+  const inside = (P, u, v) => { const m = spanAt(P, v); return m && u > m[0] + 1e-9 && u < m[1] - 1e-9; };
+  const inHole = (u, v) => holes.some((P) => inside(P, u, v - 1e-7) && inside(P, u, v + 1e-7));
   const P = (u, v, o) => { const f = at(u); return [f.x + f.sx * o, f.y + f.sy * o, v]; };
+  // Pieces that still touch at a corner -- two slabs' pieces at a bend in an
+  // obstacle's outline, a hole's tip, a corner grown onto the next strip's -- would
+  // share the edge that corner extrudes to (issue #223). Each later piece pulls
+  // such a corner a hair toward its own centre: inward, so never into a hole.
+  const taken = new Map();
+  const cellOf = (u, v) => `${Math.round(u * 1e4)},${Math.round(v * 1e4)}`;
+  const near = (u, v) => {
+    const i = Math.round(u * 1e4), j = Math.round(v * 1e4);
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+      for (const w of taken.get(`${i + di},${j + dj}`) ?? []) {
+        if (Math.abs(w[0] - u) < 1e-5 && Math.abs(w[1] - v) < 1e-5) return true;
+      }
+    }
+    return false;
+  };
+  const apart = (poly) => {
+    const cs = poly.reduce((a, v) => a + v[0], 0) / poly.length, cz = poly.reduce((a, v) => a + v[1], 0) / poly.length;
+    const mine = poly.slice();
+    for (let i = 0; i < poly.length; i++) {
+      const [u, v] = poly[i], d = Math.hypot(cs - u, cz - v);
+      if (d > 1e-3 && near(u, v)) poly[i] = [u + (cs - u) * 1e-4 / d, v + (cz - v) * 1e-4 / d];
+    }
+    for (const w of mine) {
+      const k = cellOf(w[0], w[1]);
+      if (!taken.has(k)) taken.set(k, []);
+      taken.get(k).push(w);
+    }
+  };
   for (let c = 0; c + 1 < edges.length; c++) {
     const s0 = s[edges[c]], s1 = s[edges[c + 1]];
     let zb = Infinity, zt = -Infinity;
@@ -451,7 +556,14 @@ export function cutWall(st, full, out, wall) {
         const G = [u + (u - W[0]) * k, v + (v - W[1]) * k];
         return inHole(G[0], G[1]) ? V : G;
       });
-      boxExtrude(grown, -th, th, P, out);
+      apart(grown);
+      // corners the moves above brought together (within a micron) are one corner:
+      // left twice, the extrusion has zero-area faces
+      const clean = grown.filter((V, n) => {
+        const U = grown[(n + 1) % grown.length];
+        return Math.abs(U[0] - V[0]) > 1e-6 || Math.abs(U[1] - V[1]) > 1e-6;
+      });
+      if (clean.length >= 3) boxExtrude(clean, -th, th, P, out);
     }
   }
   return true;

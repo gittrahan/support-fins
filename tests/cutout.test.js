@@ -314,3 +314,46 @@ Deno.test('cutout: a hole never outgrows its cell, whatever the cell height', ()
   const [d] = holesFor('diamond', 8, 19.3);
   assert(d && Math.abs(d.a - 3.2) < 1e-9, `w=8 H=19.3 should keep one full-width diamond, got ${JSON.stringify(d)}`);
 });
+
+// Issue #223: a slicer welds a cut wall's pieces by position and reported
+// hundreds of edges shared by four or six triangles ("non-manifold") -- pieces
+// left flush: slabs stacked at a cut, bands ending on a post's cap, the two bands
+// meeting where a short wall's zone closes up, corners touching across a strip
+// side. Pieces overlap instead, so no welded edge is used more than twice, and no
+// face is zero-area.
+function sharedEdges(t) {
+  const k = (p) => p.map((c) => c.toFixed(5)).join(',');
+  const use = new Map();
+  let flat = 0;
+  for (let i = 0; i < t.length; i += 3) {
+    const v = [k(t[i]), k(t[i + 1]), k(t[i + 2])];
+    if (v[0] === v[1] || v[1] === v[2] || v[0] === v[2]) flat++;
+    for (let j = 0; j < 3; j++) {
+      const a = v[j], b = v[(j + 1) % 3], e = a < b ? `${a}|${b}` : `${b}|${a}`;
+      use.set(e, (use.get(e) ?? 0) + 1);
+    }
+  }
+  return { over: [...use.values()].filter((n) => n > 2).length, flat };
+}
+
+Deno.test('cutout: no welded edge is shared by more than two faces (issue #223)', () => {
+  const PATTERNS = ['diamond', 'triangle', 'arch', 'lattice'];
+  const check = (what, t) => {
+    const { over, flat } = sharedEdges(t);
+    assert(over === 0 && flat === 0, `${what}: ${over} edges on 3+ faces, ${flat} zero-area faces`);
+  };
+  for (const p of PATTERNS) { check(`slab ${p}`, wall(p)); check(`sloped ${p}`, sloped(p)); }
+  const cases = [['wedge', 'x', 60], ['lbracket', 'x', 60], ['cylinder', 'y', 25], ['cube', 'x', 45],
+                 ['torus', 'x', 30], ['staircase', 'x', 120]];
+  for (const [name, ax, deg] of cases) {
+    const topo = loadModel(name);
+    const a = (deg * Math.PI) / 180, c = Math.cos(a), s = Math.sin(a);
+    const rot = ax === 'x' ? [1, 0, 0, 0, c, s, 0, -s, c] : [c, 0, -s, 0, 1, 0, s, 0, c];
+    const res = analyze(topo, 45, rot);
+    for (const p of PATTERNS) {
+      check(`${name} ${ax}${deg} ${p}`, fins.buildFins(topo, res, rot,
+        { mode: 'auto', bedPad: true, tines: true, tunables: { cutout: p } }).triangles);
+    }
+  }
+  CUT.pattern = 'none';
+});
