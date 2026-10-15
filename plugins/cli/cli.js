@@ -16,12 +16,12 @@ import { unzip } from '../../web/zip.js';
 // --- flags from options.json -------------------------------------------------
 
 // sway.on -> --sway, sway.gripFrom -> --sway-grip-from, tineDensity -> --tine-density
-const flagOf = (key) => key.replace(/\.on$/, '').replace(/\./g, '-')
+export const flagOf = (key) => key.replace(/\.on$/, '').replace(/\./g, '-')
   .replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
-const OPTION_FLAGS = new Map(OPTIONS_SCHEMA.options.map((o) => [flagOf(o.key), o]));
+export const OPTION_FLAGS = new Map(OPTIONS_SCHEMA.options.map((o) => [flagOf(o.key), o]));
 
 // A percent option is typed as the site's slider shows it (0-100), not the entry's 0-1.
-const shown = (o, v) => (o.percent ? +(v * 100).toFixed(6) : v);
+export const shown = (o, v) => (o.percent ? +(v * 100).toFixed(6) : v);
 
 export function helpText() {
   const lines = [

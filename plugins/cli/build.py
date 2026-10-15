@@ -32,23 +32,24 @@ await import({cli!r});
 '''
 
 
-def build():
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    entry = OUT.parent / "entry.js"
+def build(script=HERE / "support-fins.js", out=OUT):
+    """Bundle an entry script (the MCP server's too: plugins/mcp/build.py) to one file."""
+    out.parent.mkdir(parents=True, exist_ok=True)
+    entry = out.parent / "entry.js"
     entry.write_text(ENTRY.format(
         cut=str(ROOT / "web" / "cut.js"),
         wasm=str(ROOT / "web" / "vendor" / "manifold-3d-3.5.4" / "manifold.wasm"),
-        cli=str(HERE / "support-fins.js")))
+        cli=str(script)))
     # --platform=node leaves node:fs (the Node branch's dynamic import) external;
     # Deno never reaches it.
     try:
         subprocess.run(esbuild_cmd() + [
             str(entry), "--bundle", "--format=esm", "--platform=node", "--loader:.wasm=binary",
-            "--target=es2022", f"--outfile={OUT}", "--log-level=warning",
+            "--target=es2022", f"--outfile={out}", "--log-level=warning",
         ], check=True)
     finally:
         entry.unlink(missing_ok=True)
-    return OUT
+    return out
 
 
 if __name__ == "__main__":
