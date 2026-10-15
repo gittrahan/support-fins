@@ -103,14 +103,55 @@ function zOn(tris, i, x, y) {
   return l1 * az + l2 * bz + l3 * cz;
 }
 
+// surfaceZAt wants only the LOWEST height, so it walks a second copy of the cell
+// lists ordered by how low each triangle can reach and stops at the first that
+// can't beat the best so far. A column through a tall part crosses every surface
+// stacked above it, and scanning them all was most of a bed pad's cost (the pad
+// asks nine columns per grid vertex): 45% of Suggest orientation on a figure.
+//
+// `lb` is a floor under any height zOn returns for the triangle: zOn accepts
+// barycentrics down to -1e-9, which reaches below the lowest vertex by at most
+// 2e-9 of the triangle's z-range, plus float rounding. Stopping only when a floor
+// is ABOVE the best keeps the minimum exact. Built on first use: surfaceHitsAt and
+// surfaceZsAt keep the index-ordered lists, where order matters.
+function lowFirst(g, tris) {
+  if (g.low) return g.low;
+  const n = tris.length / 9;
+  const lb = new Float64Array(n);
+  for (let t = 0; t < n; t++) {
+    const o = t * 9, a = tris[o + 2], b = tris[o + 5], c = tris[o + 8];
+    const lo = Math.min(a, b, c), hi = Math.max(a, b, c);
+    lb[t] = lo - 3e-9 * (hi - lo) - 1e-12 * (1 + Math.abs(lo));
+  }
+  // fill the cells in ascending-floor order, so each cell's list comes out sorted
+  const order = new Int32Array(n);
+  for (let t = 0; t < n; t++) order[t] = t;
+  order.sort((p, q) => lb[p] - lb[q] || p - q);
+  const { start, NX, NY, sx, sy, minX, minY } = g;
+  const cx = (v) => Math.min(NX - 1, Math.max(0, Math.floor((v - minX) * sx)));
+  const cy = (v) => Math.min(NY - 1, Math.max(0, Math.floor((v - minY) * sy)));
+  const items = new Int32Array(g.items.length);
+  const cur = start.slice(0, NX * NY);
+  for (const t of order) {
+    const f = t * 9;
+    const a0 = cx(Math.min(tris[f], tris[f + 3], tris[f + 6])), a1 = cx(Math.max(tris[f], tris[f + 3], tris[f + 6]));
+    const b0 = cy(Math.min(tris[f + 1], tris[f + 4], tris[f + 7])), b1 = cy(Math.max(tris[f + 1], tris[f + 4], tris[f + 7]));
+    for (let a = a0; a <= a1; a++) for (let b = b0; b <= b1; b++) items[cur[a * NY + b]++] = f;
+  }
+  return (g.low = { items, lb });
+}
+
 export function surfaceZAt(tris, x, y) {
   if (tris.length === 0) return null;
   const g = buildZGrid(tris);
   const c = cellOf(g, x, y);
   if (c === null) return null;
+  const { items, lb } = lowFirst(g, tris);
   let best = Infinity;
   for (let k = g.start[c]; k < g.start[c + 1]; k++) {
-    const z = zOn(tris, g.items[k], x, y);
+    const f = items[k];
+    if (lb[f / 9] > best) break;          // nothing further down this list reaches lower
+    const z = zOn(tris, f, x, y);
     if (z !== null && z < best) best = z;
   }
   return best === Infinity ? null : best;
