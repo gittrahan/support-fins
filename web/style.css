@@ -477,6 +477,7 @@ html, body {
 #fin-opts .mode-seg .btn:last-child { border-radius: 0 6px 6px 0; }
 #fin-opts .mode-seg .btn[aria-pressed="true"] { position: relative; border-color: var(--accent); background: var(--accent);
   color: #06121f; font-weight: 600; }
+#fin-opts .mode-seg .btn:focus-visible { position: relative; z-index: 1; }   /* ring over the neighbour */
 #fin-opts .mode-note { margin: 0; font-size: 11px; line-height: 1.35; color: var(--dim); }
 #fin-opts .fld.row {
   flex-direction: row;
