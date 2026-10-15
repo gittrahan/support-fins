@@ -395,7 +395,10 @@ try {
   await pickRow(2);
   await page.evaluate(() => {
     let g = null;
-    window.__sf.part.parent.traverse((o) => { if (o.isTransformControlsRoot) g = o.controls; });
+    // the rotate rings' gizmo (the one on the part), not the Section plane's
+    window.__sf.part.parent.traverse((o) => {
+      if (o.isTransformControlsRoot && o.controls.object === window.__sf.part) g = o.controls;
+    });
     g.dispatchEvent({ type: 'dragging-changed', value: true });
     window.__sf.part.rotateZ(Math.PI / 6);
     g.dispatchEvent({ type: 'dragging-changed', value: false });

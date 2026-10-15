@@ -747,6 +747,22 @@ html, body {
   overflow-y: auto;
 }
 .vb-pop.wide { max-width: min(22rem, calc(100vw - 28px)); }
+/* The ring-drag angle (pose.js): a popover-shaped label that never takes a click,
+   shown with .show and faded out after the drag. */
+.vb-pop.vb-tip {
+  padding: 4px 9px;
+  gap: 8px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .4s ease, visibility 0s linear .4s;
+}
+.vb-pop.vb-tip.show { opacity: 1; visibility: visible; transition: none; }
+#drag-delta { color: var(--accent); font-weight: 600; }
+#drag-delta:empty { display: none; }
+#drag-now { color: var(--dim); }
 .vb-sep { width: 1px; align-self: stretch; margin: 3px; background: var(--glass-line); }
 .vb-badge {
   display: inline-flex;

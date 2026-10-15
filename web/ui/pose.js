@@ -30,6 +30,8 @@ let dragSnap = null;                       // undo state at drag start (history.
 gizmo.addEventListener('dragging-changed', (e) => {
   controls.enabled = !e.value;
   if (e.value && part) { dragFrom.copy(part.quaternion); dragSnap = beginGesture(); }
+  ringDrag = e.value;
+  if (e.value) showDragAngle();
   if (!e.value) {
     el('rot-delta').textContent = '';
     // a turn by the rings is one undo step, like the 90deg buttons (it never was one)
@@ -42,6 +44,7 @@ gizmo.addEventListener('dragging-changed', (e) => {
     // so this is the frame that actually drops the turned part back down).
     shadeQueued = false;     // this full shade stands in for any spaced-out one
     shade();
+    endDragAngle();      // the settled angle, then fade
     // Fins are rebuilt when the drag ENDS, not during it. Placement runs the
     // exact confirmation passes -- containment, clearance, per-tine bite -- and
     // costs ~100ms on a 43k-face part, which is fine once and unusable at 60fps.
@@ -86,6 +89,7 @@ function requestShade() {
     shadeQueued = false;
     const t = performance.now();
     shade();
+    syncDragNow();                                 // shade() just wrote the pose
     lastShadeEnd = performance.now();
     lastShadeMs = lastShadeEnd - t;
   });
@@ -97,6 +101,32 @@ function showDelta(axis, radians) {
   const deg = THREE.MathUtils.radToDeg(radians);
   el('rot-delta').textContent =
     `${label} ${deg >= 0 ? '+' : ''}${deg.toFixed(deg % 1 ? 1 : 0)}°`;
+  if (ringDrag) showDragAngle();     // the 90deg buttons write the delta too
+}
+
+// The angle readout lives in the Rotate popover; a ring drag with it folded showed
+// no angle at all. This small label above the Rotate badge mirrors it (the turn so
+// far, then the pose) while the rings move, and fades a moment after release. Not
+// shown when the popover is open: the readout there already says it.
+const DRAG_FADE_MS = 1200;
+let dragFadeTimer = 0;
+let ringDrag = false;              // the rings are being dragged right now
+function showDragAngle() {
+  clearTimeout(dragFadeTimer);
+  const tip = el('drag-angle');
+  if (!el('rotate-pop').hidden) { tip.classList.remove('show'); return; }
+  el('drag-delta').textContent = el('rot-delta').textContent;
+  el('drag-now').textContent = el('rot-now').textContent;
+  tip.style.left = `${el('rotate-badge').offsetLeft}px`;
+  tip.classList.add('show');
+}
+function syncDragNow() {
+  if (el('drag-angle').classList.contains('show')) el('drag-now').textContent = el('rot-now').textContent;
+}
+function endDragAngle() {
+  if (!el('drag-angle').classList.contains('show')) return;
+  syncDragNow();       // the pose it settled at
+  dragFadeTimer = setTimeout(() => el('drag-angle').classList.remove('show'), DRAG_FADE_MS);
 }
 
 export let layPlacing = false;     // true while "lay a face flat" is armed -- gated behind a
