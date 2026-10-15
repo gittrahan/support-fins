@@ -183,7 +183,8 @@ which would stretch the one-layer tines. Confirmed working in PrusaSlicer 3.0 al
 
 ```
 web/         the browser app (live at printfins.com)
-plugins/     slicer/CAD integrations (PrusaSlicer, OrcaSlicer, Onshape, Autodesk Fusion)
+plugins/     slicer/CAD integrations (PrusaSlicer, OrcaSlicer, Onshape, Autodesk Fusion), the
+             command line, and an MCP server for AI clients
 prototype/   Python/trimesh proof of concept the engine was ported from
 docs/        FIN-SPEC.md — the verified fin geometry, with sources
 tests/       offline geometry regression suite

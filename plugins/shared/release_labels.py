@@ -40,6 +40,7 @@ RULES = [
     (r"support-fins-solidworks\.zip", "SolidWorks add-in",
      lambda: re.search(r"<Version>([^<]+)</Version>", (PLUGINS / "solidworks/SupportFins/SupportFins.SolidWorks.csproj").read_text()).group(1)),
     (r"support-fins\.mjs", "Command line", None),
+    (r"support-fins-mcp\.mjs", "MCP server", None),
 ]
 
 

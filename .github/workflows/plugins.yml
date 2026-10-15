@@ -158,6 +158,40 @@ jobs:
           path: plugins/cli/build/support-fins.mjs
           if-no-files-found: error
 
+  mcp:
+    # The MCP server as one file (its tests run with the rest in test.yml's deno test):
+    # bundled, then driven over stdio on Node from outside the checkout -- initialize,
+    # then fin a part -- so a missed import or a stray stdout line fails here.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4     # npx fetches the pinned esbuild (plugins/shared/bundle.py)
+        with:
+          node-version: '22'
+      - name: Build
+        run: python plugins/mcp/build.py
+      - name: Run it outside the checkout
+        run: |
+          mkdir -p "$RUNNER_TEMP/mcp" && cp plugins/mcp/build/support-fins-mcp.mjs prototype/stress/models/lowledge.stl "$RUNNER_TEMP/mcp/"
+          cd "$RUNNER_TEMP/mcp"
+          printf '%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","method":"notifications/initialized"}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"fin_part","arguments":{"path":"lowledge.stl"}}}' \
+            | node support-fins-mcp.mjs > replies.jsonl
+          cat replies.jsonl
+          node -e 'const l=require("fs").readFileSync("replies.jsonl","utf8").trim().split("\n").map(JSON.parse); if (l.length!==2||l[1].result.isError!==false) process.exit(1)'
+          test -s lowledge-fins.3mf
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcp
+          path: plugins/mcp/build/support-fins-mcp.mjs
+          if-no-files-found: error
+
   blender:
     # The extension's settings mapping + 3MF writer, then a zip per platform (engine
     # bundle + that platform's mini-racer wheel, which Blender installs itself).
@@ -252,7 +286,7 @@ jobs:
 
   publish:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [orca, fusion, cura, prusa, blender, blender-smoke, freecad, cli, solidworks]
+    needs: [orca, fusion, cura, prusa, blender, blender-smoke, freecad, cli, mcp, solidworks]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -288,6 +322,7 @@ jobs:
           - support-fins-freecad-<platform>.zip: FreeCAD 1.0 add-on, experimental; pick your computer's (mac-arm64, mac-x64, windows-x64, linux-x64, linux-arm64) and unzip into FreeCAD's Mod folder
           - support-fins-solidworks.zip: SolidWorks add-in (Windows), experimental, not yet run in SolidWorks; unzip, run install.bat as administrator
           - support-fins.mjs: command line (Deno or Node 20.10+): node support-fins.mjs part.stl
+          - support-fins-mcp.mjs: MCP server for AI clients (Claude Code, Claude Desktop; Deno or Node 20.10+): claude mcp add support-fins -- node support-fins-mcp.mjs
 
           Each file's label names its plugin version and the engine commit it was built from."
           if gh release view "$TAG" >/dev/null 2>&1; then

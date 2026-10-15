@@ -60,6 +60,9 @@ deno compile -RW --include plugins/shared/engine/options.json \
   -o support-fins plugins/cli/support-fins.js
 ```
 
+For an AI client (Claude Code, Claude Desktop), the same tool is an MCP server:
+[`plugins/mcp/`](../mcp/README.md).
+
 ## Code
 
 - `support-fins.js` — the entry: gives `cli.js` a file system (Deno or Node) and an exit code.
