@@ -70,7 +70,8 @@ addEventListener('keyup', (e) => { if (e.key === 'Shift') gizmo.setRotationSnap(
  * pointer move and the scene renders every frame, but a shade that takes 50 ms
  * (a 1.56M-face mini) run every frame held the whole page at ~15 fps. Waiting
  * SHADE_GAP x the last shade's cost before the next keeps the turn smooth and
- * the colours a beat behind; a light part (a few ms) still shades every frame.
+ * the colours a beat behind; a part whose shade takes under a third of a frame
+ * (a few ms at 60 Hz) still shades every frame.
  * Release always shades in full (the dragging-changed handler above).
  */
 const SHADE_GAP = 2;

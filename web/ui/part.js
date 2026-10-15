@@ -54,7 +54,7 @@ const SHADE = {
 };
 // paintOverhangs' record of what each face shows, as an index into SHADES
 const SHADES = [null, SHADE.plain, SHADE.over, SHADE.small, SHADE.bed];
-let painted = null, paintedGeom = null;
+let painted = null, paintedAttr = null;
 
 /**
  * Drop `geometry` onto the plate: centred in XY, its lowest point resting on
@@ -174,9 +174,9 @@ export function paintOverhangs(res = lastResult) {
   // a 1.56M-face part, rewriting and re-uploading all 56 MB of colour every drag
   // frame was a fixed cost on top of the analysis.
   const n = topology.nFaces;
-  if (!painted || paintedGeom !== part.geometry || painted.length !== n) {
+  if (!painted || paintedAttr !== colors || painted.length !== n) {
     painted = new Uint8Array(n);       // 0 = never painted: every face is written
-    paintedGeom = part.geometry;
+    paintedAttr = colors;
   }
   let lo = n, hi = -1;
   for (let f = 0; f < n; f++) {
