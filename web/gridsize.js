@@ -5,8 +5,8 @@
  * over the part, so a cell's share of the mesh grew with the face count and every
  * query scanned it: a 250k-face figure put ~60 triangles in an average cell, and
  * with a big part's many stations those scans were ~80% of an Auto build (a
- * 768 mm figure, 197 s). Size the grid to the mesh instead: about FACES_PER_CELL
- * faces a cell, square cells in mm, never under 64 a side (the old grid, so a
+ * 768 mm figure, 197 s). Size the grid to the mesh instead: as many cells as
+ * faces / FACES_PER_CELL, square cells in mm, never under 64 a side (the old grid, so a
  * small part is bucketed no coarser than before) or above MAX_SIDE.
  *
  * Cells also stay at least MIN_CELL_MM wide. The box queries (nearestPart,

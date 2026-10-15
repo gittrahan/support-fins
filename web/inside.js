@@ -265,6 +265,36 @@ export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
   const clampA = (v) => Math.min(grid.NY - 1, Math.max(0, v));
   const clampB = (v) => Math.min(grid.NZ - 1, Math.max(0, v));
 
+  // The first part triangle wall triangle A pierces, in the coarse grid's cell
+  // order -- the walk below with the box rejects, on the old 64 x 64 layout.
+  const coarsePierce = (A, xLo, xHi, yLo, yHi, zLo, zHi) => {
+    const g = grid.coarse, done = new Set();
+    const cA = (v) => Math.min(g.NY - 1, Math.max(0, v));
+    const cB = (v) => Math.min(g.NZ - 1, Math.max(0, v));
+    const a0 = cA(Math.floor((yLo - rMax - g.minY) * g.sy)), a1 = cA(Math.floor((yHi + rMax - g.minY) * g.sy));
+    const b0 = cB(Math.floor((zLo - rMax - g.minZ) * g.sz)), b1 = cB(Math.floor((zHi + rMax - g.minZ) * g.sz));
+    for (let a = a0; a <= a1; a++) {
+      for (let b = b0; b <= b1; b++) {
+        const c = a * g.NZ + b;
+        for (let i = g.start[c]; i < g.start[c + 1]; i++) {
+          const f = g.items[i];
+          if (done.has(f)) continue;
+          done.add(f);
+          const o = f * 9;
+          if (Math.min(pos[o], pos[o + 3], pos[o + 6]) > xHi + rMax) continue;
+          if (Math.max(pos[o], pos[o + 3], pos[o + 6]) < xLo - rMax) continue;
+          if (Math.min(pos[o + 1], pos[o + 4], pos[o + 7]) > yHi + rMax) continue;
+          if (Math.max(pos[o + 1], pos[o + 4], pos[o + 7]) < yLo - rMax) continue;
+          if (Math.min(pos[o + 2], pos[o + 5], pos[o + 8]) > zHi + rMax) continue;
+          if (Math.max(pos[o + 2], pos[o + 5], pos[o + 8]) < zLo - rMax) continue;
+          const hit = triTriPierce(A, triVerts(pos, f));
+          if (hit) return hit;
+        }
+      }
+    }
+    return null;   // unreachable: the fine walk found a pierce among the same candidates
+  };
+
   // un-rotate the solid's vertices into the mesh frame once
   const mv = new Array(verts.length);
   for (let i = 0; i < verts.length; i++) {
@@ -352,8 +382,12 @@ export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
           // and edge-edge pair measures finite -- which is exactly how a wall
           // whose end cap ran 0.85mm into a part face was certified "0.167mm
           // clear" while the checker read 0.001.
-          const pierce = triTriPierce(A, B);
+          let pierce = triTriPierce(A, B);
           if (pierce) {
+            // Which pierce is reported (callers trim the station nearest it)
+            // depends on the order the cells are walked. Report the one the old
+            // 64 x 64 walk met first, so the trim is the same at any grid size.
+            if (g !== grid.coarse) pierce = coarsePierce(A, xLo, xHi, yLo, yHi, zLo, zHi);
             best = 0; bp = pierce; bq = pierce;
             a = a1 + 1; b = b1 + 1; t = mv.length;   // nothing beats zero
             break;

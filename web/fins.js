@@ -39,7 +39,7 @@ import { buildSwayBraces } from './sway.js';
 import { CUT, CUTOUT_PATTERNS } from './cutout.js';
 import { FIN } from './fins/config.js';
 import { buildPad, PAD } from './fins/pad.js';
-import { bedContact, seatedPartTris, seatingOf } from './fins/seating.js';
+import { bedContact, forgetSeated, seatedPartTris, seatingOf } from './fins/seating.js';
 import { lastResortWalls } from './fins/shortwalls.js';
 import { fillCoverage } from './fins/fill.js';
 import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
@@ -121,6 +121,7 @@ export function applyTunables(t) {
 export function buildFins(topo, result, rot, opts = {}) {
   const built = buildFinsAndBraces(topo, result, rot, opts);
   crestPart(null);   // the crest's part is only for this build (a Worker keeps no mesh)
+  forgetSeated(topo);   // nor the seated part: a page building inline would hold it
   // A piece of the part that starts in mid-air (a cut clean through, a loose
   // body) needs saying no matter what was placed: see floatingPieces.
   built.floating = floatingPieces(topo, result, rot);

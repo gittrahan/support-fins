@@ -29,6 +29,10 @@ export function seatedPartTris(topo, rot, offset) {
   return tris;
 }
 
+/** Drop the cached copy: buildFins calls this when it finishes, so a page that
+ *  builds inline (Suggest's finalists) doesn't hold a seated part between builds. */
+export function forgetSeated(topo) { _seated.delete(topo); }
+
 function seat(topo, rot, offset) {
   const { pos, nFaces } = topo;
   const { x: ox, y: oy, z: oz } = offset;
