@@ -20,6 +20,7 @@ import { readSTL, MODELS, analyze, fins, rotX, rotY, assert, assertClose, block 
 import { buildTopology, IDENTITY3 } from '../../../web/overhangs.js';
 import { readThreeMF } from '../../../web/threemf.js';
 import { writeBinarySTL } from '../../../web/stl.js';
+import { unzip, zipStore } from '../../../web/zip.js';
 
 const LBRACKET = Deno.readFileSync(`${MODELS}lbracket.stl`);
 
@@ -267,6 +268,40 @@ Deno.test('cli: a slicer\'s negative part is cut out of the part (#104)', async 
   const r = await cli(['cube.3mf', '-o', 'out.3mf'], { 'cube.3mf': orca });
   assert(r.code === 0 && r.err.length === 0, `exit ${r.code}: ${r.err.join(' | ')}`);
   const out = await readThreeMF(r.fs.get('out.3mf'));
-  // the 40 mm cube with a corner cut away: more than its 12 triangles
-  assert(out.objects[0].tris > 12, `the part came out ${out.objects[0].tris} triangles: not cut`);
+  // the 3MF is the file as it was, for the slicer to cut again: the cube whole, its
+  // negative part beside it, and the supports their own object, out of its reach
+  const [cube, supports] = out.objects;
+  assert(out.objects.length === 2 && / supports$/.test(supports.name), `objects ${out.objects.map((o) => o.name)}`);
+  assert(cube.tris === 12 && cube.extras.length === 1 && cube.extras[0].kind === 'negative',
+    `part ${cube.tris} tris, extras ${cube.extras.map((e) => e.kind)}: want the whole cube and its negative`);
+  // the walls are the cut cube's: the solid cube gets none
+  assert(supports.tris > 0, 'no supports: the fins were built for the solid cube');
+  // an STL can't carry the negative: it is the cut part
+  const s = await cli(['cube.3mf', '-o', 'out.stl'], { 'cube.3mf': orca });
+  assert(s.code === 0 && s.err.length === 0, `exit ${s.code}: ${s.err.join(' | ')}`);
+  const tris = (s.fs.get('out.stl').length - 84) / 50;
+  assert(tris > 12 + supports.tris, `the STL is ${tris} triangles: the cube came out uncut`);
 });
+
+Deno.test('cli: a modifier rides into a 3MF output, and an STL says it can\'t hold it (#104)', async () => {
+  const r = await cli(['cube.3mf', '-o', 'out.stl'], { 'cube.3mf': await modifierFile() });
+  assert(r.code === 0 && r.err.some((l) => /left out 1 modifier\/support blocker: an STL/.test(l)), `stderr ${r.err.join(' | ')}`);
+  const t = await cli(['cube.3mf', '-o', 'out.3mf'], { 'cube.3mf': await modifierFile() });
+  assert(t.code === 0 && t.err.length === 0, `exit ${t.code}: ${t.err.join(' | ')}`);
+  const [cube] = (await readThreeMF(t.fs.get('out.3mf'))).objects;
+  const mod = cube.extras[0];
+  assert(mod?.kind === 'modifier' && JSON.stringify(mod.settings.bambu) === '[["sparse_infill_density","80%"]]',
+    `modifier ${JSON.stringify(mod.settings)}`);
+});
+
+/** The Orca cube with its negative part made a modifier with one setting. */
+async function modifierFile() {
+  const orca = await Deno.readFile(new URL('../../../tests/fixtures/negative-parts/orca.3mf', import.meta.url));
+  const parts = await unzip(orca);
+  const config = new TextDecoder().decode(parts.get('Metadata/model_settings.config'))
+    .replace('subtype="negative_part">', 'subtype="modifier_part"><metadata key="sparse_infill_density" value="80%"/>')
+    .replace(/<part id="2"([\s\S]*?)<metadata key="extruder" value="0"\/>/, '<part id="2"$1');
+  parts.set('Metadata/model_settings.config', new TextEncoder().encode(config));
+  const blob = zipStore([...parts].map(([name, data]) => ({ name, data })));
+  return new Uint8Array(await blob.arrayBuffer());
+}

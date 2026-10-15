@@ -171,9 +171,9 @@ async function readPart(path, bytes, object, warn = () => {}) {
     }
     const m = await readThreeMF(bytes);
     const objs = m.objects || [];
-    // a slicer's negative parts are cut out, as on the site; its modifiers and
-    // support blockers are not the part, and not in the output (#104) -- said,
-    // not dropped quietly
+    // a slicer's negative parts are cut out, as on the site, and the fins built
+    // for the cut part; a 3MF output carries them and the modifiers and support
+    // blockers back out beside the part as the file had it, as the site does (#104)
     const prepared = async (o) => {
       const c = await cutNegatives(o);
       const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
@@ -181,12 +181,9 @@ async function readPart(path, bytes, object, warn = () => {}) {
         whole: 'they would remove the whole part', load: 'the cutter did not load' }[c.why];
       if (why) warn(`negative parts not cut: ${why}`);
       else if (c.uncut) warn(`${plural(c.uncut, 'negative part', 'negative parts')} not cut: not a closed solid`);
-      const rest = (o.extras ?? []).filter((e) => e.kind !== 'negative').length;
-      if (rest) warn(`left out ${plural(rest, 'modifier/support blocker', 'modifiers/support blockers')}: `
-        + 'not in the output, re-add in your slicer');
-      return c.positions;
+      return { positions: c.positions, slicer: o.extras?.length ? { positions: o.positions, extras: o.extras } : null };
     };
-    if (objs.length <= 1 && object === null) return objs.length ? prepared(objs[0]) : m.positions;
+    if (objs.length <= 1 && object === null) return objs.length ? prepared(objs[0]) : { positions: m.positions };
     if (object === null) {
       throw new Error(`has ${objs.length} objects (${objs.map((o, i) => `${i + 1} ${o.name}`).join(', ')}); `
         + 'pick one with --object');
@@ -196,7 +193,7 @@ async function readPart(path, bytes, object, warn = () => {}) {
     if (!pick) throw new Error(`no object ${JSON.stringify(object)}; it has ${objs.map((o) => o.name).join(', ')}`);
     return prepared(pick);
   }
-  if (/\.stl$/i.test(path)) return readSTL(bytes);
+  if (/\.stl$/i.test(path)) return { positions: readSTL(bytes) };
   throw new Error('reads .stl and .3mf only');
 }
 
@@ -216,8 +213,9 @@ export async function finFile(input, args, io, engineOptions) {
   if (!/\.(3mf|stl)$/i.test(output)) throw new Error(`output ${output}: write .3mf or .stl`);
   if (args.finsOnly && !/\.stl$/i.test(output)) throw new Error('--fins-only writes an .stl');
   if (sameFile(output, input)) throw new Error(`won't overwrite the input; pick another -o`);
-  const posed = pose(await readPart(input, await io.read(input), args.object,
-    (line) => io.err(`support-fins: ${input}: warning: ${line}`)), args.rot);
+  const warn = (line) => io.err(`support-fins: ${input}: warning: ${line}`);
+  const read = await readPart(input, await io.read(input), args.object, warn);
+  const posed = pose(read.positions, args.rot);
   const { triangles, offset, stats } = computeFins(posed, engineOptions);
   const name = (input.split(/[\\/]/).pop() || 'part').replace(/\.(stl|3mf)$/i, '');
   if (args.finsOnly && triangles.length === 0) {
@@ -226,12 +224,32 @@ export async function finFile(input, args, io, engineOptions) {
   // The fins come back in the engine's seated frame. --fins-only maps them back onto
   // the part as it is in the file (fin - offset); otherwise the part moves to them.
   const fins = triples(triangles, args.finsOnly ? [-offset.x, -offset.y, -offset.z] : [0, 0, 0]);
-  const part = triples(posed, [offset.x, offset.y, offset.z]);
+  const at = [offset.x, offset.y, offset.z];
+  // an STL is the cut part: the modifiers and blockers can't go in it -- said, not
+  // dropped quietly
+  const rest = read.slicer?.extras.filter((e) => e.kind !== 'negative').length ?? 0;
+  if (rest && !/\.3mf$/i.test(output)) {
+    warn(`left out ${rest} ${rest === 1 ? 'modifier/support blocker' : 'modifiers/support blockers'}: an STL can't carry them, write a .3mf`);
+  }
+  const part = triples(posed, at);
   const blob = args.finsOnly ? writeBinarySTL(fins, `${name} fins`)
-    : /\.3mf$/i.test(output) ? writeThreeMF(part, fins, name)
+    : /\.3mf$/i.test(output) ? threeMF(part, fins, name, read.slicer, args.rot, at)
     : writeBinarySTL([...part, ...fins], name);
   await io.write(output, new Uint8Array(await blob.arrayBuffer()));
   return { input, output, stats, report: reportLine(stats) };
+}
+
+/**
+ * The 3MF output. A file with a slicer's own parts goes out as the file had it:
+ * the part uncut beside its negative parts, modifiers and blockers, all posed the
+ * same way, for the slicer to cut again -- in the SEPARATE form, since a negative
+ * part cuts every part of its object and the walls in its hole are among them.
+ */
+function threeMF(part, fins, name, slicer, rot, at) {
+  if (!slicer) return writeThreeMF(part, fins, name);
+  const placed = (flat) => triples(pose(flat, rot), at);
+  return writeThreeMF(placed(slicer.positions), fins, name, { separate: true,
+    extras: slicer.extras.map((e) => ({ kind: e.kind, name: e.name, settings: e.settings, tris: placed(e.positions) })) });
 }
 
 // --- the command ------------------------------------------------------------
