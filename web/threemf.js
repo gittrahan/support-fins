@@ -176,7 +176,8 @@ function modelXML(partTris, finTris, title, separate, iface, colors, slicer) {
     if (separate) {
       // two objects (three with the interface crest), one shared transform: in
       // register, sliced apart
-      const [tx, ty] = bedShift([...partTris, ...finTris]);
+      // the slicer's parts too: a modifier reaching past the part stays on the bed
+      const [tx, ty] = bedShift([...partTris, ...finTris, ...(slicer?.tris ?? [])]);
       const t = `1 0 0 0 1 0 0 0 1 ${fmt(tx)} ${fmt(ty)} 0`;
       const partItem = `<item objectid="${partId}" transform="${t}"/>`;
       build = `${partItem}<item objectid="2" transform="${t}"/>`;
@@ -276,8 +277,10 @@ export function writeThreeMF(partTris, finTris, name = 'Support Fins',
  *   - PrusaSlicer 2: one mesh holding every part, each a triangle range in
  *     Slic3r_PE_model.config, the layout PrusaSlicer 2 writes and reads.
  * The part keeps its colours; the slicer parts are uncoloured. Ids: 1 the part,
- * 2-4 the supports (modelXML), 5 on the slicer parts, then their assembly.
- * @returns { root, objects, configs } for the assembly, or { prusa2, configs }
+ * 2-4 the supports (modelXML), MATERIALS_ID the colours, then the slicer
+ * parts, then their assembly.
+ * @returns { root, objects, tris, configs } for the assembly, or { prusa2, tris,
+ * configs }; `tris` every slicer part's, for the bed shift
  */
 const BAMBU_SUBTYPE = { negative: 'negative_part', modifier: 'modifier_part', blocker: 'support_blocker', enforcer: 'support_enforcer' };
 const PRUSA_TYPE = { negative: 'NegativeVolume', modifier: 'ParameterModifier', blocker: 'SupportBlocker', enforcer: 'SupportEnforcer' };
@@ -304,14 +307,16 @@ function extrasXML(partTris, extras, title, col) {
       return `<volume firstid="${first}" lastid="${last}">${metaXML(pairs, ' type="volume"')}</volume>`;
     }).join('');
     return {
+      tris: extras.flatMap((e) => e.tris),
       prusa2: `<object id="1" type="model" name="${name}"${col.pid}>${mesh}</object>`,
       configs: [{ name: 'Metadata/Slic3r_PE_model.config', data: XML_HEAD +
         `<config><object id="1" instances_count="1">${metaXML([['name', title]], ' type="object"')}${vols}</object></config>` }],
     };
   }
 
-  const ids = extras.map((_, k) => 5 + k);
-  const root = 5 + extras.length;
+  // past the part, the supports (1-4) and the colour table (MATERIALS_ID)
+  const ids = extras.map((_, k) => MATERIALS_ID + 1 + k);
+  const root = MATERIALS_ID + 1 + extras.length;
   const objects = extras.map((e, k) =>
     `<object id="${ids[k]}" type="model" name="${esc(e.name || e.kind)}">${meshXML(e.tris)}</object>`);
   objects.push(`<object id="${root}" type="model" name="${name}"><components><component objectid="1"/>` +
@@ -326,7 +331,7 @@ function extrasXML(partTris, extras, title, col) {
     { id: 1, type: 'ModelPart', volume_settings: {} },
     ...extras.map((e, k) => ({ id: ids[k], type: PRUSA_TYPE[e.kind], volume_settings: settingsOf(e, 'prusa3') ?? {} })),
   ] }] };
-  return { root, objects, configs: [
+  return { root, objects, tris: extras.flatMap((e) => e.tris), configs: [
     { name: 'Metadata/model_settings.config', data: bambu },
     { name: 'Metadata/PrusaSlicer3_project.json', data: JSON.stringify(prusa3) },
   ] };

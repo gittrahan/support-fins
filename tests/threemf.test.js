@@ -728,6 +728,23 @@ Deno.test('3MF export: a PrusaSlicer 2 part goes back as triangle ranges of one 
   assert(part.colors?.paint[11]?.v === '8', 'the part lost its paint');
 });
 
+Deno.test('3MF export: with a colour table and the interface crest, every resource id is its own', async () => {
+  const rgb = Array(12).fill('#FF0000');
+  const blob = writeThreeMF(CUBE, triples(block(3, 4, 0, 1, 0, 1)), 'cube', { separate: true,
+    colors: { paint: [], rgb }, iface: triples(block(3, 4, 0, 1, 1, 1.2)),
+    extras: [NEG, MOD].map((e) => ({ ...e, tris: triples(e.positions) })) });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  const model = new TextDecoder().decode((await unzip(bytes)).get('3D/3dmodel.model'));
+  const ids = [...model.matchAll(/<(?:object|basematerials) id="(\d+)"/g)].map((m) => m[1]);
+  assert(new Set(ids).size === ids.length, `resource ids ${ids}: one used twice`);
+  const r = await readThreeMF(bytes);
+  const part = r.objects.find((o) => !/ supports$/.test(o.name));
+  assert(part.tris === 12 && part.extras.length === 2 && part.colors?.rgb[0], 'the part, its colour or its slicer parts got lost');
+  // the supports stay one object of two parts, out of the slicer parts' reach
+  const sup = r.objects.find((o) => / supports$/.test(o.name));
+  assert(sup && sup.extras.length === 0 && sup.meshes === 2, `supports ${sup?.meshes} meshes, ${sup?.extras.length} extras`);
+});
+
 Deno.test('3MF export: the locked form writes no slicer parts (they would cut the fins)', async () => {
   const { r, parts } = await writeExtras([NEG], { separate: false });
   assert(!parts.has('Metadata/model_settings.config') && r.objects.every((o) => o.extras.length === 0),
