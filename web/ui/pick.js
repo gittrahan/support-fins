@@ -10,9 +10,9 @@
  *
  * Built lazily, on a mesh's first pick, and only for meshes big enough to need it:
  * the build is ~0.6 s on that mini, about what welding it at load costs, and most
- * visits orbit before they ever pick. `indirect`
- * keeps the geometry untouched (no index is added, triangle order is unchanged), so
- * nothing else that reads the part's positions or face colours can tell.
+ * visits orbit before they ever pick. `indirect` keeps the geometry untouched (no
+ * index is added, triangle order is unchanged), so nothing else that reads the
+ * part's positions or face colours can tell.
  *
  * Every mesh this applies to gets fresh geometry when its triangles change
  * (setPart, meshFrom), and the BVH lives on the geometry, so it can't go stale.
