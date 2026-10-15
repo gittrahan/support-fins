@@ -52,7 +52,7 @@ function fmt(n) {
  * identical transform of the same source point), which restores shared topology
  * and shrinks the file; anything that doesn't merge is left as-is and slices fine.
  */
-function meshXML(tris, triAttrs = null) {
+function meshXML(tris, triAttrs = null, kept = null) {
   const index = new Map();
   const verts = [];
   const faces = [];
@@ -74,6 +74,7 @@ function meshXML(tris, triAttrs = null) {
     if (idx[0] !== idx[1] && idx[1] !== idx[2] && idx[0] !== idx[2]) {
       if (triAttrs) idx.push(triAttrs(t / 3));
       faces.push(idx);
+      kept?.push(t / 3);
     }
   }
 
@@ -158,11 +159,14 @@ function bedShift(tris) {
   return [Math.max(SEPARATE_CENTRE - (lx + hx) / 2, 5 - lx), Math.max(SEPARATE_CENTRE - (ly + hy) / 2, 5 - ly)];
 }
 
-function modelXML(partTris, finTris, title, separate, iface, colors) {
+function modelXML(partTris, finTris, title, separate, iface, colors, slicer) {
   const name = esc(title);
   const col = colorXML(colors);
-  const objects = [`<object id="1" type="model" name="${name}"${col.pid}>${meshXML(partTris, col.triAttrs)}</object>`];
-  let build = '<item objectid="1"/>';
+  const objects = [slicer?.prusa2 ?? `<object id="1" type="model" name="${name}"${col.pid}>${meshXML(partTris, col.triAttrs)}</object>`];
+  // the part with its slicer parts is an assembly of them (extrasXML)
+  if (slicer?.objects) objects.push(...slicer.objects);
+  const partId = slicer?.root ?? 1;
+  let build = `<item objectid="${partId}"/>`;
   // the interface crest is its own object only in the separate form; locked, it
   // is just more of the supports
   if (iface.length && !separate) finTris = [...finTris, ...iface];
@@ -174,7 +178,8 @@ function modelXML(partTris, finTris, title, separate, iface, colors) {
       // register, sliced apart
       const [tx, ty] = bedShift([...partTris, ...finTris]);
       const t = `1 0 0 0 1 0 0 0 1 ${fmt(tx)} ${fmt(ty)} 0`;
-      build = `<item objectid="1" transform="${t}"/><item objectid="2" transform="${t}"/>`;
+      const partItem = `<item objectid="${partId}" transform="${t}"/>`;
+      build = `${partItem}<item objectid="2" transform="${t}"/>`;
       if (iface.length) {
         // The crest is a PART of the supports object, not an object of its own: a
         // slicer drops every object to the plate or refuses it (Orca: "empty first
@@ -184,7 +189,7 @@ function modelXML(partTris, finTris, title, separate, iface, colors) {
         objects.push(`<object id="3" type="model" name="${name} interface">${meshXML(iface)}</object>`,
           `<object id="4" type="model" name="${name} supports"><components>` +
           '<component objectid="2"/><component objectid="3"/></components></object>');
-        build = `<item objectid="1" transform="${t}"/><item objectid="4" transform="${t}"/>`;
+        build = `${partItem}<item objectid="4" transform="${t}"/>`;
       }
     } else {
       // An assembly object so the part and fins import as one locked unit while
@@ -196,11 +201,12 @@ function modelXML(partTris, finTris, title, separate, iface, colors) {
     }
   }
 
-  const slic3rpe = colors?.paint.some((p) => p.name.startsWith('slic3rpe:'))
+  const slic3rpe = slicer?.prusa2 || colors?.paint.some((p) => p.name.startsWith('slic3rpe:'))
     ? ` xmlns:slic3rpe="${NS_SLIC3RPE}"` : '';
   return '<?xml version="1.0" encoding="UTF-8"?>\n' +
     `<model unit="millimeter" xml:lang="en-US" xmlns="${NS_CORE}"${slic3rpe}>` +
     '<metadata name="Application">Support Fins</metadata>' +
+    (slicer?.prusa2 ? '<metadata name="slic3rpe:Version3mf">1</metadata>' : '') +
     `<metadata name="Title">${name}</metadata>` +
     `<resources>${col.table}${objects.join('')}</resources>` +
     `<build>${build}</build></model>`;
@@ -210,7 +216,8 @@ const CONTENT_TYPES = '<?xml version="1.0" encoding="UTF-8"?>\n' +
   '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
   `<Default Extension="rels" ContentType="${CT_RELS}"/>` +
   `<Default Extension="model" ContentType="${CT_MODEL}"/>` +
-  '<Default Extension="json" ContentType="application/json"/></Types>';
+  '<Default Extension="json" ContentType="application/json"/>' +
+  '<Default Extension="config" ContentType="application/xml"/></Types>';
 
 /**
  * The site's own state, carried beside the model so a 3MF it exported can be
@@ -235,16 +242,94 @@ const ROOT_RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
  *                  written separate as a second part of the supports object,
  *                  "<name> interface", for the slicer to give a second filament
  *                  { colors }: the part's PartColors, by triangle of partTris
+ *                  { extras }: a slicer's parts to write back beside the part
+ *                  (readThreeMF's, with `tris` in print space; extrasXML), in
+ *                  the separate form only
  * @returns Blob    a .3mf package
  */
-export function writeThreeMF(partTris, finTris, name = 'Support Fins', { separate = false, session = null, iface = [], colors = null } = {}) {
+export function writeThreeMF(partTris, finTris, name = 'Support Fins',
+  { separate = false, session = null, iface = [], colors = null, extras = [] } = {}) {
+  // a negative part cuts every part of its object: only apart from the supports
+  // can it ride along without cutting the walls built in its hole
+  const slicer = separate && extras.length ? extrasXML(partTris, extras, name, colorXML(colors)) : null;
   const entries = [
     { name: '[Content_Types].xml', data: CONTENT_TYPES },
     { name: '_rels/.rels', data: ROOT_RELS },
-    { name: '3D/3dmodel.model', data: modelXML(partTris, finTris, name, separate, iface, colors) },
+    { name: '3D/3dmodel.model', data: modelXML(partTris, finTris, name, separate, iface, colors, slicer) },
+    ...(slicer?.configs ?? []),
   ];
   if (session) entries.push({ name: SESSION_PART, data: JSON.stringify(session) });
   return zipStore(entries);
+}
+
+/**
+ * A slicer's non-printing parts written back (GitHub #104), each in the same
+ * kind it came in as, its settings verbatim (PLACEMENT_KEY's note), its mesh in
+ * print space beside the part's. Two layouts, by where they came from:
+ *   - Bambu Studio, OrcaSlicer, PrusaSlicer 3: the part object is an assembly,
+ *     one component per part, and BOTH configs name them -- each slicer reads
+ *     its own (a Bambu file opened in PrusaSlicer 3 keeps its negative parts;
+ *     its modifiers come without settings, which are in Bambu's own words).
+ *     Neither config is read for a file whose Application is the slicer's own
+ *     but has no printer profile beside it (PrusaSlicer 3 refuses it, Bambu and
+ *     Orca leave the parts solid), so the Application stays "Support Fins".
+ *   - PrusaSlicer 2: one mesh holding every part, each a triangle range in
+ *     Slic3r_PE_model.config, the layout PrusaSlicer 2 writes and reads.
+ * The part keeps its colours; the slicer parts are uncoloured. Ids: 1 the part,
+ * 2-4 the supports (modelXML), 5 on the slicer parts, then their assembly.
+ * @returns { root, objects, configs } for the assembly, or { prusa2, configs }
+ */
+const BAMBU_SUBTYPE = { negative: 'negative_part', modifier: 'modifier_part', blocker: 'support_blocker', enforcer: 'support_enforcer' };
+const PRUSA_TYPE = { negative: 'NegativeVolume', modifier: 'ParameterModifier', blocker: 'SupportBlocker', enforcer: 'SupportEnforcer' };
+const XML_HEAD = '<?xml version="1.0" encoding="UTF-8"?>\n';
+const metaXML = (pairs, type = '') =>
+  pairs.map(([k, v]) => `<metadata${type} key="${esc(k)}" value="${esc(v)}"/>`).join('');
+
+function extrasXML(partTris, extras, title, col) {
+  const name = esc(title);
+  const settingsOf = (e, from) => e.settings?.[from] ?? null;
+  if (extras.some((e) => e.settings?.prusa2)) {
+    const kept = [];
+    const all = [...partTris];
+    const ends = [partTris.length / 3];
+    for (const e of extras) { all.push(...e.tris); ends.push(all.length / 3); }
+    const mesh = meshXML(all, (i) => (i < ends[0] && col.triAttrs ? col.triAttrs(i) : ''), kept);
+    // the ranges are of the triangles WRITTEN (meshXML drops degenerate ones)
+    const firsts = ends.map((end) => kept.findIndex((t) => t >= end)).map((i) => (i < 0 ? kept.length : i));
+    const vols = [{ kind: null, name: title, settings: [] }, ...extras].map((e, k) => {
+      const first = k ? firsts[k - 1] : 0, last = firsts[k] - 1;
+      if (last < first) return '';
+      const pairs = [['name', e.name || title], ['volume_type', e.kind ? PRUSA_TYPE[e.kind] : 'ModelPart'],
+        ...(settingsOf(e, 'prusa2') ?? [])];
+      return `<volume firstid="${first}" lastid="${last}">${metaXML(pairs, ' type="volume"')}</volume>`;
+    }).join('');
+    return {
+      prusa2: `<object id="1" type="model" name="${name}"${col.pid}>${mesh}</object>`,
+      configs: [{ name: 'Metadata/Slic3r_PE_model.config', data: XML_HEAD +
+        `<config><object id="1" instances_count="1">${metaXML([['name', title]], ' type="object"')}${vols}</object></config>` }],
+    };
+  }
+
+  const ids = extras.map((_, k) => 5 + k);
+  const root = 5 + extras.length;
+  const objects = extras.map((e, k) =>
+    `<object id="${ids[k]}" type="model" name="${esc(e.name || e.kind)}">${meshXML(e.tris)}</object>`);
+  objects.push(`<object id="${root}" type="model" name="${name}"><components><component objectid="1"/>` +
+    ids.map((id) => `<component objectid="${id}"/>`).join('') + '</components></object>');
+  const bambu = XML_HEAD + `<config><object id="${root}">${metaXML([['name', title]])}` +
+    `<part id="1" subtype="normal_part">${metaXML([['name', title]])}</part>` +
+    extras.map((e, k) => `<part id="${ids[k]}" subtype="${BAMBU_SUBTYPE[e.kind]}">` +
+      metaXML([['name', e.name || e.kind], ...(settingsOf(e, 'bambu') ?? [])]) + '</part>').join('') +
+    '</object></config>';
+  // PrusaSlicer 3 asserts on a volume without its volume_settings object
+  const prusa3 = { objects: [{ id: root, object_settings: {}, volumes: [
+    { id: 1, type: 'ModelPart', volume_settings: {} },
+    ...extras.map((e, k) => ({ id: ids[k], type: PRUSA_TYPE[e.kind], volume_settings: settingsOf(e, 'prusa3') ?? {} })),
+  ] }] };
+  return { root, objects, configs: [
+    { name: 'Metadata/model_settings.config', data: bambu },
+    { name: 'Metadata/PrusaSlicer3_project.json', data: JSON.stringify(prusa3) },
+  ] };
 }
 
 // ---------------------------------------------------------------- 3MF reader
@@ -525,6 +610,18 @@ const PART_KIND = {
 const stripExt = (s) => s.replace(/\.(stl|3mf|obj|step|stp)$/i, '');
 
 /**
+ * A non-printing part's own settings ride along with it, verbatim, so the export
+ * can hand it back to the slicer it came from (a modifier IS its settings: the
+ * infill or walls it sets for its region). `settings` holds them by the config
+ * they are in -- each slicer has its own words for them: { bambu:
+ * model_settings.config's [key, value] pairs, prusa3: PrusaSlicer3_project.json's
+ * volume_settings object, prusa2: Slic3r_PE_model.config's [key, value] pairs },
+ * only the ones the file had. Where the part sits and what it is called are not
+ * settings: the export writes those afresh, the part in print space.
+ */
+const PLACEMENT_KEY = /^(name|matrix|volume_type|modifier|source_\w+)$/;
+
+/**
  * Bambu/Orca's Metadata/model_settings.config: the human object names, keyed by
  * the ROOT object id (the same id the build item references), and each root
  * object's non-printing parts, keyed by the part id (= the component objectid).
@@ -541,7 +638,7 @@ function parseBambuConfig(configXML) {
     if (t === 'object') curId = a.id != null ? String(a.id) : null;
     else if (t === 'part' && curId) {
       const kind = PART_KIND[a.subtype];
-      curPart = kind ? { kind, name: '' } : null;
+      curPart = kind ? { kind, name: '', settings: { bambu: [] } } : null;
       if (curPart) {
         if (!parts.has(curId)) parts.set(curId, new Map());
         parts.get(curId).set(String(a.id), curPart);
@@ -552,6 +649,8 @@ function parseBambuConfig(configXML) {
       // The object-level <metadata key="name"> comes before any <part>'s, and we
       // keep only the first, so a part filename never shadows the object name.
       else if (!names.has(curId)) names.set(curId, stripExt(a.value));
+    } else if (t === 'metadata' && curPart && a.key && !PLACEMENT_KEY.test(a.key)) {
+      curPart.settings.bambu.push([a.key, a.value ?? '']);
     }
   }, (tag) => {
     const t = local(tag);
@@ -577,7 +676,12 @@ function addPrusa3Parts(json, parts) {
       if (!kind || o.id == null || v.id == null) continue;
       const id = String(o.id);
       if (!parts.has(id)) parts.set(id, new Map());
-      parts.get(id).set(String(v.id), { kind, name: '' });
+      const settings = v.volume_settings && typeof v.volume_settings === 'object' && !Array.isArray(v.volume_settings)
+        ? v.volume_settings : {};
+      // our own export names a part in both configs: one part, both settings
+      const had = parts.get(id).get(String(v.id));
+      if (had) had.settings.prusa3 = settings;
+      else parts.get(id).set(String(v.id), { kind, name: '', settings: { prusa3: settings } });
     }
   }
 }
@@ -596,13 +700,14 @@ function parsePrusaConfig(configXML) {
     const t = local(tag);
     if (t === 'object') curId = a.id != null ? String(a.id) : null;
     else if (t === 'volume' && curId) {
-      cur = { first: +a.firstid, last: +a.lastid, kind: null, name: '', legacy: null };
+      cur = { first: +a.firstid, last: +a.lastid, kind: null, name: '', legacy: null, settings: [] };
       if (!vols.has(curId)) vols.set(curId, []);
       vols.get(curId).push(cur);
     } else if (t === 'metadata' && cur) {
       if (a.key === 'volume_type') cur.kind = PART_KIND[a.value] ?? null;
       else if (a.key === 'modifier' && a.value === '1') cur.legacy = 'modifier';
       else if (a.key === 'name' && a.value) cur.name = stripExt(a.value);
+      else if (a.key && !PLACEMENT_KEY.test(a.key)) cur.settings.push([a.key, a.value ?? '']);
     }
   }, (tag) => {
     const t = local(tag);
@@ -611,7 +716,7 @@ function parsePrusaConfig(configXML) {
   });
   for (const [id, list] of vols) {
     const kept = list
-      .map((v) => ({ first: v.first, last: v.last, kind: v.kind ?? v.legacy, name: v.name }))
+      .map((v) => ({ first: v.first, last: v.last, kind: v.kind ?? v.legacy, name: v.name, settings: { prusa2: v.settings } }))
       .filter((v) => v.kind && Number.isFinite(v.first) && Number.isFinite(v.last));
     if (kept.length) vols.set(id, kept); else vols.delete(id);
   }
@@ -744,7 +849,8 @@ function findRootPart(parts) {
  *   STLLoader produces, so the caller builds a BufferGeometry from any of them.
  *   `colors` is null, or the object's colours by triangle index (see PartColors).
  *   `extras` is the object's non-printing parts (PART_KIND): [{ kind, name,
- *   positions }], in the same space as `positions` but NOT in it.
+ *   settings, positions }], in the same space as `positions` but NOT in it
+ *   (`settings`: PLACEMENT_KEY's note).
  */
 export async function readThreeMF(bytes) {
   const parts = await unzip(bytes);
@@ -819,7 +925,7 @@ export async function readThreeMF(bytes) {
       bbox: bbox(positions),
       colors: col.paint.length || col.rgb.length ? col : null,
       extras: [...extra].filter(([, s]) => s.out.length)
-        .map(([role, s]) => ({ kind: role.kind, name: role.name, positions: toMM(s.out) })),
+        .map(([role, s]) => ({ kind: role.kind, name: role.name, settings: role.settings, positions: toMM(s.out) })),
     });
   }
 

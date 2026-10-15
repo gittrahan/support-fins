@@ -649,6 +649,91 @@ for (const [file, name] of [['bambu.3mf', 'Generic-Cube'], ['orca.3mf', 'Generic
   });
 }
 
+// --- the slicer's parts written back (#104) ----------------------------------
+// The export carries them out beside the part, each its own kind and its settings
+// verbatim, apart from the supports (a negative part cuts every part of its object).
+
+/** Write `extras` beside a 1 mm cube with a block of supports, read it back. */
+async function writeExtras(extras, { partTris = CUBE, colors = null, separate = true } = {}) {
+  const blob = writeThreeMF(partTris, triples(block(3, 4, 0, 1, 0, 1)), 'cube',
+    { separate, colors, extras: extras.map((e) => ({ ...e, tris: triples(e.positions) })) });
+  const bytes = new Uint8Array(await blob.arrayBuffer());
+  return { r: await readThreeMF(bytes), parts: await unzip(bytes) };
+}
+const NEG = { kind: 'negative', name: 'hole', settings: { bambu: [] }, positions: block(0.5, 2, 0.5, 2, 0.5, 2) };
+const MOD = { kind: 'modifier', name: 'dense', positions: block(-1, 0.5, 0, 1, 0, 1),
+  settings: { bambu: [['sparse_infill_density', '80%'], ['extruder', '2']] } };
+
+Deno.test('3MF reader: a slicer part keeps its settings, in its own slicer\'s words', async () => {
+  const b = (await bambuParts({ subtype: 'modifier_part' })).objects[0].extras[0];
+  assert(JSON.stringify(b.settings) === '{"bambu":[]}', `bambu ${JSON.stringify(b.settings)}`);
+  const p = (await prusaVolumes([[0, 0, vtype('ModelPart')], [1, 1, vtype('ParameterModifier')
+    + '<metadata type="volume" key="fill_density" value="40%"/><metadata type="volume" key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>'],
+    [2, 2, vtype('ModelPart')]])).objects[0].extras[0];
+  // where it sits is not a setting: the export writes that afresh
+  assert(JSON.stringify(p.settings) === '{"prusa2":[["fill_density","40%"]]}', `prusa2 ${JSON.stringify(p.settings)}`);
+  const ps3 = (await readThreeMF(await Deno.readFile(new URL('prusaslicer3.3mf', NEG_FIX)))).objects[0].extras[0];
+  assert(JSON.stringify(ps3.settings) === '{"prusa3":{"wipe_into_infill":false}}', `prusa3 ${JSON.stringify(ps3.settings)}`);
+});
+
+Deno.test('3MF export: negative part and modifier go back out beside the part, the supports apart', async () => {
+  const { r, parts } = await writeExtras([NEG, MOD]);
+  assert(r.objects.length === 2, `${r.objects.length} objects`);
+  const [part, supports] = r.objects;
+  assert(part.tris === 12 && supports.extras.length === 0 && / supports$/.test(supports.name),
+    `part ${part.tris} tris, supports ${supports.name} with ${supports.extras.length} extras`);
+  assert(part.extras.map((e) => `${e.kind}:${e.name}`).join() === 'negative:hole,modifier:dense',
+    `extras ${part.extras.map((e) => `${e.kind}:${e.name}`)}`);
+  assert(JSON.stringify(part.extras[1].settings.bambu) === JSON.stringify(MOD.settings.bambu),
+    `modifier settings ${JSON.stringify(part.extras[1].settings)}`);
+  // in register with the part: both moved by the one bed shift
+  const shift = bounds(part.positions).lo[0] - 0;
+  assertClose(bounds(part.extras[0].positions).lo[0] - shift, 0.5, 1e-5, 'negative x');
+  assertClose(bounds(part.extras[1].positions).lo[0] - shift, -1, 1e-5, 'modifier x');
+  // both slicers' configs (Bambu/Orca, PrusaSlicer 3), and no PrusaSlicer 2 one
+  assert(parts.has('Metadata/model_settings.config') && parts.has('Metadata/PrusaSlicer3_project.json')
+    && !parts.has('Metadata/Slic3r_PE_model.config'), `parts ${[...parts.keys()]}`);
+  // PrusaSlicer 3 asserts on a volume without a volume_settings object
+  const ps3 = JSON.parse(new TextDecoder().decode(parts.get('Metadata/PrusaSlicer3_project.json')));
+  assert(ps3.objects[0].volumes.every((v) => v.volume_settings && typeof v.volume_settings === 'object'),
+    `volumes ${JSON.stringify(ps3.objects[0].volumes)}`);
+  // and neither config is read for a file that claims to be the slicer's own project
+  const model = new TextDecoder().decode(parts.get('3D/3dmodel.model'));
+  assert(model.includes('<metadata name="Application">Support Fins</metadata>'), 'Application changed');
+});
+
+Deno.test('3MF export: read back and written again, the settings of both slicers survive', async () => {
+  const both = { ...MOD, settings: { bambu: [['wall_loops', '4']], prusa3: { perimeters: 4 } } };
+  const { r } = await writeExtras([both]);
+  const again = await writeExtras(r.objects[0].extras);
+  const s = again.r.objects[0].extras[0].settings;
+  assert(JSON.stringify(s) === '{"bambu":[["wall_loops","4"]],"prusa3":{"perimeters":4}}', `settings ${JSON.stringify(s)}`);
+});
+
+Deno.test('3MF export: a PrusaSlicer 2 part goes back as triangle ranges of one mesh', async () => {
+  const neg = { ...NEG, settings: { prusa2: [] } };
+  const mod = { ...MOD, settings: { prusa2: [['fill_density', '40%']] } };
+  // a degenerate part triangle is dropped by the writer: the ranges must not shift
+  const partTris = [...CUBE, [0, 0, 0], [0, 0, 0], [1, 0, 0]];
+  const paint = []; paint[11] = { name: 'slic3rpe:mmu_segmentation', v: '8' };
+  const { r, parts } = await writeExtras([neg, mod], { partTris, colors: { paint, rgb: [] } });
+  assert(parts.has('Metadata/Slic3r_PE_model.config') && !parts.has('Metadata/model_settings.config'),
+    `parts ${[...parts.keys()]}`);
+  const [part] = r.objects;
+  assert(part.tris === 12 && part.extras.map((e) => e.kind).join() === 'negative,modifier',
+    `part ${part.tris} tris, extras ${part.extras.map((e) => e.kind)}`);
+  assert(part.extras[0].positions.length === NEG.positions.length && part.extras[1].positions.length === MOD.positions.length,
+    'a slicer part took the wrong triangles');
+  assert(JSON.stringify(part.extras[1].settings.prusa2) === '[["fill_density","40%"]]', `settings ${JSON.stringify(part.extras[1].settings)}`);
+  assert(part.colors?.paint[11]?.v === '8', 'the part lost its paint');
+});
+
+Deno.test('3MF export: the locked form writes no slicer parts (they would cut the fins)', async () => {
+  const { r, parts } = await writeExtras([NEG], { separate: false });
+  assert(!parts.has('Metadata/model_settings.config') && r.objects.every((o) => o.extras.length === 0),
+    'a negative part rode into the object holding the fins');
+});
+
 // --- unit: more production-extension shapes --------------------------------
 
 Deno.test('3MF production extension: a RELATIVE p:path resolves', async () => {

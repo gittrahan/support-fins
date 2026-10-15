@@ -176,6 +176,13 @@ that aren't fin geometry, because the file format is equally part of the product
 - a plate's objects come back **separately and named** (from
   `Metadata/model_settings.config`) so the caller can let the user pick which to
   fin, rather than merging a plate of distinct models into one soup;
+- a slicer's **negative parts, modifiers and support blockers** (#104) stay out of the
+  part, kept by kind with their settings in each slicer's own words, and the export
+  writes them back beside the part (never into the object holding the fins: a
+  negative part cuts every part of its object) -- Bambu/Orca and PrusaSlicer 3 as one
+  assembly named in both configs, PrusaSlicer 2 as triangle ranges of one mesh;
+  `cut.test.js` pins that each real slicer file, exported uncut with its negative
+  and opened again, cuts to the same part (or its saved session would not restore);
 - a broken file **fails loudly**: a triangle indexing a missing vertex drops that
   face alone (dropping a partial one would shear the rest of the mesh), and a
   non-ZIP or mesh-free package throws rather than opening blank.
