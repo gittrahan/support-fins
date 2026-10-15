@@ -112,6 +112,9 @@ function renderSuggestions() {
  *  invalidates the ranking). The disclosure chevron does NOT come through here --
  *  it only collapses/expands what's already there. */
 export function hideSuggestions() {
+  // A ranking still running belongs to what is being cleared (a new part, an undo,
+  // a reset): drop it, so its list doesn't pop up after the action that cleared it.
+  cancelRanking?.();
   el('suggest-list').hidden = true;
   el('suggest-list').replaceChildren();
   const note = el('suggest-note');
@@ -137,29 +140,36 @@ export function clearSuggestionMark() {
  * can run (file://, a clone or worker failure) it ranks here, as it always did.
  */
 let rankId = 0;
+let cancelRanking = null;   // drops the ranking in flight; it then resolves to null
 function rankPoses(topo, thr) {
+  let cancelled = false;
   const inline = () => new Promise((resolve, reject) => {
     // let the button repaint before the solve blocks the thread
     requestAnimationFrame(() => requestAnimationFrame(() => {
+      if (cancelled) { resolve(null); return; }
       try { resolve(suggestOrientations(topo, { top: 3, threshold: thr })); } catch (err) { reject(err); }
     }));
   });
-  let w;
+  let w = null;
   try {
     w = new Worker(new URL('../suggestworker.js', import.meta.url), { type: 'module' });
-  } catch {
-    return inline();
-  }
+  } catch { /* no Worker here: rank inline */ }
   const id = ++rankId;
   return new Promise((resolve) => {
-    const fallBack = () => { w.terminate(); resolve(inline()); };
+    const cancel = () => { cancelled = true; finish(null); };
+    const done = () => { if (cancelRanking === cancel) cancelRanking = null; };
+    const finish = (v) => { done(); w?.terminate(); resolve(v); };
+    // inline stays cancellable until it runs: it checks `cancelled` first
+    const fallBack = () => { w?.terminate(); w = null; resolve(inline().finally(done)); };
+    cancelRanking = cancel;
+    if (!w) { fallBack(); return; }
     w.onmessage = (e) => {
       if (e.data.id !== id) return;
       if (e.data.error) { console.warn('suggest worker failed; ranking inline', e.data.error); fallBack(); return; }
-      w.terminate();
-      resolve(e.data.ranked);
+      finish(e.data.ranked);
     };
     w.onerror = () => fallBack();
+    w.onmessageerror = () => fallBack();
     // the inside grid holds a closure structured clone can't copy (finbuild.js)
     const topoMsg = { ...topo };
     delete topoMsg._insideGrid;
@@ -180,8 +190,10 @@ el('suggest-orient').addEventListener('click', () => {
   // Walls the current pose stands inside a bore -- the baseline the "points the
   // bores up" verdict measures its win against.
   const curBore = (lastBuilt?.props ?? []).filter((q) => q.inBore).length;
-  rankPoses(topo, threshold).then(({ candidates, confidence }) => {
-    if (topo !== topology) return;   // a different part was loaded while it ranked
+  rankPoses(topo, threshold).then((ranked) => {
+    // cancelled (hideSuggestions), or a different part was loaded while it ranked
+    if (!ranked || topo !== topology) return;
+    const { candidates, confidence } = ranked;
     suggestions = candidates;
     suggestCurBore = curBore;
     // Fresh results always land expanded, with the collapse chevron available.
