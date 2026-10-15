@@ -194,10 +194,15 @@ off whole. Built for the Calibrate menu; also shows the Lattice style off.
   (local issue 038).
 Found building it: a cut wall's solids share edges (4 or 6 triangles to an edge), which
 coupon.js's closed check refused; it now checks every directed edge has its reverse
-(closed, consistently wound bodies). Most of those shared edges are FLUSH, not
-overlapping -- web/cutout.js stacks slab pieces that meet exactly at their boundary
-(CUT.eps grows pieces only across the strip sides and into the bands). Already on
-main; it breaks the overlap-never-flush rule, so it's a follow-up.
+(closed, consistently wound bodies). Those shared edges were FLUSH pieces: slab pieces
+stacked exactly at their cut, bands ending on a post's cap, corners touching across a
+strip side. A slicer that welds by position (ideaMaker, issue #223) reported 951 of
+them on this coupon as non-manifold edges. web/cutout.js now overlaps those pieces
+instead; `print/` was rebuilt with that fix. The printed shape is unchanged (same
+PrusaSlicer time and filament), and the file now has no edge on more than two faces.
+`pad/print/` was rebuilt for the same issue: it predated the pad's top-winding fix
+(a84098c), so the file had 1833 reversed faces. The triangles are identical; only
+the winding changed.
 
 ### bore/ -- do walls inside a sideways hole pull out clean, from what size, and which way?
 Block on the plate with eight through-bores along y, two sets of 3 / 5 / 8 / 12 mm,
