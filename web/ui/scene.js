@@ -7,6 +7,7 @@
  */
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import './pick.js';     // every Mesh raycast through a BVH (pointer picks on dense parts)
 import { el } from './dom.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);

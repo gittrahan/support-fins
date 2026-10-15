@@ -206,6 +206,9 @@ STEP import uses [occt-import-js](https://github.com/kovacsv/occt-import-js) (Op
 compiled to WebAssembly), vendored unmodified under `web/vendor/occt-import-js-0.0.23/` with its
 LGPL-2.1 license files. The browser only downloads it when you go to import a file.
 
+Pointer picks on dense parts use [three-mesh-bvh](https://github.com/gkjohnson/three-mesh-bvh),
+vendored unmodified under `web/vendor/three-mesh-bvh-0.9.15/` with its MIT license.
+
 ---
 
 Free and open source. If it ever saves you a print, you can [buy me a coffee on
