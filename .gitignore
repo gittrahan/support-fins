@@ -28,6 +28,7 @@ plugins/fusion/SupportFins/palette/fins_engine.js
 plugins/fusion/build/
 plugins/cura/build/
 plugins/cli/build/
+plugins/mcp/build/
 plugins/cura/SupportFins/dev_*
 plugins/freecad/build/
 # SolidWorks add-in: the built engine bundle, dotnet's obj/bin and the packaged add-in
