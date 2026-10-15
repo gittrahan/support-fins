@@ -117,7 +117,8 @@ function showDragAngle() {
   if (!el('rotate-pop').hidden) { tip.classList.remove('show'); return; }
   el('drag-delta').textContent = el('rot-delta').textContent;
   el('drag-now').textContent = el('rot-now').textContent;
-  tip.style.left = `${el('rotate-badge').offsetLeft}px`;
+  const badge = el('rotate-badge');   // the row scrolls sideways on a phone
+  tip.style.left = `${Math.max(0, badge.offsetLeft - badge.parentElement.scrollLeft)}px`;
   tip.classList.add('show');
 }
 function syncDragNow() {

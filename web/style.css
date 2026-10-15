@@ -760,6 +760,8 @@ html, body {
   transition: opacity .4s ease, visibility 0s linear .4s;
 }
 .vb-pop.vb-tip.show { opacity: 1; visibility: visible; transition: none; }
+/* any popover open (Suggest left open during a drag, Rotate opened mid-fade) wins */
+#viewbar:has(.vb-pop:not([hidden]):not(.vb-tip)) #drag-angle { display: none; }
 #drag-delta { color: var(--accent); font-weight: 600; }
 #drag-delta:empty { display: none; }
 #drag-now { color: var(--dim); }
