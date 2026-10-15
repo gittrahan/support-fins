@@ -59,6 +59,34 @@ under.position.set(-0.35, 0.55, -1.2);
 scene.add(under);
 for (const l of scene.children) l.layers.enable(MODEL);
 
+// ---------------------------------------------------------- render on demand
+// The scene used to be drawn every frame, idle or not: with antialiasing at up to
+// 2x pixel ratio over a 1.56M-face part (and a big part's supports, millions more
+// triangles) that kept the GPU busy and the laptop warm while nothing moved. Now
+// app.js's tick draws while something may be changing -- any input on the page,
+// the orbit easing out (OrbitControls 'change' fires every frame its damping
+// moves), a mesh added or removed (which is how a worker build lands) -- for a
+// second after the last such sign, and otherwise only every IDLE_MS, so anything
+// that changes the scene some other way still shows within half a second.
+export const IDLE_MS = 500;
+let activeUntil = 0;
+/** Keep drawing every frame for the next `ms`. */
+export function requestRender(ms = 1000) {
+  activeUntil = Math.max(activeUntil, performance.now() + ms);
+}
+export const renderActive = (now) => now < activeUntil;
+for (const type of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup',
+                    'input', 'change', 'click', 'resize', 'drop']) {
+  addEventListener(type, () => requestRender(), { capture: true, passive: true });
+}
+document.addEventListener('visibilitychange', () => requestRender());
+controls.addEventListener('change', () => requestRender());
+for (const k of ['add', 'remove']) {
+  const own = scene[k].bind(scene);
+  scene[k] = (...objects) => { requestRender(); return own(...objects); };
+}
+requestRender();   // startup
+
 // ------------------------------------------------------------------ the plate
 
 export const plate = new THREE.Group();

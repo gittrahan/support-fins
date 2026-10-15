@@ -17,7 +17,7 @@ import { findWallPatches } from './planes.js';
 import { drawnWall } from './draw.js';
 import { el } from './ui/dom.js';
 import {
-  renderer, scene, camera, controls, frame, resize,
+  renderer, scene, camera, controls, frame, resize, renderActive, IDLE_MS,
 } from './ui/scene.js';
 import {
   removeActive, cancelRemove, clearFinHover, hoverRemove, clickRemove,
@@ -185,13 +185,23 @@ renderer.domElement.addEventListener('contextmenu', (e) => {
 const fpsEl = el('fps');
 let frames = 0, last = performance.now();
 
+let lastDraw = -Infinity;
 function tick(now) {
   requestAnimationFrame(tick);
+  // idle: nothing has signalled a change (scene.js, "render on demand") -- draw
+  // only every IDLE_MS as a safety net, and say so instead of a frame rate
+  if (!renderActive(now)) {
+    if (now - lastDraw < IDLE_MS) return;
+    fpsEl.textContent = 'idle';
+    frames = 0;
+    last = now;
+  }
+  lastDraw = now;
   controls.update();
   sizeMarkers();
   renderer.render(scene, camera);
   renderGhost();
-  if (++frames >= 20) {
+  if (renderActive(now) && ++frames >= 20) {
     fpsEl.textContent = `${Math.round((frames * 1000) / (now - last))} fps`;
     frames = 0;
     last = now;

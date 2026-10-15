@@ -9,7 +9,7 @@ import { PROP } from '../prop.js';
 import { CUT } from '../cutout.js';
 import { nozzle, wallLines } from '../nozzle.js';
 import { el } from './dom.js';
-import { scene, meshFrom, ifaceMaterial, clip } from './scene.js';
+import { scene, meshFrom, ifaceMaterial, clip, requestRender } from './scene.js';
 import {
   removeMode, syncRemoveUI, cancelRemove, clearFinHover, adoptFins, forgetFins,
 } from './remove.js';
@@ -236,6 +236,7 @@ export function refreshFins() {
 // and that logic lives in fins/pad.js + fins/seating.js), so Draw ignores the
 // suggested walls and shows the hand-drawn ones instead.
 function applyBuilt(built) {
+  requestRender();      // a worker build lands outside any input event
   finBusy = false;
   clearSpinner();
   for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
