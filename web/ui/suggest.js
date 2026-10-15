@@ -9,7 +9,7 @@ import { el } from './dom.js';
 import { histPush } from './history.js';
 import { part, topology, threshold, shade } from './part.js';
 import { materialDensity } from './settings.js';
-import { lastBuilt } from './finbuild.js';
+import { lastBuilt, supportTunables } from './finbuild.js';
 import { fmtGrams } from './readout.js';
 
 const _sm4 = new THREE.Matrix4();
@@ -130,48 +130,91 @@ export function clearSuggestionMark() {
   for (const r of el('suggest-list').children) r.classList.remove('active');
 }
 
+/**
+ * Rank the part's poses off the page thread (web/suggestworker.js): a big part took
+ * 15-35 s and froze the page doing it here. The Worker gets the same tunables an
+ * Auto build sends, so it scores with the page's gap, pad and nozzle. If no Worker
+ * can run (file://, a clone or worker failure) it ranks here, as it always did.
+ */
+let rankId = 0;
+function rankPoses(topo, thr) {
+  const inline = () => new Promise((resolve, reject) => {
+    // let the button repaint before the solve blocks the thread
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      try { resolve(suggestOrientations(topo, { top: 3, threshold: thr })); } catch (err) { reject(err); }
+    }));
+  });
+  let w;
+  try {
+    w = new Worker(new URL('../suggestworker.js', import.meta.url), { type: 'module' });
+  } catch {
+    return inline();
+  }
+  const id = ++rankId;
+  return new Promise((resolve) => {
+    const fallBack = () => { w.terminate(); resolve(inline()); };
+    w.onmessage = (e) => {
+      if (e.data.id !== id) return;
+      if (e.data.error) { console.warn('suggest worker failed; ranking inline', e.data.error); fallBack(); return; }
+      w.terminate();
+      resolve(e.data.ranked);
+    };
+    w.onerror = () => fallBack();
+    // the inside grid holds a closure structured clone can't copy (finbuild.js)
+    const topoMsg = { ...topo };
+    delete topoMsg._insideGrid;
+    try {
+      w.postMessage({ id, topology: topoMsg, threshold: thr, tunables: supportTunables() });
+    } catch (err) {
+      console.warn('suggest worker postMessage failed; ranking inline', err);
+      fallBack();
+    }
+  });
+}
+
 el('suggest-orient').addEventListener('click', () => {
   if (!part || !topology) return;
   const btn = el('suggest-orient');
   btn.disabled = true; btn.textContent = t('Ranking…');
-  // let the button repaint before the (up to ~1s) solve blocks the thread
-  requestAnimationFrame(() => requestAnimationFrame(() => {
-    try {
-      const { candidates, confidence } = suggestOrientations(topology, { top: 3, threshold });
-      suggestions = candidates;
-      // Walls the current pose stands inside a bore -- the baseline the "points
-      // the bores up" verdict measures its win against.
-      suggestCurBore = (lastBuilt?.props ?? []).filter((q) => q.inBore).length;
-      // Fresh results always land expanded, with the collapse chevron available.
-      const tog = el('suggest-toggle');
-      tog.hidden = false;
-      tog.setAttribute('aria-expanded', 'true');
-      tog.setAttribute('aria-label', 'Collapse suggestions');
-      tog.title = 'Collapse';
-      el('suggest-body').hidden = false;
-      if (!candidates.length || confidence === 'none') {
-        el('suggest-list').hidden = true;
-        el('suggest-note').textContent = confidence === 'none'
-          ? t('No printable orientation: this part balances on a point at every angle.')
-          : t('Nothing to suggest for this part.');
+  const topo = topology;
+  // Walls the current pose stands inside a bore -- the baseline the "points the
+  // bores up" verdict measures its win against.
+  const curBore = (lastBuilt?.props ?? []).filter((q) => q.inBore).length;
+  rankPoses(topo, threshold).then(({ candidates, confidence }) => {
+    if (topo !== topology) return;   // a different part was loaded while it ranked
+    suggestions = candidates;
+    suggestCurBore = curBore;
+    // Fresh results always land expanded, with the collapse chevron available.
+    const tog = el('suggest-toggle');
+    tog.hidden = false;
+    tog.setAttribute('aria-expanded', 'true');
+    tog.setAttribute('aria-label', 'Collapse suggestions');
+    tog.title = 'Collapse';
+    el('suggest-body').hidden = false;
+    if (!candidates.length || confidence === 'none') {
+      el('suggest-list').hidden = true;
+      el('suggest-note').textContent = confidence === 'none'
+        ? t('No printable orientation: this part balances on a point at every angle.')
+        : t('Nothing to suggest for this part.');
+    } else {
+      renderSuggestions();
+      // Lead with the win when the best pose needs no support (or clears every
+      // bore); otherwise fall back to the honest confidence line.
+      const note = el('suggest-note');
+      const verdict = candidates[0].seating === 'point' ? null : noSupportVerdict(candidates[0]);
+      if (verdict) {
+        note.textContent = verdict.note;
+        note.className = 'hint good';
       } else {
-        renderSuggestions();
-        // Lead with the win when the best pose needs no support (or clears every
-        // bore); otherwise fall back to the honest confidence line.
-        const note = el('suggest-note');
-        const verdict = candidates[0].seating === 'point' ? null : noSupportVerdict(candidates[0]);
-        if (verdict) {
-          note.textContent = verdict.note;
-          note.className = 'hint good';
-        } else {
-          note.textContent = t('Click a pose to turn the part.');
-          note.className = 'hint';
-        }
+        note.textContent = t('Click a pose to turn the part.');
+        note.className = 'hint';
       }
-    } finally {
-      btn.disabled = false; btn.textContent = t('Suggest orientation');
     }
-  }));
+  }).catch((err) => {
+    console.error('Suggest orientation failed', err);
+  }).finally(() => {
+    btn.disabled = false; btn.textContent = t('Suggest orientation');
+  });
 });
 
 // Collapse/expand the results in place, keeping them (and the ranking) intact.

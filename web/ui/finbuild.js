@@ -120,6 +120,10 @@ function finOpts() {
                        nozzle, wallLines } };
 }
 
+/** The engine settings a Worker needs to build what this page would: the same
+ *  ones an Auto build sends (Suggest's Worker scores poses with them). */
+export function supportTunables() { return finOpts().tunables; }
+
 /** The Sway braces settings. The gap is passed explicitly -- sway.js takes the
  *  clearance (PROP.gap) as an option instead of reading FIN/PROP itself. */
 export function swayOpts() {

@@ -103,6 +103,11 @@ first version added a squat wall 1.6 mm from the one main builds (review).
 - a **wedge foot** never runs under the part it braces (fails on the old foot,
   which crossed a cube's edge).
 
+**`suggest_worker.test.js`** -- Suggest orientation's Worker (`web/suggestworker.js`) ranks
+**exactly** as `suggestOrientations` does on this thread, with the default settings and
+with a changed Support gap sent as tunables, and the gap doesn't leak back into this
+thread's modules.
+
 **`orient.test.js`** -- the orientation/strength logic behind the left rail (pure,
 no DOM), so a change to a verdict or a solver can't silently drift:
 - **`layerVerdict`** buckets a pose's posture -- tall = weak, flat = strong, on its
