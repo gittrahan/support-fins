@@ -35,6 +35,9 @@ export function renderImportNote() {
     // a slicer's negative parts are cut out, so the fins are for what prints; they
     // and its modifiers / support blockers go back out in the 3MF export (#104)
     if (m.cut) notes.push(tn('cut out {n} negative part', 'cut out {n} negative parts', m.cut));
+    // the export carries the negative parts too, and a slicer draws one over the
+    // walls standing in its cut until it slices (#104)
+    if (m.cut) notes.push(t('in your slicer, walls inside a negative part show once you slice'));
     if (m.why === 'open') notes.push(t('negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape'));
     else if (m.why === 'whole') notes.push(t('negative parts not cut: they would remove the whole part'));
     else if (m.why === 'load') notes.push(t('negative parts not cut: the cutter did not load (try opening the file again)'));

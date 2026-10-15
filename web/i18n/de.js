@@ -345,6 +345,7 @@ export default {
   "negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape": "Negativteile nicht ausgeschnitten: das Teil ist kein geschlossener Körper, die Finnen gelten der ungeschnittenen Form",
   "{n} negative parts not cut: they are not closed solids": { one: "{n} Negativteil nicht ausgeschnitten: es ist kein geschlossener Körper", other: "{n} Negativteile nicht ausgeschnitten: sie sind keine geschlossenen Körper" },
   "kept {n} modifiers/support blockers for the 3MF export": { one: "{n} Modifikator/Stützblocker für den 3MF-Export behalten", other: "{n} Modifikatoren/Stützblocker für den 3MF-Export behalten" },
+  "in your slicer, walls inside a negative part show once you slice": "im Slicer erscheinen Wände in einem Negativteil erst nach dem Slicen",
   "cutting negative parts…": "Negativteile werden ausgeschnitten…",
   "converted from {unit} to mm": "von {unit} nach mm konvertiert",
   "restored {n} hand-placed supports and the settings": { one: "{n} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt", other: "{n} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt" },

@@ -339,6 +339,7 @@ export default {
   "negative parts not cut: the part is not a closed solid, so its fins are for the uncut shape": "لم تُقطع الأجزاء السالبة: القطعة ليست جسمًا مغلقًا، لذا الزعانف للشكل غير المقطوع",
   "{n} negative parts not cut: they are not closed solids": { one: "لم يُقطع {n} جزء سالب: ليس جسمًا مغلقًا", other: "لم تُقطع {n} من الأجزاء السالبة: ليست أجسامًا مغلقة" },
   "kept {n} modifiers/support blockers for the 3MF export": { one: "تم الاحتفاظ بـ {n} مُعدِّل أو مانع دعم لتصدير 3MF", other: "تم الاحتفاظ بـ {n} من المُعدِّلات أو موانع الدعم لتصدير 3MF" },
+  "in your slicer, walls inside a negative part show once you slice": "في برنامج التقطيع، تظهر الجدران داخل الجزء السالب بعد التقطيع",
   "cutting negative parts…": "جارٍ قطع الأجزاء السالبة…",
   "converted from {unit} to mm": "تم التحويل من {unit} إلى mm",
   "restored {n} hand-placed supports and the settings": { one: "تمت استعادة {n} دعامة موضوعة يدوياً والإعدادات", other: "تمت استعادة {n} من الدعامات الموضوعة يدوياً، بالإضافة إلى الإعدادات" },
