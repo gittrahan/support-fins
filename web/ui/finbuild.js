@@ -157,7 +157,10 @@ function makeFinWorker() {
   // A worker-level error must not leave the UI wedged (spinner up, fins greyed):
   // drop to inline for good, and rebuild the request it dropped inline now --
   // otherwise the panel sits on "generating supports…" until the next change.
-  w.onerror = () => {
+  // preventDefault: a handled worker crash is not a page error (the badge in
+  // index.html would light up for a build that recovered inline)
+  w.onerror = (e) => {
+    e.preventDefault();
     const dropped = finBusy;
     finWorker = null; finBusy = false; clearSpinner();
     if (dropped) refreshFins();

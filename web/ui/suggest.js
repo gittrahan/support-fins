@@ -165,7 +165,7 @@ function rankPoses(topo, thr) {
       if (e.data.error) { console.warn('suggest worker failed; ranking inline', e.data.error); fallBack(); return; }
       finish(e.data.ranked);
     };
-    w.onerror = () => fallBack();
+    w.onerror = (e) => { e.preventDefault(); fallBack(); };   // handled: no error badge
     w.onmessageerror = () => fallBack();
     // the inside grid holds a closure structured clone can't copy (finbuild.js)
     const topoMsg = { ...topo };

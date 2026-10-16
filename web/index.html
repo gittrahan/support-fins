@@ -36,8 +36,16 @@
   });
   window.addEventListener('unhandledrejection', function (e) {
     var r = e.reason;
+    // own code only: an extension's or the browser's injected script rejects here too
+    if (!(r && r.stack && String(r.stack).indexOf(location.origin) >= 0)) return;
     __sfError('Unhandled: ' + (r && r.stack ? String(r.stack).split('\n').slice(0, 3).join('\n') : String(r)));
   });
+  function close() {
+    var btn = document.getElementById('err-btn'), panel = document.getElementById('err-panel');
+    if (btn && panel && !panel.hidden) { panel.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+  }
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') close(); });
+  // capture phase: the Language button stops its click's propagation
   document.addEventListener('click', function (e) {
     var btn = document.getElementById('err-btn'), panel = document.getElementById('err-panel');
     if (!btn || !panel) return;
@@ -45,13 +53,14 @@
       panel.hidden = !panel.hidden;
       btn.setAttribute('aria-expanded', String(!panel.hidden));
     } else if (e.target.id === 'err-copy') {
-      var text = document.getElementById('err-list').textContent;
-      if (navigator.clipboard) navigator.clipboard.writeText(text).catch(function () {});
-    } else if (!panel.hidden && !panel.contains(e.target)) {
-      panel.hidden = true;
-      btn.setAttribute('aria-expanded', 'false');
-    }
-  });
+      var text = document.getElementById('err-list').textContent, copy = e.target;
+      if (!copy.getAttribute('data-label')) copy.setAttribute('data-label', copy.textContent);
+      if (navigator.clipboard) navigator.clipboard.writeText(text).then(function () {
+        copy.textContent = '✓';
+        setTimeout(function () { copy.textContent = copy.getAttribute('data-label') || 'Copy'; }, 1200);
+      }).catch(function () {});
+    } else if (!panel.contains(e.target)) close();
+  }, true);
 })();
 </script>
 <script type="importmap">
@@ -65,6 +74,7 @@
 </head>
 <body>
 
+<noscript><p class="noscript">Support Fins runs entirely in your browser and needs JavaScript. Turn on scripts for this site (in Brave: Shields → allow scripts).</p></noscript>
 <div id="viewport"></div>
 
 <!-- Long-build spinner: revealed by a 1s timer while a support build runs in the
@@ -165,7 +175,7 @@
       <p class="err-head" data-i18n="Something went wrong on this page.">Something went wrong on this page.</p>
       <pre id="err-list"></pre>
       <p class="err-foot"><span data-i18n="A screenshot of this helps a bug report.">A screenshot of this helps a bug report.</span>
-        <button class="btn sm" id="err-copy" data-i18n="Copy">Copy</button></p>
+        <button class="btn sm err-copy" id="err-copy" data-i18n="Copy">Copy</button></p>
     </div>
   </span>
 </header>
