@@ -105,6 +105,7 @@ function finOpts() {
   return { mode: finMode,
            bedPad: el('bed-pad').value !== 'off',
            plateOnly: el('plate-only').checked,
+           longWalls: el('long-walls').checked,   // Full coverage only (fins/rows.js)
            tines: el('tines').checked,
            tineDensity: el('tine-density').valueAsNumber / 100,
            layerHeight: el('layer-height').valueAsNumber,

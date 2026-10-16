@@ -50,6 +50,7 @@ export function syncCoverageUI() {
   el('coverage').disabled = full;
   fld.classList.toggle('disabled', full);
   fld.title = full ? COVER_TIP_FULL : coverTip;
+  el('long-walls-fld').hidden = !full;   // Full coverage's own (fins/rows.js)
   syncMore();   // coverage counts as changed only while the build reads it
 }
 // Suggest + Draw mix: when true, the pointer places hand-drawn walls ON TOP of the
@@ -210,6 +211,8 @@ el('cutout').addEventListener('change', () => {
 });
 // Plate only (#218): read by every build, auto in the Worker and drawn on the page.
 el('plate-only').addEventListener('change', () => refreshFins());
+// Long walls: Full coverage's rows (fins/rows.js), read by the build in the Worker.
+el('long-walls').addEventListener('change', () => refreshFins());
 
 // Interface material (GitHub #21): a wall's top band becomes its own solid, exported
 // as a part of the supports in the 3MF -- under flat contacts, or everywhere (tines

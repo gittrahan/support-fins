@@ -32,7 +32,7 @@ let redoStack = [];
 // across visits, not an edit to this part.
 const FORM_IDS = ['nozzle', 'thr', 'tines', 'tine-density', 'layer-height', 'gap',
   'bed-pad', 'pad-h', 'pad-gap', 'pad-grip', 'pad-margin', 'sway', 'sway-from',
-  'sway-spacing', 'sway-depth', 'full-brace-depth', 'wall-lines', 'cutout', 'iface', 'coverage', 'plate-only', 'highlight-small', 'show-layers',
+  'sway-spacing', 'sway-depth', 'full-brace-depth', 'wall-lines', 'cutout', 'iface', 'coverage', 'plate-only', 'long-walls', 'highlight-small', 'show-layers',
   'show-rings', 'nav-preset'];
 const readForm = () => Object.fromEntries(FORM_IDS.map((id) => {
   const f = el(id);

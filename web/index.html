@@ -396,6 +396,12 @@
       <label data-i18n-title class="check" title="Stand every support on the build plate, never on the part itself. An overhang with part under it is left unsupported, and the readout says how many.">
         <input type="checkbox" id="plate-only"><span data-i18n="Plate only">Plate only</span> <span class="mut" data-i18n="no supports on the part">no supports on the part</span>
       </label>
+      <!-- Long walls (Full coverage only, fins/rows.js): rows of long walls along the
+           part's length before the patch-by-patch fill. On by default; untick for the
+           patch fill alone (shorter walls, less plastic). -->
+      <label data-i18n-title class="check" id="long-walls-fld" hidden title="Full coverage lays rows of long walls along the part's length first, the way you'd draw them by hand, then fills what they miss. Holds more of the overhang and uses more plastic. Untick for short walls under each overhang patch.">
+        <input type="checkbox" id="long-walls" checked><span data-i18n="Long walls">Long walls</span> <span class="mut" data-i18n="along the part">along the part</span>
+      </label>
     </div>
     <div class="group">
       <h5 data-i18n="Display">Display</h5>
