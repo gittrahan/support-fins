@@ -165,7 +165,7 @@ export default {
   // Drop Screen (#drop)
   "Print it support-free, in any slicer": "اطبع بلا دعامات، في أي برنامج تقطيع",
   "Rotate a part however it prints best, and Support Fins bakes the breakaway supports right into the STL. It prints the same on any machine, in any slicer, with supports turned off.": "دوّر القطعة إلى الوضعية التي تُطبع بها بأفضل شكل، وسيدمج Support Fins الدعامات القابلة للكسر مباشرة داخل ملف STL. وتُطبع بالطريقة نفسها على أي طابعة وباستخدام أي برنامج تقطيع مع إيقاف الدعامات.",
-  "Import an STL, 3MF or STEP.": "استورد ملف STL أو 3MF أو STEP.",
+  "Import an STL, 3MF, STEP or OBJ.": "استورد ملف STL أو 3MF أو STEP أو OBJ.",
   "Drop it anywhere on this page.": "أفلته في أي مكان على هذه الصفحة.",
   "Rotate it.": "دوّرها.",
   "Red marks every surface that needs support.": "يحدد اللون الأحمر كل سطح يحتاج إلى دعم.",

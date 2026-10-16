@@ -172,7 +172,7 @@ export default {
   // Drop Screen (#drop)
   "Print it support-free, in any slicer": "Ohne Stützstrukturen drucken – in jedem Slicer",
   "Rotate a part however it prints best, and Support Fins bakes the breakaway supports right into the STL. It prints the same on any machine, in any slicer, with supports turned off.": "Richten Sie das Bauteil optimal aus: Support Fins integriert die leicht entfernbaren Stützen direkt in die Datei. Drucken Sie auf jedem 3D-Drucker mit deaktivierten Slicer-Stützen.",
-  "Import an STL, 3MF or STEP.": "STL, 3MF oder STEP importieren.",
+  "Import an STL, 3MF, STEP or OBJ.": "STL, 3MF, STEP oder OBJ importieren.",
   "Drop it anywhere on this page.": "Datei einfach auf dieser Seite ablegen.",
   "Rotate it.": "Ausrichten.",
   "Red marks every surface that needs support.": "Rot markiert alle Flächen, die Stützen erfordern.",

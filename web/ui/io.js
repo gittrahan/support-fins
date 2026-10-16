@@ -1,6 +1,6 @@
 import { t, tn } from './i18n.js';
 /**
- * File import: sniff the format, read STL / 3MF / STEP into one flat position
+ * File import: sniff the format, read STL / 3MF / STEP / OBJ into one flat position
  * array, let the user pick objects from a multi-object file, and hand the
  * geometry to setPart(). Also the file input and drag-and-drop.
  */
@@ -9,6 +9,7 @@ import { STLLoader } from 'three/addons/loaders/STLLoader.js';
 import { readThreeMF, mergeColors } from '../threemf.js';
 import { cutNegatives } from '../cut.js';
 import { isStep, readStep, warmStep } from '../step.js';
+import { isObj, readOBJ } from '../obj.js';
 import { el } from './dom.js';
 import { part, setPart } from './part.js';
 import { partObjectOf, restoreSession } from './session.js';
@@ -175,6 +176,7 @@ function pickObjects(objects) {
 async function parseModel(buffer) {
   importNote = '';
   if (isStep(buffer)) return parseStep(buffer);
+  if (isObj(buffer)) return parseObj(buffer);
   if (!isZip(buffer)) return loader.parse(buffer);
 
   const { objects, unit, skipped, session } = await readThreeMF(new Uint8Array(buffer));
@@ -292,6 +294,23 @@ async function parseStep(buffer) {
       : `merged ${chosen.length} of ${objects.length} objects into one part`);
   }
   importNote = `STEP: ${notes.join('; ')}.`;
+  return geometryFromPositions(mergeObjectPositions(chosen));
+}
+
+/** OBJ: text, no unit (read as mm), and a file of several `o` objects goes
+ *  through the same picker as a multi-object 3MF. */
+async function parseObj(buffer) {
+  const { objects } = readOBJ(new Uint8Array(buffer));
+  let chosen = objects;
+  if (objects.length > 1) {
+    chosen = await pickObjects(objects);
+    if (!chosen) return null;
+  }
+  if (objects.length > 1) {
+    importNote = chosen.length === 1
+      ? `OBJ: imported “${chosen[0].name}” of ${objects.length} objects.`
+      : `OBJ: merged ${chosen.length} of ${objects.length} objects into one part.`;
+  }
   return geometryFromPositions(mergeObjectPositions(chosen));
 }
 

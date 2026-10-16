@@ -159,7 +159,7 @@ export default {
   "Support Fins is free and open source — buy me a coffee on Ko-fi.": "O Support Fins é livre e de código aberto — me pague um café no Ko-fi.",
   "Print it support-free, in any slicer": "Imprima sem suportes, em qualquer fatiador",
   "Rotate a part however it prints best, and Support Fins bakes the breakaway supports right into the STL. It prints the same on any machine, in any slicer, with supports turned off.": "Gire a peça na posição em que ela imprime melhor, e o Support Fins embute os suportes destacáveis direto no STL. Imprime igual em qualquer máquina, em qualquer fatiador, com os suportes desligados.",
-  "Import an STL, 3MF or STEP.": "Importe um STL, 3MF ou STEP.",
+  "Import an STL, 3MF, STEP or OBJ.": "Importe um STL, 3MF, STEP ou OBJ.",
   "Drop it anywhere on this page.": "Solte em qualquer lugar desta página.",
   "Rotate it.": "Gire.",
   "Red marks every surface that needs support.": "O vermelho marca toda superfície que precisa de suporte.",

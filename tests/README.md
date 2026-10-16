@@ -197,6 +197,12 @@ that aren't fin geometry, because the file format is equally part of the product
   face alone (dropping a partial one would shear the rest of the mesh), and a
   non-ZIP or mesh-free package throws rather than opening blank.
 
+**`obj.test.js`** -- the OBJ reader in `web/obj.js` (the site and the command line):
+an indexed mesh reads back as the same triangles; quads and n-gons fan; `v/vt/vn` and
+negative references resolve; `o` splits objects (the picker / `--object`), groups and
+materials don't; the sniffer never takes a binary or ASCII STL; no faces or a dangling
+reference is an error, not an empty part.
+
 **`stl.test.js`** -- the STL reader in `web/stl.js` (the command line and these tests
 use it; the site parses with three.js's `STLLoader`):
 - our own binary export **reads back** as the same triangles, and ASCII does too;
