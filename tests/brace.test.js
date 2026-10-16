@@ -77,3 +77,17 @@ Deno.test('brace: a rib the caller rejects (another support in the way) is not b
   assert(out.length === 0, 'nothing appended');
   assert(asked >= 4, 'each rib, at each reach, is offered to the caller');
 });
+
+Deno.test('brace: over tallH a long wall gets face pairs every faceStep, none at its ends (local issue 046)', () => {
+  const tallH = BRACE.tallH;
+  try {
+    const long = (len, z) => Array.from({ length: 21 }, (_, k) => [len * k / 20, 0, z]);
+    assert(braceWall(long(60, 100), () => 0, NONE, 0, []) === 0, 'off by default: a 60 x 100 mm wall is stocky');
+    BRACE.tallH = 80;
+    const out = [];
+    assert(braceWall(long(60, 100), () => 0, NONE, 0, out) === 4, `${60 / BRACE.faceStep} pairs`);
+    const b = box(out);
+    assert(b[0] > 1 && b[3] < 59, 'no rib off either end');
+    assert(braceWall(long(60, 70), () => 0, NONE, 0, []) === 0, 'under tallH is left alone');
+  } finally { BRACE.tallH = tallH; }
+});

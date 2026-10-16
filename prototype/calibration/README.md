@@ -77,6 +77,29 @@ same for every length, otherwise per length), and the shortest length that stand
 also gets the bed pad, which this coupon doesn't.
 - **waiting on print.**
 
+### tall/ -- how tall may a plate wall stand before it wobbles, and do face ribs fix it? (BRACE.tallH, BRACE.rise)
+A user: "you're definitely going to want some sort of bracing for fins taller than 10cm
+or they wobble too much, maybe just a perpendicular fin." A plate wall is a 1 mm sheet on
+a foot that stops at `footMax` 3 mm, tied to the part only by its tines at the top;
+short/ goes no taller than 80 mm. A stepped spine, twelve ledges, ONE 20 mm plate wall
+under each ledge's tip, 17 mm off the spine (past a 120 mm wall's 14.4 mm rib reach), from
+draw mode's own `drawnWall`. Rib-less walls are BARE; the others get one face rib each
+side at the middle (`braceWall` with `BRACE.tallH` lifted to 0; the aspect rule's end
+ribs off) rising R50 (`BRACE.rise` today) or R80 of the wall. The ledge's top reads the
+height and BARE / R50 / R80. Ledges, in print order:
+
+| ledge | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| wall height mm | 60 | 60 | 60 | 80 | 80 | 80 | 100 | 100 | 100 | 120 | 120 | 120 |
+| ribs | bare | R50 | R80 | bare | R50 | R80 | bare | R50 | R80 | bare | R50 | R80 |
+
+Score each wall: stood / wobbled (ripples or layer shift on its upper half) / fell; did
+its top land under the ledge; did the ribs snap off clean. The lowest height where BARE
+wobbles and a ribbed one doesn't sets `BRACE.tallH`; R50 vs R80 sets `BRACE.rise` for
+tall walls (if R50's free upper half still wobbles, the rise goes up). If every BARE wall
+stands at 120 mm, the knob stays off.
+- **waiting on print.**
+
 ### foot/ -- how should a wall on the part meet the part?
 Six ledges 15 mm up, a 12 mm wall under each, 1 mm in from the free edge. Ledge k
 carries k dots (`print/` is the as-printed build, from commit a2e5a80 which still had teeth): 1 welded (the old default), 2 gap 0.2, 3 gap 0.3, 4 teeth every 3 mm,

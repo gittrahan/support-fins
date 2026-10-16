@@ -21,6 +21,11 @@
  * the part -- they would mark it), only where the part stays sideClear off it, and
  * only if `clear(tris)` (the caller's check against supports already built) passes.
  * Each rib is judged alone: a wall tucked against a thigh still gets its open sides.
+ *
+ * A wall taller than BRACE.tallH (local issue 046: "fins taller than 10 cm wobble") gets
+ * face ribs whatever its length: a pair, one off each face, every BRACE.faceStep along
+ * it. A long wall is stiff along its line; across it, it is a 1 mm sheet. Off
+ * (Infinity) until the tall/ coupon picks the height.
  */
 import { boxExtrude } from '../solids.js';
 import { PROP } from './config.js';
@@ -32,6 +37,8 @@ export const BRACE = {
   onPlate: 0.5,                // mm: a station whose floor is this close to the bed stands on the plate
   minReach: 1.5,               // mm: a rib shorter than this is not tried (blocked ribs retry at half reach)
   step: 0.25,                  // mm: part clearance sampled this finely under a rib
+  tallH: Infinity,             // mm: a wall taller than this gets face ribs at any length (off: tall/ coupon)
+  faceStep: 30,                // mm: one pair of face ribs per this much wall length
 };
 
 /** Does part surface come within sideClear of the box u0..u1 x -w..w x z0..z1(u)
@@ -87,11 +94,18 @@ export function braceWall(top, floorZ, tris, zBed, out, clear = () => true) {
   if (len < 1e-6) return 0;
   let height = 0;
   for (let i = 0; i < n; i++) height = Math.max(height, top[i][2] - PROP.gap - floorZ(i));
-  if (height <= BRACE.aspect * len) return 0;
+  const slim = height > BRACE.aspect * len, tall = height > BRACE.tallH;
+  if (!slim && !tall) return 0;
   const dx = (b[0] - a[0]) / len, dy = (b[1] - a[1]) / len;
   const reach0 = PROP.footRatio * height;
-  const mid = n >> 1;
-  const ribs = [[0, [-dx, -dy]], [n - 1, [dx, dy]], [mid, [dy, -dx]], [mid, [-dy, dx]]];
+  // ends only for a slim wall; face pairs at the middle of each faceStep share of a
+  // tall one (one pair, at the middle station, otherwise)
+  const ribs = slim ? [[0, [-dx, -dy]], [n - 1, [dx, dy]]] : [];
+  const pairs = tall ? Math.max(1, Math.round(len / BRACE.faceStep)) : 1;
+  for (let j = 0; j < pairs; j++) {
+    const i = Math.round((n - 1) * (j + 0.5) / pairs);
+    ribs.push([i, [dy, -dx]], [i, [-dy, dx]]);
+  }
   let built = 0;
   for (const [i, d] of ribs) {
     if (floorZ(i) > zBed + BRACE.onPlate) continue;
