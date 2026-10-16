@@ -41,59 +41,81 @@ export function isObj(buffer) {
  * @returns { objects: [{ name, positions:Float32Array, tris, meshes, bbox }] }
  */
 export function readOBJ(bytes) {
-  const text = new TextDecoder().decode(bytes).replace(/\\\r?\n/g, ' ');   // `\` continues a line
-  const verts = [];                     // x, y, z per vertex, in file order
+  let text;
+  try { text = new TextDecoder().decode(bytes); } catch (err) {
+    if (err instanceof RangeError) throw new Error('OBJ is too large to read in a browser: export it as a binary STL or 3MF');
+    throw err;
+  }
+  if (!text.includes('\n')) text = text.replace(/\r/g, '\n');   // old Mac: CR-only lines
+  if (text.includes('\\')) text = text.replace(/\\(\r\n|\r|\n)/g, ' ');   // `\` continues a line
+  let verts = new Float64Array(3 * 1024), nv = 0;   // x, y, z per vertex, in file order
   const objects = [];
   let cur = null;
   const start = (name) => {
-    cur = { name: name || `object ${objects.length + 1}`, out: [] };
+    cur = { name: name || `object ${objects.length + 1}`, out: new Float32Array(9 * 1024), n: 0 };
     objects.push(cur);
+  };
+  const grow = (a, need) => {
+    if (need <= a.length) return a;
+    const b = new a.constructor(Math.max(need, a.length * 2));
+    b.set(a);
+    return b;
   };
 
   const index = (tok, line) => {
     const i = parseInt(tok, 10);        // "12/4/7" -> 12: the position is first
-    const n = verts.length / 3;
+    const n = nv / 3;
     const k = i > 0 ? i - 1 : i < 0 ? n + i : NaN;
     if (!(k >= 0 && k < n)) throw new Error(`OBJ face points at a vertex that isn't there (line ${line}: ${tok})`);
     return k * 3;
   };
 
-  const lines = text.split(/\r?\n|\r/);
-  for (let ln = 0; ln < lines.length; ln++) {
-    const s = lines[ln].trim();
-    if (s.length < 2 || s[0] === '#') continue;
+  // Line by line over the one string: a 2M-triangle file splits into millions of
+  // line strings otherwise.
+  for (let pos = 0, ln = 0; pos < text.length; ln++) {
+    let end = text.indexOf('\n', pos);
+    if (end < 0) end = text.length;
+    const line = text.slice(pos, end);
+    pos = end + 1;
+    const hash = line.indexOf('#');
+    const s = (hash < 0 ? line : line.slice(0, hash)).trim();
+    if (s.length < 2) continue;
     const sp = s.search(/\s/);
     if (sp < 0) continue;
     const key = s.slice(0, sp);
     const rest = s.slice(sp + 1).trim();
     if (key === 'v') {
       const p = rest.split(/\s+/);
+      verts = grow(verts, nv + 3);
       for (let k = 0; k < 3; k++) {
         const x = Number(p[k]);
         if (!Number.isFinite(x)) throw new Error(`OBJ has a bad vertex (line ${ln + 1}: ${s})`);
-        verts.push(x);
+        verts[nv++] = x;
       }
     } else if (key === 'f') {
       if (!cur) start('');
       const ix = rest.split(/\s+/).map((tok) => index(tok, ln + 1));
       // A polygon fans from its first corner: right for the convex faces
       // exporters write (and every triangle and quad that isn't bow-tied).
+      cur.out = grow(cur.out, cur.n + 9 * Math.max(0, ix.length - 2));
       for (let j = 1; j + 1 < ix.length; j++) {
-        for (const a of [ix[0], ix[j], ix[j + 1]]) cur.out.push(verts[a], verts[a + 1], verts[a + 2]);
+        for (const a of [ix[0], ix[j], ix[j + 1]]) {
+          cur.out[cur.n++] = verts[a]; cur.out[cur.n++] = verts[a + 1]; cur.out[cur.n++] = verts[a + 2];
+        }
       }
     } else if (key === 'o') {
       // A new object, unless the current one has no faces yet (a name line
       // before its first face, or an `o` that only held lines).
-      if (cur && cur.out.length === 0) cur.name = rest || cur.name;
+      if (cur && cur.n === 0) cur.name = rest || cur.name;
       else start(rest);
     }
   }
 
-  const solid = objects.filter((o) => o.out.length);
+  const solid = objects.filter((o) => o.n);
   if (solid.length === 0) throw new Error('OBJ has no faces');
   return {
     objects: solid.map((o) => {
-      const positions = Float32Array.from(o.out);
+      const positions = o.out.slice(0, o.n);
       return { name: o.name, positions, tris: positions.length / 9, meshes: 1, bbox: bbox(positions) };
     }),
   };

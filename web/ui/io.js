@@ -311,6 +311,7 @@ async function parseObj(buffer) {
       ? `OBJ: imported “${chosen[0].name}” of ${objects.length} objects.`
       : `OBJ: merged ${chosen.length} of ${objects.length} objects into one part.`;
   }
+  lastImportMeta = null;           // a 3MF read before this one no longer speaks for the part
   return geometryFromPositions(mergeObjectPositions(chosen));
 }
 

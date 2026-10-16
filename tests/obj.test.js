@@ -86,3 +86,9 @@ Deno.test('obj: no faces, a dangling reference or a bad vertex fail loudly', () 
   throws(() => readOBJ(enc('v 0 0 0\nf -2 -1 1\n')), /isn't there/, 'relative ref before the start');
   throws(() => readOBJ(enc('v 0 zero 0\n')), /bad vertex/, 'bad number');
 });
+
+Deno.test('obj: inline comments, CR-only lines and `\\` continuations read', () => {
+  const text = 'v 0 0 0 # origin\rv 1 0 \\\r0\rv 0 1 0\rf 1 2 3 # one triangle\r';
+  const p = readOBJ(enc(text)).objects[0].positions;
+  assert([...p].join() === '0,0,0,1,0,0,0,1,0', `${[...p]}`);
+});
