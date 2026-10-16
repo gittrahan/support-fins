@@ -80,12 +80,13 @@ Deno.test('brace: a rib the caller rejects (another support in the way) is not b
 
 Deno.test('brace: over tallH a long wall gets face pairs every faceStep, none at its ends (local issue 046)', () => {
   const tallH = BRACE.tallH;
+  const TALL = { tall: true }, ALL = { slim: true, tall: true };
   try {
     const long = (len, z) => Array.from({ length: 21 }, (_, k) => [len * k / 20, 0, z]);
-    assert(braceWall(long(60, 100), () => 0, NONE, 0, []) === 0, 'off by default: a 60 x 100 mm wall is stocky');
+    assert(braceWall(long(60, 130), () => 0, NONE, 0, []) === 0, 'only when asked: the fill pass\'s slim rule leaves a 60 x 130 mm wall alone');
     BRACE.tallH = 80;
     const out = [];
-    assert(braceWall(long(60, 100), () => 0, NONE, 0, out) === 4, `${60 / BRACE.faceStep} pairs, 4 ribs`);
+    assert(braceWall(long(60, 100), () => 0, NONE, 0, out, undefined, TALL) === 4, `${60 / BRACE.faceStep} pairs, 4 ribs`);
     const b = box(out);
     assert(b[0] > 1 && b[3] < 59, 'no rib off either end');
     // each rib's flange runs footMin either side of its stem: stems at 15 and 45 mm
@@ -94,7 +95,8 @@ Deno.test('brace: over tallH a long wall gets face pairs every faceStep, none at
       assert(xs.some((v) => Math.abs(v - (x - PROP.footMin)) < 0.01) && xs.some((v) => Math.abs(v - (x + PROP.footMin)) < 0.01), `a pair at x=${x}`);
     }
     assert(!xs.some((v) => v > 20 && v < 40), 'nothing between the two pairs');
-    assert(braceWall(long(10, 100), () => 0, NONE, 0, []) === 4, 'slim and tall: 2 ends + 1 face pair');
-    assert(braceWall(long(60, 70), () => 0, NONE, 0, []) === 0, 'under tallH is left alone');
+    assert(braceWall(long(10, 100), () => 0, NONE, 0, [], undefined, ALL) === 4, 'slim and tall: 2 ends + 1 face pair');
+    assert(braceWall(long(10, 100), () => 0, NONE, 0, [], undefined, TALL) === 2, 'tall alone: 1 face pair');
+    assert(braceWall(long(60, 70), () => 0, NONE, 0, [], undefined, TALL) === 0, 'under tallH is left alone');
   } finally { BRACE.tallH = tallH; }
 });

@@ -48,6 +48,7 @@ export function drawWall(positions, a, b, options = {}) {
   const r = drawnWall(seat(a), seat(b), tris, 0, {
     tines: opts.tines, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
     plateOnly: opts.plateOnly, topo, rot: IDENTITY3, offset: off,
+    braceTall: opts.tallRibs !== false,   // tall walls get face ribs, as on the site (prop/brace.js)
   });
   if (!r.ok) return { ok: false, reason: r.reason };
   return {

@@ -23,9 +23,10 @@
  * Each rib is judged alone: a wall tucked against a thigh still gets its open sides.
  *
  * A wall taller than BRACE.tallH (local issue 046: "fins taller than 10 cm wobble") gets
- * face ribs whatever its length: a pair, one off each face, every BRACE.faceStep along
- * it. A long wall is stiff along its line; across it, it is a 1 mm sheet. Off
- * (Infinity) until the tall/ coupon picks the height.
+ * face ribs whatever its length when the caller asks for them (`kinds.tall`, the Brace
+ * tall walls box): a pair, one off each face, every BRACE.faceStep along it. A long
+ * wall is stiff along its line; across it, it is a 1 mm sheet. tallH is the reporter's
+ * 10 cm until the tall/ coupon prints.
  */
 import { boxExtrude } from '../solids.js';
 import { PROP } from './config.js';
@@ -37,7 +38,7 @@ export const BRACE = {
   onPlate: 0.5,                // mm: a station whose floor is this close to the bed stands on the plate
   minReach: 1.5,               // mm: a rib shorter than this is not tried (blocked ribs retry at half reach)
   step: 0.25,                  // mm: part clearance sampled this finely under a rib
-  tallH: Infinity,             // mm: a wall taller than this gets face ribs at any length (off: tall/ coupon)
+  tallH: 100,                  // mm: a wall taller than this gets face ribs at any length (kinds.tall; tall/ coupon)
   faceStep: 30,                // mm: one pair of face ribs per this much wall length
 };
 
@@ -85,8 +86,10 @@ function rib(tris, o, d, zBed, stem, reach) {
  * Brace the wall whose contact line is `top` (stations [x, y, z], z the part above)
  * and whose bottom at station i is `floorZ(i)`. Appends the ribs' triangles to `out`
  * and returns how many were built (0 when the wall is stocky enough or nothing fits).
+ * `kinds`: which rules may fire -- `slim` (over BRACE.aspect x its length: ends and a
+ * face pair) and `tall` (over BRACE.tallH: face pairs along it).
  */
-export function braceWall(top, floorZ, tris, zBed, out, clear = () => true) {
+export function braceWall(top, floorZ, tris, zBed, out, clear = () => true, kinds = { slim: true }) {
   const n = top.length;
   if (n < 2) return 0;
   const a = top[0], b = top[n - 1];
@@ -94,7 +97,7 @@ export function braceWall(top, floorZ, tris, zBed, out, clear = () => true) {
   if (len < 1e-6) return 0;
   let height = 0;
   for (let i = 0; i < n; i++) height = Math.max(height, top[i][2] - PROP.gap - floorZ(i));
-  const slim = height > BRACE.aspect * len, tall = height > BRACE.tallH;
+  const slim = !!kinds.slim && height > BRACE.aspect * len, tall = !!kinds.tall && height > BRACE.tallH;
   if (!slim && !tall) return 0;
   const dx = (b[0] - a[0]) / len, dy = (b[1] - a[1]) / len;
   const reach0 = PROP.footRatio * height;

@@ -359,6 +359,11 @@
     </div>
     <div class="group">
       <h5 data-i18n="Tall parts">Tall parts</h5>
+      <!-- Brace tall walls (local issue 046, fins/tall.js + draw.js braceTall): face ribs
+           at the plate on every wall over BRACE.tallH, Auto's and drawn. On by default. -->
+      <label data-i18n-title class="check" title="Walls taller than 10 cm get triangular ribs at the plate, off both faces, so they don't sway as they print. Untick for plain walls.">
+        <input type="checkbox" id="tall-ribs" checked><span data-i18n="Brace tall walls">Brace tall walls</span> <span class="mut" data-i18n="ribs over 10 cm">ribs over 10 cm</span>
+      </label>
       <label data-i18n-title class="check" title="Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows. In Draw, click an upright side to add one.">
         <input type="checkbox" id="sway"><span data-i18n="Sway braces">Sway braces</span>
       </label>

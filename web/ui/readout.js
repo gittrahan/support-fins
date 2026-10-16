@@ -310,11 +310,12 @@ function updateFinReadout(built, ms) {
   const removedN = removedIds.size;
   const removedTxt = removedN ? ` (${t('{n} removed', { n: removedN })})` : '';
   const sw = built.sway;
+  const ribTxt = built.tallRibs ? ` · ${tn('{n} wall rib', '{n} wall ribs', built.tallRibs)}` : '';
   const swayTxt = sw?.count
     ? `${autoTxt || drawnTxt ? ' + ' : ''}${tn('{n} sway brace', '{n} sway braces', sw.count)}`
       + (sw.tines ? ` · ${t('{n} brace tines', { n: sw.tines })}` : '')
     : '';
-  box.textContent = (autoTxt + drawnTxt + swayTxt + removedTxt) || t('none possible');
+  box.textContent = (autoTxt + ribTxt + drawnTxt + swayTxt + removedTxt) || t('none possible');
   box.classList.toggle('warn', n === 0 && !drawnOk && !sw?.count);
 
   // `lead` = short + must-see, stays in the panel; `help` = how-it-works and

@@ -39,6 +39,7 @@ const SITE_ONLY_CHOICES = { padStyle: ['custom'] };
 const SITE_EXCLUDED = {
   'full-brace-depth': 'browser opt-in; plugin dialogs retain the established 60 mm Sway depth limit',
   'long-walls': 'Full coverage only; plugins run Auto',
+  'tall-ribs': 'the plugins build with the engine default (on, as the site starts); a dialog control can follow',
   'file': 'loading a model is the host\'s job', 'volume': 'site build-volume preview',
   'vx': 'site build-volume preview', 'vy': 'site build-volume preview', 'vz': 'site build-volume preview',
   'plugins-computer': 'picks which plugin download to offer',

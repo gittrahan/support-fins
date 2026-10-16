@@ -7,6 +7,8 @@ import { t } from './i18n.js';
  */
 import * as THREE from 'three';
 import { drawnWall } from '../draw.js';
+import { PROP } from '../prop.js';
+import { boxGrid } from '../fins/fill.js';
 import { swayAtFace, faceIsUpright } from '../sway.js';
 import { el } from './dom.js';
 import { viewport, renderer, scene, camera, meshFrom, ifaceMaterial, raycaster, pointer, clip, MODEL } from './scene.js';
@@ -139,7 +141,17 @@ export function rebuildDrawn() {
                      tineDensity: el('tine-density').valueAsNumber / 100,
                      layerHeight: el('layer-height').valueAsNumber,
                      plateOnly: el('plate-only').checked,
+                     braceTall: el('tall-ribs').checked,
                      topo: topology, rot: rotM3.elements, offset: lastResult.offset };
+  // A tall drawn wall's ribs keep sideClear off the walls drawn before it (draw.js
+  // braceTall): a rib fused into a neighbour no longer breaks away by itself.
+  const ribGrid = boxGrid();
+  let gridded = 0;
+  drawOpts.braceClear = (rib) => {
+    ribGrid.add(drawnTris.slice(gridded));   // walls drawn since the last rib
+    gridded = drawnTris.length;
+    return !ribGrid.hits(rib, PROP.sideClear);
+  };
   const wa = new THREE.Vector3(), wb = new THREE.Vector3();
   // Everything a hand-placed brace has to keep clear of: Auto's braces and walls
   // (when Auto's supports are on screen), then each hand-placed brace as it is

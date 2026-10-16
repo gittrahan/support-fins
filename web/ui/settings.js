@@ -213,6 +213,8 @@ el('cutout').addEventListener('change', () => {
 el('plate-only').addEventListener('change', () => refreshFins());
 // Long walls: Full coverage's rows (fins/rows.js), read by the build in the Worker.
 el('long-walls').addEventListener('change', () => refreshFins());
+// Brace tall walls: Auto's in the Worker (fins/tall.js), drawn ones on the page.
+el('tall-ribs').addEventListener('change', () => refreshFins());
 
 // Interface material (GitHub #21): a wall's top band becomes its own solid, exported
 // as a part of the supports in the 3MF -- under flat contacts, or everywhere (tines

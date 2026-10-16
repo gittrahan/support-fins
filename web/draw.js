@@ -169,7 +169,9 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, 
  * `opts.under`: follow only down-facing surfaces (drawnLine) -- the fill pass's walls.
  * `opts.plateOnly`: never stand on the part; a line with part under it is refused (#218).
  * `opts.brace`: a wall that stands on the plate over BRACE.aspect x its length gets
- *   ribs at the plate (prop/brace.js; `braces` counts them). `floors`: each station's
+ *   ribs at the plate (prop/brace.js; `braces` counts them). `opts.braceTall`: one
+ *   over BRACE.tallH gets face ribs along it (the Brace tall walls box), each kept
+ *   clear of other supports by `opts.braceClear(tris)` when given. `floors`: each station's
  *   bottom z, for a caller that braces later (the fill pass, once every wall is in).
  * or `{ ok: false, reason }` with a message the UI can show -- a hand-drawn wall
  * that can't be built should say WHY (too short, at the plate) rather than
@@ -194,8 +196,8 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     ? emitTines(line, tris, opts.topo, opts.rot, opts.offset, out,
                 tineStepFor(opts.tineDensity), minTop, opts.layerHeight ?? PROP.tineH)
     : 0;
-  const withBraces = (line, floorZ) => opts.brace
-    ? braceWall(line, floorZ, tris, zBed, out)
+  const withBraces = (line, floorZ) => opts.brace || opts.braceTall
+    ? braceWall(line, floorZ, tris, zBed, out, opts.braceClear, { slim: !!opts.brace, tall: !!opts.braceTall })
     : 0;
   // PART-ATTACHED first: if solid part sits below the overhang, the support
   // stands on THAT, not the plate. Probe with a BANDED top contour so the
