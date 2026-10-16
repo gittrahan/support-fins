@@ -8,6 +8,8 @@ import { el } from './dom.js';
 import { part, topology, lastResult, rotM3, partName } from './part.js';
 import { activeAdded } from './finbuild.js';
 import { sessionOf } from './session.js';
+import { exportName } from '../exportname.js';
+import { nozzle } from '../nozzle.js';
 
 /**
  * Export the part AS ORIENTED, seated on the plate, with the fins as extra
@@ -56,14 +58,17 @@ export function buildExportGeometry() {
     colors: slicer.colors,
     extras: slicer.extras.map((e) => ({ kind: e.kind, name: e.name, settings: e.settings, tris: toPrint(e.positions, centre) })),
   } : null;
-  return { partTris, finTris, base, colors: part.geometry.userData.colors ?? null, slicer: kept };
+  // the two settings the slicer must match, carried in the file name (#279)
+  const name = (stem, ext) => exportName(`${base}-${stem}`, ext,
+    { nozzle, layerHeight: el('layer-height').valueAsNumber });
+  return { partTris, finTris, base, name, colors: part.geometry.userData.colors ?? null, slicer: kept };
 }
 
 // The three formats. All share the print-space geometry, so a fins-only STL
 // lines up with the part when both are imported into one plate.
 const FORMATS = {
   // STL flattens part + fins into one solid.
-  'export-stl': (g) => [writeBinarySTL([...g.partTris, ...g.finTris], g.base), `${g.base}-fins.stl`],
+  'export-stl': (g) => [writeBinarySTL([...g.partTris, ...g.finTris], g.base), g.name('fins', '.stl')],
   // 3MF states millimeters, so the file opens correctly oriented and support-free
   // in Bambu Studio, OrcaSlicer, or PrusaSlicer without a re-scale or a re-rotate.
   // It writes the supports as their OWN object, so the slicer slices them apart and
@@ -79,10 +84,10 @@ const FORMATS = {
     const own = g.slicer ?? g;
     return [writeThreeMF(own.partTris, body, g.base, { separate: true, iface, colors: own.colors,
                            extras: g.slicer?.extras ?? [], session: sessionOf(g.partTris) }),
-            `${g.base}-fins.3mf`];
+            g.name('fins', '.3mf')];
   },
   // Just the fins + pad (issue #5). One body, so 3MF would add nothing over STL.
-  'export-fins': (g) => [writeBinarySTL(g.finTris, `${g.base} fins`), `${g.base}-fins-only.stl`],
+  'export-fins': (g) => [writeBinarySTL(g.finTris, `${g.base} fins`), g.name('fins-only', '.stl')],
 };
 
 const btn = el('export');
