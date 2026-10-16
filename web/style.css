@@ -543,7 +543,7 @@ html, body {
 #fin-opts .printer-edit { color: var(--dim); font-size: 12px; }
 #fin-opts .printer > summary:hover .printer-edit { color: var(--accent); }
 #fin-opts .printer:not([open]) .when-open, #fin-opts .printer[open] .when-shut { display: none; }
-#fin-opts .printer[open] > :not(summary) { padding-left: 22px; }
+#fin-opts .printer[open] > :not(summary) { padding-inline-start: 22px; }
 .check {
   display: inline-flex;
   align-items: center;

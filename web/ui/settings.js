@@ -155,8 +155,10 @@ function debouncedRefresh(ms = 180) {
 function syncTineGrip() {
   const on = el('tines').checked;
   el('tinegrip-fld').hidden = !on;
-  // The Light pad is one layer tall, so it reads the layer height too.
-  el('layerh-fld').hidden = !on && !['light', 'auto'].includes(el('bed-pad').value);
+  // The Light pad is one layer tall, and the interface band is one layer of the
+  // wall top (prop/crest.js), so both read the layer height too.
+  el('layerh-fld').hidden = !on && !['light', 'auto'].includes(el('bed-pad').value)
+    && el('iface').value === 'off';
 }
 el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); });
 el('tine-density').addEventListener('input', () => debouncedRefresh());
@@ -217,6 +219,7 @@ el('plate-only').addEventListener('change', () => refreshFins());
 const ifaceMode = () => ({ flat: 'flat', all: 'all' })[el('iface').value] ?? false;
 el('iface').addEventListener('change', () => {
   PROP.iface = ifaceMode();
+  syncTineGrip();
   refreshFins();
 });
 
