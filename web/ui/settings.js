@@ -16,6 +16,7 @@ import { setDrawMsg, clearPreview, syncDrawControls } from './walls.js';
 import { lastBuilt, refreshFins } from './finbuild.js';
 import { setGizmo } from './pose.js';
 import { paintOverhangs } from './part.js';
+import { syncMore } from './more.js';
 
 export let finsVisible = false;
 export function setFinsVisible(v) { finsVisible = v; }
@@ -49,6 +50,7 @@ export function syncCoverageUI() {
   el('coverage').disabled = full;
   fld.classList.toggle('disabled', full);
   fld.title = full ? COVER_TIP_FULL : coverTip;
+  syncMore();   // coverage counts as changed only while the build reads it
 }
 // Suggest + Draw mix: when true, the pointer places hand-drawn walls ON TOP of the
 // auto-placed ones (for when auto misses a spot). It only gates the pointer; the
@@ -179,9 +181,6 @@ function syncSway() {
   syncSectionSums();
 }
 el('sway').addEventListener('change', () => {
-  // Switching it on opens its section: the switch is in the header, so a collapsed
-  // section would otherwise turn the feature on and hide its settings in one click.
-  if (el('sway').checked) el('sway').closest('details').open = true;
   syncSway();
   refreshFins();
 });
@@ -314,8 +313,6 @@ function loadSectionState() {
 // The Tines switch sits inside its section's <summary>; without this a click on it
 // would also fold the section open or shut.
 el('tines').closest('label').addEventListener('click', (e) => e.stopPropagation());
-// ...and the same for the Sway braces switch, which sits in its own section header.
-el('sway').closest('label').addEventListener('click', (e) => e.stopPropagation());
 
 // Display: amber highlight + over-warn card for the slivers too small for a fin.
 // On by default; the choice is remembered (storage optional, like the sections).
@@ -330,9 +327,9 @@ el('highlight-small').addEventListener('change', (e) => {
   paintOverhangs();
 });
 
-/** Refill each section's collapsed recap from the controls' current values. */
+/** Refill each section's collapsed recap, and More settings' changed count, from
+ *  the controls' current values. */
 export function syncSectionSums() {
-  const sel = (id) => el(id).selectedOptions[0]?.textContent.split(' —')[0] ?? '';
   // The printer line names only what the build reads: layer height drops out
   // while it's hidden (tines off, a pad that doesn't read it).
   el('sum-printer').textContent = [
@@ -345,17 +342,7 @@ export function syncSectionSums() {
   el('sum-tines').textContent = el('tines').checked
     ? t(grip <= 20 ? 'light grip' : grip >= 80 ? 'firm grip' : 'medium grip')
     : t('off');
-  el('sum-clearances').textContent =
-    `${t('pad')} ${el('bed-pad').selectedOptions[0].textContent.toLowerCase()}`;
-  const cut = el('cutout').value;
-  el('sum-walls').textContent = `${+PROP.th.toFixed(2)} mm · `
-    + (cut === 'none' ? t('solid') : t('{style} cutouts', { style: sel('cutout').toLowerCase() }))
-    + (el('plate-only').checked ? ` · ${t('plate only')}` : '');
-  el('sum-sway').textContent = el('sway').checked
-    ? `${el('sway-spacing').value} mm ${t('tines')} · ${el('sway-depth').value}% ${t('deep')}`
-      + (el('sway-from').valueAsNumber > 0 ? ` · ${t('from')} ${el('sway-from').value} mm` : '')
-    : t('off');
-  el('sum-display').textContent = el('highlight-small').checked ? t('small overhangs highlighted') : t('no highlight');
+  syncMore();
 }
 el('fin-opts').addEventListener('input', syncSectionSums);
 el('fin-opts').addEventListener('change', syncSectionSums);

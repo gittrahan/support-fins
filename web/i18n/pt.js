@@ -429,4 +429,9 @@ export default {
   "Edit": "Editar",
   "Done": "Concluído",
   "Your printer: nozzle, layer height, support gap, interface material. Click to change.": "Sua impressora: bico, altura de camada, folga do suporte, material de interface. Clique para alterar.",
+  "More settings": "Mais configurações",
+  "{n} changed": "{n} alterada(s)",
+  "Hold the part": "Segurar a peça",
+  "Tall parts": "Peças altas",
+  "Where supports go": "Onde ficam os suportes",
 };

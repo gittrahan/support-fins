@@ -256,86 +256,9 @@
     </label>
   </details>
 
-  <!-- Contact/gap tuning: the default holds and breaks off for most parts, but the
-       right clearance depends on the printer and the surface you care about, so it
-       is exposed. Support gap = clearance between a support top and the part (bigger
-       = cleaner surface / easier to remove, too big = stops holding the overhang).
-       Bed pad = the pad under a part that barely touches the plate (PAD.style in
-       fins/pad.js): Auto (default) picks Light, or Sure hold on a small foot, and
-       its option text shows which. Light is one layer standing 0.12mm off the part, like a slicer
-       brim; Sure hold is the thicker pad tacked into the part; Custom exposes
-       every pad number and is the only style that shows them. -->
-  <details class="sec" data-sec="clearances">
-    <summary><span class="sec-title" data-i18n="Clearances">Clearances</span><span class="sec-sum" id="sum-clearances"></span></summary>
-    <label data-i18n-title class="fld row" title="A tilted part rests on an edge and peels off the plate without a pad. Auto: Light, or Sure hold when the part meets the plate on a point or a small round foot (it shows which). Light: one layer, 0.12mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove. Custom: set every number yourself.">
-      <span data-i18n="Bed pad">Bed pad</span><select id="bed-pad">
-        <option value="off" data-i18n="Off">Off</option>
-        <option value="auto" selected data-i18n="Auto">Auto</option>
-        <option value="light" data-i18n="Light">Light</option>
-        <option value="sure" data-i18n="Sure hold">Sure hold</option>
-        <option value="custom" data-i18n="Custom">Custom</option>
-      </select>
-    </label>
-    <label data-i18n-title class="fld row" data-pad-custom hidden title="How tall the pad is. Only the first layer grips the plate; more layers make it stiffer and harder to peel.">
-      <span>Pad thickness <span class="mut">mm</span></span>
-      <input type="number" id="pad-h" min="0.1" max="1.0" step="0.05" value="0.2">
-    </label>
-    <label class="fld row" data-pad-custom hidden data-i18n-title title="Sideways clearance between the pad and the part's first layer. 0.12mm lets first-layer squish just close it, the way a slicer brim holds; bigger comes off easier and holds less. Under 0.1mm most slicers merge the gap and the pad welds on. 0 = no gap (Pad grip decides).">
-      <span>Pad gap <span class="mut">mm</span></span>
-      <input type="number" id="pad-gap" min="0" max="0.5" step="0.01" value="0.12">
-    </label>
-    <label data-i18n-title class="fld row" data-pad-custom hidden title="Where the pad meets the part's underside. Positive bites in to hold harder; 0 is flush; negative leaves a gap that snaps off cleaner.">
-      <span>Pad grip <span class="mut">mm</span></span>
-      <input type="number" id="pad-grip" min="-0.2" max="0.3" step="0.05" value="0">
-    </label>
-    <label data-i18n-title class="fld row" data-pad-custom hidden title="How far the pad spreads past the part's contact with the plate. More spread = more plate grip.">
-      <span>Pad spread <span class="mut">mm</span></span>
-      <input type="number" id="pad-margin" min="1" max="12" step="0.5" value="4">
-    </label>
-  </details>
-
-  <!-- Sway braces (sway.js): for TALL parts that drift, sag or wobble as they grow.
-       A tapered buttress rib stands edge-on to an upright side, tied to it by
-       one-layer tines spaced evenly all the way up. Off by default; in Auto it
-       braces the tallest sides, in Draw you click an upright side to add one.
-       The switch lives in the section header, like Tines, so leaving it off
-       costs one line. -->
-  <details class="sec" data-sec="sway">
-    <summary>
-      <label data-i18n-title class="check sec-title" title="Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows. In Draw, click an upright side to add one.">
-        <input type="checkbox" id="sway"><span data-i18n="Sway braces">Sway braces</span> <span class="mut" data-i18n="tall parts">tall parts</span>
-      </label>
-      <span class="sec-sum" id="sum-sway"></span>
-    </summary>
-    <label class="fld row" id="sway-from-fld" title="Height the brace tines start at. 0 = grip the whole height; raise it to tie on only above where the part starts to move.">
-      <span><span data-i18n="Brace grip from">Brace grip from</span> <span class="mut" data-i18n="mm up">mm up</span></span>
-      <input type="number" id="sway-from" min="0" max="2000" step="5" value="0">
-    </label>
-    <label class="fld row" id="sway-spacing-fld" title="Vertical distance between brace tines. Smaller = held tighter, more marks on the side. Default 6mm.">
-      <span><span data-i18n="Brace tine spacing">Brace tine spacing</span> <span class="mut">mm</span></span>
-      <input type="number" id="sway-spacing" min="2" max="30" step="1" value="6">
-    </label>
-    <label class="fld row" id="sway-depth-fld" title="How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%.">
-      <span><span data-i18n="Brace depth">Brace depth</span> <span class="mut" data-i18n="% of height">% of height</span></span>
-      <input type="number" id="sway-depth" min="5" max="50" step="1" value="15">
-    </label>
-    <label data-i18n-title class="fld row" id="full-brace-depth-fld" title="Use the selected Brace depth percentage beyond the usual 60 mm limit. Larger braces need more plate space and material; collisions can shorten or refuse them. Off keeps the 60 mm limit.">
-      <span data-i18n="Full brace depth">Full brace depth</span><input type="checkbox" id="full-brace-depth">
-    </label>
-  </details>
-
-  <details class="sec" data-sec="walls" open>
-    <summary><span class="sec-title" data-i18n="Walls">Walls</span><span class="sec-sum" id="sum-walls"></span></summary>
-    <!-- Wall lines (web/nozzle.js, after #210): lines across a wall, for a tall part
-         or a big printer. 2 is the tuned wall; the tip and tines stay one line. -->
-    <label data-i18n-title class="fld row" title="How many nozzle lines thick the walls, wedges and sway braces are. 2 is the standard wall. More lines make stiffer supports for tall parts. The contact tip and tines stay one line wide, so the supports still break off the same way.">
-      <span data-i18n="Wall lines">Wall lines</span><select id="wall-lines">
-        <option value="2" selected>2</option>
-        <option value="4">4</option>
-        <option value="6">6</option>
-        <option value="8">8</option>
-      </select>
-    </label>
+  <!-- What every part needs, always in view: the wall cutouts (plastic) and the
+       per-mode actions. -->
+  <div class="sec basics">
     <!-- Cutouts (issue #34): holes through the middle of each breakaway wall to
          save filament. Every hole has a pointed roof (>=45deg) so nothing bridges;
          the contact top, foot and ends stay solid, and a wall too short for a hole
@@ -348,22 +271,6 @@
         <option value="arch" data-i18n="Arch">Arch</option>
         <option value="lattice" data-i18n="Lattice">Lattice</option>
       </select>
-    </label>
-    <!-- Wide-face row density: an overhang face too wide for one corner brace gets a
-         ROW of fins (a wide tilted plate would otherwise sag between two braces).
-         This sets the row pitch: Sparse = fewer fins / less plastic, Dense = more.
-         A floor keeps at least one brace so a wide face is never left bare. Only
-         bites on a broad face; narrow parts keep their 2-corner bracing. Auto only. -->
-    <label data-i18n-title class="fld" id="coverage-fld"
-           title="How densely to line a WIDE overhang face with fins. The middle is the anti-sag default; drag LEFT for fewer fins (a small part can go down to one — the readout warns if a broad face then risks sagging), RIGHT for more support. Narrow parts are unaffected.">
-      <span><span data-i18n="Wide-face coverage">Wide-face coverage</span> <span class="mut"><span data-i18n="sparse">sparse</span> ⟶ <span data-i18n="dense">dense</span></span></span>
-      <input type="range" id="coverage" min="0" max="100" step="5" value="50">
-    </label>
-    <!-- Plate only (#218): every support stands on the build plate, none on the part
-         itself. An overhang with part under it is left bare and the readout says how
-         many; Draw refuses a line over the part with the reason. -->
-    <label data-i18n-title class="check" title="Stand every support on the build plate, never on the part itself. An overhang with part under it is left unsupported, and the readout says how many.">
-      <input type="checkbox" id="plate-only"><span data-i18n="Plate only">Plate only</span> <span class="mut" data-i18n="no supports on the part">no supports on the part</span>
     </label>
     <!-- Suggest + Draw mix: place extra walls by hand where auto-placement missed.
          Shown only in Suggest mode (toggled in ui/settings.js). Per-fin removal (Auto only,
@@ -379,19 +286,7 @@
                 title="Bring back every fin removed in this orientation."><span data-i18n="Restore all">Restore all</span></button>
       </div>
     </div>
-  </details>
-
-  <!-- Display: how the part is drawn, not what gets built. "Highlight small overhangs"
-       shades the slivers too small for a fin amber and explains them in the
-       over-warn card; off hides both. The readout keeps its sliver count either
-       way, so turning it off never hides that they exist. Remembered in
-       localStorage (optional). -->
-  <details class="sec" data-sec="display">
-    <summary><span class="sec-title" data-i18n="Display">Display</span><span class="sec-sum" id="sum-display"></span></summary>
-    <label class="check" data-i18n-title title="Shade overhangs too small for a fin amber, with a card saying they print unsupported. Off drops the highlight and the card; the readout still counts them.">
-      <input type="checkbox" id="highlight-small" checked><span data-i18n="Highlight small overhangs">Highlight small overhangs</span>
-    </label>
-  </details>
+  </div>
 
   <!-- Draw controls: shown while placing by hand, outside the sections so the
        hint and Clear can never be collapsed away mid-draw. Hint text is set per
@@ -404,6 +299,105 @@
       <button class="btn sm" id="draw-clear"><span data-i18n="Clear all">Clear all</span></button>
     </div>
   </div>
+
+  <!-- More settings (local issue 42): everything a part only sometimes needs, folded,
+       grouped by what you're trying to do rather than by engine name. The line counts
+       the settings changed from their defaults and a dot marks each one, so folding
+       never hides that something is set (ui/more.js). Every control keeps its id.
+       Bed pad: the pad under a part that barely touches the plate (PAD.style in
+       fins/pad.js): Auto (default) picks Light, or Sure hold on a small foot, and its
+       option text shows which; Custom exposes every pad number. Sway braces
+       (sway.js): tapered ribs tied to a tall part's upright sides by one-layer tines;
+       in Auto it braces the tallest sides, in Draw you click a side to add one.
+       Display: how the part is drawn, not what gets built (remembered, optional). -->
+  <details class="sec more" id="more-settings" data-sec="more">
+    <summary><span class="sec-title" data-i18n="More settings">More settings</span><span class="sec-sum more-count" id="more-count"></span></summary>
+    <div class="group">
+      <h5 data-i18n="Hold the part">Hold the part</h5>
+      <label data-i18n-title class="fld row" title="A tilted part rests on an edge and peels off the plate without a pad. Auto: Light, or Sure hold when the part meets the plate on a point or a small round foot (it shows which). Light: one layer, 0.12mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove. Custom: set every number yourself.">
+        <span data-i18n="Bed pad">Bed pad</span><select id="bed-pad">
+          <option value="off" data-i18n="Off">Off</option>
+          <option value="auto" selected data-i18n="Auto">Auto</option>
+          <option value="light" data-i18n="Light">Light</option>
+          <option value="sure" data-i18n="Sure hold">Sure hold</option>
+          <option value="custom" data-i18n="Custom">Custom</option>
+        </select>
+      </label>
+      <label data-i18n-title class="fld row" data-pad-custom hidden title="How tall the pad is. Only the first layer grips the plate; more layers make it stiffer and harder to peel.">
+        <span>Pad thickness <span class="mut">mm</span></span>
+        <input type="number" id="pad-h" min="0.1" max="1.0" step="0.05" value="0.2">
+      </label>
+      <label class="fld row" data-pad-custom hidden data-i18n-title title="Sideways clearance between the pad and the part's first layer. 0.12mm lets first-layer squish just close it, the way a slicer brim holds; bigger comes off easier and holds less. Under 0.1mm most slicers merge the gap and the pad welds on. 0 = no gap (Pad grip decides).">
+        <span>Pad gap <span class="mut">mm</span></span>
+        <input type="number" id="pad-gap" min="0" max="0.5" step="0.01" value="0.12">
+      </label>
+      <label data-i18n-title class="fld row" data-pad-custom hidden title="Where the pad meets the part's underside. Positive bites in to hold harder; 0 is flush; negative leaves a gap that snaps off cleaner.">
+        <span>Pad grip <span class="mut">mm</span></span>
+        <input type="number" id="pad-grip" min="-0.2" max="0.3" step="0.05" value="0">
+      </label>
+      <label data-i18n-title class="fld row" data-pad-custom hidden title="How far the pad spreads past the part's contact with the plate. More spread = more plate grip.">
+        <span>Pad spread <span class="mut">mm</span></span>
+        <input type="number" id="pad-margin" min="1" max="12" step="0.5" value="4">
+      </label>
+      <!-- Wall lines (web/nozzle.js, after #210): lines across a wall, for a tall part
+           or a big printer. 2 is the tuned wall; the tip and tines stay one line. -->
+      <label data-i18n-title class="fld row" title="How many nozzle lines thick the walls, wedges and sway braces are. 2 is the standard wall. More lines make stiffer supports for tall parts. The contact tip and tines stay one line wide, so the supports still break off the same way.">
+        <span data-i18n="Wall lines">Wall lines</span><select id="wall-lines">
+          <option value="2" selected>2</option>
+          <option value="4">4</option>
+          <option value="6">6</option>
+          <option value="8">8</option>
+        </select>
+      </label>
+    </div>
+    <div class="group">
+      <h5 data-i18n="Tall parts">Tall parts</h5>
+      <label data-i18n-title class="check" title="Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows. In Draw, click an upright side to add one.">
+        <input type="checkbox" id="sway"><span data-i18n="Sway braces">Sway braces</span> <span class="mut" data-i18n="tall parts">tall parts</span>
+      </label>
+      <label class="fld row" id="sway-from-fld" title="Height the brace tines start at. 0 = grip the whole height; raise it to tie on only above where the part starts to move.">
+        <span><span data-i18n="Brace grip from">Brace grip from</span> <span class="mut" data-i18n="mm up">mm up</span></span>
+        <input type="number" id="sway-from" min="0" max="2000" step="5" value="0">
+      </label>
+      <label class="fld row" id="sway-spacing-fld" title="Vertical distance between brace tines. Smaller = held tighter, more marks on the side. Default 6mm.">
+        <span><span data-i18n="Brace tine spacing">Brace tine spacing</span> <span class="mut">mm</span></span>
+        <input type="number" id="sway-spacing" min="2" max="30" step="1" value="6">
+      </label>
+      <label class="fld row" id="sway-depth-fld" title="How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%.">
+        <span><span data-i18n="Brace depth">Brace depth</span> <span class="mut" data-i18n="% of height">% of height</span></span>
+        <input type="number" id="sway-depth" min="5" max="50" step="1" value="15">
+      </label>
+      <label data-i18n-title class="fld row" id="full-brace-depth-fld" title="Use the selected Brace depth percentage beyond the usual 60 mm limit. Larger braces need more plate space and material; collisions can shorten or refuse them. Off keeps the 60 mm limit.">
+        <span data-i18n="Full brace depth">Full brace depth</span><input type="checkbox" id="full-brace-depth">
+      </label>
+    </div>
+    <div class="group">
+      <h5 data-i18n="Where supports go">Where supports go</h5>
+      <!-- Wide-face row density: an overhang face too wide for one corner brace gets a
+           ROW of fins (a wide tilted plate would otherwise sag between two braces).
+           This sets the row pitch: Sparse = fewer fins / less plastic, Dense = more.
+           A floor keeps at least one brace so a wide face is never left bare. Only
+           bites on a broad face; narrow parts keep their 2-corner bracing. Auto only. -->
+      <label data-i18n-title class="fld" id="coverage-fld"
+             title="How densely to line a WIDE overhang face with fins. The middle is the anti-sag default; drag LEFT for fewer fins (a small part can go down to one — the readout warns if a broad face then risks sagging), RIGHT for more support. Narrow parts are unaffected.">
+        <span><span data-i18n="Wide-face coverage">Wide-face coverage</span> <span class="mut"><span data-i18n="sparse">sparse</span> ⟶ <span data-i18n="dense">dense</span></span></span>
+        <input type="range" id="coverage" min="0" max="100" step="5" value="50">
+      </label>
+      <!-- Plate only (#218): every support stands on the build plate, none on the part
+           itself. An overhang with part under it is left bare and the readout says how
+           many; Draw refuses a line over the part with the reason. -->
+      <label data-i18n-title class="check" title="Stand every support on the build plate, never on the part itself. An overhang with part under it is left unsupported, and the readout says how many.">
+        <input type="checkbox" id="plate-only"><span data-i18n="Plate only">Plate only</span> <span class="mut" data-i18n="no supports on the part">no supports on the part</span>
+      </label>
+    </div>
+    <div class="group">
+      <h5 data-i18n="Display">Display</h5>
+      <label class="check" data-i18n-title title="Shade overhangs too small for a fin amber, with a card saying they print unsupported. Off drops the highlight and the card; the readout still counts them.">
+        <input type="checkbox" id="highlight-small" checked><span data-i18n="Highlight small overhangs">Highlight small overhangs</span>
+      </label>
+    </div>
+  </details>
+
 </aside>
 <div class="rail-spacer"></div>
 <!-- Bottom-right status card: the pose/fin FEEDBACK worth glancing at. It shares

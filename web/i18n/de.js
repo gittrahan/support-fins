@@ -376,4 +376,9 @@ export default {
   "Edit": "Ändern",
   "Done": "Fertig",
   "Your printer: nozzle, layer height, support gap, interface material. Click to change.": "Ihr Drucker: Düse, Schichthöhe, Stützabstand, Kontaktmaterial. Zum Ändern klicken.",
+  "More settings": "Weitere Einstellungen",
+  "{n} changed": "{n} geändert",
+  "Hold the part": "Bauteil halten",
+  "Tall parts": "Hohe Bauteile",
+  "Where supports go": "Wo Stützen stehen",
 };

@@ -544,6 +544,15 @@ html, body {
 #fin-opts .printer > summary:hover .printer-edit { color: var(--accent); }
 #fin-opts .printer:not([open]) .when-open, #fin-opts .printer[open] .when-shut { display: none; }
 #fin-opts .printer[open] > :not(summary) { padding-inline-start: 22px; }
+/* More settings (local issue 42): headed groups that don't fold, a count of the
+   changed settings on the line (shown open or shut), and a dot by each changed one. */
+#fin-opts .more > summary > .more-count { visibility: visible; color: var(--accent); }
+#fin-opts .more .group { display: flex; flex-direction: column; gap: 8px; }
+#fin-opts .more .group + .group { margin-top: 14px; }
+#fin-opts .more .group h5 { margin: 0; font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  text-transform: uppercase; color: var(--dim); }
+#fin-opts .more label.changed > span:first-of-type::after { content: ""; display: inline-block; width: 6px; height: 6px;
+  margin-inline-start: 6px; vertical-align: middle; border-radius: 50%; background: var(--accent); }
 .check {
   display: inline-flex;
   align-items: center;

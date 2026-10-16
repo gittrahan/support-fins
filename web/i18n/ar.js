@@ -370,4 +370,9 @@ export default {
   "Edit": "تعديل",
   "Done": "تم",
   "Your printer: nozzle, layer height, support gap, interface material. Click to change.": "طابعتك: الفوهة، ارتفاع الطبقة، فجوة الدعم، مادة التلامس. انقر للتغيير.",
+  "More settings": "إعدادات إضافية",
+  "{n} changed": "{n} تم تغييرها",
+  "Hold the part": "تثبيت القطعة",
+  "Tall parts": "القطع الطويلة",
+  "Where supports go": "أين توضع الدعامات",
 };
