@@ -168,6 +168,18 @@ function pickObjects(objects) {
 }
 
 /**
+ * The last guess: an STL, or nothing we read. The picker lets any file through on
+ * Android (index.html #file), and STLLoader reads junk as a DataView range error
+ * or an empty part.
+ */
+function parseStl(buffer) {
+  let geometry = null;
+  try { geometry = loader.parse(buffer); } catch { /* not an STL */ }
+  if (!geometry?.getAttribute('position')?.count) throw new Error('not an STL, 3MF, STEP or OBJ file');
+  return geometry;
+}
+
+/**
  * Bytes in, three.js geometry out, for any format (or null if the user cancels
  * the object picker). The 3MF and STEP readers hand back the same flat mm
  * position array STLLoader produces, so everything downstream (setPart, the
@@ -178,7 +190,7 @@ async function parseModel(buffer) {
   if (!isZip(buffer)) {
     const geometry = isStep(buffer) ? await parseStep(buffer)
       : isObj(buffer) ? await parseObj(buffer)
-      : loader.parse(buffer);
+      : parseStl(buffer);
     // A 3MF read before this one no longer speaks for the part (a language switch
     // re-renders its note); a cancelled picker keeps the part, and its note.
     if (geometry) lastImportMeta = null;

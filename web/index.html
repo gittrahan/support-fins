@@ -28,8 +28,11 @@
 
 <header id="topbar">
   <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins</span></span>
+  <!-- accept: the MIME types too, and octet-stream. Android's picker matches by MIME
+       and knows none of these extensions, so it greyed every model out (#237); the
+       format is read from the bytes (ui/io.js), not the name. -->
   <label class="btn primary">
-    <span data-i18n="Import">Import</span><input type="file" id="file" accept=".stl,.3mf,.step,.stp,.obj" hidden>
+    <span data-i18n="Import">Import</span><input type="file" id="file" accept=".stl,.3mf,.step,.stp,.obj,model/stl,application/sla,application/vnd.ms-pki.stl,model/3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml,model/step,application/step,model/obj,application/octet-stream" hidden>
   </label>
   <label class="field">
     <span class="lbl" data-i18n="Build volume">Build volume</span>
