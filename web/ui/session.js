@@ -102,10 +102,10 @@ function readable(s) {
  *  blank, a menu option a later version renamed -- keeps the field as it is rather
  *  than costing the user the walls they drew. */
 const formOf = (form) => (form && typeof form === 'object'
-  // a session saved before Wall lines was built at 2, not at what the page has now
-  // (the nozzle and the viewer's settings stay as this browser has them, even from a
-  // file saved before they were left out)
-  ? { 'wall-lines': '2', ...Object.fromEntries(Object.entries(form)
+  // a session saved before Wall lines was built at 2, not at what the page has now,
+  // and before Long walls without them (the nozzle and the viewer's settings stay as
+  // this browser has them, even from a file saved before they were left out)
+  ? { 'wall-lines': '2', 'long-walls': false, ...Object.fromEntries(Object.entries(form)
     .filter(([id, v]) => !VIEWER_IDS.has(id) && settable(id, v))) } : {});
 
 /**

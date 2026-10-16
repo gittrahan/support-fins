@@ -6,7 +6,6 @@
 
 import { loadModel, analyze, fins, insideCount, rotX, assert } from './_util.js';
 
-const { FILL } = await import('../web/fins/fill.js');
 const { headingField } = await import('../web/fins/field.js');
 
 const OPTS = { bedPad: true, tines: true, tineDensity: 0, layerHeight: 0.2, mode: 'full' };
@@ -21,17 +20,29 @@ for (const name of ['lbracket', 'tube']) {
     const on = build(name, rotX(40)).b, off = build(name, rotX(40), { longWalls: false }).b;
     assert(on.fill.rows > 0, `${name}: no rows`);
     assert(off.fill.rows === 0, `${name}: rows with Long walls off`);
-    assert(on.fill.unservedArea <= off.fill.unservedArea + FILL.rowsTie,
+    assert(on.fill.unservedArea < off.fill.unservedArea,
       `${name}: ${on.fill.unservedArea.toFixed(1)} mm2 bare with rows, ${off.fill.unservedArea.toFixed(1)} without`);
   });
 }
 
-Deno.test('rows: never more red bare than the patch lines alone, where the rows lose (wedge, ramp at X40)', () => {
+// (true by construction of fillCoverage's race: this pins that the race is wired up)
+Deno.test('rows: where the rows lose (wedge, ramp, torus, bar at X40) the build is the patch fill\'s, no more red bare', () => {
   for (const name of ['wedge', 'ramp', 'torus', 'bar']) {
     const on = build(name, rotX(40)).b, off = build(name, rotX(40), { longWalls: false }).b;
-    assert(on.fill.unservedArea <= off.fill.unservedArea + FILL.rowsTie,
+    assert(on.fill.unservedArea <= off.fill.unservedArea,
       `${name}: ${on.fill.unservedArea.toFixed(1)} mm2 bare with Long walls, ${off.fill.unservedArea.toFixed(1)} without`);
   }
+});
+
+Deno.test('rows: Plate only -- rows still build, none stands on the part', () => {
+  const b = build('lbracket', rotX(40), { plateOnly: true }).b;
+  assert(b.fill.rows > 0, 'no rows with Plate only');
+  assert(!b.props.some((q) => q.partAttached), 'a wall stands on the part');
+});
+
+Deno.test('rows: not under the sparse slider (one wall per group)', () => {
+  const b = build('lbracket', rotX(40), { coverage: 0.1 }).b;
+  assert(b.fill.rows === 0 && b.fill.rowBuilds === 0, `rows ${b.fill.rows}, builds ${b.fill.rowBuilds}`);
 });
 
 Deno.test('rows: no row is inside the part, and rows keep sideClear off every other support', () => {

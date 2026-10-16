@@ -27,32 +27,46 @@ export const ROWS = {
   zStep: 3.0,       // mm between a row's height hints
   zBand: 6.0,       // mm: a row spans the red within this of its height
   minPiece: 3.0,    // mm: a failed piece is bisected while its halves are at least this
+  minKeep: 3.0,     // mm: a row piece shorter than this is left to the patch lines (at 6 a small
+                    // figure's short rows went: the guardian lion upright held 86 -> 54%)
   maxRows: 160,     // rows searched, heaviest red first
-  maxBuilds: 900,   // drawnWall calls while searching (a count, not a clock)
+  maxBuilds: 900,   // drawnWall calls while searching (a count, not a clock)...
+  fullFaces: 250e3, // ...at up to this many part faces; a denser part gets proportionally fewer
+  minBuilds: 150,   // (but never under this many)
 };
 
 /**
  * rowWalls({ pts, heading, R, tris, drawOpts, fits, keep, minGain, room }) lays the
  * rows. `pts` the bare red [x, y, z, area]; `fits(r)` -- r keeps clear of every
- * support; `keep(r)` adds it (and its tops to the caller's reach set); `room()` --
- * the caller's wall cap not yet hit. Returns { walls, builds }.
+ * support, its flange joining others on the plate as the patch lines' second pass
+ * allows (#196); `keep(r)` adds it (and its tops to the caller's reach set); `room()`
+ * -- the caller's wall cap not yet hit. `nFaces` scales the search budget. Plate only
+ * rides in drawOpts (drawnWall refuses a row over the part). Returns { walls, builds }.
  */
-export function rowWalls({ pts, heading, R, tris, drawOpts, fits, keep, minGain, room }) {
+export function rowWalls({ pts, heading, R, tris, drawOpts, fits, keep, minGain, room, nFaces = 0 }) {
   const ux = Math.cos(heading), uy = Math.sin(heading);
   const acr = (p) => -uy * p[0] + ux * p[1], alo = (p) => ux * p[0] + uy * p[1];
   if (!pts.length) return { walls: 0, builds: 0 };
-  let vMin = Infinity, vMax = -Infinity, zMin = Infinity, zMax = -Infinity;
-  for (const p of pts) { const v = acr(p); vMin = Math.min(vMin, v); vMax = Math.max(vMax, v); zMin = Math.min(zMin, p[2]); zMax = Math.max(zMax, p[2]); }
+  const maxBuilds = Math.max(ROWS.minBuilds,
+    Math.round(ROWS.maxBuilds * Math.min(1, ROWS.fullFaces / Math.max(1, nFaces))));
+  // the points by their offset across the heading, so a row reads only its own band
+  const byAcr = pts.map((p) => [acr(p), p]).sort((a, b) => a[0] - b[0]);
+  const from = (v) => { let lo = 0, hi = byAcr.length; while (lo < hi) { const m = (lo + hi) >> 1; if (byAcr[m][0] < v) lo = m + 1; else hi = m; } return lo; };
+  let zMin = Infinity, zMax = -Infinity;
+  for (const p of pts) { zMin = Math.min(zMin, p[2]); zMax = Math.max(zMax, p[2]); }
+  const vMin = byAcr[0][0], vMax = byAcr[byAcr.length - 1][0];
   // the rows, heaviest band of red first
   const rows = [];
   for (let v = vMin; v <= vMax + 1e-9; v += ROWS.step) {
+    const i0 = from(v - R), i1 = from(v + R + 1e-9);
     for (let h = zMin; h <= zMax + 1e-9; h += ROWS.zStep) {
       let w = 0, t1 = Infinity, t2 = -Infinity;
-      for (const p of pts) {
-        if (Math.abs(acr(p) - v) > R || Math.abs(p[2] - h) > ROWS.zBand) continue;
+      for (let i = i0; i < i1; i++) {
+        const p = byAcr[i][1];
+        if (Math.abs(p[2] - h) > ROWS.zBand) continue;
         w += p[3]; const t = alo(p); t1 = Math.min(t1, t); t2 = Math.max(t2, t);
       }
-      if (w > 0 && t2 - t1 >= ROWS.minPiece - 2) rows.push({ v, h, w, t1: t1 - 1, t2: t2 + 1 });
+      if (w > 0 && t2 - t1 >= ROWS.minKeep - 2) rows.push({ v, h, w, t1: t1 - 1, t2: t2 + 1 });
     }
   }
   rows.sort((a, b) => b.w - a.w || a.v - b.v || a.h - b.h);
@@ -62,7 +76,7 @@ export function rowWalls({ pts, heading, R, tris, drawOpts, fits, keep, minGain,
   for (const row of rows.slice(0, ROWS.maxRows)) {
     const at = (t) => [ux * t - uy * row.v, uy * t + ux * row.v, row.h];
     const build = (p, q) => {
-      if (builds >= ROWS.maxBuilds) return null;
+      if (builds >= maxBuilds) return null;
       builds++;
       const r = drawnWall(at(p), at(q), tris, 0, search);
       return r.ok ? r : null;
@@ -71,7 +85,7 @@ export function rowWalls({ pts, heading, R, tris, drawOpts, fits, keep, minGain,
     const split = (p, q) => {
       const r = build(p, q);
       if (r) { leaves.push({ p, q, r }); return; }
-      if (q - p < 2 * ROWS.minPiece || builds >= ROWS.maxBuilds) return;
+      if (q - p < 2 * ROWS.minPiece || builds >= maxBuilds) return;
       const m = (p + q) / 2; split(p, m); split(m, q);
     };
     split(row.t1, row.t2);
@@ -81,11 +95,11 @@ export function rowWalls({ pts, heading, R, tris, drawOpts, fits, keep, minGain,
         const r = build(cur.p, L.q);
         if (r) { cur = { p: cur.p, q: L.q, r }; continue; }
       }
-      if (cur) pieces.push({ ...cur, a: at(cur.p), b: at(cur.q) });
+      if (cur && cur.q - cur.p >= ROWS.minKeep) pieces.push({ ...cur, a: at(cur.p), b: at(cur.q) });
       cur = L;
     }
-    if (cur) pieces.push({ ...cur, a: at(cur.p), b: at(cur.q) });
-    if (builds >= ROWS.maxBuilds) break;
+    if (cur && cur.q - cur.p >= ROWS.minKeep) pieces.push({ ...cur, a: at(cur.p), b: at(cur.q) });
+    if (builds >= maxBuilds) break;
   }
   // each piece's red: the points its top reaches
   for (const c of pieces) {

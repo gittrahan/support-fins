@@ -1,17 +1,17 @@
 /**
- * The model's LENGTH in plan, as a heading field for the Full coverage fill pass
- * (fins/fill.js, opts.longWalls). Matthew 2026-10-15: a hand-drawn wall "fits along
+ * The model's LENGTH in plan, the heading Full coverage's Long walls run along
+ * (fins/rows.js, opts.longWalls). Matthew 2026-10-15: a hand-drawn wall "fits along
  * the model so nicely" because it runs the model's length; the fill pass picked each
  * red patch's best line on its own, so an upright figure got a dozen 3 mm stubs at
- * five headings. With the field, every patch tries lines along the length first.
+ * five headings.
  *
  * The heading at (x, y) is the long axis of the part's surface within FIELD.radius in
- * plan (Gaussian-weighted second moments of the faces' plan centroids, by area), so a
- * figure gets one heading and an L-bracket's legs each their own. Where the surface
- * there is about as long as it is wide (FIELD.minRatio), there is no length to follow:
- * null, and the fill pass falls back to its best line -- a square patch's eigenvector
- * is arbitrary (the old auto-placer's 45deg walls). A heading within FIELD.snap of x or
- * y is snapped to it.
+ * plan (Gaussian-weighted second moments of the faces' plan centroids, by area). The
+ * fill pass asks once, at the bare red's centroid, so the rows share one heading.
+ * Where the surface there is about as long as it is wide (FIELD.minRatio) there is no
+ * length: null -- a square footprint's eigenvector is arbitrary (the old auto-placer's
+ * 45deg walls) -- and the rows run along x. A heading within FIELD.snap of x or y is
+ * snapped to it.
  */
 
 export const FIELD = {

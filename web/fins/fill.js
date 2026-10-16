@@ -73,7 +73,6 @@ export const FILL = {
   maxTries: 120,     // drawnWall calls, kept or not
   groupTries: 12,     // drawnWall calls one group gets before its red is given up on
   maxChecks: 2000,   // line checks (underStretch, then settledStretch; both gridded), built or not
-  rowsTie: 0.5,      // mm2: Long walls' rows may leave this much more red bare and still be kept
 };
 
 /** The reach the slider asks for: R(0.5) = 6 mm (the held rule), R(1) = denseReach. */
@@ -564,14 +563,18 @@ function tieFill(props, floors, triangles, tris, others) {
  * and without, and the rows are kept only if they leave no more red bare than the
  * patch lines alone: rows laid first can take the room a patch line needed (a wedge
  * at X40: 17 -> 47 mm2 bare), and every red face must get something. A tie keeps
- * the rows -- the walls a hand would draw. `stats.rowsLost` says when they lost.
+ * the rows -- the walls a hand would draw. `stats.rowsLost` (mm2 more bare) says
+ * when they lost.
  */
 export function fillCoverage(topo, result, rot, opts, built) {
-  if (opts.longWalls === false) return fillOnce(topo, result, rot, opts, built);
+  // (no rows under the sparse slider: one wall per group is its own promise)
+  if (opts.longWalls === false || (opts.coverage ?? 0.5) < FILL.sparseBelow) {
+    return fillOnce(topo, result, rot, { ...opts, longWalls: false }, built);
+  }
   const plain = fillOnce(topo, result, rot, { ...opts, longWalls: false }, built);
   if (!(plain.unserved.area > 0)) return plain;    // nothing left for rows to win
   const rows = fillOnce(topo, result, rot, opts, built);
-  if (!rows.stats.rows || rows.unserved.area > plain.unserved.area + FILL.rowsTie) {
+  if (!rows.stats.rows || rows.unserved.area > plain.unserved.area + 1e-6) {
     plain.stats.rowsLost = rows.stats.rows ? rows.unserved.area - plain.unserved.area : 0;
     return plain;
   }
@@ -730,17 +733,14 @@ function fillOnce(topo, result, rot, opts, built) {
     // ROWS first (opts.longWalls): long walls along the model's length (fins/rows.js);
     // the patch lines below take what they leave
     if (field) {
-      const live = pts.filter(bare);
+      // one heading for every row: the length at the bare red's centroid (none: x)
       let w = 0, x = 0, y = 0;
-      for (const p of live) { w += p[3]; x += p[0] * p[3]; y += p[1] * p[3]; }
-      const heading = w > 0 ? field(x / w, y / w) ?? 0 : null;
-      if (heading !== null) {
-        const r = rowWalls({ pts: live, heading, R, tris, drawOpts, minGain: FILL.minGain,
-          fits: (t) => !others.hits(t.tris, PROP.sideClear, true), keep: (t) => keep(t),
-          room: () => stats.walls < FILL.maxWalls });
-        stats.rows = r.walls;
-        stats.rowBuilds = r.builds;
-      }
+      for (const p of pts) { w += p[3]; x += p[0] * p[3]; y += p[1] * p[3]; }
+      const r = rowWalls({ pts, heading: field(x / w, y / w) ?? 0, R, tris, drawOpts, minGain: FILL.minGain,
+        fits: (t) => !others.hits(t.tris, PROP.sideClear, true), keep: (t) => keep(t),
+        room: () => stats.walls < FILL.maxWalls, nFaces: topo.nFaces });
+      stats.rows = r.walls;
+      stats.rowBuilds = r.builds;
     }
     // until every point is within reach: a wall under the heaviest bare group, regroup, again
     while (!full()) {
