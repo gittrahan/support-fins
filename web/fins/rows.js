@@ -28,7 +28,7 @@ export const ROWS = {
   zBand: 6.0,       // mm: a row spans the red within this of its height
   minPiece: 3.0,    // mm: a failed piece is bisected while its halves are at least this
   maxRows: 160,     // rows searched, heaviest red first
-  maxBuilds: 300,   // drawnWall calls while searching (a count, not a clock)
+  maxBuilds: 900,   // drawnWall calls while searching (a count, not a clock)
 };
 
 /**
