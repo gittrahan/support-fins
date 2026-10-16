@@ -46,6 +46,7 @@ import { BRACE, braceWall, footFor, PART_BAND, PROP, surfaceHitsAt, TIE, tieWall
 import { classify, reachOf, PLATE_Z, MUST } from './coverage.js';
 import { seatedPartTris } from './seating.js';
 import { headingField } from './field.js';
+import { rowWalls } from './rows.js';
 
 export const FILL = {
   sample: 1.0,       // mm: leftover red is merged into points this far apart
@@ -603,6 +604,20 @@ export function fillCoverage(topo, result, rot, opts, built) {
   const bare = (p) => !dead.has(p) && !near(p[0], p[1], p[2]);
   const full = () => stats.walls >= FILL.maxWalls || stats.tries >= FILL.maxTries || stats.checks >= FILL.maxChecks;
   const CAP = 'cap';               // wallFor stopped on a cap: give up on nothing
+  // a built wall goes in: its triangles, its tops into the reach set, its record
+  const keep = (r, joined = false) => {
+    const at = triangles.length;
+    for (const t of r.tris) triangles.push(t);
+    others.add(r.tris, { fill: true, k: props.length });
+    for (const p of r.top) near.add(p);
+    props.push({ line: r.top, triRanges: [[at, triangles.length]], height: r.height, span: r.length,
+                 tines: r.tines ?? 0, partAttached: !!r.partAttached, squat: !!r.squat, fill: true,
+                 joined: joined || undefined });
+    if (joined) stats.joined = (stats.joined ?? 0) + 1;
+    floors.push(r.floors ?? null);
+    tines += r.tines ?? 0;
+    stats.walls++;
+  };
 
   // One wall for group `g` of `live`: the first candidate (bridged lines first, then
   // the same directions without crossing gaps) that builds, keeps off every support
@@ -662,17 +677,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
         let gain = 0;
         for (const i of g) if (reach(live[i][0], live[i][1], live[i][2])) gain += live[i][3];
         if (gain < FILL.minGain) { stats.refused['holds no new red'] = (stats.refused['holds no new red'] ?? 0) + 1; continue; }
-        const at = triangles.length;
-        for (const t of r.tris) triangles.push(t);
-        others.add(r.tris, { fill: true, k: props.length });
-        for (const p of r.top) near.add(p);
-        props.push({ line: r.top, triRanges: [[at, triangles.length]], height: r.height, span: r.length,
-                     tines: r.tines ?? 0, partAttached: !!r.partAttached, squat: !!r.squat, fill: true,
-                     joined: joined || undefined });
-        if (joined) stats.joined = (stats.joined ?? 0) + 1;
-        floors.push(r.floors ?? null);
-        tines += r.tines ?? 0;
-        stats.walls++;
+        keep(r, joined);
         return true;
       }
       return null;
@@ -719,6 +724,21 @@ export function fillCoverage(topo, result, rot, opts, built) {
       }
     }
   } else {
+    // ROWS first (opts.alignFill): long walls along the model's length (fins/rows.js);
+    // the patch lines below take what they leave
+    if (field) {
+      const live = pts.filter(bare);
+      let w = 0, x = 0, y = 0;
+      for (const p of live) { w += p[3]; x += p[0] * p[3]; y += p[1] * p[3]; }
+      const heading = w > 0 ? field(x / w, y / w) ?? 0 : null;
+      if (heading !== null) {
+        const r = rowWalls({ pts: live, heading, R, tris, drawOpts, minGain: FILL.minGain,
+          fits: (t) => !others.hits(t.tris, PROP.sideClear, true), keep: (t) => keep(t),
+          room: () => stats.walls < FILL.maxWalls });
+        stats.rows = r.walls;
+        stats.rowBuilds = r.builds;
+      }
+    }
     // until every point is within reach: a wall under the heaviest bare group, regroup, again
     while (!full()) {
       const live = pts.filter(bare);
