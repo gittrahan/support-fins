@@ -9,8 +9,9 @@
  *   - a field the build ignores right now doesn't count: hidden (the pad numbers
  *     outside Custom, the sway fields with sway off, coverage in Draw) or disabled
  *     (coverage in Full coverage);
- *   - Wall lines doesn't count when a big nozzle took its default away
- *     (settings.js fitWallLines): the nozzle moved it, not the user.
+ *   - a menu whose default option is disabled doesn't count (a guard: settings.js
+ *     fitWallLines disables the Wall lines counts a big nozzle can't take, though
+ *     today every nozzle still takes the default 2).
  * Display only: it reads the fields, never sets them.
  */
 import { el } from './dom.js';
