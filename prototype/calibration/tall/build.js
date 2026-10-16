@@ -1,7 +1,8 @@
 /**
  * Tall-wall coupon, step 2: stand one plate wall under each ledge of gen.py's coupon
  * with draw mode's own drawnWall (what a hand-drawn wall on the site runs), braced the
- * way the rung says: bare, or face ribs (BRACE.tallH lifted to 0) rising BRACE.rise.
+ * way the rung says (the site's Draw never passes brace: true today -- only the Full
+ * fill pass braces; wiring tallH into Auto and Draw is local issue 046's next step): bare, or face ribs (BRACE.tallH lifted to 0) rising BRACE.rise.
  * The aspect rule's end ribs are switched off so only the face ribs are under test.
  *
  *   deno run -A prototype/calibration/tall/build.js     # -> out/tall-coupon.3mf + .stl
