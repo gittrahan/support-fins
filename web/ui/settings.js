@@ -244,6 +244,23 @@ el('nozzle').addEventListener('change', () => {
   debouncedRefresh();
 });
 
+// Layer height and Support gap are the printer's too (local issue 42): you slice at
+// one layer height and tune one gap for your machine, so like the nozzle they are
+// remembered across visits and a saved session leaves them alone (history.js).
+// Read back before initSettings, which hands the gap to PROP. Undo still covers them.
+const PRINTER_KEYS = { 'layer-height': 'sf.layerHeight', gap: 'sf.gap' };
+for (const [id, key] of Object.entries(PRINTER_KEYS)) {
+  const f = el(id);
+  try {
+    const v = Number(localStorage.getItem(key) ?? NaN);
+    if (Number.isFinite(v) && v >= Number(f.min) && v <= Number(f.max)) f.value = String(v);
+  } catch { /* storage off */ }
+  f.addEventListener('change', () => {
+    if (!Number.isFinite(f.valueAsNumber)) return;
+    try { localStorage.setItem(key, f.value); } catch { /* storage off */ }
+  });
+}
+
 // Wall lines thicken the walls, wedges and braces (../nozzle.js). A setting of this
 // part, unlike the nozzle: undoable and saved with a session.
 // A big nozzle offers only the line counts whose wall stays under TH_MAX (nozzle.js):

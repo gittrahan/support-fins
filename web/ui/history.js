@@ -44,8 +44,10 @@ let settled = readForm();
 let restoring = false;
 
 // Not this part's settings but the viewer's own (how it is drawn, the mouse) or the
-// printer's (the nozzle): a session saved in a 3MF (ui/session.js) leaves them as they are.
-const VIEWER_IDS = new Set(['highlight-small', 'show-layers', 'show-rings', 'nav-preset', 'nozzle']);
+// printer's (nozzle, layer height, support gap): a session saved in a 3MF
+// (ui/session.js) neither saves them nor, from an older file that has them, applies them.
+export const VIEWER_IDS = new Set(['highlight-small', 'show-layers', 'show-rings', 'nav-preset',
+  'nozzle', 'layer-height', 'gap']);
 /** The part's settings as they stand, for a saved session. */
 export const sessionForm = () => Object.fromEntries(Object.entries(settled).filter(([id]) => !VIEWER_IDS.has(id)));
 
