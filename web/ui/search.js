@@ -26,28 +26,35 @@ const empty = el('opts-search-empty');
 const ROWS = '.fld, label.check, button.btn:not([data-mode])';
 const rows = () => [...pane.querySelectorAll(ROWS)].filter((r) => !r.closest('.opts-search')
   && !r.parentElement.closest(ROWS));      // a field's own inner label isn't a row of its own
-// The row that reveals a hidden one, by the hidden row's id (or a selector).
+// The row that reveals a hidden one, by the hidden row's selector; null when no
+// switch here would (Remove selected waits on a wall being picked).
 const GATES = [
   ['#tinegrip-fld, #layerh-fld', () => el('tines').closest('label')],
   ['[data-pad-custom]', () => el('bed-pad').closest('label')],
-  ['#sway-from-fld, #sway-spacing-fld, #sway-depth-fld, #full-brace-depth-fld', () => el('sway').closest('label')],
-  ['#coverage-fld, #augment-toggle, #remove-fins-toggle, #restore-fins, #draw-controls button', () => el('fin-mode-fld')],
+  // the brace tine fields also hide with Tines off (settings.js syncSway)
+  ['#sway-from-fld, #sway-spacing-fld', () => el(el('sway').checked ? 'tines' : 'sway').closest('label')],
+  ['#sway-depth-fld, #full-brace-depth-fld', () => el('sway').closest('label')],
+  ['#coverage-fld, #augment-toggle, #remove-fins-toggle', () => el('fin-mode-fld')],
+  ['#restore-fins', () => el('remove-fins-toggle')],   // shows once a fin is removed
+  ['#draw-clear', () => (el('fin-mode').value === 'draw' ? null : el('fin-mode-fld'))],
 ];
 
 const fold = (s) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 // The name as shown plus the English it came from. A button whose label code rewrites
 // (Remove fins, + Add walls by hand) keeps its English in data-search; Placement's
-// note under the buttons is a description, not its name.
+// note under the buttons is a description, not its name, and its hidden <select>
+// isn't shown at all.
 function nameOf(r) {
   const parts = [r.dataset.search ?? ''];
   const walk = (n) => {
     if (n.nodeType === 3) parts.push(n.textContent);
-    else if (n.nodeType === 1 && !n.classList.contains('mode-note')) {
+    else if (n.nodeType === 1 && !n.hidden && !n.classList.contains('mode-note')) {   // not the hidden #fin-mode
       if (n.dataset.origText) parts.push(n.dataset.origText);
       for (const c of n.childNodes) walk(c);
     }
   };
-  walk(r);
+  for (const c of r.childNodes) walk(c);   // the row itself may be hidden: that's the gate's job
+  if (r.dataset.origText) parts.push(r.dataset.origText);
   return fold(parts.join(' '));
 }
 const tipOf = (r) => fold(`${r.title} ${r.dataset.origTitle ?? ''}`);
@@ -96,14 +103,22 @@ export function runSearch() {
     c.classList.toggle('nohit', !any);
     if (any && c.tagName === 'DETAILS') c.open = true;
   }
-  empty.hidden = [...show].some(shown);
-  empty.textContent = t('No settings match');
+  const none = ![...show].some(shown);
+  if (empty.hidden === none) empty.hidden = !none;   // only on a change: the observer below watches it
+  empty.textContent = none ? t('No settings match') : '';
 }
 
 box.addEventListener('input', runSearch);
 box.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && box.value) { e.stopPropagation(); box.value = ''; runSearch(); }
 });
-// A change can reveal a gated match (ticking Sway braces shows Brace depth).
-pane.addEventListener('change', () => { if (box.value) runSearch(); });
+// Anything that shows or hides a row re-runs the query: ticking Sway braces reveals
+// Brace depth, an undo puts back a mode without firing a change, a build shows
+// Remove fins. Batched to the next frame; search.js itself never sets `hidden` on a row.
+let queued = false;
+new MutationObserver((records) => {
+  if (!box.value || queued || records.every((r) => r.target === empty)) return;
+  queued = true;
+  requestAnimationFrame(() => { queued = false; runSearch(); });
+}).observe(pane, { subtree: true, attributes: true, attributeFilter: ['hidden'] });
 window.addEventListener('languagechange', () => { if (box.value) runSearch(); });
