@@ -14,8 +14,76 @@
  */
 import { BRACE, braceWall, PROP } from '../prop.js';
 import { surfaceZsAt } from '../prop/surface.js';
-import { boxGrid } from './fill.js';
 import { seatedPartTris } from './seating.js';
+
+const CELL = 2.0;   // mm: the clash grid's plan cell
+const SPLIT = 1.0;  // mm: triangles are split to this across in plan before they're compared
+
+/** fn(x0, y0, x1, y1, zLo, zHi) for pieces of triangle (p, q, r) about SPLIT across in
+ *  plan: a diagonal wall's triangle would box a whole quadrant, and a rib's would
+ *  count its tall stem out at its low tip. Split at the longest edge in plan. */
+function pieces(p, q, r, fn, depth = 0) {
+  const x0 = Math.min(p[0], q[0], r[0]), x1 = Math.max(p[0], q[0], r[0]);
+  const y0 = Math.min(p[1], q[1], r[1]), y1 = Math.max(p[1], q[1], r[1]);
+  if (depth >= 16 || Math.max(x1 - x0, y1 - y0) <= SPLIT) {
+    fn(x0, y0, x1, y1, Math.min(p[2], q[2], r[2]), Math.max(p[2], q[2], r[2]));
+    return;
+  }
+  const d = (a, b) => (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2;
+  const pq = d(p, q), qr = d(q, r), rp = d(r, p);
+  if (qr >= pq && qr >= rp) [p, q, r] = [q, r, p];
+  else if (rp >= pq && rp >= qr) [p, q, r] = [r, p, q];
+  const m = [(p[0] + q[0]) / 2, (p[1] + q[1]) / 2, (p[2] + q[2]) / 2];
+  pieces(p, m, r, fn, depth + 1);
+  pieces(m, q, r, fn, depth + 1);
+}
+
+/**
+ * Where supports stand, in plan: ~1 mm pieces of each support triangle, each with its
+ * plan box and its LOWEST point. A rib rises from the plate, and so does every wall,
+ * wedge and pad it could meet, so "a piece lower than the rib's top there, within
+ * sideClear of it in plan" is a clash; tines high on a wall are not. Coarser than
+ * fill.js's 3D boxGrid in height only, on the safe side (a rib is refused under a
+ * leaning wedge it might have cleared); that grid cost 4 s on bigplate Y35.
+ */
+export function planGrid() {
+  const cells = new Map();
+  const key = (i, j) => (i + 32768) * 65536 + (j + 32768);
+  const cellsOf = (x0, y0, x1, y1, fn) => {
+    for (let i = Math.floor(x0 / CELL); i <= Math.floor(x1 / CELL); i++) {
+      for (let j = Math.floor(y0 / CELL); j <= Math.floor(y1 / CELL); j++) fn(key(i, j));
+    }
+  };
+  return {
+    add(vs, tag = null, keep = () => true) {
+      for (let n = 0; n + 2 < vs.length; n += 3) {
+        if (!keep(vs[n], vs[n + 1], vs[n + 2])) continue;
+        pieces(vs[n], vs[n + 1], vs[n + 2], (x0, y0, x1, y1, z) => {
+          const o = [x0, y0, x1, y1, z, tag];
+          cellsOf(x0, y0, x1, y1, (k) => { let c = cells.get(k); if (!c) cells.set(k, (c = [])); c.push(o); });
+        });
+      }
+    },
+    /** Does another support (not `own`) stand within sideClear of the rib `vs`? */
+    hits(vs, own = undefined) {
+      const pad = PROP.sideClear;
+      let hit = false;
+      for (let n = 0; n + 2 < vs.length && !hit; n += 3) {
+        pieces(vs[n], vs[n + 1], vs[n + 2], (x0, y0, x1, y1, _zLo, zHi) => {
+          if (hit) return;
+          x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+          cellsOf(x0, y0, x1, y1, (k) => {
+            if (hit) return;
+            for (const o of cells.get(k) ?? []) {
+              if (o[5] !== own && o[4] <= zHi + pad && o[0] <= x1 && x0 <= o[2] && o[1] <= y1 && y0 <= o[3]) { hit = true; return; }
+            }
+          });
+        });
+      }
+      return hit;
+    },
+  };
+}
 
 /** The highest part surface under station p (a wall's centreline point, z the wall's
  *  top), or zBed: where that station's wall stands. */
@@ -36,9 +104,13 @@ export function braceTallWalls(topo, result, rot, built) {
   built.tallRibs = 0;
   if (!tall.length) return built;
   const tris = seatedPartTris(topo, rot, result.offset);
-  const grid = boxGrid();
-  fins.forEach((f, k) => { for (const [a, b] of f.triRanges ?? []) grid.add(built.triangles.slice(a, b), k); });
-  if (built.padTriangles?.length) grid.add(built.padTriangles);
+  // Only what a rib could meet goes in: under the tallest rib (a tall wall's tines,
+  // and everything above, never can)
+  const zTop = BRACE.rise * Math.max(...tall.map((f) => f.height)) + PROP.sideClear;
+  const low = (p, q, r) => Math.min(p[2], q[2], r[2]) <= zTop;
+  const grid = planGrid();
+  fins.forEach((f, k) => { for (const [a, b] of f.triRanges ?? []) grid.add(built.triangles.slice(a, b), k, low); });
+  if (built.padTriangles?.length) grid.add(built.padTriangles, null, low);
   const triangles = [...built.triangles];
   for (const f of tall) {
     const k = fins.indexOf(f);
@@ -46,7 +118,7 @@ export function braceTallWalls(topo, result, rot, built) {
     const floors = f.line.map((p) => floorAt(tris, p, 0));
     const out = [];
     const n = braceWall(top, (i) => floors[i], tris, 0, out, (t) => {
-      if (grid.hits(t, PROP.sideClear, false, (tag) => tag === k)) return false;
+      if (grid.hits(t, k)) return false;
       grid.add(t, k);              // the next wall's ribs keep clear of these
       return true;
     }, { tall: true });

@@ -268,6 +268,24 @@ and gets ribs at the plate. Only these numbers are new; the rest are the wall's 
 | clearance | `sideClear` (0.35) off the part, out past the tip; off every other support (joined flanges allowed, as fill walls) | a fused rib doesn't break away |
 | order | after every fill wall is placed | ribs built as walls went in took plate the next walls needed (Isaac 12 → 10 walls) |
 
+## Tall-wall ribs (Brace tall walls) — `web/fins/tall.js`, `web/prop/brace.js`
+
+Not printed yet. A user: "you're definitely going to want some sort of bracing for fins
+taller than 10cm or they wobble too much, maybe just a perpendicular fin." A wall is a
+1 mm sheet on a foot that stops at `footMax`, tied to the part only by its tines at the
+top. The rib is the Wall ribs' own triangle (below); only when and where are new. The
+tall/ coupon (`prototype/calibration/tall/`) prints walls 60–120 mm bare vs ribbed to
+set the numbers.
+
+| feature | value | rationale |
+|---|---|---|
+| when | plate walls over `BRACE.tallH` (**100 mm**), Auto, Full and Draw; the **Brace tall walls** box, on by default | the reporter's 10 cm, until the coupon prints |
+| where | a pair, one off each face, every `BRACE.faceStep` (**30 mm**) of wall length, at the middle of each share; never off the ends | a long wall is stiff along its line; across it, it is a sheet |
+| reach / rise / flange | the Wall ribs': `footRatio` × height (halved while blocked, ≥ 1.5 mm), **50 %** of the height, `footMin` flange | one rib shape; R50 vs R80 is on the coupon |
+| order | last: after every wall, wedge, fill wall and sway brace | ribs built as walls went in took plate the next walls needed (the fill pass's lesson) |
+| clearance | `sideClear` off the part (only at stations whose floor is the plate) and off every other support below the rib's top, in plan, ~1 mm pieces | no rib fuses two pieces; a 3D box grid was exact but cost 4 s on bigplate Y35, this ~0.2 s |
+| skipped | a wall the fill pass already ribbed (the slim rule) | no doubled ribs |
+
 ## Joined walls and ties (Full coverage) — `web/fins/fill.js`, `web/prop/ties.js`
 
 Not printed yet. A figure's fill walls stood apart, each on its own ("all the fins become

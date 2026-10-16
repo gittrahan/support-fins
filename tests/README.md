@@ -25,6 +25,11 @@ PR, saying why in its body -- the golden diff is how review sees the default mov
 UPDATE_GOLDEN=1 deno test -A tests/golden.test.js
 ```
 
+**`tall.test.js`** -- Brace tall walls (local issue 046, `web/fins/tall.js`): a shelf
+110 mm up gets face ribs and a 60 mm one doesn't, unticked builds triangle-for-triangle
+as without the pass, every rib stands on the plate under the tip taper, none runs into
+another support, and a drawn wall gets them only with `braceTall`.
+
 **`stability.test.js`** -- the same part nudged by 1e-9 rad builds the same supports,
 on 24 scenes (local issue 023: 14 of them used to change -- an end station dropped one
 ulp off surfaceZAt's grid, a part edge in a wall's end-cap plane read as a pierce, a

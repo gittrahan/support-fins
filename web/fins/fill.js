@@ -412,7 +412,7 @@ function boxesOf(a, b, c, fn, depth = 0) {
 /** Every support triangle's box, gridded in plan AND height (a tall wall's boxes stack
  *  ~25 to a plan cell, and Auto's tines more: a plan-only grid made each check walk
  *  them all, ~0.3 s a wall on a 250k-face bust), so "does this new wall touch one" is cheap. */
-export function boxGrid() {
+function boxGrid() {
   const C = 3, CZ = 3, grid = new Map();
   // 13 bits a cell index (+-12 m at 3 mm); a collision past that only adds candidates
   const key = (i, j, k) => ((i + 4096) * 8192 + (j + 4096)) * 8192 + (k + 4096);
