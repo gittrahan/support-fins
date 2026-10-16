@@ -1,6 +1,6 @@
 /**
  * ROWS -- long walls along the model's length, laid before the fill pass's patch
- * lines (fins/fill.js, opts.alignFill). Matthew 2026-10-15: a hand-drawn wall "fits
+ * lines (fins/fill.js, opts.longWalls). Matthew 2026-10-15: a hand-drawn wall "fits
  * along the model so nicely"; the fill pass built a figure a dozen 3-5 mm stubs at
  * five headings, because each line is cut to the stretch under one red patch.
  *

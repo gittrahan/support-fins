@@ -27,6 +27,11 @@
  * its densest red (FILL.local): an upright figure's group is a hem, both arms and
  * the hands at one height, and every line across all that met the first wall.
  *
+ * ROWS FIRST (opts.longWalls, the Long walls box, on unless false): before any of
+ * that, rows of long walls along the model's length (fins/rows.js, fins/field.js), the
+ * way a wall drawn by hand runs -- the patch lines here then take what the rows leave.
+ * Not with the slider under FILL.sparseBelow (one wall per group is its own promise).
+ *
  * THE SLIDER. Wide-face coverage (opts.coverage) sets how much gets added, so
  * there is no wall-count field: below FILL.sparseBelow every group gets at most
  * ONE wall ("something" under every red patch); from there up, walls are added
@@ -68,7 +73,7 @@ export const FILL = {
   maxTries: 120,     // drawnWall calls, kept or not
   groupTries: 12,     // drawnWall calls one group gets before its red is given up on
   maxChecks: 2000,   // line checks (underStretch, then settledStretch; both gridded), built or not
-  fan: 15,           // deg: with opts.alignFill, directions this close to the model's length go first
+  rowsTie: 0.5,      // mm2: Long walls' rows may leave this much more red bare and still be kept
 };
 
 /** The reach the slider asks for: R(0.5) = 6 mm (the held rule), R(1) = denseReach. */
@@ -147,11 +152,8 @@ function groupsOf(pts) {
  * band (+-R across) holds the most red, split where the served red has a gap
  * wider than `bridge` along the line, the heaviest run kept. Each is
  * { a, b, weight, aims } with a, b = [x, y, zHint] and `aims` the indices it serves.
- * `heading` (opts.alignFill; fins/field.js, the model's length here, or null): the
- * directions within FILL.fan of it go first, all of them, and only then the best of
- * the rest -- every patch along the length, unless no line along it builds.
  */
-function candidateLines(pts, group, R, bridge, narrow = false, heading = null) {
+function candidateLines(pts, group, R, bridge, narrow = false) {
   const dirs = [], narrowOut = [];
   for (let d = 0; d < FILL.dirs; d++) {
     const th = (Math.PI * d) / FILL.dirs, ux = Math.cos(th), uy = Math.sin(th);
@@ -166,7 +168,7 @@ function candidateLines(pts, group, R, bridge, narrow = false, heading = null) {
     }
     const line = (off) => lineAt(pts, across, ux, uy, off, R, bridge, axis);
     const c = line(bestAt);
-    if (c) dirs.push({ c, line, bestAt, th });
+    if (c) dirs.push({ c, line, bestAt });
     if (narrow) {
       const N = FILL.narrow; let nb = -1, nAt = 0; w = 0; lo = 0;
       for (let hi = 0; hi < across.length; hi++) {
@@ -175,32 +177,21 @@ function candidateLines(pts, group, R, bridge, narrow = false, heading = null) {
         if (w > nb) { nb = w; nAt = (across[lo][0] + across[hi][0]) / 2; }
       }
       const v = lineAt(pts, across, ux, uy, nAt, N, bridge, axis);
-      if (v) narrowOut.push(Object.assign(v, { th }));
+      if (v) narrowOut.push(v);
     }
   }
   // the best directions, each also SHIFTED across itself: the heaviest band's centre
   // often sits ~5 mm off a wall already built, inside its foot (a tall wall's is 3 mm
   // a side), and a line a few mm over clears it
   dirs.sort((p, q) => q.c.weight - p.c.weight);
-  const ranked = (ds) => {
-    const out = [];
-    for (const { c, line, bestAt } of ds) {
-      out.push(c);
-      for (const s of FILL.shifts) { const v = line(bestAt + s); if (v) out.push(v); }
-    }
-    // all by the red they'd hold (stable: on a tie a direction's own line stays ahead of
-    // its shifts; between directions, the better direction's lines come first)
-    return out.sort((p, q) => q.weight - p.weight);
-  };
-  const byWeight = (ls) => ls.sort((p, q) => q.weight - p.weight);
-  if (heading === null) return ranked(dirs.slice(0, FILL.bestDirs)).concat(byWeight(narrowOut));
-  // tiers by how far off the length: on it, then within FILL.fan, then the best of the rest
-  const off = (d) => { const e = Math.abs(d.th - heading) % Math.PI; return Math.min(e, Math.PI - e); };
-  const on = (d) => off(d) < 1e-6, fan = (d) => !on(d) && off(d) <= FILL.fan * Math.PI / 180 + 1e-9;
-  const rest = (d) => !on(d) && !fan(d);
-  return ranked(dirs.filter(on)).concat(byWeight(narrowOut.filter(on)),
-    ranked(dirs.filter(fan)), byWeight(narrowOut.filter(fan)),
-    ranked(dirs.filter(rest).slice(0, FILL.bestDirs)), byWeight(narrowOut.filter(rest)));
+  const out = [];
+  for (const { c, line, bestAt } of dirs.slice(0, FILL.bestDirs)) {
+    out.push(c);
+    for (const s of FILL.shifts) { const v = line(bestAt + s); if (v) out.push(v); }
+  }
+  // all by the red they'd hold (stable: on a tie a direction's own line stays ahead of
+  // its shifts; between directions, the better direction's lines come first)
+  return out.sort((p, q) => q.weight - p.weight).concat(narrowOut.sort((p, q) => q.weight - p.weight));
 }
 
 /** One candidate: the line along (ux, uy) at across-offset `off`, over the red within
@@ -568,8 +559,26 @@ function tieFill(props, floors, triangles, tris, others) {
  * The fill pass. `built` is Auto's result (fins with their contact lines, and
  * every support triangle in `triangles`). Returns the added walls:
  * { triangles, props, tines, unserved: { area, pts }, stats }.
+ *
+ * With Long walls (opts.longWalls, on unless false) it is built twice, with the rows
+ * and without, and the rows are kept only if they leave no more red bare than the
+ * patch lines alone: rows laid first can take the room a patch line needed (a wedge
+ * at X40: 17 -> 47 mm2 bare), and every red face must get something. A tie keeps
+ * the rows -- the walls a hand would draw. `stats.rowsLost` says when they lost.
  */
 export function fillCoverage(topo, result, rot, opts, built) {
+  if (opts.longWalls === false) return fillOnce(topo, result, rot, opts, built);
+  const plain = fillOnce(topo, result, rot, { ...opts, longWalls: false }, built);
+  if (!(plain.unserved.area > 0)) return plain;    // nothing left for rows to win
+  const rows = fillOnce(topo, result, rot, opts, built);
+  if (!rows.stats.rows || rows.unserved.area > plain.unserved.area + FILL.rowsTie) {
+    plain.stats.rowsLost = rows.stats.rows ? rows.unserved.area - plain.unserved.area : 0;
+    return plain;
+  }
+  return rows;
+}
+
+function fillOnce(topo, result, rot, opts, built) {
   const coverage = Math.max(0, Math.min(1, opts.coverage ?? 0.5));
   const R = fillReach(coverage);
   const oneEach = coverage < FILL.sparseBelow;
@@ -583,14 +592,8 @@ export function fillCoverage(topo, result, rot, opts, built) {
   if (!pts.length) return { triangles, props, tines: 0, unserved: { area: 0, pts: [] }, stats };
 
   const tris = seatedPartTris(topo, rot, result.offset);
-  // the model's length (opts.alignFill): each group's lines go along it first
-  const field = opts.alignFill ? headingField(topo, result, rot) : null;
-  const headingOf = (live, g) => {
-    if (!field) return null;
-    let w = 0, x = 0, y = 0;
-    for (const i of g) { const p = live[i]; w += p[3]; x += p[0] * p[3]; y += p[1] * p[3]; }
-    return w > 0 ? field(x / w, y / w) : null;
-  };
+  // the model's length (opts.longWalls, on unless false: the Long walls box), for the rows
+  const field = opts.longWalls !== false ? headingField(topo, result, rot) : null;
   const others = boxGrid();
   others.add(built.triangles ?? []);
   // Plate only (#218): no wall on the part -- never the retry that stands one there,
@@ -684,7 +687,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
     };
     if (!local) {
       for (const bridge of [FILL.bridge, 2 * FILL.sample]) {
-        const r = tryLines(candidateLines(live, g, R, bridge, false, headingOf(live, g)));
+        const r = tryLines(candidateLines(live, g, R, bridge));
         if (r !== null) return r;
       }
       return aims ?? g;
@@ -699,7 +702,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
       partOk = !plateOnly;
       flangeOk = joinOk = true;
       // (one bridge: a patch is at most 2 x FILL.local across)
-      const r = tryLines(candidateLines(live, sub, R, FILL.bridge, true, headingOf(live, sub)));
+      const r = tryLines(candidateLines(live, sub, R, FILL.bridge, true));
       if (r === true || r === CAP) return r;
       for (const i of sub) dead.add(live[i]);
       const gone = new Set(sub);
@@ -724,7 +727,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
       }
     }
   } else {
-    // ROWS first (opts.alignFill): long walls along the model's length (fins/rows.js);
+    // ROWS first (opts.longWalls): long walls along the model's length (fins/rows.js);
     // the patch lines below take what they leave
     if (field) {
       const live = pts.filter(bare);

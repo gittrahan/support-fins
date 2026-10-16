@@ -190,7 +190,7 @@ function withFill(topo, result, rot, opts, auto) {
     tines: (auto.tines ?? 0) + f.tines,
     braceCount: (auto.braceCount ?? 0) + (withTines ? fins.length : 0),
     propCount: (auto.propCount ?? 0) + (withTines ? 0 : fins.length),
-    fill: { walls: f.stats.walls, joined: f.stats.joined ?? 0, ribs: f.stats.ribs, ties: f.stats.ties, tries: f.stats.tries, checks: f.stats.checks, capped: f.stats.capped, refused: f.stats.refused,
+    fill: { walls: f.stats.walls, rows: f.stats.rows ?? 0, joined: f.stats.joined ?? 0, ribs: f.stats.ribs, ties: f.stats.ties, tries: f.stats.tries, checks: f.stats.checks, capped: f.stats.capped, refused: f.stats.refused,
             bareBefore: f.stats.startArea, unservedArea: f.unserved.area, unservedPts: f.unserved.pts },
   };
 }

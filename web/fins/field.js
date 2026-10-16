@@ -1,6 +1,6 @@
 /**
  * The model's LENGTH in plan, as a heading field for the Full coverage fill pass
- * (fins/fill.js, opts.alignFill). Matthew 2026-10-15: a hand-drawn wall "fits along
+ * (fins/fill.js, opts.longWalls). Matthew 2026-10-15: a hand-drawn wall "fits along
  * the model so nicely" because it runs the model's length; the fill pass picked each
  * red patch's best line on its own, so an upright figure got a dozen 3 mm stubs at
  * five headings. With the field, every patch tries lines along the length first.
