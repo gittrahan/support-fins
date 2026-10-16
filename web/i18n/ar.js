@@ -382,4 +382,8 @@ export default {
   "Where supports go": "أين توضع الدعامات",
   "Search settings": "ابحث في الإعدادات",
   "No settings match": "لا توجد إعدادات مطابقة",
+  "Something went wrong on this page. Click for the details.": "حدث خطأ في هذه الصفحة. انقر لعرض التفاصيل.",
+  "Something went wrong on this page.": "حدث خطأ في هذه الصفحة.",
+  "A screenshot of this helps a bug report.": "لقطة شاشة لهذا تساعد في الإبلاغ عن الخطأ.",
+  "Copy": "نسخ",
 };

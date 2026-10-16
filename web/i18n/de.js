@@ -388,4 +388,8 @@ export default {
   "Where supports go": "Wo Stützen stehen",
   "Search settings": "Einstellungen suchen",
   "No settings match": "Keine passende Einstellung",
+  "Something went wrong on this page. Click for the details.": "Auf dieser Seite ist ein Fehler aufgetreten. Klicken Sie für Details.",
+  "Something went wrong on this page.": "Auf dieser Seite ist ein Fehler aufgetreten.",
+  "A screenshot of this helps a bug report.": "Ein Screenshot davon hilft bei einer Fehlermeldung.",
+  "Copy": "Kopieren",
 };

@@ -8,6 +8,52 @@
 <link rel="icon" href="favicon-32.png" sizes="32x32" type="image/png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="stylesheet" href="style.css">
+<script>
+// Error badge (#err-wrap in the top bar). A classic inline script, so it is
+// listening before any module runs and still works when app.js never loads.
+// Only this site's own errors count: a blocked analytics beacon or an extension's
+// script ("Script error." from another origin) is not the page breaking.
+(function () {
+  var errs = [];
+  function show() {
+    var wrap = document.getElementById('err-wrap');
+    if (!wrap) return;
+    document.getElementById('err-list').textContent = errs.join('\n\n') + '\n\n' + navigator.userAgent;
+    wrap.hidden = false;
+  }
+  window.__sfError = function (msg) {
+    if (errs.length >= 5 || errs.indexOf(msg) >= 0) return;
+    errs.push(msg);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show);
+    else show();
+  };
+  var own = function (file) { return !file || file.indexOf(location.origin) === 0; };
+  window.addEventListener('error', function (e) {
+    if (!e.message || e.message === 'Script error.' || !own(e.filename)) return;
+    if (/^ResizeObserver loop/.test(e.message)) return;   // a benign browser notice
+    var where = e.filename ? ' (' + e.filename.replace(location.origin + '/', '') + ':' + e.lineno + ')' : '';
+    __sfError(e.message + where);
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e.reason;
+    __sfError('Unhandled: ' + (r && r.stack ? String(r.stack).split('\n').slice(0, 3).join('\n') : String(r)));
+  });
+  document.addEventListener('click', function (e) {
+    var btn = document.getElementById('err-btn'), panel = document.getElementById('err-panel');
+    if (!btn || !panel) return;
+    if (e.target === btn) {
+      panel.hidden = !panel.hidden;
+      btn.setAttribute('aria-expanded', String(!panel.hidden));
+    } else if (e.target.id === 'err-copy') {
+      var text = document.getElementById('err-list').textContent;
+      if (navigator.clipboard) navigator.clipboard.writeText(text).catch(function () {});
+    } else if (!panel.hidden && !panel.contains(e.target)) {
+      panel.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    }
+  });
+})();
+</script>
 <script type="importmap">
 {
   "imports": {
@@ -107,6 +153,21 @@
      aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span class="lbl">&nbsp;GitHub</span></a>
   <a class="btn kofi" href="https://ko-fi.com/matthewtrahan" target="_blank" rel="noopener" aria-label="Ko-fi"
      data-i18n-title title="Support Fins is free and open source — buy me a coffee on Ko-fi.">☕<span class="lbl">&nbsp;Ko-fi</span></a>
+  <!-- Error badge: hidden until the page hits an error (the inline script in <head>
+       collects them), so a "nothing works" report -- a phone browser blocking a
+       script (#237) -- comes with the message in a screenshot. Plain markup, not
+       built by app.js: it has to show when app.js itself never ran. -->
+  <span class="menu-wrap" id="err-wrap" hidden>
+    <button class="btn err-badge" id="err-btn" aria-haspopup="dialog" aria-expanded="false"
+            aria-controls="err-panel" data-i18n-title title="Something went wrong on this page. Click for the details."
+            aria-label="Page error">!</button>
+    <div class="menu err-panel" id="err-panel" role="dialog" aria-label="Page errors" hidden>
+      <p class="err-head" data-i18n="Something went wrong on this page.">Something went wrong on this page.</p>
+      <pre id="err-list"></pre>
+      <p class="err-foot"><span data-i18n="A screenshot of this helps a bug report.">A screenshot of this helps a bug report.</span>
+        <button class="btn sm" id="err-copy" data-i18n="Copy">Copy</button></p>
+    </div>
+  </span>
 </header>
 
 <!-- The left rail holds only the stats card now; the pose and view tools that
@@ -575,6 +636,8 @@
   </div>
 </div>
 
-<script type="module" src="./app.js"></script>
+<!-- onerror: a module that fails to LOAD (blocked, offline, 404) fires here, not on
+     window -- the import graph fails as a whole and says nothing else -->
+<script type="module" src="./app.js" onerror="window.__sfError && __sfError('A script did not load (blocked by the browser or an extension, or offline). Nothing on the page will work.')"></script>
 </body>
 </html>

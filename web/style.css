@@ -905,6 +905,16 @@ html, body {
 /* ---------- Ko-fi support link ---------- */
 /* Warm accent so the support link reads apart from the blue tool controls,
    without shouting — the tool is the gift, this is a soft "thanks" ask. */
+/* Error badge: a red "!" at the end of the top bar, shown only after an error
+   (the inline script in index.html). Its panel drops like the other menus. */
+.btn.err-badge { border-color: #ff4d4d; color: #fff; background: #c62828; font-weight: 700; min-width: 32px; }
+.btn.err-badge:hover { background: #ff4d4d; border-color: #ff4d4d; color: #fff; }
+.err-panel { width: min(360px, calc(100vw - 32px)); padding: 10px 12px; gap: 8px; }
+.err-panel .err-head { margin: 0; font-weight: 600; }
+.err-panel pre { margin: 0; max-height: 40vh; overflow: auto; white-space: pre-wrap; word-break: break-word;
+                 font-size: 11px; color: var(--dim); }
+.err-panel .err-foot { margin: 0; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+                       font-size: 12px; color: var(--dim); }
 .btn.gh { display: inline-flex; align-items: center; text-decoration: none; }
 .btn.gh svg { flex: none; }
 .btn.kofi { border-color: #ff8a5b; color: #ffb492; text-decoration: none; }

@@ -441,4 +441,8 @@ export default {
   "Where supports go": "Onde ficam os suportes",
   "Search settings": "Pesquisar configurações",
   "No settings match": "Nenhuma configuração encontrada",
+  "Something went wrong on this page. Click for the details.": "Algo deu errado nesta página. Clique para ver os detalhes.",
+  "Something went wrong on this page.": "Algo deu errado nesta página.",
+  "A screenshot of this helps a bug report.": "Uma captura de tela disto ajuda num relato de erro.",
+  "Copy": "Copiar",
 };
