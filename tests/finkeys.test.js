@@ -2,7 +2,8 @@
 // moves it a little. The key used to be matched exactly and held the wall top's z
 // and height, both measured below the part by the support gap, so a gap change
 // re-keyed every fin and every removed fin came back. Pinned here:
-//   - a gap change 0.2 -> 0.3 keeps every removal (exact keys kept none);
+//   - a gap change 0.2 -> 0.3 keeps the removals (exact keys kept none);
+//   - when the removed fin is gone, its key does NOT hide a neighbour;
 //   - a key matches its own fin, and nothing in another pose;
 //   - two walls stacked at one x/y stay two fins; a reversed line is the same fin;
 //   - an older session's key (taken at the middle VERTEX) still matches.
@@ -17,6 +18,10 @@ const records = (topo, res, rot, gap) => assignKeys(
   buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tunables: { propGap: gap } })
     .fins.map((f) => ({ ...f })).filter((f) => f.line?.length));
 
+// torus: one of its eight walls grows 0.9 mm taller at gap 0.3 (its mirror twin
+// doesn't) -- past the height tolerance, so that removal comes back. The safe
+// way to miss: a fin returning beats a kept fin silently hidden.
+const MISSES = { torus: 1 };
 for (const name of ['lowledge', 'tshape', 'torus']) {
   Deno.test(`fin keys: ${name} X30 -- removals hold across a gap change, and stay in their pose`, () => {
     const topo = loadModel(name), rot = rotX(30), res = analyze(topo, 45, rot);
@@ -25,7 +30,7 @@ for (const name of ['lowledge', 'tshape', 'torus']) {
     const keys = new Set(A.map((r) => r.sig));
     assert(B.filter((r) => keys.has(r.sig)).length < A.length, `${name}: exact keys already survive -- not the 045 case`);
     const m = matchRemoved(B, keys);
-    assert(m.size === A.length, `${name}: ${m.size}/${A.length} removals kept at gap 0.3`);
+    assert(m.size === A.length - (MISSES[name] ?? 0), `${name}: ${m.size}/${A.length} removals kept at gap 0.3`);
     const self = matchRemoved(A, keys);
     assert(A.every((r) => self.get(r.id) === r.sig), `${name}: a key matched another fin of its own build`);
     const up = rotX(0), other = records(topo, analyze(topo, 45, up), up, 0.2);
@@ -44,6 +49,25 @@ Deno.test('fin keys: stacked walls at one x/y stay two fins; a reversed line is 
   assert(matchRemoved(flipped, new Set([a.sig])).get(5) === a.sig, 'a wall run the other way lost its removal');
   const turned = assignKeys([rec(6, [[5, -5, 10], [5, 5, 10]])]);
   assert(matchRemoved(turned, new Set([a.sig])).size === 0, 'a crossing wall took the removal');
+});
+
+Deno.test("fin keys: a #n twin's removal hides that twin, not its first copy", () => {
+  // one midpoint, bearing and height, different lengths: one key text, then `#1`
+  const twins = assignKeys([rec(0, [[0, 0, 5], [4, 0, 5]]), rec(1, [[-1, 0, 5], [5, 0, 5]])]);
+  assert(twins[1].sig === `${twins[0].sig}#1`, `twins keyed ${twins.map((r) => r.sig)}`);
+  const m = matchRemoved(twins, new Set([twins[1].sig]));
+  assert(m.size === 1 && m.get(1) === twins[1].sig, `the #1 removal matched ${JSON.stringify([...m])}`);
+});
+
+Deno.test('fin keys: a removed fin gone from the rebuild hides no neighbour', () => {
+  // Full coverage's short fill walls side by side, 0.5 mm apart: remove one, then
+  // a rebuild without it -- the other must stay
+  const a = rec(0, [[0, 0, 10], [2.5, 0, 10]], 3), b = rec(1, [[0, 0.5, 10], [2.5, 0.5, 10]], 3.4);
+  const [ka] = assignKeys([a, { ...b }]);
+  assert(matchRemoved(assignKeys([b]), new Set([ka.sig])).size === 0, 'a side-by-side neighbour took the removal');
+  // end to end along one line, 1.8 mm on, a mm higher
+  const c = rec(2, [[1.8, 0, 11], [4.3, 0, 11]], 4);
+  assert(matchRemoved(assignKeys([c]), new Set([ka.sig])).size === 0, 'an end-to-end neighbour took the removal');
 });
 
 Deno.test('fin keys: one key per fin, repeats and suffixes parse', () => {
