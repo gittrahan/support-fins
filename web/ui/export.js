@@ -6,7 +6,7 @@ import { writeThreeMF } from '../threemf.js';
 import { splitInterface } from '../prop.js';
 import { el } from './dom.js';
 import { part, topology, lastResult, rotM3, partName } from './part.js';
-import { activeAdded } from './finbuild.js';
+import { activeAdded, buildPending } from './finbuild.js';
 import { sessionOf } from './session.js';
 import { exportName } from '../exportname.js';
 import { nozzle } from '../nozzle.js';
@@ -97,8 +97,9 @@ function setOpen(open) {
   menu.hidden = !open;
   btn.setAttribute('aria-expanded', String(open));
   if (open) {
-    // nothing to write until a part is loaded; no fins-only file without fins
-    const ready = !!(part && topology && lastResult);
+    // nothing to write until a part is loaded; no fins-only file without fins; and
+    // nothing while a rebuild is out -- the old fins under the new settings' name
+    const ready = !!(part && topology && lastResult) && !buildPending();
     el('export-stl').disabled = el('export-3mf').disabled = !ready;
     el('export-fins').disabled = !ready || activeAdded().length === 0;
     menu.querySelector('button:not(:disabled)')?.focus();

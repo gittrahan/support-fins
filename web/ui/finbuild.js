@@ -81,6 +81,9 @@ let finT0 = 0;               // start time of the in-flight build, for the reado
 let lastOpts = null;
 let finSpinnerTimer = null;  // shows the spinner only if a build runs past ~1s
 let finBusy = false;         // a worker build is outstanding (used to supersede it)
+/** A worker build is outstanding: the fins on screen are the last settings', not
+ *  the current ones -- Export waits, so a file never carries the wrong ones (#279). */
+export const buildPending = () => finBusy;
 
 // Reveal the spinner only for builds that actually run long, so a sub-second
 // rebuild never flashes it. Cleared the moment the build lands (applyBuilt).
