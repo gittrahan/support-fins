@@ -259,6 +259,44 @@ export function perpColumns(p, lo, hi, pitch) {
 }
 
 /**
+ * The longest run of contact stations whose blade column stands clear of the part.
+ *
+ * A wedge drops straight from the face it holds to the bed, so any of the part
+ * under that face is in its way: a channel stood at 45deg (GH #254) got a wedge under
+ * its upper plate that ran straight through the lower one -- fused into the part,
+ * impossible to break away. A station is clear when nothing of the part faces UP
+ * below the blade's top, at its centre and just inside both edges, and the gap
+ * either way along the run: the face the wedge holds faces down, so an up-facing
+ * surface under it is other material. The part's own bottom on the bed faces down
+ * and doesn't count. Not past the edges, and not between the top and the contact:
+ * there a steep side wall beside the blade (ssdMounts X45), a slot the blade stands
+ * in (bridge Y45) or the face meeting the contact's end (needle X45) reads as
+ * up-facing and dropped wedges standing clear of the part.
+ */
+function clearRun(contact, uDir, half, partTris) {
+  const n = contact.length, e = half - 0.05;
+  const clear = contact.map((w, i) => {
+    const nb = contact[i + 1 < n ? i + 1 : i - 1];
+    const d = Math.hypot(nb[0] - w[0], nb[1] - w[1]) || 1;
+    const rx = (nb[0] - w[0]) / d, ry = (nb[1] - w[1]) / d;    // along the run
+    for (const a of [-PERP.gap, 0, PERP.gap]) {
+      for (const s of [-e, 0, e]) {
+        const x = w[0] + rx * a + uDir.x * s, y = w[1] + ry * a + uDir.y * s;
+        for (const [z, nz] of surfaceHitsAt(partTris, x, y)) if (nz > 0 && z < w[2] - PERP.gap) return false;
+      }
+    }
+    return true;
+  });
+  let best = [0, -1];
+  for (let i = 0, s = -1; i <= n; i++) {
+    if (i < n && clear[i]) { if (s < 0) s = i; continue; }
+    if (s >= 0 && i - 1 - s > best[1] - best[0]) best = [s, i - 1];
+    s = -1;
+  }
+  return contact.slice(best[0], best[1] + 1);
+}
+
+/**
  * Tile perpendicular wedges across one down-facing patch. Returns
  * { triangles, tines, count }.
  */
@@ -275,7 +313,7 @@ export function buildPerpFins(p, topo, rot, offset, opts = {}) {
 
   for (const uc of perpColumns(p, lo, hi, opts.pitch ?? PERP.pitch)) {
     // contact profile up the face at this u (stop at the first hole after starting)
-    const contact = [];
+    let contact = [];
     const nT = Math.max(2, Math.ceil((p.t1 - p.t0) / PERP.tStep));
     for (let i = 0; i <= nT; i++) {
       const t = p.t0 + ((p.t1 - p.t0) * i) / nT;
@@ -297,6 +335,9 @@ export function buildPerpFins(p, topo, rot, offset, opts = {}) {
       }
       if (w[2] > 0.3) contact.push(w);
     }
+    if (contact.length < 2) continue;
+    partTris ??= seatedPartTris(topo, rot, offset);
+    contact = clearRun(contact, uDir, half, partTris);
     if (contact.length < 2) continue;
     const top = contact.map((w) => [w[0], w[1], w[2] - PERP.gap]);
     if (Math.max(...top.map((q) => q[2])) < PERP.minH) continue;

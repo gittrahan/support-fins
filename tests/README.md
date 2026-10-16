@@ -60,6 +60,11 @@ and the key edge cases (-0, half-micron rounding, NaN, huge coordinates, duplica
 - no `bore` skip reason: a refusal is counted as `stub` / `blocked` / `buried`
   (the old `bore` count was mostly short runs, e.g. artichoke X30's 54).
 
+**`wedge_clear.test.js`** -- a wedge never runs through the part under the face it
+holds (GH #254: a channel at 45deg got a wedge under its upper plate straight through
+the lower one, impossible to remove). A U-channel at X±45; points sampled across each
+blade triangle, since a blade through a plate has no vertex inside it.
+
 **`raster.test.js`** -- raster placement (`web/prop/raster.js`), raced per region:
 - a curved underside the tube route left bare (flat torus at X30: 4%) gets **held**;
 - a swap **never raises the lowest tine** (the part's base grip) past 0.1 mm and
