@@ -402,13 +402,17 @@ function boxesOf(a, b, c, fn, depth = 0) {
   boxesOf(m, b, c, fn, depth + 1);
 }
 
-/** Every support triangle's box, gridded in plan, so "does this new wall touch one" is cheap. */
+/** Every support triangle's box, gridded in plan AND height (a tall wall's boxes stack
+ *  ~25 to a plan cell, and Auto's tines more: a plan-only grid made each check walk
+ *  them all, ~0.3 s a wall on a 250k-face bust), so "does this new wall touch one" is cheap. */
 function boxGrid() {
-  const C = 5, grid = new Map();
-  const key = (i, j) => i * 100003 + j;
+  const C = 3, CZ = 3, grid = new Map();
+  const key = (i, j, k) => ((i + 4096) * 8192 + (j + 4096)) * 8192 + (k + 4096);
   const cellsOf = (b, pad, fn) => {
     for (let i = Math.floor((b[0] - pad) / C); i <= Math.floor((b[3] + pad) / C); i++) {
-      for (let j = Math.floor((b[1] - pad) / C); j <= Math.floor((b[4] + pad) / C); j++) fn(key(i, j));
+      for (let j = Math.floor((b[1] - pad) / C); j <= Math.floor((b[4] + pad) / C); j++) {
+        for (let k = Math.floor((b[2] - pad) / CZ); k <= Math.floor((b[5] + pad) / CZ); k++) fn(key(i, j, k));
+      }
     }
   };
   return {
