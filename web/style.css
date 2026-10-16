@@ -457,7 +457,8 @@ html, body {
 }
 #fin-opts select,
 .vb-pop .nav-pick select,
-#fin-opts input[type=number] {
+#fin-opts input[type=number],
+#fin-opts input[type=search] {
   padding: 4px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
@@ -544,6 +545,13 @@ html, body {
 #fin-opts .printer > summary:hover .printer-edit { color: var(--accent); }
 #fin-opts .printer:not([open]) .when-open, #fin-opts .printer[open] .when-shut { display: none; }
 #fin-opts .printer[open] > :not(summary) { padding-inline-start: 22px; }
+/* Settings search (ui/search.js): while a query is in, only matching rows show, and
+   only the sections and groups that hold one. A section's own header stays as context. */
+#fin-opts .opts-search input { width: 100%; box-sizing: border-box; }
+#fin-opts .opts-search p { margin: 6px 0 0; font-size: 12px; }
+#fin-opts.searching :is(.fld, label.check, button.btn:not([data-mode])):not(.hit):not(summary *):not(.fld *),
+#fin-opts.searching .nohit { display: none !important; }   /* over .more .group's flex */
+#fin-opts.searching .hit:not(summary *) { box-shadow: -10px 0 0 -6px var(--accent); }
 /* More settings (local issue 42): headed groups that don't fold, a count of the
    changed settings on the line (shown open or shut), and a dot by each changed one. */
 #fin-opts .more[open] > summary > .more-count, #fin-opts .more > summary > .more-count { visibility: visible; color: var(--accent); }

@@ -142,6 +142,13 @@
      a second row on narrower screens: the act of turning fins on moved every
      other control out from under the pointer. -->
 <aside id="fin-opts" hidden>
+  <!-- Settings search (local issue 42, ui/search.js): narrows the panel to the
+       settings whose name matches, opening the sections they're folded in. -->
+  <div class="opts-search">
+    <input type="search" id="opts-search" autocomplete="off" spellcheck="false"
+           placeholder="Search settings" data-i18n-placeholder aria-label="Search settings">
+    <p class="mut" id="opts-search-empty" hidden></p>
+  </div>
   <!-- Grouped into collapsible sections (issue #41): the flat list ran past the
        bottom of a laptop screen and every feature lengthened it. Each section is a
        plain <details>; ui/settings.js remembers which are open (localStorage, optional) and
@@ -276,11 +283,11 @@
          Shown only in Suggest mode (toggled in ui/settings.js). Per-fin removal (Auto only,
          shown via ui/remove.js syncRemoveUI): arm a click-to-remove mode, hover lights a
          fin red, click drops just that one; Restore all brings every one back. -->
-    <button data-i18n-title class="btn sm" id="augment-toggle" hidden
+    <button data-i18n-title class="btn sm" id="augment-toggle" hidden data-search="Add walls by hand"
             data-i18n-title title="Place extra breakaway walls by hand, on top of the auto-placed ones.">+ Add walls by hand</button>
     <div id="remove-fins-controls" hidden>
       <div class="draw-btns">
-        <button class="btn sm" id="remove-fins-toggle" hidden
+        <button class="btn sm" id="remove-fins-toggle" hidden data-search="Remove fins"
                 data-i18n-title title="Click a fin to remove just that one. Esc or right-click cancels."><span data-i18n="Remove fins">Remove fins</span></button>
         <button class="btn sm" id="restore-fins" hidden
                 title="Bring back every fin removed in this orientation."><span data-i18n="Restore all">Restore all</span></button>

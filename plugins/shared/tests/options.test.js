@@ -42,7 +42,7 @@ const SITE_EXCLUDED = {
   'vx': 'site build-volume preview', 'vy': 'site build-volume preview', 'vz': 'site build-volume preview',
   'plugins-computer': 'picks which plugin download to offer',
   'show-layers': 'site display', 'highlight-small': 'site display', 'show-rings': 'site display',
-  'nav-preset': 'site mouse navigation',
+  'nav-preset': 'site mouse navigation', 'opts-search': 'site settings search',
   'fin-mode': 'plugins run Auto; Draw needs the site\'s canvas',
   'pad-h': 'Custom pad', 'pad-gap': 'Custom pad', 'pad-grip': 'Custom pad', 'pad-margin': 'Custom pad',
   'iface': 'a third 3MF object for a second material; the plugins hand the host one body',

@@ -434,4 +434,6 @@ export default {
   "Hold the part": "Segurar a peça",
   "Tall parts": "Peças altas",
   "Where supports go": "Onde ficam os suportes",
+  "Search settings": "Pesquisar configurações",
+  "No settings match": "Nenhuma configuração encontrada",
 };

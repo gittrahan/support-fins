@@ -156,6 +156,13 @@ export function updateDomTranslations() {
     }
   });
 
+  document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => {
+    const orig = (node.dataset.origPlaceholder ??= node.getAttribute('placeholder') || '');
+    const tr = currentLang === 'en' ? orig : t(orig);
+    node.setAttribute('placeholder', tr || orig);
+    node.setAttribute('aria-label', tr || orig);
+  });
+
   document.querySelectorAll('select').forEach((sel) => {
     const val = sel.value;
     sel.value = val;

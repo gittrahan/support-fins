@@ -375,4 +375,6 @@ export default {
   "Hold the part": "تثبيت القطعة",
   "Tall parts": "القطع الطويلة",
   "Where supports go": "أين توضع الدعامات",
+  "Search settings": "ابحث في الإعدادات",
+  "No settings match": "لا توجد إعدادات مطابقة",
 };

@@ -381,4 +381,6 @@ export default {
   "Hold the part": "Bauteil halten",
   "Tall parts": "Hohe Bauteile",
   "Where supports go": "Wo Stützen stehen",
+  "Search settings": "Einstellungen suchen",
+  "No settings match": "Keine passende Einstellung",
 };

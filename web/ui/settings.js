@@ -304,6 +304,7 @@ function loadSectionState() {
   for (const d of document.querySelectorAll('#fin-opts details.sec')) {
     if (d.dataset.sec in saved) d.open = !!saved[d.dataset.sec];
     d.addEventListener('toggle', () => {
+      if (el('fin-opts').classList.contains('searching')) return;   // opened by a search (search.js)
       const state = loadSectionState();
       state[d.dataset.sec] = d.open;
       try { localStorage.setItem(SEC_KEY, JSON.stringify(state)); } catch { /* storage off */ }
