@@ -45,6 +45,7 @@ import { drawnLine, drawnWall, DRAW_MIN_LEN } from '../draw.js';
 import { BRACE, braceWall, footFor, PART_BAND, PROP, surfaceHitsAt, TIE, tieWalls } from '../prop.js';
 import { classify, reachOf, PLATE_Z, MUST } from './coverage.js';
 import { seatedPartTris } from './seating.js';
+import { headingField } from './field.js';
 
 export const FILL = {
   sample: 1.0,       // mm: leftover red is merged into points this far apart
@@ -66,6 +67,7 @@ export const FILL = {
   maxTries: 120,     // drawnWall calls, kept or not
   groupTries: 12,     // drawnWall calls one group gets before its red is given up on
   maxChecks: 2000,   // line checks (underStretch, then settledStretch; both gridded), built or not
+  fan: 15,           // deg: with opts.alignFill, directions this close to the model's length go first
 };
 
 /** The reach the slider asks for: R(0.5) = 6 mm (the held rule), R(1) = denseReach. */
@@ -144,8 +146,11 @@ function groupsOf(pts) {
  * band (+-R across) holds the most red, split where the served red has a gap
  * wider than `bridge` along the line, the heaviest run kept. Each is
  * { a, b, weight, aims } with a, b = [x, y, zHint] and `aims` the indices it serves.
+ * `heading` (opts.alignFill; fins/field.js, the model's length here, or null): the
+ * directions within FILL.fan of it go first, all of them, and only then the best of
+ * the rest -- every patch along the length, unless no line along it builds.
  */
-function candidateLines(pts, group, R, bridge, narrow = false) {
+function candidateLines(pts, group, R, bridge, narrow = false, heading = null) {
   const dirs = [], narrowOut = [];
   for (let d = 0; d < FILL.dirs; d++) {
     const th = (Math.PI * d) / FILL.dirs, ux = Math.cos(th), uy = Math.sin(th);
@@ -160,7 +165,7 @@ function candidateLines(pts, group, R, bridge, narrow = false) {
     }
     const line = (off) => lineAt(pts, across, ux, uy, off, R, bridge, axis);
     const c = line(bestAt);
-    if (c) dirs.push({ c, line, bestAt });
+    if (c) dirs.push({ c, line, bestAt, th });
     if (narrow) {
       const N = FILL.narrow; let nb = -1, nAt = 0; w = 0; lo = 0;
       for (let hi = 0; hi < across.length; hi++) {
@@ -169,21 +174,32 @@ function candidateLines(pts, group, R, bridge, narrow = false) {
         if (w > nb) { nb = w; nAt = (across[lo][0] + across[hi][0]) / 2; }
       }
       const v = lineAt(pts, across, ux, uy, nAt, N, bridge, axis);
-      if (v) narrowOut.push(v);
+      if (v) narrowOut.push(Object.assign(v, { th }));
     }
   }
   // the best directions, each also SHIFTED across itself: the heaviest band's centre
   // often sits ~5 mm off a wall already built, inside its foot (a tall wall's is 3 mm
   // a side), and a line a few mm over clears it
   dirs.sort((p, q) => q.c.weight - p.c.weight);
-  const out = [];
-  for (const { c, line, bestAt } of dirs.slice(0, FILL.bestDirs)) {
-    out.push(c);
-    for (const s of FILL.shifts) { const v = line(bestAt + s); if (v) out.push(v); }
-  }
-  // all by the red they'd hold (stable: on a tie a direction's own line stays ahead of
-  // its shifts; between directions, the better direction's lines come first)
-  return out.sort((p, q) => q.weight - p.weight).concat(narrowOut.sort((p, q) => q.weight - p.weight));
+  const ranked = (ds) => {
+    const out = [];
+    for (const { c, line, bestAt } of ds) {
+      out.push(c);
+      for (const s of FILL.shifts) { const v = line(bestAt + s); if (v) out.push(v); }
+    }
+    // all by the red they'd hold (stable: on a tie a direction's own line stays ahead of
+    // its shifts; between directions, the better direction's lines come first)
+    return out.sort((p, q) => q.weight - p.weight);
+  };
+  const byWeight = (ls) => ls.sort((p, q) => q.weight - p.weight);
+  if (heading === null) return ranked(dirs.slice(0, FILL.bestDirs)).concat(byWeight(narrowOut));
+  // tiers by how far off the length: on it, then within FILL.fan, then the best of the rest
+  const off = (d) => { const e = Math.abs(d.th - heading) % Math.PI; return Math.min(e, Math.PI - e); };
+  const on = (d) => off(d) < 1e-6, fan = (d) => !on(d) && off(d) <= FILL.fan * Math.PI / 180 + 1e-9;
+  const rest = (d) => !on(d) && !fan(d);
+  return ranked(dirs.filter(on)).concat(byWeight(narrowOut.filter(on)),
+    ranked(dirs.filter(fan)), byWeight(narrowOut.filter(fan)),
+    ranked(dirs.filter(rest).slice(0, FILL.bestDirs)), byWeight(narrowOut.filter(rest)));
 }
 
 /** One candidate: the line along (ux, uy) at across-offset `off`, over the red within
@@ -566,6 +582,14 @@ export function fillCoverage(topo, result, rot, opts, built) {
   if (!pts.length) return { triangles, props, tines: 0, unserved: { area: 0, pts: [] }, stats };
 
   const tris = seatedPartTris(topo, rot, result.offset);
+  // the model's length (opts.alignFill): each group's lines go along it first
+  const field = opts.alignFill ? headingField(topo, result, rot) : null;
+  const headingOf = (live, g) => {
+    if (!field) return null;
+    let w = 0, x = 0, y = 0;
+    for (const i of g) { const p = live[i]; w += p[3]; x += p[0] * p[3]; y += p[1] * p[3]; }
+    return w > 0 ? field(x / w, y / w) : null;
+  };
   const others = boxGrid();
   others.add(built.triangles ?? []);
   // Plate only (#218): no wall on the part -- never the retry that stands one there,
@@ -655,7 +679,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
     };
     if (!local) {
       for (const bridge of [FILL.bridge, 2 * FILL.sample]) {
-        const r = tryLines(candidateLines(live, g, R, bridge));
+        const r = tryLines(candidateLines(live, g, R, bridge, false, headingOf(live, g)));
         if (r !== null) return r;
       }
       return aims ?? g;
@@ -670,7 +694,7 @@ export function fillCoverage(topo, result, rot, opts, built) {
       partOk = !plateOnly;
       flangeOk = joinOk = true;
       // (one bridge: a patch is at most 2 x FILL.local across)
-      const r = tryLines(candidateLines(live, sub, R, FILL.bridge, true));
+      const r = tryLines(candidateLines(live, sub, R, FILL.bridge, true, headingOf(live, sub)));
       if (r === true || r === CAP) return r;
       for (const i of sub) dead.add(live[i]);
       const gone = new Set(sub);
