@@ -313,13 +313,20 @@ el('highlight-small').addEventListener('change', (e) => {
 /** Refill each section's collapsed recap from the controls' current values. */
 export function syncSectionSums() {
   const sel = (id) => el(id).selectedOptions[0]?.textContent.split(' —')[0] ?? '';
-  el('sum-setup').textContent = `${el('nozzle').value} mm · ${sel('fin-mode')}`;
+  // The printer line names only what the build reads: layer height drops out
+  // while it's hidden (tines off, a pad that doesn't read it).
+  el('sum-printer').textContent = [
+    `${el('nozzle').value} ${t('nozzle')}`,
+    el('layerh-fld').hidden ? null : `${el('layer-height').value} ${t('layers')}`,
+    `${el('gap').value} ${t('gap')}`,
+    el('iface').value === 'off' ? null : t('interface'),
+  ].filter(Boolean).join(' · ');
   const grip = el('tine-density').valueAsNumber;
   el('sum-tines').textContent = el('tines').checked
-    ? `${t(grip <= 20 ? 'light grip' : grip >= 80 ? 'firm grip' : 'medium grip')} · ${el('layer-height').value} mm`
+    ? t(grip <= 20 ? 'light grip' : grip >= 80 ? 'firm grip' : 'medium grip')
     : t('off');
   el('sum-clearances').textContent =
-    `${el('gap').value} mm ${t('gap')} · ${t('pad')} ${el('bed-pad').selectedOptions[0].textContent.toLowerCase()}`;
+    `${t('pad')} ${el('bed-pad').selectedOptions[0].textContent.toLowerCase()}`;
   const cut = el('cutout').value;
   el('sum-walls').textContent = `${+PROP.th.toFixed(2)} mm · `
     + (cut === 'none' ? t('solid') : t('{style} cutouts', { style: sel('cutout').toLowerCase() }))

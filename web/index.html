@@ -149,11 +149,20 @@
        feature switch (Tines) lives in its section's header, so a disabled feature
        costs one line. Fields that don't apply in the current mode stay hidden, as
        before. Layout only: every control keeps its id, and nothing it builds moved. -->
-  <details class="sec" data-sec="setup" open>
-<summary><span class="sec-title" data-i18n="Setup">Setup</span><span class="sec-sum" id="sum-setup"></span></summary>
+  <!-- Printer row (local issue 42): what the printer is, not how this part is
+       supported, so it sits on one line at the top ("0.4 nozzle · 0.2 layers · 0.2 gap")
+       and unfolds in place. A plain <details> like the sections below, so it opens
+       from the keyboard and the section memory keeps it open or shut. Build volume
+       stays in the top bar. ui/settings.js syncSectionSums writes the line. -->
+  <details class="sec printer" data-sec="printer">
+    <summary data-i18n-title title="Your printer: nozzle, layer height, support gap, interface material. Click to change.">
+      <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6V2h8v4M3 6h10a1.5 1.5 0 0 1 1.5 1.5V11H12v3H4v-3H1.5V7.5A1.5 1.5 0 0 1 3 6z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+      <span class="printer-txt" id="sum-printer"></span>
+      <span class="printer-edit"><span class="when-shut" data-i18n="Edit">Edit</span><span class="when-open" data-i18n="Done">Done</span></span>
+    </summary>
     <!-- Nozzle: the support widths scale from their 0.4 numbers (web/nozzle.js) so a
          0.6 or 0.8 nozzle doesn't drop the tines or lay the wall as one line. -->
-<label class="fld row" id="nozzle-fld" data-i18n-title title="Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one.">
+    <label class="fld row" id="nozzle-fld" data-i18n-title title="Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one.">
       <span><span data-i18n="Nozzle">Nozzle</span> <span class="mut">mm</span></span>
       <select id="nozzle">
         <option value="0.2">0.2</option>
@@ -169,6 +178,34 @@
         <option value="2.0">2.0</option>
       </select>
     </label>
+    <!-- Layer height: the grip tines are exactly ONE layer tall so they print as one
+         clean bead and BEND off instead of tearing. That only holds if this matches
+         the layer height you actually slice at -- set it wrong and the tines slice
+         into ~1.5 layers and leave welts. Shown only when Tines is on. -->
+    <label class="fld row" id="layerh-fld" data-i18n-title title="Set this to the layer height you slice at. The grip tines are one layer tall so they snap off clean; if this doesn't match your slicer, the tines tear and leave marks. Default 0.2mm.">
+      <span><span data-i18n="Layer height">Layer height</span> <span class="mut">mm</span></span>
+      <input type="number" id="layer-height" min="0.08" max="0.6" step="0.04" value="0.2">
+    </label>
+    <label data-i18n-title class="fld row" title="Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.">
+      <span><span data-i18n="Support gap">Support gap</span> <span class="mut">mm</span></span>
+      <input type="number" id="gap" min="0.1" max="0.4" step="0.05" value="0.2">
+    </label>
+    <!-- Interface material (GitHub #21, prop/crest.js): for a toolchanger. The top
+         0.6 mm of a wall becomes its own part of the supports in the 3MF, shown purple,
+         to print in a material that won't bond to the part (PETG under PLA). Flat
+         contacts only by default: on a tilted underside the band climbs every layer,
+         and PETG wouldn't print on the narrow PLA tip (a 35deg cube). -->
+    <label class="fld row" data-i18n-title title="For a printer with two or more toolheads. The top layer of a wall exports as its own part of the supports, shown purple: give it a material that won't bond to the part (PETG under PLA) for a clean release. Flat contacts: only under flat undersides, where it works and costs a few tool changes. Everywhere: every wall top and the tines too, a tool change every layer on a tilted part. 3MF only.">
+      <span data-i18n="Interface material">Interface material</span>
+      <select id="iface">
+        <option value="off" data-i18n="Off">Off</option>
+        <option value="flat" data-i18n="Flat contacts">Flat contacts</option>
+        <option value="all" data-i18n="Everywhere">Everywhere</option>
+      </select>
+    </label>
+  </details>
+
+  <div class="sec placement">
     <!-- Placement as three buttons (local issue 42) with a one-line note on what the
          chosen mode does. The <select> stays, hidden, as the one place the mode is
          kept: undo, a saved session and the UI smoke script read and set it, and the
@@ -195,7 +232,7 @@
         <option value="draw" data-i18n="Draw — place them by hand">Draw — place them by hand</option>
       </select>
     </div>
-  </details>
+  </div>
 
   <!-- Combined support toggle: ON = horizontal tines fuse the support to the part
        so it grips (Slant3D combined support); OFF = the plain breakaway wall that
@@ -217,14 +254,6 @@
       <span><span data-i18n="Tine grip">Tine grip</span> <span class="mut"><span data-i18n="light">light</span> ⟶ <span data-i18n="firm">firm</span></span></span>
       <input type="range" id="tine-density" min="0" max="100" step="5" value="0">
     </label>
-    <!-- Layer height: the grip tines are exactly ONE layer tall so they print as one
-         clean bead and BEND off instead of tearing. That only holds if this matches
-         the layer height you actually slice at -- set it wrong and the tines slice
-         into ~1.5 layers and leave welts. Shown only when Tines is on. -->
-    <label class="fld row" id="layerh-fld" data-i18n-title title="Set this to the layer height you slice at. The grip tines are one layer tall so they snap off clean; if this doesn't match your slicer, the tines tear and leave marks. Default 0.2mm.">
-      <span><span data-i18n="Layer height">Layer height</span> <span class="mut">mm</span></span>
-      <input type="number" id="layer-height" min="0.08" max="0.6" step="0.04" value="0.2">
-    </label>
   </details>
 
   <!-- Contact/gap tuning: the default holds and breaks off for most parts, but the
@@ -238,10 +267,6 @@
        every pad number and is the only style that shows them. -->
   <details class="sec" data-sec="clearances">
     <summary><span class="sec-title" data-i18n="Clearances">Clearances</span><span class="sec-sum" id="sum-clearances"></span></summary>
-    <label data-i18n-title class="fld row" title="Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.">
-      <span><span data-i18n="Support gap">Support gap</span> <span class="mut">mm</span></span>
-      <input type="number" id="gap" min="0.1" max="0.4" step="0.05" value="0.2">
-    </label>
     <label data-i18n-title class="fld row" title="A tilted part rests on an edge and peels off the plate without a pad. Auto: Light, or Sure hold when the part meets the plate on a point or a small round foot (it shows which). Light: one layer, 0.12mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove. Custom: set every number yourself.">
       <span data-i18n="Bed pad">Bed pad</span><select id="bed-pad">
         <option value="off" data-i18n="Off">Off</option>
@@ -322,19 +347,6 @@
         <option value="triangle" data-i18n="Triangle">Triangle</option>
         <option value="arch" data-i18n="Arch">Arch</option>
         <option value="lattice" data-i18n="Lattice">Lattice</option>
-      </select>
-    </label>
-    <!-- Interface material (GitHub #21, prop/crest.js): for a toolchanger. The top
-         0.6 mm of a wall becomes its own part of the supports in the 3MF, shown purple,
-         to print in a material that won't bond to the part (PETG under PLA). Flat
-         contacts only by default: on a tilted underside the band climbs every layer,
-         and PETG wouldn't print on the narrow PLA tip (a 35deg cube). -->
-    <label class="fld row" data-i18n-title title="For a printer with two or more toolheads. The top layer of a wall exports as its own part of the supports, shown purple: give it a material that won't bond to the part (PETG under PLA) for a clean release. Flat contacts: only under flat undersides, where it works and costs a few tool changes. Everywhere: every wall top and the tines too, a tool change every layer on a tilted part. 3MF only.">
-      <span data-i18n="Interface material">Interface material</span>
-      <select id="iface">
-        <option value="off" data-i18n="Off">Off</option>
-        <option value="flat" data-i18n="Flat contacts">Flat contacts</option>
-        <option value="all" data-i18n="Everywhere">Everywhere</option>
       </select>
     </label>
     <!-- Wide-face row density: an overhang face too wide for one corner brace gets a

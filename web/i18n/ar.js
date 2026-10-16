@@ -364,4 +364,10 @@ export default {
   "saved supports not loaded: the saved session is damaged": "لم تُحمَّل الدعامات المحفوظة: الجلسة المحفوظة تالفة",
   "No printable orientation: this part balances on a point at every angle.": "لا توجد وضعية مناسبة للطباعة: ترتكز القطعة على نقطة مهما غيّرت اتجاهها.",
   "Nothing to suggest for this part.": "لا يوجد ما يمكن اقتراحه لهذه القطعة.",
+  "nozzle": "فوهة",
+  "layers": "طبقات",
+  "interface": "مادة التلامس",
+  "Edit": "تعديل",
+  "Done": "تم",
+  "Your printer: nozzle, layer height, support gap, interface material. Click to change.": "طابعتك: الفوهة، ارتفاع الطبقة، فجوة الدعم، مادة التلامس. انقر للتغيير.",
 };

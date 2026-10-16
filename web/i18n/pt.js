@@ -423,4 +423,10 @@ export default {
   "the part’s base spreads out under this face, so there is no room on the plate for the brace’s foot": "a base da peça se espalha sob esta face, então não sobra espaço na mesa para o pé da escora",
   "there is no face under that spot to brace": "não há face sob esse ponto para escorar",
   "too little of this face lines up with the brace for its tines to grip — try a flatter part of the side": "pouco desta face fica alinhado com a escora para os dentes prenderem — tente uma parte mais plana do lado",
+  "nozzle": "bico",
+  "layers": "camadas",
+  "interface": "interface",
+  "Edit": "Editar",
+  "Done": "Concluído",
+  "Your printer: nozzle, layer height, support gap, interface material. Click to change.": "Sua impressora: bico, altura de camada, folga do suporte, material de interface. Clique para alterar.",
 };

@@ -370,4 +370,10 @@ export default {
   "saved supports not loaded: the saved session is damaged": "gespeicherte Stützen nicht geladen: die Sitzungsdaten sind beschädigt",
   "No printable orientation: this part balances on a point at every angle.": "Keine druckbare Ausrichtung: Dieses Bauteil balanciert in jedem Winkel auf einem Punkt.",
   "Nothing to suggest for this part.": "Keine Vorschläge für dieses Bauteil.",
+  "nozzle": "Düse",
+  "layers": "Schichten",
+  "interface": "Kontaktmaterial",
+  "Edit": "Ändern",
+  "Done": "Fertig",
+  "Your printer: nozzle, layer height, support gap, interface material. Click to change.": "Ihr Drucker: Düse, Schichthöhe, Stützabstand, Kontaktmaterial. Zum Ändern klicken.",
 };
