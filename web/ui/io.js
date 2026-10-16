@@ -175,9 +175,15 @@ function pickObjects(objects) {
  */
 async function parseModel(buffer) {
   importNote = '';
-  if (isStep(buffer)) return parseStep(buffer);
-  if (isObj(buffer)) return parseObj(buffer);
-  if (!isZip(buffer)) return loader.parse(buffer);
+  if (!isZip(buffer)) {
+    const geometry = isStep(buffer) ? await parseStep(buffer)
+      : isObj(buffer) ? await parseObj(buffer)
+      : loader.parse(buffer);
+    // A 3MF read before this one no longer speaks for the part (a language switch
+    // re-renders its note); a cancelled picker keeps the part, and its note.
+    if (geometry) lastImportMeta = null;
+    return geometry;
+  }
 
   const { objects, unit, skipped, session } = await readThreeMF(new Uint8Array(buffer));
 
@@ -311,7 +317,6 @@ async function parseObj(buffer) {
       ? `OBJ: imported “${chosen[0].name}” of ${objects.length} objects.`
       : `OBJ: merged ${chosen.length} of ${objects.length} objects into one part.`;
   }
-  lastImportMeta = null;           // a 3MF read before this one no longer speaks for the part
   return geometryFromPositions(mergeObjectPositions(chosen));
 }
 
