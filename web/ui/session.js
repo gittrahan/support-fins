@@ -103,8 +103,8 @@ function readable(s) {
  *  than costing the user the walls they drew. */
 const formOf = (form) => (form && typeof form === 'object'
   // a session saved before Wall lines was built at 2, not at what the page has now
-  // (the printer's and the viewer's settings stay as this browser has them, even from
-  // a file saved before they were left out)
+  // (the nozzle and the viewer's settings stay as this browser has them, even from a
+  // file saved before they were left out)
   ? { 'wall-lines': '2', ...Object.fromEntries(Object.entries(form)
     .filter(([id, v]) => !VIEWER_IDS.has(id) && settable(id, v))) } : {});
 

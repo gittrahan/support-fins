@@ -243,10 +243,10 @@ el('nozzle').addEventListener('change', () => {
   debouncedRefresh();
 });
 
-// Layer height and Support gap are the printer's too (local issue 42): you slice at
-// one layer height and tune one gap for your machine, so like the nozzle they are
-// remembered across visits and a saved session leaves them alone (history.js).
-// Read back before initSettings, which hands the gap to PROP. Undo still covers them.
+// Layer height and Support gap are remembered across visits too (local issue 42): you
+// slice at one layer height and tune one gap for your machine, so a new part starts
+// from your last ones. Unlike the nozzle, a saved session still restores its own
+// (history.js). Read back before initSettings, which hands the gap to PROP.
 const PRINTER_KEYS = { 'layer-height': 'sf.layerHeight', gap: 'sf.gap' };
 for (const [id, key] of Object.entries(PRINTER_KEYS)) {
   const f = el(id);
