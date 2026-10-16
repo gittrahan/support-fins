@@ -33,9 +33,10 @@ STANDOFF = 0.2
 FLANK_MIN = 0.20
 # A wall can pass straight through a plate of the part with every vertex outside
 # (GH #254: a wedge through a channel's lower plate, ~144 mm3 inside), so walls are
-# also sampled over their surface. Past the breakaway gap is a fused wall; a
-# shallower dip is the blade's edge grazing a curved underside it holds.
-INSIDE_DEPTH = STANDOFF
+# also judged by points sampled over their surface. This is a sampling tolerance,
+# not a spec: a blade's edge grazing a curved underside it holds dips ~0.1 mm
+# (cylinder, tube); deeper is a wall in the part.
+INSIDE_DEPTH = 0.2
 
 # Mirrors web/overhangs.js constant-for-constant, same as spike_overhangs.py.
 OVERHANG_COS = np.cos(np.radians(45)) + 1e-4
@@ -189,15 +190,13 @@ def check(case):
     if bad:
         problems.append(f'{len(bad)} solids not watertight/volume')
 
-    # walls and bases must stay out of the part: vertices, and the surface between them
-    inside, deep = 0, 0.0
+    # walls and bases must stay out of the part (vertices here; the surface between
+    # them in the standoff pass below, from the same samples)
+    inside = 0
     for b in walls:
         inside += int((pq.signed_distance(b.vertices) > 1e-3).sum())
-        deep = max(deep, sampled_depth(b, pq))
     if inside:
         problems.append(f'{inside} wall/base verts inside part')
-    if deep > INSIDE_DEPTH:
-        problems.append(f'wall surface {deep:.2f} mm inside part')
 
     # every tine must bite the part AND be joined to a wall
     no_bite = no_grip = 0
@@ -222,7 +221,7 @@ def check(case):
     # does: this used to be `len(b.vertices) > 40`, which skipped every long
     # wall and measured a short wall's 0.6mm flange as a wall instead (bar
     # X30Y60: "standoff 30.9" was a flange 31mm below the part, wall at 0.17).
-    gaps, flanks = [], []
+    gaps, flanks, deep = [], [], 0.0
     for b in walls:
         if b.bounds[1][2] - b.bounds[0][2] <= FLANGE_MAX_H:
             flanks.append(float(np.abs(pq.signed_distance(b.vertices)).min()))
@@ -231,11 +230,14 @@ def check(case):
         d = pq.signed_distance(pts)
         if len(d):
             gaps.append(float(np.abs(d).min()))
+            deep = max(deep, float(d.max()))
     gap_txt = ', '.join(f'{g:.3f}' for g in gaps) if gaps else 'n/a'
     if gaps and any(abs(g - STANDOFF) > 0.05 for g in gaps):
         problems.append(f'standoff off spec ({gap_txt})')
     if flanks and min(flanks) < FLANK_MIN:
         problems.append(f'flange {min(flanks):.3f} < {FLANK_MIN} (would weld)')
+    if deep > INSIDE_DEPTH:
+        problems.append(f'wall surface {deep:.2f} mm inside part')
 
     ok = not problems
     cov, tot = coverage(case, added)
@@ -244,15 +246,6 @@ def check(case):
           f'  cov {0 if cov is None else cov:3.0f}%  of {tot:6.0f} mm2'
           f'  {"OK" if ok else "FAIL: " + "; ".join(problems)}')
     return ok, cov, tot
-
-
-def sampled_depth(b, pq, n=3000):
-    """How deep a body's surface goes into the part (mm; <= 0 = clear), sampled.
-
-    Vertices alone miss a wall that runs through a plate of the part: its corners
-    are all outside (GH #254)."""
-    pts, _ = trimesh.sample.sample_surface(b, n, seed=0)
-    return float(pq.signed_distance(pts).max()) if len(pts) else 0.0
 
 
 def check_props(case, added, part, pq):
@@ -283,9 +276,11 @@ def check_props(case, added, part, pq):
     tops, flanks = [], []
     for b in added:
         inside += int((pq.signed_distance(b.vertices) > 1e-3).sum())
-        deep = max(deep, sampled_depth(b, pq))
         pts, _ = trimesh.sample.sample_surface(b, 4000)
         close, dist, _ = pq.on_surface(pts)
+        into = part.contains(pts)              # on_surface is unsigned; the ray test signs it
+        if into.any():
+            deep = max(deep, float(dist[into].max()))
         # A base flange: no breakaway spec on its top, it only has to clear the
         # part the way a flank does. Its whole job is to sit flat on the plate.
         if b.bounds[1][2] - b.bounds[0][2] <= FLANGE_MAX_H:
