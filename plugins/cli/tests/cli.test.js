@@ -190,7 +190,7 @@ Deno.test('cli: a bad file is exit 1 and the other files still get their fins', 
   assert(fs.has('lb-fins.3mf') && out.length === 1, 'the good file was still finned');
   assert(err.length === 3, `errors: ${JSON.stringify(err)}`);
   assert(/broken\.stl: not an STL/.test(err[0]), err[0]);
-  assert(/notes\.txt: reads \.stl and \.3mf only/.test(err[2]), err[2]);
+  assert(/notes\.txt: reads \.stl, \.3mf and \.obj only/.test(err[2]), err[2]);
   const self = await cli(['lb.stl', '-o', 'lb.stl']);
   assert(self.code === 1 && /won't overwrite the input/.test(self.err[0]) && self.fs.get('lb.stl') === LBRACKET, self.err[0]);
 });
@@ -236,6 +236,31 @@ Deno.test('cli: a 3MF input reads; one with several objects asks which', async (
   const picked = await cli(['plate.3mf', '--object', '2', '--rot', '45,0,0', '--json'], { 'plate.3mf': two });
   assert(picked.code === 0 && picked.fs.has('plate-fins.3mf'), `--object 2: ${picked.err}`);
   assert(JSON.stringify(JSON.parse(picked.out[0]).stats) === JSON.stringify(want), '--object 2 fins that cube alone');
+});
+
+Deno.test('cli: an OBJ input reads; one with several objects asks which', async () => {
+  const cube = block(0, 20, 0, 20, 0, 20);
+  const objText = (soups) => {
+    let s = '', base = 0;
+    soups.forEach((soup, k) => {
+      s += `o body${k + 1}\n`;
+      for (let i = 0; i < soup.length; i += 3) s += `v ${soup[i]} ${soup[i + 1]} ${soup[i + 2]}\n`;
+      for (let t = 0; t < soup.length / 9; t++) s += `f ${base + 3 * t + 1} ${base + 3 * t + 2} ${base + 3 * t + 3}\n`;
+      base += soup.length / 3;
+    });
+    return new TextEncoder().encode(s);
+  };
+  const want = computeFins(pose(cube, [45, 0, 0])).stats;
+  const r1 = await cli(['c.obj', '--rot', '45,0,0', '--json'], { 'c.obj': objText([cube]) });
+  assert(r1.code === 0 && r1.fs.has('c-fins.3mf'), `exit ${r1.code}: ${r1.err}`);
+  assert(JSON.stringify(JSON.parse(r1.out[0]).stats) === JSON.stringify(want), 'OBJ input fins = STL input fins');
+
+  const two = objText([block(40, 60, 0, 20, 0, 20), cube]);
+  const refused = await cli(['plate.obj'], { 'plate.obj': two });
+  assert(refused.code === 1 && /has 2 objects .*pick one with --object/.test(refused.err[0]), refused.err[0]);
+  const picked = await cli(['plate.obj', '--object', 'body2', '--rot', '45,0,0', '--json'], { 'plate.obj': two });
+  assert(picked.code === 0, `--object body2: ${picked.err}`);
+  assert(JSON.stringify(JSON.parse(picked.out[0]).stats) === JSON.stringify(want), '--object body2 fins that cube alone');
 });
 
 Deno.test('cli: the summary line says what was left unsupported, word for word with the Python hosts', async () => {

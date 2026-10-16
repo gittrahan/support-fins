@@ -10,6 +10,7 @@ import { computeFins, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from '.
 import { reportLine } from '../shared/engine/report.js';
 import { readSTL, writeBinarySTL } from '../../web/stl.js';
 import { readThreeMF, writeThreeMF } from '../../web/threemf.js';
+import { readOBJ } from '../../web/obj.js';
 import { cutNegatives } from '../../web/cut.js';
 import { unzip } from '../../web/zip.js';
 
@@ -27,14 +28,14 @@ export function helpText() {
   const lines = [
     'support-fins -- bake breakaway support fins into a 3D print (printfins.com, from a terminal)',
     '',
-    'usage: support-fins <part.stl|part.3mf>... [options]',
+    'usage: support-fins <part.stl|part.3mf|part.obj>... [options]',
     '',
     '  -o, --output <file>   where to write (.3mf or .stl); one input only.',
     '                        default: <part>-fins.3mf next to the input',
     '  --rot <x,y,z>         pose the part first, in degrees: the site\'s "X · Y · Z" readout',
     '  --fins-only           write only the fins + bed pad, lined up with the part as it is in',
     '                        your file (so not with --rot)',
-    '  --object <n|name>     which object of a multi-object 3MF to fin (1-based)',
+    '  --object <n|name>     which object of a multi-object 3MF or OBJ to fin (1-based)',
     '  --json                one JSON line per file instead of the summary',
     '  -h, --help            this text',
     '',
@@ -161,6 +162,18 @@ const triples = (flat, add = [0, 0, 0]) => {
 
 // --- one file ---------------------------------------------------------------
 
+/** --object out of a multi-object file: a 1-based index or a name. */
+function pickObject(objs, object) {
+  if (object === null) {
+    throw new Error(`has ${objs.length} objects (${objs.map((o, i) => `${i + 1} ${o.name}`).join(', ')}); `
+      + 'pick one with --object');
+  }
+  const byIndex = /^\d+$/.test(object) ? objs[Number(object) - 1] : null;
+  const pick = byIndex || objs.find((o) => o.name === object);
+  if (!pick) throw new Error(`no object ${JSON.stringify(object)}; it has ${objs.map((o) => o.name).join(', ')}`);
+  return pick;
+}
+
 async function readPart(path, bytes, object, warn = () => {}) {
   if (/\.3mf$/i.test(path)) {
     // Our own export holds part + fins as one object: finning it would put fins
@@ -184,23 +197,21 @@ async function readPart(path, bytes, object, warn = () => {}) {
       return { positions: c.positions, slicer: o.extras?.length ? { positions: o.positions, extras: o.extras } : null };
     };
     if (objs.length <= 1 && object === null) return objs.length ? prepared(objs[0]) : { positions: m.positions };
-    if (object === null) {
-      throw new Error(`has ${objs.length} objects (${objs.map((o, i) => `${i + 1} ${o.name}`).join(', ')}); `
-        + 'pick one with --object');
-    }
-    const byIndex = /^\d+$/.test(object) ? objs[Number(object) - 1] : null;
-    const pick = byIndex || objs.find((o) => o.name === object);
-    if (!pick) throw new Error(`no object ${JSON.stringify(object)}; it has ${objs.map((o) => o.name).join(', ')}`);
-    return prepared(pick);
+    return prepared(pickObject(objs, object));
   }
   if (/\.stl$/i.test(path)) return { positions: readSTL(bytes) };
-  throw new Error('reads .stl and .3mf only');
+  if (/\.obj$/i.test(path)) {
+    // OBJ has no unit (read as mm); several `o` objects pick like a 3MF plate's
+    const objs = readOBJ(bytes).objects;
+    return { positions: (objs.length === 1 && object === null ? objs[0] : pickObject(objs, object)).positions };
+  }
+  throw new Error('reads .stl, .3mf and .obj only');
 }
 
 const sameFile = (a, b) => a.replace(/^\.[\\/]/, '') === b.replace(/^\.[\\/]/, '');
 
 function defaultOutput(input, finsOnly) {
-  const base = input.replace(/\.(stl|3mf)$/i, '');
+  const base = input.replace(/\.(stl|3mf|obj)$/i, '');
   return finsOnly ? `${base}-fins-only.stl` : `${base}-fins.3mf`;
 }
 
@@ -217,7 +228,7 @@ export async function finFile(input, args, io, engineOptions) {
   const read = await readPart(input, await io.read(input), args.object, warn);
   const posed = pose(read.positions, args.rot);
   const { triangles, offset, stats } = computeFins(posed, engineOptions);
-  const name = (input.split(/[\\/]/).pop() || 'part').replace(/\.(stl|3mf)$/i, '');
+  const name = (input.split(/[\\/]/).pop() || 'part').replace(/\.(stl|3mf|obj)$/i, '');
   if (args.finsOnly && triangles.length === 0) {
     return { input, output: null, stats, report: `${reportLine(stats)}; no fins, nothing written` };
   }

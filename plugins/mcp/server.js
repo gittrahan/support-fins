@@ -57,7 +57,7 @@ const SETTINGS = {
   additionalProperties: false,
 };
 
-const PATH = { type: 'string', description: 'The part: an .stl or .3mf on this computer (absolute path).' };
+const PATH = { type: 'string', description: 'The part: an .stl, .3mf or .obj on this computer (absolute path).' };
 // a plain string: some hosts turn tool schemas into other vendors' formats, which refuse type arrays
 const OBJECT = {
   type: 'string',
