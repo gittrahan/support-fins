@@ -8,7 +8,7 @@
  * walls again -- selectable, removable, undoable, re-swept when the part turns --
  * and Auto's fins rebuild from the same settings in the same pose, so nothing is
  * doubled and there is nothing to clear. The fins the user removed from them go
- * too: a removal is keyed by the fin's print-space line (ui/remove.js finSig), and
+ * too: a removal is keyed by the fin's print-space line (ui/finkeys.js finKey), and
  * the part comes back to the same place in print space.
  *
  * Points are stored relative to the centre of the part's bounding box in print
