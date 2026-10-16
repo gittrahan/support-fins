@@ -184,8 +184,9 @@ function updateDrawReadout(built, ms) {
   const tines = ok.reduce((a, w) => a + (w.info?.tines ?? 0), 0);
   const braces = ok.filter((w) => w.kind === 'sway').length;
   const walls = ok.length - braces;
+  const ribs = ok.reduce((a, w) => a + (w.kind === 'sway' ? 0 : w.info?.braces ?? 0), 0);
   const parts = [];
-  if (walls) parts.push(tn('{n} drawn wall', '{n} drawn walls', walls));
+  if (walls) parts.push(tn('{n} drawn wall', '{n} drawn walls', walls) + (ribs ? ` · ${tn('{n} wall rib', '{n} wall ribs', ribs)}` : ''));
   if (braces) parts.push(tn('{n} sway brace', '{n} sway braces', braces));
   box.textContent = ok.length
     ? parts.join(' + ') + (tines ? ` · ${t('{n} tines', { n: tines })}` : '')

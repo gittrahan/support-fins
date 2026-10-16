@@ -114,7 +114,9 @@ export function braceTallWalls(topo, result, rot, built) {
   const triangles = [...built.triangles];
   for (const f of tall) {
     const k = fins.indexOf(f);
-    const top = f.line.map((p) => [p[0], p[1], p[2] + PROP.gap]);   // braceWall takes the part's surface
+    // braceWall takes the part's surface: Auto's lines sit the gap under it, the fill
+    // pass's (drawnWall's `top`) are the surface itself
+    const top = f.fill ? f.line : f.line.map((p) => [p[0], p[1], p[2] + PROP.gap]);
     const floors = f.line.map((p) => floorAt(tris, p, 0));
     const out = [];
     const n = braceWall(top, (i) => floors[i], tris, 0, out, (t) => {

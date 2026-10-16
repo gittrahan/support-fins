@@ -142,9 +142,19 @@ export function rebuildDrawn() {
                      plateOnly: el('plate-only').checked,
                      braceTall: el('tall-ribs').checked,
                      topo: topology, rot: rotM3.elements, offset: lastResult.offset };
-  // A tall drawn wall's ribs keep sideClear off the walls drawn before it (draw.js
-  // braceTall): a rib fused into a neighbour no longer breaks away by itself.
+  // A tall drawn wall's ribs keep sideClear off the walls drawn before it and off
+  // Auto's supports and pad when they're on screen (draw.js braceTall): a rib fused
+  // into a neighbour no longer breaks away by itself. (Walls drawn later don't check
+  // back -- drawn walls never check each other -- and Auto's ribs, built in the
+  // Worker, can't see drawn walls.)
   const ribGrid = planGrid();
+  if (finsVisible && autoLike() && lastBuilt) {
+    for (const rec of lastBuilt.fins ?? []) {
+      if (removedIds.has(rec.id)) continue;
+      for (const [a, b] of rec.triRanges ?? []) ribGrid.add(lastBuilt.triangles.slice(a, b), 'auto');
+    }
+    if (lastBuilt.padTriangles?.length) ribGrid.add(lastBuilt.padTriangles, 'auto');
+  }
   let gridded = 0;
   drawOpts.braceClear = (rib) => {
     ribGrid.add(drawnTris.slice(gridded));   // walls drawn since the last rib
@@ -279,7 +289,8 @@ function updatePreview(hitPoint) {
     if (!q || !drawStart || !drawActive()) return;
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); ghostMesh = null; }
     const tris = partPrintTriangles();
-    const r = drawnWall([q[0].x, q[0].y, q[0].z], [q[1].x, q[1].y, q[1].z], tris, 0);
+    const r = drawnWall([q[0].x, q[0].y, q[0].z], [q[1].x, q[1].y, q[1].z], tris, 0,
+                        { braceTall: el('tall-ribs').checked });   // the ghost shows its ribs
     if (r.ok) { ghostMesh = meshFrom(r.tris, ghostMaterial); ghostMesh?.layers.disable(MODEL); }
   });
 }
