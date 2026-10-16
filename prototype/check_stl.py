@@ -9,7 +9,8 @@ added), `<case>-fins.stl` (fins only), `<case>-pad.stl` (pad only, if any).
 Five things are checked, and each one exists because it caught a real bug:
 
   watertight/is_volume  a solid the slicer can union at all
-  wall not in part      a fin fused to the part is not a breakaway fin
+  wall not in part      a fin fused to the part is not a breakaway fin (vertices,
+                        and points over its surface: a blade can cross a plate)
   tines fuse to part    a tine that misses is a divot with no grip
   tines touch the wall  tines were once 13.6mm from their own fin, which prints
                         as a scatter of loose specks (a broken patch frame)
@@ -30,6 +31,11 @@ STANDOFF = 0.2
 # 0.2mm is enough for the part to bridge over the top without welding, it is
 # enough beside a flank. PROP.sideClear targets 0.35 so there is margin to lose.
 FLANK_MIN = 0.20
+# A wall can pass straight through a plate of the part with every vertex outside
+# (GH #254: a wedge through a channel's lower plate, ~144 mm3 inside), so walls are
+# also sampled over their surface. Past the breakaway gap is a fused wall; a
+# shallower dip is the blade's edge grazing a curved underside it holds.
+INSIDE_DEPTH = STANDOFF
 
 # Mirrors web/overhangs.js constant-for-constant, same as spike_overhangs.py.
 OVERHANG_COS = np.cos(np.radians(45)) + 1e-4
@@ -183,12 +189,15 @@ def check(case):
     if bad:
         problems.append(f'{len(bad)} solids not watertight/volume')
 
-    # walls and bases must stay out of the part
-    inside = 0
+    # walls and bases must stay out of the part: vertices, and the surface between them
+    inside, deep = 0, 0.0
     for b in walls:
         inside += int((pq.signed_distance(b.vertices) > 1e-3).sum())
+        deep = max(deep, sampled_depth(b, pq))
     if inside:
         problems.append(f'{inside} wall/base verts inside part')
+    if deep > INSIDE_DEPTH:
+        problems.append(f'wall surface {deep:.2f} mm inside part')
 
     # every tine must bite the part AND be joined to a wall
     no_bite = no_grip = 0
@@ -237,6 +246,15 @@ def check(case):
     return ok, cov, tot
 
 
+def sampled_depth(b, pq, n=3000):
+    """How deep a body's surface goes into the part (mm; <= 0 = clear), sampled.
+
+    Vertices alone miss a wall that runs through a plate of the part: its corners
+    are all outside (GH #254)."""
+    pts, _ = trimesh.sample.sample_surface(b, n, seed=0)
+    return float(pq.signed_distance(pts).max()) if len(pts) else 0.0
+
+
 def check_props(case, added, part, pq):
     """A prop is judged by what it does NOT touch.
 
@@ -260,11 +278,12 @@ def check_props(case, added, part, pq):
     if bad:
         problems.append(f'{len(bad)} solids not watertight/volume')
 
-    inside = 0
+    inside, deep = 0, 0.0
     nwall = 0
     tops, flanks = [], []
     for b in added:
         inside += int((pq.signed_distance(b.vertices) > 1e-3).sum())
+        deep = max(deep, sampled_depth(b, pq))
         pts, _ = trimesh.sample.sample_surface(b, 4000)
         close, dist, _ = pq.on_surface(pts)
         # A base flange: no breakaway spec on its top, it only has to clear the
@@ -283,6 +302,8 @@ def check_props(case, added, part, pq):
             flanks.append(float(dist[~above].min()))
     if inside:
         problems.append(f'{inside} prop verts inside part (must not fuse)')
+    if deep > INSIDE_DEPTH:
+        problems.append(f'prop surface {deep:.2f} mm inside part (must not fuse)')
 
     gap_txt = ', '.join(f'{g:.3f}' for g in tops) if tops else 'n/a'
     if tops and any(abs(g - STANDOFF) > 0.06 for g in tops):
