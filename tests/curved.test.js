@@ -87,3 +87,18 @@ Deno.test('curved: forced -- a curve that holds less still shows, and Auto fills
   assert(on.held >= off.held - 1e-6, `held ${off.held.toFixed(1)} -> ${on.held.toFixed(1)} mm2`);
   assert(on.low <= off.low + 0.1, `lowest tine rose ${off.low} -> ${on.low}`);
 });
+
+Deno.test('curved: in Full coverage the curves stay only within CURVED.fullSlack of the straight build', () => {
+  // The spiral's arcs hold 0.8% less than Full's rows there: kept. The torus X30's
+  // curve grips higher than the straight build: dropped, and the build says so.
+  const full = { mode: 'full' };
+  const spiral = example('issue25_spiral');
+  const sOff = build(spiral, full), sOn = build(spiral, { ...full, curvedWalls: true });
+  const bent = (b) => b.props.filter((q) => q.downhill && lineBend(q.line) > CURVED.minBend);
+  assert(bent(sOn.b).length >= 2 && !sOn.b.curvedDropped, 'spiral: Full dropped curves within the slack');
+  assert(sOn.held >= (1 - CURVED.fullSlack) * sOff.held - 1e-6, `spiral: held ${sOff.held.toFixed(1)} -> ${sOn.held.toFixed(1)} mm2`);
+  const torus = example('torus_flat');
+  const tOff = build(torus, full, rotX(30)), tOn = build(torus, { ...full, curvedWalls: true }, rotX(30));
+  assert(tOn.b.curvedDropped && !bent(tOn.b).length, 'torus X30: Full kept a curve that grips higher');
+  assert(Math.abs(tOn.held - tOff.held) < 1e-6, `torus X30: dropped build held ${tOn.held} vs ${tOff.held}`);
+});
