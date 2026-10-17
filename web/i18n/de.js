@@ -215,6 +215,10 @@ export default {
   "{n} region": { one: "{n} Bereich", other: "{n} Bereiche" },
   "{n} slivers": { one: "{n} Splitter", other: "{n} Splitter" },
   "{n} sliver": { one: "{n} Splitter", other: "{n} Splitter" },
+  "⚠ {n} overhangs shaded amber are too small for a fin (under {area} mm² each), so they print unsupported this way up and may come out rough. Try Suggest orientation to point them up.": {
+    one: "⚠ {n} Überhang in Bernstein ist zu klein für eine Finne (unter {area} mm²), wird daher in dieser Lage stützenlos gedruckt und kann rau werden. Versuchen Sie „Ausrichtung vorschlagen“, um ihn nach oben zu drehen.",
+    other: "⚠ {n} Überhänge in Bernstein sind zu klein für eine Finne (unter {area} mm²), werden daher in dieser Lage stützenlos gedruckt und können rau werden. Versuchen Sie „Ausrichtung vorschlagen“, um sie nach oben zu drehen.",
+  },
   "{n} rough holes": { one: "{n} Restüberhang", other: "{n} Restüberhänge" },
   "{n} rough hole": { one: "{n} Restüberhang", other: "{n} Restüberhänge" },
 

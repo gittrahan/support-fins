@@ -224,14 +224,10 @@ export function paintOverhangs(res = lastResult) {
   // card; the sliver count in the readout above stays.
   const warn = el('over-warn');
   if (dropped > 0 && highlightSmall) {
-    const one = dropped === 1;
-    const deText = `⚠ ${dropped} ${one ? 'Überhang' : 'Überhänge'} in Bernstein ${one ? 'ist' : 'sind'} `
-      + `zu klein für eine Finne (unter ${MIN_REGION_AREA} mm²), ${one ? 'wird' : 'werden'} daher in dieser Lage stützenlos `
-      + `gedruckt und können rau werden. Versuchen Sie „Ausrichtung vorschlagen“, um sie nach oben zu drehen.`;
-    const enText = `⚠ ${dropped} overhang${one ? '' : 's'} shaded amber ${one ? 'is' : 'are'} `
-      + `too small for a fin (under ${MIN_REGION_AREA} mm² each), so ${one ? 'it prints' : 'they print'} `
-      + `unsupported this way up and may come out rough. Try Suggest orientation to point `
-      + `${one ? 'it' : 'them'} up.`;
+    warn.textContent = tn(
+      '⚠ {n} overhang shaded amber is too small for a fin (under {area} mm² each), so it prints unsupported this way up and may come out rough. Try Suggest orientation to point it up.',
+      '⚠ {n} overhangs shaded amber are too small for a fin (under {area} mm² each), so they print unsupported this way up and may come out rough. Try Suggest orientation to point them up.',
+      dropped, { area: MIN_REGION_AREA });
   } else {
     warn.textContent = '';
   }
