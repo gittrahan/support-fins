@@ -42,10 +42,27 @@ export const footFor = (h) => {
  */
 export function profileHalf(z, top) {
   const ztip = Math.max(top - PROP.tipH, PROP.baseH + 0.1);
+  const half = stemHalf(top - ztip);
   if (z < PROP.baseH) return footFor(top);      // flat flange (the T's foot)
-  if (z < ztip) return PROP.th / 2;             // straight wall (the T's stem)
-  return PROP.th / 2                            // neck into the contact tip
-       - ((PROP.th - PROP.tip) / 2) * ((z - ztip) / Math.max(1e-6, top - ztip));
+  if (z < ztip) return half;                    // straight wall (the T's stem)
+  return half                                   // neck into the contact tip
+       - (half - PROP.tip / 2) * ((z - ztip) / Math.max(1e-6, top - ztip));
+}
+
+/**
+ * Half-width of a wall's straight body when its neck into the tip only has `rise` mm
+ * to climb: the full PROP.th / 2, or narrower when the wall is too low to neck at
+ * PROP.neckDeg -- a wide wall (Wall lines, a big nozzle) squeezed into a short
+ * taper leant its shoulder flatter than that, an overhang on the wall's own side
+ * (local issue 044).
+ */
+export function stemHalf(rise) {
+  const k = 1 / Math.tan(PROP.neckDeg * Math.PI / 180);
+  // Plus half a line (tip / 3: the tip is 1.5 lines): a step that narrow prints at any
+  // angle, the slicer's own 50% perimeter overlap. So the 2-line wall's 0.2 mm
+  // shoulder never narrows -- not even on a low tail station -- and only a wide wall does.
+  const slack = PROP.tip / 3 + 1e-9;
+  return Math.max(PROP.tip / 2, Math.min(PROP.th / 2, PROP.tip / 2 + Math.max(0, rise) * k + slack));
 }
 
 /**
@@ -79,14 +96,16 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
     const baseTop = zBed + flangeH;
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
     // where the interface crest runs, the stem stops at the crest's cut
-    const c = crestCut(top, ztip, zBed, kinds?.[i]);
+    const sh = stemHalf(top - ztip);
+    const c = crestCut(top, ztip, zBed, kinds?.[i], 2 * sh);
     crest.push(c?.ring(P) ?? null);
     const [zt, zTop, wTop] = c ? [c.zt, c.cut, c.wc] : [ztip, top, PROP.tip / 2];
 
-    // the stem: a straight thin wall from the bed up to the breakaway tip
+    // the stem: a straight thin wall from the bed up to the breakaway tip, no wider
+    // than its neck can climb from (stemHalf)
     wall.push([
-      P(+PROP.th / 2, zBed), P(+PROP.th / 2, zt), P(+wTop, zTop),
-      P(-wTop, zTop), P(-PROP.th / 2, zt), P(-PROP.th / 2, zBed),
+      P(+sh, zBed), P(+sh, zt), P(+wTop, zTop),
+      P(-wTop, zTop), P(-sh, zt), P(-sh, zBed),
     ]);
     // the foot: a flat slab, its own closed solid overlapping the wall's base
     flange.push([
@@ -171,20 +190,23 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     const zBotTip = welded ? bot + taper : bHi;
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
     // where the interface crest runs, the wall stops at the crest's cut
-    const c = crestCut(top, top - taper, zBotTip, kinds?.[i]);
+    // no wider than the top neck can climb from (stemHalf; the welded bottom taper is
+    // the same height, so it holds there too)
+    const sh = stemHalf(taper);
+    const c = crestCut(top, top - taper, zBotTip, kinds?.[i], 2 * sh);
     crest.push(c?.ring(P) ?? null);
     const [zTopTip, zTop, wTop] = c ? [c.zt, c.cut, c.wc] : [top - taper, top, PROP.tip / 2];
 
     // one closed section: th-wide through the middle, tip-wide at the top and,
     // when welded, at the bottom too
     wall.push(welded ? [
-      P(+PROP.tip / 2, bot), P(+PROP.th / 2, zBotTip),
-      P(+PROP.th / 2, zTopTip), P(+wTop, zTop),
-      P(-wTop, zTop), P(-PROP.th / 2, zTopTip),
-      P(-PROP.th / 2, zBotTip), P(-PROP.tip / 2, bot),
+      P(+PROP.tip / 2, bot), P(+sh, zBotTip),
+      P(+sh, zTopTip), P(+wTop, zTop),
+      P(-wTop, zTop), P(-sh, zTopTip),
+      P(-sh, zBotTip), P(-PROP.tip / 2, bot),
     ] : [
-      P(+PROP.th / 2, bP), P(+PROP.th / 2, zTopTip), P(+wTop, zTop),
-      P(-wTop, zTop), P(-PROP.th / 2, zTopTip), P(-PROP.th / 2, bN),
+      P(+sh, bP), P(+sh, zTopTip), P(+wTop, zTop),
+      P(-wTop, zTop), P(-sh, zTopTip), P(-sh, bN),
     ]);
     st.push({ p, sx, sy, top: zTop, ztip: zTopTip, holeTop: top - taper, tipHalf: wTop, bot: bHi, botTip: zBotTip, taperBot: welded, botN: bN, botP: bP });
   }

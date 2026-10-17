@@ -38,6 +38,10 @@ export const PROP = {
                     // ~0.4mm lower down the face. Grip, not adhesion, is what the
                     // bottom band needs.
   tipH: 1.5,        // height the tip taper runs
+  // The neck into the tip leans no flatter than this from level (nozzle.js grows tipH
+  // to keep it). A wall too low for that height narrows its body instead (sweep.js
+  // stemHalf), so its shoulder is never an overhang (local issue 044).
+  neckDeg: 55,
   // Interface crest (GitHub #21, prop/crest.js): the top ifaceLayers of a wall split off
   // as its own solid for a toolchanger's second material. iface: false (off, one
   // body as always), 'flat' (only under an underside within ifaceFlatDeg of level:

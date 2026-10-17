@@ -445,7 +445,9 @@ for a tall part or a big printer, after Per Hjort's nozzle profiles (#210). With
 | tip, tines | unchanged: one line | 0.6, 0.5 | 0.6, 0.5 |
 
 The feet are half-widths from the wall's centre, so they move out with its face.
-The neck rule only lifts a taper that would lean flatter than 55°. 2 lines is the
-tuned wall, unchanged. A thicker wall fits fewer places: on a tight part some
+The neck rule only lifts a taper that would lean flatter than 55° (`PROP.neckDeg`). A wall
+lower than that taper narrows its body instead (`stemHalf` in `web/prop/sweep.js`, local
+issue 044), so its shoulder never leans flatter either; a step under half a line (`tip / 3`)
+prints at any angle and is left alone. 2 lines is the tuned wall, unchanged. A thicker wall fits fewer places: on a tight part some
 overhangs lose their wall, and the readout reports them. It is a setting of the part
 (undoable, saved with a session), not the printer. The plugins build 2 lines.

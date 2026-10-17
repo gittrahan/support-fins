@@ -83,7 +83,7 @@ function rescale() {
   // The neck into the tip: a 4 mm wall necking to 0.6 over the 1.5 mm taper would
   // overhang. A neck that would lean flatter than 55deg gets the height to stand at 55.
   const neck = (PROP.th - PROP.tip) / 2;
-  PROP.tipH = Math.max(BASE.tipH, neck * Math.tan(55 * Math.PI / 180));
+  PROP.tipH = Math.max(BASE.tipH, neck * Math.tan(PROP.neckDeg * Math.PI / 180));
   // A tine looks for the part from the wall's centre, past the contact tip: a tip wider
   // than the 0.4 nozzle's (0.6) would swallow the 0.5 reach, and on a curved underside
   // the probe stops finding the part (a sphere at 45deg: 30 tines at 0.4, 6 at 2.0).
