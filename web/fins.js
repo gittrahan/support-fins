@@ -368,7 +368,8 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // straight walls held, so the fill pass runs under the regions a curve won --
     // there only, rows off. Its numbers are its own (`curvedFill`): the readout's Full
     // coverage lines are Full's, but the red it couldn't reach is said all the same.
-    const curved = new Set(auto.props.filter((q) => q.downhill && bends([q])).map((q) => q.region));
+    // (a curve traced across a group's slivers counts for every region in it: prop/trace.js)
+    const curved = new Set(auto.props.filter((q) => q.downhill && bends([q])).flatMap((q) => q.members ?? [q.region]));
     if (mode === 'auto' && opts.curvedWalls === true && curved.size && !noWalls) {
       const f = withFill(topo, result, rot, { ...opts, tines: withTines, coverage, longWalls: false, fillRegions: curved }, auto);
       return { ...f, fill: undefined,

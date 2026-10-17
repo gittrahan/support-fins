@@ -313,6 +313,12 @@ function keepers(qa, qb, near, force = false) {
  *
  * `lenient` regions swap whenever their `b` walls hold anything; any other region
  * races as usual, and only if it is in `wanted` (null = all) -- the ones `a` left bare.
+ *
+ * `b.leaderOf` (Curved walls, prop/trace.js): regions traced as one surface race as
+ * one, at their leader's turn -- every member's `a` walls against the group's `b`
+ * walls, over the faces near any member -- since a line traced across the slivers
+ * runs under its neighbours' red, where their own walls stand. Such a pass only
+ * forces curves: a group whose walls don't bend keeps its `a` walls.
  */
 function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = RACE_REL, lenient = null,
                      wanted = null) {
@@ -331,11 +337,15 @@ function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = 
     tines += q.tines ?? 0;
     volume += q.volume ?? 0;
   };
+  const members = new Map();
+  for (const [ri, l] of b.leaderOf ?? []) (members.get(l) ?? members.set(l, []).get(l)).push(ri);
   for (let ri = 0; ri < result.regions.length; ri++) {
-    const qa = A.get(ri) ?? [], qb = B.get(ri) ?? [];
+    const group = members.get(ri) ?? null;
+    if (b.leaderOf?.has(ri) && !group) continue;     // raced with its group's leader
+    const qa = group ? group.flatMap((m) => A.get(m) ?? []) : A.get(ri) ?? [], qb = B.get(ri) ?? [];
     let extra = null;
     if (qb.length) {
-      const near = nearRegion(faces, ri);
+      const near = group?.length > 1 ? [...new Set(group.flatMap((m) => nearRegion(faces, m)))] : nearRegion(faces, ri);
       const ha = qa.length ? heldBy(near, wallTops(qa)) : 0;
       const hb = heldBy(near, wallTops(qb));
       const vol = (qs) => qs.reduce((v, q) => v + (q.volume ?? 0), 0);
@@ -343,7 +353,7 @@ function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = 
         // forced (raceAgainst's `lenient`): the user asked for the curve; the normal
         // walls that hold what it misses, or grip lower, stand beside it (keepers)
         if (hb > 0) extra = keepers(qa, qb, near, true);
-      } else if (!wanted || wanted.has(ri)) {
+      } else if (!b.leaderOf && (!wanted || wanted.has(ri))) {   // a traced group only forces a curve
         const tooHeavy = maxGrow !== null && qa.length && vol(qb) > maxGrow * vol(qa);
         if (!tooHeavy && hb > ha + Math.max(RACE_ABS, rel * ha)) extra = keepers(qa, qb, near);
       }

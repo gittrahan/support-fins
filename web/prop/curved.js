@@ -8,6 +8,8 @@
  * bend always swaps to them, at any weight and whatever they hold: the user has
  * chosen the curve. The normal walls that hold what the curve misses, or grip
  * lower, stay beside it (raster.js keepers), and any overhang still bare shows red.
+ * The curves trace each region grown across the slivers around it (trace.js), so a
+ * jagged overhang's islands don't cut them short.
  */
 
 export const CURVED = {

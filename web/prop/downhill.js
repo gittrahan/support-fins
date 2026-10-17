@@ -25,14 +25,14 @@ export const DOWNHILL = {
   inset: 1.0,       // mm: the end seeds sit this far in from the top edge's ends
   join: 3.0,        // mm: a line that comes this close to an earlier one stops (they merge)
   maxSteps: 600,
+  maxLines: 60,     // Curved walls' coverage seeds stop at this many lines under one surface
   maxGrow: 1.5,     // a region swaps to downhill walls only if they weigh at most this x its walls...
   race: 0.03,       // ...and hold this share more than they do (raster needs RACE_REL, 10%: the
                     // #25 fixture's curved end is +9.8%, and the weight cap guards the rest)
 };
 
 /** Plan gradient of the surface z at (x, y), or null off the region. */
-function grad(tris, x, y) {
-  const { h } = DOWNHILL;
+function grad(tris, x, y, h = DOWNHILL.h) {
   const z = surfaceZAt(tris, x, y);
   if (z === null) return null;
   const d = (dx, dy) => {
@@ -48,10 +48,17 @@ function grad(tris, x, y) {
 /**
  * Downhill tracks under one region. `regionPts` are its seated vertices and face
  * centroids (buildProps's), `regionTris` its seated triangles.
+ *
+ * `o` (Curved walls on a grown surface, prop/trace.js): `h` the slope's step;
+ * `cover`, the [x, y, z] red the lines must cover. With `cover`, each line is
+ * trimmed to the stations within `reach` of red (the grown surface runs past it),
+ * and red still farther than `reach` from every line seeds a line of its own,
+ * highest first, so the lines cover the overhang and the fill pass takes scraps.
  */
 export function downhillLines(regionPts, regionTris, step = PROP.stationStep,
-                              pitch = PROP.maxUnsupportedSpan) {
+                              pitch = PROP.maxUnsupportedSpan, o = {}) {
   const { grid, minSlope, inset, join, maxSteps } = DOWNHILL;
+  const h = o.h ?? DOWNHILL.h, cover = o.cover ?? null, reach = o.reach ?? PROP.maxUnsupportedSpan / 2;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const p of regionPts) {
     if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0];
@@ -64,7 +71,7 @@ export function downhillLines(regionPts, regionTris, step = PROP.stationStep,
   // the curve and leaves through the side edges, which then read as the top.
   const leavesUphill = (x, y) => {
     for (let s = 0; s < 4; s++) {
-      const g = grad(regionTris, x, y);
+      const g = grad(regionTris, x, y, h);
       if (!g) return true;
       const m = Math.hypot(g[0], g[1]);
       if (m < minSlope) return false;
@@ -78,7 +85,7 @@ export function downhillLines(regionPts, regionTris, step = PROP.stationStep,
   let mx = 0, my = 0, sloped = 0, n = 0;
   for (let y = y0 + grid / 2; y < y1; y += grid) {
     for (let x = x0 + grid / 2; x < x1; x += grid) {
-      const g = grad(regionTris, x, y);
+      const g = grad(regionTris, x, y, h);
       if (!g) continue;
       n++;
       const m = Math.hypot(g[0], g[1]);
@@ -122,11 +129,21 @@ export function downhillLines(regionPts, regionTris, step = PROP.stationStep,
     }
     return false;
   };
-  for (const s of seeds) {
+  // plan hash of the red, for the trim and the coverage seeds
+  const redCells = new Map(), rkey = (x, y) => key(Math.floor(x / reach), Math.floor(y / reach));
+  for (const p of cover ?? []) (redCells.get(rkey(p[0], p[1])) ?? redCells.set(rkey(p[0], p[1]), []).get(rkey(p[0], p[1]))).push(p);
+  const nearRed = (x, y) => {
+    const i0 = Math.floor(x / reach), j0 = Math.floor(y / reach);
+    for (let i = i0 - 1; i <= i0 + 1; i++) for (let j = j0 - 1; j <= j0 + 1; j++) {
+      for (const q of redCells.get(key(i, j)) ?? []) if (Math.hypot(q[0] - x, q[1] - y) <= reach) return true;
+    }
+    return false;
+  };
+  const trace = (s) => {
     const line = [];
     let x = s[0], y = s[1], px = 0, py = 0;
     for (let k = 0; k < maxSteps; k++) {
-      const g = grad(regionTris, x, y);
+      const g = grad(regionTris, x, y, h);
       if (!g) break;
       const m = Math.hypot(g[0], g[1]);
       if (m < minSlope) break;
@@ -137,11 +154,44 @@ export function downhillLines(regionPts, regionTris, step = PROP.stationStep,
       px = dx; py = dy;
       x += dx * step; y += dy * step;
     }
-    if (line.length < PROP.minStations) continue;
+    if (cover) {
+      let a = 0, b = line.length;
+      while (a < b && !nearRed(line[a][0], line[a][1])) a++;
+      while (b > a && !nearRed(line[b - 1][0], line[b - 1][1])) b--;
+      line.splice(b); line.splice(0, a);
+    }
+    if (line.length < PROP.minStations) return null;
     lines.push(line);
     for (const q of line) {
       const k = key(Math.floor(q[0] / join), Math.floor(q[1] / join));
       (cells.get(k) ?? cells.set(k, []).get(k)).push(q);
+    }
+    return line;
+  };
+  for (const s of seeds) trace(s);
+
+  // Coverage seeds: the highest red no line reaches starts a line of its own. A
+  // seed that traces nothing still counts its own reach as tried, so the loop ends.
+  if (cover) {
+    const done = new Uint8Array(cover.length), at = new Map();
+    cover.forEach((p, i) => { const k = rkey(p[0], p[1]); (at.get(k) ?? at.set(k, []).get(k)).push(i); });
+    const reached = (l) => {
+      for (const q of l) {
+        const i0 = Math.floor(q[0] / reach), j0 = Math.floor(q[1] / reach);
+        for (let i = i0 - 1; i <= i0 + 1; i++) for (let j = j0 - 1; j <= j0 + 1; j++) {
+          for (const c of at.get(key(i, j)) ?? []) {
+            if (!done[c] && Math.hypot(q[0] - cover[c][0], q[1] - cover[c][1]) <= reach) done[c] = 1;
+          }
+        }
+      }
+    };
+    for (const l of lines) reached(l);
+    const order = cover.map((_, i) => i).filter((i) => !done[i])
+      .sort((a, b) => cover[b][2] - cover[a][2] || cover[a][0] - cover[b][0] || cover[a][1] - cover[b][1]);
+    for (const i of order) {
+      if (done[i]) continue;
+      if (lines.length >= DOWNHILL.maxLines) break;
+      reached(trace(cover[i]) ?? [cover[i]]);
     }
   }
   return lines.length ? lines : null;

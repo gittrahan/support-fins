@@ -46,6 +46,7 @@
  *   lattice.js    a net of struts cut back into struts (the raster slot's contender for a net)
  *   downhill.js   walls that run down an overhang and follow it to the plate (#25)
  *   curved.js     the Curved walls checkbox: when a bending downhill wall wins its race
+ *   trace.js      the Curved walls' tracing surface: regions grown across the slivers, grouped
  *
  * Each module imports only modules above it in this list and never prop.js.
  */
@@ -60,6 +61,7 @@ import { DOWNHILL, downhillLines } from './prop/downhill.js';
 import { latticeStruts, strutPatches } from './prop/lattice.js';
 import { raceAgainst, rasterRest, rasterTracks, withRaster } from './prop/raster.js';
 import { tubeRivalry } from './prop/rival.js';
+import { TRACE, traceGroups } from './prop/trace.js';
 import { buildSquatBed } from './prop/squat.js';
 import { seat } from './prop/surface.js';
 import { sweep } from './prop/sweep.js';
@@ -138,14 +140,13 @@ export function buildProps(topo, result, rot, opts = {}) {
   // and judges the whole build (fins/downhill.js); a direct call is unchanged.
   if (opts.downhill !== true) return base;
   const off0 = result.offset;
-  return raceAgainst(topo, result, rot, opts, base, capFrom, (regions) => {
-    const pass = buildPass(topo, result, rot, { ...opts, downhillRegions: regions }, null);
-    // A downhill wall starts at the region's top edge, where the overhang meets the
-    // part: a flank lying exactly flush with a part face there reads as clear to
-    // the weld check and the station probes (lbracket Y20 on the plugin path: 45
-    // flank vertices inside the part). Any wall vertex inside the part drops the
-    // wall -- the wall's own triangles (`wallRange`), not its tines, which bite in
-    // by design.
+  // A downhill wall starts at the region's top edge, where the overhang meets the
+  // part: a flank lying exactly flush with a part face there reads as clear to
+  // the weld check and the station probes (lbracket Y20 on the plugin path: 45
+  // flank vertices inside the part). Any wall vertex inside the part drops the
+  // wall -- the wall's own triangles (`wallRange`), not its tines, which bite in
+  // by design.
+  const unburied = (pass) => {
     pass.props = pass.props.filter((q) => {
       if (!q.wallRange) return true;
       for (let i = q.wallRange[0]; i < q.wallRange[1]; i++) {
@@ -155,10 +156,21 @@ export function buildProps(topo, result, rot, opts = {}) {
       return true;
     });
     return pass;
-  }, 'downhill', DOWNHILL.maxGrow, DOWNHILL.race,
-  // Curved walls (prop/curved.js): with the box ticked a bending wall needs only
-  // to hold as much; unticked, the race is the one above, unchanged
-  opts.curvedWalls === true ? bends : null);
+  };
+  const strict = raceAgainst(topo, result, rot, opts, base, capFrom,
+    (regions) => unburied(buildPass(topo, result, rot, { ...opts, curvedWalls: undefined, downhillRegions: regions }, null)),
+    'downhill', DOWNHILL.maxGrow, DOWNHILL.race);
+  if (opts.curvedWalls !== true) return strict;
+  // Curved walls (prop/curved.js, prop/trace.js): a second race over the regions
+  // grown across the slivers, where a group whose walls bend always swaps to them
+  // and every other group keeps what the strict race left it -- so ticking changes
+  // nothing where no wall bends. Its walls are downhill walls too (`downhill`), raced
+  // under their own tag so the tine capture re-points each wall's own.
+  return raceAgainst(topo, result, rot, opts, strict, capFrom, (regions) => {
+    const pass = unburied(buildPass(topo, result, rot, { ...opts, downhillRegions: regions }, null));
+    for (const q of pass.props) q.downhill = true;
+    return pass;
+  }, 'curved', null, DOWNHILL.race, bends);
 }
 
 /**
@@ -195,6 +207,9 @@ function buildPass(topo, result, rot, opts, raster) {
   const withTines = opts.tines === true;
   const only = opts.onlyRegions ?? null, short = opts.shortWalls === true;
   const downhill = opts.downhillRegions ?? null;
+  // Curved walls (prop/trace.js): the downhill lines trace regions grown across the
+  // slivers, and regions whose growth meets trace (and race) as one
+  const traced = downhill && opts.curvedWalls === true ? traceGroups(topo, result, rot, off, downhill) : null;
   // tines emitted; sagRisk: the user chose sub-cap spacing AND a real row landed wide
   const tally = { tines: 0, sagRisk: false, sagRegions: new Set() };
 
@@ -289,6 +304,16 @@ function buildPass(topo, result, rot, opts, raster) {
     // regions in `opts.downhillRegions` only -- the race in buildProps decides.
     if (downhill) {
       if (!downhill.has(ri)) continue;
+      if (traced) {
+        if (traced.leaderOf.get(ri) !== ri) continue;   // traced with its group's leader
+        const g = traced.groups.get(ri);
+        const lines = downhillLines(g.pts, g.tris, step, undefined, { h: TRACE.h, cover: g.red });
+        const faces = g.members.flatMap((m) => result.regions[m].faces);
+        let area = 0;
+        for (const f of faces) area += topo.area[f];
+        if (lines) patches.push({ faces, area, region: ri, tris: g.tris, lines, members: g.members });
+        continue;
+      }
       const lines = downhillLines(regionPts, regionTris, step);
       if (lines) patches.push({ faces: rFaces, area: regionArea, region: ri, tris: regionTris, lines });
       continue;
@@ -593,6 +618,7 @@ function buildPass(topo, result, rot, opts, raster) {
           // pushed its tines right after, so wall + tines are one contiguous segment.
           triRanges: [[before, out.length]],
           ...(downhill ? { wallRange: [before, wallEnd] } : {}),   // the wall without its tines
+          ...(patch.members ? { members: patch.members } : {}),     // a traced group's regions
         });
         for (let k = run[0] + run2[0]; k < run[0] + run2[1]; k++) claimed[k] = true;
         placed = true;
@@ -611,5 +637,6 @@ function buildPass(topo, result, rot, opts, raster) {
            servedRegions: [...servedRegions],
            tines: tally.tines, sagRisk: tally.sagRisk,
            ...(raster ? { sagRegions: tally.sagRegions } : {}),
+           ...(traced ? { leaderOf: traced.leaderOf } : {}),
            volume: props.reduce((s, q) => s + q.volume, 0) };
 }
