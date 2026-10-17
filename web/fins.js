@@ -342,12 +342,13 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     if (mode === 'full' && !noWalls) return withFill(topo, result, rot, { ...opts, tines: withTines, coverage }, auto);
     // Curved walls in Auto (prop/curved.js): a forced curve can leave overhang the
     // straight walls held, so the fill pass runs under the regions a curve won --
-    // there only, rows off. Its count is its own (`curvedFill`): the readout's Full
-    // coverage lines are Full's.
+    // there only, rows off. Its numbers are its own (`curvedFill`): the readout's Full
+    // coverage lines are Full's, but the red it couldn't reach is said all the same.
     const curved = new Set(auto.props.filter((q) => q.downhill && bends([q])).map((q) => q.region));
     if (mode === 'auto' && opts.curvedWalls === true && curved.size && !noWalls) {
       const f = withFill(topo, result, rot, { ...opts, tines: withTines, coverage, longWalls: false, fillRegions: curved }, auto);
-      return { ...f, fill: undefined, curvedFill: f.fill.walls };
+      return { ...f, fill: undefined,
+               curvedFill: { walls: f.fill.walls, unservedArea: f.fill.unservedArea, capped: f.fill.capped } };
     }
     return auto;
   }

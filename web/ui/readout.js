@@ -403,10 +403,20 @@ function updateFinReadout(built, ms) {
       lead.push(t('{area} mm² of overhang no wall can reach this way up — tilt the part, or add a wall by hand', { area: bare }));
     }
   }
-  // Curved walls in Auto: the fill pass under the regions a forced curve won
-  if (built.curvedFill) {
-    help.push(tn('Curved walls: added {n} wall under overhang the curves left bare.',
-                 'Curved walls: added {n} walls under overhang the curves left bare.', built.curvedFill));
+  // Curved walls in Auto: the fill pass under the regions a forced curve won, and
+  // -- must-see, as in Full coverage -- the red there it couldn't reach
+  const cf = built.curvedFill;
+  if (cf) {
+    if (cf.walls) {
+      help.push(tn('Curved walls: added {n} wall under overhang the curves left bare.',
+                   'Curved walls: added {n} walls under overhang the curves left bare.', cf.walls));
+    }
+    const bare = Math.round(cf.unservedArea);
+    if (cf.capped) {
+      lead.push(t('Curved walls stopped at the wall limit with {area} mm² of overhang still bare — untick it, or switch to Full coverage', { area: bare }));
+    } else if (bare >= 1) {
+      lead.push(t('{area} mm² of overhang no wall can reach this way up — tilt the part, or add a wall by hand', { area: bare }));
+    }
   }
   // (in Full coverage the fill's own line above says what is still bare)
   if (built.unserved && !fl) {

@@ -82,7 +82,7 @@ Deno.test('curved: forced -- a curve that holds less still shows, and Auto fills
   const bent = (b) => b.props.filter((q) => q.downhill && lineBend(q.line) > CURVED.minBend);
   assert(!bent(off.b).length, 'unticked, a bending wall won anyway');
   assert(bent(on.b).length >= 1, 'ticked, the curve did not show');
-  assert(on.b.curvedFill >= 1, `ticked, the fill added ${on.b.curvedFill} walls`);
+  assert(on.b.curvedFill?.walls >= 1, `ticked, the fill added ${on.b.curvedFill?.walls} walls`);
   assert(on.b.fill === undefined, 'Auto reported a Full coverage fill');
   assert(on.held >= off.held - 1e-6, `held ${off.held.toFixed(1)} -> ${on.held.toFixed(1)} mm2`);
   assert(on.low <= off.low + 0.1, `lowest tine rose ${off.low} -> ${on.low}`);
