@@ -393,11 +393,12 @@ export function cutWall(st, full, out, wall) {
     const ct = Math.max(q.botTip, Math.min(zHi[i] - shut, q.ztip - 0.01));
     const cb = Math.min(q.ztip, Math.max(zLo[i] + shut, q.botTip + 0.01));
     const tq = q.tipHalf ?? tp;                 // narrower when an interface crest sits on it
-    top.push([P(+th, ct), P(+th, q.ztip), P(+tq, q.top),
-              P(-tq, q.top), P(-th, q.ztip), P(-th, ct)]);
+    const w = q.sh ?? th;                       // the station's body: narrower on a low wide wall (044)
+    top.push([P(+w, ct), P(+w, q.ztip), P(+tq, q.top),
+              P(-tq, q.top), P(-w, q.ztip), P(-w, ct)]);
     bot.push(q.taperBot
-      ? [P(+tp, q.bot), P(+th, q.botTip), P(+th, cb), P(-th, cb), P(-th, q.botTip), P(-tp, q.bot)]
-      : [P(+th, q.botP ?? q.bot), P(+th, cb), P(-th, cb), P(-th, q.botN ?? q.bot)]);  // a tilted lifted bottom (sweepBetween)
+      ? [P(+tp, q.bot), P(+w, q.botTip), P(+w, cb), P(-w, cb), P(-w, q.botTip), P(-tp, q.bot)]
+      : [P(+w, q.botP ?? q.bot), P(+w, cb), P(-w, cb), P(-w, q.botN ?? q.bot)]);  // a tilted lifted bottom (sweepBetween)
   }
   // Against an end post a band starts 2 * CUT.eps inside it, on the line of its
   // first segment (same surface): ending at the post's own cap, it shared the
@@ -508,7 +509,10 @@ export function cutWall(st, full, out, wall) {
   for (let c = 0; c + 1 < edges.length; c++) {
     const s0 = s[edges[c]], s1 = s[edges[c + 1]];
     let zb = Infinity, zt = -Infinity;
-    for (let i = edges[c]; i <= edges[c + 1]; i++) { zb = Math.min(zb, zLo[i] - e); zt = Math.max(zt, zHi[i] + e); }
+    let sw = th;   // a strip no wider than the narrowest body it spans (044)
+    for (let i = edges[c]; i <= edges[c + 1]; i++) {
+      zb = Math.min(zb, zLo[i] - e); zt = Math.max(zt, zHi[i] + e); sw = Math.min(sw, st[i].sh ?? th);
+    }
     for (const poly of stripSolid(s0, s1, zb, zt, obst)) {
       // corners closer than 0.1 micron are one corner to a slicer, which welds
       // them: left twice, the extrusion has zero-area faces
@@ -516,7 +520,7 @@ export function cutWall(st, full, out, wall) {
         const U = G[(n + 1) % G.length];
         return Math.abs(U[0] - V[0]) > 1e-4 || Math.abs(U[1] - V[1]) > 1e-4;
       });
-      if (g.length >= 3) boxExtrude(g, -th, th, P, out);
+      if (g.length >= 3) boxExtrude(g, -sw, sw, P, out);
     }
   }
   return true;

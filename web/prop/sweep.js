@@ -42,7 +42,10 @@ export const footFor = (h) => {
  */
 export function profileHalf(z, top) {
   const ztip = Math.max(top - PROP.tipH, PROP.baseH + 0.1);
-  const half = stemHalf(top - ztip);
+  // the body as sweep() builds it: its neck starts over a flange that shrinks on a
+  // low tail (min(baseH, top / 2)), so read the width from that same rise -- never
+  // narrower than the mesh, or a clearance probe under-reads the wall
+  const half = stemHalf(top - Math.max(top - PROP.tipH, Math.min(PROP.baseH, top / 2) + 0.1));
   if (z < PROP.baseH) return footFor(top);      // flat flange (the T's foot)
   if (z < ztip) return half;                    // straight wall (the T's stem)
   return half                                   // neck into the contact tip
@@ -111,7 +114,7 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
     flange.push([
       P(+foot, zBed), P(+foot, baseTop), P(-foot, baseTop), P(-foot, zBed),
     ]);
-    st.push({ p, sx, sy, top: zTop, ztip: zt, holeTop: ztip, tipHalf: wTop, bot: zBed, botTip: baseTop, taperBot: false });
+    st.push({ p, sx, sy, top: zTop, ztip: zt, holeTop: ztip, tipHalf: wTop, sh, bot: zBed, botTip: baseTop, taperBot: false });
   }
 
   const from = out.length;
@@ -208,7 +211,7 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
       P(+sh, bP), P(+sh, zTopTip), P(+wTop, zTop),
       P(-wTop, zTop), P(-sh, zTopTip), P(-sh, bN),
     ]);
-    st.push({ p, sx, sy, top: zTop, ztip: zTopTip, holeTop: top - taper, tipHalf: wTop, bot: bHi, botTip: zBotTip, taperBot: welded, botN: bN, botP: bP });
+    st.push({ p, sx, sy, top: zTop, ztip: zTopTip, holeTop: top - taper, tipHalf: wTop, sh, bot: bHi, botTip: zBotTip, taperBot: welded, botN: bN, botP: bP });
   }
 
   const from = out.length;

@@ -10,6 +10,7 @@ import { ribbon } from '../solids.js';
 import { longestRun, stationCertified, stationIsClear, welds } from './clearance.js';
 import { PROP } from './config.js';
 import { settleTop } from './contact.js';
+import { stemHalf } from './sweep.js';
 import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
 
 /**
@@ -41,14 +42,15 @@ export function sweepSquat(line, zBed, out) {
     const ztip = Math.max(top - PROP.tipH, brimTop + 0.05);
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
     // where the interface crest runs, the stem stops at the crest's cut
-    const c = crestCut(top, ztip, brimTop, kinds?.[i]);
+    const sh = stemHalf(top - ztip);   // no wider than its neck can climb from (044)
+    const c = crestCut(top, ztip, brimTop, kinds?.[i], 2 * sh);
     crest.push(c?.ring(P) ?? null);
     const [zt, zTop, wTop] = c ? [c.zt, c.cut, c.wc] : [ztip, top, PROP.tip / 2];
 
     // the stem: bed to breakaway tip, th-wide then necking to the contact tip
     wall.push([
-      P(+PROP.th / 2, zBed), P(+PROP.th / 2, zt), P(+wTop, zTop),
-      P(-wTop, zTop), P(-PROP.th / 2, zt), P(-PROP.th / 2, zBed),
+      P(+sh, zBed), P(+sh, zt), P(+wTop, zTop),
+      P(-wTop, zTop), P(-sh, zt), P(-sh, zBed),
     ]);
     // the brim: a thin flat slab overlapping the wall's base, for plate grip
     brim.push([

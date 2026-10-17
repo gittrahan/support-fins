@@ -48,3 +48,35 @@ Deno.test('neck: the swept low wide wall matches the profile (body narrowed in t
     assert(w < PROP.th / 2 - 0.1, `the low wall kept its full ${PROP.th} mm body (half ${w})`);
   } finally { applyWallLines(2); }
 });
+
+Deno.test('neck: a low wide SQUAT wall narrows too (the lowest walls there are)', async () => {
+  const { sweepSquat } = await import('../web/prop/squat.js');
+  try {
+    applyNozzle(0.4); applyWallLines(8);
+    const out = [];
+    assert(sweepSquat([[0, 0, 1.2 + PROP.gap], [10, 0, 1.2 + PROP.gap]], 0, out), 'no squat wall swept');
+    let w = 0;
+    for (const v of out) if (v[2] > PROP.squatBrimH + 1e-6) w = Math.max(w, Math.abs(v[1]));
+    assert(w < PROP.th / 2 - 0.5, `the squat wall kept a ${2 * w} mm body under a ${PROP.tipH} mm neck`);
+  } finally { applyWallLines(2); }
+});
+
+Deno.test("neck: a cut wall's bands and strips keep to the narrowed body (cutouts)", async () => {
+  const { CUT } = await import('../web/cutout.js');
+  const was = CUT.pattern;
+  try {
+    applyNozzle(0.4); applyWallLines(8); CUT.pattern = 'arch';
+    // low (2.6 mm) for x 0-8, rising to 12 mm in the middle: the low stretch sits
+    // between the end posts, inside the bands
+    const line = [];
+    for (let x = 0; x <= 40; x += 0.5) {
+      const t = Math.min(1, Math.max(0, (Math.min(x, 40 - x) - 8) / 6));
+      line.push([x, 0, 2.6 + 9.4 * t + PROP.gap]);
+    }
+    const out = [];
+    assert(sweep(line, 0, out), 'no wall swept');
+    let w = 0;
+    for (const v of out) if (v[0] > 3 && v[0] < 5 && v[2] > PROP.baseH + 0.01) w = Math.max(w, Math.abs(v[1]));
+    assert(w < PROP.th / 2 - 0.1, `the cut wall's low stretch is ${2 * w} mm wide, the full body`);
+  } finally { CUT.pattern = was; applyWallLines(2); }
+});
