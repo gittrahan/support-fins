@@ -170,6 +170,7 @@ function rankPoses(topo, thr) {
     // the inside grid holds a closure structured clone can't copy (finbuild.js)
     const topoMsg = { ...topo };
     delete topoMsg._insideGrid;
+    delete topoMsg._vgraph;    // islands.js's vertex graph: page-only, and big
     try {
       w.postMessage({ id, topology: topoMsg, threshold: thr, tunables: supportTunables() });
     } catch (err) {
