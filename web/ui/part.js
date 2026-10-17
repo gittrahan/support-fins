@@ -23,7 +23,7 @@ import { activeAdded, refreshFins, markFinsStale } from './finbuild.js';
 import { finsVisible, highlightSmall, setDrawAugment, syncAugmentUI } from './settings.js';
 import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
 import { resetScale } from './scale.js';
-import { updateIslands, renderIslandText } from './islands.js';
+import { updateIslands, renderIslandText, hadIslands } from './islands.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff, roughness: 0.62, metalness: 0.05,
@@ -269,7 +269,7 @@ export function shade() {
   // on. Current pose clean wins outright; otherwise, if the part printed flat as
   // loaded, the overhangs on screen are self-inflicted by rotating.
   const flat = el('s-flat-note');
-  if (res.regions.length === 0 && isl.length) {
+  if (res.regions.length === 0 && (isl.length || (gizmo.dragging && hadIslands()))) {
     // no red, but a start in midair: not "no supports needed" (the card says why)
     flat.textContent = '';
   } else if (res.regions.length === 0) {

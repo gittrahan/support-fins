@@ -75,3 +75,43 @@ Deno.test('islands: the stress models have none bar lowledge at Y45 (a 45-45 kni
   const ys = edge[0].points.map((p) => p[1]);
   assert(Math.max(...ys) - Math.min(...ys) > 39, 'the whole 40 mm edge is the target, not its middle');
 });
+
+Deno.test('islands: starts within 2 mm merge into one island, farther ones stay apart', () => {
+  const two = (dy) => islandsOf(topoOf(pillar, cornerCube(15, 5, 20, 8), cornerCube(15, 5 + dy, 20, 8)));
+  const near = two(1.5);
+  assert(near.length === 1 && near[0].points.length === 2, `1.5 mm apart: one island of two starts, got ${near.length}`);
+  assert(two(4).length === 2, '4 mm apart: two islands');
+});
+
+Deno.test('islands: a start under the area floor is dropped', () => {
+  const topo = topoOf(pillar, cornerCube(15, 5, 20, 8));
+  const res = analyze(topo, 45, I3);
+  const a = findIslands(topo, res, I3)[0].area;
+  assert(findIslands(topo, res, I3, { minArea: a + 0.01 }).length === 0, `a ${a.toFixed(3)} mm2 start under a higher floor`);
+});
+
+// An open steep surface, z = 2x (its faces lean out and down), on a 0.1 mm grid,
+// with one vertex pushed 0.3 mm down: a low point, but its own surface runs
+// lower within a layer -- the slicer prints it on the layer below.
+function dimpledWall() {
+  const N = 20, h = 0.1, z = (i, j) => 10 + 2 * i * h - (i === 10 && j === 10 ? 0.3 : 0);
+  const P = (i, j) => [i * h, j * h, z(i, j)];
+  const t = [];
+  for (let i = 0; i < N; i++) for (let j = 0; j < N; j++) {
+    t.push(P(i, j), P(i, j + 1), P(i + 1, j + 1), P(i, j), P(i + 1, j + 1), P(i + 1, j));
+  }
+  return new Float32Array(t.flat());
+}
+
+Deno.test('islands: a dimple in a steep wall prints on the wall below it', () => {
+  const topo = topoOf(dimpledWall());
+  const res = analyze(topo, 45, I3);
+  // (the sheet's own bottom edge, at z 10, is a start in midair too)
+  const opts = { plateZ: -1, minArea: 0 };
+  // seen as a candidate when the layer is thinner than its drop to the row below...
+  const thin = findIslands(topo, res, I3, { ...opts, layer: 0.05, grace: 0 });
+  assert(thin.length === 2, `the dimple is a downward low point (${thin.length} starts)`);
+  // ... and dropped at a real layer: the wall under it is within reach
+  const real = findIslands(topo, res, I3, opts);
+  assert(real.length === 1 && Math.abs(real[0].z - 10 - res.offset.z) < 1e-6, 'only the bottom edge at 0.2 mm layers');
+});

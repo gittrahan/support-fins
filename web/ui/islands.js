@@ -22,6 +22,10 @@ markers.renderOrder = 10;
 scene.add(markers);
 
 export let islands = [];
+let settled = 0;     // the count at the last release: a drag shows none, but had some
+/** Did the last pose the part settled in have island starts? (part.js's flat note
+ *  mid-drag, so a turn doesn't flash "No supports needed".) */
+export const hadIslands = () => settled > 0;
 
 function clearMarkers() {
   for (const m of markers.children) m.geometry.dispose();
@@ -35,6 +39,7 @@ function clearMarkers() {
  */
 export function updateIslands(topology, res, rot, size, dragging) {
   islands = topology && !dragging ? findIslands(topology, res, rot) : [];
+  if (!dragging) settled = islands.length;
   clearMarkers();
   // the cone's tip on the start, its base under it: "this needs holding up"
   const s = Math.min(6, Math.max(1.5, 0.03 * Math.max(size.x, size.y, size.z)));

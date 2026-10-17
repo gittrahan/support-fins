@@ -79,7 +79,6 @@ export function findIslands(topo, res, rot, opts = {}) {
     Y[v] = rot[1] * x + rot[4] * y + rot[7] * z + off.y;
     Z[v] = rot[2] * x + rot[5] * y + rot[8] * z + off.z;
   }
-  const nb = (v, fn) => { for (let k = fStart[v] * 2, e = fStart[v + 1] * 2; k < e; k++) fn(nbr[k]); };
 
   // low points: no neighbour lower; a level run of them is one (union-find)
   const lower = new Uint8Array(nV);
@@ -88,19 +87,24 @@ export function findIslands(topo, res, rot, opts = {}) {
   const find = (i) => { while (parent[i] !== i) i = parent[i] = parent[parent[i]]; return i; };
   for (let v = 0; v < nV; v++) {
     if (Z[v] < P.plateZ) { lower[v] = 1; continue; }
-    nb(v, (u) => {
-      const dz = Z[u] - Z[v];
-      if (dz < -EPS) lower[v] = 1;
-      else if (dz <= EPS) parent[find(u)] = find(v);
-    });
+    const zv = Z[v];
+    for (let k = fStart[v] * 2, e = fStart[v + 1] * 2; k < e; k++) {
+      const u = nbr[k], dz = Z[u] - zv;
+      if (dz < -EPS) { lower[v] = 1; break; }
+      if (dz <= EPS) { const ru = find(u), rv = find(v); if (ru !== rv) parent[ru] = rv; }
+    }
   }
+  // a run is lower if any vertex in it is; gather only the runs that aren't (a
+  // Map entry per vertex was 250-300 ms and 176 MB of churn on a 1.56M-face figure)
+  const rootLower = new Uint8Array(nV);
+  for (let v = 0; v < nV; v++) if (lower[v]) rootLower[find(v)] = 1;
   const runs = new Map();
   for (let v = 0; v < nV; v++) {
     const r = find(v);
+    if (rootLower[r]) continue;
     let run = runs.get(r);
-    if (!run) runs.set(r, (run = { verts: [], lower: false }));
+    if (!run) runs.set(r, (run = { verts: [] }));
     run.verts.push(v);
-    if (lower[v]) run.lower = true;
   }
 
   const fz = (f) => [Z[vid[f * 3]], Z[vid[f * 3 + 1]], Z[vid[f * 3 + 2]]];
@@ -108,7 +112,6 @@ export function findIslands(topo, res, rot, opts = {}) {
 
   const cands = [];
   for (const run of runs.values()) {
-    if (run.lower) continue;
     const z0 = Z[run.verts[0]];
     const star = new Set();
     for (const v of run.verts) for (let k = fStart[v]; k < fStart[v + 1]; k++) star.add(vFaces[k]);
@@ -119,24 +122,28 @@ export function findIslands(topo, res, rot, opts = {}) {
   }
   if (!cands.length) return [];
 
-  // the layer below, gridded in plan: only faces in reach of some start's band
-  let zLo = Infinity, zHi = -Infinity;
-  for (const c of cands) { zLo = Math.min(zLo, c.z0 - P.layer); zHi = Math.max(zHi, c.z0); }
+  // the layer below, gridded in plan -- only the cells a start's grace reaches
+  // (a 1.56M-face figure's every face in a full grid was ~100 ms per pose)
   const CELL = 1;
-  const grid = new Map(), big = [];
   const key = (i, j) => i * 1000003 + j;
-  for (let f = 0; f < nFaces; f++) {
-    const [a, b, c] = fz(f);
-    if (Math.min(a, b, c) >= zHi || Math.max(a, b, c) <= zLo) continue;
-    const xs = [X[vid[f * 3]], X[vid[f * 3 + 1]], X[vid[f * 3 + 2]]];
-    const ys = [Y[vid[f * 3]], Y[vid[f * 3 + 1]], Y[vid[f * 3 + 2]]];
-    const i0 = Math.floor(Math.min(...xs) / CELL), i1 = Math.floor(Math.max(...xs) / CELL);
-    const j0 = Math.floor(Math.min(...ys) / CELL), j1 = Math.floor(Math.max(...ys) / CELL);
-    if ((i1 - i0 + 1) * (j1 - j0 + 1) > 256) { big.push(f); continue; }
-    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) {
-      const k = key(i, j);
-      let a2 = grid.get(k); if (!a2) grid.set(k, (a2 = [])); a2.push(f);
+  const grid = new Map();
+  const r = Math.ceil(P.grace / CELL);
+  let zLo = Infinity, zHi = -Infinity;
+  for (const c of cands) {
+    zLo = Math.min(zLo, c.z0 - P.layer); zHi = Math.max(zHi, c.z0);
+    for (const v of c.run.verts) {
+      const gi = Math.floor(X[v] / CELL), gj = Math.floor(Y[v] / CELL);
+      for (let i = gi - r; i <= gi + r; i++) for (let j = gj - r; j <= gj + r; j++) if (!grid.has(key(i, j))) grid.set(key(i, j), []);
     }
+  }
+  const big = [];
+  for (let f = 0; f < nFaces; f++) {
+    const a = vid[f * 3], b = vid[f * 3 + 1], c = vid[f * 3 + 2];
+    if (Math.min(Z[a], Z[b], Z[c]) >= zHi || Math.max(Z[a], Z[b], Z[c]) <= zLo) continue;
+    const i0 = Math.floor(Math.min(X[a], X[b], X[c]) / CELL), i1 = Math.floor(Math.max(X[a], X[b], X[c]) / CELL);
+    const j0 = Math.floor(Math.min(Y[a], Y[b], Y[c]) / CELL), j1 = Math.floor(Math.max(Y[a], Y[b], Y[c]) / CELL);
+    if ((i1 - i0 + 1) * (j1 - j0 + 1) > 256) { big.push(f); continue; }
+    for (let i = i0; i <= i1; i++) for (let j = j0; j <= j1; j++) grid.get(key(i, j))?.push(f);
   }
   // face f clipped to z in [lo, hi], projected: within `r` of (px, py)?
   const near = (f, px, py, lo, hi, r) => {
@@ -172,7 +179,6 @@ export function findIslands(topo, res, rot, opts = {}) {
       const [a, b, c] = fz(f);
       return Math.min(a, b, c) < hi && Math.max(a, b, c) > lo && near(f, px, py, lo, hi, P.grace);
     };
-    const r = Math.ceil(P.grace / CELL);
     const gi = Math.floor(px / CELL), gj = Math.floor(py / CELL);
     for (let i = gi - r; i <= gi + r; i++) for (let j = gj - r; j <= gj + r; j++) {
       for (const f of grid.get(key(i, j)) || []) if (test(f)) return true;
@@ -184,13 +190,15 @@ export function findIslands(topo, res, rot, opts = {}) {
   // the cross-section one layer up: walk the faces under that height out from the
   // start; reaching a vertex lower than the start means it joins lower material
   // within the layer (not an island). Segments are oriented by the face's outward
-  // normal, so the shoelace sum is the enclosed area.
+  // normal, so the shoelace sum is the enclosed area. Past maxFaces the start is
+  // big, but the walk goes on (to 10x) looking for that lower vertex: a dimple in
+  // a dense mesh mustn't pass as an island because the cap stopped the look.
   const section = (c) => {
     const zh = c.z0 + P.layer;
     const seen = new Set(c.star), queue = [...c.star];
     let a2 = 0;
     for (let qi = 0; qi < queue.length; qi++) {
-      if (queue.length > P.maxFaces) return Infinity;
+      if (queue.length > 10 * P.maxFaces) return Infinity;
       const f = queue[qi];
       const zs = fz(f);
       if (Math.min(...zs) < c.z0 - EPS) return -1;
@@ -222,9 +230,22 @@ export function findIslands(topo, res, rot, opts = {}) {
         }
       }
     }
-    return Math.abs(a2) / 2;
+    return queue.length > P.maxFaces ? Infinity : Math.abs(a2) / 2;
   };
 
+  // a long level edge can be thousands of vertices: keep its two ends in plan
+  // and an even sample, so the merge and the UI's farthest pair stay small
+  const MAXPTS = 32;
+  const spread = (vs) => {
+    if (vs.length <= MAXPTS) return vs;
+    let a = vs[0], b = vs[0], far = -1;
+    for (const v of vs) { const d = Math.hypot(X[v] - X[vs[0]], Y[v] - Y[vs[0]]); if (d > far) { far = d; a = v; } }
+    far = -1;
+    for (const v of vs) { const d = Math.hypot(X[v] - X[a], Y[v] - Y[a]); if (d > far) { far = d; b = v; } }
+    const out = [a, b];
+    for (let i = 0; i < MAXPTS - 2; i++) out.push(vs[Math.floor((i * vs.length) / (MAXPTS - 2))]);
+    return out;
+  };
   const found = [];
   for (const c of cands) {
     const vs = c.run.verts;
@@ -233,7 +254,7 @@ export function findIslands(topo, res, rot, opts = {}) {
     if (held) continue;
     const a = section(c);
     if (a < P.minArea) continue;
-    found.push({ z: c.z0, area: a, points: vs.map((v) => [X[v], Y[v], Z[v]]) });
+    found.push({ z: c.z0, area: a, points: spread(vs).map((v) => [X[v], Y[v], Z[v]]) });
   }
 
   // merge starts a boss rim or a corner shares into one island, lowest first
