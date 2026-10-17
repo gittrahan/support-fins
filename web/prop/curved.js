@@ -14,6 +14,8 @@ export const CURVED = {
   minBend: 10,   // deg: a wall that turns less than this in plan is straight. Straight
                  // downhill walls read 0 on real organic parts; real bends run 10-60
   chord: 3,      // mm: the heading is read over this much of the line, not one station
+  fullSlack: 0.01,   // Full coverage keeps the curves if they hold within this share of the
+                     // straight build (spiral -0.8%, bust X30 -0.3% kept; bean on its side -2..-5% not)
   trim: 0.1,     // the share of headings dropped at each extreme: one wandering chord
                  // (where the line starts off the climb) doesn't read as a bend
 };

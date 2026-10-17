@@ -47,7 +47,7 @@ import { lastResortWalls } from './fins/shortwalls.js';
 import { fillCoverage } from './fins/fill.js';
 import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
 import { judgeDownhill } from './fins/downhill.js';
-import { bends } from './prop/curved.js';
+import { bends, CURVED } from './prop/curved.js';
 import { applyNozzle, applyWallLines } from './nozzle.js';
 
 // Moved into web/fins/ (one module per concern); re-exported here so every
@@ -240,8 +240,19 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // (`raster: false` is the tests' normal-pass-alone switch: no races at all.)
     if (opts.downhill === undefined) {
       if (opts.raster === false) return buildFinsCore(topo, result, rot, { ...opts, downhill: false });
-      // Curved walls (prop/curved.js): ticked, the curve is forced -- no judge
-      if (opts.curvedWalls === true) return buildFinsCore(topo, result, rot, { ...opts, downhill: true });
+      // Curved walls (prop/curved.js): ticked, the curve is forced -- no judge in
+      // Auto, where its own fill takes what the curves leave. In Full the curves can
+      // break up the fill's rows (coffee bean on its side: held -5%), so the unticked
+      // Full build is built too and the curved one stays only if it holds within
+      // CURVED.fullSlack of it, grips no higher and keeps every wedge (fins/downhill.js);
+      // the readout says when the curves were dropped.
+      if (opts.curvedWalls === true) {
+        const curved = () => buildFinsCore(topo, result, rot, { ...opts, downhill: true });
+        if (mode !== 'full') return curved();
+        return judgeDownhill(topo, result, rot, (on) => (on ? curved()
+          : { ...buildFinsCore(topo, result, rot, { ...opts, curvedWalls: undefined }), curvedDropped: true }),
+        CURVED.fullSlack);
+      }
       return judgeDownhill(topo, result, rot, (downhill) => buildFinsCore(topo, result, rot, { ...opts, downhill }));
     }
     const withTines = opts.tines ?? true;
