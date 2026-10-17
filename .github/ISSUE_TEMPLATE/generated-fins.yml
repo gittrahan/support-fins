@@ -1,0 +1,104 @@
+name: Generated fins look wrong
+description: Report missing, misplaced, malformed, or otherwise incorrect generated fins.
+title: "Generated fins: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting this — we're happy to take a look.
+
+        **For issues with the shape or placement of generated fins, the original 3D model is especially helpful.** Screenshots show what went wrong, but usually don't include the geometry needed to reproduce it.
+
+        Please create the issue first, then attach the original model file (for example, STL, 3MF, or STEP if supported by your workflow) in a follow-up comment. Please only share files you're comfortable making public. If you can't share the model, that's completely okay; let us know below and include screenshots plus the settings and steps you used.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where are you using Support Fins?
+      options:
+        - Browser app (printfins.com)
+        - Blender
+        - Cura
+        - FreeCAD
+        - Fusion
+        - Onshape
+        - OrcaSlicer
+        - PrusaSlicer
+        - SolidWorks
+        - Command-line tool
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: App, plugin, or version details
+      description: Include the Support Fins version if you know it, plus your browser or host-app version when relevant.
+      placeholder: "e.g. website in Firefox 132; Cura 5.x"
+    validations:
+      required: false
+  - type: dropdown
+    id: model_availability
+    attributes:
+      label: Can you share the original 3D model?
+      description: You can attach it in a comment after the issue is created. Please don't share anything private or confidential.
+      options:
+        - I'll attach the original model in a comment
+        - I can't share the model, but can provide screenshots and settings
+        - This also happens with a public/sample model (I'll include a link)
+    validations:
+      required: true
+  - type: input
+    id: model_link
+    attributes:
+      label: Link to the model, if publicly available
+      description: Optional. Make sure the link is accessible without private credentials.
+      placeholder: "https://..."
+    validations:
+      required: false
+  - type: dropdown
+    id: problem_type
+    attributes:
+      label: What looks wrong?
+      options:
+        - Fins are missing
+        - Fins are in the wrong place or orientation
+        - Fin shape or coverage looks incorrect
+        - A fin intersects or cuts into the model
+        - Fins are too thin, thick, tall, or short
+        - Fins do not break away or print as expected
+        - Exported file looks different in the slicer
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Tell us what you loaded, what you clicked or changed, and how to make the issue appear.
+      placeholder: |
+        1. Load the model...
+        2. Set or change...
+        3. Generate/export the fins...
+    validations:
+      required: true
+  - type: textarea
+    id: expected_actual
+    attributes:
+      label: What did you expect, and what happened instead?
+      placeholder: Describe the intended result and the specific problem you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Relevant settings
+      description: Include orientation, nozzle size, fin settings, scale/units, or other values that may matter.
+    validations:
+      required: false
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or additional notes
+      description: Screenshots of the whole model and a close-up of the problem area are useful, especially if you can't share the source model.
+    validations:
+      required: false

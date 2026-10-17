@@ -1,0 +1,59 @@
+name: Feature request or improvement
+description: Suggest a capability or workflow improvement for Support Fins.
+title: "Feature request: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. The most helpful requests explain the problem you're trying to solve, so we can consider different ways to address it.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which area would this improve?
+      options:
+        - Fin generation or geometry
+        - Model orientation or analysis
+        - Export or file formats
+        - Browser app or user interface
+        - CAD / slicer integration
+        - Performance or reliability
+        - Documentation or examples
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem or need would this address?
+      description: Describe the task that is difficult or currently not possible.
+      placeholder: I am trying to...
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: What would you like Support Fins to do?
+      description: Describe the feature or improvement you have in mind. A rough idea is absolutely fine.
+    validations:
+      required: true
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Example workflow or use case
+      description: Share an example of when you'd use this, and possibly what a successful result would look like.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Workarounds or alternatives you've tried
+      description: Optional. This helps us understand what is missing from the current workflow.
+    validations:
+      required: false
+  - type: textarea
+    id: extra
+    attributes:
+      label: Additional context, sketches, or links
+      description: Optional. Please only include material you have permission to share publicly.
+    validations:
+      required: false

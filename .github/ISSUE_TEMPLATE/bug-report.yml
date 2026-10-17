@@ -1,0 +1,88 @@
+name: Unexpected behavior or bug
+description: Report a crash, error, failed import/export, or other unexpected behavior.
+title: "Bug: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Support Fins. Please share the details below so we can try to reproduce the problem.
+
+        If the issue is specifically about incorrect fin geometry or placement, please use the **Generated fins look wrong** template instead. A source 3D model is particularly useful for those reports.
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where are you using Support Fins?
+      options:
+        - Browser app (printfins.com)
+        - Blender
+        - Cura
+        - FreeCAD
+        - Fusion
+        - Onshape
+        - OrcaSlicer
+        - PrusaSlicer
+        - SolidWorks
+        - Command-line tool
+        - Other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version and environment
+      description: Include the Support Fins version and relevant browser, operating system, or host-app version if known.
+      placeholder: "e.g. Windows 11, Cura 5.x, Support Fins version ..."
+    validations:
+      required: false
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: What kind of problem did you encounter?
+      options:
+        - The app or plugin crashes or freezes
+        - A model fails to load or import
+        - Export or file generation fails
+        - A control or setting does not work
+        - The result is inconsistent or unexpected
+        - Performance is unusually slow
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include the shortest sequence of steps that reliably triggers the problem, if possible.
+      placeholder: |
+        1. Open or load...
+        2. Select or change...
+        3. The problem occurs when...
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened?
+      description: Include the full error message if one appeared.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error logs or console output
+      description: Optional. Remove passwords, tokens, private file paths, or other sensitive information before posting.
+    validations:
+      required: false
+  - type: textarea
+    id: attachments
+    attributes:
+      label: Screenshots, example files, or other details
+      description: Add screenshots or a small example file if it helps explain the problem. Please only share files you're comfortable making public.
+    validations:
+      required: false
