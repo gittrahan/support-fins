@@ -403,6 +403,11 @@ function updateFinReadout(built, ms) {
       lead.push(t('{area} mm² of overhang no wall can reach this way up — tilt the part, or add a wall by hand', { area: bare }));
     }
   }
+  // Curved walls in Auto: the fill pass under the regions a forced curve won
+  if (built.curvedFill) {
+    help.push(tn('Curved walls: added {n} wall under overhang the curves left bare.',
+                 'Curved walls: added {n} walls under overhang the curves left bare.', built.curvedFill));
+  }
   // (in Full coverage the fill's own line above says what is still bare)
   if (built.unserved && !fl) {
     help.push(tn('{n} overhang is too shallow for a fin this way up. Tilt the part steeper so a fin can '
