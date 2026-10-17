@@ -381,4 +381,15 @@ export default {
 	"Hold the part": "Onderdeel vasthouden",
 	"Tall parts": "Hoge onderdelen",
 	"Where supports go": "Plaatsing van steunen",
-	};
+
+	// tine direction (#309)
+	"Direction": "Richting",
+	"Horizontal (FDM)": "Horizontaal (FDM)",
+	"Vertical (resin)": "Verticaal (hars)",
+	"Pin depth": "Pindiepte",
+	"Not tested on a resin printer yet. Tell us how it prints on GitHub issue #309.": "Nog niet getest op een harsprinter. Laat ons op GitHub-issue #309 weten hoe het print.",
+	"{n} pins": { one: "{n} pin", other: "{n} pinnen" },
+	"{n} pin": { one: "{n} pin", other: "{n} pinnen" },
+	"The pins attach each wall to the part, as a resin print needs.": "De pinnen verbinden elke wand met het onderdeel, zoals een harsprint nodig heeft.",
+	"resin": "hars",
+};

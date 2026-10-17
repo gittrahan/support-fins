@@ -445,4 +445,15 @@ export default {
   "Something went wrong on this page.": "Algo deu errado nesta página.",
   "A screenshot of this helps a bug report.": "Uma captura de tela disto ajuda num relato de erro.",
   "Copy": "Copiar",
+
+  // tine direction (#309)
+  "Direction": "Direção",
+  "Horizontal (FDM)": "Horizontal (FDM)",
+  "Vertical (resin)": "Vertical (resina)",
+  "Pin depth": "Profundidade do pino",
+  "Not tested on a resin printer yet. Tell us how it prints on GitHub issue #309.": "Ainda não testado numa impressora de resina. Conte-nos como imprime na issue #309 do GitHub.",
+  "{n} pins": { one: "{n} pino", other: "{n} pinos" },
+  "{n} pin": { one: "{n} pino", other: "{n} pinos" },
+  "The pins attach each wall to the part, as a resin print needs.": "Os pinos ligam cada parede à peça, como uma impressão em resina precisa.",
+  "resin": "resina",
 };

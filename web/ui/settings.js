@@ -164,7 +164,8 @@ function syncTineGrip() {
   el('resin-note').hidden = !pins;
   // The Light pad is one layer tall, and the interface band is one layer of the
   // wall top (prop/crest.js), so both read the layer height too.
-  el('layerh-fld').hidden = !on && !['light', 'auto'].includes(el('bed-pad').value)
+  // Resin pins are no layer tall, so vertical tines don't need it either.
+  el('layerh-fld').hidden = (!on || pins) && !['light', 'auto'].includes(el('bed-pad').value)
     && el('iface').value === 'off';
 }
 el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); });
@@ -358,6 +359,7 @@ export function syncSectionSums() {
   const grip = el('tine-density').valueAsNumber;
   el('sum-tines').textContent = el('tines').checked
     ? t(grip <= 20 ? 'light grip' : grip >= 80 ? 'firm grip' : 'medium grip')
+      + (el('tine-dir').value === 'vertical' ? ` · ${t('resin')}` : '')
     : t('off');
   syncMore();
 }
@@ -398,6 +400,7 @@ export function initSettings() {
   syncSway();
   CUT.pattern = el('cutout').value;   // a reload can keep the browser's last pick
   PROP.iface = ifaceMode();
+  applyTunables(tineDirTunables());   // ...and its last tine direction and pin depth (#309)
   const gap = el('gap').valueAsNumber;   // ...and its last Support gap (wireGap's range)
   if (Number.isFinite(gap)) PROP.gap = Math.min(0.4, Math.max(0.1, gap));
   applyNozzle(Number(el('nozzle').value));   // ...and the widths to the remembered nozzle

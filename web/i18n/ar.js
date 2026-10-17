@@ -386,4 +386,15 @@ export default {
   "Something went wrong on this page.": "حدث خطأ في هذه الصفحة.",
   "A screenshot of this helps a bug report.": "لقطة شاشة لهذا تساعد في الإبلاغ عن الخطأ.",
   "Copy": "نسخ",
+
+  // tine direction (#309)
+  "Direction": "الاتجاه",
+  "Horizontal (FDM)": "أفقي (FDM)",
+  "Vertical (resin)": "رأسي (راتنج)",
+  "Pin depth": "عمق الدبوس",
+  "Not tested on a resin printer yet. Tell us how it prints on GitHub issue #309.": "لم يُختبر بعد على طابعة راتنج. أخبرنا كيف تُطبع في المشكلة ‎#309 على GitHub.",
+  "{n} pins": { one: "{n} دبوس", other: "{n} دبابيس" },
+  "{n} pin": { one: "{n} دبوس", other: "{n} دبابيس" },
+  "The pins attach each wall to the part, as a resin print needs.": "تربط الدبابيس كل جدار بالقطعة، كما تحتاج طباعة الراتنج.",
+  "resin": "راتنج",
 };

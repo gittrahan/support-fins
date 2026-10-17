@@ -392,4 +392,15 @@ export default {
   "Something went wrong on this page.": "Auf dieser Seite ist ein Fehler aufgetreten.",
   "A screenshot of this helps a bug report.": "Ein Screenshot davon hilft bei einer Fehlermeldung.",
   "Copy": "Kopieren",
+
+  // tine direction (#309)
+  "Direction": "Richtung",
+  "Horizontal (FDM)": "Horizontal (FDM)",
+  "Vertical (resin)": "Vertikal (Harz)",
+  "Pin depth": "Stifttiefe",
+  "Not tested on a resin printer yet. Tell us how it prints on GitHub issue #309.": "Noch nicht auf einem Harzdrucker getestet. Sagen Sie uns auf GitHub-Issue #309, wie es druckt.",
+  "{n} pins": { one: "{n} Stift", other: "{n} Stifte" },
+  "{n} pin": { one: "{n} Stift", other: "{n} Stifte" },
+  "The pins attach each wall to the part, as a resin print needs.": "Die Stifte verbinden jede Wand mit dem Bauteil, wie es ein Harzdruck braucht.",
+  "resin": "Harz",
 };
