@@ -49,8 +49,9 @@ const wedges = (built) => (built.fins ?? []).filter((f) => f.kind === 'wedge').l
  * build's lowest KEPT tine, read through the tine capture (tines.js's
  * globalThis.__TINECAP, which the races already trim to the walls they keep); a
  * caller's own capture ends up holding the returned build's tines only.
- * `slack`: the share of the other build's held area `build(true)` may fall short by
- * (0 for downhill walls; Curved walls in Full coverage pass CURVED.fullSlack).
+ * `slack`: the share of the other build's held area `build(true)` may fall short by,
+ * or a function of `build(true)`'s result giving it (0 for downhill walls; Curved
+ * walls in Full coverage allow CURVED.fullSlack when a curve is there to keep).
  */
 export function judgeDownhill(topo, result, rot, build, slack = 0) {
   const outer = globalThis.__TINECAP;
@@ -69,7 +70,8 @@ export function judgeDownhill(topo, result, rot, build, slack = 0) {
       const n = run(false);
       const cls = classify(topo, result, rot);
       const hn = heldArea(topo, result, rot, n.b, cls);
-      const worse = heldArea(topo, result, rot, a.b, cls) < hn - slack * hn - 1e-6
+      const s = typeof slack === 'function' ? slack(a.b) : slack;
+      const worse = heldArea(topo, result, rot, a.b, cls) < hn - s * hn - 1e-6
         || a.low > n.low + (Number.isFinite(n.low) ? gripRise(n.low) : 0)
         || wedges(a.b) < wedges(n.b);
       if (worse) keep = n;

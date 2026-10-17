@@ -426,7 +426,7 @@ function updateFinReadout(built, ms) {
   }
   // Curved walls in Full: the straight build held more, so it was kept
   if (built.curvedDropped) {
-    help.push(t('Curved walls: Full coverage holds more of this overhang with straight walls, so it kept them. Switch to Auto for the curves.'));
+    help.push(t('Curved walls: Full coverage does better here with straight walls, so it kept them. Switch to Auto for the curves.'));
   }
   // (in Full coverage the fill's own line above says what is still bare)
   if (built.unserved && !fl) {

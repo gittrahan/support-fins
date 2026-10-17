@@ -251,7 +251,9 @@ function buildFinsCore(topo, result, rot, opts = {}) {
         if (mode !== 'full') return curved();
         return judgeDownhill(topo, result, rot, (on) => (on ? curved()
           : { ...buildFinsCore(topo, result, rot, { ...opts, curvedWalls: undefined }), curvedDropped: true }),
-        CURVED.fullSlack);
+        // the slack is for a curve: a ticked build whose downhill walls all run
+        // straight is judged as the downhill walls are, strictly
+        (b) => (bends(b.props.filter((q) => q.downhill)) ? CURVED.fullSlack : 0));
       }
       return judgeDownhill(topo, result, rot, (downhill) => buildFinsCore(topo, result, rot, { ...opts, downhill }));
     }
