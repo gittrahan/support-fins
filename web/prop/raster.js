@@ -203,23 +203,26 @@ export function withRaster(topo, result, rot, opts, normal, capFrom, rasterPass)
  * `maxGrow` (null = no limit): a region whose second-pass walls weigh over this x
  * the normal walls' volume never swaps -- a sliver more area is not worth it.
  * `rel`: the share of the normal walls' held area the second pass must add (RACE_REL).
- * `lenient` (null = none): a region whose second-pass walls pass it swaps when they
- * hold at least as much, at any weight (curved walls, prop/curved.js).
+ * `lenient` (null = none): a region whose second-pass walls pass it always swaps,
+ * whatever they hold or weigh, and every region is tried, not only the ones `normal`
+ * left bare (curved walls, prop/curved.js).
  * Downhill lines (prop/downhill.js) race through here as 'downhill'.
  */
 export function raceAgainst(topo, result, rot, opts, normal, capFrom, pass, tag, maxGrow = null, rel = RACE_REL,
                             lenient = null) {
   const faces = overhangFaces(topo, result, rot);
   const want = rasterWanted(faces, result, normal);
-  if (!want.size) return normal;
+  // Curved walls: a region the walls above already hold may still take a curve
+  const tried = lenient ? new Set(result.regions.map((_, i) => i)) : want;
+  if (!tried.size) return normal;
   const cap = globalThis.__TINECAP;
   const capNormal = cap ? cap.slice() : null;
   if (cap) globalThis.__TINECAP = [];
-  const raster = pass(want);
+  const raster = pass(tried);
   if (opts.rasterVeto) raster.props = raster.props.filter((q) => !opts.rasterVeto(q, normal.props));
   const capRaster = globalThis.__TINECAP;
   globalThis.__TINECAP = cap;
-  const raced = raceRegions(faces, result, normal, raster, tag, maxGrow, rel, lenient);
+  const raced = raceRegions(faces, result, normal, raster, tag, maxGrow, rel, lenient, want);
   if (!raced[`${tag}Regions`]) return normal;
   if (cap) {
     cap.length = capFrom;
@@ -276,9 +279,10 @@ function nearRegion(faces, ri) {
  * they do. Torus X45: the raster rows missed a low ledge the normal pass's squat
  * wall held (69 mm2); bore_bracket X45: they dropped the wall whose tines gripped
  * 1.2 mm off the bed for one gripping from 22.9 mm. The swap must trade neither.
- * If the region's lowest grip still rises past gripRise, no swap.
+ * If the region's lowest grip still rises past gripRise, no swap -- unless `force`
+ * (a curved swap, raceRegions's `lenient`): then the swap stands with what it kept.
  */
-function keepers(qa, qb, near) {
+function keepers(qa, qb, near, force = false) {
   const kept = [...qb], extra = [];
   const bare = near.filter((f) => !heldBy([f], wallTops(kept)));
   const clear = (q) => kept.every((r) => planGap(q.line ?? [], r.line ?? []) >= halfFoot(q) + halfFoot(r) + 1);
@@ -294,7 +298,7 @@ function keepers(qa, qb, near) {
     for (let i = bare.length - 1; i >= 0; i--) if (heldBy([bare[i]], q.line)) bare.splice(i, 1);
   }
   const za = gripZ(qa);
-  return gripZ(kept) > za + gripRise(za) ? null : extra;
+  return !force && gripZ(kept) > za + gripRise(za) ? null : extra;
 }
 
 /**
@@ -306,8 +310,12 @@ function keepers(qa, qb, near) {
  * `skipped` stays the normal pass's: a region the raster pass rescued may still
  * be counted as skipped there. Over-reporting a skip is the safe direction --
  * the readout never claims a region was served that wasn't.
+ *
+ * `lenient` regions swap whenever their `b` walls hold anything; any other region
+ * races as usual, and only if it is in `wanted` (null = all) -- the ones `a` left bare.
  */
-function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = RACE_REL, lenient = null) {
+function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = RACE_REL, lenient = null,
+                     wanted = null) {
   const A = byRegion(a.props), B = byRegion(b.props);
   const out = [], props = [], served = new Set();
   let tines = 0, volume = 0, swapped = 0, sagRisk = a.sagRisk;
@@ -332,10 +340,10 @@ function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = 
       const hb = heldBy(near, wallTops(qb));
       const vol = (qs) => qs.reduce((v, q) => v + (q.volume ?? 0), 0);
       if (lenient?.(qb)) {
-        // as much, at any weight (raceAgainst's `lenient`); a region with no other
-        // walls still needs RACE_ABS, so a sliver doesn't bring in a heavy wall
-        if (hb >= ha - 1e-6 && hb > (qa.length ? 0 : RACE_ABS)) extra = keepers(qa, qb, near);
-      } else {
+        // forced (raceAgainst's `lenient`): the user asked for the curve; the normal
+        // walls that hold what it misses, or grip lower, stand beside it (keepers)
+        if (hb > 0) extra = keepers(qa, qb, near, true);
+      } else if (!wanted || wanted.has(ri)) {
         const tooHeavy = maxGrow !== null && qa.length && vol(qb) > maxGrow * vol(qa);
         if (!tooHeavy && hb > ha + Math.max(RACE_ABS, rel * ha)) extra = keepers(qa, qb, near);
       }

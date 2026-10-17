@@ -31,7 +31,6 @@
  *   fill.js       Full coverage: Draw-built walls under the red Auto left bare
  *   tall.js       face ribs on walls over BRACE.tallH, last, around everything placed
  *   downhill.js   downhill walls kept only if the whole build is no worse (#25)
- *   curved.js     the Curved walls checkbox, judged against the unticked build
  *
  * Each module imports only modules above it in this list and never fins.js.
  */
@@ -47,8 +46,8 @@ import { braceTallWalls } from './fins/tall.js';
 import { lastResortWalls } from './fins/shortwalls.js';
 import { fillCoverage } from './fins/fill.js';
 import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
-import { judgeCurved } from './fins/curved.js';
 import { judgeDownhill } from './fins/downhill.js';
+import { bends } from './prop/curved.js';
 import { applyNozzle, applyWallLines } from './nozzle.js';
 
 // Moved into web/fins/ (one module per concern); re-exported here so every
@@ -230,12 +229,9 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // (`raster: false` is the tests' normal-pass-alone switch: no races at all.)
     if (opts.downhill === undefined) {
       if (opts.raster === false) return buildFinsCore(topo, result, rot, { ...opts, downhill: false });
-      const judged = (o) => judgeDownhill(topo, result, rot, (downhill) => buildFinsCore(topo, result, rot, { ...o, downhill }));
-      // Curved walls (fins/curved.js): ticked, the unticked build is the bar to beat
-      if (opts.curvedWalls === true) {
-        return judgeCurved(topo, result, rot, (curvedWalls) => judged({ ...opts, curvedWalls }));
-      }
-      return judged(opts);
+      // Curved walls (prop/curved.js): ticked, the curve is forced -- no judge
+      if (opts.curvedWalls === true) return buildFinsCore(topo, result, rot, { ...opts, downhill: true });
+      return judgeDownhill(topo, result, rot, (downhill) => buildFinsCore(topo, result, rot, { ...opts, downhill }));
     }
     const withTines = opts.tines ?? true;
     // Wide-face coverage (0 sparse .. 1 dense) drives how densely a broad face is
@@ -343,7 +339,17 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // on a point-seated part with the pad off, which gets no walls at all (above).
     // (`lastResort: false` is the tests' Auto baseline switch; it doesn't turn the fill off)
     const noWalls = base.seating?.kind === 'point' && !base.pad;
-    return mode === 'full' && !noWalls ? withFill(topo, result, rot, { ...opts, tines: withTines, coverage }, auto) : auto;
+    if (mode === 'full' && !noWalls) return withFill(topo, result, rot, { ...opts, tines: withTines, coverage }, auto);
+    // Curved walls in Auto (prop/curved.js): a forced curve can leave overhang the
+    // straight walls held, so the fill pass runs under the regions a curve won --
+    // there only, rows off. Its count is its own (`curvedFill`): the readout's Full
+    // coverage lines are Full's.
+    const curved = new Set(auto.props.filter((q) => q.downhill && bends([q])).map((q) => q.region));
+    if (mode === 'auto' && opts.curvedWalls === true && curved.size && !noWalls) {
+      const f = withFill(topo, result, rot, { ...opts, tines: withTines, coverage, longWalls: false, fillRegions: curved }, auto);
+      return { ...f, fill: undefined, curvedFill: f.fill.walls };
+    }
+    return auto;
   }
 
   // Prop (and any other mode) is its own support, built by its own module -- a

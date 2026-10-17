@@ -1,6 +1,7 @@
 // Curved walls (issue #25): the "Curved walls" checkbox (web/prop/curved.js). With it
-// ticked, a region whose downhill walls bend past CURVED.minBend swaps to them when
-// they hold at least as much, at any weight; unticked, the build is untouched.
+// ticked, downhill walls are tried under every region and a region whose downhill walls
+// bend past CURVED.minBend always swaps to them; in Auto the fill pass then takes the
+// overhang the curves left bare. Unticked, the build is untouched.
 import { fileURLToPath } from 'node:url';
 import { buildTopology, analyze, fins, assert, readSTL } from './_util.js';
 import { CURVED, lineBend } from '../web/prop/curved.js';
@@ -13,15 +14,19 @@ const example = (name) => {
   return buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
 };
 
-const build = (topo, extra = {}) => {
-  const res = analyze(topo, 45, IDENTITY);
+const rotX = (d) => {
+  const c = Math.cos((d * Math.PI) / 180), s = Math.sin((d * Math.PI) / 180);
+  return [1, 0, 0, 0, c, -s, 0, s, c];
+};
+const build = (topo, extra = {}, rot = IDENTITY) => {
+  const res = analyze(topo, 45, rot);
   globalThis.__TINECAP = [];
-  const b = fins.buildFins(topo, res, IDENTITY, { mode: 'auto', bedPad: true, tines: true, ...extra });
+  const b = fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true, ...extra });
   const caps = globalThis.__TINECAP;
   globalThis.__TINECAP = undefined;
   let low = Infinity;
   for (const t of caps) if (t.z < low) low = t.z;
-  return { b, low, held: heldArea(topo, res, IDENTITY, b) };
+  return { b, low, held: heldArea(topo, res, rot, b) };
 };
 const same = (a, b) => a.triangles.length === b.triangles.length
   && a.triangles.every((t, i) => t.every((v, k) => v === b.triangles[i][k]));
@@ -66,4 +71,19 @@ Deno.test('curved: unticked is the build without the option; ticked changes noth
   // the #25 part's downhill walls run straight: nothing for the box to do
   const topo = example('issue25_curve');
   assert(same(build(topo).b, build(topo, { curvedWalls: true }).b), 'issue25_curve: ticked changed a straight-walled build');
+});
+
+Deno.test('curved: forced -- a curve that holds less still shows, and Auto fills what it left bare', () => {
+  // The torus tilted X30: its one bending downhill wall held less than the straight
+  // walls, so a hold-as-much race never picked it. Forced, it wins; the fill pass
+  // then walls the overhang it missed, so the part ends up held at least as well.
+  const topo = example('torus_flat');
+  const off = build(topo, {}, rotX(30)), on = build(topo, { curvedWalls: true }, rotX(30));
+  const bent = (b) => b.props.filter((q) => q.downhill && lineBend(q.line) > CURVED.minBend);
+  assert(!bent(off.b).length, 'unticked, a bending wall won anyway');
+  assert(bent(on.b).length >= 1, 'ticked, the curve did not show');
+  assert(on.b.curvedFill >= 1, `ticked, the fill added ${on.b.curvedFill} walls`);
+  assert(on.b.fill === undefined, 'Auto reported a Full coverage fill');
+  assert(on.held >= off.held - 1e-6, `held ${off.held.toFixed(1)} -> ${on.held.toFixed(1)} mm2`);
+  assert(on.low <= off.low + 0.1, `lowest tine rose ${off.low} -> ${on.low}`);
 });

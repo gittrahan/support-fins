@@ -4,14 +4,15 @@
  * held area with a weight cap (DOWNHILL.maxGrow / race), and on a curved part the
  * arcs hold about what the straight walls do at more plastic -- so they lose and
  * the curve never shows (spiral ramp: arcs 1.5x the weight). With the box ticked,
- * a region whose downhill walls really bend swaps when they hold AT LEAST as much,
- * at any weight: the user has chosen plastic for the curve. The whole-build check
- * (fins/downhill.js) still keeps the build without them if they hold less overall.
+ * downhill walls are tried under every region, and a region whose downhill walls
+ * bend always swaps to them, at any weight and whatever they hold: the user has
+ * chosen the curve. The normal walls that hold what the curve misses, or grip
+ * lower, stay beside it (raster.js keepers), and any overhang still bare shows red.
  */
 
 export const CURVED = {
-  minBend: 20,   // deg: a wall that turns less than this in plan is straight (a starting
-                 // value, not print-tested: the spiral ramp's arcs turn far more)
+  minBend: 10,   // deg: a wall that turns less than this in plan is straight. Straight
+                 // downhill walls read 0 on real organic parts; real bends run 10-60
   chord: 3,      // mm: the heading is read over this much of the line, not one station
   trim: 0.1,     // the share of headings dropped at each extreme: one wandering chord
                  // (where the line starts off the climb) doesn't read as a bend

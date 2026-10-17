@@ -85,14 +85,20 @@ export function fillReach(coverage) {
 /**
  * Leftover MUST red as points [x, y, z, area], merged into FILL.sample cells. A
  * big CAD triangle is subdivided first (a cube face is two triangles: its
- * centroid alone would call the whole face held or bare).
+ * centroid alone would call the whole face held or bare). `regions` (a Set, or
+ * null for all) keeps only those regions' faces.
  */
-function leftoverPoints(topo, result, rot, near, cls) {
+function leftoverPoints(topo, result, rot, near, cls, regions = null) {
   const { pos } = topo, off = result.offset;
   const seat = (o) => [rot[0] * pos[o] + rot[3] * pos[o + 1] + rot[6] * pos[o + 2] + off.x,
     rot[1] * pos[o] + rot[4] * pos[o + 1] + rot[7] * pos[o + 2] + off.y,
     rot[2] * pos[o] + rot[5] * pos[o + 1] + rot[8] * pos[o + 2] + off.z];
   const s = FILL.sample, cells = new Map();
+  let only = null;
+  if (regions) {
+    only = new Uint8Array(topo.nFaces);
+    for (const ri of regions) for (const f of result.regions[ri]?.faces ?? []) only[f] = 1;
+  }
   const put = (x, y, z, a) => {
     if (z < PLATE_Z || near(x, y, z)) return;
     const k = `${Math.floor(x / s)},${Math.floor(y / s)},${Math.floor(z / s)}`;
@@ -100,7 +106,7 @@ function leftoverPoints(topo, result, rot, near, cls) {
     if (c) { c[0] += x * a; c[1] += y * a; c[2] += z * a; c[3] += a; } else cells.set(k, [x * a, y * a, z * a, a]);
   };
   for (let f = 0; f < topo.nFaces; f++) {
-    if (!result.over[f] || cls[f] !== MUST) continue;
+    if (!result.over[f] || cls[f] !== MUST || (only && !only[f])) continue;
     const A = seat(f * 9), B = seat(f * 9 + 3), C = seat(f * 9 + 6);
     const edge = Math.max(Math.hypot(B[0] - A[0], B[1] - A[1], B[2] - A[2]),
       Math.hypot(C[0] - B[0], C[1] - B[1], C[2] - B[2]), Math.hypot(A[0] - C[0], A[1] - C[1], A[2] - C[2]));
@@ -589,7 +595,7 @@ function fillOnce(topo, result, rot, opts, built) {
   for (const w of built.fins ?? []) for (const p of w.line ?? []) tops.push(p);
   const near = reachOf(tops, R);
   const cls = classify(topo, result, rot);
-  const pts = leftoverPoints(topo, result, rot, near, cls);
+  const pts = leftoverPoints(topo, result, rot, near, cls, opts.fillRegions ?? null);
   const triangles = [], props = [];
   const stats = { walls: 0, tries: 0, checks: 0, capped: false, refused: {}, startArea: pts.reduce((s, p) => s + p[3], 0) };
   if (!pts.length) return { triangles, props, tines: 0, unserved: { area: 0, pts: [] }, stats };

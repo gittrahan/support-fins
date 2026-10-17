@@ -326,10 +326,11 @@ Not printed yet. Off by default; Auto and Full only, site only (plugins later).
 | feature | value | rationale |
 |---|---|---|
 | bend | the spread of a wall's top-line headings, each read over **3 mm** of line, unwrapped, **10%** trimmed at each end of the range; 0 under 6 mm of line | one wandering chord where the line starts off the climb isn't a bend (a quarter arc reads ~70°) |
-| bending region | any of its downhill walls bends > **20°** | a starting value, not print-tested; the spiral ramp's arcs read 34–60° |
-| race, ticked | a bending region swaps when its downhill walls hold **≥** the other walls, at any weight (a region with no other walls: > `RACE_ABS`, **5 mm²**); the grip rule stands | the arcs hold what straight walls do at ~1.5× the plastic, so the race above never picks them; the box is the user choosing plastic for the curve |
-| whole build | `web/fins/curved.js`: ticked, the unticked build is built too; the curved one stays only if it holds ≥ the overhang, its lowest tine rises ≤ `gripRise`, and no wedge is lost | the downhill check compares against the build without downhill walls, not the unticked one; the walls around a swap can come out differently |
-| Full | can cost plastic for no gain: the fill pass may already hold what a curve holds (torus, held equal, +12% plastic) | the box is the user's trade, so equal holds keep the curve |
+| bending region | any of its downhill walls bends > **10°** | not print-tested; straight downhill walls read 0° on the real organic parts, real bends 10–60° (spiral ramp 56–60°, lamp shade X30 and bust 10–23°) |
+| tried, ticked | downhill walls are tried under **every** region, not only those the walls above left bare (`RASTER_SKIP_HELD`) | a curve under a well-held region was never built (spiral X30, bunny X30) |
+| race, ticked | a bending region **always** swaps to its downhill walls if they hold anything, at any weight; the normal walls that hold what they miss (≥ `RACE_ABS`) or grip lower stay beside them (`keepers`), and the grip rule does not veto the swap. Other regions race as unticked | the user asked for the curve (#25: "only worked once"); measured over 8 real organic parts, holding-as-much let 4 bending walls through, forcing ~12. Bare overhang stays red in the readout |
+| whole build | ticked, no whole-build judge: not the downhill one, not one against the unticked build | the user's choice; over 16 real cases it never changed the result anyway |
+| Full | can cost plastic for no gain: the fill pass may already hold what a curve holds (torus, held equal, +12% plastic) | the box is the user's trade |
 | switch | `opts.curvedWalls === true`; anything else is the race above, byte for byte | |
 
 ## Naming
