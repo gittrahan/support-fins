@@ -143,6 +143,7 @@ export function buildTopology(geometry) {
 
   return {
     pos, nFaces, nrm, area,
+    vid,                       // welded vertex id per face corner (islands.js walks vertices)
     adjA: Int32Array.from(adjA),
     adjB: Int32Array.from(adjB),
     vertexCount: nVerts,
