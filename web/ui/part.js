@@ -23,6 +23,7 @@ import { activeAdded, refreshFins, markFinsStale } from './finbuild.js';
 import { finsVisible, highlightSmall, setDrawAugment, syncAugmentUI } from './settings.js';
 import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
 import { resetScale } from './scale.js';
+import { updateIslands, renderIslandText } from './islands.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff, roughness: 0.62, metalness: 0.05,
@@ -218,6 +219,7 @@ export function paintOverhangs(res = lastResult) {
     sOver.append(' (+', sw, `${tn('{n} sliver', '{n} slivers', dropped)})`);
   }
   sOver.classList.toggle('good', res.regions.length === 0 && !dropped);
+  renderIslandText();
 
   // Overhang warning (bottom-right card). The tool builds support for the big
   // overhang REGIONS but drops the small ones -- hole ceilings, slot roofs, a
@@ -256,6 +258,7 @@ export function shade() {
   const size = new THREE.Vector3(res.size.x, res.size.y, res.size.z);
   report(partName, size);
 
+  const isl = updateIslands(topology, res, rotM3.elements, res.size, gizmo.dragging);
   paintOverhangs(res);
   const dropped = res.rawRegionCount - res.regions.length;
   el('s-overarea').textContent = `${res.overArea.toFixed(0)} mm²`;
@@ -266,7 +269,10 @@ export function shade() {
   // on. Current pose clean wins outright; otherwise, if the part printed flat as
   // loaded, the overhangs on screen are self-inflicted by rotating.
   const flat = el('s-flat-note');
-  if (res.regions.length === 0) {
+  if (res.regions.length === 0 && isl.length) {
+    // no red, but a start in midair: not "no supports needed" (the card says why)
+    flat.textContent = '';
+  } else if (res.regions.length === 0) {
     flat.textContent = dropped ? t('Nothing big enough for a fin this way up.') : t('No supports needed this way up.');
     flat.className = 'note good';
   } else if (flatRegions === 0) {
@@ -422,6 +428,7 @@ export function syncPartLanguage() {
     sw.title = t('Amber: overhangs under {area} mm², too small for a fin', { area: MIN_REGION_AREA });
     sOver.append(' (+', sw, `${tn('{n} sliver', '{n} slivers', dropped)})`);
   }
+  renderIslandText();
 }
 
 window.addEventListener('languagechange', syncPartLanguage);

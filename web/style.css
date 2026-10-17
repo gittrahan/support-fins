@@ -757,6 +757,9 @@ html, body {
   line-height: 1.35;
 }
 .over-warn:empty { display: none; }
+/* Island starts (ui/islands.js): unsupported like amber, but a start in midair
+   fails outright, so it takes the red of the overhangs and their cones. */
+.island-warn { border-left-color: #ff5a4d; color: #f3cdc8; }
 
 /* ---------- view toolbar (ui/toolbar.js) ---------- */
 /* Bottom-left of the 3D view: badges fill in from the left; the open badge's
