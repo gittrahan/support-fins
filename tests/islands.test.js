@@ -115,3 +115,13 @@ Deno.test('islands: a dimple in a steep wall prints on the wall below it', () =>
   const real = findIslands(topo, res, I3, opts);
   assert(real.length === 1 && Math.abs(real[0].z - 10 - res.offset.z) < 1e-6, 'only the bottom edge at 0.2 mm layers');
 });
+
+Deno.test('islands: a peg end too small for a fin (amber) still starts in midair', () => {
+  // an arm off the pillar (its flat underside a fin-sized region) with a 2 x 2 mm
+  // peg hanging under it: the peg's 4 mm2 end is an amber sliver, held by nothing
+  const topo = topoOf(pillar, block(10, 30, 0, 10, 20, 24), block(20, 22, 4, 6, 16, 20.5));
+  const res = analyze(topo, 45, I3);
+  assert(res.regions.length === 1 && res.rawRegionCount === 2, 'the arm is a region, the peg end a sliver');
+  const isl = islandsOf(topo);
+  assert(isl.length === 1 && Math.abs(isl[0].z - 16 - res.offset.z) < 1e-6, `one island at the peg end, got ${isl.length}`);
+});

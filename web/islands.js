@@ -9,7 +9,7 @@
  * edge pointing down), lower than everything joined to it. That is cheap and exact
  * for the mesh; the slicer's view is then checked around each one:
  *   - its faces point DOWN (a low point on a bowl's floor faces up: part under it)
- *   - none of them is red (red already counts, and is already held)
+ *   - none of them is red enough for a fin (a region; an amber sliver gets none)
  *   - the surface climbing away from it doesn't join anything lower within one
  *     layer (a dimple in a steep wall prints on the layer below it)
  *   - no other part of the mesh is within GRACE in plan in the layer below
@@ -116,7 +116,10 @@ export function findIslands(topo, res, rot, opts = {}) {
     const star = new Set();
     for (const v of run.verts) for (let k = fStart[v]; k < fStart[v + 1]; k++) star.add(vFaces[k]);
     let red = false, down = 0;
-    for (const f of star) { if (res.over[f]) red = true; down += area[f] * nzOf(f); }
+    // red that gets a fin (a region, res.kept) already holds it; an amber sliver
+    // doesn't -- a 2 x 2 mm peg end is a sliver and starts in midair all the same
+    // (Matthew 2026-10-17: cone those too)
+    for (const f of star) { if (res.kept[f]) red = true; down += area[f] * nzOf(f); }
     if (red || down >= 0) continue;
     cands.push({ run, z0, star });
   }
