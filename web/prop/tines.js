@@ -12,6 +12,7 @@ import { boxExtrude, loftExtrude } from '../solids.js';
 import { PROP } from './config.js';
 import { crestOn, markInterface } from './crest.js';
 import { nearestFaces } from './nearface.js';
+import { emitPins } from './pins.js';
 
 /**
  * Horizontal INWARD-normal of the part face nearest a tine seed -- the direction
@@ -133,7 +134,8 @@ export function emitTines(line, tris, topo, rot, offset, out, ...rest) {
   // 'flat': a tine grips a sideways face, where the interface would climb through
   // every layer (prop/crest.js).
   const from = out.length;
-  const n = comb(line, tris, topo, rot, offset, out, ...rest);
+  // 'vertical' (resin, #309): pins up into the part instead of the horizontal comb
+  const n = (PROP.tineDir === 'vertical' ? emitPins : comb)(line, tris, topo, rot, offset, out, ...rest);
   if (crestOn() && PROP.iface === 'all') markInterface(out, from);
   return n;
 }

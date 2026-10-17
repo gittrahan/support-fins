@@ -248,4 +248,14 @@ export const PROP = {
                        // running down to a bottom edge (anchored comb) vs level
   tineTopClear: 0.5,   // mm kept bare at a wall's TOP end, where the overhang face
                        // ends -- a nub jammed against it hangs past the part's edge
+  // TINE DIRECTION (GitHub #309, prop/pins.js). 'horizontal' is the FDM comb above.
+  // 'vertical' is for RESIN: each layer is peeled off the vat floor, so a support
+  // has to be ATTACHED to the part -- a resin slicer's contact tip sinks into the
+  // model ("penetration" in Lychee, "contact depth" in Chitubox) -- and a wall a
+  // gap below a flat span holds nothing. Vertical lays pins up from the wall top,
+  // across the gap and pinDepth into the underside. Untested on a resin printer.
+  tineDir: 'horizontal',
+  pinW: 0.4,           // pin width: a resin contact tip's 0.3-0.6 mm, inside the 0.6 wall tip
+  pinDepth: 0.3,       // how far a pin sinks into the part (the user's "Pin depth")
+  pinDepthMax: 1.0,    // the field's ceiling
 };

@@ -83,6 +83,9 @@ function coverPitch(coverage) {
  * Unknown or non-finite entries are ignored, and calling this with nothing leaves the
  * defaults alone -- an old caller that doesn't pass tunables behaves exactly as before.
  */
+// the FDM foot clearance, restored when the tine direction goes back to horizontal
+const FOOT_GAP = PROP.footGap;
+
 export function applyTunables(t) {
   if (!t) return;
   const set = (obj, key, v) => { if (Number.isFinite(v)) obj[key] = v; };
@@ -102,6 +105,14 @@ export function applyTunables(t) {
   if (CUTOUT_PATTERNS.includes(t.cutout)) CUT.pattern = t.cutout;
   // So is the interface crest's mode (GitHub #21, prop/crest.js).
   if ([false, 'flat', 'all'].includes(t.iface)) PROP.iface = t.iface;
+  // And the tine direction (#309): 'vertical' lays resin pins (prop/pins.js).
+  // A wall standing on the part welds its foot there too: resin builds the wall from
+  // the part outward, so a foot `footGap` off the part would start as a floating island.
+  if (['horizontal', 'vertical'].includes(t.tineDir)) {
+    PROP.tineDir = t.tineDir;
+    PROP.footGap = t.tineDir === 'vertical' ? 0 : FOOT_GAP;
+  }
+  if (Number.isFinite(t.pinDepth)) PROP.pinDepth = Math.max(0.05, Math.min(PROP.pinDepthMax, t.pinDepth));
   // And the nozzle and wall lines, which scale the support widths (nozzle.js).
   if (t.nozzle !== undefined) applyNozzle(t.nozzle);
   if (t.wallLines !== undefined) applyWallLines(t.wallLines);

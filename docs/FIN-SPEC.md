@@ -47,6 +47,25 @@ There's a removal benefit too: because horizontal tines lie in the plane of the 
 lines, you **bend** them to fatigue and snap clean, instead of tearing them and leaving
 welts.
 
+### Resin: vertical pins — `web/prop/pins.js` (GitHub #309)
+
+All of the above is FDM. A resin print is peeled off the vat floor every layer, so a
+support has to be **attached** to the part — a resin slicer's contact tip sinks into the
+model ("penetration" in Lychee, "contact depth" in Chitubox) — and a wall standing `gap`
+under a flat span holds nothing. **Tines → Direction → Vertical (resin)** replaces the comb
+with pins:
+
+| | value | why |
+|---|---|---|
+| pin width `pinW` | 0.4 mm square | a resin contact tip's 0.3–0.6, inside the 0.6 wall tip |
+| pin depth `pinDepth` | 0.3 mm (field 0.05–1) | how far into the part; halved down to ¼ where the part is thinner, else no pin |
+| spacing | the Tine grip slider's step | 2 mm dense … 5 mm light, ≥ 3 per wall |
+| bottom | `tineOverlap` (0.3) inside the wall top | so they union |
+| foot gap | 0 (welded) | a wall on the part would otherwise start as a floating island |
+
+The wall's own `gap` stays: the pin is the neck across it. All four top corners are
+checked inside the part. **Not tested on a resin printer.**
+
 ## Claims we can make (his, on camera)
 
 - Uses less material than tree supports.
