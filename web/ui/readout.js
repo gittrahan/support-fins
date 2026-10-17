@@ -424,6 +424,10 @@ function updateFinReadout(built, ms) {
       lead.push(t('{area} mm² of overhang no wall can reach this way up — tilt the part, or add a wall by hand', { area: bare }));
     }
   }
+  // Curved walls in Full: the straight build held more, so it was kept
+  if (built.curvedDropped) {
+    help.push(t('Curved walls: Full coverage holds more of this overhang with straight walls, so it kept them. Switch to Auto for the curves.'));
+  }
   // (in Full coverage the fill's own line above says what is still bare)
   if (built.unserved && !fl) {
     help.push(tn('{n} overhang is too shallow for a fin this way up. Tilt the part steeper so a fin can '
