@@ -234,6 +234,7 @@ export function refreshFins() {
   // anyway, build inline so the UI can never get stuck waiting on a reply.
   const topoMsg = { ...topology };
   delete topoMsg._insideGrid;
+  delete topoMsg.vid;         // islands.js's too: the engine never reads it (19 MB at 1.5M faces)
   delete topoMsg._vgraph;      // islands.js's vertex graph: the page's, and big (6 ints a face)
   try {
     worker.postMessage({ id: finGen, topology: topoMsg, result: lastResult, rot: rotM3.elements, opts: lastOpts });
