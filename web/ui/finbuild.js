@@ -123,6 +123,8 @@ function finOpts() {
                        propGap: PROP.gap,
                        cutout: CUT.pattern,
                        iface: PROP.iface,
+                       // tine direction (#309): resin pins instead of the comb
+                       tineDir: PROP.tineDir, pinDepth: PROP.pinDepth,
                        nozzle, wallLines } };
 }
 

@@ -4,7 +4,7 @@ import { t } from './i18n.js';
  * tines, sway braces, gap, cutouts, material profile, and the collapsible
  * sections with their one-line recaps. Owns finsVisible / finMode / drawAugment.
  */
-import { FIN, PAD } from '../fins.js';
+import { applyTunables, FIN, PAD } from '../fins.js';
 import { PROP } from '../prop.js';
 import { CUT } from '../cutout.js';
 import { MATERIAL } from '../materials.js';
@@ -158,12 +158,23 @@ function debouncedRefresh(ms = 180) {
 function syncTineGrip() {
   const on = el('tines').checked;
   el('tinegrip-fld').hidden = !on;
+  el('tinedir-fld').hidden = !on;
+  const pins = on && el('tine-dir').value === 'vertical';
+  el('pindepth-fld').hidden = !pins;
+  el('resin-note').hidden = !pins;
   // The Light pad is one layer tall, and the interface band is one layer of the
   // wall top (prop/crest.js), so both read the layer height too.
   el('layerh-fld').hidden = !on && !['light', 'auto'].includes(el('bed-pad').value)
     && el('iface').value === 'off';
 }
 el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); });
+// Tine direction (GitHub #309): vertical lays resin pins (prop/pins.js). This page's
+// copy is set here for Draw; the Worker gets it in the build's tunables.
+export function tineDirTunables() {
+  return { tineDir: el('tine-dir').value, pinDepth: el('pin-depth').valueAsNumber };
+}
+el('tine-dir').addEventListener('change', () => { applyTunables(tineDirTunables()); syncTineGrip(); refreshFins(); });
+el('pin-depth').addEventListener('input', () => { applyTunables(tineDirTunables()); debouncedRefresh(); });
 el('tine-density').addEventListener('input', () => debouncedRefresh());
 el('layer-height').addEventListener('input', () => debouncedRefresh());
 el('coverage').addEventListener('input', () => debouncedRefresh());

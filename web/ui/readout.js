@@ -6,6 +6,10 @@ import { t, tn } from './i18n.js';
 import { PAD } from '../fins.js';
 import { PROP } from '../prop.js';
 import { el } from './dom.js';
+
+// Vertical tines are resin pins (#309, prop/pins.js): count them as what they are.
+const pinsOn = () => PROP.tineDir === 'vertical';
+const tineCount = (n) => (pinsOn() ? tn('{n} pin', '{n} pins', n) : tn('{n} tine', '{n} tines', n));
 import { removedIds } from './remove.js';
 import { drawnWalls, drawMsg, selectedWall, selectedNote, drawShown, drawMaterial } from './walls.js';
 import {
@@ -189,7 +193,7 @@ function updateDrawReadout(built, ms) {
   if (walls) parts.push(tn('{n} drawn wall', '{n} drawn walls', walls) + (ribs ? ` · ${tn('{n} wall rib', '{n} wall ribs', ribs)}` : ''));
   if (braces) parts.push(tn('{n} sway brace', '{n} sway braces', braces));
   box.textContent = ok.length
-    ? parts.join(' + ') + (tines ? ` · ${t('{n} tines', { n: tines })}` : '')
+    ? parts.join(' + ') + (tines ? ` · ${tineCount(tines)}` : '')
     : t('none yet');
   box.classList.toggle('warn', ok.length === 0);
 
@@ -201,7 +205,8 @@ function updateDrawReadout(built, ms) {
   }
   if (ok.length) {
     help.push(tines
-      ? t('The tines grab onto the part and bend away when you snap the wall off.')
+      ? (pinsOn() ? t('The pins attach each wall to the part, as a resin print needs.')
+        : t('The tines grab onto the part and bend away when you snap the wall off.'))
       : t('Each wall stops a hair under the part (0.2mm) so it snaps off clean. Turn '
         + 'Tines on if you want it to grip the part.'));
   }
@@ -298,13 +303,13 @@ function updateFinReadout(built, ms) {
     // flat to take a fin. "N fins" alone would hide which is which.
     const p = built.propCount, b = built.braceCount;
     const seg = [];
-    if (b) seg.push(tn('{n} support fin', '{n} support fins', b) + (built.tines ? ' · ' + tn('{n} tine', '{n} tines', built.tines) : ''));
+    if (b) seg.push(tn('{n} support fin', '{n} support fins', b) + (built.tines ? ' · ' + tineCount(built.tines) : ''));
     if (p) seg.push(tn('{n} prop', '{n} props', p));
     autoTxt = seg.join(' + ');
   } else {
     autoTxt = n
       ? (kind === 'prop' ? tn('{n} prop', '{n} props', n) : tn('{n} support fin', '{n} support fins', n))
-        + (built.mode === 'prop' || !built.tines ? '' : ` · ${t('{n} tines', { n: built.tines })}`)
+        + (built.mode === 'prop' || !built.tines ? '' : ` · ${tineCount(built.tines)}`)
       : '';
   }
   const drawnTxt = drawnOk ? `${autoTxt ? ' + ' : ''}${t('{n} drawn', { n: drawnOk })}` : '';
@@ -334,7 +339,8 @@ function updateFinReadout(built, ms) {
       const b = built.braceCount, p = built.propCount;
       if (b) {
         help.push(built.tines
-          ? t('The tines grab onto the part and bend away when you snap the supports off.')
+          ? (pinsOn() ? t('The pins attach each wall to the part, as a resin print needs.')
+            : t('The tines grab onto the part and bend away when you snap the supports off.'))
           : t('The fins stand a hair off the part (0.2mm) so they pop off. Turn Tines on if you want them to grip.'));
       }
       if (p && !b) {
