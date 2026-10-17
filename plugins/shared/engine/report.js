@@ -20,7 +20,7 @@ const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 /** @param {object} stats  computeFins(...).stats */
 export function reportLine(stats) {
   const walls = (stats.braces || 0) + (stats.props || 0);   // tined + plain, as the site counts
-  let head = `${plural(walls, 'wall', 'walls')}, ${plural(stats.tines || 0, 'tine', 'tines')}`;
+  let head = `${plural(walls, 'wall', 'walls')}, ${plural(stats.tines || 0, stats.pins ? 'pin' : 'tine', stats.pins ? 'pins' : 'tines')}`;
   // Sway braces hold the tall sides, not an overhang: never added to the walls.
   if (stats.swayBraces) head += `, ${plural(stats.swayBraces, 'sway brace', 'sway braces')}`;
   const parts = [head];

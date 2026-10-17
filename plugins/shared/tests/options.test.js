@@ -214,6 +214,9 @@ Deno.test('every option reaches the geometry (no dead dialog control)', () => {
         ? changesFins(bar, o, computeFins(bar, {}).triangles, (v) => computeFins(bar, { sway: { on: v } }))
         : sub
           ? changesFins(bar, o, braced, (v) => computeFins(bar, { sway: { on: true, [sub]: v } }))
+          : o.key === 'pinDepth'   // shown only for vertical tines (resin pins, #309)
+            ? changesFins(lbracket, o, computeFins(lbracket, { tineDir: 'vertical' }).triangles,
+                (v) => computeFins(lbracket, { tineDir: 'vertical', pinDepth: v }))
           : o.key === 'plateOnly'
             ? changesFins(portal, o, computeFins(portal, {}).triangles, (v) => computeFins(portal, { plateOnly: v }))
           : changesFins(lbracket, o, plain, (v) => computeFins(lbracket, { [o.key]: v }));

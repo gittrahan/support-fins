@@ -36,6 +36,8 @@ export const ENGINE_DEFAULTS = Object.freeze({
   gap: OPTION.gap.default,             // mm: the site's Support gap (PROP.gap)
   padStyle: OPTION.padStyle.default,   // one of PAD_STYLES
   cutout: OPTION.cutout.default,       // one of web/cutout.js CUTOUT_PATTERNS
+  tineDir: OPTION.tineDir.default,     // 'horizontal' (FDM) | 'vertical' (resin pins, #309)
+  pinDepth: OPTION.pinDepth.default,   // mm a resin pin sinks into the part
   // Sway braces (web/sway.js), off by default exactly as on the website. Pass
   // { on: true } to brace the tall sides, plus any of gripFrom / tineSpacing /
   // reach / gap to match the host's own settings. Without this a plugin
@@ -187,6 +189,8 @@ export function computeFins(positions, options = {}) {
       // as the site's readout counts them
       props: built.propCount ?? 0,
       tines: built.tines ?? 0,
+      // the tines are resin pins (#309): the report names them so
+      pins: tunables.tineDir === 'vertical',
       // Sway braces are counted apart from the fins: they hold a tall part's
       // sides rather than an overhang, so a readout that merged them would
       // claim overhangs were served that nothing is under. `swayReason` says

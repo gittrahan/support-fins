@@ -40,6 +40,10 @@ export function clearances(opts) {
     // Off builds no pad, so which style it carries doesn't matter; Auto keeps it valid.
     padStyle: pick('padStyle', opts.padStyle, PAD_STYLES) === 'off' ? 'auto' : opts.padStyle,
     cutout: pick('cutout', opts.cutout, CUTOUT_PATTERNS),
+    // Always sent, so a host's next build doesn't keep the last one's direction: the
+    // engine's PROP is module state (#309: 'vertical' lays resin pins).
+    tineDir: pick('tineDir', opts.tineDir ?? 'horizontal', ['horizontal', 'vertical']),
+    pinDepth: opts.pinDepth ?? 0.3,
   };
   return { tunables };
 }
