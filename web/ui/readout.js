@@ -16,6 +16,7 @@ import {
   finMode, finsVisible, materialDensity, syncSectionSums, autoLike,
 } from './settings.js';
 import { analysisTiming } from './part.js';
+import { islandsBuilt } from './islands.js';
 import { ifaceMaterial } from './scene.js';
 import { activeAdded, activeWalls, finMaterial, padMaterial } from './finbuild.js';
 
@@ -141,6 +142,8 @@ export function updateReadout(built, ms) {
   if (ms != null) lastMs = ms;
   if (finMode === 'draw') updateDrawReadout(built, ms);
   else updateFinReadout(built, ms);
+  // the midair-starts card: what Full coverage's walls left bare, else the plain count
+  islandsBuilt(finsVisible && finMode === 'full' && built?.fill ? built.fill.islandsBare : null);
   updateReceipt();
 }
 

@@ -15,6 +15,7 @@ import {
   removeMode, syncRemoveUI, cancelRemove, clearFinHover, adoptFins, forgetFins,
 } from './remove.js';
 import { updateReadout } from './readout.js';
+import { islands } from './islands.js';
 import {
   drawnTris, drawnMesh, drawMaterial, drawShown, clearPreview, rebuildDrawn,
 } from './walls.js';
@@ -112,6 +113,9 @@ function finOpts() {
            tines: el('tines').checked,
            tineDensity: el('tine-density').valueAsNumber / 100,
            layerHeight: el('layer-height').valueAsNumber,
+           // Full coverage walls the island starts too (fins/fill.js): found here, on
+           // the page, since the Worker's topology has no vertex ids (deleted below)
+           islands: finMode === 'full' ? islands : undefined,
            // Full coverage aims at every reachable overhang: the slider is Auto's
            coverage: finMode === 'full' ? FIN.coverDefault : el('coverage').valueAsNumber / 100,
            // Auto places sway braces itself; in Draw they are clicked on by hand.

@@ -32,7 +32,7 @@ let redoStack = [];
 // across visits, not an edit to this part.
 const FORM_IDS = ['nozzle', 'thr', 'tines', 'tine-density', 'tine-dir', 'pin-depth', 'layer-height', 'gap',
   'bed-pad', 'pad-h', 'pad-gap', 'pad-grip', 'pad-margin', 'sway', 'sway-from',
-  'sway-spacing', 'sway-depth', 'full-brace-depth', 'wall-lines', 'cutout', 'iface', 'coverage', 'plate-only', 'long-walls', 'tall-ribs', 'curved-walls', 'highlight-small', 'show-layers',
+  'sway-spacing', 'sway-depth', 'full-brace-depth', 'wall-lines', 'cutout', 'iface', 'coverage', 'plate-only', 'long-walls', 'tall-ribs', 'curved-walls', 'highlight-small', 'show-islands', 'show-layers',
   'show-rings', 'nav-preset'];
 const readForm = () => Object.fromEntries(FORM_IDS.map((id) => {
   const f = el(id);
@@ -48,7 +48,7 @@ let restoring = false;
 // nor, from an older file that has them, applies them. Layer height and support gap
 // are remembered across visits too, but a session keeps them: it comes back as it was
 // left, and the removed fins it lists are matched by heights the gap shifts (remove.js).
-export const VIEWER_IDS = new Set(['highlight-small', 'show-layers', 'show-rings', 'nav-preset', 'nozzle']);
+export const VIEWER_IDS = new Set(['highlight-small', 'show-islands', 'show-layers', 'show-rings', 'nav-preset', 'nozzle']);
 /** The part's settings as they stand, for a saved session. */
 export const sessionForm = () => Object.fromEntries(Object.entries(settled).filter(([id]) => !VIEWER_IDS.has(id)));
 

@@ -44,7 +44,7 @@ const SITE_EXCLUDED = {
   'vx': 'site build-volume preview', 'vy': 'site build-volume preview', 'vz': 'site build-volume preview',
   'plugins-computer': 'picks which plugin download to offer',
   'scale-pct': 'the part\'s size is the host\'s (every CAD and slicer scales it)',
-  'show-layers': 'site display', 'highlight-small': 'site display', 'show-rings': 'site display',
+  'show-layers': 'site display', 'highlight-small': 'site display', 'show-islands': 'site display', 'show-rings': 'site display',
   'nav-preset': 'site mouse navigation', 'opts-search': 'site settings search',
   'fin-mode': 'plugins run Auto; Draw needs the site\'s canvas',
   'pad-h': 'Custom pad', 'pad-gap': 'Custom pad', 'pad-grip': 'Custom pad', 'pad-margin': 'Custom pad',
