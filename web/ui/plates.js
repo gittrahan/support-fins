@@ -11,7 +11,7 @@ import { t } from './i18n.js';
  */
 import { el } from './dom.js';
 import { part, partName, stashPart, unstashPart, clearPart } from './part.js';
-import { takeState, takeHistory, setHistory, restoreState } from './history.js';
+import { takeState, takeHistory, setHistory, restoreState, VIEWER_IDS } from './history.js';
 import { scaleState, setScaleState } from './scale.js';
 import { importState, setImportState } from './io.js';
 import { buildPending } from './finbuild.js';
@@ -21,6 +21,8 @@ import { export3MF } from './export.js';
 // is null (its state is the live one), and so is an empty plate's.
 const plates = [{ stash: null }];
 let active = 0;
+// Export all is switching through the plates: the tabs wait for it (render, inert).
+let busy = false;
 
 /** Put the showing plate's part and state away, leaving the page empty. */
 function stashActive() {
@@ -33,26 +35,38 @@ function stashActive() {
 /** Show plate `i`, whose part is stashed (or which is empty). */
 function show(i) {
   const s = plates[i].stash;
-  plates[i].stash = null;
   active = i;
   if (s) {
+    // The viewer's and the printer's settings (the nozzle, the layer view...) are not
+    // the plate's: they stay as they are, as a saved session leaves them (history.js).
+    const form = { ...s.state.form };
+    for (const id of VIEWER_IDS) {
+      const f = el(id);
+      form[id] = f.type === 'checkbox' ? f.checked : f.value;
+    }
     setImportState(s.imp);
     unstashPart(s.part);
-    restoreState(s.state);
+    restoreState({ ...s.state, form });
     setHistory(s.history);
     setScaleState(s.scale);
   }
+  plates[i].stash = null;      // only once it is live: a throw above keeps the model
   render();
 }
 
-export function switchPlate(i) {
+function go(i) {
   if (i === active || i < 0 || i >= plates.length) return;
   stashActive();
   show(i);
 }
 
+export function switchPlate(i) {
+  if (!busy) go(i);
+}
+
 /** A new, empty plate, shown. */
 export function addPlate() {
+  if (busy) return;
   stashActive();
   plates.push({ stash: null });
   active = plates.length - 1;
@@ -64,7 +78,26 @@ export function freePlate() {
   if (part) addPlate();
 }
 
+/** The plate showing, for an import to come back to once its file is read. */
+export const currentPlate = () => plates[active];
+
+/** Show `plate` again (a switch while its file was read). False when it was deleted
+ *  meanwhile, or Export all is switching: the import then lands nowhere. */
+export function returnTo(plate) {
+  if (plates[active] === plate) return true;
+  const i = plates.indexOf(plate);
+  if (i < 0 || busy) return false;
+  go(i);
+  return true;
+}
+
+/** A multi-file import whose last file did not load leaves its new plate empty. */
+export function dropEmptyPlate() {
+  if (!part && plates.length > 1) deletePlate(active);
+}
+
 function deletePlate(i) {
+  if (busy) return;
   if (plates.length === 1) { clearPart(); return; }
   if (i === active) {
     clearPart();
@@ -82,16 +115,24 @@ const tick = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Export every plate's model as its own 3MF, then come back to the plate showing. */
 export async function exportAll() {
+  if (busy) return;
+  busy = true;
+  render();
   const back = active;
-  for (let i = 0; i < plates.length; i++) {
-    switchPlate(i);
-    if (!part) continue;
-    // the switch starts a support build (in the worker): export what it builds
-    await tick(0);
-    while (buildPending()) await tick(50);
-    export3MF();
+  try {
+    for (let i = 0; i < plates.length; i++) {
+      go(i);
+      if (!part) continue;
+      // the switch starts a support build (in the worker): export what it builds
+      await tick(0);
+      while (buildPending()) await tick(50);
+      export3MF();
+    }
+    go(back);
+  } finally {
+    busy = false;
+    render();
   }
-  switchPlate(back);
 }
 
 const stem = (name) => name.replace(/\.(stl|3mf|step|stp|obj)$/i, '');
@@ -137,6 +178,7 @@ function render() {
   add.title = add.ariaLabel = t('Add a plate');
   add.addEventListener('click', addPlate);
   bar.replaceChildren(...tabs, add);
+  bar.inert = busy;
   el('export-all').hidden = plates.length < 2;
 }
 

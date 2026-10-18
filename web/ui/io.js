@@ -13,7 +13,7 @@ import { isObj, readOBJ } from '../obj.js';
 import { el } from './dom.js';
 import { part, setPart } from './part.js';
 import { partObjectOf, restoreSession } from './session.js';
-import { freePlate } from './plates.js';
+import { freePlate, currentPlate, returnTo, dropEmptyPlate } from './plates.js';
 
 export let importNote = '';
 export let lastImportMeta = null;
@@ -375,9 +375,12 @@ function afterLoad(geometry, name) {
 
 async function loadFile(file) {
   if (!file) return;
+  // the plate it was imported to, which a click on another tab may have left while
+  // the file was read (a STEP kernel download, a 3MF's object picker)
+  const plate = currentPlate();
   try {
     const geometry = await parseModel(await file.arrayBuffer());
-    if (geometry) afterLoad(geometry, file.name);
+    if (geometry && returnTo(plate)) afterLoad(geometry, file.name);
   } catch (err) {
     console.error(err);
     alert(`Could not read ${file.name}:\n${err.message}`);
@@ -393,6 +396,7 @@ async function loadFiles(files) {
     freePlate();
     await loadFile(file);
   }
+  dropEmptyPlate();
 }
 
 // Clear the input once the file is taken: otherwise choosing the SAME file again
@@ -409,10 +413,11 @@ el('empty-import').addEventListener('click', () => el('file').click());
 
 /** Load a model that is already on the web (the sample model, a demo link). */
 export async function loadURL(url) {
+  const plate = currentPlate();
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   const geometry = await parseModel(await res.arrayBuffer());
-  if (!geometry) return;                       // picker cancelled
+  if (!geometry || !returnTo(plate)) return;   // picker cancelled, or its plate deleted
   afterLoad(geometry, url.split('/').pop());
   // Drop ?stl= once it has been consumed: the path is nobody's business but the
   // user's, and a stale one in the address bar is misleading after they open a
