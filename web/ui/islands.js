@@ -31,7 +31,7 @@ el('show-islands').checked = markers.visible;
 el('show-islands').addEventListener('change', (e) => {
   markers.visible = e.target.checked;
   try { localStorage.setItem(SHOW_KEY, markers.visible ? '1' : '0'); } catch { /* storage off */ }
-  renderIslandText();
+  renderIslandCard();
   requestRender();
 });
 
@@ -82,27 +82,38 @@ export function updateIslands(topology, res, rot, size, dragging) {
   return islands;
 }
 
-/** A build landed (ui/readout.js): `n` island starts Full coverage left without a
- *  wall, or null when this isn't a Full build. Rewrites the card. */
-export function islandsBuilt(n) {
-  bare = n;
-  renderIslandText();
+/** A build landed (ui/readout.js): null when this isn't a Full build, else
+ *  { bare, capped } -- the starts Full coverage left without a wall, and whether its
+ *  island pass stopped on its budget -- or { all: true } (no fill pass: none walled).
+ *  Rewrites the card only: the readout suffix is paintOverhangs' (it rewrites the line). */
+export function islandsBuilt(info) {
+  bare = info === null ? null : info.all ? { bare: islands.length, capped: false } : info;
+  renderIslandCard();
 }
 
-/** The Overhangs readout's suffix and the card. Call after the readout is rewritten. */
-export function renderIslandText() {
+/** The card: what the starts are, and how many nothing holds. */
+function renderIslandCard() {
   const n = islands.length;
   const card = el('island-warn');
-  if (card) {
-    // (where they are: the cones, or the box that shows them)
-    const where = markers.visible ? t('red cones') : t('tick Show midair starts in Settings › Display to see them');
-    card.textContent = !n || bare === 0 ? ''
-      : bare !== null
-        ? '⚠ ' + tn('{n} of {total} spots that start in midair got no wall: Full coverage couldn’t fit one under it ({where}). Add a wall by hand under it, or tilt the part.',
-          '{n} of {total} spots that start in midair got no wall: Full coverage couldn’t fit one under them ({where}). Add a wall by hand under each, or tilt the part.', bare, { total: n, where })
-        : '⚠ ' + tn('{n} spot starts in midair ({where}): its first layer has nothing under it, though no face there is steep enough to show red. Full coverage puts a wall under it if it can reach it; in Auto or Draw, add a wall by hand under it or tilt the part.',
-          '{n} spots start in midair ({where}): their first layer has nothing under it, though no face there is steep enough to show red. Full coverage puts a wall under each one it can reach; in Auto or Draw, add a wall by hand under each or tilt the part.', n, { where });
-  }
+  if (!card) return;
+  // (where they are: the cones, or the box that shows them)
+  const where = markers.visible ? t('red cones') : t('tick Show midair starts in Settings › Display to see them');
+  card.textContent = !n || bare?.bare === 0 ? ''
+    : bare === null
+      ? '⚠ ' + tn('{n} spot starts in midair ({where}): its first layer has nothing under it, though no face there is steep enough to show red. Full coverage puts a wall under it if it can reach it; in Auto or Draw, add a wall by hand under it or tilt the part.',
+        '{n} spots start in midair ({where}): their first layer has nothing under it, though no face there is steep enough to show red. Full coverage puts a wall under each one it can reach; in Auto or Draw, add a wall by hand under each or tilt the part.', n, { where })
+      : bare.capped
+        ? '⚠ ' + tn('{n} of {total} spots that start in midair got no wall: Full coverage ran out of walls before it ({where}). Add a wall by hand under it, or tilt the part.',
+          '{n} of {total} spots that start in midair got no wall: Full coverage ran out of walls before them ({where}). Add a wall by hand under each, or tilt the part.', bare.bare, { total: n, where })
+        : '⚠ ' + tn('{n} of {total} spots that start in midair got no wall: Full coverage couldn’t fit one under it ({where}). Add a wall by hand under it, or tilt the part.',
+          '{n} of {total} spots that start in midair got no wall: Full coverage couldn’t fit one under them ({where}). Add a wall by hand under each, or tilt the part.', bare.bare, { total: n, where });
+}
+
+/** The Overhangs readout's suffix and the card. Call only right after the readout
+ *  line is rewritten (paintOverhangs, a language change): the suffix appends. */
+export function renderIslandText() {
+  renderIslandCard();
+  const n = islands.length;
   const sOver = el('s-over');
   if (sOver && n) {
     sOver.classList.remove('good');

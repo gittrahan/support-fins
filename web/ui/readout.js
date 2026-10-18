@@ -142,8 +142,10 @@ export function updateReadout(built, ms) {
   if (ms != null) lastMs = ms;
   if (finMode === 'draw') updateDrawReadout(built, ms);
   else updateFinReadout(built, ms);
-  // the midair-starts card: what Full coverage's walls left bare, else the plain count
-  islandsBuilt(finsVisible && finMode === 'full' && built?.fill ? built.fill.islandsBare : null);
+  // the midair-starts card: what Full coverage's walls left bare (a Full build with no
+  // fill pass -- a point-seated part, pad off -- walls none), else the plain count
+  islandsBuilt(finsVisible && finMode === 'full' && built
+    ? (built.fill ? { bare: built.fill.islandsBare, capped: built.fill.islandsCapped } : { all: true }) : null);
   updateReceipt();
 }
 

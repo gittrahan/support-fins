@@ -214,7 +214,8 @@ function withFill(topo, result, rot, opts, auto) {
     propCount: (auto.propCount ?? 0) + (withTines ? 0 : fins.length),
     fill: { walls: f.stats.walls, rows: f.stats.rows ?? 0, rowsLost: f.stats.rowsLost ?? 0, rowBuilds: f.stats.rowBuilds ?? 0, joined: f.stats.joined ?? 0, ribs: f.stats.ribs, ties: f.stats.ties, tries: f.stats.tries, checks: f.stats.checks, capped: f.stats.capped, refused: f.stats.refused,
             bareBefore: f.stats.startArea, unservedArea: f.unserved.area, unservedPts: f.unserved.pts,
-            islands: islands.length, islandsBare: f.unserved.islands ?? 0, islandPts: f.unserved.islandPts ?? [] },
+            islands: islands.length, islandsBare: f.unserved.islands ?? 0, islandPts: f.unserved.islandPts ?? [],
+            islandsCapped: !!f.stats.islandsCapped },
   };
 }
 

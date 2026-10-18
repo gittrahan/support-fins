@@ -821,6 +821,9 @@ function fillOnce(topo, result, rot, opts, built) {
     }
   }
   stats.capped = full() && pts.some((p) => !held(p) && !dead.has(p));
+  // the red's bare as it stands now, before the island walls (which hold some too):
+  // what fillCoverage's rows-or-not pick reads, so that pick stays main's
+  const leftRed = red.filter((p) => !held(p));
   // ISLAND STARTS, last (see the header): lines over each group, then patch by patch
   if (isl.length) {
     past = FILL.islandWalls;
@@ -834,11 +837,13 @@ function fillOnce(topo, result, rot, opts, built) {
         if (r !== true) for (const i of r) dead.add(live[i]);
       }
     }
+    // stopped on its budget with a start still untried: the card says so
+    stats.islandsCapped = full() && isl.some((p) => !held(p) && !dead.has(p));
   }
   stats.ribs = braceFill(props, floors, triangles, tris, built.triangles ?? []);
   props.forEach((q, k) => { for (const [a, b] of q.triRanges.slice(1)) others.add(triangles.slice(a, b), { fill: true, k }); });
   stats.ties = tieFill(props, floors, triangles, tris, others);
-  const leftRed = red.filter((p) => !held(p)), leftIsl = isl.filter((p) => !held(p));
+  const leftIsl = isl.filter((p) => !held(p));
   return { triangles, props, tines,
            unserved: { area: leftRed.reduce((s, p) => s + p[3], 0), pts: leftRed.map((p) => [p[0], p[1], p[2]]),
                        islands: startsIn(leftIsl), islandPts: leftIsl.map((p) => [p[0], p[1], p[2]]) }, stats };
