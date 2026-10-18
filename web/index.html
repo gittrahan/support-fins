@@ -206,14 +206,19 @@
     <dt><i class="sw sw-pad"></i><span data-i18n="Bed pad">Bed&nbsp;pad</span></dt> <dd id="s-pad">—</dd>
     <dt data-i18n="Analysis">Analysis</dt>                            <dd id="s-time">—</dd>
   </dl>
+  <div class="part-btns">
+  <button type="button" class="btn sm" id="add-part" data-i18n-title
+          title="Put another model on this plate, beside this one. Click a model to edit it."><span data-i18n="Add model">Add model</span></button>
   <button type="button" class="btn sm" id="remove-part" data-i18n-title
           title="Take this model off the plate, to import another without reloading the page."><span data-i18n="Remove model">Remove model</span></button>
+  </div>
+  <input type="file" id="file-add" multiple accept=".stl,.3mf,.step,.stp,.obj,model/stl,application/sla,application/vnd.ms-pki.stl,model/3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml,model/step,application/step,model/obj,application/octet-stream" hidden>
 </aside>
 
 </div><!-- /left-rail -->
 
-<!-- Plate tabs (ui/plates.js): one model per plate, each with its own pose, settings
-     and walls. + adds an empty plate; × deletes one. -->
+<!-- Plate tabs (ui/plates.js): each plate with its models (ui/models.js), each model
+     with its own pose, settings and walls. + adds an empty plate; × deletes one. -->
 <nav id="plates" aria-label="Plates"></nav>
 <!-- A deleted plate or removed model, with Undo for a few seconds (ui/plates.js). -->
 <div id="toast" role="status" hidden><span id="toast-text"></span><button type="button" class="btn sm" id="toast-undo" data-i18n="Undo">Undo</button></div>

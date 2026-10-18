@@ -1,14 +1,14 @@
 import { t } from './i18n.js';
 /**
- * Plates: several in one tab, one model each, with its own pose, settings, drawn
- * walls, removed fins, undo, section cut and Suggest list -- the way a slicer's
- * plates hold separate jobs. All of them are on screen in a row (ui/plateview.js);
- * a click on one, there or on its tab, makes it the one being edited.
+ * Plates: several in one tab, each with its models (ui/models.js), and each model
+ * with its own pose, settings, drawn walls, removed fins, undo, section cut and
+ * Suggest list -- the way a slicer's plates hold separate jobs. All of them are on
+ * screen in a row (ui/plateview.js); a click on one, there or on its tab, makes it
+ * the one being edited.
  *
- * Only that plate is live: every ui/ module still works on the one part. A switch
- * stashes the live part as it stands (part.js stashPart keeps the mesh and its weld;
- * history.js takeState its walls, removals, settings and pose) and brings the other
- * plate's back the way undo restores a state, so nothing is re-read or re-welded.
+ * Only one model is live: every ui/ module still works on the one part. A switch
+ * parks the live model as it stands and brings the other plate's back the way undo
+ * restores a state, so nothing is re-read or re-welded (models.js park / unpark).
  * Several files imported at once go one to a plate (ui/io.js). A deleted plate or a
  * removed model is kept for a few seconds behind an Undo toast before it is freed.
  */
@@ -16,77 +16,45 @@ import { el } from './dom.js';
 import { camera, controls, renderer } from './scene.js';
 import { download } from '../stl.js';
 import { zipStore } from '../zip.js';
-import { part, partName, stashPart, unstashPart } from './part.js';
-import { takeState, takeHistory, setHistory, restoreState, VIEWER_IDS } from './history.js';
-import { scaleState, setScaleState } from './scale.js';
-import { importState, setImportState } from './io.js';
-import { activeAdded, buildPending, finMesh, padMesh } from './finbuild.js';
+import { part, partName } from './part.js';
+import { buildPending, finMesh, padMesh } from './finbuild.js';
 import { drawnMesh } from './walls.js';
 import { plate3MF } from './export.js';
-import { sectionState, restoreSection, sectionPick } from './section.js';
-import { suggestState, restoreSuggestions } from './suggest.js';
-import { drawRow, ghostFins, parkMesh, pitch, plateAt, glide, frameAll } from './plateview.js';
+import { sectionPick } from './section.js';
+import { slot, liveXY, park, unpark, disposeSlot, select, takeLive } from './models.js';
+import { drawRow, pitch, plateAt, glide, frameAll } from './plateview.js';
 
-// One entry per plate. `stash` holds a plate that is not being edited; the edited
-// plate's is null (its state is the live one), and so is an empty plate's.
-const plates = [{ stash: null }];
+// One entry per plate: its model slots (models.js) and which of them is live -- or,
+// on a plate not being edited, which comes back live when it is.
+const newPlate = () => ({ models: [slot()], live: 0 });
+const plates = [newPlate()];
 let active = 0;
-// Export all is switching through the plates: the tabs and the row wait for it.
+// Export is switching through the plates or models: the tabs and the row wait for it.
 let busy = false;
 
-/** Put the live plate's part and state away, leaving the page empty. */
-function stashActive() {
-  if (!part) { plates[active].stash = null; return; }
-  // read before stashPart: it resets the history, scale, import note, cut and list
-  const state = takeState(), history = takeHistory(), scale = scaleState(), imp = importState();
-  const section = sectionState(), suggest = suggestState();
-  // Left before its fins were built (they build in the worker): the parked copy
-  // keeps the fins it had when it was last parked, if the pose is still that one.
-  const last = plates[active].ghost;
-  plates[active].ghost = null;
-  let fins;
-  if (last && buildPending() && part.quaternion.equals(last.quat)) fins = last.fins;
-  else {
-    if (last?.fins) last.fins.geometry.dispose();
-    fins = ghostFins(activeAdded());
+export const isBusy = () => busy;
+
+/** Run `fn` with the plates held still (an export switching through them); null
+ *  when they already are. */
+export async function locked(fn) {
+  if (busy) return null;
+  busy = true;
+  render();
+  try {
+    return await fn();
+  } finally {
+    busy = false;
+    render();
   }
-  const rec = stashPart();
-  parkMesh(rec.mesh);
-  plates[active].stash = { part: rec, fins, state, history, scale, imp, section, suggest };
 }
 
-/** Free what a stash holds (a deleted plate past its Undo). */
-function dispose(s) {
-  if (!s) return;
-  s.part.mesh.removeFromParent();
-  s.part.mesh.geometry.dispose();
-  if (s.fins) { s.fins.removeFromParent(); s.fins.geometry.dispose(); }
-}
+/** Put the live model and its state away, leaving the page empty. */
+const stashActive = () => park(plates[active]);
 
-/** Edit plate `i`, whose part is stashed (or which is empty); the page is empty. */
+/** Edit plate `i`, whose models are parked (or which is empty); the page is empty. */
 function show(i) {
-  const s = plates[i].stash;
   active = i;
-  if (s) {
-    // The viewer's and the printer's settings (the nozzle, the layer view...) are not
-    // the plate's: they stay as they are, as a saved session leaves them (history.js).
-    const form = { ...s.state.form };
-    for (const id of VIEWER_IDS) {
-      const f = el(id);
-      form[id] = f.type === 'checkbox' ? f.checked : f.value;
-    }
-    setImportState(s.imp);
-    unstashPart(s.part);
-    restoreState({ ...s.state, form });
-    setHistory(s.history);
-    setScaleState(s.scale);
-    restoreSection(s.section);
-    restoreSuggestions(s.suggest);
-    // off screen while the plate is live, kept in case it is left before its build lands
-    s.fins?.removeFromParent();
-    plates[i].ghost = { fins: s.fins, quat: s.part.mesh.quaternion.clone() };
-  }
-  plates[i].stash = null;      // only once it is live: a throw above keeps the model
+  unpark(plates[i]);
   render();
 }
 
@@ -95,12 +63,17 @@ function go(i, quiet = false) {
   if (i === active || i < 0 || i >= plates.length) return;
   const fromPos = camera.position.clone(), fromTarget = controls.target.clone();
   const dx = (i - active) * pitch();
+  const from = liveXY();
   stashActive();
   show(i);
   if (quiet) return;
-  // the row slid by dx under the camera: start from the same view of it
-  fromPos.x -= dx;
-  fromTarget.x -= dx;
+  // the row slid under the camera by the plates' spacing and the two live models'
+  // spots: start from the same view of it
+  const to = liveXY();
+  fromPos.x -= dx + to[0] - from[0];
+  fromTarget.x -= dx + to[0] - from[0];
+  fromPos.y -= to[1] - from[1];
+  fromTarget.y -= to[1] - from[1];
   glide(fromPos, fromTarget);
 }
 
@@ -111,7 +84,7 @@ export function switchPlate(i) {
 /** A new, empty plate, edited. */
 export function addPlate() {
   if (busy) return;
-  plates.push({ stash: null });
+  plates.push(newPlate());
   go(plates.length - 1);
 }
 
@@ -135,7 +108,7 @@ export function returnTo(plate) {
 
 /** A multi-file import whose last file did not load leaves its new plate empty. */
 export function dropEmptyPlate() {
-  if (!part && plates.length > 1) {
+  if (!part && plates.length > 1 && plates[active].models.length === 1) {
     plates.splice(active, 1);
     show(Math.min(active, plates.length - 1));
   }
@@ -143,42 +116,55 @@ export function dropEmptyPlate() {
 
 // ------------------------------------------------------------ delete, with Undo
 
-let trash = null;      // { stash, plate, index, timer }: the last deletion, until it expires
+let trash = null;      // { slots, plate, index, timer }: the last removal, until it expires
 const UNDO_MS = 10000;
 
 function expire() {
   if (!trash) return;
   clearTimeout(trash.timer);
-  dispose(trash.stash);
+  trash.slots.forEach(disposeSlot);
   trash = null;
   el('toast').hidden = true;
 }
 
-function trashed(stash, plate, index, text) {
-  if (!stash) return;            // an empty plate: nothing to bring back (the last Undo stays)
+function trashed(slots, plate, index, text) {
+  if (!slots.length) return;     // an empty plate: nothing to bring back (the last Undo stays)
   expire();
-  stash.part.mesh.removeFromParent();
-  stash.fins?.removeFromParent();
-  trash = { stash, plate, index, timer: setTimeout(expire, UNDO_MS) };
+  for (const m of slots) {
+    m.stash.part.mesh.removeFromParent();
+    m.stash.fins?.removeFromParent();
+  }
+  trash = { slots, plate, index, timer: setTimeout(expire, UNDO_MS) };
   el('toast-text').textContent = text;
   el('toast').hidden = false;
 }
 
-/** Remove model: the plate stays, empty; Undo puts the model back. */
+const removedText = (slots) => (slots.length === 1
+  ? t('Removed {name}', { name: slots[0].stash.part.name })
+  : t('Removed {n} models', { n: slots.length }));
+
+/** Remove model: the live one goes, the plate stays (empty, with no other); Undo
+ *  puts the model back. */
 function removeModel() {
   if (busy || !part) return;
-  stashActive();
-  const s = plates[active].stash;
-  plates[active].stash = null;
+  const plate = plates[active];
+  const m = takeLive();
   render();
-  trashed(s, plates[active], active, t('Removed {name}', { name: s.part.name }));
+  trashed([m], plate, active, removedText([m]));
 }
 
 function deletePlate(i) {
   if (busy) return;
-  if (plates.length === 1) { removeModel(); return; }
   if (i === active) stashActive();
   const entry = plates[i];
+  const slots = entry.models.filter((m) => m.stash);
+  if (plates.length === 1) {
+    // the one plate stays, emptied (the same plate, for an earlier Undo to find)
+    Object.assign(entry, newPlate());
+    show(0);
+    trashed(slots, entry, 0, removedText(slots));
+    return;
+  }
   plates.splice(i, 1);
   if (i === active) {
     show(Math.min(i, plates.length - 1));
@@ -186,25 +172,29 @@ function deletePlate(i) {
     if (i < active) active--;
     render();
   }
-  trashed(entry.stash, null, i, t('Deleted plate {n}', { n: i + 1 }));
+  trashed(slots, null, i, t('Deleted plate {n}', { n: i + 1 }));
 }
 
-/** Bring the last deletion back: to its plate if that is still there and empty,
- *  else as a new plate where it was. */
+/** Bring the last removal back: to its plate if that is still there (into its slot
+ *  when the plate is empty, beside its models when not), else as a new plate where
+ *  it was. */
 function undoDelete() {
   if (!trash || busy) return;
-  const { stash, plate, index } = trash;
+  const { slots, plate, index } = trash;
   clearTimeout(trash.timer);
   trash = null;
   el('toast').hidden = true;
   let i = plates.indexOf(plate);
-  if (i < 0 || (i === active ? part : plates[i].stash)) {
+  if (i < 0) {
     i = Math.min(index, plates.length);
-    plates.splice(i, 0, { stash: null });
+    plates.splice(i, 0, newPlate());
     if (i <= active) active++;
   }
   stashActive();
-  plates[i].stash = stash;
+  const p = plates[i];
+  if (p.models.length === 1 && !p.models[0].stash) p.models = slots;
+  else p.models.push(...slots);
+  p.live = p.models.indexOf(slots[0]);
   show(i);
 }
 
@@ -218,26 +208,25 @@ const tick = (ms) => new Promise((r) => setTimeout(r, ms));
 /** Every plate's model as a 3MF, all in one .zip (one plate: the 3MF alone), then
  *  back to the plate being edited. */
 export async function exportAll() {
-  if (busy) return;
-  busy = true;
-  render();
   const back = active;
-  const files = [];
-  try {
-    for (let i = 0; i < plates.length; i++) {
-      go(i, true);
-      if (!part) continue;
-      // the switch starts a support build (in the worker): export what it builds
-      await tick(0);
-      while (buildPending()) await tick(50);
-      const f = plate3MF();
-      if (f) files.push({ name: `plate-${i + 1}-${f[1]}`, blob: f[0] });
+  const files = await locked(async () => {
+    const out = [];
+    try {
+      for (let i = 0; i < plates.length; i++) {
+        go(i, true);
+        if (!part) continue;
+        // the switch starts a support build (in the worker): export what it builds
+        await tick(0);
+        while (buildPending()) await tick(50);
+        const f = await plate3MF();
+        if (f) out.push({ name: `plate-${i + 1}-${f[1]}`, blob: f[0] });
+      }
+    } finally {
+      go(back, true);
     }
-    go(back, true);
-  } finally {
-    busy = false;
-    render();
-  }
+    return out;
+  });
+  if (!files) return;
   if (files.length === 1) { download(files[0].blob, files[0].name); return; }
   if (!files.length) return;
   const entries = await Promise.all(files.map(async (f) =>
@@ -248,18 +237,23 @@ export async function exportAll() {
 
 // ------------------------------------------------------------- tabs and row
 
-// A click (not a drag) on another plate in the view switches to it.
+// A click (not a drag) on another plate in the view switches to it, and on a parked
+// model edits that model.
 let downAt = null;
 renderer.domElement.addEventListener('pointerdown', (e) => {
   downAt = e.button === 0 ? [e.clientX, e.clientY] : null;
 });
 renderer.domElement.addEventListener('pointerup', (e) => {
-  if (!downAt || busy || plates.length < 2) return;
+  if (!downAt || busy || (plates.length < 2 && plates[0].models.length < 2)) return;
   const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]);
   downAt = null;
   if (moved > 4) return;
-  const i = plateAt(e, plates.length, active, [part, finMesh, padMesh, drawnMesh, ...sectionPick()]);
-  if (i >= 0 && i !== active) go(i);
+  const hit = plateAt(e, plates.length, active, [part, finMesh, padMesh, drawnMesh, ...sectionPick()]);
+  if (!hit) return;
+  if (hit.plate === active) { if (hit.model >= 0) select(hit.model); return; }
+  // a model on another plate: that plate, with that model live
+  if (hit.model >= 0) plates[hit.plate].live = hit.model;
+  go(hit.plate);
 });
 
 const stem = (name) => name.replace(/\.(stl|3mf|step|stp|obj)$/i, '');
@@ -267,7 +261,8 @@ const stem = (name) => name.replace(/\.(stl|3mf|step|stp|obj)$/i, '');
 function render() {
   const bar = el('plates');
   const tabs = plates.map((p, i) => {
-    const name = i === active ? (part ? partName : '') : (p.stash?.part.name ?? '');
+    const name = i === active ? (part ? partName : '') : (p.models[p.live].stash?.part.name ?? '');
+    const count = p.models.filter((m, k) => (i === active && k === p.live ? part : m.stash)).length;
     const wrap = document.createElement('span');
     wrap.className = 'plate';
     const tab = document.createElement('button');
@@ -281,7 +276,7 @@ function render() {
     if (name) {
       const sub = document.createElement('span');
       sub.className = 'plate-name';
-      sub.textContent = stem(name);
+      sub.textContent = count > 1 ? `${stem(name)} +${count - 1}` : stem(name);
       tab.append(sub);
     }
     tab.addEventListener('click', () => switchPlate(i));
@@ -310,19 +305,21 @@ function render() {
   all.hidden = plates.length < 2;
   all.textContent = t('See all');
   all.title = t('Pull the view back to show every plate');
-  all.addEventListener('click', () => frameAll(plates.length, active));
+  all.addEventListener('click', () => frameAll(plates.length, active, liveXY()));
   bar.replaceChildren(...tabs, add, all);
   bar.inert = busy;
   el('export-all').hidden = plates.length < 2;
   drawRow(plates, active);
 }
+/** The tabs and the row again, after a model swap on the plate (models.js). */
+export const redraw = () => render();
 
 // A load, a rescale or Remove model changes the edited plate's name; a new build
-// volume, every plate's size and spacing. A new part on the edited plate also makes
+// volume, every plate's size and spacing. A new part in the live slot also makes
 // the fins it was last parked with wrong for it.
 document.addEventListener('partchange', () => {
-  const g = plates[active]?.ghost;
-  if (g) { g.fins?.geometry.dispose(); plates[active].ghost = null; }
+  const m = plates[active]?.models[plates[active].live];
+  if (m?.ghost) { m.ghost.fins?.geometry.dispose(); m.ghost = null; }
   render();
 });
 document.addEventListener('buildvolumechange', render);

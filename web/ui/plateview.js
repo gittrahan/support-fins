@@ -1,10 +1,11 @@
 import { t } from './i18n.js';
 /**
  * The plates on screen together (ui/plates.js): one row along X, each with its bed,
- * a "Plate N" label in front of it, and -- for every plate but the one being edited
- * -- its part and fins as they were left, dimmed. Display only: the plate being
- * edited is the live one at the origin, as every tool expects, and the row is laid
- * out around it, so a switch slides the row and the camera glides after it.
+ * a "Plate N" label in front of it, and every model but the live one where it stands
+ * on its plate (ui/models.js), with its fins as they were left, dimmed. Display only:
+ * the live model is at the origin, as every tool expects, and the row and the
+ * edited plate's bed are laid out around it -- shifted by minus its spot -- so a
+ * switch slides them and the camera glides after.
  */
 import * as THREE from 'three';
 import { scene, plate, camera, controls, renderer, requestRender, meshFrom, frame } from './scene.js';
@@ -56,7 +57,7 @@ function label(text, current) {
 
 /**
  * Lay the row out for `plates` with `active` being edited. Parked parts and their
- * fins are re-parented here (they belong to the plates' stashes and are not disposed).
+ * fins are re-parented here (they belong to the slots' stashes and are not disposed).
  */
 export function drawRow(plates, active) {
   for (const g of row.children) {
@@ -65,23 +66,28 @@ export function drawRow(plates, active) {
     }
   }
   row.clear();
+  const edited = plates[active], [lx, ly] = edited.models[edited.live].xy;
+  row.position.set(-lx, -ly, 0);
+  plate.position.set(-lx, -ly, 0);
   const p = pitch();
-  // one plate on its own needs no label: there is nothing to tell apart
-  if (plates.length < 2) { requestRender(); return; }
   plates.forEach((pl, i) => {
     const g = new THREE.Group();
     g.position.x = (i - active) * p;
     g.userData.plate = i;
-    g.add(label(t('Plate {n}', { n: i + 1 }), i === active));
-    if (i !== active) {
-      // the bed: grid and outline, not the build-volume box
-      for (const c of plate.children) if (!(c instanceof THREE.Box3Helper)) g.add(c.clone());
-      const s = pl.stash;
-      if (s) {
-        g.add(s.part.mesh);
-        if (s.fins) g.add(s.fins);
-      }
-    }
+    // one plate on its own needs no label: there is nothing to tell apart
+    if (plates.length > 1) g.add(label(t('Plate {n}', { n: i + 1 }), i === active));
+    // the bed: grid and outline, not the build-volume box
+    if (i !== active) for (const c of plate.children) if (!(c instanceof THREE.Box3Helper)) g.add(c.clone());
+    pl.models.forEach((m, k) => {
+      const s = m.stash;
+      if (!s || (i === active && k === pl.live)) return;
+      const at = new THREE.Group();
+      at.position.set(m.xy[0], m.xy[1], 0);
+      at.userData.model = k;
+      at.add(s.part.mesh);
+      if (s.fins) at.add(s.fins);
+      g.add(at);
+    });
     row.add(g);
   });
   requestRender();
@@ -92,9 +98,10 @@ const ndc = new THREE.Vector2();
 const bed = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 const hit = new THREE.Vector3();
 
-/** The plate under a pointer event, as an index into the row; -1 for none -- also
- *  when `live` (the edited plate's part, fins, walls, cut handle) is hit first: that
- *  click is for the plate being edited, whatever bed lies behind it. */
+/** What a pointer event is on: { plate, model } as indices into the row and that
+ *  plate's models (model -1 for its bare bed), or null for nothing -- also when
+ *  `live` (the live model, its fins, walls, cut handle) is hit first: that click is
+ *  for the model being edited, whatever lies behind it. */
 export function plateAt(e, count, active, live) {
   const r = renderer.domElement.getBoundingClientRect();
   ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
@@ -102,17 +109,22 @@ export function plateAt(e, count, active, live) {
   const near = ray.intersectObjects(live.filter(Boolean), true).find((h) => h.object.isMesh)?.distance ?? Infinity;
   // a parked part standing up off its bed, then the beds themselves
   for (const h of ray.intersectObjects(row.children, true)) {
-    if (h.distance > near) return -1;
-    let o = h.object;
-    while (o && o.parent !== row) o = o.parent;
-    if (o && h.object.isMesh && !h.object.userData.label) return o.userData.plate;
+    if (h.distance > near) return null;
+    if (!h.object.isMesh || h.object.userData.label) continue;
+    let o = h.object, model = -1;
+    while (o && o.parent !== row) {
+      if (o.userData.model !== undefined) model = o.userData.model;
+      o = o.parent;
+    }
+    if (o) return { plate: o.userData.plate, model };
   }
-  if (!ray.ray.intersectPlane(bed, hit) || ray.ray.origin.distanceTo(hit) > near) return -1;
+  if (!ray.ray.intersectPlane(bed, hit) || ray.ray.origin.distanceTo(hit) > near) return null;
   const v = currentVolume(), p = pitch();
-  const i = Math.round(hit.x / p) + active;
-  if (i < 0 || i >= count) return -1;
-  const x = hit.x - (i - active) * p;
-  return Math.abs(x) <= v.x / 2 && Math.abs(hit.y) <= v.y / 2 + 30 ? i : -1;
+  const x0 = hit.x - row.position.x, y = hit.y - row.position.y;
+  const i = Math.round(x0 / p) + active;
+  if (i < 0 || i >= count) return null;
+  const x = x0 - (i - active) * p;
+  return Math.abs(x) <= v.x / 2 && Math.abs(y) <= v.y / 2 + 30 ? { plate: i, model: -1 } : null;
 }
 
 /** Ease the camera from `fromPos` / `fromTarget` to where it is now. */
@@ -133,14 +145,16 @@ export function glide(fromPos, fromTarget, ms = 450) {
   requestAnimationFrame(step);
 }
 
-/** Pull the camera back to take in every plate of the row. */
-export function frameAll(count, active) {
+/** Pull the camera back to take in every plate of the row; `xy` is where the live
+ *  model stands on its plate (the row is drawn shifted by minus it). */
+export function frameAll(count, active, [lx, ly]) {
   const v = currentVolume(), p = pitch();
   const fromPos = camera.position.clone(), fromTarget = controls.target.clone();
   frame(new THREE.Vector3((count - 1) * p / 2 + v.x / 2, v.y / 2, 0));
-  const cx = ((count - 1) / 2 - active) * p;
+  const cx = ((count - 1) / 2 - active) * p - lx;
   camera.position.x += cx;
-  controls.target.set(cx, 0, 0);
+  camera.position.y -= ly;
+  controls.target.set(cx, -ly, 0);
   controls.update();
   glide(fromPos, fromTarget);
 }

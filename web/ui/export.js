@@ -1,8 +1,9 @@
 /**
- * Export: the oriented part plus the fins/pad, as STL or 3MF.
+ * Export: the oriented part plus the fins/pad, as STL or 3MF -- every model of the
+ * plate (ui/models.js), each where it stands.
  */
 import { writeBinarySTL, download } from '../stl.js';
-import { writeThreeMF } from '../threemf.js';
+import { writePlate3MF } from '../threemf.js';
 import { splitInterface } from '../prop.js';
 import { el } from './dom.js';
 import { part, topology, lastResult, rotM3, partName } from './part.js';
@@ -10,7 +11,8 @@ import { activeAdded, buildPending } from './finbuild.js';
 import { sessionOf } from './session.js';
 import { exportName } from '../exportname.js';
 import { nozzle } from '../nozzle.js';
-import { exportAll } from './plates.js';
+import { exportAll, currentPlate, locked } from './plates.js';
+import { eachModel } from './models.js';
 
 /**
  * Export the part AS ORIENTED, seated on the plate, with the fins as extra
@@ -65,11 +67,38 @@ export function buildExportGeometry() {
   return { partTris, finTris, base, name, colors: part.geometry.userData.colors ?? null, slicer: kept };
 }
 
-// The three formats. All share the print-space geometry, so a fins-only STL
-// lines up with the part when both are imported into one plate.
+/** `g` (buildExportGeometry) moved to `xy`, its model's spot on the plate. */
+function placed(g, [x, y]) {
+  const at = (tris) => tris.map((p) => { const q = p.slice(); q[0] += x; q[1] += y; return q; });
+  const slicer = g.slicer && { ...g.slicer, partTris: at(g.slicer.partTris),
+    extras: g.slicer.extras.map((e) => ({ ...e, tris: at(e.tris) })) };
+  return { ...g, partTris: at(g.partTris), finTris: at(g.finTris), slicer };
+}
+
+/** Every model of the plate being edited, each its buildExportGeometry where it
+ *  stands; a plate of one is just that one, as it is. */
+async function plateGeometry() {
+  if (currentPlate().models.length === 1) {
+    const g = buildExportGeometry();
+    return g ? [g] : [];
+  }
+  return (await eachModel((xy) => {
+    const g = buildExportGeometry();
+    return g && placed(g, xy);
+  })).filter(Boolean);
+}
+
+/** A file name for the plate `gs`: the model's own, or the first one's and a count. */
+const plateName = (gs, stem, ext) =>
+  gs[0].name(gs.length === 1 ? stem : `and-${gs.length - 1}-more-${stem}`, ext);
+
+// The three formats, each given the plate's models (plateGeometry). All share the
+// print-space geometry, so a fins-only STL lines up with the part when both are
+// imported into one plate.
 const FORMATS = {
   // STL flattens part + fins into one solid.
-  'export-stl': (g) => [writeBinarySTL([...g.partTris, ...g.finTris], g.base), g.name('fins', '.stl')],
+  'export-stl': (gs) => [writeBinarySTL(gs.flatMap((g) => [...g.partTris, ...g.finTris]), gs[0].base),
+                         plateName(gs, 'fins', '.stl')],
   // 3MF states millimeters, so the file opens correctly oriented and support-free
   // in Bambu Studio, OrcaSlicer, or PrusaSlicer without a re-scale or a re-rotate.
   // It writes the supports as their OWN object, so the slicer slices them apart and
@@ -79,16 +108,23 @@ const FORMATS = {
   // session (ui/session.js), so opening it here again brings the drawn walls back.
   // With Interface material on, the walls' tops and the tines go in a second part of
   // the supports object, to set to the second filament (prop/crest.js); off, there
-  // are none to split.
-  'export-3mf': (g) => {
-    const { body, iface } = splitInterface(g.finTris);
-    const own = g.slicer ?? g;
-    return [writeThreeMF(own.partTris, body, g.base, { separate: true, iface, colors: own.colors,
-                           extras: g.slicer?.extras ?? [], session: sessionOf(g.partTris) }),
-            g.name('fins', '.3mf')];
+  // are none to split. Several models are each their own objects, in one file
+  // (threemf.js writePlate3MF); the session is one model's, so only a plate of one
+  // carries it.
+  'export-3mf': (gs) => {
+    const models = gs.map((g) => {
+      const { body, iface } = splitInterface(g.finTris);
+      const own = g.slicer ?? g;
+      return { partTris: own.partTris, finTris: body, name: g.base, iface, colors: own.colors,
+               extras: g.slicer?.extras ?? [] };
+    });
+    return [writePlate3MF(models, { title: gs[0].base, separate: true,
+                                    session: gs.length === 1 ? sessionOf(gs[0].partTris) : null }),
+            plateName(gs, 'fins', '.3mf')];
   },
   // Just the fins + pad (issue #5). One body, so 3MF would add nothing over STL.
-  'export-fins': (g) => [writeBinarySTL(g.finTris, `${g.base} fins`), g.name('fins-only', '.stl')],
+  'export-fins': (gs) => [writeBinarySTL(gs.flatMap((g) => g.finTris), `${gs[0].base} fins`),
+                          plateName(gs, 'fins-only', '.stl')],
 };
 
 const btn = el('export');
@@ -102,18 +138,25 @@ function setOpen(open) {
     // nothing while a rebuild is out -- the old fins under the new settings' name
     const ready = !!(part && topology && lastResult) && !buildPending();
     el('export-stl').disabled = el('export-3mf').disabled = !ready;
-    el('export-fins').disabled = !ready || activeAdded().length === 0;
+    // the other models' fins count too: a plate of several decides when it is written
+    el('export-fins').disabled = !ready || (activeAdded().length === 0 && currentPlate().models.length === 1);
     menu.querySelector('button:not(:disabled)')?.focus();
   }
 }
 
 btn.addEventListener('click', () => setOpen(menu.hidden));
 for (const [id, write] of Object.entries(FORMATS)) {
-  el(id).addEventListener('click', () => {
+  el(id).addEventListener('click', async () => {
     setOpen(false);
-    const g = buildExportGeometry();
-    if (!g) return;
-    download(...write(g));
+    if (currentPlate().models.length === 1) {
+      const g = buildExportGeometry();
+      if (g) download(...write([g]));
+      return;
+    }
+    // the plate's other models are parked: each is made live in turn to write it
+    const gs = await locked(plateGeometry);
+    if (!gs?.length || (id === 'export-fins' && !gs.some((g) => g.finTris.length))) return;
+    download(...write(gs));
   });
 }
 // Every plate, one 3MF each (ui/plates.js); shown only with more than one plate.
@@ -122,11 +165,11 @@ el('export-all').addEventListener('click', () => {
   exportAll();
 });
 
-/** The plate being edited as a 3MF, [blob, name], for Export all plates; null when
- *  there is nothing to write. */
-export function plate3MF() {
-  const g = buildExportGeometry();
-  return g ? FORMATS['export-3mf'](g) : null;
+/** The plate being edited as a 3MF, [blob, name], for Export all plates (which holds
+ *  the plates still); null when there is nothing to write. */
+export async function plate3MF() {
+  const gs = await plateGeometry();
+  return gs.length ? FORMATS['export-3mf'](gs) : null;
 }
 
 // click-away / Esc close it, the usual menu contract

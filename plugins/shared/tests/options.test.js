@@ -42,7 +42,7 @@ const SITE_EXCLUDED = {
   'long-walls': 'Full coverage only; plugins run Auto',
   'tall-ribs': 'the plugins build with the engine default (on, as the site starts); a dialog control can follow',
   'tall-ribs-height': 'browser tall-wall rib threshold; plugin dialogs retain the default 100 mm height',
-  'file': 'loading a model is the host\'s job', 'volume': 'site build-volume preview',
+  'file': 'loading a model is the host\'s job', 'file-add': 'adding a model to the plate is the host\'s job', 'volume': 'site build-volume preview',
   'vx': 'site build-volume preview', 'vy': 'site build-volume preview', 'vz': 'site build-volume preview',
   'plugins-computer': 'picks which plugin download to offer',
   'scale-pct': 'the part\'s size is the host\'s (every CAD and slicer scales it)',

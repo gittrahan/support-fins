@@ -347,7 +347,7 @@ html, body {
    fin/pad time is appended, and that one-line growth used to nudge everything below
    the panel down when fins were added. Always two lines high = no shift. */
 #stats #s-time { display: block; min-height: 2.6em; line-height: 1.3; }
-#stats #remove-part { margin-top: 10px; }
+#stats .part-btns { display: flex; gap: 6px; margin-top: 10px; }
 #stats hr {
   border: 0;
   border-top: 1px solid var(--line);

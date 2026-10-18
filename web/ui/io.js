@@ -14,6 +14,7 @@ import { el } from './dom.js';
 import { part, setPart } from './part.js';
 import { partObjectOf, restoreSession } from './session.js';
 import { freePlate, currentPlate, returnTo, dropEmptyPlate } from './plates.js';
+import { addSlot } from './models.js';
 
 export let importNote = '';
 export let lastImportMeta = null;
@@ -373,14 +374,18 @@ function afterLoad(geometry, name) {
   el('s-import-note').textContent = importNote;    // the load's report already ran
 }
 
-async function loadFile(file) {
+/** Load `file` onto the plate being edited: in place of its model, or with `add`
+ *  beside its models (ui/models.js). */
+async function loadFile(file, add = false) {
   if (!file) return;
   // the plate it was imported to, which a click on another tab may have left while
   // the file was read (a STEP kernel download, a 3MF's object picker)
   const plate = currentPlate();
   try {
     const geometry = await parseModel(await file.arrayBuffer());
-    if (geometry && returnTo(plate)) afterLoad(geometry, file.name);
+    if (!geometry || !returnTo(plate)) return;
+    if (add) addSlot(geometry);
+    afterLoad(geometry, file.name);
   } catch (err) {
     console.error(err);
     alert(`Could not read ${file.name}:\n${err.message}`);
@@ -405,6 +410,15 @@ el('file').addEventListener('change', (e) => {
   loadFiles([...e.target.files]);
   e.target.value = '';
 });
+// The stats card's Add model: every file chosen goes onto this plate, beside the
+// models already on it, in turn (a 3MF's object picker waits for its answer).
+el('file-add').addEventListener('change', async (e) => {
+  const files = [...e.target.files];
+  e.target.value = '';
+  for (const file of files) await loadFile(file, true);
+});
+el('file-add').addEventListener('click', warmStep);
+el('add-part').addEventListener('click', () => el('file-add').click());
 // Reaching for a file is the cue to start loading the STEP kernel: it downloads
 // while the user is still in the file dialog (or mid-drag), not after they drop.
 el('file').addEventListener('click', warmStep);
