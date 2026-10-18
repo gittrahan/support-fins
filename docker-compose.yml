@@ -9,7 +9,7 @@
 
 services:
   web:
-    image: support-fins
+    image: ghcr.io/gittrahan/support-fins:${SUPPORT_FINS_VERSION:-latest}
     container_name: support-fins
     build:
       context: .

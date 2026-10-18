@@ -27,8 +27,8 @@ now you had to CAD it by hand every time.
 1. Import an STL, 3MF, STEP or OBJ.
 2. Rotate it. You're in control — Support Fins suggests, it never decides for you.
 3. It shows you live: overhang count, how many can take a real fin, height, bed contact.
-   Point at the load direction, answer one question — *does it pull apart, or does it
-   lever?* — and it scores orientations for strength too.
+   Point at the load direction, answer one question — _does it pull apart, or does it
+   lever?_ — and it scores orientations for strength too.
 4. Export. Fins and a bed pad come baked into the STL (or 3MF).
 
 **Why you pick the rotation, not the software:** "stronger" means nothing without a load
@@ -79,6 +79,7 @@ up the full height**, tie it to the part. Like every support here, it stands off
 breakaway gap and snaps off; only the tines touch the part.
 
 **Using it:** tick **Sway braces (tall parts)** in the options panel. It's off by default.
+
 - **Auto** braces the tallest sides for you: up to four faces facing different ways, so
   both axes are held, with each rib placed where its face reaches highest.
 - **Draw**: one click on an upright side stands a brace there. Click a support you placed
@@ -113,7 +114,7 @@ notice.)
 
 The export ships **pure geometry with no slicer profile embedded** on purpose: baking
 in a profile would silence the notice but replace whoever-opens-it's printer/filament/
-print settings with ours on load, and it would have to be re-authored per slicer *and*
+print settings with ours on load, and it would have to be re-authored per slicer _and_
 per slicer version — a worse trade than a one-time, benign notice on a file whose
 geometry is already right. See `web/threemf.js` for the writer.
 
@@ -133,17 +134,26 @@ to expose it to the local network — handy on a headless box like a Raspberry P
 behind a firewall; the script prints the LAN address to open. The port is an
 optional positional argument and `--help` lists every option.
 
-Or run the same `web/` directory in Docker — nginx on the host's 8731, so the URL
-is identical to the dev server:
+### Run with Docker
 
 ```bash
-docker compose up --build        # http://localhost:8731/
+docker compose pull web
+docker compose up -d        # http://localhost:8731/
 ```
 
-There's no build step and no backend, so the image is just `nginx:stable-alpine`
-serving static files with cache headers that match the dev server. See
-[`docker-compose.yml`](docker-compose.yml), [`Dockerfile`](Dockerfile), and
-[`nginx.conf`](nginx.conf).
+This uses the latest stable release by default.
+
+To pin a release, add this to a `.env` file beside `docker-compose.yml`:
+
+```env
+SUPPORT_FINS_VERSION=v0.1.0
+```
+
+To build the checked-out source instead:
+
+```bash
+docker compose up --build
+```
 
 The Python prototype is the proof of concept the engine was ported from — plain mesh math,
 no CAD kernel:
@@ -174,7 +184,7 @@ which would stretch the one-layer tines. Confirmed working in PrusaSlicer 3.0 al
 
 ## Honest limitations
 
-- Overhangs sitting over the *part* rather than the plate aren't handled — fins attach to
+- Overhangs sitting over the _part_ rather than the plate aren't handled — fins attach to
   the bed only.
 - Features shorter than roughly a 4 mm wall height are too short for a real fin.
 - It won't pick your orientation for you. On purpose.

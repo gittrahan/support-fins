@@ -8,6 +8,8 @@ name: plugins
 #   PR:            build + test
 #   push to main:  build + test, then publish the builds to the rolling
 #                  `plugins-latest` pre-release (printfins.com's Plugins menu links here)
+#   GitHub Release: build + test, then attach plugin builds and publish the
+#                   versioned Docker image. Stable releases also move `latest`.
 #
 # The Fusion add-in runs the engine in Fusion's own browser (a hidden palette), so
 # its zip has nothing native in it and serves Windows and macOS alike. It has been
@@ -29,6 +31,8 @@ on:
       - 'web/**'
       - 'plugins/**'
       - '.github/workflows/plugins.yml'
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -285,7 +289,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release'
     needs: [orca, fusion, cura, prusa, blender, blender-smoke, freecad, cli, mcp, solidworks]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -296,9 +300,49 @@ jobs:
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
-      TAG: plugins-latest
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Validate release version and target
+        if: github.event_name == 'release'
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import os
+          import re
+          import sys
+
+          tag = os.environ["RELEASE_TAG"]
+          match = re.fullmatch(
+              r"v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+              r"(?:-([0-9A-Za-z.-]+))?",
+              tag,
+          )
+          if not match:
+              sys.exit(
+                  f"Release tag {tag!r} must use Docker-compatible SemVer with a leading v, "
+                  "e.g. v0.1.0 or v0.2.0-rc.1 (build metadata is not supported)."
+              )
+          if len(tag) > 128:
+              sys.exit(f"Release tag {tag!r} is longer than Docker's 128-character tag limit")
+
+          prerelease = match.group(4)
+          if prerelease is not None:
+              parts = prerelease.split(".")
+              if any(not part for part in parts):
+                  sys.exit(f"Invalid empty identifier in SemVer prerelease: {tag}")
+              if any(not re.fullmatch(r"[0-9A-Za-z-]+", part) for part in parts):
+                  sys.exit(f"Invalid identifier in SemVer prerelease: {tag}")
+              if any(part.isdigit() and len(part) > 1 and part.startswith("0") for part in parts):
+                  sys.exit(f"Numeric prerelease identifiers cannot have leading zeroes: {tag}")
+          PY
+          git fetch origin main --no-tags
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "Release commit $GITHUB_SHA is not reachable from main; refusing to publish." >&2
+            exit 1
+          fi
       - uses: actions/setup-python@v5   # release_labels.py needs 3.11+ (tomllib)
         with:
           python-version: '3.12'
@@ -306,11 +350,15 @@ jobs:
         with:
           path: dist
           merge-multiple: true
-      - name: Move the tag to this commit
+      - name: Move rolling plugin tag
+        if: github.event_name == 'push'
+        env:
+          TAG: plugins-latest
         run: |
           git tag -f "$TAG"
           git push -f origin "refs/tags/$TAG"
-      - name: Publish
+      - name: Update rolling plugin release
+        if: github.event_name == 'push'
         run: |
           notes="Built automatically from ${GITHUB_SHA::7} on main. Replaced on every push that touches web/ or plugins/.
 
@@ -330,7 +378,50 @@ jobs:
           else
             gh release create "$TAG" --title "Plugins (latest build)" --notes "$notes" --prerelease --verify-tag
           fi
-          # label = plugin version + engine commit; printfins.com's Plugins menu shows it
-          python3 plugins/shared/release_labels.py dist "$GITHUB_SHA" > labels.txt
-          cat labels.txt
-          xargs -d '\n' gh release upload "$TAG" --clobber < labels.txt
+      - name: Generate plugin asset labels
+        run: python3 plugins/shared/release_labels.py dist "$GITHUB_SHA" > labels.txt
+      - name: Upload builds to rolling plugin release
+        if: github.event_name == 'push'
+        env:
+          TAG: plugins-latest
+        run: xargs -d '\n' gh release upload "$TAG" --clobber < labels.txt
+      - name: Attach plugin builds to this GitHub Release
+        if: github.event_name == 'release'
+        run: xargs -d '\n' gh release upload "$RELEASE_TAG" --clobber < labels.txt
+
+  docker-publish:
+    if: github.event_name == 'release'
+    needs: [publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare image tags and labels
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: |
+            latest=false
+          tags: |
+            type=raw,value=${{ github.event.release.tag_name }}
+            type=raw,value=latest,enable=${{ github.event.release.prerelease == false }}
+      - name: Build and publish Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
