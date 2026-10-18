@@ -13,7 +13,7 @@
 
 import { WEB, MODELS, assert, assertClose, block, readSTL, buildTopology, analyze, rotX } from './_util.js';
 
-const { writeThreeMF, readThreeMF, mergeColors } = await import(`${WEB}threemf.js`);
+const { writeThreeMF, writePlate3MF, readThreeMF, mergeColors } = await import(`${WEB}threemf.js`);
 const { zipStore, unzip } = await import(`${WEB}zip.js`);
 
 const REL = 'http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel';
@@ -749,6 +749,92 @@ Deno.test('3MF export: the locked form writes no slicer parts (they would cut th
   const { r, parts } = await writeExtras([NEG], { separate: false });
   assert(!parts.has('Metadata/model_settings.config') && r.objects.every((o) => o.extras.length === 0),
     'a negative part rode into the object holding the fins');
+});
+
+// --- several models on one plate (writePlate3MF) ----------------------------
+
+const at = (tris, dx, dy = 0) => tris.map((p) => [p[0] + dx, p[1] + dy, p[2]]);
+const box = (x0, x1, y0, y1, z0, z1) => triples(block(x0, x1, y0, y1, z0, z1));
+async function writePlate(models, opts = { separate: true }) {
+  const bytes = new Uint8Array(await writePlate3MF(models, opts).arrayBuffer());
+  const parts = await unzip(bytes);
+  return { r: await readThreeMF(bytes), parts, model: new TextDecoder().decode(parts.get('3D/3dmodel.model')) };
+}
+/** Every resource id is its own, and every reference names one of them. */
+function idsResolve(model) {
+  const ids = [...model.matchAll(/<(?:object|basematerials) id="(\d+)"/g)].map((m) => m[1]);
+  assert(new Set(ids).size === ids.length, `resource ids ${ids}: one used twice`);
+  const refs = [...model.matchAll(/(?:objectid|pid)="(\d+)"/g)].map((m) => m[1]);
+  assert(refs.every((id) => ids.includes(id)), `a reference to a missing id: ${refs} of ${ids}`);
+}
+
+Deno.test('plate 3MF: two models, each its part and supports, one shared shift, as they stood', async () => {
+  const a = { partTris: box(-40, -30, -5, 5, 0, 8), finTris: box(-36, -34, -1, 1, 8, 10), name: 'a' };
+  const b = { partTris: box(20, 30, 10, 20, 0, 5), finTris: [], name: 'b' };
+  const { r, model } = await writePlate([a, b]);
+  const items = [...model.matchAll(/<item objectid="(\d+)" transform="([^"]+)"\/>/g)];
+  assert(items.length === 3, `${items.length} build items, want 3 (a, a supports, b)`);
+  assert(new Set(items.map((m) => m[2])).size === 1, 'the items do not share one transform');
+  idsResolve(model);
+  assert(r.objects.map((o) => o.name).join() === 'a,a supports,b', `objects ${r.objects.map((o) => o.name)}`);
+  // the plate's footprint is centred on the bed, and the models keep their spacing
+  const [pa, fa, pb] = r.objects.map((o) => bounds(o.positions));
+  assertClose((pa.lo[0] + pb.hi[0]) / 2, 90, 1e-6, 'x centre');
+  assertClose(pb.lo[0] - pa.lo[0], 60, 1e-6, 'a to b along x');
+  assertClose(pb.lo[1] - pa.lo[1], 15, 1e-6, 'a to b along y');
+  assertClose(fa.lo[0] - pa.lo[0], 4, 1e-6, "a's supports stay over a");
+});
+
+Deno.test('plate 3MF: colours, interface and slicer parts on both models, each id and config entry its own', async () => {
+  const rgb = Array(12).fill('#FF0000');
+  const one = (dx, name, colour) => ({
+    partTris: at(CUBE, dx), finTris: box(3 + dx, 4 + dx, 0, 1, 0, 1), iface: box(3 + dx, 4 + dx, 0, 1, 1, 1.2), name,
+    colors: { paint: [], rgb: rgb.map(() => colour) },
+    extras: [NEG, MOD].map((e) => ({ ...e, tris: at(triples(e.positions), dx) })),
+  });
+  const { r, parts, model } = await writePlate([one(0, 'left', '#FF0000'), one(20, 'right', '#00FF00')]);
+  idsResolve(model);
+  const tables = [...model.matchAll(/<basematerials id="(\d+)"/g)].map((m) => m[1]);
+  assert(tables.length === 2, `${tables.length} colour tables, want one per model`);
+  // one config for both models, an entry each naming that model's own part
+  const bambu = new TextDecoder().decode(parts.get('Metadata/model_settings.config'));
+  const entries = [...bambu.matchAll(/<object id="(\d+)">.*?<part id="(\d+)" subtype="normal_part">/g)];
+  assert(entries.length === 2 && entries[0][2] !== entries[1][2], `config entries ${entries.map((e) => e.slice(1))}`);
+  const ps3 = JSON.parse(new TextDecoder().decode(parts.get('Metadata/PrusaSlicer3_project.json')));
+  assert(ps3.objects.length === 2 && ps3.objects.map((o) => String(o.id)).join() === entries.map((e) => e[1]).join(),
+    `PrusaSlicer 3 objects ${JSON.stringify(ps3.objects.map((o) => o.id))}`);
+  for (const [name, colour] of [['left', '#FF0000'], ['right', '#00FF00']]) {
+    const p = r.objects.find((o) => o.name === name);
+    assert(p && p.tris === 12 && p.extras.map((e) => e.kind).join() === 'negative,modifier' && p.colors?.rgb[0] === colour,
+      `${name}: ${p?.tris} tris, extras ${p?.extras.map((e) => e.kind)}, colour ${p?.colors?.rgb[0]}`);
+    const s = r.objects.find((o) => o.name === `${name} supports`);
+    assert(s && s.meshes === 2 && s.extras.length === 0, `${name} supports: ${s?.meshes} meshes, ${s?.extras.length} extras`);
+  }
+});
+
+Deno.test('plate 3MF: PrusaSlicer 2 parts on both models, one config with an object each', async () => {
+  const neg = { ...NEG, settings: { prusa2: [] } };
+  const one = (dx, name) => ({ partTris: at(CUBE, dx), finTris: box(3 + dx, 4 + dx, 0, 1, 0, 1), name,
+    extras: [neg].map((e) => ({ ...e, tris: at(triples(e.positions), dx) })) });
+  const { r, parts, model } = await writePlate([one(0, 'left'), one(20, 'right')]);
+  idsResolve(model);
+  const config = new TextDecoder().decode(parts.get('Metadata/Slic3r_PE_model.config'));
+  const objs = [...config.matchAll(/<object id="(\d+)" instances_count="1">/g)].map((m) => m[1]);
+  const meshes = [...model.matchAll(/<object id="(\d+)" type="model" name="(left|right)"/g)].map((m) => m[1]);
+  assert(objs.length === 2 && objs.join() === meshes.join(), `config objects ${objs}, part objects ${meshes}`);
+  for (const name of ['left', 'right']) {
+    const p = r.objects.find((o) => o.name === name);
+    assert(p && p.tris === 12 && p.extras.map((e) => e.kind).join() === 'negative', `${name}: ${p?.tris} tris, extras ${p?.extras.map((e) => e.kind)}`);
+  }
+});
+
+Deno.test('plate 3MF: the locked form keeps several models where they stood too', async () => {
+  const a = { partTris: box(-40, -30, 0, 10, 0, 8), finTris: box(-36, -34, 0, 1, 8, 10), name: 'a' };
+  const b = { partTris: box(20, 30, 0, 10, 0, 5), finTris: [], name: 'b' };
+  const { r, model } = await writePlate([a, b], { separate: false });
+  idsResolve(model);
+  assert(r.objects.length === 2, `${r.objects.length} objects, want 2 (a with its fins, b)`);
+  assertClose(bounds(r.objects[1].positions).lo[0] - bounds(r.objects[0].positions).lo[0], 60, 1e-6, 'a to b along x');
 });
 
 // --- unit: more production-extension shapes --------------------------------
