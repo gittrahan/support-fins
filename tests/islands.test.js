@@ -133,7 +133,7 @@ const { FILL } = await import('../web/fins/fill.js');
 const heldBy = (built, isl) => isl.points.some((p) => built.fins.some((f) => (f.line ?? []).some((q) =>
   Math.hypot(p[0] - q[0], p[1] - q[1]) <= FILL.islandReach && p[2] - q[2] >= -0.05 && p[2] - q[2] <= 1.5)));
 
-Deno.test('islands: Full coverage walls a start in midair; Auto doesn't (Full only)', () => {
+Deno.test('islands: Full coverage walls a start in midair; Auto does not (Full only)', () => {
   const topo = topoOf(pillar, cornerCube(15, 5, 20, 8));
   const res = analyze(topo, 45, I3);
   const [isl] = findIslands(topo, res, I3);
