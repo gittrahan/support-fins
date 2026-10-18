@@ -12,7 +12,7 @@ import { sessionOf } from './session.js';
 import { exportName } from '../exportname.js';
 import { nozzle } from '../nozzle.js';
 import { exportAll, currentPlate, locked } from './plates.js';
-import { eachModel } from './models.js';
+import { eachModel, parkedFins } from './models.js';
 
 /**
  * Export the part AS ORIENTED, seated on the plate, with the fins as extra
@@ -138,8 +138,8 @@ function setOpen(open) {
     // nothing while a rebuild is out -- the old fins under the new settings' name
     const ready = !!(part && topology && lastResult) && !buildPending();
     el('export-stl').disabled = el('export-3mf').disabled = !ready;
-    // the other models' fins count too: a plate of several decides when it is written
-    el('export-fins').disabled = !ready || (activeAdded().length === 0 && currentPlate().models.length === 1);
+    // the parked models' fins count too
+    el('export-fins').disabled = !ready || (activeAdded().length === 0 && !parkedFins());
     menu.querySelector('button:not(:disabled)')?.focus();
   }
 }

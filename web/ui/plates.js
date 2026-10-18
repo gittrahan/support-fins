@@ -21,7 +21,7 @@ import { buildPending, finMesh, padMesh } from './finbuild.js';
 import { drawnMesh } from './walls.js';
 import { plate3MF } from './export.js';
 import { sectionPick } from './section.js';
-import { slot, liveXY, park, unpark, disposeSlot, select, takeLive } from './models.js';
+import { slot, liveXY, park, unpark, disposeSlot, select, takeLive, putBack, centreLone } from './models.js';
 import { drawRow, pitch, plateAt, glide, frameAll } from './plateview.js';
 
 // One entry per plate: its model slots (models.js) and which of them is live -- or,
@@ -192,8 +192,12 @@ function undoDelete() {
   }
   stashActive();
   const p = plates[i];
-  if (p.models.length === 1 && !p.models[0].stash) p.models = slots;
-  else p.models.push(...slots);
+  if (p.models.length === 1 && !p.models[0].stash) {
+    p.models = slots;
+    centreLone(p);
+  } else {
+    putBack(p, slots);
+  }
   p.live = p.models.indexOf(slots[0]);
   show(i);
 }

@@ -14,7 +14,7 @@
 import * as THREE from 'three';
 import { el } from './dom.js';
 import { camera, controls } from './scene.js';
-import { part, stashPart, unstashPart } from './part.js';
+import { part, clearPart, stashPart, unstashPart } from './part.js';
 import { takeState, takeHistory, setHistory, restoreState, VIEWER_IDS } from './history.js';
 import { scaleState, setScaleState } from './scale.js';
 import { importState, setImportState } from './io.js';
@@ -37,7 +37,8 @@ export const liveXY = () => {
 
 // Models on one plate print in one job: the layer height is the plate's, so a model
 // brought in takes the one showing (the viewer's and printer's settings stay too).
-const SAME_PLATE = new Set([...VIEWER_IDS, 'layer-height']);
+// Read when used: history.js is in an import cycle with this module.
+const samePlate = () => new Set([...VIEWER_IDS, 'layer-height']);
 
 /** Put `plate`'s live model and its state away, leaving the page empty. */
 export function park(plate) {
@@ -102,7 +103,7 @@ function swap(k, quiet) {
   const pos = camera.position.clone(), target = controls.target.clone();
   park(plate);
   plate.live = k;
-  unpark(plate, SAME_PLATE);
+  unpark(plate, samePlate());
   redraw();
   if (quiet) return;
   const d = new THREE.Vector3(from[0] - to[0], from[1] - to[1], 0);
@@ -125,7 +126,7 @@ export function select(k) {
 }
 
 /** The XY box a parked model and its fins cover on its plate. */
-function footprint(m) {
+export function footprint(m) {
   const { mesh } = m.stash.part, b = new THREE.Box3();
   mesh.updateMatrix();
   b.copy(mesh.geometry.boundingBox).applyMatrix4(mesh.matrix);
@@ -139,11 +140,12 @@ function footprint(m) {
 const GAP = 10;      // mm between footprints: room for a new model's pad and wall bases
 const STEP = 5;      // mm: the grid a new model's spot is searched on
 
-/** Where a `w` x `h` model goes on the plate being edited: the free spot nearest
- *  the bed's centre, or past the others' right edge when the bed has none. */
-function spot(w, h) {
+/** Where a `w` x `h` model goes on `plate`, clear of its parked models but `skip`:
+ *  the free spot nearest the bed's centre, or past the others' right edge when the
+ *  bed has none. */
+function spot(plate, w, h, skip = []) {
   const v = currentVolume(), hx = v.x / 2 - w / 2, hy = v.y / 2 - h / 2;
-  const taken = currentPlate().models.filter((m) => m.stash).map(footprint);
+  const taken = plate.models.filter((m) => m.stash && !skip.includes(m)).map(footprint);
   const free = (x, y) => taken.every(([x0, y0, x1, y1]) =>
     x + w / 2 + GAP <= x0 || x - w / 2 - GAP >= x1 || y + h / 2 + GAP <= y0 || y - h / 2 - GAP >= y1);
   let best = null, bestD = Infinity;
@@ -162,14 +164,59 @@ function spot(w, h) {
  * takes it in its own slot.
  */
 export function addSlot(geometry) {
-  const plate = currentPlate();
-  if (!part) return;
+  const plate = currentPlate(), prev = plate.live;
+  if (!part) return -1;
   geometry.computeBoundingBox();
   const bb = geometry.boundingBox;
   park(plate);
-  plate.models.push(slot(spot(bb.max.x - bb.min.x, bb.max.y - bb.min.y)));
+  plate.models.push(slot(spot(plate, bb.max.x - bb.min.x, bb.max.y - bb.min.y)));
   plate.live = plate.models.length - 1;
+  return prev;
 }
+
+/** The file addSlot made room for did not load: drop its slot, and slot `prev`
+ *  (the one live before) is again. */
+export function dropAdded(prev) {
+  const plate = currentPlate();
+  if (prev < 0 || plate.live !== plate.models.length - 1 || !plate.models[prev]) return;
+  clearPart();
+  plate.models.pop();
+  plate.live = prev;
+  unpark(plate, samePlate());
+  redraw();
+}
+
+/** A model alone on its plate stands at its centre, where a one-model export puts
+ *  it and the fit check measures it. */
+export function centreLone(plate) {
+  if (plate.models.length === 1) plate.models[0].xy = [0, 0];
+}
+
+/**
+ * Put the parked `slots` (a removal's Undo) back on `plate` beside its models: each
+ * where it stood, unless something put there since covers that spot -- then at the
+ * free spot nearest the centre, as Add model would.
+ */
+export function putBack(plate, slots) {
+  for (const m of slots) {
+    const [x0, y0, x1, y1] = footprint(m);
+    const clash = plate.models.some((o) => {
+      if (!o.stash) return false;
+      const [a0, b0, a1, b1] = footprint(o);
+      return x0 < a1 + GAP && x1 > a0 - GAP && y0 < b1 + GAP && y1 > b0 - GAP;
+    });
+    if (clash) {
+      // spot() places the box's middle; the model's spot is off it by the fins' reach
+      const [cx, cy] = [(x0 + x1) / 2 - m.xy[0], (y0 + y1) / 2 - m.xy[1]];
+      const [sx, sy] = spot(plate, x1 - x0, y1 - y0, [m]);
+      m.xy = [sx - cx, sy - cy];
+    }
+    plate.models.push(m);
+  }
+}
+
+/** Does any parked model of the plate being edited have fins (Export fins only)? */
+export const parkedFins = () => currentPlate().models.some((m) => m.stash?.fins);
 
 /**
  * Take the live model off the plate being edited (Remove model): its slot, parked,
@@ -189,6 +236,7 @@ export function takeLive() {
   swap(k === 0 ? 1 : k - 1, false);
   plate.models.splice(k, 1);
   if (plate.live > k) plate.live--;
+  centreLone(plate);
   redraw();
   return m;
 }

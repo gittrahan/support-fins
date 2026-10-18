@@ -17,6 +17,8 @@ import {
 import { refreshFins } from './finbuild.js';
 import { drawnWalls, setDrawnWalls, clearPreview, syncDrawControls } from './walls.js';
 import { hideSuggestions } from './suggest.js';
+// an export switching through the models (ui/plates.js locked) holds them still
+import { isBusy } from './plates.js';
 
 // A whole-state snapshot stack, not a command log. The undoable state is small
 // -- orientation, the hand-drawn walls, and every setting -- and restoring it re-runs
@@ -156,13 +158,13 @@ export function restoreState(s) {
 }
 
 export function undo() {
-  if (gesture || !undoStack.length) return;
+  if (gesture || isBusy() || !undoStack.length) return;
   redoStack.push(snapshot());
   restoreState(undoStack.pop());
 }
 
 export function redo() {
-  if (gesture || !redoStack.length) return;
+  if (gesture || isBusy() || !redoStack.length) return;
   undoStack.push(snapshot());
   restoreState(redoStack.pop());
 }

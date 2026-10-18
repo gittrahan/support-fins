@@ -13,8 +13,8 @@ import { isObj, readOBJ } from '../obj.js';
 import { el } from './dom.js';
 import { part, setPart } from './part.js';
 import { partObjectOf, restoreSession } from './session.js';
-import { freePlate, currentPlate, returnTo, dropEmptyPlate } from './plates.js';
-import { addSlot } from './models.js';
+import { freePlate, currentPlate, returnTo, dropEmptyPlate, isBusy } from './plates.js';
+import { addSlot, dropAdded } from './models.js';
 
 export let importNote = '';
 export let lastImportMeta = null;
@@ -380,16 +380,49 @@ async function loadFile(file, add = false) {
   if (!file) return;
   // the plate it was imported to, which a click on another tab may have left while
   // the file was read (a STEP kernel download, a 3MF's object picker)
-  const plate = currentPlate();
+  const plate = currentPlate(), before = importState();
+  let prev = -1;
   try {
-    const geometry = await parseModel(await file.arrayBuffer());
-    if (!geometry || !returnTo(plate)) return;
-    if (add) addSlot(geometry);
-    afterLoad(geometry, file.name);
+    const read = await landing(plate, before, await parseModel(await file.arrayBuffer()));
+    if (!read) return;
+    if (add) prev = park(read);
+    afterLoad(read.geometry, file.name);
   } catch (err) {
     console.error(err);
+    if (prev >= 0) dropAdded(prev);
     alert(`Could not read ${file.name}:\n${err.message}`);
   }
+}
+
+/**
+ * `geometry`, read, once it can land on `plate`: after an export switching through
+ * the models (it holds them still), with the file's own import note and saved
+ * session in place -- parseModel wrote them over the page's, which a switch of
+ * plates or Add model's park puts away with the model on screen. `before`: the
+ * page's import state when the read began. { geometry, mine, own } (the file's
+ * state, the model on screen's), or null when there is no geometry or the plate
+ * was deleted meanwhile.
+ */
+async function landing(plate, before, geometry) {
+  const mine = { ...importState(), pendingSession };
+  while (isBusy()) await new Promise((r) => setTimeout(r, 100));
+  if (!geometry || !returnTo(plate)) return null;
+  // untouched since the read: the model on screen's state is the one from before it
+  const own = importNote === mine.importNote && lastImportMeta === mine.lastImportMeta ? before : importState();
+  setImportState(mine);
+  pendingSession = mine.pendingSession;
+  return { geometry, mine, own };
+}
+
+/** Add model: park the model on screen with its own import note, then make room
+ *  for the file read (ui/models.js) with the file's. The slot that was live, for
+ *  dropAdded if the load fails. */
+function park({ geometry, mine, own }) {
+  setImportState(own);
+  const prev = addSlot(geometry);
+  setImportState(mine);
+  pendingSession = mine.pendingSession;
+  return prev;
 }
 
 /** One file replaces the showing plate's model, as it always has; several go one to
@@ -430,8 +463,9 @@ export async function loadURL(url) {
   const plate = currentPlate();
   const res = await fetch(url);
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
-  const geometry = await parseModel(await res.arrayBuffer());
-  if (!geometry || !returnTo(plate)) return;   // picker cancelled, or its plate deleted
+  const read = await landing(plate, importState(), await parseModel(await res.arrayBuffer()));
+  if (!read) return;   // picker cancelled, or its plate deleted
+  const { geometry } = read;
   afterLoad(geometry, url.split('/').pop());
   // Drop ?stl= once it has been consumed: the path is nobody's business but the
   // user's, and a stale one in the address bar is misleading after they open a
