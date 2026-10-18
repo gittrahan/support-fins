@@ -122,10 +122,11 @@ el('export-all').addEventListener('click', () => {
   exportAll();
 });
 
-/** The showing plate as a 3MF, for Export all plates. */
-export function export3MF() {
+/** The plate being edited as a 3MF, [blob, name], for Export all plates; null when
+ *  there is nothing to write. */
+export function plate3MF() {
   const g = buildExportGeometry();
-  if (g) download(...FORMATS['export-3mf'](g));
+  return g ? FORMATS['export-3mf'](g) : null;
 }
 
 // click-away / Esc close it, the usual menu contract

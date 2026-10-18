@@ -51,6 +51,7 @@ export function applyVolume() {
     localStorage.setItem(VOLUME_STORE, JSON.stringify(volume));
   } catch { /* private mode; the app still works, it just forgets */ }
   if (part) shade();
+  document.dispatchEvent(new Event('buildvolumechange'));   // the plates' row (ui/plates.js)
 }
 
 volumeSelect.addEventListener('change', () => {

@@ -109,6 +109,27 @@ function renderSuggestions() {
   list.hidden = false;
 }
 
+/** The ranking on show, kept with a plate that is not being edited (ui/plates.js);
+ *  null when there is none. A ranking still running is not kept: it stops. */
+export function suggestState() {
+  const list = el('suggest-list');
+  if (list.hidden || !suggestions.length) return null;
+  const note = el('suggest-note');
+  return { suggestions, bore: suggestCurBore, picked: [...list.children].findIndex((r) => r.classList.contains('active')),
+           note: note.textContent, cls: note.className };
+}
+/** Put a kept ranking back once its part is live again. */
+export function restoreSuggestions(s) {
+  if (!s) return;
+  suggestions = s.suggestions;
+  suggestCurBore = s.bore;
+  renderSuggestions();
+  el('suggest-list').children[s.picked]?.classList.add('active');
+  const note = el('suggest-note');
+  note.textContent = s.note;
+  note.className = s.cls;
+}
+
 /** Clear the suggestion results entirely (new part, or a manual turn that
  *  invalidates the ranking). Folding the toolbar popover does NOT come through
  *  here -- it only hides what's already there. */

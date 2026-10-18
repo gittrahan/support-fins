@@ -1049,3 +1049,21 @@ html, body {
 #plates .plate-x:hover { color: #ff5a4d; }
 #plates .plate-add { padding: 2px 10px; font-size: 16px; border-radius: 6px; }
 #plates button:hover { color: var(--text); }
+#plates .plate-all { padding: 2px 10px; border-left: 1px solid var(--line); border-radius: 0; }
+#plates .plate-all[hidden] { display: none; }
+
+/* Undo for a deleted plate / removed model (ui/plates.js): bottom centre, over the view. */
+#toast {
+  position: fixed;
+  z-index: 5;
+  left: 50%; bottom: 70px;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px;
+  padding: 8px 10px 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 6px 24px rgb(0 0 0 / .35);
+}
+#toast[hidden] { display: none; }
+@media (max-width: 900px) { #toast { bottom: 120px; } }

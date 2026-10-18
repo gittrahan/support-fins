@@ -118,7 +118,7 @@
       <button role="menuitem" id="export-fins"
               data-i18n-title title="Just the fins and pad, in the part's print position, so they line up if imported beside it." data-i18n="Fins only (STL)">Fins only (STL)</button>
       <button role="menuitem" id="export-all" hidden
-              data-i18n-title title="Every plate's part and supports, one 3MF file each." data-i18n="All plates (3MF)">All plates (3MF)</button>
+              data-i18n-title title="Every plate's part and supports, one 3MF each, in one .zip file." data-i18n="All plates (3MF)">All plates (3MF)</button>
     </div>
   </span>
   <!-- Calibration prints (web/ui/calibrate.js): one test print per setting, its
@@ -215,6 +215,8 @@
 <!-- Plate tabs (ui/plates.js): one model per plate, each with its own pose, settings
      and walls. + adds an empty plate; × deletes one. -->
 <nav id="plates" aria-label="Plates"></nav>
+<!-- A deleted plate or removed model, with Undo for a few seconds (ui/plates.js). -->
+<div id="toast" role="status" hidden><span id="toast-text"></span><button type="button" class="btn sm" id="toast-undo" data-i18n="Undo">Undo</button></div>
 
 <!-- Right rail: the fin options (top, grows down) and the status/receipt card
      (bottom) share ONE fixed scrolling column, exactly like #left-rail, so a tall

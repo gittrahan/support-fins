@@ -347,6 +347,17 @@ function syncUI() {
   }
 }
 
+/** The cut, kept with a plate that is not being edited (ui/plates.js): where it sits
+ *  on the part, or null when it is off. */
+export const sectionState = () => (sectionOn ? inPart.clone() : null);
+/** Put a kept cut back once its part is live again. */
+export function restoreSection(m) {
+  if (!m || !part) return;
+  setSection(true);
+  inPart.copy(m);
+  followPart();
+}
+
 /** Switch the cut on (aimed at the current view) or off. */
 export function setSection(on) {
   sectionOn = !!on && !!part;

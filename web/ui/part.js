@@ -207,6 +207,7 @@ export function stashPart() {
 export function unstashPart(rec) {
   if (part) clearPart();
   part = rec.mesh;
+  part.material = partMaterial;     // parked, it wore the row's dimmed look
   topology = rec.topology;
   partName = rec.name;
   weldMs = rec.weldMs;
@@ -512,7 +513,5 @@ export function syncPartLanguage() {
   }
   renderIslandText();
 }
-
-el('remove-part').addEventListener('click', clearPart);
 
 window.addEventListener('languagechange', syncPartLanguage);
