@@ -61,8 +61,6 @@ export function renderImportNote() {
   return importNote;
 }   // what the 3MF/STEP reader had to decide (merge, unit, skips)
 
-/** The part was rescaled (ui/scale.js): the supports a saved session brought back
- *  are gone with it, so the note no longer says they were restored. */
 /** The part was taken off the plate (part.js clearPart): its import note goes too. */
 export function forgetImport() {
   importNote = '';
@@ -71,6 +69,8 @@ export function forgetImport() {
   el('s-import-note').textContent = '';
 }
 
+/** The part was rescaled (ui/scale.js): the supports a saved session brought back
+ *  are gone with it, so the note no longer says they were restored. */
 export function forgetSessionNote() {
   if (!lastImportMeta?.session) return;
   lastImportMeta.session = null;
