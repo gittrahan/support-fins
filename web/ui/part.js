@@ -181,9 +181,9 @@ export function clearPart() {
   el('stats').hidden = true;
   el('status').hidden = true;
   el('drop').classList.remove('hidden');
-  // the bare plate, a good part of it in view, not the spot the part sat on
+  // the whole bare plate in view, not the spot the part sat on
   const v = currentVolume();
-  frame(new THREE.Vector3(v.x / 2, v.y / 2, 0));
+  frame(new THREE.Vector3(v.x * 0.7, v.y * 0.7, 0));
   requestRender();
 }
 
