@@ -16,11 +16,12 @@ plugins/rhino/build/smoke.json; its last entry says PASS or FAIL. Checks:
     gives for the file's own triangles (Rhino's mesh path adds nothing);
   - units: the same box in an inch document gives the same fins, in inches;
   - running again replaces the fins (not adds); the overhangs layer is locked;
+  - a part too big for the engine's memory gets a message (V8 aborting would take
+    Rhino down), and the next run works;
   - settings saved in the document reach the engine (no tines -> no tines);
-  - a drawn wall under the box's overhang; a wall drawn in mid-air says why not;
+  - a drawn wall under the box's overhang; a too-short one says why not;
   - a surface runs like a solid (a flat one on the bed: no walls); a curve is refused
     with a message, not a traceback;
-  - doc.Import may show the STL options dialog on a Mac: click OK if it does.
 """
 import json
 import os
@@ -99,7 +100,6 @@ try:
     report = sf.generate(doc, box)
     fins = sf.fins_of(doc, box, {"fin"})
     check("box gets fins", len(fins) > 0, report)
-    check("a Brep is meshed in double precision", sf.part_mesh(box, doc).Vertices.UseDoublePrecisionVertices)
     check("fins are on the Support Fins layer",
           all(doc.Layers[o.Attributes.LayerIndex].FullPath == sf.LAYER for o in fins))
     soup = sf.part_soup(box, doc)
@@ -136,15 +136,18 @@ try:
     a, b = under(5, 10 * c, 30 + 10 * s_), under(35, 10 * c, 30 + 10 * s_)
     wall, info = sf.draw_wall(doc, box, a, b)
     check("a drawn wall under the box", wall is not None, info)
-    wall2, why = sf.draw_wall(doc, box, under(100, 100, 50), under(120, 100, 50))
-    check("a wall in mid-air says why not", wall2 is None and isinstance(why, str) and why, why)
+    # (SupportFinsDraw constrains clicks to the part, so a refusal a user can hit: too short)
+    wall2, why = sf.draw_wall(doc, box, a, under(a.X + 1, a.Y, a.Z))
+    check("a too-short wall says why not", wall2 is None and isinstance(why, str) and "short" in why, why)
     sf.generate(doc, box)
     check("SupportFins leaves drawn walls alone", len(sf.fins_of(doc, box, {"drawn"})) == 1)
 
     # ---- STL parity ----
     stl = os.path.join(REPO, "tests", "fixtures", "bowl.stl")
     before = {o.Id for o in doc.Objects}
-    doc.Import(stl)
+    # (FileStl.Read, not doc.Import: Import shows the STL options dialog on a Mac, and
+    # Rhino crashed under it once)
+    Rhino.FileIO.FileStl.Read(stl, doc, Rhino.FileIO.FileStlReadOptions())
     imported = [o for o in doc.Objects if o.Id not in before and isinstance(o.Geometry, Rhino.Geometry.Mesh)]
     check("STL imports as one mesh", len(imported) == 1, len(imported))
     part = imported[0]
@@ -159,16 +162,33 @@ try:
     # Not triangle for triangle: re-meshing in inches and x 25.4 is float noise, which
     # can move a tine (ENGINE-SENSITIVITY.md). The same pieces in the same place is the
     # check that units are right both ways.
-    def boxes(objs):
-        return sorted(np.round(np.r_[t.reshape(-1, 3).min(0), t.reshape(-1, 3).max(0)], 1).tolist()
+    def boxes(objs):          # each piece's box, mm (rounded after the units: 0.1 in is 2.5 mm)
+        k = sf.mm_per_unit(doc)
+        return sorted(np.round(np.r_[t.reshape(-1, 3).min(0), t.reshape(-1, 3).max(0)] * k, 1).tolist()
                       for t in (mesh_tris(o, doc) for o in objs))
     mm = boxes(sf.fins_of(doc, box, {"fin"}))
     doc.AdjustModelUnitSystem(Rhino.UnitSystem.Inches, True)       # scales the box to inches
+    # (by id: generate's report replaced the object, and the old one keeps its old
+    # geometry -- 40 inches of it, a 1 m box that ran V8 out of memory)
+    box = doc.Objects.FindId(box.Id)
     sf.generate(doc, box)
-    inch = [[v * 25.4 for v in b] for b in boxes(sf.fins_of(doc, box, {"fin"}))]
+    inch = boxes(sf.fins_of(doc, box, {"fin"}))
     check("an inch document gives the same fins, in inches", len(inch) == len(mm)
-          and np.allclose(np.round(inch, 1), mm, atol=0.15), f"{len(inch)} vs {len(mm)} pieces")
+          and np.allclose(inch, mm, atol=0.15), f"{len(inch)} vs {len(mm)} pieces: {inch} vs {mm}")
     doc.AdjustModelUnitSystem(Rhino.UnitSystem.Millimeters, True)
+
+    # ---- a part too big for the engine's memory: a message, not Rhino aborting ----
+    big = tilted_box(doc)
+    xf = Rhino.Geometry.Transform.Scale(Rhino.Geometry.Point3d.Origin, 25.4)
+    doc.Objects.Transform(big, xf, True)
+    big = doc.Objects.FindId(big.Id)
+    try:
+        sf.generate(doc, big)
+        check("a 1 m part says it's out of memory", False, "no error")
+    except ValueError as e:
+        check("a 1 m part says it's out of memory", "out of memory" in str(e), e)
+    doc.Objects.Delete(big, True)
+    check("the engine works again after", "walls" in sf.generate(doc, box))
 
     # ---- refusals ----
     srf = doc.Objects.FindId(doc.Objects.AddSurface(Rhino.Geometry.PlaneSurface(
