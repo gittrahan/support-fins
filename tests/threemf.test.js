@@ -835,6 +835,54 @@ Deno.test('plate 3MF: the locked form keeps several models where they stood too'
   idsResolve(model);
   assert(r.objects.length === 2, `${r.objects.length} objects, want 2 (a with its fins, b)`);
   assertClose(bounds(r.objects[1].positions).lo[0] - bounds(r.objects[0].positions).lo[0], 60, 1e-6, 'a to b along x');
+  const items = [...model.matchAll(/<item objectid="\d+" transform="([^"]+)"\/>/g)];
+  assert(items.length === 2 && items[0][1] === items[1][1], `items ${items.map((m) => m[1])}: want two, one transform`);
+});
+
+Deno.test('plate 3MF: a PrusaSlicer 2 model then a Bambu one, each component its own model\'s', async () => {
+  const one = (dx, name, settings) => ({ partTris: at(CUBE, dx), finTris: box(3 + dx, 4 + dx, 0, 1, 0, 1), name,
+    extras: [{ ...NEG, settings, tris: at(triples(NEG.positions), dx) }] });
+  const { r, model } = await writePlate([one(0, 'left', { prusa2: [] }), one(20, 'right', { bambu: [] })]);
+  idsResolve(model);
+  // the Bambu assembly's components are the right model's part and negative, not the left's
+  const names = new Map([...model.matchAll(/<object id="(\d+)" type="model" name="([^"]+)"/g)].map((m) => [m[1], m[2]]));
+  const asm = model.match(/<object id="\d+" type="model" name="right"><components>(.*?)<\/components>/)[1];
+  const parts = [...asm.matchAll(/objectid="(\d+)"/g)].map((m) => names.get(m[1]));
+  assert(parts.join() === 'right,hole', `the right assembly holds ${parts}`);
+  for (const name of ['left', 'right']) {
+    const p = r.objects.find((o) => o.name === name);
+    assert(p && p.tris === 12 && p.extras.length === 1, `${name}: ${p?.tris} tris, ${p?.extras.length} extras`);
+  }
+});
+
+Deno.test('plate 3MF: PrusaSlicer paint on the second model alone still declares its namespace', async () => {
+  const paint = [{ name: 'slic3rpe:mmu_segmentation', v: '8' }];
+  const { r, model } = await writePlate([{ partTris: CUBE, finTris: [], name: 'a' },
+    { partTris: at(CUBE, 20), finTris: [], name: 'b', colors: { paint, rgb: [] } }]);
+  assert(model.includes('xmlns:slic3rpe='), 'no slic3rpe namespace');
+  assert(r.objects.find((o) => o.name === 'b')?.colors?.paint[0]?.v === '8', 'b lost its paint');
+});
+
+// One model writes the bytes it did before writePlate3MF (sha-256 of origin/main's
+// output for each): a change to the one-model file shows here, not just in the
+// structure the tests above read back.
+Deno.test('3MF one-model output is unchanged (golden)', async () => {
+  const FINS = box(3, 4, 0, 1, 0, 1);
+  const neg = { ...NEG, tris: triples(NEG.positions) };
+  const cases = {
+    locked: [CUBE, FINS, 'cube', {}, '6e0a954cd9732ce65e3a1e2694dbdca8d4cd8054282b39daed379d5f21943d86'],
+    separate: [CUBE, FINS, 'cube', { separate: true, session: { v: 1 } }, '94a2c87a8244ea315905571abe2e7d4dddebf4f08cf29342993727977386d44a'],
+    bare: [CUBE, [], 'cube', { separate: true }, '2b409bf49aba7d0cd8c550cb6a3dfc94c39f61402595c08366b4ae6f6be20dfb'],
+    full: [CUBE, FINS, 'cube', { separate: true, iface: box(3, 4, 0, 1, 1, 1.2), colors: { paint: [], rgb: Array(12).fill('#FF0000') },
+      extras: [neg] }, 'ef89e05cbb339217af6e3383a121bf98f423380caa56f6dad91503f767b16f49'],
+    prusa2: [CUBE, FINS, 'cube', { separate: true, extras: [{ ...neg, settings: { prusa2: [] } }],
+      colors: { paint: [{ name: 'slic3rpe:mmu_segmentation', v: '8' }], rgb: [] } }, '6eb7e99f0dad0e54699ce5083007f47c5f16f3cf3a2d7cbb5596060deaa57fd9'],
+  };
+  for (const [k, [part, fins, name, opts, want]] of Object.entries(cases)) {
+    const d = new Uint8Array(await crypto.subtle.digest('SHA-256', await writeThreeMF(part, fins, name, opts).arrayBuffer()));
+    const got = [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
+    assert(got === want, `${k}: the one-model file changed (${got})`);
+  }
 });
 
 // --- unit: more production-extension shapes --------------------------------

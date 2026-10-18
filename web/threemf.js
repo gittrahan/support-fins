@@ -167,9 +167,9 @@ function bedShift(lists) {
  * block of their own past the one before: the first keeps the ids a one-model file
  * always had (1 the part, 2-4 the supports, MATERIALS_ID its colours, then its
  * slicer parts), so a one-model file is what it always was. Every item of a plate
- * of several shares one bed shift, so the models open where they stood.
- * @returns { xml, configs }: configs the slicer config files, one each for every
- * model's slicer parts (extrasXML)
+ * of several shares one bed shift, so the models keep their places to each other.
+ * @returns { xml, configs }: configs the slicer config files (extrasXML), each
+ * written once with an entry for every model that has slicer parts
  */
 function modelXML(models, title, separate) {
   const tables = [], objects = [], items = [], footprint = [];
@@ -300,9 +300,9 @@ export function writeThreeMF(partTris, finTris, name = 'Support Fins',
 /**
  * Several models on one plate in one 3MF: `models` is a list of { partTris, finTris,
  * name, iface, colors, extras }, as writeThreeMF takes one, each already where it
- * stands on the plate (print space, the plate's centre at the origin). Each keeps
- * its own objects -- the part, its supports, its slicer parts -- and every item one
- * shared bed shift, so the arrangement opens as it was laid out.
+ * stands on the plate (print space). Each keeps its own objects -- the part, its
+ * supports, its slicer parts -- and every item one shared bed shift: the arrangement opens with its spacing kept, its footprint
+ * centred on the bed as a one-model file's is (bedShift).
  * @param opts { title, separate, session }: as writeThreeMF's
  * @returns Blob a .3mf package
  */
@@ -370,7 +370,7 @@ function extrasXML(partTris, extras, title, col, base = 0) {
     };
   }
 
-  // past the part, the supports (1-4) and the colour table (MATERIALS_ID)
+  // past the model's part, supports (base + 1-4) and colour table (base + MATERIALS_ID)
   const ids = extras.map((_, k) => base + MATERIALS_ID + 1 + k);
   const root = base + MATERIALS_ID + 1 + extras.length;
   const objects = extras.map((e, k) =>
