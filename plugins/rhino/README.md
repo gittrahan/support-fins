@@ -4,6 +4,11 @@ printfins.com's breakaway support fins under a part in Rhino 8 (Mac and Windows)
 **SupportFins**, pick the part, and each wall, sway brace and the bed pad appears as its
 own mesh object on a **Support Fins** layer, ready to export with the part.
 
+Status: **0.1, beta.** Tested in Rhino 8.35 on an Apple-silicon Mac: the smoke test
+passes, and the installed `.yak` runs SupportFins. Not yet tried by hand: the
+SupportFinsSettings dialog, SupportFinsDraw's clicks, and slicing an export. Windows is
+untested. Reports welcome as GitHub issues.
+
 Same engine as the site and every plugin: the part's triangles go to `computeFins` in V8
 (mini-racer) through the shared host, `plugins/shared/py/supportfins_host.py`. No fin
 geometry lives in the plugin. Rhino 7 isn't supported: its Python (IronPython 2.7)
