@@ -385,6 +385,8 @@ el('file').addEventListener('change', (e) => {
 // Reaching for a file is the cue to start loading the STEP kernel: it downloads
 // while the user is still in the file dialog (or mid-drag), not after they drop.
 el('file').addEventListener('click', warmStep);
+// the empty plate's own Import button (index.html #drop .empty)
+el('empty-import').addEventListener('click', () => el('file').click());
 
 /** Load a model that is already on the web (the sample model, a demo link). */
 export async function loadURL(url) {

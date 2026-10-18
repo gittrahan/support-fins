@@ -918,6 +918,23 @@ html, body {
 #drop .steps li { margin-bottom: 4px; }
 #drop .steps strong { color: var(--text); font-weight: 600; }
 #drop .small { margin: 0; color: var(--dim); font-size: 12px; }
+/* After the first part: no intro and no scrim, the bare plate with an Import button
+   on it; a drag tints it as before. */
+#drop .empty { display: none; }
+#drop.compact { background: none; }
+#drop.compact.armed { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+#drop.compact .inner { display: none; }
+#drop.compact .empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 22px 30px;
+  border: 2px dashed var(--line);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--panel) 70%, transparent);
+  pointer-events: auto;
+}
+#drop.compact.armed .empty { border-color: var(--accent); }
 
 /* ---------- Ko-fi support link ---------- */
 /* Warm accent so the support link reads apart from the blue tool controls,

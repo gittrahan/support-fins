@@ -312,6 +312,8 @@ export default {
   "Highlight small overhangs": "إبراز البروزات المعلّقة الصغيرة",
   "Clear all": "مسح الكل",
   "Remove model": "إزالة النموذج",
+  "Import a model": "استيراد نموذج",
+  "or drop it anywhere on the page": "أو أفلته في أي مكان على الصفحة",
   "Take this model off the plate, to import another without reloading the page.": "إزالة هذا النموذج من اللوحة لاستيراد نموذج آخر دون إعادة تحميل الصفحة.",
   "Remove selected": "إزالة المحدد",
 

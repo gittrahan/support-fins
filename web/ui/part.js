@@ -181,6 +181,9 @@ export function clearPart() {
   el('stats').hidden = true;
   el('status').hidden = true;
   el('drop').classList.remove('hidden');
+  // the bare plate, a good part of it in view, not the spot the part sat on
+  const v = currentVolume();
+  frame(new THREE.Vector3(v.x / 2, v.y / 2, 0));
   requestRender();
 }
 
@@ -397,6 +400,7 @@ function report(filename, size) {
   el('stats').hidden = false;
   el('status').hidden = false;
   el('drop').classList.add('hidden');
+  el('drop').classList.add('compact');   // from now on an empty plate shows no intro
 }
 
 /**

@@ -297,6 +297,8 @@ export default {
   "Highlight small overhangs": "Destacar balanços pequenos",
   "Clear all": "Limpar tudo",
   "Remove model": "Remover modelo",
+  "Import a model": "Importar um modelo",
+  "or drop it anywhere on the page": "ou solte-o em qualquer lugar da página",
   "Take this model off the plate, to import another without reloading the page.": "Tirar este modelo da mesa, para importar outro sem recarregar a página.",
   "Remove selected": "Remover selecionado",
   "Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Click an upright side once to stand a sway brace against it. Esc or right-click cancels.": "Clique em dois pontos atravessando um balanço — direto nas faces vermelhas — para criar uma parede destacável ao longo dessa linha. Clique uma vez num lado vertical para apoiar uma escora lateral nele. Esc ou botão direito cancela.",

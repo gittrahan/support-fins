@@ -313,6 +313,8 @@ export default {
 	"Highlight small overhangs": "Kleine overhangen markeren",
 	"Clear all": "Alles wissen",
 	"Remove model": "Model verwijderen",
+	"Import a model": "Een model importeren",
+	"or drop it anywhere on the page": "of zet het ergens op de pagina neer",
 	"Take this model off the plate, to import another without reloading the page.": "Haal dit model van de plaat om een ander te importeren zonder de pagina te herladen.",
 	"Remove selected": "Selectie verwijderen",
 
