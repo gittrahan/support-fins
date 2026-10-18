@@ -114,6 +114,7 @@ export function setPart(geometry, filename, { quat } = {}) {
   const size = shade();
   frame(size);
   resetScale();
+  document.dispatchEvent(new Event('partchange'));   // the plate tabs (ui/plates.js)
   return size;
 }
 
@@ -158,12 +159,21 @@ function resetPartState() {
  * as they do across a load.
  */
 export function clearPart() {
-  if (!part) return;
+  stashPart()?.mesh.geometry.dispose();
+}
+
+/**
+ * Take the part off the screen WITHOUT disposing it, for another plate (ui/plates.js):
+ * the mesh keeps its geometry and pose, the topology its weld, so coming back costs
+ * no reload. The page is left as clearPart leaves it. Null when there is no part.
+ */
+export function stashPart() {
+  if (!part) return null;
+  const rec = { mesh: part, topology, name: partName, weldMs };
   gizmo.detach();
   part.remove(hoverFace);
   hoverFace.visible = false;
   scene.remove(part);
-  part.geometry.dispose();
   part = null;
   topology = null;
   lastResult = lastShadeRes = null;
@@ -185,6 +195,33 @@ export function clearPart() {
   const v = currentVolume();
   frame(new THREE.Vector3(v.x * 0.7, v.y * 0.7, 0));
   requestRender();
+  document.dispatchEvent(new Event('partchange'));   // the plate tabs (ui/plates.js)
+  return rec;
+}
+
+/**
+ * Put a stashed part (stashPart) back on the screen, as setPart would a new one but
+ * with no re-weld: it comes back in the pose it left in, with nothing drawn on it
+ * -- ui/plates.js restores its walls, settings and history after.
+ */
+export function unstashPart(rec) {
+  if (part) clearPart();
+  part = rec.mesh;
+  topology = rec.topology;
+  partName = rec.name;
+  weldMs = rec.weldMs;
+  part.add(hoverFace);
+  hoverFace.visible = false;
+  scene.add(part);
+  computeFlatBaseline();
+  gizmo.attach(part);
+  showToolbar(true);
+  resetPartState();
+  resetScale();
+  const size = shade();
+  frame(size);
+  document.dispatchEvent(new Event('partchange'));   // the plate tabs (ui/plates.js)
+  return size;
 }
 
 /**

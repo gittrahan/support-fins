@@ -172,6 +172,17 @@ function syncHistButtons() {
   el('redo').disabled = !redoStack.length;
 }
 
+/** The whole state and its undo / redo, kept with a plate that is not showing
+ *  (ui/plates.js) and put back by restoreState + setHistory when it shows again. */
+export const takeState = () => snapshot();
+export const takeHistory = () => ({ undo: undoStack, redo: redoStack });
+export function setHistory(h) {
+  undoStack = h.undo;
+  redoStack = h.redo;
+  settled = readForm();
+  syncHistButtons();
+}
+
 /** A new part: undo history does not carry across parts. */
 export function resetHistory() {
   undoStack = [];

@@ -327,6 +327,12 @@ export default {
   "Remove model": "Modell entfernen",
   "Import a model": "Modell importieren",
   "or drop it anywhere on the page": "oder irgendwo auf der Seite ablegen",
+  "Plate {n}": "Platte {n}",
+  "Empty plate": "Leere Platte",
+  "Delete plate {n}": "Platte {n} löschen",
+  "Add a plate": "Platte hinzufügen",
+  "All plates (3MF)": "Alle Platten (3MF)",
+  "Every plate's part and supports, one 3MF file each.": "Teil und Stützen jeder Platte, je eine 3MF-Datei.",
   "Take this model off the plate, to import another without reloading the page.": "Dieses Modell von der Platte nehmen, um ein anderes ohne Neuladen der Seite zu importieren.",
   "Remove selected": "Ausgewählte entfernen",
 

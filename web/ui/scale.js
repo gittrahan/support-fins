@@ -38,6 +38,14 @@ export function resetScale() {
   render();
 }
 
+/** The scale and the part at 100 %, kept with a plate that is not showing (ui/plates.js). */
+export const scaleState = () => ({ scale, base });
+export function setScaleState(st) {
+  scale = st.scale;
+  base = st.base;
+  render();
+}
+
 function setScale(s) {
   if (!part || s === scale) { render(); return; }
   const g = part.geometry;

@@ -13,6 +13,7 @@ import { isObj, readOBJ } from '../obj.js';
 import { el } from './dom.js';
 import { part, setPart } from './part.js';
 import { partObjectOf, restoreSession } from './session.js';
+import { freePlate } from './plates.js';
 
 export let importNote = '';
 export let lastImportMeta = null;
@@ -67,6 +68,13 @@ export function forgetImport() {
   lastImportMeta = null;
   pendingSession = null;
   el('s-import-note').textContent = '';
+}
+
+/** The import note, kept with a plate that is not showing (ui/plates.js). */
+export const importState = () => ({ importNote, lastImportMeta });
+export function setImportState(st) {
+  importNote = st.importNote;
+  lastImportMeta = st.lastImportMeta;
 }
 
 /** The part was rescaled (ui/scale.js): the supports a saved session brought back
@@ -376,10 +384,21 @@ async function loadFile(file) {
   }
 }
 
+/** One file replaces the showing plate's model, as it always has; several go one to
+ *  a plate (ui/plates.js), starting on this one if it is empty. In turn: a 3MF's
+ *  object picker waits for its answer before the next file is read. */
+async function loadFiles(files) {
+  if (files.length === 1) return loadFile(files[0]);
+  for (const file of files) {
+    freePlate();
+    await loadFile(file);
+  }
+}
+
 // Clear the input once the file is taken: otherwise choosing the SAME file again
 // (after cancelling its object picker, say) changes nothing and fires no change.
 el('file').addEventListener('change', (e) => {
-  loadFile(e.target.files[0]);
+  loadFiles([...e.target.files]);
   e.target.value = '';
 });
 // Reaching for a file is the cue to start loading the STEP kernel: it downloads
@@ -421,5 +440,5 @@ addEventListener('drop', (e) => {
   dragDepth = 0;
   drop.classList.remove('armed');
   if (part) drop.classList.add('hidden');
-  loadFile(e.dataTransfer.files[0]);
+  loadFiles([...e.dataTransfer.files]);
 });

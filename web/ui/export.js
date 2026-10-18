@@ -10,6 +10,7 @@ import { activeAdded, buildPending } from './finbuild.js';
 import { sessionOf } from './session.js';
 import { exportName } from '../exportname.js';
 import { nozzle } from '../nozzle.js';
+import { exportAll } from './plates.js';
 
 /**
  * Export the part AS ORIENTED, seated on the plate, with the fins as extra
@@ -115,6 +116,18 @@ for (const [id, write] of Object.entries(FORMATS)) {
     download(...write(g));
   });
 }
+// Every plate, one 3MF each (ui/plates.js); shown only with more than one plate.
+el('export-all').addEventListener('click', () => {
+  setOpen(false);
+  exportAll();
+});
+
+/** The showing plate as a 3MF, for Export all plates. */
+export function export3MF() {
+  const g = buildExportGeometry();
+  if (g) download(...FORMATS['export-3mf'](g));
+}
+
 // click-away / Esc close it, the usual menu contract
 document.addEventListener('pointerdown', (e) => {
   if (!menu.hidden && !e.target.closest('.menu-wrap')) setOpen(false);

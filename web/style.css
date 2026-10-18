@@ -1014,3 +1014,38 @@ html, body {
 .picker-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .picker-foot .note { margin: 0; font-size: 11px; color: var(--dim); }
 .picker-actions { display: flex; gap: 8px; flex-shrink: 0; }
+
+/* Plate tabs (ui/plates.js): centred under the top bar, between the rails. */
+#plates {
+  position: fixed;
+  z-index: 3;
+  top: var(--topbar-h);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - 600px);
+  min-width: 0;
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  padding: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+}
+@media (max-width: 900px) { #plates { max-width: calc(100vw - 28px); top: auto; bottom: 64px; } }
+#plates .plate { display: flex; flex: none; align-items: center; border-radius: 6px; }
+#plates button {
+  border: 0; background: none; color: var(--dim); font: inherit; font-size: 12px; cursor: pointer;
+}
+#plates .plate-tab {
+  display: flex; flex-direction: column; align-items: flex-start;
+  padding: 3px 4px 3px 8px; line-height: 1.25; border-radius: 6px 0 0 6px;
+}
+#plates .plate-tab[aria-pressed="true"] { color: var(--text); }
+#plates .plate:has([aria-pressed="true"]) { background: var(--btn); }
+#plates .plate-name { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--dim); }
+#plates .plate-x { padding: 2px 7px; font-size: 14px; border-radius: 0 6px 6px 0; }
+#plates .plate-x:hover { color: #ff5a4d; }
+#plates .plate-add { padding: 2px 10px; font-size: 16px; border-radius: 6px; }
+#plates button:hover { color: var(--text); }

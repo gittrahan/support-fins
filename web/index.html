@@ -88,7 +88,7 @@
        and knows none of these extensions, so it greyed every model out (#237); the
        format is read from the bytes (ui/io.js), not the name. -->
   <label class="btn primary">
-    <span data-i18n="Import">Import</span><input type="file" id="file" accept=".stl,.3mf,.step,.stp,.obj,model/stl,application/sla,application/vnd.ms-pki.stl,model/3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml,model/step,application/step,model/obj,application/octet-stream" hidden>
+    <span data-i18n="Import">Import</span><input type="file" id="file" multiple accept=".stl,.3mf,.step,.stp,.obj,model/stl,application/sla,application/vnd.ms-pki.stl,model/3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml,model/step,application/step,model/obj,application/octet-stream" hidden>
   </label>
   <label class="field">
     <span class="lbl" data-i18n="Build volume">Build volume</span>
@@ -117,6 +117,8 @@
       <button role="menuitem" id="export-3mf" data-i18n-title title="Part and supports as two separate objects, so the slicer keeps them apart and the tines only touch the part: they snap off cleaner. Opens in place in Bambu Studio, OrcaSlicer and PrusaSlicer; don't Arrange or move one without the other. 'No config, geometry only' is expected.">3MF</button>
       <button role="menuitem" id="export-fins"
               data-i18n-title title="Just the fins and pad, in the part's print position, so they line up if imported beside it." data-i18n="Fins only (STL)">Fins only (STL)</button>
+      <button role="menuitem" id="export-all" hidden
+              data-i18n-title title="Every plate's part and supports, one 3MF file each." data-i18n="All plates (3MF)">All plates (3MF)</button>
     </div>
   </span>
   <!-- Calibration prints (web/ui/calibrate.js): one test print per setting, its
@@ -209,6 +211,10 @@
 </aside>
 
 </div><!-- /left-rail -->
+
+<!-- Plate tabs (ui/plates.js): one model per plate, each with its own pose, settings
+     and walls. + adds an empty plate; × deletes one. -->
+<nav id="plates" aria-label="Plates"></nav>
 
 <!-- Right rail: the fin options (top, grows down) and the status/receipt card
      (bottom) share ONE fixed scrolling column, exactly like #left-rail, so a tall

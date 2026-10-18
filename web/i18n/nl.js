@@ -315,6 +315,12 @@ export default {
 	"Remove model": "Model verwijderen",
 	"Import a model": "Een model importeren",
 	"or drop it anywhere on the page": "of zet het ergens op de pagina neer",
+	"Plate {n}": "Plaat {n}",
+	"Empty plate": "Lege plaat",
+	"Delete plate {n}": "Plaat {n} verwijderen",
+	"Add a plate": "Plaat toevoegen",
+	"All plates (3MF)": "Alle platen (3MF)",
+	"Every plate's part and supports, one 3MF file each.": "Onderdeel en steunen van elke plaat, elk als eigen 3MF-bestand.",
 	"Take this model off the plate, to import another without reloading the page.": "Haal dit model van de plaat om een ander te importeren zonder de pagina te herladen.",
 	"Remove selected": "Selectie verwijderen",
 

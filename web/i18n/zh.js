@@ -330,6 +330,12 @@ export default {
   "Remove model": "移除模型",
   "Import a model": "导入模型",
   "or drop it anywhere on the page": "或将其拖放到页面任意位置",
+  "Plate {n}": "打印板 {n}",
+  "Empty plate": "空打印板",
+  "Delete plate {n}": "删除打印板 {n}",
+  "Add a plate": "添加打印板",
+  "All plates (3MF)": "所有打印板 (3MF)",
+  "Every plate's part and supports, one 3MF file each.": "每个打印板的零件和支撑，各导出一个 3MF 文件。",
   "Take this model off the plate, to import another without reloading the page.": "将此模型从打印板上移除，无需重新加载页面即可导入另一个模型。",
   "Remove selected": "移除所选",
 
