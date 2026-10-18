@@ -1,7 +1,7 @@
 #! python3
 # venv: support-fins
 # r: numpy
-# r: mini-racer==0.14.1
+# r: mini-racer==0.12.4
 """SupportFins: breakaway support fins for the selected part, as it sits on the XY bed.
 
 Runs again on the same part to replace its fins (drawn walls stay). Settings:

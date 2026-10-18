@@ -72,4 +72,6 @@ def test_commands_are_one_script_each(project):
         assert head.startswith("#! python3\n# venv: support-fins\n"), name
         headers.add(head)
     assert len(headers) == 1
-    assert "# r: mini-racer==0.14.1" in headers.pop()
+    # 0.12.4: the last mini-racer for Python 3.9, Rhino 8's (0.13+ needs 3.10); its fins
+    # are byte-identical to 0.14.1's on every tests/fixtures STL
+    assert "# r: mini-racer==0.12.4" in headers.pop()

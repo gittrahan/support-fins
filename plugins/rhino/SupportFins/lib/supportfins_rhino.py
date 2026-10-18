@@ -37,6 +37,7 @@ SECTION, ENTRY = "SupportFins", "settings"
 LAYER, OVER_LAYER = "Support Fins", "Overhangs"
 # the site's STEP tessellation (web/step.js STEP_PARAMS): 0.01 mm chord, 0.1 rad
 CHORD_MM, ANGLE_RAD = 0.01, 0.1
+MIN_EDGE_MM = 0.0001          # Rhino's default, but in mm whatever the document's units
 FIN_COLOR = (38, 115, 242)
 DRAWN_COLOR = (242, 140, 26)
 OVER_COLOR = (230, 10, 5)      # the site's red: overhangs the fins hold
@@ -93,7 +94,12 @@ def visible(key, values):
 # ---- the part --------------------------------------------------------------
 
 def mm_per_unit(doc):
-    return Rhino.RhinoMath.UnitScale(doc.ModelUnitSystem, Rhino.UnitSystem.Millimeters)
+    units = doc.ModelUnitSystem
+    # (UnitSystem.None is a Python keyword: by name)
+    if units in (getattr(Rhino.UnitSystem, "None"), Rhino.UnitSystem.CustomUnits, Rhino.UnitSystem.Unset):
+        raise ValueError(f"the document's units are {units}: set real units (Document Properties > Units) "
+                         "so the part has a size in mm")
+    return Rhino.RhinoMath.UnitScale(units, Rhino.UnitSystem.Millimeters)
 
 
 def is_fin(obj):
@@ -123,8 +129,10 @@ def part_mesh(obj, doc):
         if not isinstance(brep, Rhino.Geometry.Brep):
             raise ValueError(f"{name} is a {geo.ObjectType}: pick a solid, a surface or a mesh"
                              + (" (explode the block first)" if isinstance(geo, Rhino.Geometry.InstanceReferenceGeometry) else ""))
+        k = mm_per_unit(doc)
         mp = MeshingParameters()
-        mp.Tolerance = CHORD_MM / mm_per_unit(doc)
+        mp.Tolerance = CHORD_MM / k
+        mp.MinimumEdgeLength = MIN_EDGE_MM / k
         mp.RelativeTolerance = 0.0
         mp.GridAngle = ANGLE_RAD
         mp.RefineAngle = ANGLE_RAD
@@ -132,6 +140,9 @@ def part_mesh(obj, doc):
         mp.SimplePlanes = False
         mp.JaggedSeams = False
         mesh = Mesh()
+        # float64 like the site's STEP path: a float32 vertex 500 mm out is ~3e-5 mm of
+        # noise, enough to move a tine (plugins/shared/ENGINE-SENSITIVITY.md)
+        mesh.Vertices.UseDoublePrecisionVertices = True
         for m in Mesh.CreateFromBrep(brep, mp) or []:
             mesh.Append(m)
     if mesh is None or mesh.Faces.Count == 0:
@@ -207,19 +218,20 @@ def add_mesh(doc, tris_mm, name, layer, color, role, part):
     attr.ObjectColor = _color(color)
     attr.SetUserString("sf_role", role)
     attr.SetUserString("sf_part", str(part.Id))
-    return doc.Objects.AddMesh(rhino_mesh(tris_mm, mm_per_unit(doc)), attr)
+    oid = doc.Objects.AddMesh(rhino_mesh(tris_mm, mm_per_unit(doc)), attr)
+    return None if oid == System.Guid.Empty else oid
 
 
 def fins_of(doc, part, roles):
-    return [o for o in doc.Objects.FindByUserString("sf_part", str(part.Id), True)
+    return [o for o in (doc.Objects.FindByUserString("sf_part", str(part.Id), True) or [])
             if o.Attributes.GetUserString("sf_role") in roles and not o.IsDeleted]
 
 
 def remove(doc, objs):
+    # ignoreModes: a plain Delete skips objects that are locked, hidden or on a locked
+    # or hidden layer -- the overhangs' layer is locked, and a user may hide a fin
     for o in objs:
-        if o.IsLocked or doc.Layers[o.Attributes.LayerIndex].IsLocked:
-            doc.Objects.Unlock(o.Id, True)
-        doc.Objects.Delete(o.Id, True)
+        doc.Objects.Delete(Rhino.DocObjects.ObjRef(o.Id), True, True)
 
 
 def label(part):
@@ -238,31 +250,41 @@ def generate(doc, part):
 
     remove(doc, fins_of(doc, part, {"fin", "overhangs"}))
     layer = fins_layer(doc)
+    dropped = []      # Rhino refused the mesh: say so, never leave a fin out quietly
     for p in pieces:
         tris = np.concatenate([fins[a:b] for a, b in p["ranges"]]) if p["ranges"] else fins[:0]
-        if len(tris):
-            add_mesh(doc, tris, core.piece_name(label(part), p), layer, FIN_COLOR, "fin", part)
+        name = core.piece_name(label(part), p)
+        if len(tris) and add_mesh(doc, tris, name, layer, FIN_COLOR, "fin", part) is None:
+            dropped.append(name)
     over_layer = overhangs_layer(doc)
     for faces, what, color in ((over, "overhangs", OVER_COLOR), (small, "too small to fin", SMALL_COLOR)):
         if len(faces):
             add_mesh(doc, soup[faces], f"{label(part)} {what}", over_layer, color, "overhangs", part)
 
     report = host.host_report(stats)
+    if dropped:
+        report += f"; Rhino refused {len(dropped)} fin mesh{'es' if len(dropped) > 1 else ''} " \
+                  f"(not added: {', '.join(dropped)})"
     _set_report(doc, part, report)
     return report
 
 
-def draw_wall(doc, part, a, b):
+def draw_wall(doc, part, a, b, soup=None):
     """A wall from a to b (Point3d, document units: where the clicks hit the part).
+    soup: the part's part_soup, if the caller has it (meshing a curved Brep at 0.01 mm
+    takes a while: once per Draw session, not per wall).
     Returns (the wall's id, the result line) or (None, the engine's reason)."""
     k = mm_per_unit(doc)
-    soup = part_soup(part, doc)
+    if soup is None:
+        soup = part_soup(part, doc)
     tris, info = host.host_draw_wall(ctx(), soup, [a.X * k, a.Y * k, a.Z * k],
                                      [b.X * k, b.Y * k, b.Z * k], engine_options(doc))
     if tris is None:
         return None, info
     n = len(fins_of(doc, part, {"drawn"})) + 1
     wall = add_mesh(doc, tris, f"{label(part)} drawn wall {n}", fins_layer(doc), DRAWN_COLOR, "drawn", part)
+    if wall is None:
+        return None, "Rhino refused the wall's mesh"
     tines = info.get("tines", 0)
     return wall, (f"drawn wall {info.get('length', 0):.1f} mm long, {info.get('height', 0):.1f} mm tall, "
                   f"{tines} tine{'' if tines == 1 else 's'}")

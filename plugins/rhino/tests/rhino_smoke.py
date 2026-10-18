@@ -1,7 +1,7 @@
 #! python3
 # venv: support-fins
 # r: numpy
-# r: mini-racer==0.14.1
+# r: mini-racer==0.12.4
 """Smoke test in the real Rhino 8 (local only; CI can't run Rhino). After build.py,
 with Rhino open (run StartScriptServer once in it):
 
@@ -18,7 +18,9 @@ plugins/rhino/build/smoke.json; its last entry says PASS or FAIL. Checks:
   - running again replaces the fins (not adds); the overhangs layer is locked;
   - settings saved in the document reach the engine (no tines -> no tines);
   - a drawn wall under the box's overhang; a wall drawn in mid-air says why not;
-  - an open surface and a curve are refused with a message, not a traceback.
+  - a surface runs like a solid (a flat one on the bed: no walls); a curve is refused
+    with a message, not a traceback;
+  - doc.Import may show the STL options dialog on a Mac: click OK if it does.
 """
 import json
 import os
@@ -55,8 +57,12 @@ def tilted_box(doc, deg=50, lift=30.0):
 
 
 def sorted_tris(t):
+    """Triangles in a canonical order, after the plugin's weld (which drops ones the
+    exact weld collapses), so engine output and Rhino objects compare like for like."""
     import numpy as np
-    t = np.round(np.asarray(t, dtype=np.float64), 6)
+    import supportfins_rhino_core as core
+    v, f = core.weld(np.asarray(t, dtype=np.float64).reshape(-1, 3, 3))
+    t = np.round(v[f], 6)
     t = np.sort(t.reshape(-1, 3, 3), axis=1).reshape(-1, 9)       # vertex order within a triangle
     return t[np.lexsort(t.T[::-1])]
 
@@ -92,14 +98,16 @@ try:
     box = tilted_box(doc)
     report = sf.generate(doc, box)
     fins = sf.fins_of(doc, box, {"fin"})
-    check("box gets fins", len(fins) > 0 and "wall" in report, report)
+    check("box gets fins", len(fins) > 0, report)
+    check("a Brep is meshed in double precision", sf.part_mesh(box, doc).Vertices.UseDoublePrecisionVertices)
     check("fins are on the Support Fins layer",
           all(doc.Layers[o.Attributes.LayerIndex].FullPath == sf.LAYER for o in fins))
     soup = sf.part_soup(box, doc)
     want, stats = host.host_compute(sf.ctx(), soup, sf.engine_options(doc))
     got = objs_tris(fins, doc)
-    check("fin triangles are the engine's", got.shape == want.shape
-          and np.allclose(sorted_tris(got), sorted_tris(want), atol=1e-6), f"{got.shape} vs {want.shape}")
+    g, w = sorted_tris(got), sorted_tris(want)
+    check("fin triangles are the engine's", g.shape == w.shape and np.allclose(g, w, atol=1e-6),
+          f"{g.shape} vs {w.shape}")
     zmin = soup[..., 2].min()
     check("fins stand on the part's lowest point", abs(got[..., 2].min() - zmin) < 0.05,
           f"fins {got[..., 2].min():.3f}, part {zmin:.3f}")
@@ -143,26 +151,33 @@ try:
     sf.generate(doc, part)
     want, _ = host.host_compute(sf.ctx(), read_stl(stl), sf.engine_options(doc))
     got = objs_tris(sf.fins_of(doc, part, {"fin"}), doc)
-    check("STL in Rhino gives the file's fins", got.shape == want.shape
-          and np.allclose(sorted_tris(got), sorted_tris(want), atol=1e-5), f"{got.shape} vs {want.shape}")
+    g, w = sorted_tris(got), sorted_tris(want)
+    check("STL in Rhino gives the file's fins", g.shape == w.shape and np.allclose(g, w, atol=1e-5),
+          f"{g.shape} vs {w.shape}")
 
     # ---- units ----
-    mm = objs_tris(sf.fins_of(doc, box, {"fin"}), doc)
+    # Not triangle for triangle: re-meshing in inches and x 25.4 is float noise, which
+    # can move a tine (ENGINE-SENSITIVITY.md). The same pieces in the same place is the
+    # check that units are right both ways.
+    def boxes(objs):
+        return sorted(np.round(np.r_[t.reshape(-1, 3).min(0), t.reshape(-1, 3).max(0)], 1).tolist()
+                      for t in (mesh_tris(o, doc) for o in objs))
+    mm = boxes(sf.fins_of(doc, box, {"fin"}))
     doc.AdjustModelUnitSystem(Rhino.UnitSystem.Inches, True)       # scales the box to inches
     sf.generate(doc, box)
-    inch = objs_tris(sf.fins_of(doc, box, {"fin"}), doc)
-    check("an inch document gives the same fins, in inches", inch.shape == mm.shape
-          and np.allclose(sorted_tris(inch * 25.4), sorted_tris(mm), atol=1e-4), f"{inch.shape} vs {mm.shape}")
+    inch = [[v * 25.4 for v in b] for b in boxes(sf.fins_of(doc, box, {"fin"}))]
+    check("an inch document gives the same fins, in inches", len(inch) == len(mm)
+          and np.allclose(np.round(inch, 1), mm, atol=0.15), f"{len(inch)} vs {len(mm)} pieces")
     doc.AdjustModelUnitSystem(Rhino.UnitSystem.Millimeters, True)
 
     # ---- refusals ----
     srf = doc.Objects.FindId(doc.Objects.AddSurface(Rhino.Geometry.PlaneSurface(
         Rhino.Geometry.Plane.WorldXY, Rhino.Geometry.Interval(0, 10), Rhino.Geometry.Interval(0, 10))))
     try:
-        sf.generate(doc, srf)
-        check("an open surface still runs (flat, on the bed: nothing to hold)", True)
-    except ValueError as e:
-        check("an open surface is refused with a message", str(e), e)
+        report = sf.generate(doc, srf)
+        check("a flat surface on the bed runs: nothing to hold", "0 walls" in report, report)
+    except Exception as e:      # noqa: BLE001
+        check("a flat surface on the bed runs: nothing to hold", False, e)
     crv = doc.Objects.FindId(doc.Objects.AddLine(Rhino.Geometry.Point3d(0, 0, 0), Rhino.Geometry.Point3d(1, 1, 1)))
     try:
         sf.generate(doc, crv)

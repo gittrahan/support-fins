@@ -38,14 +38,16 @@ From a `.yak` file (until it's on the Package Manager): drag it onto Rhino's win
 (Windows: `"C:\Program Files\Rhino 8\System\Yak.exe" install …`), then restart Rhino.
 
 The first command run takes a minute: Rhino pip-installs numpy and mini-racer into the
-plugin's own `support-fins` Python environment (the commands' `# r:` lines). Later runs
+plugin's own `support-fins` Python environment (the commands' `# r:` lines). mini-racer
+is pinned to 0.12.4, the last release for Rhino 8's Python 3.9 (the other plugins use
+0.14.1; the fins are byte-identical on every `tests/fixtures` STL). Later runs
 start the engine in under a second.
 
 ## Build and test
 
 ```
 python3 plugins/rhino/build.py                 # stage build/SupportFins/ (+ .yak if Rhino 8 is installed)
-python3 -m pytest -q plugins/rhino/tests/      # needs numpy (+ mini-racer==0.14.1 for the engine test)
+python3 -m pytest -q plugins/rhino/tests/      # needs numpy (+ mini-racer==0.12.4 for the engine test)
 ```
 
 `build.py` stages a Rhino script project (`SupportFins.rhproj`: the three commands, and

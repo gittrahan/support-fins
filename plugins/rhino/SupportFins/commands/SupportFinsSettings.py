@@ -1,7 +1,7 @@
 #! python3
 # venv: support-fins
 # r: numpy
-# r: mini-racer==0.14.1
+# r: mini-racer==0.12.4
 """SupportFinsSettings: the site's settings, saved in this document. Built from
 options.json: the site's labels, defaults and ranges; ones the engine would ignore
 are hidden, as on the site. OK keeps them for the next SupportFins / SupportFinsDraw

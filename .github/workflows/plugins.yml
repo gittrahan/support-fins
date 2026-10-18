@@ -226,12 +226,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.12'
+          python-version: '3.9'     # Rhino 8's CPython
       - uses: actions/setup-node@v4     # npx fetches the pinned esbuild (plugins/shared/bundle.py)
         with:
           node-version: '22'
       - name: Install test dependencies
-        run: pip install pytest numpy mini-racer==0.14.1
+        run: pip install pytest numpy mini-racer==0.12.4   # the commands' # r: pin (0.13+ needs 3.10)
       - name: Test
         run: python -m pytest -q plugins/rhino/tests/
       - name: Stage the project

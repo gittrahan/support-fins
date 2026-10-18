@@ -1,7 +1,7 @@
 #! python3
 # venv: support-fins
 # r: numpy
-# r: mini-racer==0.14.1
+# r: mini-racer==0.12.4
 """SupportFinsDraw: one wall by hand, as on the site's Draw mode. Pick the part, then
 the wall's two ends on its underside; the wall stands from the bed up to that line.
 Repeats until Enter / Esc. SupportFins leaves drawn walls alone; delete one like any
@@ -44,6 +44,7 @@ def RunCommand():
     doc.Objects.UnselectAll()
     try:
         mesh = sf.part_mesh(part, doc)
+        soup = sf.mesh_soup(mesh, sf.mm_per_unit(doc))
     except Exception as e:     # noqa: BLE001
         Rhino.RhinoApp.WriteLine(f"Support Fins: {e}")
         return Rhino.Commands.Result.Failure
@@ -56,7 +57,7 @@ def RunCommand():
         if b is None:
             break
         try:
-            wall, info = sf.draw_wall(doc, part, a, b)
+            wall, info = sf.draw_wall(doc, part, a, b, soup)
         except Exception as e:     # noqa: BLE001
             Rhino.RhinoApp.WriteLine(f"Support Fins: {e}")
             return Rhino.Commands.Result.Failure
