@@ -22,6 +22,7 @@ import {
 import { activeAdded, refreshFins, markFinsStale } from './finbuild.js';
 import { finsVisible, highlightSmall, setDrawAugment, syncAugmentUI } from './settings.js';
 import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
+import { resetScale } from './scale.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff, roughness: 0.62, metalness: 0.05,
@@ -58,9 +59,10 @@ let painted = null, paintedAttr = null;
 
 /**
  * Drop `geometry` onto the plate: centred in XY, its lowest point resting on
- * z=0. Returns the measured size so the caller can report it.
+ * z=0. Returns the measured size so the caller can report it. `quat` (a rescale,
+ * ui/scale.js) keeps the pose; a new file starts unturned, at 100 %.
  */
-export function setPart(geometry, filename) {
+export function setPart(geometry, filename, { quat } = {}) {
   if (part) {
     part.geometry.dispose();
     scene.remove(part);
@@ -101,7 +103,8 @@ export function setPart(geometry, filename) {
   computeFlatBaseline();
 
   partName = filename;
-  part.quaternion.identity();
+  if (quat) part.quaternion.copy(quat);
+  else part.quaternion.identity();
   gizmo.attach(part);
   showToolbar(true);
 
@@ -135,6 +138,7 @@ export function setPart(geometry, filename) {
 
   const size = shade();
   frame(size);
+  resetScale();
   return size;
 }
 
