@@ -173,6 +173,7 @@ export function clearPart() {
   partName = '';
   resetPartState();
   refreshFins();           // no lastResult now: drops the fins, pad and readout
+  updateIslands(null, null, null, new THREE.Vector3(), false);   // and the midair cones
   resetScale();
   forgetImport();
   hideLayerView();
