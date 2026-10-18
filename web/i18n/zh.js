@@ -327,6 +327,8 @@ export default {
   "Restore all": "全部恢复",
   "Highlight small overhangs": "高亮细小悬垂",
   "Clear all": "全部清除",
+  "Remove model": "移除模型",
+  "Take this model off the plate, to import another without reloading the page.": "将此模型从打印板上移除，无需重新加载页面即可导入另一个模型。",
   "Remove selected": "移除所选",
 
   // Manual Draw hint

@@ -7,14 +7,14 @@ import { t, tn } from './i18n.js';
 import * as THREE from 'three';
 import { buildTopology, analyze, DEFAULT_THRESHOLD, MIN_REGION_AREA } from '../overhangs.js';
 import { el } from './dom.js';
-import { scene, controls, frame, clip, MODEL } from './scene.js';
+import { scene, controls, frame, clip, MODEL, requestRender } from './scene.js';
 import { setSection, followPart } from './section.js';
 import { showToolbar } from './toolbar.js';
 import { removeMode, cancelRemove, resetRemovals } from './remove.js';
 import { resetHistory } from './history.js';
-import { importNote, renderImportNote } from './io.js';
+import { importNote, renderImportNote, forgetImport } from './io.js';
 import { currentVolume } from './volume.js';
-import { resetLoad, updateLayerView, updateLoadReadout, syncLoadUI } from './strength.js';
+import { resetLoad, updateLayerView, hideLayerView, updateLoadReadout, syncLoadUI } from './strength.js';
 import { hideSuggestions } from './suggest.js';
 import {
   setDrawnWalls, setDrawMsg, markPrintTrisDirty, clearPreview, syncDrawControls,
@@ -109,7 +109,21 @@ export function setPart(geometry, filename, { quat } = {}) {
   gizmo.attach(part);
   showToolbar(true);
 
-  // A new part starts with no hand-drawn walls and a fresh print-space cache.
+  resetPartState();
+
+  const size = shade();
+  frame(size);
+  resetScale();
+  return size;
+}
+
+/**
+ * What a part's tools hold that means nothing on another part (or on none): the
+ * drawn walls, removed fins, armed modes, load arrow, Suggest list, section cut and
+ * undo history. Shared by setPart and clearPart.
+ */
+function resetPartState() {
+  // A new part (or none) starts with no hand-drawn walls and a fresh print-space cache.
   setDrawnWalls([]);
   // Per-fin removals are keyed by a content signature that can coincidentally
   // match a different model's fins, so they must NOT carry across parts -- clear
@@ -124,7 +138,7 @@ export function setPart(geometry, filename, { quat } = {}) {
   clearPreview();
   syncAugmentUI();       // "+ Add" is off now: the button and the Draw hint say so
   syncDrawControls();
-  // A new part starts with no load direction either, and no Suggest ranking: the
+  // A new part (or none) starts with no load direction either, and no Suggest ranking: the
   // list and verdict were the OLD part's poses.
   resetLoad();
   hideSuggestions();
@@ -136,11 +150,37 @@ export function setPart(geometry, filename, { quat } = {}) {
 
   // Undo history does not carry across parts.
   resetHistory();
+}
 
-  const size = shade();
-  frame(size);
+/**
+ * Take the part off the plate (the stats card's Remove model): back to the empty
+ * page a fresh tab shows, so the next model needs no reload. The fin settings stay,
+ * as they do across a load.
+ */
+export function clearPart() {
+  if (!part) return;
+  gizmo.detach();
+  part.remove(hoverFace);
+  hoverFace.visible = false;
+  scene.remove(part);
+  part.geometry.dispose();
+  part = null;
+  topology = null;
+  lastResult = lastShadeRes = null;
+  flatRegions = null;
+  painted = paintedAttr = null;
+  lastSize = null;
+  partName = '';
+  resetPartState();
+  refreshFins();           // no lastResult now: drops the fins, pad and readout
   resetScale();
-  return size;
+  forgetImport();
+  hideLayerView();
+  showToolbar(false);
+  el('stats').hidden = true;
+  el('status').hidden = true;
+  el('drop').classList.remove('hidden');
+  requestRender();
 }
 
 /**
@@ -430,5 +470,7 @@ export function syncPartLanguage() {
   }
   renderIslandText();
 }
+
+el('remove-part').addEventListener('click', clearPart);
 
 window.addEventListener('languagechange', syncPartLanguage);

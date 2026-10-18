@@ -63,6 +63,14 @@ export function renderImportNote() {
 
 /** The part was rescaled (ui/scale.js): the supports a saved session brought back
  *  are gone with it, so the note no longer says they were restored. */
+/** The part was taken off the plate (part.js clearPart): its import note goes too. */
+export function forgetImport() {
+  importNote = '';
+  lastImportMeta = null;
+  pendingSession = null;
+  el('s-import-note').textContent = '';
+}
+
 export function forgetSessionNote() {
   if (!lastImportMeta?.session) return;
   lastImportMeta.session = null;

@@ -324,6 +324,8 @@ export default {
   "Restore all": "Alle wiederherstellen",
   "Highlight small overhangs": "Kleine Überhänge hervorheben",
   "Clear all": "Alle löschen",
+  "Remove model": "Modell entfernen",
+  "Take this model off the plate, to import another without reloading the page.": "Dieses Modell von der Platte nehmen, um ein anderes ohne Neuladen der Seite zu importieren.",
   "Remove selected": "Ausgewählte entfernen",
 
   // Manual Draw hint

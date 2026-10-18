@@ -108,6 +108,11 @@ export function updateLayerView(size) {
   layerViz.visible = layersOn && !!part;
 }
 
+/** No part on the plate: no layer frames either. */
+export function hideLayerView() {
+  layerViz.visible = false;
+}
+
 // ---------------------------------------------------------------- load arrow UI
 
 /**

@@ -311,6 +311,8 @@ export default {
   "Restore all": "استعادة الكل",
   "Highlight small overhangs": "إبراز البروزات المعلّقة الصغيرة",
   "Clear all": "مسح الكل",
+  "Remove model": "إزالة النموذج",
+  "Take this model off the plate, to import another without reloading the page.": "إزالة هذا النموذج من اللوحة لاستيراد نموذج آخر دون إعادة تحميل الصفحة.",
   "Remove selected": "إزالة المحدد",
 
   // Manual Draw hint

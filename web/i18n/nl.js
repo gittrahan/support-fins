@@ -312,6 +312,8 @@ export default {
 	"Restore all": "Alles herstellen",
 	"Highlight small overhangs": "Kleine overhangen markeren",
 	"Clear all": "Alles wissen",
+	"Remove model": "Model verwijderen",
+	"Take this model off the plate, to import another without reloading the page.": "Haal dit model van de plaat om een ander te importeren zonder de pagina te herladen.",
 	"Remove selected": "Selectie verwijderen",
 
 	// Manual Draw hint
