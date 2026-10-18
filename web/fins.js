@@ -45,6 +45,7 @@ import { bedContact, forgetSeated, seatedPartTris, seatingOf } from './fins/seat
 import { braceTallWalls } from './fins/tall.js';
 import { lastResortWalls } from './fins/shortwalls.js';
 import { fillCoverage } from './fins/fill.js';
+import { findIslands } from './islands.js';
 import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
 import { judgeDownhill } from './fins/downhill.js';
 import { bends, CURVED } from './prop/curved.js';
@@ -188,9 +189,12 @@ function buildFinsAndBraces(topo, result, rot, opts = {}) {
 }
 
 /** Auto's result plus the fill pass's walls (fins/fill.js), merged the way the
- *  short walls are: triangles appended, props and fins carrying ranges into them. */
+ *  short walls are: triangles appended, props and fins carrying ranges into them.
+ *  Its targets include the island starts (islands.js): `opts.islands` when the page
+ *  found them already (the worker's topo has no vertex ids), else found here. */
 function withFill(topo, result, rot, opts, auto) {
-  const f = fillCoverage(topo, result, rot, opts, auto);
+  const islands = opts.fillRegions ? [] : (opts.islands ?? findIslands(topo, result, rot));
+  const f = fillCoverage(topo, result, rot, { ...opts, islands }, auto);
   const at = auto.triangles.length;
   const props = f.props.map((q) => ({ ...q, triRanges: q.triRanges.map(([a, b]) => [a + at, b + at]) }));
   let wid = auto.fins.length;
@@ -209,7 +213,8 @@ function withFill(topo, result, rot, opts, auto) {
     braceCount: (auto.braceCount ?? 0) + (withTines ? fins.length : 0),
     propCount: (auto.propCount ?? 0) + (withTines ? 0 : fins.length),
     fill: { walls: f.stats.walls, rows: f.stats.rows ?? 0, rowsLost: f.stats.rowsLost ?? 0, rowBuilds: f.stats.rowBuilds ?? 0, joined: f.stats.joined ?? 0, ribs: f.stats.ribs, ties: f.stats.ties, tries: f.stats.tries, checks: f.stats.checks, capped: f.stats.capped, refused: f.stats.refused,
-            bareBefore: f.stats.startArea, unservedArea: f.unserved.area, unservedPts: f.unserved.pts },
+            bareBefore: f.stats.startArea, unservedArea: f.unserved.area, unservedPts: f.unserved.pts,
+            islands: islands.length, islandsBare: f.unserved.islands ?? 0, islandPts: f.unserved.islandPts ?? [] },
   };
 }
 

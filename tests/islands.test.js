@@ -1,7 +1,7 @@
 // Island starts (web/islands.js, local issue 041 / GitHub #18 #257): a feature whose
 // first layer starts in midair while no face around its low point is red.
 
-import { block, buildTopology, analyze, rotX, assert, assertClose, loadModel } from './_util.js';
+import { block, buildTopology, analyze, rotX, assert, assertClose, loadModel, fins } from './_util.js';
 
 const { findIslands } = await import('../web/islands.js');
 const I3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -124,4 +124,34 @@ Deno.test('islands: a peg end too small for a fin (amber) still starts in midair
   assert(res.regions.length === 1 && res.rawRegionCount === 2, 'the arm is a region, the peg end a sliver');
   const isl = islandsOf(topo);
   assert(isl.length === 1 && Math.abs(isl[0].z - 16 - res.offset.z) < 1e-6, `one island at the peg end, got ${isl.length}`);
+});
+
+// Full coverage holds them (fins/fill.js): the island starts are fill targets, held
+// only by a wall top within FILL.islandReach under them.
+const { buildFins } = fins;
+const { FILL } = await import('../web/fins/fill.js');
+const heldBy = (built, isl) => isl.points.some((p) => built.fins.some((f) => (f.line ?? []).some((q) =>
+  Math.hypot(p[0] - q[0], p[1] - q[1]) <= FILL.islandReach && p[2] - q[2] >= -0.05 && p[2] - q[2] <= 1.5)));
+
+Deno.test('islands: Full coverage walls a start in midair; Auto doesn't (Full only)', () => {
+  const topo = topoOf(pillar, cornerCube(15, 5, 20, 8));
+  const res = analyze(topo, 45, I3);
+  const [isl] = findIslands(topo, res, I3);
+  const full = buildFins(topo, res, I3, { mode: 'full', bedPad: true });
+  assert(full.fill.islands === 1 && full.fill.islandsBare === 0, `Full: 1 island, none bare (${full.fill.islands}/${full.fill.islandsBare})`);
+  assert(heldBy(full, isl), 'a wall top right under the corner');
+  const auto = buildFins(topo, res, I3, { mode: 'auto', bedPad: true });
+  assert(!heldBy(auto, isl), 'Auto has nothing under it (islands are Full only)');
+});
+
+Deno.test('islands: the page\'s islands (opts.islands, no vertex ids in the worker) build the same walls', () => {
+  const topo = topoOf(pillar, cornerCube(15, 5, 20, 8));
+  const res = analyze(topo, 45, I3);
+  const isl = findIslands(topo, res, I3);
+  const here = buildFins(topo, res, I3, { mode: 'full', bedPad: true });
+  const { vid, ...noVid } = topo;
+  const sent = buildFins(noVid, res, I3, { mode: 'full', bedPad: true, islands: isl });
+  assert(vid && sent.triangles.length === here.triangles.length && sent.fill.islandsBare === 0, 'same build from the sent islands');
+  const none = buildFins(noVid, res, I3, { mode: 'full', bedPad: true });
+  assert(none.fill.islands === 0 && !heldBy(none, isl[0]), 'without vertex ids or opts.islands, no island targets');
 });

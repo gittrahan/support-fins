@@ -39,6 +39,14 @@
  * maxUnsupportedSpan/2 (6 mm, the scoreboard's held rule) at the middle to
  * FILL.denseReach at the right.
  *
+ * ISLAND STARTS (opts.islands, web/islands.js; local issue 041): a boss end or a
+ * peg tip whose first layer starts in midair, no face there red. Each start's
+ * points join the leftover red as targets [x, y, z, w, island], FILL.islandW a
+ * point, so a wall under one alone passes minGain. A start is held only by a wall
+ * top within FILL.islandReach under it, not the 6 mm bridging reach: a layer that
+ * begins in midair can't bridge to a wall beside it. Not counted in the bare mm2;
+ * a start left bare is returned (`unserved.islands`), like the red.
+ *
  * GUARDRAILS. A wall is kept only if it holds new red and keeps PROP.sideClear off
  * every support already built (fused walls don't break away) -- from its floor up:
  * a wall on the part (a chin over the chest) has no plate foot to keep clear. FILL.maxWalls,
@@ -67,6 +75,8 @@ export const FILL = {
   sparseBelow: 0.25, // coverage under this: one wall per group, then stop
   denseReach: 4.0,   // mm: the reach at coverage 1 (the middle is maxUnsupportedSpan/2)
   minGain: 0.5,      // mm2 of new red a wall must hold to be kept
+  islandReach: 2.0,  // mm in plan: a wall top this close under an island start holds it
+  islandW: 1.0,      // weight of one island point (a 1 mm cell of red), so one alone passes minGain
   maxStep: 2.5,      // mm: a line's top may climb or drop this much between stations
   redNear: 1.5,      // mm: a station this close to leftover red counts toward its stretch
   maxWalls: 40,
@@ -122,6 +132,27 @@ function leftoverPoints(topo, result, rot, near, cls, regions = null) {
   }
   return [...cells.values()].map((c) => [c[0] / c[3], c[1] / c[3], c[2] / c[3], c[3]]);
 }
+
+/**
+ * The island starts (findIslands) not yet held, as targets [x, y, z, FILL.islandW, k]
+ * -- each start's points merged into FILL.sample cells, k the start's index.
+ */
+function islandPoints(islands, held) {
+  const s = FILL.sample, out = [];
+  islands.forEach((isl, k) => {
+    const cells = new Set();
+    for (const p of isl.points) {
+      const c = `${Math.floor(p[0] / s)},${Math.floor(p[1] / s)},${Math.floor(p[2] / s)}`;
+      if (cells.has(c) || held(p[0], p[1], p[2])) continue;
+      cells.add(c);
+      out.push([p[0], p[1], p[2], FILL.islandW, k]);
+    }
+  });
+  return out;
+}
+
+/** How many island starts the targets `pts` come from. */
+const startsIn = (pts) => new Set(pts.filter((p) => p.length > 4).map((p) => p[4])).size;
 
 /**
  * Groups of points (index arrays): linked when within FILL.link in plan and no
@@ -580,7 +611,9 @@ export function fillCoverage(topo, result, rot, opts, built) {
   const plain = fillOnce(topo, result, rot, { ...opts, longWalls: false }, built);
   if (!(plain.unserved.area > 0)) return plain;    // nothing left for rows to win
   const rows = fillOnce(topo, result, rot, opts, built);
-  if (!rows.stats.rows || rows.unserved.area > plain.unserved.area + 1e-6) {
+  // (an island start the rows leave bare that the patch lines held loses them too)
+  if (!rows.stats.rows || rows.unserved.area > plain.unserved.area + 1e-6
+      || rows.unserved.islands > plain.unserved.islands) {
     plain.stats.rowsLost = rows.stats.rows ? rows.unserved.area - plain.unserved.area : 0;
     return plain;
   }
@@ -594,11 +627,18 @@ function fillOnce(topo, result, rot, opts, built) {
   const tops = [];
   for (const w of built.fins ?? []) for (const p of w.line ?? []) tops.push(p);
   const near = reachOf(tops, R);
+  const nearIsland = reachOf(tops, FILL.islandReach);
+  // an island start's point is held only from right under it (FILL.islandReach)
+  const held = (p) => (p.length > 4 ? nearIsland : near)(p[0], p[1], p[2]);
   const cls = classify(topo, result, rot);
-  const pts = leftoverPoints(topo, result, rot, near, cls, opts.fillRegions ?? null);
+  const red = leftoverPoints(topo, result, rot, near, cls, opts.fillRegions ?? null);
+  // (not under fillRegions: Auto's curved-walls fill is about the red a curve won)
+  const isl = opts.fillRegions ? [] : islandPoints(opts.islands ?? [], nearIsland);
+  const pts = [...red, ...isl];
   const triangles = [], props = [];
-  const stats = { walls: 0, tries: 0, checks: 0, capped: false, refused: {}, startArea: pts.reduce((s, p) => s + p[3], 0) };
-  if (!pts.length) return { triangles, props, tines: 0, unserved: { area: 0, pts: [] }, stats };
+  const stats = { walls: 0, tries: 0, checks: 0, capped: false, refused: {}, startArea: red.reduce((s, p) => s + p[3], 0),
+                  islands: startsIn(isl) };
+  if (!pts.length) return { triangles, props, tines: 0, unserved: { area: 0, pts: [], islands: 0, islandPts: [] }, stats };
 
   const tris = seatedPartTris(topo, rot, result.offset);
   // the model's length (opts.longWalls, on unless false: the Long walls box), for the rows
@@ -613,7 +653,7 @@ function fillOnce(topo, result, rot, opts, built) {
   let tines = 0;
   const floors = [];               // each kept wall's bottom z per station (drawnWall), for the braces
   const dead = new Set();          // points no line could serve
-  const bare = (p) => !dead.has(p) && !near(p[0], p[1], p[2]);
+  const bare = (p) => !dead.has(p) && !held(p);
   const full = () => stats.walls >= FILL.maxWalls || stats.tries >= FILL.maxTries || stats.checks >= FILL.maxChecks;
   const CAP = 'cap';               // wallFor stopped on a cap: give up on nothing
   // a built wall goes in: its triangles, its tops into the reach set, its record
@@ -621,7 +661,7 @@ function fillOnce(topo, result, rot, opts, built) {
     const at = triangles.length;
     for (const t of r.tris) triangles.push(t);
     others.add(r.tris, { fill: true, k: props.length });
-    for (const p of r.top) near.add(p);
+    for (const p of r.top) { near.add(p); nearIsland.add(p); }
     props.push({ line: r.top, triRanges: [[at, triangles.length]], height: r.height, span: r.length,
                  tines: r.tines ?? 0, partAttached: !!r.partAttached, squat: !!r.squat, fill: true,
                  joined: joined || undefined });
@@ -685,18 +725,23 @@ function fillOnce(topo, result, rot, opts, built) {
           else if (relaxed && why === 'touches a support') { if (r.partAttached) partOk = false; else flangeOk = false; }
           continue;
         }
-        const reach = reachOf(r.top, R);
+        const reach = reachOf(r.top, R), reachIsland = reachOf(r.top, FILL.islandReach);
         let gain = 0;
-        for (const i of g) if (reach(live[i][0], live[i][1], live[i][2])) gain += live[i][3];
+        for (const i of g) {
+          const p = live[i];
+          if ((p.length > 4 ? reachIsland : reach)(p[0], p[1], p[2])) gain += p[3];
+        }
         if (gain < FILL.minGain) { stats.refused['holds no new red'] = (stats.refused['holds no new red'] ?? 0) + 1; continue; }
         keep(r, joined);
         return true;
       }
       return null;
     };
+    // a group of island starts alone: lines over them, not R beside them
+    const lineR = (ix) => (ix.every((i) => live[i].length > 4) ? FILL.islandReach : R);
     if (!local) {
       for (const bridge of [FILL.bridge, 2 * FILL.sample]) {
-        const r = tryLines(candidateLines(live, g, R, bridge));
+        const r = tryLines(candidateLines(live, g, lineR(g), bridge));
         if (r !== null) return r;
       }
       return aims ?? g;
@@ -711,7 +756,7 @@ function fillOnce(topo, result, rot, opts, built) {
       partOk = !plateOnly;
       flangeOk = joinOk = true;
       // (one bridge: a patch is at most 2 x FILL.local across)
-      const r = tryLines(candidateLines(live, sub, R, FILL.bridge, true));
+      const r = tryLines(candidateLines(live, sub, lineR(sub), FILL.bridge, true));
       if (r === true || r === CAP) return r;
       for (const i of sub) dead.add(live[i]);
       const gone = new Set(sub);
@@ -738,11 +783,12 @@ function fillOnce(topo, result, rot, opts, built) {
   } else {
     // ROWS first (opts.longWalls): long walls along the model's length (fins/rows.js);
     // the patch lines below take what they leave
-    if (field) {
+    if (field && red.length) {
       // one heading for every row: the length at the bare red's centroid (none: x)
       let w = 0, x = 0, y = 0;
-      for (const p of pts) { w += p[3]; x += p[0] * p[3]; y += p[1] * p[3]; }
-      const r = rowWalls({ pts, heading: field(x / w, y / w) ?? 0, R, tris, drawOpts, minGain: FILL.minGain,
+      for (const p of red) { w += p[3]; x += p[0] * p[3]; y += p[1] * p[3]; }
+      // (the red only: a row is along the model's length, an island start is a point)
+      const r = rowWalls({ pts: red, heading: field(x / w, y / w) ?? 0, R, tris, drawOpts, minGain: FILL.minGain,
         fits: (t) => !others.hits(t.tris, PROP.sideClear, true), keep: (t) => keep(t),
         room: () => stats.walls < FILL.maxWalls, nFaces: topo.nFaces });
       stats.rows = r.walls;
@@ -774,8 +820,10 @@ function fillOnce(topo, result, rot, opts, built) {
   stats.ribs = braceFill(props, floors, triangles, tris, built.triangles ?? []);
   props.forEach((q, k) => { for (const [a, b] of q.triRanges.slice(1)) others.add(triangles.slice(a, b), { fill: true, k }); });
   stats.ties = tieFill(props, floors, triangles, tris, others);
-  const left = pts.filter((p) => !near(p[0], p[1], p[2]));
+  const left = pts.filter((p) => !held(p));
   stats.capped = full() && left.some((p) => !dead.has(p));
+  const leftRed = left.filter((p) => p.length === 4), leftIsl = left.filter((p) => p.length > 4);
   return { triangles, props, tines,
-           unserved: { area: left.reduce((s, p) => s + p[3], 0), pts: left.map((p) => [p[0], p[1], p[2]]) }, stats };
+           unserved: { area: leftRed.reduce((s, p) => s + p[3], 0), pts: leftRed.map((p) => [p[0], p[1], p[2]]),
+                       islands: startsIn(leftIsl), islandPts: leftIsl.map((p) => [p[0], p[1], p[2]]) }, stats };
 }
