@@ -70,11 +70,15 @@ def stage_command(src, dest):
 def rhproj(lib_files):
     py3 = {"id": "*.*.python", "version": "3.*.*"}
     return {
+        # rhinocode refuses a project without a full host ("saved on Rhino 8.9 or
+        # earlier"): a three-part version and os spelled "macOS" or "windows". The .yak
+        # comes out "-any" either way, so one value serves both builds.
+        "host": {"name": "Rhino3D", "version": "8.11.0", "os": "macOS", "arch": "arm64"},
         "id": PLUGIN_ID,
         "identity": {
             "name": "Support Fins",
             "version": VERSION,
-            "publisher": {"name": "printfins.com", "url": "https://printfins.com/"},
+            "publisher": {"name": "printfins.com", "email": "mathyout@pm.me"},   # no email: no author in the .yak
             "description": "Breakaway support fins for 3D printing, from printfins.com: "
                            "tined walls that hold up a part's overhangs and snap off clean.",
             "license": "GPL-3.0-or-later",
