@@ -217,6 +217,26 @@ jobs:
           path: plugins/blender/build/support_fins-*.zip
           if-no-files-found: error
 
+  rhino:
+    # The Rhino 8 plugin's settings mapping, mesh weld and staged project (rhinocode,
+    # which compiles the .yak, needs Rhino: built locally; rhino_smoke.py runs in Rhino).
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4     # npx fetches the pinned esbuild (plugins/shared/bundle.py)
+        with:
+          node-version: '22'
+      - name: Install test dependencies
+        run: pip install pytest numpy mini-racer==0.14.1
+      - name: Test
+        run: python -m pytest -q plugins/rhino/tests/
+      - name: Stage the project
+        run: python plugins/rhino/build.py
+
   blender-smoke:
     # Install the Linux zip into a real headless Blender (the oldest it supports and
     # a current one) and use it: Generate, out of date, settings, units, Draw wall, Lay face flat, 3MF, overlays, Clear.

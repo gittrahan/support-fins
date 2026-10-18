@@ -59,7 +59,8 @@ numpy, and moves here only when another plugin wants per-fin objects.
 Used by: [Orca](../orca/README.md) (inlines the bundle into its single-file plugin),
 [Cura](../cura/README.md) and [FreeCAD](../freecad/README.md) (ship the bundle and the
 Python host next to the plugin), and [Blender](../blender/README.md) (the same, with
-mini-racer as a wheel Blender installs; it uses the per-fin pieces and drawWall).
+mini-racer as a wheel Blender installs; it uses the per-fin pieces and drawWall), and
+[Rhino](../rhino/README.md) (the same, with mini-racer pip-installed by Rhino 8 itself).
 Onshape (FeatureScript) and Prusa (Lua) can't run JavaScript, so they don't use this.
 
 CI: [`.github/workflows/plugins.yml`](../../.github/workflows/plugins.yml) rebuilds and tests
