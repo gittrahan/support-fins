@@ -642,7 +642,10 @@ html, body {
   color: var(--text);
   font: inherit;
   font-size: 12px;
+  appearance: textfield;          /* Scale: a step would be a whole reload */
 }
+.vb-pop input[type=number]::-webkit-inner-spin-button,
+.vb-pop input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .vb-pop .readout #rot-delta { color: var(--accent); margin-left: 8px; }
 .vb-pop .hint {
   flex-basis: 100%;

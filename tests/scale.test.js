@@ -24,10 +24,11 @@ Deno.test('scale: centred part and file-frame extras agree after scaling', () =>
   near(scaleAbout(centred, 2.5, [0, 0, 0], c), scaleAbout(file, 2.5, c));
 });
 
-Deno.test('scale: percent field -> factor, clamped, junk refused', () => {
+Deno.test('scale: percent field -> factor, clamped and rounded, junk refused', () => {
   assert(scaleFromPercent('150') === 1.5);
   assert(scaleFromPercent(100) === 1);
-  assert(scaleFromPercent('0.5') === 0.01);
+  assert(scaleFromPercent('5') === 0.1);              // the weld's floor (10 %)
   assert(scaleFromPercent('5000') === 10);
+  assert(scaleFromPercent('33.333') === scaleFromPercent('33.33'));   // what the field shows
   for (const v of ['', 'abc', '0', '-20', NaN]) assert(scaleFromPercent(v) === null, String(v));
 });

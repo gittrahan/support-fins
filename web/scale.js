@@ -16,9 +16,15 @@ export function scaleAbout(src, s, from, to = from) {
   return out;
 }
 
-/** The percent field's value as a factor: a positive number, 1-1000 %, else null. */
+// Below 10 % a fine mesh's vertices land closer than the weld's 1 um grain
+// (overhangs.js) and distinct vertices merge.
+const MIN_PCT = 10, MAX_PCT = 1000;
+
+/** The percent field's value as a factor: a positive number, clamped to 10-1000 %
+ *  and rounded to the 2 decimals the field shows (so re-entering what it shows is
+ *  no change), else null. */
 export function scaleFromPercent(v) {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.min(1000, Math.max(1, n)) / 100;
+  return Math.round(Math.min(MAX_PCT, Math.max(MIN_PCT, n)) * 100) / 10000;
 }

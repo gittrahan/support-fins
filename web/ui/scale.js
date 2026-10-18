@@ -13,6 +13,7 @@ import * as THREE from 'three';
 import { el } from './dom.js';
 import { addBadge } from './toolbar.js';
 import { part, partName, setPart } from './part.js';
+import { forgetSessionNote } from './io.js';
 import { scaleAbout, scaleFromPercent } from '../scale.js';
 
 let scale = 1;
@@ -61,9 +62,16 @@ function setScale(s) {
   setPart(geometry, partName, { quat });
   base = keep;                 // setPart's resetScale cleared it: this is still the part
   scale = s;
+  forgetSessionNote();
   render();
 }
 
+// Each new scale is a whole reload, so the field takes a typed value on Enter or
+// blur only: no spin buttons (CSS) and no arrow-key steps, which would reload the
+// part once per percent.
+el('scale-pct').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowUp' || e.key === 'ArrowDown') e.preventDefault();
+});
 el('scale-pct').addEventListener('change', (e) => {
   const s = scaleFromPercent(e.target.value);
   if (s == null) render();     // junk or empty: show the scale that holds
