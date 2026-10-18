@@ -339,10 +339,16 @@ function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = 
   };
   const members = new Map();
   for (const [ri, l] of b.leaderOf ?? []) (members.get(l) ?? members.set(l, []).get(l)).push(ri);
+  // Each group traces on its own, so two groups' lines can meet in plan (stacked
+  // surfaces, bean on its side: 0.15-0.43 mm apart): a group's wall that comes within
+  // a foot + 1 mm of a wall an earlier group swapped in is dropped, the rest stand
+  const forced = [];
+  const clearOfForced = (q) => forced.every((r) => planGap(q.line ?? [], r.line ?? []) >= halfFoot(q) + halfFoot(r) + 1);
   for (let ri = 0; ri < result.regions.length; ri++) {
     const group = members.get(ri) ?? null;
     if (b.leaderOf?.has(ri) && !group) continue;     // raced with its group's leader
-    const qa = group ? group.flatMap((m) => A.get(m) ?? []) : A.get(ri) ?? [], qb = B.get(ri) ?? [];
+    const qa = group ? group.flatMap((m) => A.get(m) ?? []) : A.get(ri) ?? [];
+    const qb = (B.get(ri) ?? []).filter((q) => !group || clearOfForced(q));
     let extra = null;
     if (qb.length) {
       const near = group?.length > 1 ? [...new Set(group.flatMap((m) => nearRegion(faces, m)))] : nearRegion(faces, ri);
@@ -362,6 +368,10 @@ function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = 
     swapped++;
     sagRisk ||= b.sagRegions?.has(ri) ?? false;
     for (const q of qb) take(b, q);
+    if (group) forced.push(...qb);
+    // a group's other regions are served where its walls reach their own faces
+    // (take counts the leader only); one the curves miss stays bare for the last resort
+    for (const m of group ?? []) if (m !== ri && heldBy(faces.filter((f) => f[4] === m), wallTops(qb)) > 0) served.add(m);
     for (const q of extra) take(a, q);
   }
   return { triangles: out, props, skipped: a.skipped, served: served.size,
