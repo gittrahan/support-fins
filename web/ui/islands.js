@@ -98,8 +98,8 @@ export function renderIslandText() {
     const where = markers.visible ? t('red cones') : t('tick Show midair starts in Settings › Display to see them');
     card.textContent = !n || bare === 0 ? ''
       : bare !== null
-        ? '⚠ ' + tn('{n} of {total} spots that start in midair got no wall: Full coverage couldn't fit one under it ({where}). Add a wall by hand under it, or tilt the part.',
-          '{n} of {total} spots that start in midair got no wall: Full coverage couldn't fit one under them ({where}). Add a wall by hand under each, or tilt the part.', bare, { total: n, where })
+        ? '⚠ ' + tn('{n} of {total} spots that start in midair got no wall: Full coverage couldn’t fit one under it ({where}). Add a wall by hand under it, or tilt the part.',
+          '{n} of {total} spots that start in midair got no wall: Full coverage couldn’t fit one under them ({where}). Add a wall by hand under each, or tilt the part.', bare, { total: n, where })
         : '⚠ ' + tn('{n} spot starts in midair ({where}): its first layer has nothing under it, though no face there is steep enough to show red. Full coverage puts a wall under it if it can reach it; in Auto or Draw, add a wall by hand under it or tilt the part.',
           '{n} spots start in midair ({where}): their first layer has nothing under it, though no face there is steep enough to show red. Full coverage puts a wall under each one it can reach; in Auto or Draw, add a wall by hand under each or tilt the part.', n, { where });
   }
