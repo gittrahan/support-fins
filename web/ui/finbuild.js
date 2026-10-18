@@ -23,7 +23,7 @@ import { finsVisible, finMode, autoLike } from './settings.js';
 import { topology, rotM3, lastResult, updateFit } from './part.js';
 
 export let finMesh = null;
-let padMesh = null;
+export let padMesh = null;
 export let finTris = [];
 export let padTris = [];
 

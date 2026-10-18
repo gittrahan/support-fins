@@ -92,18 +92,22 @@ const ndc = new THREE.Vector2();
 const bed = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 const hit = new THREE.Vector3();
 
-/** The plate under a pointer event, as an index into the row; -1 for none. */
-export function plateAt(e, count, active) {
+/** The plate under a pointer event, as an index into the row; -1 for none -- also
+ *  when `live` (the edited plate's part, fins, walls, cut handle) is hit first: that
+ *  click is for the plate being edited, whatever bed lies behind it. */
+export function plateAt(e, count, active, live) {
   const r = renderer.domElement.getBoundingClientRect();
   ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
   ray.setFromCamera(ndc, camera);
+  const near = ray.intersectObjects(live.filter(Boolean), true).find((h) => h.object.isMesh)?.distance ?? Infinity;
   // a parked part standing up off its bed, then the beds themselves
   for (const h of ray.intersectObjects(row.children, true)) {
+    if (h.distance > near) return -1;
     let o = h.object;
     while (o && o.parent !== row) o = o.parent;
     if (o && h.object.isMesh && !h.object.userData.label) return o.userData.plate;
   }
-  if (!ray.ray.intersectPlane(bed, hit)) return -1;
+  if (!ray.ray.intersectPlane(bed, hit) || ray.ray.origin.distanceTo(hit) > near) return -1;
   const v = currentVolume(), p = pitch();
   const i = Math.round(hit.x / p) + active;
   if (i < 0 || i >= count) return -1;

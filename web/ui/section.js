@@ -176,6 +176,8 @@ export function keptHit(hits) {
 
 /** The plane's handle is up: the part's rings step aside for it. */
 export const planeHandleShown = () => sectionOn;
+/** What a click on the cut's handle hits (ui/plates.js: not a click through to a bed). */
+export const sectionPick = () => (sectionOn ? [handle] : []);
 /** The pointer is on (or dragging) a plane handle: app.js leaves the click to it. */
 export const planeBusy = () => sectionOn && (!!sheetDrag || grips.some((g) => g.dragging || !!g.axis));
 

@@ -20,9 +20,10 @@ import { part, partName, stashPart, unstashPart } from './part.js';
 import { takeState, takeHistory, setHistory, restoreState, VIEWER_IDS } from './history.js';
 import { scaleState, setScaleState } from './scale.js';
 import { importState, setImportState } from './io.js';
-import { activeAdded, buildPending } from './finbuild.js';
+import { activeAdded, buildPending, finMesh, padMesh } from './finbuild.js';
+import { drawnMesh } from './walls.js';
 import { plate3MF } from './export.js';
-import { sectionState, restoreSection } from './section.js';
+import { sectionState, restoreSection, sectionPick } from './section.js';
 import { suggestState, restoreSuggestions } from './suggest.js';
 import { drawRow, ghostFins, parkMesh, pitch, plateAt, glide, frameAll } from './plateview.js';
 
@@ -39,7 +40,16 @@ function stashActive() {
   // read before stashPart: it resets the history, scale, import note, cut and list
   const state = takeState(), history = takeHistory(), scale = scaleState(), imp = importState();
   const section = sectionState(), suggest = suggestState();
-  const fins = ghostFins(activeAdded());
+  // Left before its fins were built (they build in the worker): the parked copy
+  // keeps the fins it had when it was last parked, if the pose is still that one.
+  const last = plates[active].ghost;
+  plates[active].ghost = null;
+  let fins;
+  if (last && buildPending() && part.quaternion.equals(last.quat)) fins = last.fins;
+  else {
+    if (last?.fins) last.fins.geometry.dispose();
+    fins = ghostFins(activeAdded());
+  }
   const rec = stashPart();
   parkMesh(rec.mesh);
   plates[active].stash = { part: rec, fins, state, history, scale, imp, section, suggest };
@@ -72,7 +82,9 @@ function show(i) {
     setScaleState(s.scale);
     restoreSection(s.section);
     restoreSuggestions(s.suggest);
-    if (s.fins) { s.fins.removeFromParent(); s.fins.geometry.dispose(); }
+    // off screen while the plate is live, kept in case it is left before its build lands
+    s.fins?.removeFromParent();
+    plates[i].ghost = { fins: s.fins, quat: s.part.mesh.quaternion.clone() };
   }
   plates[i].stash = null;      // only once it is live: a throw above keeps the model
   render();
@@ -143,8 +155,8 @@ function expire() {
 }
 
 function trashed(stash, plate, index, text) {
+  if (!stash) return;            // an empty plate: nothing to bring back (the last Undo stays)
   expire();
-  if (!stash) return;            // an empty plate: nothing to bring back
   stash.part.mesh.removeFromParent();
   stash.fins?.removeFromParent();
   trash = { stash, plate, index, timer: setTimeout(expire, UNDO_MS) };
@@ -246,7 +258,7 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]);
   downAt = null;
   if (moved > 4) return;
-  const i = plateAt(e, plates.length, active);
+  const i = plateAt(e, plates.length, active, [part, finMesh, padMesh, drawnMesh, ...sectionPick()]);
   if (i >= 0 && i !== active) go(i);
 });
 
@@ -306,8 +318,13 @@ function render() {
 }
 
 // A load, a rescale or Remove model changes the edited plate's name; a new build
-// volume, every plate's size and spacing.
-document.addEventListener('partchange', render);
+// volume, every plate's size and spacing. A new part on the edited plate also makes
+// the fins it was last parked with wrong for it.
+document.addEventListener('partchange', () => {
+  const g = plates[active]?.ghost;
+  if (g) { g.fins?.geometry.dispose(); plates[active].ghost = null; }
+  render();
+});
 document.addEventListener('buildvolumechange', render);
 window.addEventListener('languagechange', render);
 // Not at load: this module is in an import cycle (io -> plates -> part -> io), so
