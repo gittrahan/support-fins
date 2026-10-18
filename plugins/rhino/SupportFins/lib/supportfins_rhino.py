@@ -43,6 +43,8 @@ DRAWN_COLOR = (242, 140, 26)
 OVER_COLOR = (230, 10, 5)      # the site's red: overhangs the fins hold
 SMALL_COLOR = (242, 166, 26)   # the site's amber: past the angle, too small to fin
 
+HEAP_SHARE = 0.85              # of V8's heap limit: the engine's, before V8 aborts
+
 _ctx = None
 
 
@@ -68,7 +70,29 @@ def ctx():
     if _ctx is None:
         with open(os.path.join(HERE, "fins_engine.js"), encoding="utf-8") as fh:
             _ctx = host.host_engine(fh.read(), jit=_jit_allowed())
+        # V8 out of memory aborts the whole process, Rhino with it (a 1 m part did, with
+        # 1.4 GB of heap). Under V8's own limit, mini-racer raises instead.
+        _ctx.set_hard_memory_limit(int(_ctx.heap_stats()["heap_size_limit"] * HEAP_SHARE))
     return _ctx
+
+
+def _engine(call, soup, *args):
+    """call(ctx(), soup, *args), with the engine's memory limit as a message for the
+    user. A context that hit the limit is spent: the next call starts a new one."""
+    global _ctx
+    from py_mini_racer import JSOOMException
+    try:
+        return call(ctx(), soup, *args)
+    except JSOOMException:
+        try:
+            _ctx.close()
+        except Exception:             # noqa: BLE001 -- spent either way
+            pass
+        _ctx = host._host_ctx = None
+        size = soup.reshape(-1, 3).max(0) - soup.reshape(-1, 3).min(0)
+        raise ValueError("the fin engine ran out of memory on this part ("
+                         + " x ".join(f"{v:.0f}" for v in size) + " mm): is it at the "
+                         "right scale for the document's units?") from None
 
 
 # ---- settings --------------------------------------------------------------
@@ -247,7 +271,7 @@ def generate(doc, part):
     soup = part_soup(part, doc)
     options = engine_options(doc)
     # the engine first: if it fails, the document is still as it was
-    fins, stats, pieces, over, small = host.host_compute_pieces(ctx(), soup, options)
+    fins, stats, pieces, over, small = _engine(host.host_compute_pieces, soup, options)
 
     remove(doc, fins_of(doc, part, {"fin", "overhangs"}))
     layer = fins_layer(doc)
@@ -278,8 +302,8 @@ def draw_wall(doc, part, a, b, soup=None):
     k = mm_per_unit(doc)
     if soup is None:
         soup = part_soup(part, doc)
-    tris, info = host.host_draw_wall(ctx(), soup, [a.X * k, a.Y * k, a.Z * k],
-                                     [b.X * k, b.Y * k, b.Z * k], engine_options(doc))
+    tris, info = _engine(host.host_draw_wall, soup, [a.X * k, a.Y * k, a.Z * k],
+                         [b.X * k, b.Y * k, b.Z * k], engine_options(doc))
     if tris is None:
         return None, info
     n = len(fins_of(doc, part, {"drawn"})) + 1
