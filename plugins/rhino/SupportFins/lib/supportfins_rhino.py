@@ -95,8 +95,10 @@ def visible(key, values):
 
 def mm_per_unit(doc):
     units = doc.ModelUnitSystem
-    # (UnitSystem.None is a Python keyword: by name)
-    if units in (getattr(Rhino.UnitSystem, "None"), Rhino.UnitSystem.CustomUnits, Rhino.UnitSystem.Unset):
+    # (UnitSystem.None is a Python keyword, and Rhino 8's pythonnet calls it NONE: by
+    # its .NET name)
+    if units in (System.Enum.Parse(Rhino.UnitSystem, "None"), Rhino.UnitSystem.CustomUnits,
+                 Rhino.UnitSystem.Unset):
         raise ValueError(f"the document's units are {units}: set real units (Document Properties > Units) "
                          "so the part has a size in mm")
     return Rhino.RhinoMath.UnitScale(units, Rhino.UnitSystem.Millimeters)
@@ -139,10 +141,9 @@ def part_mesh(obj, doc):
         mp.RefineGrid = True
         mp.SimplePlanes = False
         mp.JaggedSeams = False
+        # (Rhino's Brep mesher hands back float32 vertices: the part is an STL's
+        # precision, not the site's float64 STEP path; plugins/shared/ENGINE-SENSITIVITY.md)
         mesh = Mesh()
-        # float64 like the site's STEP path: a float32 vertex 500 mm out is ~3e-5 mm of
-        # noise, enough to move a tine (plugins/shared/ENGINE-SENSITIVITY.md)
-        mesh.Vertices.UseDoublePrecisionVertices = True
         for m in Mesh.CreateFromBrep(brep, mp) or []:
             mesh.Append(m)
     if mesh is None or mesh.Faces.Count == 0:
