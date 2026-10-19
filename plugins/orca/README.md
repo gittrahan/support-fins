@@ -54,6 +54,25 @@ Install and turn on (OrcaSlicer 2.5 nightly):
    which is the local self-pipe of the asyncio loop mini-racer creates, not network
    access). Answer Yes.
 
+### Settings (the plugin config)
+
+The plugin's config is JSON. Besides its own two keys, `enabled` and `apply_to`
+(`"no-supports"` skips parts with Orca's Enable support on, `"all"` fins every part),
+it takes **every setting printfins.com and the other plugins have**: any key of
+[`plugins/shared/engine/options.json`](../shared/engine/options.json), in the engine's
+units, so a percent setting is the site's value / 100. The default config lists them
+all at the site's defaults. For example:
+
+```json
+{"mode": "full", "gap": 0.3, "threshold": 50, "padStyle": "sure", "coverage": 0.7}
+```
+
+Calibration coupon results map straight across: `threshold` (angle), `gap`,
+`padStyle`. Layer height is always Orca's own, so `layerHeight` is refused. A key the
+engine doesn't know, or a value out of range, fails the slice with the engine's
+message (`unknown dialog option sparkle`), instead of printing default fins.
+Older configs' `tine_density` and `bed_pad: false` still work.
+
 ### What the tests pin (offline)
 
 * `plugins/shared/tests/entry.test.js` — the plugin entry places the same fins as the

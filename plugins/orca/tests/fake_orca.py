@@ -80,8 +80,10 @@ class ExPolygon:
         self._p = SPoly(_ring(contour), [_ring(h) for h in (holes or [])])
         if not self._p.is_valid:
             self._p = shapely.make_valid(self._p)
-            if isinstance(self._p, MultiPolygon):  # keep the biggest piece, like a bad ring would
-                self._p = max(self._p.geoms, key=lambda g: g.area)
+            if not isinstance(self._p, SPoly):  # keep the biggest piece, like a bad ring would
+                # (make_valid can also hand back polygons + stray lines, a GeometryCollection)
+                polys = [g for g in getattr(self._p, "geoms", []) if isinstance(g, SPoly)]
+                self._p = max(polys, key=lambda g: g.area) if polys else SPoly()
 
     @classmethod
     def _from(cls, sp):
