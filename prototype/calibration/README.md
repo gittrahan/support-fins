@@ -229,6 +229,20 @@ PrusaSlicer time and filament), and the file now has no edge on more than two fa
 (a84098c), so the file had 1833 reversed faces. The triangles are identical; only
 the winding changed.
 
+**Honeycomb print gate** (`gen.py honeycomb`, `print/honeycomb-coupon.3mf`; not in the
+Calibrate menu). The same bar, three ledges: 1: LATTICE, 2: HONEY (the Honeycomb
+style as shipped: hexagons on a corner, stretched until their roofs rise 1.4:1,
+~55deg), 3: HEX30 (regular hexagons, `CUT.hexSlope` 1/sqrt(3): 30deg roofs, below
+the 45deg every other cutout keeps -- build.js sets it for this ledge only). A
+commenter's idea: corner-up hexagons, the usual way to print hex holes in a wall.
+Support volume: lattice 1080, honeycomb 968 (90 %), hex30 991 (92 %) mm3 -- the
+honeycomb is the lighter of the two. Its vertical struts don't stack into columns
+(each sits under the next row's hexagon), so whether it is stiffer is for the print.
+Questions: (a) HEX30's roofs -- clean, or sagging/stringing inside the holes? Clean
+puts regular hexagons on the table; sagging keeps 55deg. (b) Flex each wall by hand
+before snapping it off: is HONEY stiffer than LATTICE? (c) All three snap off whole?
+- **waiting on print.**
+
 ### bore/ -- do walls inside a sideways hole pull out clean, from what size, and which way?
 Block on the plate with eight through-bores along y, two sets of 3 / 5 / 8 / 12 mm,
 centred 9 mm up; each has its size raised at the front and its set's letter at the back.
