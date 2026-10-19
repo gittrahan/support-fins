@@ -13,7 +13,7 @@ import { finMode, finsVisible } from './settings.js';
 import { part, topology, lastResult, rotM3, partName } from './part.js';
 import { activeAdded, buildPending } from './finbuild.js';
 import { sessionOf } from './session.js';
-import { sessionForm, VIEWER_IDS } from './history.js';
+import { sessionForm, settingsKeyOf, VIEWER_IDS } from './history.js';
 import { parkedSettled } from './parkedbuild.js';
 import { exportName } from '../exportname.js';
 import { nozzle } from '../nozzle.js';
@@ -97,7 +97,7 @@ function parkedGeometry(m, plate, shown) {
   const form = Object.fromEntries(Object.entries(st.form).filter(([id]) => !VIEWER_IDS.has(id)));
   return modelGeometry({
     mesh, topology: s.part.topology, rot, offset: mesh.position, name: s.part.name, added: s.added,
-    layerHeight: Number(st.form['layer-height']),
+    layerHeight: shown ? el('layer-height').valueAsNumber : Number(st.form['layer-height']),
     model: { rot, offset: mesh.position, finMode: st.finMode, finsVisible: st.finsVisible, form,
              walls: s.state.walls, removed: s.state.removedSigs },
   });
@@ -112,7 +112,11 @@ function placed(g, [x, y]) {
 }
 
 /** Is every parked model of `plate` (not the one edited) built under its settings? */
-export const plateReady = (plate) => plate.models.every((m) => !m.stash || m.stash.finsKey === plate.key);
+export function plateReady(plate) {
+  if (!plate.settings) return !plate.models.some((m) => m.stash);
+  const key = settingsKeyOf(plate.settings);
+  return plate.models.every((m) => !m.stash || m.stash.finsKey === key);
+}
 
 /**
  * Every model of `plate` where it stands, each its buildExportGeometry: the live one
@@ -217,9 +221,31 @@ for (const [id, write] of Object.entries(FORMATS)) {
     }
     // the plate's other models are parked, their fins kept to its settings: wait for
     // any still building, then write them as they stand
-    const gs = (await parkedSettled()) ? plateGeometry() : await locked(plateGeometryLive);
+    if (waiting) return;
+    const plate = currentPlate();
+    const gs = await whileWaiting(async () => {
+      const settled = await parkedSettled();
+      // switched away meanwhile: that plate, if its models are current
+      if (currentPlate() !== plate) return plateReady(plate) ? plateGeometry(plate) : null;
+      return settled ? plateGeometry() : locked(plateGeometryLive);
+    });
     if (gs?.length) download(...write(gs));
   });
+}
+
+let waiting = false;     // an export is waiting on parked builds: a second click waits too
+/** Run `fn` (an export waiting on parked builds) with the spinner up, once. */
+export async function whileWaiting(fn) {
+  if (waiting) return null;
+  waiting = true;
+  const spin = setTimeout(() => el('spinner').classList.add('show'), 300);
+  try {
+    return await fn();
+  } finally {
+    clearTimeout(spin);
+    if (!buildPending()) el('spinner').classList.remove('show');
+    waiting = false;
+  }
 }
 // Every plate, one 3MF each (ui/plates.js); shown only with more than one plate.
 el('export-all').addEventListener('click', () => {

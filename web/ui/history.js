@@ -61,8 +61,14 @@ export const VIEWER_IDS = new Set(['highlight-small', 'show-islands', 'show-laye
 /** The settings a support build follows, as one string: a parked model's fins built
  *  under another are out of date (ui/parkedbuild.js). The nozzle counts; how the
  *  viewer draws does not. */
-export const settingsKey = () => JSON.stringify([Object.entries(readForm())
-  .filter(([id]) => id === 'nozzle' || !VIEWER_IDS.has(id)), finMode, finsVisible]);
+export const settingsKey = () => settingsKeyOf({ form: readForm(), finMode, finsVisible });
+
+/** settingsKey for a plate not shown, from its kept settings (ui/models.js): the
+ *  nozzle is the printer's, the same on every plate, so the one on the page counts
+ *  -- a plate whose fins were built for another is not current. */
+export const settingsKeyOf = ({ form, finMode: mode, finsVisible: on }) => JSON.stringify([
+  Object.entries({ ...form, nozzle: el('nozzle').value })
+    .filter(([id]) => id === 'nozzle' || !VIEWER_IDS.has(id)), mode, on]);
 
 /** The part's settings as they stand, for a saved session. */
 export const sessionForm = () => Object.fromEntries(Object.entries(settled).filter(([id]) => !VIEWER_IDS.has(id)));

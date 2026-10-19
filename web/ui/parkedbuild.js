@@ -8,8 +8,8 @@
  *
  * A build is what the live model's would be in its place: its pose analysed at the
  * plate's threshold, Auto's walls less the fins it had removed (finkeys.js), its
- * hand-placed supports re-stood (walls.js sweepDrawn), and its pad. Export does not
- * rely on these: it makes each model live and builds it there (models.js eachModel).
+ * hand-placed supports re-stood (walls.js sweepDrawn), and its pad. A plate's 3MF
+ * writes them as they stand (`added`, ui/export.js), once parkedSettled.
  */
 import * as THREE from 'three';
 import { analyze } from '../overhangs.js';
@@ -105,7 +105,13 @@ function getWorker() {
   worker.onmessage = (e) => {
     const j = job;
     if (!j || e.data.id !== j.id) return;
-    land(j, e.data.error ? buildFins(j.topo, j.res, j.rot, j.opts) : e.data.built);
+    let built = e.data.built;
+    if (e.data.error) {
+      // the worker failed: build inline; failing there too, the model keeps no fins
+      // rather than hold every later build (and an export waiting on them)
+      try { built = buildFins(j.topo, j.res, j.rot, j.opts); } catch (err) { console.error(err); built = null; }
+    }
+    land(j, built);
   };
   // as finbuild.js does: a crashed worker is not a page error, and builds go inline
   worker.onerror = (e) => {

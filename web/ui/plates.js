@@ -19,7 +19,7 @@ import { zipStore } from '../zip.js';
 import { part, partName } from './part.js';
 import { buildPending, finMesh, padMesh } from './finbuild.js';
 import { drawnMesh } from './walls.js';
-import { plate3MF, plate3MFLive, plateGeometry, plateReady } from './export.js';
+import { plate3MF, plate3MFLive, plateGeometry, plateReady, whileWaiting } from './export.js';
 import { parkedSettled } from './parkedbuild.js';
 import { sectionPick } from './section.js';
 import { slot, liveXY, park, unpark, disposeSlot, select, takeLive, putBack, centreLone } from './models.js';
@@ -28,7 +28,7 @@ import { drawRow, pitch, plateAt, glide, frameAll } from './plateview.js';
 // One entry per plate: its model slots (models.js) and which of them is live -- or,
 // on a plate not being edited, which comes back live when it is -- and, kept when
 // its live model parks, its settings and undo history (null until then).
-const newPlate = () => ({ models: [slot()], live: 0, settings: null, key: null, history: null });
+const newPlate = () => ({ models: [slot()], live: 0, settings: null, history: null });
 const plates = [newPlate()];
 let active = 0;
 // Export is switching through the plates or models: the tabs and the row wait for it.
@@ -162,7 +162,7 @@ function deletePlate(i) {
   if (i === active) stashActive();
   const entry = plates[i];
   const slots = entry.models.filter((m) => m.stash);
-  const own = { settings: entry.settings, key: entry.key, history: entry.history };
+  const own = { settings: entry.settings, history: entry.history };
   if (plates.length === 1) {
     // the one plate stays, emptied (the same plate, for an earlier Undo to find)
     Object.assign(entry, newPlate());
@@ -222,7 +222,11 @@ const tick = (ms) => new Promise((r) => setTimeout(r, ms));
  * models made live in turn, then back to the plate being edited. */
 export async function exportAll() {
   if (busy) return;
-  const settled = await parkedSettled();
+  const at = plates[active];
+  const settled = await whileWaiting(parkedSettled);
+  if (settled === null) return;              // an export is already waiting
+  // switched plates meanwhile: the one left is judged as any other
+  if (plates[active] !== at) return exportAll();
   const files = [], stale = [];
   plates.forEach((p, i) => {
     if (i === active ? !settled : !plateReady(p)) { stale.push(i); return; }

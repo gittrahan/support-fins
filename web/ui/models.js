@@ -63,7 +63,6 @@ export function park(plate) {
   const state = takeState(), scale = scaleState(), imp = importState();
   plate.history = takeHistory();
   plate.settings = { form: state.form, finMode: state.finMode, finsVisible: state.finsVisible };
-  plate.key = settingsKey();     // what its parked models' fins are current for
   const section = sectionState(), suggest = suggestState();
   // Left before its fins were built (they build in the worker): the parked copy
   // keeps the fins it had when it was last parked, if the pose is still that one.
