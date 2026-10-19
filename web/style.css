@@ -29,6 +29,8 @@ html, body {
 
 #viewport { position: fixed; inset: 0; }
 #viewport canvas { display: block; }
+/* Nothing imported yet (ui/plates.js): no view to orbit, no fields to set. */
+body.no-part #viewport canvas { pointer-events: none; }
 
 /* ---------- long-build spinner ---------- */
 #spinner {
@@ -251,6 +253,7 @@ html, body {
 .btn.primary:hover { background: #6cb5ff; color: #06121f; }
 
 .field { color: var(--dim); }
+.field:has(:disabled) { opacity: 0.45; }
 .field select,
 .plugins-computer select {
   margin-left: 6px;
@@ -1075,6 +1078,7 @@ html, body {
 #plates .plate-x { padding: 2px 7px; font-size: 14px; border-radius: 0 6px 6px 0; }
 #plates .plate-x:hover { color: #ff5a4d; }
 #plates .plate-add { padding: 2px 10px; font-size: 16px; border-radius: 6px; }
+#plates .plate-add:disabled { opacity: 0.4; cursor: default; }
 #plates button:hover { color: var(--text); }
 #plates .plate-all { padding: 2px 10px; border-left: 1px solid var(--line); border-radius: 0; }
 #plates .plate-all[hidden] { display: none; }

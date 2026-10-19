@@ -319,6 +319,12 @@ function render() {
   bar.replaceChildren(...tabs, add, all);
   bar.inert = busy;
   el('export-all').hidden = plates.length < 2;
+  // Nothing imported on any plate yet: the part controls, another plate and the
+  // view (body.no-part, style.css) have nothing to act on.
+  const empty = !plates.some((p, i) => p.models.some((m, k) => (i === active && k === p.live ? part : m.stash)));
+  for (const id of ['volume', 'vx', 'vy', 'vz', 'thr', 'fins-toggle', 'export']) el(id).disabled = empty;
+  add.disabled = empty;
+  document.body.classList.toggle('no-part', empty);
   drawRow(plates, active);
 }
 /** The tabs and the row again, after a model swap on the plate (models.js). */
