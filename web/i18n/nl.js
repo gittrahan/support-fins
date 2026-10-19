@@ -131,7 +131,8 @@ export default {
 	"STL": "STL",
 	"3MF": "3MF",
 	"Fins only (STL)": "Alleen vinnen (STL)",
-	"No fins on this plate yet: STL and 3MF write the part alone. Click Add fins first.": "Nog geen vinnen op deze plaat: STL en 3MF bevatten alleen het onderdeel. Klik eerst op Vinnen toevoegen.",
+	"No fins yet: STL and 3MF write the part alone. Click Add fins first.": "Nog geen vinnen: STL en 3MF bevatten alleen het onderdeel. Klik eerst op Vinnen toevoegen.",
+	"No supports on this plate: STL and 3MF write the part alone.": "Geen supports op deze plaat: STL en 3MF bevatten alleen het onderdeel.",
 	"Plugins ▾": "Plugins ▾",
 	"Your computer": "Uw Systeem: ",
 

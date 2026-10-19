@@ -124,7 +124,8 @@ export default {
   "STL": "STL",
   "3MF": "3MF",
   "Fins only (STL)": "الزعانف فقط (STL)",
-  "No fins on this plate yet: STL and 3MF write the part alone. Click Add fins first.": "لا توجد زعانف على هذه اللوحة بعد: يكتب STL و3MF القطعة وحدها. انقر «إضافة الزعانف» أولاً.",
+  "No fins yet: STL and 3MF write the part alone. Click Add fins first.": "لا توجد زعانف بعد: يكتب STL و3MF القطعة وحدها. انقر «إضافة الزعانف» أولاً.",
+  "No supports on this plate: STL and 3MF write the part alone.": "لا توجد دعامات على هذه اللوحة: يكتب STL و3MF القطعة وحدها.",
   "Plugins ▾": "الإضافات ▾",
   "Your computer": "حاسوبك",
 

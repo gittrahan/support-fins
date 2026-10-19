@@ -193,8 +193,9 @@ html, body {
 }
 .menu button:hover, .menu button:focus-visible { background: var(--btn-hi); color: var(--accent); outline: none; }
 .menu button:disabled { opacity: 0.4; cursor: default; background: none; color: var(--text); }
-/* Export menu's no-fins line: wraps under the rows instead of widening the panel. */
-.menu-note { max-width: 220px; margin: 2px 6px 6px; color: var(--dim); font-size: 12px; line-height: 1.4; }
+/* Export menu's no-fins line, over the rows: wraps at a narrow width so the panel
+   grows only a little while it shows. */
+.menu-note { max-width: 200px; margin: 2px 6px 6px; color: var(--dim); font-size: 12px; line-height: 1.4; }
 .menu-note[hidden] { display: none; }
 /* Plugins menu (web/ui/plugins.js): the same dropped panel, wide enough for a
    row per plugin with its install note; scrolls when the window is short. */

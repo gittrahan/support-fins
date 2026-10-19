@@ -6,6 +6,8 @@ import { writeBinarySTL, download } from '../stl.js';
 import { writePlate3MF } from '../threemf.js';
 import { splitInterface } from '../prop.js';
 import { el } from './dom.js';
+import { t } from './i18n.js';
+import { finsVisible } from './settings.js';
 import { part, topology, lastResult, rotM3, partName } from './part.js';
 import { activeAdded, buildPending } from './finbuild.js';
 import { sessionOf } from './session.js';
@@ -141,8 +143,13 @@ function setOpen(open) {
     // the parked models' fins count too
     const noFins = activeAdded().length === 0 && !parkedFins();
     el('export-fins').disabled = !ready || noFins;
-    // the landing promises fins baked in: say so when the file would have none
-    el('export-nofins').hidden = !ready || !noFins;
+    // the landing promises fins baked in: say so when the file would have none --
+    // with fins off, the button to click; with them on (Draw with nothing drawn yet,
+    // or a part with no overhang), just that the file is the part alone
+    const note = el('export-nofins');
+    note.hidden = !ready || !noFins;
+    note.textContent = finsVisible ? t('No supports on this plate: STL and 3MF write the part alone.')
+                                   : t('No fins yet: STL and 3MF write the part alone. Click Add fins first.');
     menu.querySelector('button:not(:disabled)')?.focus();
   }
 }
