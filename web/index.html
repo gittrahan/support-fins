@@ -112,6 +112,7 @@
     <button class="btn" id="export" aria-haspopup="menu" aria-expanded="false"
             aria-controls="export-menu" data-i18n="Export ▾">Export&nbsp;▾</button>
     <div class="menu" id="export-menu" role="menu" hidden>
+      <p class="menu-note" id="export-nofins" hidden data-i18n="No fins on this plate yet: STL and 3MF write the part alone. Click Add fins first.">No fins on this plate yet: STL and 3MF write the part alone. Click Add fins first.</p>
       <button role="menuitem" id="export-stl"
               data-i18n-title title="Part and fins merged into one solid.">STL</button>
       <button role="menuitem" id="export-3mf" data-i18n-title title="Part and supports as two separate objects, so the slicer keeps them apart and the tines only touch the part: they snap off cleaner. Opens in place in Bambu Studio, OrcaSlicer and PrusaSlicer; don't Arrange or move one without the other. 'No config, geometry only' is expected.">3MF</button>

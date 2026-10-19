@@ -123,6 +123,7 @@ export default {
   "STL": "STL",
   "3MF": "3MF",
   "Fins only (STL)": "Só as aletas (STL)",
+  "No fins on this plate yet: STL and 3MF write the part alone. Click Add fins first.": "Ainda não há aletas nesta mesa: STL e 3MF gravam só a peça. Clique primeiro em Adicionar aletas.",
   "Plugins ▾": "Plugins ▾",
   "Your computer": "Seu computador",
   "Surface angle from the plate below which a face needs support.": "Ângulo da superfície em relação à mesa abaixo do qual a face precisa de suporte.",

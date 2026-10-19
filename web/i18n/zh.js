@@ -143,6 +143,7 @@ export default {
   "STL": "STL",
   "3MF": "3MF",
   "Fins only (STL)": "仅鳍片（STL）",
+  "No fins on this plate yet: STL and 3MF write the part alone. Click Add fins first.": "此打印板上还没有鳍片：STL 和 3MF 只会写出零件本身。请先点击「添加鳍片」。",
   "Plugins ▾": "插件 ▾",
   "Your computer": "你的电脑",
 

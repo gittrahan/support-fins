@@ -131,6 +131,7 @@ export default {
   "STL": "STL",
   "3MF": "3MF",
   "Fins only (STL)": "Nur Finnen (STL)",
+  "No fins on this plate yet: STL and 3MF write the part alone. Click Add fins first.": "Noch keine Finnen auf dieser Platte: STL und 3MF enthalten nur das Bauteil. Klicken Sie zuerst auf „Finnen hinzufügen“.",
   "Plugins ▾": "Plugins ▾",
   "Your computer": "Betriebssystem",
 

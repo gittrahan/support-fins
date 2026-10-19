@@ -139,7 +139,10 @@ function setOpen(open) {
     const ready = !!(part && topology && lastResult) && !buildPending();
     el('export-stl').disabled = el('export-3mf').disabled = !ready;
     // the parked models' fins count too
-    el('export-fins').disabled = !ready || (activeAdded().length === 0 && !parkedFins());
+    const noFins = activeAdded().length === 0 && !parkedFins();
+    el('export-fins').disabled = !ready || noFins;
+    // the landing promises fins baked in: say so when the file would have none
+    el('export-nofins').hidden = !ready || !noFins;
     menu.querySelector('button:not(:disabled)')?.focus();
   }
 }
