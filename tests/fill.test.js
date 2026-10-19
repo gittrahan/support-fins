@@ -7,7 +7,7 @@
 import { loadModel, analyze, fins, insideCount, rotX, tiltedBlockTopo, assert } from './_util.js';
 
 const { classify, reachOf, MUST, PLATE_Z } = await import('../web/fins/coverage.js');
-const { fillReach, FILL } = await import('../web/fins/fill.js');
+const { bareArea, fillReach, FILL } = await import('../web/fins/fill.js');
 
 const OPTS = { bedPad: true, tines: true, tineDensity: 0, layerHeight: 0.2 };
 
@@ -194,6 +194,18 @@ Deno.test('fill: built.bare says what Auto and Full leave bare, out of the same 
   assert(full.bare.area < auto.bare.area, 'Full leaves less bare');
   const draw = fins.buildFins(topo, res, rot, { ...OPTS, mode: 'draw' });
   assert(draw.bare === undefined, 'Draw: none');
-  const flat = fins.buildFins(topo, analyze(topo, 45, rotX(0)), rotX(0), { ...OPTS, mode: 'auto' });
+  const cube = loadModel('cube');   // its own: analyze reuses a topology's buffers, so `res` would change
+  const flat = fins.buildFins(cube, analyze(cube, 45, rotX(0)), rotX(0), { ...OPTS, mode: 'auto' });
   assert(flat.bare.total === 0 && flat.bare.area === 0, 'upright cube: no red, nothing bare');
+});
+
+// The page re-measures after fins are removed by hand (ui/readout.js): with the
+// build's own coverage and the walls left, every wall gone leaves all the red bare.
+Deno.test('fill: bareArea against the walls left after a removal', () => {
+  const again = bareArea(topo, res, rot, auto.bare, auto);
+  assert(Math.abs(again.area - auto.bare.area) < 1e-6, 'same walls, same number');
+  const none = bareArea(topo, res, rot, auto.bare, { fins: [] });
+  assert(Math.abs(none.area - auto.bare.total) < 1e-6, 'no walls: all bare');
+  const some = bareArea(topo, res, rot, auto.bare, { fins: auto.fins.slice(1) });
+  assert(some.area >= auto.bare.area - 1e-6 && some.area <= none.area + 1e-6, 'one removed: in between');
 });

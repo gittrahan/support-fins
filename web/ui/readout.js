@@ -4,6 +4,7 @@ import { t, tn } from './i18n.js';
  * grams receipt, and why a part got no fins.
  */
 import { PAD } from '../fins.js';
+import { bareArea } from '../fins/fill.js';
 import { PROP } from '../prop.js';
 import { el } from './dom.js';
 
@@ -15,7 +16,7 @@ import { drawnWalls, drawMsg, selectedWall, selectedNote, drawShown, drawMateria
 import {
   finMode, finsVisible, materialDensity, syncSectionSums, autoLike,
 } from './settings.js';
-import { analysisTiming } from './part.js';
+import { analysisTiming, topology, lastResult, rotM3 } from './part.js';
 import { islandsBuilt } from './islands.js';
 import { ifaceMaterial } from './scene.js';
 import { activeAdded, activeWalls, finMaterial, padMaterial } from './finbuild.js';
@@ -435,8 +436,17 @@ function updateFinReadout(built, ms) {
   // Auto: how much red its walls leave bare (fins/fill.js bareArea), in the panel,
   // not behind the (i) -- a build that holds a quarter of a figure mustn't read as done. Full says its
   // own above; a curved fill's line covers only its regions, so this one stands.
-  const ba = built.bare;
-  if (ba && !fl && Math.round(ba.area) >= 1) {
+  // Fins removed by hand held red too: measure again against the walls left (the
+  // build's own number would hide what the removal dropped). Hand-drawn walls aren't
+  // counted, so after one the line can only overstate what is bare.
+  let ba = built.bare;
+  if (ba && removedIds.size && topology && lastResult) {
+    ba = bareArea(topology, lastResult, rotM3.elements, ba,
+                  { fins: built.fins.filter((f) => !removedIds.has(f.id)) });
+  }
+  // (not when nothing was placed: "none possible" and its (i) say why, and Full
+  // can't reach what Auto couldn't stand a wall under at all)
+  if (ba && !fl && n && Math.round(ba.area) >= 1) {
     lead.push(t('{area} mm² of overhang ({pct} %) is still bare — Full coverage reaches more',
                 { area: Math.round(ba.area), pct: Math.max(1, Math.round(100 * ba.area / ba.total)) }));
   }

@@ -151,11 +151,13 @@ export function buildFins(topo, result, rot, opts = {}) {
   // How much red the walls leave bare (fins/fill.js bareArea), so the readout can say
   // it: Auto measures its own walls; Full already knows its leftover, and only the
   // total is added. Draw's walls are placed on the page, so it has none.
+  // `coverage` rides along so the page can re-measure after fins are removed by hand.
+  const coverage = opts.coverage ?? 0.5;
   if (opts.mode === 'auto' || opts.mode === 'stabilize') {
-    built.bare = bareArea(topo, result, rot, opts, built);
+    built.bare = { ...bareArea(topo, result, rot, opts, built), coverage };
   } else if (opts.mode === 'full' && built.fill) {
     built.bare = { area: built.fill.unservedArea,
-                   total: bareArea(topo, result, rot, opts, { fins: [] }).total };
+                   total: bareArea(topo, result, rot, opts, { fins: [] }).total, coverage };
   }
   return built;
 }
