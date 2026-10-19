@@ -18,7 +18,7 @@ import { drawActive, clearPreview } from './walls.js';
 import { refreshFins } from './finbuild.js';
 import { finsVisible } from './settings.js';
 import { part, topology, shade } from './part.js';
-import { moveActive } from './move.js';
+import { moveActive, setMove } from './move.js';
 
 // The user rotates. Always. Auto-orientation may suggest, never apply -- the
 // spike's strength-optimal pose for one hub was 155mm tall balanced on a needle:
@@ -195,6 +195,7 @@ export function setGizmo() {
  *  isn't swallowed by the rotate gizmo; hovering highlights the face. */
 function beginLay() {
   if (!part || !topology) return;
+  setMove(false);      // its press would take the face click
   layPlacing = true;
   clearPreview();
   setGizmo();          // hides the rotate rings so they don't eat the pick

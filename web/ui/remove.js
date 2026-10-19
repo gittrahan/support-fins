@@ -18,6 +18,7 @@ import { clearPreview, syncDrawControls } from './walls.js';
 import { updateReadout } from './readout.js';
 import { histPush } from './history.js';
 import { assignKeys, matchRemoved } from './finkeys.js';
+import { setMove } from './move.js';
 
 // Auto fins are a flat triangle soup in ONE mesh, but each fin record now carries
 // its triangle segment(s) (built.fins[i].triRanges, vertex-indexed into
@@ -120,6 +121,7 @@ function beginRemove() {
   // repopulates fins).
   if (!part) return;
   if (drawAugment) { setDrawAugment(false); syncAugmentUI(); syncDrawControls(); }
+  setMove(false);      // its press would take the fin click
   removeMode = true;
   clearPreview();
   setGizmo();

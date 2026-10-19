@@ -180,6 +180,17 @@ export function footprint(m) {
   return [b.min.x + m.xy[0], b.min.y + m.xy[1], b.max.x + m.xy[0], b.max.y + m.xy[1]];
 }
 
+/** A parked model of the plate being edited hangs off the bed (dragged there:
+ *  ui/move.js), its fins counted; the 3MF writes it where it stands. */
+export function parkedOff() {
+  const p = currentPlate(), v = currentVolume(), e = 1e-6;
+  return p.models.some((m, k) => {
+    if (k === p.live || !m.stash) return false;
+    const [x0, y0, x1, y1] = footprint(m);
+    return x0 < -v.x / 2 - e || x1 > v.x / 2 + e || y0 < -v.y / 2 - e || y1 > v.y / 2 + e;
+  });
+}
+
 const GAP = 10;      // mm between footprints: room for a new model's pad and wall bases
 const STEP = 5;      // mm: the grid a new model's spot is searched on
 

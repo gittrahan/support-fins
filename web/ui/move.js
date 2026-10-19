@@ -20,14 +20,21 @@ import { pushMove } from './history.js';
 import { setGizmo } from './pose.js';
 import { currentPlate, isBusy, redraw } from './plates.js';
 import { parkedAt, shiftRow, parkedGroup } from './plateview.js';
+import { planeBusy } from './section.js';
+import { cancelLay, layActive } from './pose.js';
+import { cancelRemove, removeActive } from './remove.js';
 
 let moving = false;
 /** The Move tool is on: a press on a model drags it, and no other tool picks. */
 export const moveActive = () => moving && !!part;
 
 export function setMove(v) {
+  if ((!!v && !!part) === moving) return;   // a picker arming with Move off: its cursor stays
   moving = !!v && !!part;
   if (!moving) endDrag();
+  // the armed pickers wait on a click Move would take: one pointer mode at a time
+  if (moving && layActive()) cancelLay();
+  if (moving && removeActive()) cancelRemove();
   renderer.domElement.style.cursor = '';
   setGizmo();          // the rotate rings would take the press
   syncBadge();
@@ -67,7 +74,9 @@ function modelAt(e) {
   return k.model >= 0 ? { m: p.models[k.model], z: k.z } : null;
 }
 
-let drag = null;     // { m, from (its xy at the press), grab (the plate point pressed), moved }
+let drag = null;     // { m, from (its xy at the press), grab (the plate point pressed), id (the pointer), moved }
+/** A model is being dragged: Undo waits for the drop (history.js step). */
+export const dragging = () => !!drag;
 
 /** Put live slot `m` at `xy`: the world shifts by the difference, the camera with it. */
 function placeLive(m, xy) {
@@ -91,14 +100,17 @@ export function placeSlot(m, xy) {
 // Before the orbit controls see the press (capture, on an ancestor): a press on a
 // model is the move's, and the controls sit it out.
 viewport.addEventListener('pointerdown', (e) => {
-  if (!moveActive() || e.button !== 0 || isBusy() || e.target !== renderer.domElement) return;
+  // one drag at a time (a second finger is the controls' pinch); the section's
+  // handle keeps its own press
+  if (!moveActive() || drag || e.button !== 0 || isBusy() || planeBusy()
+      || e.target !== renderer.domElement) return;
   const at = modelAt(e);
   if (!at) return;
   bed.constant = -at.z;
   const grab = plateAtPointer(e);
   if (!grab) return;
   const { m } = at;
-  drag = { m, from: m.xy.slice(), grab, moved: false };
+  drag = { m, from: m.xy.slice(), grab, id: e.pointerId, moved: false };
   controls.enabled = false;
   renderer.domElement.setPointerCapture(e.pointerId);
   renderer.domElement.style.cursor = 'grabbing';
@@ -108,9 +120,9 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   if (!moveActive()) return;
   if (!drag) {
     renderer.domElement.style.cursor = e.buttons ? '' : modelAt(e) ? 'grab' : '';
-
     return;
   }
+  if (e.pointerId !== drag.id) return;
   const at = plateAtPointer(e);
   if (!at) return;
   const xy = [round(drag.from[0] + at[0] - drag.grab[0]), round(drag.from[1] + at[1] - drag.grab[1])];
@@ -125,8 +137,8 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   requestRender();
 });
 
-function endDrag() {
-  if (!drag) return;
+function endDrag(e) {
+  if (!drag || (e?.pointerId !== undefined && e.pointerId !== drag.id)) return;
   const { m, from, moved } = drag;
   drag = null;
   controls.enabled = true;
@@ -143,9 +155,13 @@ addEventListener('keydown', (e) => {
   if (!part || e.metaKey || e.ctrlKey || e.altKey) return;
   const tag = e.target.tagName;
   if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
-  if (e.key === 'Escape' && moving) { setMove(false); return; }
+  // Esc closes an open menu or popover first (its own handler); only then Move
+  if (e.key === 'Escape' && moving) {
+    if (!document.querySelector('[aria-expanded="true"]')) setMove(false);
+    return;
+  }
   if (e.key.toLowerCase() === 'm' && !e.repeat) setMove(!moving);
-});
+}, true);     // capture: before a menu's own Esc has closed it
 
 // a model removed, or another loaded: the tool stays on only with a model to move
 document.addEventListener('partchange', () => { if (moving && !part) setMove(false); });

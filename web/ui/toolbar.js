@@ -88,6 +88,9 @@ export function addBadge(id, { pop, isOn, setOn, onFold } = {}) {
   badges.set(id, b);
   if (pop) b.btn.setAttribute('aria-controls', pop);
   b.btn.addEventListener('click', () => {
+    // a tool with nothing to fold out (Move) just turns on and off, any open
+    // popover left as it is
+    if (setOn && !b.pop) { setOn(!isOn()); render(); return; }
     if (!setOn) openId = openId === id ? null : id;
     else if (!isOn()) { setOn(true); openId = isOn() ? id : null; }
     else if (openId !== id) openId = id;

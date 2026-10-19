@@ -24,7 +24,7 @@ import { finsVisible, highlightSmall, setDrawAugment, syncAugmentUI } from './se
 import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
 import { resetScale } from './scale.js';
 import { updateIslands, renderIslandText, hadIslands } from './islands.js';
-import { liveXY } from './models.js';
+import { liveXY, parkedOff } from './models.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff, roughness: 0.62, metalness: 0.05,
@@ -462,9 +462,11 @@ export function updateFit() {
     if (p[2] > z1) z1 = p[2];
   }
   const big = x1 - x0 > v.x || y1 - y0 > v.y || z1 > v.z;
-  // where it stands on the plate (ui/move.js): a model that would fit can hang off
+  // where it stands on the plate (ui/move.js): a model that would fit can hang off,
+  // and so can a parked one dragged there
   const [mx, my] = liveXY(), e = 1e-6;
-  const off = !big && (x0 + mx < -v.x / 2 - e || x1 + mx > v.x / 2 + e || y0 + my < -v.y / 2 - e || y1 + my > v.y / 2 + e);
+  const off = !big && (x0 + mx < -v.x / 2 - e || x1 + mx > v.x / 2 + e || y0 + my < -v.y / 2 - e
+    || y1 + my > v.y / 2 + e || parkedOff());
   const fit = el('s-fit');
   fit.textContent = big
     ? t(added.length ? 'does not fit (with fins)' : 'does not fit')

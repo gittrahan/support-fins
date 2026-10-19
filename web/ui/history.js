@@ -20,7 +20,7 @@ import { hideSuggestions } from './suggest.js';
 // an export switching through the models (ui/plates.js locked) holds them still
 import { isBusy } from './plates.js';
 import { liveSlot, focusSlot } from './models.js';
-import { placeSlot } from './move.js';
+import { placeSlot, dragging } from './move.js';
 import { currentPlate } from './plates.js';
 
 // A whole-state snapshot stack, not a command log. The undoable state is small
@@ -204,7 +204,7 @@ export function restoreState(s) {
 /** Step back along `from`, pushing the state it leaves onto `to`: edit the step's
  *  model first, passing over the steps of models no longer on the plate. */
 function step(from, to) {
-  if (gesture || isBusy() || !part) return;
+  if (gesture || dragging() || isBusy() || !part) return;
   // a removed model's steps stay, for its Undo from the toast to bring back with it
   for (let i = from.length - 1; i >= 0; i--) {
     const s = from[i];
