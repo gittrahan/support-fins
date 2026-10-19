@@ -55,7 +55,8 @@ def test_the_number_is_the_last_commit_that_changed_the_plugin():
     # Prusa is its own Lua port: its number is the last commit in its folder (tests and
     # notes aside), however many engine commits came after
     v = V.version([PLUGINS / "prusa"])
-    last = _git("log", "-1", "--format=%H", "HEAD", "--", "plugins/prusa", *V._NOT_SHIPPED)
+    # first-parent, as version.py: a PR's CI runs on a merge commit, which is the change
+    last = _git("log", "-1", "--first-parent", "--format=%H", "HEAD", "--", "plugins/prusa", *V._NOT_SHIPPED)
     assert v == f"{V.BASE}.{_git('rev-list', '--count', last)}"
     assert re.fullmatch(r"0\.7\.[1-9][0-9]*", v)
     # more files can only make it newer, never older; nothing is newer than HEAD
