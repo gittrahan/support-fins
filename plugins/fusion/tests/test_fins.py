@@ -326,6 +326,13 @@ class HostPlumbing(unittest.TestCase):
         o = fins_command.engine_options(s)
         self.assertEqual(o, {'mode': 'prop', 'bedPad': False, 'tines': True, 'tineDensity': 0.4,
                              'coverage': 1.0, 'layerHeight': 0.28, 'sway': None})
+        # Full coverage: the mode reaches the engine, and the coverage slider greys out
+        # (fins_entry.js builds Full at the default coverage, as the site does)
+        self.assertEqual(fins_command.engine_options(dict(s, fin_style='full'))['mode'], 'full')
+        for style, on in (('full', False), ('auto', True)):
+            inputs = dialog(None, fin_style=style)
+            fins_command._sync(inputs)
+            self.assertEqual(inputs.itemById('coverage').isEnabled, on, style)
         d = fins_command.engine_options(settings_store.DEFAULTS)
         for k, v in engine_host.DEFAULTS.items():        # untouched dialog == the website
             self.assertEqual(d[k], v, k)

@@ -31,6 +31,7 @@ PANEL_ID = 'SolidCreatePanel'
 RESOURCES = 'resources/SupportFins'
 
 STYLES = (('Auto (props + bracing if it would topple)', 'auto'),
+          ('Full coverage (every overhang)', 'full'),
           ('Props only', 'prop'),
           ('Stabilize (bracing fins)', 'stabilize'))
 
@@ -219,6 +220,8 @@ def _style(inputs):
 
 def _sync(inputs):
     inputs.itemById('density').isEnabled = inputs.itemById('tines').value
+    # as on the site: Full coverage builds at the default coverage (fins_entry.js)
+    inputs.itemById('coverage').isEnabled = _style(inputs) != 'full'
     on = inputs.itemById('braces').value
     # as on the site: grip-from and spacing place brace TINES, so they need Tines too
     tines = inputs.itemById('tines').value
@@ -265,7 +268,7 @@ class _InputChangedHandler(adsk.core.InputChangedEventHandler):
     def notify(self, args):
         try:
             inputs = args.firingEvent.sender.commandInputs
-            if args.input.id in ('tines', 'braces'):   # both decide which brace fields apply
+            if args.input.id in ('tines', 'braces', 'style'):   # which fields apply
                 _sync(inputs)
             elif args.input.id == 'bed' and inputs.itemById('bed').selectionCount:
                 inputs.itemById('body').hasFocus = True

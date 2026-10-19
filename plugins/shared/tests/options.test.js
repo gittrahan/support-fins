@@ -238,7 +238,7 @@ Deno.test('every option reaches the geometry (no dead dialog control)', () => {
 // Full coverage builds at the default coverage, as the site does: the slider is hidden
 // there, so a value a host still sends must not move the fins (no input the math ignores
 // in one mode and reads in the other).
-Deno.test('Full coverage ignores the coverage slider, as the site does', () => {
+Deno.test('Full coverage ignores the coverage slider and Auto ignores Long walls, as the site does', () => {
   assert(byKey.coverage.default === FIN.coverDefault, 'coverage default vs FIN.coverDefault (the site\'s Full)');
   const lbracket = posed();
   const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
@@ -246,4 +246,7 @@ Deno.test('Full coverage ignores the coverage slider, as the site does', () => {
   assert(same(full, computeFins(lbracket, { mode: 'full', coverage: 0 }).triangles), 'Full read coverage 0');
   assert(same(full, computeFins(lbracket, { mode: 'full', coverage: 1 }).triangles), 'Full read coverage 1');
   assert(!same(full, computeFins(lbracket, {}).triangles), 'Full built the same fins as Auto');
+  // and Long walls is Full's alone: hidden in Auto, so it must not move Auto's fins
+  const rowed = posed('lbracket', 40, rotX), auto = computeFins(rowed, {}).triangles;
+  assert(same(auto, computeFins(rowed, { longWalls: false }).triangles), 'Auto read Long walls');
 });

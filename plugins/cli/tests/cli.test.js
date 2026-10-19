@@ -20,6 +20,7 @@ import { seatSoup } from '../../shared/engine/seat.js';
 import { readSTL, MODELS, analyze, fins, rotX, rotY, assert, assertClose, block } from '../../../tests/_util.js';
 import { buildTopology, IDENTITY3 } from '../../../web/overhangs.js';
 import { readThreeMF } from '../../../web/threemf.js';
+import { findIslands } from '../../../web/islands.js';
 import { writeBinarySTL } from '../../../web/stl.js';
 import { unzip, zipStore } from '../../../web/zip.js';
 
@@ -143,8 +144,8 @@ Deno.test('cli: .stl output merges part + fins; --fins-only lines the fins up wi
 // Full coverage the way the site builds it (ui/finbuild.js finOpts): the coverage
 // slider's default, Long walls on, the island starts found from the topology. On the
 // part as the entry seats it: Full's fill race moves with where the part sits (the
-// lbracket off its file's origin builds 20 walls, centred 22; local issue 023), so
-// this pins the options, not the frame.
+// lbracket off its file's origin builds 20 walls, centred 22), so this pins the
+// options, not the frame. The island starts are the page's (ui/islands.js), passed in.
 Deno.test('cli: --mode full is the website\'s Full coverage', async () => {
   const { code, out } = await cli(['lb.stl', '--rot', '0,35,0', '--json', '--mode', 'full']);
   assert(code === 0, `exit ${code}`);
@@ -153,10 +154,15 @@ Deno.test('cli: --mode full is the website\'s Full coverage', async () => {
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   const res = analyze(topo, 45, IDENTITY3);
   const { bedPad, tines, tineDensity, coverage, layerHeight } = ENGINE_DEFAULTS;
-  const web = fins.buildFins(topo, res, IDENTITY3, { mode: 'full', longWalls: true, bedPad, tines, tineDensity, coverage, layerHeight });
+  const islands = findIslands(topo, res, IDENTITY3);
+  const web = fins.buildFins(topo, res, IDENTITY3, { mode: 'full', longWalls: true, islands, bedPad, tines, tineDensity, coverage, layerHeight });
   const auto = JSON.parse((await cli(['lb.stl', '--rot', '0,35,0', '--json'])).out[0]).stats;
   assert(r.stats.braces === web.braceCount, `fins ${r.stats.braces} vs site ${web.braceCount}`);
   assert(r.stats.tines === web.tines, `tines ${r.stats.tines} vs site ${web.tines}`);
+  // and the very same walls: the entry's soup is the site's fins, then its pad
+  const mine = computeFins(pose(readSTL(LBRACKET), [0, 35, 0]), { mode: 'full' }).triangles;
+  const site = Float32Array.from(web.triangles.flat(2));
+  assert(site.length > 0 && site.every((v, i) => v === mine[i]), 'Full walls differ from the site\'s');
   assert(r.stats.braces > auto.braces, `Full ${r.stats.braces} walls, Auto ${auto.braces}`);
 });
 
