@@ -359,6 +359,8 @@ jobs:
           git push -f origin "refs/tags/$TAG"
       - name: Update rolling plugin release
         if: github.event_name == 'push'
+        env:
+          TAG: plugins-latest
         run: |
           notes="Built automatically from ${GITHUB_SHA::7} on main. Replaced on every push that touches web/ or plugins/.
 
