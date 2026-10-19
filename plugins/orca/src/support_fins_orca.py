@@ -56,7 +56,9 @@ except ImportError:  # pragma: no cover - surfaced to the user in execute()
 
 ENGINE_JS = "__FINS_ENGINE_JS__"   # replaced by build.py with the esbuild bundle
 
-# The plugin's own config keys. Every other key is a setting from options.json, the
+# The plugin's own config keys, and its whole default config: Orca's "Restore defaults"
+# writes this back as the stored config, so a default listing every setting would pin
+# those users to today's defaults for good. Every other key is a setting from options.json, the
 # schema every plugin dialog is built from (mode, gap, threshold, padStyle, cutout,
 # sway.on, ...), in the engine's units: a percent setting is value / 100, as
 # coverage 0.5 always was here. They go to the engine through host_options, which
@@ -109,6 +111,11 @@ def engine_options(ctx, cfg, layer_height):
     """The plugin config -> checked engine options (raises ValueError on a bad key or
     value). Layer height is always the slice's own (options.json hostSupplied)."""
     values = {k: v for k, v in cfg.items() if k not in _DEFAULTS}
+    # hand-written JSON says 1 / 0 (or "1" / "0") for on / off
+    for o in host_schema(ctx)["options"]:
+        v = values.get(o["key"])
+        if o["type"] == "bool" and not isinstance(v, bool) and str(v).strip() in ("0", "1"):
+            values[o["key"]] = str(v).strip() == "1"
     for old, new in _ALIASES.items():
         if old in values:
             values.setdefault(new, values[old])
@@ -120,20 +127,6 @@ def engine_options(ctx, cfg, layer_height):
         raise ValueError("layerHeight is Orca's own layer height: remove it from the plugin config")
     values["layerHeight"] = float(layer_height)
     return host_options(ctx, values)
-
-
-def default_config():
-    """What Orca shows to edit: the plugin's keys, then every options.json setting at
-    its default (the slicer's own layer height left out), so each one can be found."""
-    cfg = dict(_DEFAULTS)
-    try:
-        schema = host_schema(_engine_ctx())
-    except Exception:  # no engine yet: the plugin's keys alone; the slice reports why
-        return cfg
-    for o in schema["options"]:
-        if o.get("hostSupplied") != "slicer":
-            cfg[o["key"]] = o["default"]
-    return cfg
 
 
 # ---------------------------------------------------------------------------------
@@ -356,13 +349,13 @@ class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
         return "Support Fins"
 
     def get_default_config(self):
-        return default_config()
+        return dict(_DEFAULTS)
 
     def execute(self, ctx):
         if ctx.step != orca.slicing.Step.posSlice or ctx.object is None:
             return orca.ExecutionResult.success()
         cfg = _cfg(self)
-        if not cfg["enabled"]:
+        if not _truthy(cfg["enabled"]):
             return orca.ExecutionResult.success("Support Fins: disabled in plugin config")
         if np is None:
             return orca.ExecutionResult.failure(orca.PluginResult.RecoverableError,
@@ -380,8 +373,10 @@ class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
         except Exception as e:  # never break a slice over fins; report and carry on
             log["error"] = f"{type(e).__name__}: {e}"
             _write_log(log)
+            # a config the engine refused says so in its own words; anything else is a bug
+            why = str(e) if isinstance(e, ValueError) else f"{type(e).__name__}: {e}"
             return orca.ExecutionResult.failure(orca.PluginResult.RecoverableError,
-                                                f"Support Fins: {type(e).__name__}: {e}")
+                                                f"Support Fins: {why}")
         log["result"] = msg
         log["seconds"] = round(time.time() - log["started"], 3)
         _write_log(log)

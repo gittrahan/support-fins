@@ -60,8 +60,9 @@ The plugin's config is JSON. Besides its own two keys, `enabled` and `apply_to`
 (`"no-supports"` skips parts with Orca's Enable support on, `"all"` fins every part),
 it takes **every setting printfins.com and the other plugins have**: any key of
 [`plugins/shared/engine/options.json`](../shared/engine/options.json), in the engine's
-units, so a percent setting is the site's value / 100. The default config lists them
-all at the site's defaults. For example:
+units, so a percent setting is the site's value / 100. Leave a key out to get the
+site's default (the default config holds only the plugin's two keys, so it follows the
+site when a default changes). For example:
 
 ```json
 {"mode": "full", "gap": 0.3, "threshold": 50, "padStyle": "sure", "coverage": 0.7}
@@ -70,7 +71,8 @@ all at the site's defaults. For example:
 Calibration coupon results map straight across: `threshold` (angle), `gap`,
 `padStyle`. Layer height is always Orca's own, so `layerHeight` is refused. A key the
 engine doesn't know, or a value out of range, fails the slice with the engine's
-message (`unknown dialog option sparkle`), instead of printing default fins.
+message (`unknown dialog option sparkle`), instead of printing default fins. On/off
+settings take `true`/`false` (or `1`/`0`).
 Older configs' `tine_density` and `bed_pad: false` still work.
 
 ### What the tests pin (offline)
