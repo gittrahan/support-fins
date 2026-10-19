@@ -72,7 +72,7 @@ export function syncAugmentUI() {
 const MODE_NOTES = {
   auto: 'Places supports for you.',
   full: 'Auto, plus walls under every overhang it leaves bare. More plastic.',
-  draw: 'You place each wall: click an overhang face.',
+  draw: 'You place each wall: click two points across an overhang.',
 };
 export function syncModeButtons() {
   const v = el('fin-mode').value;

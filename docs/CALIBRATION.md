@@ -14,11 +14,11 @@ they're also in `prototype/calibration/<name>/print/`.
 | Test | Sets | Where on printfins.com |
 |---|---|---|
 | Angle | which faces need support | Overhang slider (top bar) |
-| Gap | how close walls stand to the part | Clearances ▸ Support gap |
+| Gap | how close walls stand to the part | Printer ▸ Edit ▸ Support gap |
 | Grip | how many tines hold each wall | Tines ▸ Tine grip |
-| Span | how wide a bare stretch your printer bridges (tells us, for now) | Walls ▸ Wide-face coverage (Auto) |
-| Pad | how the bed pad lets go | Clearances ▸ Bed pad ▸ Custom ▸ Pad gap |
-| Cutouts | which holes your walls can have and still stand | Walls ▸ Cutouts |
+| Span | how wide a bare stretch your printer bridges (tells us, for now) | More settings ▸ Wide-face coverage (Auto) |
+| Pad | how the bed pad lets go | More settings ▸ Bed pad ▸ Custom ▸ Pad gap |
+| Cutouts | which holes your walls can have and still stand | Cutouts (under Placement) |
 | Bore | whether holes pull clean (no setting: tells us) | — |
 | Sampler | nothing: every hard shape at once, to see what you get | — |
 

@@ -23,7 +23,7 @@ export const COUPONS = [
   },
   {
     name: 'Gap', file: 'gap-coupon.3mf',
-    sets: 'Sets Clearances ▸ Support gap',
+    sets: 'Sets Printer ▸ Edit ▸ Support gap',
     note: 'Print at 0.2 mm layers with a 0.2 mm first layer and adaptive layer height off, or the gaps stop being whole layers.',
     how: 'Ledges held 0.2, 0.4 and 0.6 mm below (1, 2 and 3 empty layers). Snap each wall off. Welded or tearing the ledge = too small; saggy or stringy underside = too big. Use the smallest gap that snaps off clean. The field stops at 0.4: if only 0.6 came clean, set 0.4 and tell us.',
   },
@@ -34,12 +34,12 @@ export const COUPONS = [
   },
   {
     name: 'Pad', file: 'pad-coupon.3mf',
-    sets: 'Sets Clearances ▸ Bed pad ▸ Custom ▸ Pad gap',
+    sets: 'Sets More settings ▸ Bed pad ▸ Custom ▸ Pad gap',
     how: 'Six cubes on an edge, each held down only by a pad 0 to 0.3 mm off it. A cube came loose = gap too big; a pad won\'t peel or tears the edge = too small. Use the biggest gap whose cube stayed put, with Pad thickness 0.2, Pad grip 0 and Pad spread 4.',
   },
   {
     name: 'Cutouts', file: 'cutout-coupon.3mf',
-    sets: 'Sets Walls ▸ Cutouts',
+    sets: 'Sets Cutouts (under Placement)',
     how: 'Five tall ledges, each held by walls cut with one style: NONE, DIAMOND, TRIANGLE, ARCH, LATTICE. Check every wall stood and every ledge printed flat, then snap the walls off. A wall that leaned, sagged at a hole or broke apart: that style is too open. Use the most open style whose walls all held; Arch and Lattice save about a third of the support plastic.',
   },
   {
