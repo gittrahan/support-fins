@@ -182,3 +182,18 @@ Deno.test('fill: tall fill walls are tied into a frame -- ties built, outside th
   }
   assert(struts > 0, 'the ties are in the walls\' triangle ranges');
 });
+
+// built.bare (fins.js, fill.js bareArea): what the walls leave bare, for the readout.
+// Auto measures its own walls the way the fill does; Full's area is its leftover;
+// both share the same total; Draw has none.
+Deno.test('fill: built.bare says what Auto and Full leave bare, out of the same red', () => {
+  assert(auto.bare && full.bare, 'Auto and Full both report bare');
+  assert(auto.bare.total > 0 && Math.abs(auto.bare.total - full.bare.total) < 1e-6, 'one total');
+  assert(Math.abs(full.bare.area - full.fill.unservedArea) < 1e-6, 'Full: its leftover');
+  assert(Math.abs(auto.bare.area - full.fill.bareBefore) < 1e-6, 'Auto: what Full started from');
+  assert(full.bare.area < auto.bare.area, 'Full leaves less bare');
+  const draw = fins.buildFins(topo, res, rot, { ...OPTS, mode: 'draw' });
+  assert(draw.bare === undefined, 'Draw: none');
+  const flat = fins.buildFins(topo, analyze(topo, 45, rotX(0)), rotX(0), { ...OPTS, mode: 'auto' });
+  assert(flat.bare.total === 0 && flat.bare.area === 0, 'upright cube: no red, nothing bare');
+});

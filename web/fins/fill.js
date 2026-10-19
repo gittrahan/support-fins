@@ -621,6 +621,23 @@ export function fillCoverage(topo, result, rot, opts, built) {
   return rows;
 }
 
+/**
+ * How much MUST red `built`'s walls leave bare, measured the way fillOnce measures
+ * it (a point is held within fillReach of a wall top): { area, total } in mm2,
+ * `total` being all the MUST red. No walls are placed. Auto's readout says it, so a
+ * build that holds little doesn't read as done (fins.js sets built.bare).
+ */
+export function bareArea(topo, result, rot, opts, built) {
+  const tops = [];
+  // (a sway brace's line is its foot on the plate, and it holds no red)
+  for (const w of built.fins ?? []) if (w.kind !== 'sway') for (const p of w.line ?? []) tops.push(p);
+  const near = reachOf(tops, fillReach(Math.max(0, Math.min(1, opts.coverage ?? 0.5))));
+  const cls = classify(topo, result, rot);
+  const sum = (pts) => pts.reduce((s, p) => s + p[3], 0);
+  const total = sum(leftoverPoints(topo, result, rot, () => false, cls));
+  return { area: tops.length ? sum(leftoverPoints(topo, result, rot, near, cls)) : total, total };
+}
+
 function fillOnce(topo, result, rot, opts, built) {
   const coverage = Math.max(0, Math.min(1, opts.coverage ?? 0.5));
   const R = fillReach(coverage);

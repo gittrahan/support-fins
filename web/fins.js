@@ -44,7 +44,7 @@ import { buildPad, PAD } from './fins/pad.js';
 import { bedContact, forgetSeated, seatedPartTris, seatingOf } from './fins/seating.js';
 import { braceTallWalls } from './fins/tall.js';
 import { lastResortWalls } from './fins/shortwalls.js';
-import { fillCoverage } from './fins/fill.js';
+import { bareArea, fillCoverage } from './fins/fill.js';
 import { findIslands } from './islands.js';
 import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
 import { judgeDownhill } from './fins/downhill.js';
@@ -148,6 +148,15 @@ export function buildFins(topo, result, rot, opts = {}) {
   // A piece of the part that starts in mid-air (a cut clean through, a loose
   // body) needs saying no matter what was placed: see floatingPieces.
   built.floating = floatingPieces(topo, result, rot);
+  // How much red the walls leave bare (fins/fill.js bareArea), so the readout can say
+  // it: Auto measures its own walls; Full already knows its leftover, and only the
+  // total is added. Draw's walls are placed on the page, so it has none.
+  if (opts.mode === 'auto' || opts.mode === 'stabilize') {
+    built.bare = bareArea(topo, result, rot, opts, built);
+  } else if (opts.mode === 'full' && built.fill) {
+    built.bare = { area: built.fill.unservedArea,
+                   total: bareArea(topo, result, rot, opts, { fins: [] }).total };
+  }
   return built;
 }
 

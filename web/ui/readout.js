@@ -432,6 +432,14 @@ function updateFinReadout(built, ms) {
       lead.push(t('{area} mm² of overhang no wall can reach this way up — tilt the part, or add a wall by hand', { area: bare }));
     }
   }
+  // Auto: how much red its walls leave bare (fins/fill.js bareArea), in the panel,
+  // not behind the (i) -- a build that holds a quarter of a figure mustn't read as done. Full says its
+  // own above; a curved fill's line covers only its regions, so this one stands.
+  const ba = built.bare;
+  if (ba && !fl && Math.round(ba.area) >= 1) {
+    lead.push(t('{area} mm² of overhang ({pct} %) is still bare — Full coverage reaches more',
+                { area: Math.round(ba.area), pct: Math.max(1, Math.round(100 * ba.area / ba.total)) }));
+  }
   // Curved walls in Full: the straight build held more, so it was kept
   if (built.curvedDropped) {
     help.push(t('Curved walls: Full coverage does better here with straight walls, so it kept them. Switch to Auto for the curves.'));
