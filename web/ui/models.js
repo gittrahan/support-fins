@@ -21,7 +21,7 @@ import * as THREE from 'three';
 import { el } from './dom.js';
 import { camera, controls } from './scene.js';
 import { part, clearPart, stashPart, unstashPart } from './part.js';
-import { takeState, takeHistory, setHistory, restoreState, settingsKey, VIEWER_IDS } from './history.js';
+import { takeState, takeHistory, setHistory, restoreState, applySettings, settingsKey, VIEWER_IDS } from './history.js';
 import { scaleState, setScaleState } from './scale.js';
 import { importState, setImportState } from './io.js';
 import { activeAdded, buildPending } from './finbuild.js';
@@ -66,10 +66,10 @@ export function park(plate) {
   const section = sectionState(), suggest = suggestState();
   // Left before its fins were built (they build in the worker): the parked copy
   // keeps the fins it had when it was last parked, if the pose is still that one.
-  const last = m.ghost;
+  const last = m.ghost, pending = buildPending();   // before stashPart: it drops the build
   m.ghost = null;
   let fins;
-  if (last && buildPending() && part.quaternion.equals(last.quat)) fins = last.fins;
+  if (last && pending && part.quaternion.equals(last.quat)) fins = last.fins;
   else {
     if (last?.fins) last.fins.geometry.dispose();
     fins = ghostFins(activeAdded());
@@ -77,7 +77,7 @@ export function park(plate) {
   const rec = stashPart();
   parkMesh(rec.mesh);
   // the settings its fins were built under (a build still in flight: none yet)
-  const finsKey = buildPending() ? null : settingsKey();
+  const finsKey = pending ? null : settingsKey();
   m.stash = { part: rec, fins, finsKey, state, scale, imp, section, suggest };
 }
 
@@ -102,6 +102,8 @@ export function unpark(plate) {
     // off screen while the model is live, kept in case it is left before its build lands
     s.fins?.removeFromParent();
     m.ghost = { fins: s.fins, quat: s.part.mesh.quaternion.clone() };
+  } else if (plate.settings) {
+    applySettings(plate.settings);    // an empty plate's next model takes them too
   }
   if (plate.history) setHistory(plate.history);
   m.stash = null;      // only once it is live: a throw above keeps the model
@@ -114,6 +116,16 @@ export function joinPlate() {
   if (plate.history) setHistory(plate.history);
 }
 
+/** About to load a file in place of the live model of a plate of several: the
+ *  plate's undo less that model's steps, to set back once it has loaded (setPart
+ *  starts a fresh history) -- null on a plate of one, where nothing else has any. */
+export function othersHistory() {
+  const plate = currentPlate(), me = plate.models[plate.live];
+  if (plate.models.length < 2) return null;
+  const { undo, redo } = takeHistory();
+  return { undo: undo.filter((s) => s.who !== me), redo: redo.filter((s) => s.who !== me) };
+}
+
 /** Free what a parked slot holds (a removal past its Undo). */
 export function disposeSlot(m) {
   const s = m.stash;
@@ -121,6 +133,7 @@ export function disposeSlot(m) {
   s.part.mesh.removeFromParent();
   s.part.mesh.geometry.dispose();
   if (s.fins) { s.fins.removeFromParent(); s.fins.geometry.dispose(); }
+  m.stash = null;      // the plate's undo steps still name the slot: let the mesh go
 }
 
 /** Swap the live model for slot `k` of the same plate. The world shifts by the

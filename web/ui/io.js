@@ -14,7 +14,8 @@ import { el } from './dom.js';
 import { part, setPart } from './part.js';
 import { partObjectOf, restoreSession } from './session.js';
 import { freePlate, currentPlate, returnTo, dropEmptyPlate, isBusy } from './plates.js';
-import { addSlot, dropAdded, joinPlate } from './models.js';
+import { addSlot, dropAdded, joinPlate, othersHistory } from './models.js';
+import { setHistory } from './history.js';
 
 export let importNote = '';
 export let lastImportMeta = null;
@@ -367,16 +368,20 @@ async function parseObj(buffer) {
 
 /** setPart, then the saved session if the file carried one (the import note says
  *  how many supports came back, or why none did). `beside`: added to a plate of
- *  models, whose settings and undo history go on (ui/models.js). */
+ *  models, whose settings and undo history go on (ui/models.js) -- as they do when
+ *  the file takes the place of one of several. */
 function afterLoad(geometry, name, beside = false) {
   const s = pendingSession;
   pendingSession = null;
+  const others = beside ? null : othersHistory();
+  beside ||= !!others;
+  const rejoin = () => (others ? setHistory(others) : beside && joinPlate());
   setPart(geometry, name);
-  if (beside) joinPlate();
+  rejoin();
   if (!s || !lastImportMeta) return;
   let r = { why: 'unreadable' };
   try { r = restoreSession(s, beside); } catch (err) { console.error(err); }
-  if (beside) joinPlate();
+  rejoin();
   lastImportMeta.restored = r.n ?? null;
   lastImportMeta.session = r.why ?? (beside ? 'beside' : 'restored');
   importNote = renderImportNote();

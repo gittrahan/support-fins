@@ -25,7 +25,8 @@ import { ghostFins, ghostLook } from './plateview.js';
 import { currentPlate, isBusy, redraw } from './plates.js';
 
 let worker;          // undefined = not tried yet, null = unavailable, else a Worker
-let job = null;      // the build in flight: { m, key, topo, res, rot, mesh }
+let job = null;      // the build in flight: { id, m, s (its stash), key, topo, res, rot, mesh, opts }
+let gen = 0;         // per request: a reply for another one is dropped
 let timer = null;
 
 /** The plate's settings may have changed (a support build was asked for): grey the
@@ -39,6 +40,9 @@ const parked = (m) => {
   const plate = currentPlate();
   return m.stash && plate.models.includes(m) && plate.models[plate.live] !== m;
 };
+// still parked as it was when its build began: not made live and parked again since,
+// in another pose
+const current = (j) => parked(j.m) && j.m.stash === j.s;
 
 function next() {
   timer = null;
@@ -47,7 +51,7 @@ function next() {
   const key = settingsKey(), plate = currentPlate();
   for (const m of plate.models) if (m.stash?.fins && parked(m)) ghostLook(m.stash.fins, m.stash.finsKey === key);
   if (job) {
-    if (job.key === key && parked(job.m)) return;     // its reply calls next
+    if (job.key === key && current(job)) return;      // its reply calls next
     worker?.terminate();                              // built for settings since changed
     worker = undefined;
     job = null;
@@ -58,15 +62,15 @@ function next() {
 
 function build(m, key) {
   const s = m.stash, mesh = s.part.mesh, topo = s.part.topology;
-  if (!finsVisible) { land({ m, key }, null); return; }
+  if (!finsVisible) { land({ m, s, key }, null); return; }
   const rot = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(mesh.quaternion)).elements;
   const res = analyze(topo, threshold, rot);
   const opts = finOpts(finMode === 'full' ? findIslands(topo, res, rot) : undefined);
-  job = { m, key, topo, res, rot, mesh, opts };
+  job = { id: ++gen, m, s, key, topo, res, rot, mesh, opts };
   const w = getWorker();
   if (w) {
     try {
-      w.postMessage({ id: 0, topology: workerTopology(topo), result: res, rot, opts });
+      w.postMessage({ id: job.id, topology: workerTopology(topo), result: res, rot, opts });
       return;
     } catch (err) {
       console.warn('parked support build: postMessage failed; building inline', err);
@@ -84,7 +88,7 @@ function getWorker() {
   }
   worker.onmessage = (e) => {
     const j = job;
-    if (!j) return;
+    if (!j || e.data.id !== j.id) return;
     land(j, e.data.error ? buildFins(j.topo, j.res, j.rot, j.opts) : e.data.built);
   };
   // as finbuild.js does: a crashed worker is not a page error, and builds go inline
@@ -102,7 +106,7 @@ function getWorker() {
 function land(j, built) {
   job = null;
   const { m, key } = j;
-  if (!parked(m) || settingsKey() !== key) { scheduleParked(); return; }
+  if (!current(j) || settingsKey() !== key) { scheduleParked(); return; }
   const s = m.stash, tris = [];
   if (built) {
     // Auto's walls, less the fins this model had removed (ui/remove.js adoptFins)

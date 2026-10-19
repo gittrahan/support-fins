@@ -137,6 +137,20 @@ function restoreForm(form) {
   }
 }
 
+/** A plate's settings on a page with no model (an empty plate shown): the fields,
+ *  the mode and fins on or off, for the next model loaded there. */
+export function applySettings({ form, finMode: mode, finsVisible: on }) {
+  setFinMode(mode);
+  setFinsVisible(on);
+  el('fin-mode').value = mode;
+  syncModeButtons();
+  syncCoverageUI();
+  syncFinsToggleUI();
+  const f = { ...form };
+  for (const id of VIEWER_IDS) delete f[id];
+  restoreForm(f);
+}
+
 /** Apply a whole state, as undo does (ui/session.js builds one from a saved 3MF). */
 export function restoreState(s) {
   part.quaternion.set(s.quat[0], s.quat[1], s.quat[2], s.quat[3]);
@@ -174,11 +188,12 @@ export function restoreState(s) {
 /** Step back along `from`, pushing the state it leaves onto `to`: edit the step's
  *  model first, passing over the steps of models no longer on the plate. */
 function step(from, to) {
-  if (gesture || isBusy()) return;
-  while (from.length) {
-    const s = from[from.length - 1];
-    if (s.who && !focusSlot(s.who)) { from.pop(); continue; }
-    from.pop();
+  if (gesture || isBusy() || !part) return;
+  // a removed model's steps stay, for its Undo from the toast to bring back with it
+  for (let i = from.length - 1; i >= 0; i--) {
+    const s = from[i];
+    if (s.who && !focusSlot(s.who)) continue;
+    from.splice(i, 1);
     to.push(snapshot());
     restoreState(s);
     return;
