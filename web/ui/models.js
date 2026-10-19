@@ -63,22 +63,25 @@ export function park(plate) {
   const state = takeState(), scale = scaleState(), imp = importState();
   plate.history = takeHistory();
   plate.settings = { form: state.form, finMode: state.finMode, finsVisible: state.finsVisible };
+  plate.key = settingsKey();     // what its parked models' fins are current for
   const section = sectionState(), suggest = suggestState();
   // Left before its fins were built (they build in the worker): the parked copy
   // keeps the fins it had when it was last parked, if the pose is still that one.
   const last = m.ghost, pending = buildPending();   // before stashPart: it drops the build
   m.ghost = null;
-  let fins;
+  // `added`: the supports it adds, in print space, as the export writes them
+  let fins, added = [];
   if (last && pending && part.quaternion.equals(last.quat)) fins = last.fins;
   else {
     if (last?.fins) last.fins.geometry.dispose();
-    fins = ghostFins(activeAdded());
+    added = [...activeAdded()];
+    fins = ghostFins(added);
   }
   const rec = stashPart();
   parkMesh(rec.mesh);
   // the settings its fins were built under (a build still in flight: none yet)
   const finsKey = pending ? null : settingsKey();
-  m.stash = { part: rec, fins, finsKey, state, scale, imp, section, suggest };
+  m.stash = { part: rec, fins, added, finsKey, state, scale, imp, section, suggest };
 }
 
 /** Bring `plate`'s live slot back (stashed, or empty) under the plate's settings;

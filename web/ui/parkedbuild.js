@@ -16,7 +16,7 @@ import { analyze } from '../overhangs.js';
 import { findIslands } from '../islands.js';
 import { buildFins } from '../fins.js';
 import { assignKeys, matchRemoved } from './finkeys.js';
-import { finOpts, workerTopology } from './finbuild.js';
+import { finOpts, workerTopology, buildPending } from './finbuild.js';
 import { sweepDrawn, printTriangles } from './walls.js';
 import { threshold } from './part.js';
 import { finMode, finsVisible, autoLike } from './settings.js';
@@ -43,6 +43,22 @@ const parked = (m) => {
 // still parked as it was when its build began: not made live and parked again since,
 // in another pose
 const current = (j) => parked(j.m) && j.m.stash === j.s;
+
+const tick = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Wait until every parked model of the plate being edited has fins built under
+ *  its settings, and the live one's build is in (an export writes them as they
+ *  are). False when that takes past `ms`: the caller makes each live instead. */
+export async function parkedSettled(ms = 120000) {
+  const t0 = performance.now();
+  for (;;) {
+    const key = settingsKey(), plate = currentPlate();
+    if (!job && !buildPending() && plate.models.every((m) => !parked(m) || m.stash.finsKey === key)) return true;
+    if (performance.now() - t0 > ms) return false;
+    if (!job && !timer) scheduleParked();
+    await tick(50);
+  }
+}
 
 function next() {
   timer = null;
@@ -133,6 +149,7 @@ function land(j, built) {
   }
   if (s.fins) { s.fins.removeFromParent(); s.fins.geometry.dispose(); }
   s.fins = tris.length ? ghostFins(tris) : null;
+  s.added = tris;
   s.finsKey = key;
   redraw();
   scheduleParked();

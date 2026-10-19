@@ -33,12 +33,20 @@ function boxOf(tris) {
 }
 const round = (v) => Math.round(v * 1e5) / 1e5;
 
-/** The session for an export: `partTris` is the part in print space, as written. */
-export function sessionOf(partTris) {
-  if (!part || !lastResult) return null;
+/** The model on screen, as sessionOf reads one. */
+const liveModel = () => (part && lastResult ? {
+  rot: rotM3.elements, offset: lastResult.offset, finMode, finsVisible, form: sessionForm(),
+  walls: drawnWalls, removed: removedSigs,
+} : null);
+
+/** The session for an export: `partTris` is the part in print space, as written;
+ *  `model` the one written, by default the one on screen (ui/export.js passes a
+ *  parked one's: { rot, offset, finMode, finsVisible, form, walls, removed }). */
+export function sessionOf(partTris, model = liveModel()) {
+  if (!model) return null;
   const { centre, size } = boxOf(partTris);
   // local -> print space exactly as the export maps the part (ui/export.js)
-  const r = rotM3.elements, o = lastResult.offset;
+  const r = model.rot, o = model.offset;
   const at = (v) => [
     round(r[0] * v.x + r[3] * v.y + r[6] * v.z + o.x - centre[0]),
     round(r[1] * v.x + r[4] * v.y + r[7] * v.z + o.y - centre[1]),
@@ -47,11 +55,11 @@ export function sessionOf(partTris) {
   return {
     v: 1,
     part: { size: size.map(round) },
-    finMode, finsVisible,
-    form: sessionForm(),
-    walls: drawnWalls.map((d) => d.kind === 'sway' ? { kind: 'sway', a: at(d.a), ...(d.capped ? { capped: true } : {}) }
+    finMode: model.finMode, finsVisible: model.finsVisible,
+    form: model.form,
+    walls: model.walls.map((d) => d.kind === 'sway' ? { kind: 'sway', a: at(d.a), ...(d.capped ? { capped: true } : {}) }
                                     : { a: at(d.a), b: at(d.b) }),
-    removed: [...removedSigs],
+    removed: [...model.removed],
   };
 }
 

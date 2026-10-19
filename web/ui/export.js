@@ -1,16 +1,20 @@
 /**
- * Export: the oriented part plus the fins/pad, as STL or 3MF -- every model of the
- * plate (ui/models.js), each where it stands.
+ * Export: the oriented part plus the fins/pad, as STL or 3MF. A 3MF holds every
+ * model of the plate (ui/models.js), each where it stands; an STL, the model being
+ * edited.
  */
+import * as THREE from 'three';
 import { writeBinarySTL, download } from '../stl.js';
 import { writePlate3MF } from '../threemf.js';
 import { splitInterface } from '../prop.js';
 import { el } from './dom.js';
 import { t } from './i18n.js';
-import { finsVisible } from './settings.js';
+import { finMode, finsVisible } from './settings.js';
 import { part, topology, lastResult, rotM3, partName } from './part.js';
 import { activeAdded, buildPending } from './finbuild.js';
 import { sessionOf } from './session.js';
+import { sessionForm, VIEWER_IDS } from './history.js';
+import { parkedSettled } from './parkedbuild.js';
 import { exportName } from '../exportname.js';
 import { nozzle } from '../nozzle.js';
 import { exportAll, currentPlate, locked } from './plates.js';
@@ -29,9 +33,22 @@ import { eachModel, parkedFins } from './models.js';
  */
 export function buildExportGeometry() {
   if (!part || !topology || !lastResult) return null;
-  const rot = rotM3.elements;
-  const dz = lastResult.offset.z;
-  const dx = lastResult.offset.x, dy = lastResult.offset.y;
+  return modelGeometry({
+    mesh: part, topology, rot: rotM3.elements, offset: lastResult.offset, name: partName,
+    // whichever walls the live mode contributes -- hand-drawn in Draw, suggested
+    // in Suggest -- plus the pad, all already in print space
+    added: activeAdded(), layerHeight: el('layer-height').valueAsNumber, model: undefined,
+  });
+}
+
+/**
+ * A model's export geometry: `mesh` (its geometry's userData) and `topology` posed
+ * `rot`, seated at `offset`, with the supports it `added`; `model`, what its saved
+ * session reads (session.js sessionOf; undefined: the one on screen).
+ */
+function modelGeometry({ mesh, topology, rot, offset, name: partName, added, layerHeight, model }) {
+  const dz = offset.z;
+  const dx = offset.x, dy = offset.y;
   const { pos } = topology;
   // flat local [x,y,z]... (less `shift`: the file's frame back to the part's) to
   // print-space vertices
@@ -49,24 +66,41 @@ export function buildExportGeometry() {
   };
 
   const partTris = toPrint(pos);
-  // whichever walls the live mode contributes -- hand-drawn in Draw, suggested
-  // in Suggest -- plus the pad, all already in print space
-  const finTris = [...activeAdded()];
+  const finTris = [...added];
   const base = partName.replace(/\.(stl|3mf|step|stp)$/i, '') || 'part';
   // A file with a slicer's own parts (#104) goes out as the file had it: the part
   // uncut, with its negative parts, modifiers and blockers posed the same way --
   // the fins are for the cut part, which the slicer cuts again. `partTris` stays
   // the part the fins were built for (the session and the STL use it).
-  const { slicer, centre } = part.geometry.userData;
+  const { slicer, centre } = mesh.geometry.userData;
   const kept = slicer && centre ? {
     partTris: toPrint(slicer.positions, centre),
     colors: slicer.colors,
     extras: slicer.extras.map((e) => ({ kind: e.kind, name: e.name, settings: e.settings, tris: toPrint(e.positions, centre) })),
   } : null;
   // the two settings the slicer must match, carried in the file name (#279)
-  const name = (stem, ext) => exportName(`${base}-${stem}`, ext,
-    { nozzle, layerHeight: el('layer-height').valueAsNumber });
-  return { partTris, finTris, base, name, colors: part.geometry.userData.colors ?? null, slicer: kept };
+  const name = (stem, ext) => exportName(`${base}-${stem}`, ext, { nozzle, layerHeight });
+  return { partTris, finTris, base, name, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
+           session: () => sessionOf(partTris, model) };
+}
+
+/**
+ * A parked model of `plate` (ui/models.js) as buildExportGeometry gives the live one,
+ * from its stash: its fins are kept to the plate's settings (ui/parkedbuild.js), so
+ * it needs no making live. `shown`: `plate` is the one being edited, whose settings
+ * are the page's.
+ */
+function parkedGeometry(m, plate, shown) {
+  const s = m.stash, mesh = s.part.mesh;
+  const rot = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(mesh.quaternion)).elements;
+  const st = shown ? { form: sessionForm(), finMode, finsVisible } : plate.settings;
+  const form = Object.fromEntries(Object.entries(st.form).filter(([id]) => !VIEWER_IDS.has(id)));
+  return modelGeometry({
+    mesh, topology: s.part.topology, rot, offset: mesh.position, name: s.part.name, added: s.added,
+    layerHeight: Number(st.form['layer-height']),
+    model: { rot, offset: mesh.position, finMode: st.finMode, finsVisible: st.finsVisible, form,
+             walls: s.state.walls, removed: s.state.removedSigs },
+  });
 }
 
 /** `g` (buildExportGeometry) moved to `xy`, its model's spot on the plate. */
@@ -77,13 +111,29 @@ function placed(g, [x, y]) {
   return { ...g, partTris: at(g.partTris), finTris: at(g.finTris), slicer };
 }
 
-/** Every model of the plate being edited, each its buildExportGeometry where it
- *  stands; a plate of one is just that one, as it is. */
-async function plateGeometry() {
-  if (currentPlate().models.length === 1) {
-    const g = buildExportGeometry();
-    return g ? [g] : [];
-  }
+/** Is every parked model of `plate` (not the one edited) built under its settings? */
+export const plateReady = (plate) => plate.models.every((m) => !m.stash || m.stash.finsKey === plate.key);
+
+/**
+ * Every model of `plate` where it stands, each its buildExportGeometry: the live one
+ * as it is on screen when `plate` is the one being edited, the parked ones from
+ * their stashes. A plate of one is that one as it is (its session too).
+ */
+export function plateGeometry(plate = currentPlate()) {
+  const shown = plate === currentPlate();
+  const gs = plate.models.map((m, k) => {
+    if (shown && k === plate.live) {
+      const g = buildExportGeometry();
+      return g && placed(g, m.xy);
+    }
+    return m.stash ? placed(parkedGeometry(m, plate, shown), m.xy) : null;
+  }).filter(Boolean);
+  return gs;
+}
+
+/** The plate being edited the old way, each model made live in turn to build it
+ *  (when its parked builds would not settle). */
+async function plateGeometryLive() {
   return (await eachModel((xy) => {
     const g = buildExportGeometry();
     return g && placed(g, xy);
@@ -121,7 +171,7 @@ const FORMATS = {
                extras: g.slicer?.extras ?? [] };
     });
     return [writePlate3MF(models, { title: gs[0].base, separate: true,
-                                    session: gs.length === 1 ? sessionOf(gs[0].partTris) : null }),
+                                    session: gs.length === 1 ? gs[0].session() : null }),
             plateName(gs, 'fins', '.3mf')];
   },
   // Just the fins + pad (issue #5). One body, so 3MF would add nothing over STL.
@@ -140,9 +190,10 @@ function setOpen(open) {
     // nothing while a rebuild is out -- the old fins under the new settings' name
     const ready = !!(part && topology && lastResult) && !buildPending();
     el('export-stl').disabled = el('export-3mf').disabled = !ready;
-    // the parked models' fins count too
+    // STL and Fins only write the model being edited; 3MF the whole plate, whose
+    // parked models' fins count too
     const noFins = activeAdded().length === 0 && !parkedFins();
-    el('export-fins').disabled = !ready || noFins;
+    el('export-fins').disabled = !ready || activeAdded().length === 0;
     // the landing promises fins baked in: say so when the file would have none --
     // with fins off, the button to click; with them on (Draw with nothing drawn yet,
     // or a part with no overhang), just that the file is the part alone
@@ -158,15 +209,16 @@ btn.addEventListener('click', () => setOpen(menu.hidden));
 for (const [id, write] of Object.entries(FORMATS)) {
   el(id).addEventListener('click', async () => {
     setOpen(false);
-    if (currentPlate().models.length === 1) {
+    // an STL is the model being edited, alone, where it sits
+    if (id !== 'export-3mf' || currentPlate().models.length === 1) {
       const g = buildExportGeometry();
       if (g) download(...write([g]));
       return;
     }
-    // the plate's other models are parked: each is made live in turn to write it
-    const gs = await locked(plateGeometry);
-    if (!gs?.length || (id === 'export-fins' && !gs.some((g) => g.finTris.length))) return;
-    download(...write(gs));
+    // the plate's other models are parked, their fins kept to its settings: wait for
+    // any still building, then write them as they stand
+    const gs = (await parkedSettled()) ? plateGeometry() : await locked(plateGeometryLive);
+    if (gs?.length) download(...write(gs));
   });
 }
 // Every plate, one 3MF each (ui/plates.js); shown only with more than one plate.
@@ -175,12 +227,13 @@ el('export-all').addEventListener('click', () => {
   exportAll();
 });
 
-/** The plate being edited as a 3MF, [blob, name], for Export all plates (which holds
- *  the plates still); null when there is nothing to write. */
-export async function plate3MF() {
-  const gs = await plateGeometry();
-  return gs.length ? FORMATS['export-3mf'](gs) : null;
-}
+/** `gs` (plateGeometry) as a 3MF, [blob, name], for Export all plates; null when
+ *  there is nothing to write. */
+export const plate3MF = (gs) => (gs.length ? FORMATS['export-3mf'](gs) : null);
+
+/** The plate being edited the old way (plateGeometryLive), for Export all plates
+ *  when one's parked builds are not current (it holds the plates still). */
+export const plate3MFLive = async () => plate3MF(await plateGeometryLive());
 
 // click-away / Esc close it, the usual menu contract
 document.addEventListener('pointerdown', (e) => {

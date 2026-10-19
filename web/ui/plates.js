@@ -19,7 +19,8 @@ import { zipStore } from '../zip.js';
 import { part, partName } from './part.js';
 import { buildPending, finMesh, padMesh } from './finbuild.js';
 import { drawnMesh } from './walls.js';
-import { plate3MF } from './export.js';
+import { plate3MF, plate3MFLive, plateGeometry, plateReady } from './export.js';
+import { parkedSettled } from './parkedbuild.js';
 import { sectionPick } from './section.js';
 import { slot, liveXY, park, unpark, disposeSlot, select, takeLive, putBack, centreLone } from './models.js';
 import { drawRow, pitch, plateAt, glide, frameAll } from './plateview.js';
@@ -27,7 +28,7 @@ import { drawRow, pitch, plateAt, glide, frameAll } from './plateview.js';
 // One entry per plate: its model slots (models.js) and which of them is live -- or,
 // on a plate not being edited, which comes back live when it is -- and, kept when
 // its live model parks, its settings and undo history (null until then).
-const newPlate = () => ({ models: [slot()], live: 0, settings: null, history: null });
+const newPlate = () => ({ models: [slot()], live: 0, settings: null, key: null, history: null });
 const plates = [newPlate()];
 let active = 0;
 // Export is switching through the plates or models: the tabs and the row wait for it.
@@ -161,7 +162,7 @@ function deletePlate(i) {
   if (i === active) stashActive();
   const entry = plates[i];
   const slots = entry.models.filter((m) => m.stash);
-  const own = { settings: entry.settings, history: entry.history };
+  const own = { settings: entry.settings, key: entry.key, history: entry.history };
   if (plates.length === 1) {
     // the one plate stays, emptied (the same plate, for an earlier Undo to find)
     Object.assign(entry, newPlate());
@@ -215,31 +216,43 @@ el('remove-part').addEventListener('click', removeModel);
 
 const tick = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Every plate's model as a 3MF, all in one .zip (one plate: the 3MF alone), then
- *  back to the plate being edited. */
+/** Every plate's models as a 3MF, all in one .zip (one plate: the 3MF alone). Each
+ * plate's parked models are written as they stand, their fins kept to its settings
+ * (ui/parkedbuild.js); a plate left before they were rebuilt is switched to and its
+ * models made live in turn, then back to the plate being edited. */
 export async function exportAll() {
-  const back = active;
-  const files = await locked(async () => {
-    const out = [];
-    try {
-      for (let i = 0; i < plates.length; i++) {
-        go(i, true);
-        if (!part) continue;
-        // the switch starts a support build (in the worker): export what it builds
-        await tick(0);
-        while (buildPending()) await tick(50);
-        const f = await plate3MF();
-        if (f) out.push({ name: `plate-${i + 1}-${f[1]}`, blob: f[0] });
-      }
-    } finally {
-      go(back, true);
-    }
-    return out;
+  if (busy) return;
+  const settled = await parkedSettled();
+  const files = [], stale = [];
+  plates.forEach((p, i) => {
+    if (i === active ? !settled : !plateReady(p)) { stale.push(i); return; }
+    const f = plate3MF(plateGeometry(p));
+    if (f) files[i] = { name: `plate-${i + 1}-${f[1]}`, blob: f[0] };
   });
-  if (!files) return;
-  if (files.length === 1) { download(files[0].blob, files[0].name); return; }
-  if (!files.length) return;
-  const entries = await Promise.all(files.map(async (f) =>
+  if (stale.length) {
+    const back = active;
+    const ok = await locked(async () => {
+      try {
+        for (const i of stale) {
+          go(i, true);
+          if (!part) continue;
+          // the switch starts a support build (in the worker): export what it builds
+          await tick(0);
+          while (buildPending()) await tick(50);
+          const f = await plate3MFLive();
+          if (f) files[i] = { name: `plate-${i + 1}-${f[1]}`, blob: f[0] };
+        }
+      } finally {
+        go(back, true);
+      }
+      return true;
+    });
+    if (!ok) return;
+  }
+  const out = files.filter(Boolean);
+  if (out.length === 1) { download(out[0].blob, out[0].name); return; }
+  if (!out.length) return;
+  const entries = await Promise.all(out.map(async (f) =>
     ({ name: f.name, data: new Uint8Array(await f.blob.arrayBuffer()) })));
   const zip = zipStore(entries);
   download(new Blob([zip], { type: 'application/zip' }), 'support-fins-plates.zip');
