@@ -49,10 +49,11 @@ Install and turn on (OrcaSlicer 2.5 nightly):
 2. Switch the process settings to **Advanced**, open **Others ▸ Slicing Pipeline
    Plugin ▸ Add plugin** and pick **Support Fins**. Activating the plugin alone does
    nothing; the process preset has to reference it.
-3. Slice. The first slice of each Orca session shows a few **Plugin permission
-   request** prompts (reading Python's own library files, and `socket.__new__`,
+3. Slice. Recent builds usually ask nothing: the engine now starts while the plugin
+   loads, before Orca's permission checks are on. If Orca does show a **Plugin
+   permission request** (reading Python's own library files, or `socket.__new__`,
    which is the local self-pipe of the asyncio loop mini-racer creates, not network
-   access). Answer Yes.
+   access), answer Yes.
 
 ### Settings (the plugin config)
 
