@@ -159,19 +159,6 @@ function roofsOk(P, k) {
 }
 
 /**
- * LATTICE: diamonds in staggered rows over the whole hole zone, the solid left
- * between them a truss of diagonal struts. The zone is the wall's REAL outline
- * (under the top rail, over the foot rail, between the end posts), so on a
- * triangular fin the lattice runs right up the slope instead of stopping at
- * the first cell that is short at one end.
- *
- * At the edges each diamond is clipped to the zone, and kept if every roof it
- * ends up with still rises at CUT.roofMin (45deg) -- a slope as steep as that
- * becomes a hole's roof, so a fin under a 45deg face gets triangles hugging it.
- * A flatter edge would leave a bridge, so there the diamond is shrunk instead
- * until it fits whole. Anything smaller than a useful hole is left solid.
- */
-/**
  * The clip shared by the patterns that tile the whole zone (lattice, honeycomb):
  * a function taking a convex CCW hole and returning it fitted to the zone's real
  * outline, or null when no useful hole is left. Roofs the clip leaves flatter than
@@ -240,6 +227,19 @@ function zoneSpan(s, zLo, zHi, sA, sB) {
           Math.max(...zHi.filter((_, i) => s[i] >= sA && s[i] <= sB))];
 }
 
+/**
+ * LATTICE: diamonds in staggered rows over the whole hole zone, the solid left
+ * between them a truss of diagonal struts. The zone is the wall's REAL outline
+ * (under the top rail, over the foot rail, between the end posts), so on a
+ * triangular fin the lattice runs right up the slope instead of stopping at
+ * the first cell that is short at one end.
+ *
+ * At the edges each diamond is clipped to the zone, and kept if every roof it
+ * ends up with still rises at CUT.roofMin (45deg) -- a slope as steep as that
+ * becomes a hole's roof, so a fin under a 45deg face gets triangles hugging it.
+ * A flatter edge would leave a bridge, so there the diamond is shrunk instead
+ * until it fits whole. Anything smaller than a useful hole is left solid.
+ */
 function latticeHoles(s, zLo, zHi, sA, sB) {
   const k = CUT.latSlope, p = CUT.latPitch;
   const inset = CUT.latStrut / 2 / (k / Math.hypot(1, k));   // strut half-width, measured flat
@@ -271,7 +271,7 @@ function latticeHoles(s, zLo, zHi, sA, sB) {
  * upright. Neighbours in a row leave a vertical strut CUT.hexStrut wide; the next
  * row sits in the notches, its floors CUT.hexStrut square to the roofs below.
  */
-function honeycombHoles(s, zLo, zHi, sA, sB) {
+export function honeycombHoles(s, zLo, zHi, sA, sB) {
   const k = CUT.hexSlope, p = CUT.hexPitch, t = CUT.hexStrut;
   const a = (p - t) / 2, r = k * a, h = a * Math.hypot(1, k);
   if (a < CUT.minHalf) return [];

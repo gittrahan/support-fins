@@ -11,7 +11,7 @@ import { WEB, block, prop, fins, buildTopology, analyze, loadModel, isClosed, as
 
 const { drawnWall } = await import(`${WEB}draw.js`);
 const { PROP } = prop;
-const { CUT, holesFor } = await import(`${WEB}cutout.js`);
+const { CUT, holesFor, honeycombHoles } = await import(`${WEB}cutout.js`);
 const IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 
 // A floating slab: its underside at z=30 is a flat overhang with open air to the
@@ -267,6 +267,50 @@ Deno.test('cutout: the honeycomb has vertical struts between its holes, the latt
   assert(tallest(planes.lattice) < 0.5 * h, `lattice: a ${tallest(planes.lattice).toFixed(2)} mm vertical strut`);
   assert(tallest(planes.honeycomb) > 0.8 * h,
     `honeycomb: tallest vertical strut ${tallest(planes.honeycomb).toFixed(2)} mm, want ~${h.toFixed(2)}`);
+});
+
+Deno.test('cutout: honeycomb holes keep a full strut apart, and regular hexagons keep 30deg roofs', () => {
+  // Pure geometry, so a slip in the row pitch or column offset shows as a number,
+  // not as a few samples of lost material. Flat and sloped zones, shipped and
+  // regular (the coupon's HEX30) slopes.
+  const segDist = (p, a, b) => {
+    const dx = b[0] - a[0], dz = b[1] - a[1];
+    const u = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / (dx * dx + dz * dz || 1)));
+    return Math.hypot(p[0] - a[0] - u * dx, p[1] - a[1] - u * dz);
+  };
+  const gap = (P, Q) => {
+    let d = Infinity;
+    for (const [A, B] of [[P, Q], [Q, P]]) {
+      for (const v of A) for (let i = 0; i < B.length; i++) d = Math.min(d, segDist(v, B[i], B[(i + 1) % B.length]));
+    }
+    return d;
+  };
+  const was = CUT.hexSlope;
+  try {
+    for (const k of [was, 1 / Math.sqrt(3)]) {
+      CUT.hexSlope = k;
+      const s = [0, 20, 40, 60];
+      for (const [zLo, zHi] of [[[2, 2, 2, 2], [28, 28, 28, 28]], [[2, 2, 2, 2], [10, 20, 30, 40]]]) {
+        const H = honeycombHoles(s, zLo, zHi, 2, 58);
+        assert(H.length > 10, `k=${k.toFixed(3)}: only ${H.length} holes`);
+        for (let i = 0; i < H.length; i++) {
+          for (let j = i + 1; j < H.length; j++) {
+            const d = gap(H[i], H[j]);
+            assert(d >= CUT.hexStrut - 1e-6, `k=${k.toFixed(3)}: holes ${i},${j} ${d.toFixed(3)} mm apart`);
+          }
+          // every roof rises at least min(roofMin, k): regular hexagons stay regular
+          const P = H[i];
+          for (let n = 0; n < P.length; n++) {
+            const [x0, z0] = P[n], [x1, z1] = P[(n + 1) % P.length];
+            if (x1 - x0 < -1e-9) {
+              assert(Math.abs(z1 - z0) >= Math.min(CUT.roofMin, k) * (x0 - x1) - 1e-6,
+                `k=${k.toFixed(3)}: a roof flatter than ${Math.min(CUT.roofMin, k).toFixed(3)}`);
+            }
+          }
+        }
+      }
+    }
+  } finally { CUT.hexSlope = was; }
 });
 
 Deno.test('cutout: on real parts no pattern throws, leaves a hole in the mesh, or ADDS plastic', () => {
