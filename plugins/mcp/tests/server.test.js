@@ -77,7 +77,7 @@ Deno.test('mcp: bad input is a tool error that says why, and writes nothing', as
   const cases = [
     [{ path: 'lb.stl', settings: { coverage: 150 } }, /coverage must be 0\.\.100, got 150/],
     [{ path: 'lb.stl', settings: { coverage: '70' } }, /coverage must be a number/],
-    [{ path: 'lb.stl', settings: { sparkle: 1 } }, /unknown setting "sparkle"; the settings are threshold, tines/],
+    [{ path: 'lb.stl', settings: { sparkle: 1 } }, /unknown setting "sparkle"; the settings are mode, threshold, tines/],
     [{ path: 'lb.stl', rot: [0, 35] }, /rot must be \[x, y, z\]/],
     [{ path: 'missing.stl' }, /No such file: missing\.stl/],
     [{ path: 'lb.stl', output: 'lb.stl' }, /won't overwrite the input/],

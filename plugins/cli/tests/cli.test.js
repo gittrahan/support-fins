@@ -16,6 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { run, pose, rotationMatrix, parseArgs } from '../cli.js';
 import { computeFins, ENGINE_DEFAULTS } from '../../shared/engine/fins_entry.js';
 import { reportLine } from '../../shared/engine/report.js';
+import { seatSoup } from '../../shared/engine/seat.js';
 import { readSTL, MODELS, analyze, fins, rotX, rotY, assert, assertClose, block } from '../../../tests/_util.js';
 import { buildTopology, IDENTITY3 } from '../../../web/overhangs.js';
 import { readThreeMF } from '../../../web/threemf.js';
@@ -137,6 +138,26 @@ Deno.test('cli: .stl output merges part + fins; --fins-only lines the fins up wi
   // with no overhang there are no fins, and no empty file
   const none = await cli(['lb.stl', '--fins-only']);
   assert(none.code === 0 && !none.fs.has('lb-fins-only.stl') && /nothing written/.test(none.out[0]), none.out[0]);
+});
+
+// Full coverage the way the site builds it (ui/finbuild.js finOpts): the coverage
+// slider's default, Long walls on, the island starts found from the topology. On the
+// part as the entry seats it: Full's fill race moves with where the part sits (the
+// lbracket off its file's origin builds 20 walls, centred 22; local issue 023), so
+// this pins the options, not the frame.
+Deno.test('cli: --mode full is the website\'s Full coverage', async () => {
+  const { code, out } = await cli(['lb.stl', '--rot', '0,35,0', '--json', '--mode', 'full']);
+  assert(code === 0, `exit ${code}`);
+  const r = JSON.parse(out[0]);
+  const { pos } = seatSoup(pose(readSTL(LBRACKET), [0, 35, 0]));
+  const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
+  const res = analyze(topo, 45, IDENTITY3);
+  const { bedPad, tines, tineDensity, coverage, layerHeight } = ENGINE_DEFAULTS;
+  const web = fins.buildFins(topo, res, IDENTITY3, { mode: 'full', longWalls: true, bedPad, tines, tineDensity, coverage, layerHeight });
+  const auto = JSON.parse((await cli(['lb.stl', '--rot', '0,35,0', '--json'])).out[0]).stats;
+  assert(r.stats.braces === web.braceCount, `fins ${r.stats.braces} vs site ${web.braceCount}`);
+  assert(r.stats.tines === web.tines, `tines ${r.stats.tines} vs site ${web.tines}`);
+  assert(r.stats.braces > auto.braces, `Full ${r.stats.braces} walls, Auto ${auto.braces}`);
 });
 
 Deno.test('cli: flags reach the engine in the site\'s units', async () => {

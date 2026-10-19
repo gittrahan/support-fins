@@ -6,9 +6,10 @@
 //   deno test --allow-read plugins/shared/tests/
 import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible } from '../engine/fins_entry.js';
 import { DEFAULT_THRESHOLD } from '../../../web/overhangs.js';
-import { readSTL, MODELS, rotY, assert } from '../../../tests/_util.js';
+import { readSTL, MODELS, rotX, rotY, assert } from '../../../tests/_util.js';
 import { CUTOUT_PATTERNS } from '../../../web/cutout.js';
 import { SWAY } from '../../../web/sway.js';
+import { FIN } from '../../../web/fins/config.js';
 
 const SCHEMA = JSON.parse(Deno.readTextFileSync(new URL('../engine/options.json', import.meta.url)));
 const HTML = Deno.readTextFileSync(new URL('../../../web/index.html', import.meta.url));
@@ -33,13 +34,12 @@ function siteControl(id) {
 // With `percent`, the site shows the entry's value x 100.
 const fromSite = (o, v) => (o.percent ? Number(v) / 100 : Number(v));
 // Options the site shows that a plugin dialog deliberately leaves out (options.json $comment).
-const SITE_ONLY_CHOICES = { padStyle: ['custom'] };
+const SITE_ONLY_CHOICES = { padStyle: ['custom'], mode: ['draw'] };
 // Every site control that is NOT in options.json, and why. A new control on the site
 // fails the test below until it is added to the schema or listed here.
 const SITE_EXCLUDED = {
   'full-brace-depth': 'browser opt-in; plugin dialogs retain the established 60 mm Sway depth limit',
   'sway-cross-height': 'browser sway cross-ribs only; plugin dialogs retain the default rib height ratio',
-  'long-walls': 'Full coverage only; plugins run Auto',
   'tall-ribs': 'the plugins build with the engine default (on, as the site starts); a dialog control can follow',
   'tall-ribs-height': 'browser tall-wall rib threshold; plugin dialogs retain the default 100 mm height',
   'file': 'loading a model is the host\'s job', 'file-add': 'adding a model to the plate is the host\'s job', 'volume': 'site build-volume preview',
@@ -48,7 +48,6 @@ const SITE_EXCLUDED = {
   'scale-pct': 'the part\'s size is the host\'s (every CAD and slicer scales it)',
   'show-layers': 'site display', 'highlight-small': 'site display', 'show-islands': 'site display', 'show-rings': 'site display',
   'nav-preset': 'site mouse navigation', 'opts-search': 'site settings search',
-  'fin-mode': 'plugins run Auto; Draw needs the site\'s canvas',
   'pad-h': 'Custom pad', 'pad-gap': 'Custom pad', 'pad-grip': 'Custom pad', 'pad-margin': 'Custom pad',
   'iface': 'a third 3MF object for a second material; the plugins hand the host one body',
   'wall-lines': 'site first, with the nozzle; the plugins build 2-line walls (web/nozzle.js)',
@@ -147,7 +146,10 @@ Deno.test('optionVisible hides exactly what the site hides (web/ui/settings.js)'
   for (const k of ['sway.gripFrom', 'sway.tineSpacing']) {
     assert(shown(k, { 'sway.on': true }) && !shown(k, { 'sway.on': true, tines: false }), `${k} follows sway AND tines`);
   }
-  for (const k of ['gap', 'threshold', 'padStyle', 'cutout', 'coverage', 'tines', 'sway.on']) assert(shown(k, {}), `${k} always shown`);
+  for (const k of ['mode', 'gap', 'threshold', 'padStyle', 'cutout', 'tines', 'sway.on']) assert(shown(k, {}), `${k} always shown`);
+  // the coverage slider is Auto's; Long walls is Full coverage's (settings.js syncCoverageUI)
+  assert(shown('coverage', {}) && !shown('coverage', { mode: 'full' }), 'coverage follows Auto');
+  assert(!shown('longWalls', {}) && shown('longWalls', { mode: 'full' }), 'Long walls follows Full coverage');
 });
 
 Deno.test('optionsFromDialog: nests, checks, drops sway when off', () => {
@@ -183,9 +185,10 @@ Deno.test('dialog defaults build exactly the engine defaults', () => {
 
 // A model tilted about Y. The lbracket at 35 deg gets walls, tines and a pad, so every
 // option shows -- but Plate only needs a wall standing on the part, which it has none
-// of: the portal on its side at Y90 stands its one wall on its lower leg.
-function posed(name = 'lbracket', deg = 35) {
-  const pos = readSTL(Deno.readFileSync(`${MODELS}${name}.stl`)), m = rotY(deg);
+// of: the portal on its side at Y90 stands its one wall on its lower leg. Long walls
+// needs rows that win the fill race: the lbracket at X40 (tests/rows.test.js).
+function posed(name = 'lbracket', deg = 35, rot = rotY) {
+  const pos = readSTL(Deno.readFileSync(`${MODELS}${name}.stl`)), m = rot(deg);
   const out = new Float64Array(pos.length);
   for (let i = 0; i < pos.length; i += 3) {
     const x = pos[i], y = pos[i + 1], z = pos[i + 2];
@@ -210,7 +213,7 @@ Deno.test('every option reaches the geometry (no dead dialog control)', () => {
   const bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));  // upright: braced
   try {
     const plain = computeFins(lbracket, {}).triangles;
-    const portal = posed('portal', 90);
+    const portal = posed('portal', 90), rowed = posed('lbracket', 40, rotX);
     const braced = computeFins(bar, { sway: { on: true } }).triangles;
     for (const o of OPTS) {
       const [, sub] = o.key.split('.');
@@ -221,10 +224,26 @@ Deno.test('every option reaches the geometry (no dead dialog control)', () => {
           : o.key === 'pinDepth'   // shown only for vertical tines (resin pins, #309)
             ? changesFins(lbracket, o, computeFins(lbracket, { tineDir: 'vertical' }).triangles,
                 (v) => computeFins(lbracket, { tineDir: 'vertical', pinDepth: v }))
+          : o.key === 'longWalls'   // shown only in Full coverage
+            ? changesFins(rowed, o, computeFins(rowed, { mode: 'full' }).triangles,
+                (v) => computeFins(rowed, { mode: 'full', longWalls: v }))
           : o.key === 'plateOnly'
             ? changesFins(portal, o, computeFins(portal, {}).triangles, (v) => computeFins(portal, { plateOnly: v }))
           : changesFins(lbracket, o, plain, (v) => computeFins(lbracket, { [o.key]: v }));
       assert(ok, `${o.key}: no value it offers changes the fins`);
     }
   } finally { computeFins(bar, {}); }   // put the engine back on its defaults
+});
+
+// Full coverage builds at the default coverage, as the site does: the slider is hidden
+// there, so a value a host still sends must not move the fins (no input the math ignores
+// in one mode and reads in the other).
+Deno.test('Full coverage ignores the coverage slider, as the site does', () => {
+  assert(byKey.coverage.default === FIN.coverDefault, 'coverage default vs FIN.coverDefault (the site\'s Full)');
+  const lbracket = posed();
+  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  const full = computeFins(lbracket, { mode: 'full' }).triangles;
+  assert(same(full, computeFins(lbracket, { mode: 'full', coverage: 0 }).triangles), 'Full read coverage 0');
+  assert(same(full, computeFins(lbracket, { mode: 'full', coverage: 1 }).triangles), 'Full read coverage 1');
+  assert(!same(full, computeFins(lbracket, {}).triangles), 'Full built the same fins as Auto');
 });

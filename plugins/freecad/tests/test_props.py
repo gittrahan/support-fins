@@ -77,12 +77,14 @@ def test_units_on_the_way_to_the_engine():
               "LayerHeight": Quantity(0.16), "BedPad": "Sure hold", "SwayBraces": True,
               "BraceGripFrom": 12.0, "BraceTineSpacing": 8.0, "BraceDepth": 20,
               "Cutouts": "Lattice", "WideFaceCoverage": 100, "PlateOnly": True,
-              "Direction": "Vertical (resin)", "PinDepth": 0.5}
+              "Direction": "Vertical (resin)", "PinDepth": 0.5,
+              "PlacementMode": "Full coverage — every overhang", "LongWalls": False}
     values = props.dialog_values(SCHEMA, lambda n: set_to[n])
     assert values == {"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 0.35,
                       "layerHeight": 0.16, "padStyle": "sure", "sway.on": True, "sway.gripFrom": 12.0,
                       "sway.tineSpacing": 8.0, "sway.reach": 0.2, "cutout": "lattice", "coverage": 1.0,
-                      "plateOnly": True, "tineDir": "vertical", "pinDepth": 0.5}
+                      "plateOnly": True, "tineDir": "vertical", "pinDepth": 0.5,
+                      "mode": "full", "longWalls": False}
 
 
 def test_bounded_numbers_carry_the_engines_range():
@@ -107,6 +109,14 @@ def test_a_label_clash_is_refused():
     bad = json.loads(json.dumps(SCHEMA))
     bad["options"].append(dict(bad["options"][0], key="other"))
     with pytest.raises(ValueError, match="duplicate property names"):
+        props.specs(bad)
+
+
+def test_a_freecad_builtin_name_is_refused():
+    # "Placement" would take over the object's own position (where the fins sit)
+    bad = json.loads(json.dumps(SCHEMA))
+    bad["options"][0] = dict(bad["options"][0], label="Placement")
+    with pytest.raises(ValueError, match="FreeCAD's own property names"):
         props.specs(bad)
 
 

@@ -11,6 +11,7 @@ same settings: the flags are generated from `plugins/shared/engine/options.json`
 support-fins part.stl                          # -> part-fins.3mf next to it (part + fins)
 support-fins part.stl --rot 0,35,0             # pose it first: the site's X · Y · Z readout
 support-fins *.stl --gap 0.3 --coverage 70        # PETG: a wider Support gap
+support-fins roof.stl --mode full              # Full coverage: walls under every overhang Auto leaves bare
 support-fins part.stl -o out.stl               # one STL with part + fins merged
 support-fins part.stl --fins-only              # part-fins-only.stl, lines up with part.stl
 support-fins plate.3mf --object 2              # a 3MF with several objects: pick one

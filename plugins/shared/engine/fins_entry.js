@@ -25,7 +25,8 @@ import SCHEMA from './options.json' with { type: 'json' };
 const OPTION = Object.fromEntries(SCHEMA.options.map((o) => [o.key, o]));
 
 export const ENGINE_DEFAULTS = Object.freeze({
-  mode: 'auto',        // the website's default fin mode
+  mode: OPTION.mode.default,                 // 'auto' | 'full' (Full coverage, web/fins/fill.js)
+  longWalls: OPTION.longWalls.default,       // Full coverage's rows along the part (fins/rows.js)
   bedPad: true,        // older hosts' switch; padStyle 'off' turns the pad off too
   tines: OPTION.tines.default,
   tineDensity: OPTION.tineDensity.default,   // 0..1 (the site's slider / 100)
@@ -148,8 +149,11 @@ export function computeFins(positions, options = {}) {
   }
   const built = buildFins(topo, result, IDENTITY3, {
     mode: opts.mode, bedPad: opts.bedPad && opts.padStyle !== 'off', tines: opts.tines,
-    tineDensity: opts.tineDensity, layerHeight: opts.layerHeight, coverage: opts.coverage,
-    plateOnly: opts.plateOnly,
+    tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
+    // Full coverage aims at every reachable overhang: the slider is Auto's, so Full
+    // builds at its default as the site does (ui/finbuild.js finOpts)
+    coverage: opts.mode === 'full' ? OPTION.coverage.default : opts.coverage,
+    plateOnly: opts.plateOnly, longWalls: opts.longWalls,
     // `sway` is forwarded whole, so a host passes the same object the website's
     // options panel builds; buildFins ignores it unless `on` is set. Like the site
     // (ui/finbuild.js swayOpts), braces take the Support gap unless the

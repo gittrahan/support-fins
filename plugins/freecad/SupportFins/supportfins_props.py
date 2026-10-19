@@ -18,6 +18,9 @@ GROUP = "Support Fins"
 # Settings an older add-on saved that the engine no longer takes: PLA/PETG Material
 # became the Support gap. Removed from a restored file, so it can't sit there doing nothing.
 RETIRED = ("Material",)
+# Every FreeCAD document object already has these: a label that named one would take
+# over the object's own property (Placement is where the fins sit, not how they're placed).
+BUILTIN = ("Label", "Label2", "Placement", "Shape", "Visibility", "ExpressionEngine", "Proxy")
 
 
 def prop_name(option):
@@ -63,6 +66,9 @@ def specs(schema):
     dupes = {n for n in names if names.count(n) > 1}
     if dupes:
         raise ValueError(f"options.json labels give duplicate property names: {sorted(dupes)}")
+    taken = sorted(set(names) & set(BUILTIN))
+    if taken:
+        raise ValueError(f"options.json labels give FreeCAD's own property names: {taken}")
     return out
 
 
