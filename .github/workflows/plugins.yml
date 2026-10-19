@@ -386,6 +386,9 @@ jobs:
       - uses: actions/setup-python@v5   # release_labels.py needs 3.11+ (tomllib)
         with:
           python-version: '3.12'
+      - uses: actions/setup-node@v4     # release_labels.py runs esbuild (npx) for the versions
+        with:
+          node-version: '22'
       - uses: actions/download-artifact@v4
         with:
           path: dist

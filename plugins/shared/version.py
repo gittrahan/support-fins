@@ -10,6 +10,10 @@ gets a new version exactly when its contents change, never otherwise (the PrusaS
 port doesn't move when the engine does), and a later version is always the newer code:
 Prusa 0.7.740 and Orca 0.7.754 are the code as of main's 740th and 754th commits.
 
+Not counted, so they can change a download without a new number: the repo's LICENSE
+(Cura and Blender copy it in), esbuild's own patch release (npx esbuild@0.28), and a
+local build's uncommitted edits (it takes HEAD's number). A release comes from main.
+
 BASE moves by hand, for a change worth a new series. The source files hold BASE.0, so
 a plugin run from a checkout says it is unstamped. Outside a git checkout every plugin
 is BASE.0; a shallow clone (a CI checkout without fetch-depth: 0) is refused rather
@@ -49,7 +53,8 @@ def version(paths):
     except (OSError, subprocess.CalledProcessError):
         return UNSTAMPED   # not a git checkout
     rel = sorted({pathlib.Path(p).resolve().relative_to(ROOT).as_posix() for p in paths})
-    last = _git("log", "-1", "--format=%H", "HEAD", "--", *rel, *_NOT_SHIPPED)
+    # --first-parent: a merged PR is numbered by its merge commit's place on main
+    last = _git("log", "-1", "--first-parent", "--format=%H", "HEAD", "--", *rel, *_NOT_SHIPPED)
     return f"{BASE}.{_git('rev-list', '--count', last)}" if last else UNSTAMPED
 
 
