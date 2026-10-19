@@ -8,6 +8,7 @@
 // plugin dialog control.
 import { computeFins, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from '../shared/engine/fins_entry.js';
 import { reportLine } from '../shared/engine/report.js';
+import { VERSION } from './version.js';
 import { readSTL, writeBinarySTL } from '../../web/stl.js';
 import { readThreeMF, writeThreeMF } from '../../web/threemf.js';
 import { readOBJ } from '../../web/obj.js';
@@ -38,6 +39,7 @@ export function helpText() {
     '  --object <n|name>     which object of a multi-object 3MF or OBJ to fin (1-based)',
     '  --json                one JSON line per file instead of the summary',
     '  -h, --help            this text',
+    '  --version             which build this is',
     '',
     'settings (the site\'s, same defaults):',
   ];
@@ -78,6 +80,7 @@ export function parseArgs(argv) {
       return argv[++i];
     };
     if (a === '-h' || a === '--help') out.help = true;
+    else if (a === '--version') out.version = true;
     else if (a === '-o' || a === '--output') out.output = next();
     else if (a === '--rot') out.rot = parseRot(next());
     else if (a === '--fins-only') out.finsOnly = true;
@@ -276,6 +279,7 @@ export async function run(argv, io) {
   try {
     args = parseArgs(argv);
     if (args.help) { io.out(helpText()); return 0; }
+    if (args.version) { io.out(`support-fins ${VERSION}`); return 0; }
     if (args.inputs.length === 0) throw new UsageError('no input file (see --help)');
     if (args.output && args.inputs.length > 1) throw new UsageError('-o takes one input; with several, each is written next to its input');
     if (args.finsOnly && args.rot) {

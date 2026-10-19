@@ -30,6 +30,7 @@ INLINE = {
 
 sys.path.insert(0, str(HERE.parent / "shared"))
 from bundle import bundle_engine  # noqa: E402
+from version import engine_plugin_version, stamp  # noqa: E402
 
 
 def main():
@@ -47,9 +48,12 @@ def main():
                         f"{code}# --- end {name[:-3]} ---\n")
     # json.dumps yields a valid Python string literal (ASCII, escaped).
     out = "".join(lines).replace(PLACEHOLDER, json.dumps(js))
+    v = engine_plugin_version(HERE)
+    out = stamp(out, '# version = "0.7.0"', f'# version = "{v}"', "src/support_fins_orca.py")
+    out = stamp(out, 'VERSION = "0.7.0"', f'VERSION = "{v}"', "src/support_fins_orca.py")
     target = OUT / "support_fins_orca.py"
     target.write_text(out, encoding="utf-8")
-    print(f"built {target.relative_to(HERE.parent.parent)} "
+    print(f"built {target.relative_to(HERE.parent.parent)} {v} "
           f"({target.stat().st_size / 1024:.0f} KB, engine {len(js) / 1024:.0f} KB)")
 
 

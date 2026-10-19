@@ -36,9 +36,9 @@ PROJECT = OUT / "SupportFins"
 
 sys.path.insert(0, str(SHARED))
 from bundle import bundle_engine  # noqa: E402
+from version import engine_plugin_version  # noqa: E402
 
 PLUGIN_ID = "6a881861-fe75-4314-ba84-6f833da35639"
-VERSION = "0.1"
 # fixed ids, so a rebuild is the same plugin and the same commands to Rhino
 COMMANDS = {
     "SupportFins": "0f6b2c1e-8f43-4f0e-9a51-5d1b7c3e2a10",
@@ -77,7 +77,7 @@ def rhproj(lib_files):
         "id": PLUGIN_ID,
         "identity": {
             "name": "Support Fins",
-            "version": VERSION,
+            "version": engine_plugin_version(HERE),   # plugins/shared/version.py
             "publisher": {"name": "printfins.com", "email": "mathyout@pm.me"},   # no email: no author in the .yak
             "description": "Breakaway support fins for 3D printing, from printfins.com: "
                            "tined walls that hold up a part's overhangs and snap off clean.",
@@ -142,7 +142,7 @@ def main():
         sys.exit("rhinocode built no .yak")
     for old in OUT.glob("support-fins-rhino-*.yak"):
         old.unlink()
-    dest = OUT / f"support-fins-rhino-{VERSION}.yak"
+    dest = OUT / f"support-fins-rhino-{engine_plugin_version(HERE)}.yak"
     shutil.copy2(yaks[-1], dest)
     print(f"built {dest.relative_to(ROOT)} ({dest.stat().st_size / 1e6:.1f} MB)")
 

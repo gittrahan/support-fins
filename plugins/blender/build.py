@@ -34,6 +34,7 @@ OUT = HERE / "build"
 
 sys.path.insert(0, str(SHARED))
 from bundle import bundle_engine  # noqa: E402
+from version import engine_plugin_version, stamp  # noqa: E402
 from vendor import mini_racer_wheel, wheel_platform  # noqa: E402
 
 # Blender's platform name -> mini-racer's wheel tag (the ones plugins/shared/vendor.py
@@ -94,7 +95,9 @@ def stage(dest, platform, engine_js):
     (dest / "wheels").mkdir()
     flat_wheel(whl, dest / "wheels")
     manifest = dest / "blender_manifest.toml"
-    text = manifest.read_text(encoding="utf-8")
+    # stamped: Blender's extension list shows it, and updates by it
+    text = stamp(manifest.read_text(encoding="utf-8"), 'version = "0.7.0"',
+                 f'version = "{engine_plugin_version(HERE)}"', manifest.name)
     # top-level keys: before the first [table], if there is one
     extra = f'platforms = ["{platform}"]\nwheels = ["./wheels/{whl.name}"]\n'
     at = text.find("\n[")
@@ -126,7 +129,7 @@ def main():
     js = bundle_engine(OUT / "fins_engine.js")
     for p in platforms:
         z = build(p, OUT / "fins_engine.js")
-        print(f"built {z.relative_to(ROOT)} ({z.stat().st_size / 1e6:.1f} MB, engine {len(js) / 1024:.0f} KB)")
+        print(f"built {z.relative_to(ROOT)} {engine_plugin_version(HERE)} ({z.stat().st_size / 1e6:.1f} MB, engine {len(js) / 1024:.0f} KB)")
 
 
 if __name__ == "__main__":

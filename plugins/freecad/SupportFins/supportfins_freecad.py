@@ -21,6 +21,7 @@ import FreeCAD as App
 import supportfins_props as props
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+VERSION = "0.7.0"   # stamped by build.py (plugins/shared/version.py)
 SCHEMA = json.load(open(os.path.join(HERE, "options.json"), encoding="utf-8"))
 SPECS = props.specs(SCHEMA)
 SETTING_NAMES = {s["name"] for s in SPECS}
@@ -208,7 +209,7 @@ class SupportFins:
         obj.Mesh = mesh
         self._placed = where(obj)
         obj.Report = h.host_report(stats)
-        App.Console.PrintMessage(f"Support Fins ({obj.Source.Label}): {obj.Report}\n")
+        App.Console.PrintMessage(f"Support Fins {VERSION} ({obj.Source.Label}): {obj.Report}\n")
         self.show_relevant(obj, values)
 
     def show_relevant(self, obj, values=None):

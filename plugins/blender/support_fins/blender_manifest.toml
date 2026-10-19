@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "support_fins"
-version = "0.1.0"
+version = "0.7.0"
 name = "Support Fins"
 tagline = "Breakaway support fins that grip the part, from printfins.com"
 maintainer = "gittrahan"

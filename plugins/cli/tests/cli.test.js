@@ -357,3 +357,8 @@ async function modifierFile() {
   const blob = zipStore([...parts].map(([name, data]) => ({ name, data })));
   return new Uint8Array(await blob.arrayBuffer());
 }
+
+Deno.test('cli: --version names the build (plugins/shared/version.py stamps it; a checkout is the base)', async () => {
+  const { code, out } = await cli(['--version']);
+  assert(code === 0 && out.length === 1 && /^support-fins 0\.7\.\d+$/.test(out[0]), `exit ${code}: ${out}`);
+});

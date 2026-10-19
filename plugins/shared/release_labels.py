@@ -4,53 +4,38 @@
   python3 plugins/shared/release_labels.py DIST SHA   # one "path#label" line per file
 
 The publish job feeds these lines to `gh release upload`, so every asset's label reads
-e.g. "Fusion add-in 0.6.2 · engine 28ed79c". printfins.com's Plugins menu reads the
+e.g. "Fusion add-in 0.7.754 · engine 28ed79c". printfins.com's Plugins menu reads the
 labels back through the GitHub API (CORS-open, unlike the download URLs) to show which
-build each download is. A plugin with no version of its own (FreeCAD, the command line)
-shows the engine commit only. Files no rule matches are an error, so a new download
-can't go up unlabelled.
+build each download is. The version is the one the plugin's build stamped into it
+(version.py, from the same checkout). Files no rule matches are an error, so a new
+download can't go up unlabelled.
 """
-import json
 import pathlib
 import re
 import sys
-import tomllib
 
-PLUGINS = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+from version import all_versions  # noqa: E402
 
-
-def _pep723():
-    m = re.search(r'^# version = "([^"]+)"', (PLUGINS / "orca/src/support_fins_orca.py").read_text(), re.M)
-    return m.group(1)
-
-
-def _json(rel):
-    return json.loads((PLUGINS / rel).read_text())["version"]
-
-
-# (file name pattern, plugin name, its version or None)
+# (file name pattern, plugin name, its folder under plugins/)
 RULES = [
-    (r"support_fins_orca\.py", "OrcaSlicer plugin", _pep723),
-    (r"SupportFins\.zip", "Fusion add-in", lambda: _json("fusion/SupportFins/SupportFins.manifest")),
-    (r"SupportFins-(.+)\.curapackage", "Cura plugin", lambda: _json("cura/SupportFins/plugin.json")),
-    (r"support-fins-prusa\.zip", "PrusaSlicer plugin", lambda: _json("prusa/com.printfins.support-fins/manifest.json")),
-    (r"support_fins-(.+)\.zip", "Blender extension",
-     lambda: tomllib.loads((PLUGINS / "blender/support_fins/blender_manifest.toml").read_text())["version"]),
-    (r"support-fins-freecad-(.+)\.zip", "FreeCAD add-on", None),
-    (r"support-fins-solidworks\.zip", "SolidWorks add-in",
-     lambda: re.search(r"<Version>([^<]+)</Version>", (PLUGINS / "solidworks/SupportFins/SupportFins.SolidWorks.csproj").read_text()).group(1)),
-    (r"support-fins\.mjs", "Command line", None),
-    (r"support-fins-mcp\.mjs", "MCP server", None),
+    (r"support_fins_orca\.py", "OrcaSlicer plugin", "orca"),
+    (r"SupportFins\.zip", "Fusion add-in", "fusion"),
+    (r"SupportFins-(.+)\.curapackage", "Cura plugin", "cura"),
+    (r"support-fins-prusa\.zip", "PrusaSlicer plugin", "prusa"),
+    (r"support_fins-(.+)\.zip", "Blender extension", "blender"),
+    (r"support-fins-freecad-(.+)\.zip", "FreeCAD add-on", "freecad"),
+    (r"support-fins-solidworks\.zip", "SolidWorks add-in", "solidworks"),
+    (r"support-fins\.mjs", "Command line", "cli"),
+    (r"support-fins-mcp\.mjs", "MCP server", "mcp"),
 ]
 
 
-def label(name, sha):
-    for pattern, plugin, version in RULES:
+def label(name, sha, versions):
+    for pattern, plugin, folder in RULES:
         m = re.fullmatch(pattern, name)
         if m:
-            parts = [plugin]
-            if version:
-                parts[0] += f" {version()}"
+            parts = [f"{plugin} {versions[folder]}"]
             if m.groups():
                 parts.append(m.group(1))
             parts.append(f"engine {sha[:7]}")
@@ -62,5 +47,6 @@ if __name__ == "__main__":
     if len(sys.argv) != 3:
         sys.exit(__doc__)
     dist, sha = pathlib.Path(sys.argv[1]), sys.argv[2]
+    versions = all_versions()
     for f in sorted(dist.iterdir()):
-        print(f"{f}#{label(f.name, sha)}")
+        print(f"{f}#{label(f.name, sha, versions)}")

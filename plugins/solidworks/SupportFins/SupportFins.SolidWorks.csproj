@@ -18,7 +18,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <!-- Bump with each add-in change: the dialog shows it, so you can tell which build SolidWorks loaded. -->
-    <Version>0.1.0</Version>
+    <Version>0.7.0</Version>
     <Product>Support Fins for SolidWorks</Product>
     <Company>printfins.com</Company>
     <Copyright>Support Fins contributors</Copyright>

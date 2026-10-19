@@ -44,6 +44,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -70,6 +72,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -91,6 +95,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -119,6 +125,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -144,6 +152,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -170,6 +180,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -203,6 +215,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -228,6 +242,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
       - uses: actions/setup-python@v5
         with:
           python-version: '3.9'     # Rhino 8's CPython
@@ -270,17 +286,19 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
       - name: Install Lua
         run: sudo apt-get update -q && sudo apt-get install -y -q lua5.4 && lua -v && luac -v
       - name: Test
         run: bash plugins/prusa/run-tests.sh
       - name: Package
-        # the slicer loads the bundle folder, so ship the folder zipped
-        run: cd plugins/prusa && zip -qr "$GITHUB_WORKSPACE/support-fins-prusa.zip" com.printfins.support-fins
+        # the slicer loads the bundle folder: the folder zipped, its manifest stamped with the version
+        run: python3 plugins/prusa/build.py
       - uses: actions/upload-artifact@v4
         with:
           name: prusa
-          path: support-fins-prusa.zip
+          path: plugins/prusa/build/support-fins-prusa.zip
           if-no-files-found: error
 
   solidworks:
@@ -291,6 +309,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -394,7 +414,7 @@ jobs:
           - support-fins.mjs: command line (Deno or Node 20.10+): node support-fins.mjs part.stl
           - support-fins-mcp.mjs: MCP server for AI clients (Claude Code, Claude Desktop; Deno or Node 20.10+): claude mcp add support-fins -- node /full/path/to/support-fins-mcp.mjs
 
-          Each file's label names its plugin version and the engine commit it was built from."
+          Each file's label names its plugin version and the engine commit it was built from. A plugin's version (0.7.<n>) is the position on main of the last commit that changed what it ships, so it changes exactly when the plugin does."
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "Plugins (latest build)" --notes "$notes" --prerelease
           else

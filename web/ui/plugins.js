@@ -33,7 +33,7 @@ import { t } from './i18n.js';
 // plugins/, so a link here always gets the engine this site runs. Download links
 // are plain <a href>s (GitHub's download URLs send no CORS headers, but a
 // navigation doesn't need them). The version line under each plugin is the asset's
-// label ("Fusion add-in 0.6.2 · engine 28ed79c", written by
+// label ("Fusion add-in 0.7.754 · engine 28ed79c", written by
 // plugins/shared/release_labels.py), read through the GitHub API, which IS
 // CORS-open; fetched once, the first time the menu opens, and left out if it fails.
 //
@@ -139,9 +139,9 @@ const computer = el('plugins-computer');
 const list = el('plugins-list');
 let labels = null;      // asset name -> label, once fetched
 
-// "Cura plugin 0.1.0 · mac-arm64 · engine 28ed79c" -> { version: "v0.1.0", engine:
+// "Cura plugin 0.7.753 · mac-arm64 · engine 28ed79c" -> { version: "v0.7.753", engine:
 // "engine 28ed79c" }: the row already names the plugin and the picker the platform.
-// The command line's label has no version ("Command line · engine 28ed79c").
+// A label without a version (an older build's) shows none.
 function splitLabel(label) {
   const [first, ...rest] = label.split(' · ');
   const v = first.match(/(\d[\w.-]*)$/);

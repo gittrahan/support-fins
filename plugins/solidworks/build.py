@@ -29,6 +29,7 @@ ROOT = HERE.parent.parent
 
 sys.path.insert(0, str(HERE.parent / "shared"))
 from bundle import bundle_engine  # noqa: E402
+from version import engine_plugin_version  # noqa: E402
 
 # What dotnet build leaves that the add-in doesn't need (it hosts WebView2 in WinForms).
 SKIP = {"Microsoft.Web.WebView2.Wpf.dll"}
@@ -42,7 +43,9 @@ def build_dll():
     if ADDIN.exists():
         shutil.rmtree(ADDIN)
     subprocess.run([dotnet, "build", str(PROJECT / "SupportFins.SolidWorks.csproj"),
-                    "-c", "Release", "-o", str(ADDIN), "-nologo", "-v", "q"], check=True)
+                    "-c", "Release", "-o", str(ADDIN), "-nologo", "-v", "q",
+                    # the assembly's version, which the dialog shows: plugins/shared/version.py
+                    f"-p:Version={engine_plugin_version(HERE)}"], check=True)
     for f in list(ADDIN.rglob("*")):
         if f.is_file() and (f.name in SKIP or f.suffix in SKIP_SUFFIX):
             f.unlink()

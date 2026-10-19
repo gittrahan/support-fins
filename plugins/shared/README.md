@@ -27,6 +27,8 @@ engine/report.js        the one-line result (walls, tines, overhangs not reached
 vendor.py               mini-racer vendored into a plugin folder, per platform, for hosts
                         that can't pip-install (Cura, FreeCAD): their build.py uses it
 bundle.py               esbuild: bridge.js + web/*.js -> one IIFE, global SupportFinsEngine
+version.py              every plugin's version, 0.7.<n>: n = main's commit count at the last commit that
+                        changed what the plugin ships (its folder + the files it bundles); each build stamps it
 py/supportfins_host.py  Python side for plugins that run the bundle in mini-racer: start V8
                         (host_engine), run the engine on a soup and map the fins back to
                         the caller's frame (host_compute; host_compute_pieces adds the
@@ -45,6 +47,7 @@ ENGINE-SENSITIVITY.md   engine note: tine placement moves under 1e-13 mm of nois
 
 ```
 python3 plugins/shared/bundle.py out.js     # needs esbuild (npx fetches it on demand)
+python3 plugins/shared/version.py          # each plugin's version, as its build would stamp it
 deno test --allow-read plugins/shared/tests/
 python3 -m pytest -q plugins/shared/py/tests/   # needs numpy, trimesh, mini-racer==0.14.1
 ```

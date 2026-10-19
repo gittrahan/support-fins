@@ -37,6 +37,7 @@ ROOT = HERE.parent.parent
 
 sys.path.insert(0, str(SHARED))
 from bundle import bundle_engine  # noqa: E402
+from version import engine_plugin_version, stamp  # noqa: E402
 from vendor import PLATFORMS, wheel_platform, vendor_mini_racer as _vendor  # noqa: E402,F401
 
 
@@ -50,6 +51,9 @@ def build(plat):
         shutil.rmtree(PLUGIN)
     shutil.copytree(HERE / "SupportFins", PLUGIN,
                     ignore=shutil.ignore_patterns("__pycache__", "dev_*"))
+    meta = PLUGIN / "plugin.json"   # stamped: Cura's plugin list and package.json show it
+    meta.write_text(stamp(meta.read_text(encoding="utf-8"), '"version": "0.7.0"',
+                          f'"version": "{engine_plugin_version(HERE)}"', "plugin.json"), encoding="utf-8")
     shutil.copy2(SHARED / "py" / "supportfins_host.py", PLUGIN / "supportfins_host.py")
     shutil.copy2(SHARED / "engine" / "options.json", PLUGIN / "options.json")   # the dialog reads it without V8
     js = bundle_engine(PLUGIN / "fins_engine.js")
@@ -65,7 +69,7 @@ def package(plat):
     under files/plugins/SupportFins/ (Cura moves files/plugins to plugins/<package_id>,
     so it lands in plugins/SupportFins/SupportFins/, the usual layout), and the licence.
     The file name carries no version, so the release's download links stay put."""
-    meta = json.loads((HERE / "SupportFins" / "plugin.json").read_text(encoding="utf-8"))
+    meta = json.loads((PLUGIN / "plugin.json").read_text(encoding="utf-8"))   # as build() stamped it
     suffix, label, _, _ = PLATFORMS[plat]
     info = {
         "package_id": "SupportFins",

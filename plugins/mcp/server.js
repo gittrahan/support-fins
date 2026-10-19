@@ -7,8 +7,9 @@
 // same report. The settings schema is built from the CLI's flags (so from
 // options.json), in the site's units: percent sliders 0-100.
 import { run, OPTION_FLAGS, shown } from '../cli/cli.js';
+import { VERSION } from '../cli/version.js';
 
-export const SERVER_VERSION = '0.1.0';
+export const SERVER_VERSION = VERSION;   // plugins/cli/version.js: stamped by the build
 // newest first; an unknown request gets the newest (the client then decides)
 // (not 2025-03-26: its clients may send JSON-RPC batches, which this server doesn't take)
 export const PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18', '2024-11-05'];

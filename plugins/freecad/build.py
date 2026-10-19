@@ -34,6 +34,7 @@ ROOT = HERE.parent.parent
 
 sys.path.insert(0, str(SHARED))
 from bundle import bundle_engine  # noqa: E402
+from version import engine_plugin_version, stamp  # noqa: E402
 from vendor import PLATFORMS, vendor_mini_racer, wheel_platform  # noqa: E402
 
 
@@ -45,6 +46,9 @@ def stage(dest, plat, engine_js):
     shutil.copy2(SHARED / "py" / "supportfins_host.py", dest / "supportfins_host.py")
     shutil.copy2(SHARED / "engine" / "options.json", dest / "options.json")
     shutil.copy2(engine_js, dest / "fins_engine.js")
+    main = dest / "supportfins_freecad.py"   # its console line names the version
+    main.write_text(stamp(main.read_text(encoding="utf-8"), 'VERSION = "0.7.0"',
+                          f'VERSION = "{engine_plugin_version(HERE)}"', main.name), encoding="utf-8")
     return vendor_mini_racer(dest / "vendor", plat, OUT / "wheels")
 
 

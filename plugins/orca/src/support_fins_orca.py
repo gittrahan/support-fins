@@ -6,7 +6,7 @@
 # name = "Support Fins"
 # description = "Adds printfins.com breakaway support fins under overhangs at slice time. Parts with Orca supports turned on are left alone."
 # author = "Matthew Trahan (engine), J (Orca plugin)"
-# version = "0.2.0"
+# version = "0.7.0"
 # type = "slicing-pipeline"
 # ///
 """Support Fins for OrcaSlicer -- fins added at slice time.
@@ -55,6 +55,7 @@ except ImportError:  # pragma: no cover - surfaced to the user in execute()
     np = None
 
 ENGINE_JS = "__FINS_ENGINE_JS__"   # replaced by build.py with the esbuild bundle
+VERSION = "0.7.0"   # stamped by build.py (plugins/shared/version.py), as the header's
 
 # The plugin's own config keys, and its whole default config: Orca's "Restore defaults"
 # writes this back as the stored config, so a default listing every setting would pin
@@ -367,7 +368,8 @@ class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
             lh = float(po.config_value("layer_height") or ctx.config_value("layer_height") or 0.2)
         except (TypeError, ValueError):
             lh = 0.2
-        log = {"object_id": _safe(lambda: po.id()), "layer_height": lh, "started": time.time()}
+        log = {"object_id": _safe(lambda: po.id()), "layer_height": lh, "started": time.time(),
+               "version": VERSION}
         try:
             msg = inject_fins(po, cfg, lh, orca.slicing.unscale(1), log)
         except Exception as e:  # never break a slice over fins; report and carry on

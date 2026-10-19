@@ -20,5 +20,5 @@ cli_build = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cli_build)
 
 if __name__ == "__main__":
-    out = cli_build.build(HERE / "support-fins-mcp.js", OUT)
-    print(f"built {out.relative_to(cli_build.ROOT)} ({out.stat().st_size / 1024:.0f} KB)")
+    out, v = cli_build.build(HERE / "support-fins-mcp.js", OUT, folders=(HERE, HERE.parent / "cli"))
+    print(f"built {out.relative_to(cli_build.ROOT)} {v} ({out.stat().st_size / 1024:.0f} KB)")

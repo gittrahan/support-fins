@@ -26,10 +26,12 @@ SKIP = {'__pycache__', 'settings.json', '.env', '.vscode', '.DS_Store', 'lib', '
 
 sys.path.insert(0, str(HERE.parent / 'shared'))
 from bundle import bundle_engine  # noqa: E402
+from version import engine_plugin_version, stamp  # noqa: E402
 
 
-def zip_addin():
-    """build/SupportFins.zip: the SupportFins folder, bundle included."""
+def zip_addin(version):
+    """build/SupportFins.zip: the SupportFins folder, bundle included, its manifest
+    stamped with `version` (the dialog's footer reads it)."""
     OUT.mkdir(parents=True, exist_ok=True)
     zpath = OUT / 'SupportFins.zip'
     with zipfile.ZipFile(zpath, 'w', zipfile.ZIP_DEFLATED) as z:
@@ -37,7 +39,12 @@ def zip_addin():
             rel = f.relative_to(ADDIN)
             if f.is_dir() or SKIP.intersection(rel.parts) or f.suffix == '.pyc':
                 continue
-            z.write(f, pathlib.PurePosixPath('SupportFins', *rel.parts))
+            arc = pathlib.PurePosixPath('SupportFins', *rel.parts)
+            if f.name == 'SupportFins.manifest':
+                z.writestr(str(arc), stamp(f.read_text(encoding='utf-8'), '"version": "0.7.0"',
+                                           f'"version": "{version}"', f.name))
+            else:
+                z.write(f, arc)
     return zpath
 
 
@@ -48,8 +55,9 @@ def main():
     js = bundle_engine(BUNDLE)
     print('engine bundle: SupportFins/palette/fins_engine.js (%.0f KB)' % (len(js) / 1024))
     if args.zip:
-        z = zip_addin()
-        print('built %s (%.0f KB)' % (z.relative_to(HERE.parent.parent), z.stat().st_size / 1024))
+        v = engine_plugin_version(HERE)
+        z = zip_addin(v)
+        print('built %s %s (%.0f KB)' % (z.relative_to(HERE.parent.parent), v, z.stat().st_size / 1024))
 
 
 if __name__ == '__main__':
