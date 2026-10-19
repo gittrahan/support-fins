@@ -785,6 +785,25 @@ Deno.test('plate 3MF: two models, each its part and supports, one shared shift, 
   assertClose(fa.lo[0] - pa.lo[0], 4, 1e-6, "a's supports stay over a");
 });
 
+Deno.test('plate 3MF on a known bed: each model where it stands on it, a lone one too', async () => {
+  const a = { partTris: box(-40, -30, -5, 5, 0, 8), finTris: box(-36, -34, -1, 1, 8, 10), name: 'a' };
+  const b = { partTris: box(20, 30, 10, 20, 0, 5), finTris: [], name: 'b' };
+  const bed = { x: 250, y: 210 };
+  const { r } = await writePlate([a, b], { separate: true, bed });
+  const [pa, , pb] = r.objects.map((o) => bounds(o.positions));
+  // the plate's origin is the bed's centre; a slicer's bed counts from its corner
+  assertClose(pa.lo[0], 125 - 40, 1e-6, 'a x');
+  assertClose(pa.lo[1], 105 - 5, 1e-6, 'a y');
+  assertClose(pb.lo[0], 125 + 20, 1e-6, 'b x');
+  // one model moved off the bed's centre keeps its spot (no centring of its footprint)
+  const lone = await writePlate([a], { separate: true, bed });
+  const [pl] = lone.r.objects.map((o) => bounds(o.positions));
+  assertClose(pl.lo[0], 125 - 40, 1e-6, 'lone a x');
+  // and a lone part with no supports too (without a bed it is written as it stands)
+  const bare = await writePlate([{ ...a, finTris: [] }], { separate: true, bed });
+  assertClose(bounds(bare.r.objects[0].positions).lo[0], 125 - 40, 1e-6, 'bare part x');
+});
+
 Deno.test('plate 3MF: colours, interface and slicer parts on both models, each id and config entry its own', async () => {
   const rgb = Array(12).fill('#FF0000');
   const one = (dx, name, colour) => ({

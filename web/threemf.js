@@ -171,7 +171,7 @@ function bedShift(lists) {
  * @returns { xml, configs }: configs the slicer config files (extrasXML), each
  * written once with an entry for every model that has slicer parts
  */
-function modelXML(models, title, separate) {
+function modelXML(models, title, separate, bed) {
   const tables = [], objects = [], items = [], footprint = [];
   const cfg = { prusa2: [], bambu: [], prusa3: [] };
   let base = 0, prusa2 = false, slic3rpe = false;
@@ -230,10 +230,14 @@ function modelXML(models, title, separate) {
   }
 
   // One model in the separate form, with supports, or several in either: the items
-  // keep their 3MF positions (a single object gets centred by the slicer)
+  // keep their 3MF positions (a single object gets centred by the slicer). On a bed
+  // of known size every file is placed, a lone part without supports too: it stands
+  // where it was moved to (ui/move.js)
   let t = '';
-  if (models.length > 1 || (separate && models.some((m) => m.finTris?.length))) {
-    const [tx, ty] = bedShift(footprint);
+  if (bed || models.length > 1 || (separate && models.some((m) => m.finTris?.length))) {
+    // placed on a bed of known size (the site's plate, its centre the origin): each
+    // where it stands on it, from the bed's corner, as a slicer's bed counts
+    const [tx, ty] = bed ? [bed.x / 2, bed.y / 2] : bedShift(footprint);
     t = ` transform="1 0 0 0 1 0 0 0 1 ${fmt(tx)} ${fmt(ty)} 0"`;
   }
   const build = items.map((i) => `<item objectid="${i}"${t}/>`).join('');
@@ -302,12 +306,14 @@ export function writeThreeMF(partTris, finTris, name = 'Support Fins',
  * name, iface, colors, extras }, as writeThreeMF takes one, each already where it
  * stands on the plate (print space). Each keeps its own objects -- the part, its
  * supports, its slicer parts -- and every item one shared bed shift: the arrangement opens with its spacing kept, its footprint
- * centred on the bed as a one-model file's is (bedShift).
- * @param opts { title, separate, session }: as writeThreeMF's
+ * centred on the bed as a one-model file's is (bedShift) -- or, given the `bed` the
+ * models were placed on ({ x, y } mm, print space's origin its centre), each where
+ * it stands on it.
+ * @param opts { title, separate, session, bed }: as writeThreeMF's, and `bed`
  * @returns Blob a .3mf package
  */
-export function writePlate3MF(models, { title = models[0]?.name ?? 'Support Fins', separate = false, session = null } = {}) {
-  const { xml, configs } = modelXML(models, title, separate);
+export function writePlate3MF(models, { title = models[0]?.name ?? 'Support Fins', separate = false, session = null, bed = null } = {}) {
+  const { xml, configs } = modelXML(models, title, separate, bed);
   const entries = [
     { name: '[Content_Types].xml', data: CONTENT_TYPES },
     { name: '_rels/.rels', data: ROOT_RELS },
