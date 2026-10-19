@@ -396,7 +396,7 @@ export default {
   "coverage is below the anti-sag guide, so a broad overhang may sag between supports — nudge the slider right if the surface bows": "覆盖率低于防下垂建议值，宽大的悬垂可能在支撑之间下垂 —— 若表面出现凹陷，请把滑块向右调一点",
   "Full coverage added {n} walls under overhangs Auto left bare.": { other: "全覆盖在「自动」遗漏的悬垂下方补了 {n} 堵墙。" },
   "Auto already reaches every overhang here, so Full coverage added nothing.": "「自动」在此已覆盖到每一个悬垂，因此全覆盖没有额外添加内容。",
-  "Full coverage stopped at its wall limit with {area} mm² of overhang still bare — rotate the part, or switch to Auto": "全覆盖在墙数上限处停止，仍有 {area} mm² 悬垂裸露 —— 请旋转零件，或切换回「自动」",
+  "Full coverage stopped at its wall limit with {area} mm² of overhang still bare — rotate the part, or add a wall by hand": "全覆盖在墙数上限处停止，仍有 {area} mm² 悬垂裸露 —— 请旋转零件，或手动添加一堵墙",
   "{area} mm² of overhang no wall can reach this way up — tilt the part, or add a wall by hand": "在这个朝向上有 {area} mm² 悬垂是任何墙都无法到达的 —— 请倾斜零件，或手动添加一堵墙",
   "{n} overhangs are too shallow for a fin this way up. Tilt the part steeper so a fin can follow it (try Suggest orientation), or add a wall by hand.": { other: "在这个朝向上有 {n} 处悬垂过于平缓，放不下鳍片。请把零件倾斜得更陡，让鳍片能够贴合（试试「推荐摆位」），或手动添加一堵墙。" },
   "{n} supports were cut short or left off because part of the model sits under the overhang and Plate only is on. Untick it to stand them on the part.": { other: "有 {n} 处支撑被截短或省略，因为悬垂下方就是模型本体，且开启了「仅热床」。取消勾选即可把它们立在零件上。" },

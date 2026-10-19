@@ -412,7 +412,7 @@ function updateFinReadout(built, ms) {
     }
     const bare = Math.round(fl.unservedArea);
     if (fl.capped) {
-      lead.push(t('Full coverage stopped at its wall limit with {area} mm² of overhang still bare — rotate the part, or switch to Auto', { area: bare }));
+      lead.push(t('Full coverage stopped at its wall limit with {area} mm² of overhang still bare — rotate the part, or add a wall by hand', { area: bare }));
     } else if (bare >= 1) {
       lead.push(t('{area} mm² of overhang no wall can reach this way up — tilt the part, or add a wall by hand', { area: bare }));
     }
