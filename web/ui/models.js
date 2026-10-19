@@ -229,12 +229,6 @@ export function dropAdded(prev) {
   redraw();
 }
 
-/** A model alone on its plate stands at its centre, where a one-model export puts
- *  it and the fit check measures it. */
-export function centreLone(plate) {
-  if (plate.models.length === 1) plate.models[0].xy = [0, 0];
-}
-
 /**
  * Put the parked `slots` (a removal's Undo) back on `plate` beside its models: each
  * where it stood, unless something put there since covers that spot -- then at the
@@ -279,7 +273,6 @@ export function takeLive() {
   swap(k === 0 ? 1 : k - 1, false);
   plate.models.splice(k, 1);
   if (plate.live > k) plate.live--;
-  centreLone(plate);
   redraw();
   return m;
 }

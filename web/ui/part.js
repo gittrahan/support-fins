@@ -24,6 +24,7 @@ import { finsVisible, highlightSmall, setDrawAugment, syncAugmentUI } from './se
 import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
 import { resetScale } from './scale.js';
 import { updateIslands, renderIslandText, hadIslands } from './islands.js';
+import { liveXY } from './models.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff, roughness: 0.62, metalness: 0.05,
@@ -452,29 +453,23 @@ function report(filename, size) {
 export function updateFit() {
   if (!lastSize) return;
   const v = currentVolume();
-  let dx = lastSize.x, dy = lastSize.y, dz = lastSize.z;
-
+  // the part is centred on its spot (analyze seats it so), the fins wherever they reach
+  let x0 = -lastSize.x / 2, x1 = lastSize.x / 2, y0 = -lastSize.y / 2, y1 = lastSize.y / 2, z1 = lastSize.z;
   const added = activeAdded();
-  if (added.length) {
-    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity, z1 = -Infinity;
-    for (const t of added) {
-      if (t[0] < x0) x0 = t[0]; if (t[0] > x1) x1 = t[0];
-      if (t[1] < y0) y0 = t[1]; if (t[1] > y1) y1 = t[1];
-      if (t[2] > z1) z1 = t[2];
-    }
-    // the part is centred on the plate, so what matters is the half-extent each
-    // way, not the raw span of the fins alone
-    dx = Math.max(dx, 2 * Math.max(Math.abs(x0), Math.abs(x1)));
-    dy = Math.max(dy, 2 * Math.max(Math.abs(y0), Math.abs(y1)));
-    dz = Math.max(dz, z1);
+  for (const p of added) {
+    if (p[0] < x0) x0 = p[0]; if (p[0] > x1) x1 = p[0];
+    if (p[1] < y0) y0 = p[1]; if (p[1] > y1) y1 = p[1];
+    if (p[2] > z1) z1 = p[2];
   }
-
-  const over = dx > v.x || dy > v.y || dz > v.z;
+  const big = x1 - x0 > v.x || y1 - y0 > v.y || z1 > v.z;
+  // where it stands on the plate (ui/move.js): a model that would fit can hang off
+  const [mx, my] = liveXY(), e = 1e-6;
+  const off = !big && (x0 + mx < -v.x / 2 - e || x1 + mx > v.x / 2 + e || y0 + my < -v.y / 2 - e || y1 + my > v.y / 2 + e);
   const fit = el('s-fit');
-  fit.textContent = over
+  fit.textContent = big
     ? t(added.length ? 'does not fit (with fins)' : 'does not fit')
-    : t('fits');
-  fit.classList.toggle('warn', over);
+    : off ? t('hangs off the bed') : t('fits');
+  fit.classList.toggle('warn', big || off);
 }
 
 export let lastResult = null;

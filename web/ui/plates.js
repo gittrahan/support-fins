@@ -22,7 +22,7 @@ import { drawnMesh } from './walls.js';
 import { plate3MF, plate3MFLive, plateGeometry, plateReady, whileWaiting } from './export.js';
 import { parkedSettled } from './parkedbuild.js';
 import { sectionPick } from './section.js';
-import { slot, liveXY, park, unpark, disposeSlot, select, takeLive, putBack, centreLone } from './models.js';
+import { slot, liveXY, park, unpark, disposeSlot, select, takeLive, putBack } from './models.js';
 import { drawRow, pitch, plateAt, glide, frameAll } from './plateview.js';
 
 // One entry per plate: its model slots (models.js) and which of them is live -- or,
@@ -199,7 +199,6 @@ function undoDelete() {
   const p = plates[i];
   if (p.models.length === 1 && !p.models[0].stash) {
     p.models = slots;
-    centreLone(p);
     // a deleted plate's models come back under its settings and undo
     if (own) Object.assign(p, own);
   } else {

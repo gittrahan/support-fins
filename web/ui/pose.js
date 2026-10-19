@@ -18,6 +18,7 @@ import { drawActive, clearPreview } from './walls.js';
 import { refreshFins } from './finbuild.js';
 import { finsVisible } from './settings.js';
 import { part, topology, shade } from './part.js';
+import { moveActive } from './move.js';
 
 // The user rotates. Always. Auto-orientation may suggest, never apply -- the
 // spike's strength-optimal pose for one hub was 155mm tall balanced on a needle:
@@ -179,7 +180,7 @@ el('show-rings').addEventListener('change', (e) => {
  *  its place while that is up: two sets of handles on one part is a misclick. */
 export function setGizmo() {
   const on = showRings && !!part && !drawActive() && !layActive() && !removeActive()
-    && !planeHandleShown();
+    && !planeHandleShown() && !moveActive();
   gizmo.enabled = on;
   // A disabled gizmo stops tracking hover, so a ring hovered last would stay
   // "under the pointer" and app.js would swallow the next pick for it.

@@ -18,7 +18,8 @@ import { parkedSettled } from './parkedbuild.js';
 import { exportName } from '../exportname.js';
 import { nozzle } from '../nozzle.js';
 import { exportAll, currentPlate, locked } from './plates.js';
-import { eachModel, parkedFins } from './models.js';
+import { eachModel, parkedFins, liveXY } from './models.js';
+import { currentVolume } from './volume.js';
 
 /**
  * Export the part AS ORIENTED, seated on the plate, with the fins as extra
@@ -174,7 +175,8 @@ const FORMATS = {
       return { partTris: own.partTris, finTris: body, name: g.base, iface, colors: own.colors,
                extras: g.slicer?.extras ?? [] };
     });
-    return [writePlate3MF(models, { title: gs[0].base, separate: true,
+    // each where it stands on the plate, the plate's centre the bed's (ui/move.js)
+    return [writePlate3MF(models, { title: gs[0].base, separate: true, bed: currentVolume(),
                                     session: gs.length === 1 ? gs[0].session() : null }),
             plateName(gs, 'fins', '.3mf')];
   },
@@ -213,10 +215,11 @@ btn.addEventListener('click', () => setOpen(menu.hidden));
 for (const [id, write] of Object.entries(FORMATS)) {
   el(id).addEventListener('click', async () => {
     setOpen(false);
-    // an STL is the model being edited, alone, where it sits
+    // an STL is the model being edited, alone and centred (a slicer centres it
+    // anyway); a 3MF of one, that one where it stands on the plate
     if (id !== 'export-3mf' || currentPlate().models.length === 1) {
       const g = buildExportGeometry();
-      if (g) download(...write([g]));
+      if (g) download(...write([id === 'export-3mf' ? placed(g, liveXY()) : g]));
       return;
     }
     // the plate's other models are parked, their fins kept to its settings: wait for

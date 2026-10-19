@@ -20,6 +20,8 @@ import { hideSuggestions } from './suggest.js';
 // an export switching through the models (ui/plates.js locked) holds them still
 import { isBusy } from './plates.js';
 import { liveSlot, focusSlot } from './models.js';
+import { placeSlot } from './move.js';
+import { currentPlate } from './plates.js';
 
 // A whole-state snapshot stack, not a command log. The undoable state is small
 // -- orientation, the hand-drawn walls, and every setting -- and restoring it re-runs
@@ -115,6 +117,14 @@ export function commitGesture(s, changed) {
   syncHistButtons();
 }
 
+/** Model `who` was moved from `xy` (ui/move.js): one step, its spot alone. */
+export function pushMove(who, xy) {
+  undoStack.push({ move: true, who, xy });
+  if (undoStack.length > 100) undoStack.shift();
+  redoStack.length = 0;
+  syncHistButtons();
+}
+
 /** Capture state BEFORE a mutation. A fresh action invalidates the redo stack. */
 export function histPush() {
   if (!part) return;
@@ -198,6 +208,15 @@ function step(from, to) {
   // a removed model's steps stay, for its Undo from the toast to bring back with it
   for (let i = from.length - 1; i >= 0; i--) {
     const s = from[i];
+    if (s.move) {
+      // a move (ui/move.js): the model goes back where it stood, edited or parked
+      if (!currentPlate().models.includes(s.who)) continue;
+      from.splice(i, 1);
+      to.push({ move: true, who: s.who, xy: s.who.xy.slice() });
+      placeSlot(s.who, s.xy);
+      syncHistButtons();
+      return;
+    }
     if (s.who && !focusSlot(s.who)) continue;
     from.splice(i, 1);
     to.push(snapshot());

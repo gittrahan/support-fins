@@ -13,6 +13,7 @@ import { currentVolume } from './volume.js';
 
 const row = new THREE.Group();
 scene.add(row);
+let edited = null;   // the row's group for the plate being edited
 
 // a parked part keeps its overhang colours, a shade darker, and is never clipped by
 // the section cut (that belongs to the plate being edited)
@@ -77,14 +78,14 @@ export function drawRow(plates, active) {
     }
   }
   row.clear();
-  const edited = plates[active], [lx, ly] = edited.models[edited.live].xy;
-  row.position.set(-lx, -ly, 0);
-  plate.position.set(-lx, -ly, 0);
+  const at0 = plates[active];
+  shiftRow(at0.models[at0.live].xy);
   const p = pitch();
   plates.forEach((pl, i) => {
     const g = new THREE.Group();
     g.position.x = (i - active) * p;
     g.userData.plate = i;
+    if (i === active) edited = g;
     // one plate on its own needs no label: there is nothing to tell apart
     if (plates.length > 1) g.add(label(t('Plate {n}', { n: i + 1 }), i === active));
     // the bed: grid and outline, not the build-volume box
@@ -103,6 +104,16 @@ export function drawRow(plates, active) {
   });
   requestRender();
 }
+
+/** The live model stands at `xy` on its plate: lay the row and the bed out around it. */
+export function shiftRow([lx, ly]) {
+  row.position.set(-lx, -ly, 0);
+  plate.position.set(-lx, -ly, 0);
+  requestRender();
+}
+
+/** Parked model `k` of the plate being edited, as drawn (ui/move.js drags it). */
+export const parkedGroup = (k) => edited?.children.find((c) => c.userData.model === k) ?? null;
 
 const ray = new THREE.Raycaster();
 const ndc = new THREE.Vector2();
@@ -136,6 +147,21 @@ export function plateAt(e, count, active, live) {
   if (i < 0 || i >= count) return null;
   const x = x0 - (i - active) * p;
   return Math.abs(x) <= v.x / 2 && Math.abs(y) <= v.y / 2 + 30 ? { plate: i, model: -1 } : null;
+}
+
+/** The parked model of the plate being edited under the pointer: { model (its index,
+ *  or -1), z (the height it was hit at) }. */
+export function parkedAt(e) {
+  const r = renderer.domElement.getBoundingClientRect();
+  ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  for (const h of ray.intersectObjects(edited?.children ?? [], true)) {
+    if (!h.object.isMesh || h.object.userData.label) continue;
+    for (let o = h.object; o && o !== edited; o = o.parent) {
+      if (o.userData.model !== undefined) return { model: o.userData.model, z: h.point.z };
+    }
+  }
+  return { model: -1, z: 0 };
 }
 
 /** Ease the camera from `fromPos` / `fromTarget` to where it is now. */

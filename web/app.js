@@ -42,6 +42,7 @@ import './ui/search.js';
 import { part, topology, rotM3, lastResult, threshold } from './ui/part.js';
 import { gizmo, hoverFace, layActive, cancelLay, layHover, layClick, ringPressTurned, clearRingPress } from './ui/pose.js';
 import { planeBusy, renderGhost } from './ui/section.js';
+import { moveActive } from './ui/move.js';
 
 // ------------------------------------------------------------------ keyboard
 
@@ -72,6 +73,12 @@ addEventListener('keydown', (e) => {
 let pressAt = null;
 let pressOnPlane = false;   // the press landed on the section plane's handle
 renderer.domElement.addEventListener('pointermove', (ev) => {
+  // Move (ui/move.js) owns the pointer: no pick lights up under a drag
+  if (moveActive()) {
+    hoverFace.visible = false;
+    clearFinHover();
+    return;
+  }
   // The section plane's handle is under the pointer or being dragged: it owns the
   // pointer, and no pick should light up through it.
   if (planeBusy()) {
@@ -131,8 +138,9 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   pressAt = null;
   if (!from || !part || !topology) return;
 
-  // a drag is an orbit, not a pick
-  if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4) return;
+  // a drag is an orbit, not a pick; with Move on, nothing is picked (a click on a
+  // parked model still edits it: ui/plates.js)
+  if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4 || moveActive()) return;
   // a click on the section plane's handle is the handle's, not a pick
   if (pressOnPlane) return;
 
