@@ -39,7 +39,7 @@ export const COUPONS = [
   },
   {
     name: 'Cutouts', file: 'cutout-coupon.3mf',
-    sets: 'Sets Cutouts (under Placement)',
+    sets: 'Sets Cutouts (below Tines)',
     how: 'Five tall ledges, each held by walls cut with one style: NONE, DIAMOND, TRIANGLE, ARCH, LATTICE. Check every wall stood and every ledge printed flat, then snap the walls off. A wall that leaned, sagged at a hole or broke apart: that style is too open. Use the most open style whose walls all held; Arch and Lattice save about a third of the support plastic.',
   },
   {
