@@ -1,8 +1,8 @@
 import { t } from './i18n.js';
 /**
- * Plates: several in one tab, each with its models (ui/models.js), and each model
- * with its own pose, settings, drawn walls, removed fins, undo, section cut and
- * Suggest list -- the way a slicer's plates hold separate jobs. All of them are on
+ * Plates: several in one tab, each with its models (ui/models.js), its fin settings
+ * and its undo, and each model with its own pose, drawn walls, removed fins, section
+ * cut and Suggest list -- the way a slicer's plates hold separate jobs. All of them are on
  * screen in a row (ui/plateview.js); a click on one, there or on its tab, makes it
  * the one being edited.
  *
@@ -25,8 +25,9 @@ import { slot, liveXY, park, unpark, disposeSlot, select, takeLive, putBack, cen
 import { drawRow, pitch, plateAt, glide, frameAll } from './plateview.js';
 
 // One entry per plate: its model slots (models.js) and which of them is live -- or,
-// on a plate not being edited, which comes back live when it is.
-const newPlate = () => ({ models: [slot()], live: 0 });
+// on a plate not being edited, which comes back live when it is -- and, kept when
+// its live model parks, its settings and undo history (null until then).
+const newPlate = () => ({ models: [slot()], live: 0, settings: null, history: null });
 const plates = [newPlate()];
 let active = 0;
 // Export is switching through the plates or models: the tabs and the row wait for it.
@@ -116,7 +117,9 @@ export function dropEmptyPlate() {
 
 // ------------------------------------------------------------ delete, with Undo
 
-let trash = null;      // { slots, plate, index, timer }: the last removal, until it expires
+// { slots, plate, index, own, timer }: the last removal, until it expires; `own`, a
+// deleted plate's settings and history, for an Undo that has to make it again
+let trash = null;
 const UNDO_MS = 10000;
 
 function expire() {
@@ -127,14 +130,14 @@ function expire() {
   el('toast').hidden = true;
 }
 
-function trashed(slots, plate, index, text) {
+function trashed(slots, plate, index, text, own = null) {
   if (!slots.length) return;     // an empty plate: nothing to bring back (the last Undo stays)
   expire();
   for (const m of slots) {
     m.stash.part.mesh.removeFromParent();
     m.stash.fins?.removeFromParent();
   }
-  trash = { slots, plate, index, timer: setTimeout(expire, UNDO_MS) };
+  trash = { slots, plate, index, own, timer: setTimeout(expire, UNDO_MS) };
   el('toast-text').textContent = text;
   el('toast').hidden = false;
 }
@@ -158,11 +161,12 @@ function deletePlate(i) {
   if (i === active) stashActive();
   const entry = plates[i];
   const slots = entry.models.filter((m) => m.stash);
+  const own = { settings: entry.settings, history: entry.history };
   if (plates.length === 1) {
     // the one plate stays, emptied (the same plate, for an earlier Undo to find)
     Object.assign(entry, newPlate());
     show(0);
-    trashed(slots, entry, 0, removedText(slots));
+    trashed(slots, entry, 0, removedText(slots), own);
     return;
   }
   plates.splice(i, 1);
@@ -172,7 +176,7 @@ function deletePlate(i) {
     if (i < active) active--;
     render();
   }
-  trashed(slots, null, i, t('Deleted plate {n}', { n: i + 1 }));
+  trashed(slots, null, i, t('Deleted plate {n}', { n: i + 1 }), own);
 }
 
 /** Bring the last removal back: to its plate if that is still there (into its slot
@@ -180,7 +184,7 @@ function deletePlate(i) {
  *  it was. */
 function undoDelete() {
   if (!trash || busy) return;
-  const { slots, plate, index } = trash;
+  const { slots, plate, index, own } = trash;
   clearTimeout(trash.timer);
   trash = null;
   el('toast').hidden = true;
@@ -195,6 +199,8 @@ function undoDelete() {
   if (p.models.length === 1 && !p.models[0].stash) {
     p.models = slots;
     centreLone(p);
+    // a deleted plate's models come back under its settings and undo
+    if (own) Object.assign(p, own);
   } else {
     putBack(p, slots);
   }

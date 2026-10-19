@@ -19,12 +19,19 @@ import { drawnWalls, setDrawnWalls, clearPreview, syncDrawControls } from './wal
 import { hideSuggestions } from './suggest.js';
 // an export switching through the models (ui/plates.js locked) holds them still
 import { isBusy } from './plates.js';
+import { liveSlot, focusSlot } from './models.js';
 
 // A whole-state snapshot stack, not a command log. The undoable state is small
 // -- orientation, the hand-drawn walls, and every setting -- and restoring it re-runs
 // the same shade + refreshFins the rest of the app already uses, so there is no
 // separate inverse-operation path to keep correct. Every mutation calls histPush()
 // first; undo/redo swap snapshots between the two stacks.
+//
+// One history per plate, across its models (ui/models.js): the settings are the
+// plate's, so undoing a pose step on one model with each model's own history would
+// have put back the gap it had then, undoing a later change made on another. A
+// snapshot names its model (`who`, its slot); undo edits that model first, and a
+// step whose model has been removed is passed over.
 let undoStack = [];
 let redoStack = [];
 
@@ -51,12 +58,19 @@ let restoring = false;
 // are remembered across visits too, but a session keeps them: it comes back as it was
 // left, and the removed fins it lists are matched by heights the gap shifts (remove.js).
 export const VIEWER_IDS = new Set(['highlight-small', 'show-islands', 'show-layers', 'show-rings', 'nav-preset', 'nozzle']);
+/** The settings a support build follows, as one string: a parked model's fins built
+ *  under another are out of date (ui/parkedbuild.js). The nozzle counts; how the
+ *  viewer draws does not. */
+export const settingsKey = () => JSON.stringify([Object.entries(readForm())
+  .filter(([id]) => id === 'nozzle' || !VIEWER_IDS.has(id)), finMode, finsVisible]);
+
 /** The part's settings as they stand, for a saved session. */
 export const sessionForm = () => Object.fromEntries(Object.entries(settled).filter(([id]) => !VIEWER_IDS.has(id)));
 
 function snapshot() {
   const q = part.quaternion;
   return {
+    who: liveSlot(),
     quat: [q.x, q.y, q.z, q.w],
     walls: drawnWalls.map((w) => ({ kind: w.kind, face: w.face, capped: w.capped, a: w.a.clone(), b: w.b?.clone() })),
     load: loadDir ? loadDir.clone() : null,
@@ -157,25 +171,31 @@ export function restoreState(s) {
   syncHistButtons();
 }
 
-export function undo() {
-  if (gesture || isBusy() || !undoStack.length) return;
-  redoStack.push(snapshot());
-  restoreState(undoStack.pop());
+/** Step back along `from`, pushing the state it leaves onto `to`: edit the step's
+ *  model first, passing over the steps of models no longer on the plate. */
+function step(from, to) {
+  if (gesture || isBusy()) return;
+  while (from.length) {
+    const s = from[from.length - 1];
+    if (s.who && !focusSlot(s.who)) { from.pop(); continue; }
+    from.pop();
+    to.push(snapshot());
+    restoreState(s);
+    return;
+  }
+  syncHistButtons();
 }
 
-export function redo() {
-  if (gesture || isBusy() || !redoStack.length) return;
-  undoStack.push(snapshot());
-  restoreState(redoStack.pop());
-}
+export const undo = () => step(undoStack, redoStack);
+export const redo = () => step(redoStack, undoStack);
 
 function syncHistButtons() {
   el('undo').disabled = !undoStack.length;
   el('redo').disabled = !redoStack.length;
 }
 
-/** The whole state and its undo / redo, kept with a plate that is not showing
- *  (ui/plates.js) and put back by restoreState + setHistory when it shows again. */
+/** The whole state, kept with a model that is not showing, and its plate's undo /
+ *  redo (ui/models.js), put back by restoreState + setHistory when it shows again. */
 export const takeState = () => snapshot();
 export const takeHistory = () => ({ undo: undoStack, redo: redoStack });
 export function setHistory(h) {

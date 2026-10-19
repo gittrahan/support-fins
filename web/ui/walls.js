@@ -109,9 +109,14 @@ export function sizeMarkers() {
  *  the same transform export bakes in. */
 function partPrintTriangles() {
   if (printTris && !printTrisDirty) return printTris;
+  printTris = printTriangles(topology, rotM3.elements, lastResult.offset);
+  printTrisDirty = false;
+  return printTris;
+}
+
+/** `topology` posed `rot` and seated at `offset` (analyze's), as one flat array. */
+export function printTriangles(topology, rot, { x: dx, y: dy, z: dz }) {
   const { pos, nFaces } = topology;
-  const rot = rotM3.elements;
-  const { x: dx, y: dy, z: dz } = lastResult.offset;
   const a = new Float64Array(nFaces * 9);
   for (let i = 0; i < a.length; i += 3) {
     const x = pos[i], y = pos[i + 1], z = pos[i + 2];
@@ -119,8 +124,6 @@ function partPrintTriangles() {
     a[i + 1] = rot[1] * x + rot[4] * y + rot[7] * z + dy;
     a[i + 2] = rot[2] * x + rot[5] * y + rot[8] * z + dz;
   }
-  printTris = a;
-  printTrisDirty = false;
   return a;
 }
 
@@ -143,74 +146,89 @@ export function rebuildDrawn() {
   drawnTris = [];
   if (!drawShown() || !topology || !lastResult) { syncSelection(); return; }
   part.updateMatrixWorld();
+  drawnTris = sweepDrawn({
+    topology, res: lastResult, rot: rotM3.elements, tris: partPrintTriangles(), walls: drawnWalls,
+    toWorld: (v, out) => part.localToWorld(out.copy(v)),
+    auto: finsVisible && autoLike() ? lastBuilt : null, gone: removedIds,
+  });
+  drawnMesh = meshFrom(drawnTris, drawMaterial, ifaceMaterial);
+  braceMemo.stamp = null;   // the braces a preview stands clear of have moved
+  if (braceShown) dropGhost();
+  syncSelection();
+}
 
+/**
+ * Stand a model's hand-placed supports for its pose, under the settings on the
+ * page: the live model's (rebuildDrawn) or a parked one's (ui/parkedbuild.js).
+ * Sets each wall's ok / info / triangle range and returns the triangles. `ctx`:
+ * { topology, res, rot, tris (the part in print space), walls, toWorld(local, out),
+ * auto (Auto's build on screen, or null), gone (its removed fin ids) }.
+ */
+export function sweepDrawn({ topology, res, rot, tris, walls, toWorld, auto: built, gone }) {
+  const out = [];
   // Both Draw and the Suggest "+ Add" augment place the SAME thing now: hand-drawn
   // under-overhang breakaway walls. Each wall is stored as two local endpoints and
   // re-swept against the part's current pose, so a wall that no longer reaches the
   // part (rotated away) is flagged by drawnWall rather than dropped silently.
-  const tris = partPrintTriangles();
   // Drawn walls grip with the same tine comb the auto fins use when Tines is on.
   const drawOpts = { tines: el('tines').checked,
                      tineDensity: el('tine-density').valueAsNumber / 100,
                      layerHeight: el('layer-height').valueAsNumber,
                      plateOnly: el('plate-only').checked,
                      braceTall: el('tall-ribs').checked,
-                     topo: topology, rot: rotM3.elements, offset: lastResult.offset };
+                     topo: topology, rot, offset: res.offset };
   // A tall drawn wall's ribs keep sideClear off the walls drawn before it and off
   // Auto's supports and pad when they're on screen (draw.js braceTall): a rib fused
   // into a neighbour no longer breaks away by itself. (Walls drawn later don't check
   // back -- drawn walls never check each other -- and Auto's ribs, built in the
   // Worker, can't see drawn walls.)
   const ribGrid = planGrid();
-  if (finsVisible && autoLike() && lastBuilt) {
-    for (const rec of lastBuilt.fins ?? []) {
-      if (removedIds.has(rec.id)) continue;
-      for (const [a, b] of rec.triRanges ?? []) ribGrid.add(lastBuilt.triangles.slice(a, b), 'auto');
+  if (built) {
+    for (const rec of built.fins ?? []) {
+      if (gone.has(rec.id)) continue;
+      for (const [a, b] of rec.triRanges ?? []) ribGrid.add(built.triangles.slice(a, b), 'auto');
     }
-    if (lastBuilt.padTriangles?.length) ribGrid.add(lastBuilt.padTriangles, 'auto');
+    if (built.padTriangles?.length) ribGrid.add(built.padTriangles, 'auto');
   }
   let gridded = 0;
   drawOpts.braceClear = (rib) => {
-    ribGrid.add(drawnTris.slice(gridded));   // walls drawn since the last rib
-    gridded = drawnTris.length;
+    ribGrid.add(out.slice(gridded));   // walls drawn since the last rib
+    gridded = out.length;
     return !ribGrid.hits(rib);
   };
   const wa = new THREE.Vector3(), wb = new THREE.Vector3();
   // Everything a hand-placed brace has to keep clear of: Auto's braces and walls
   // (when Auto's supports are on screen), then each hand-placed brace as it is
   // re-stood, so a rotation that brings two together is reported rather than fused.
-  const auto = autoSupports();
+  const auto = autoSupports(built, gone);
   const braces = [...auto.braces];
-  for (const w of drawnWalls) {
+  for (const w of walls) {
     // Each support remembers which triangles of the merged mesh are its own, so a
     // click on the mesh can be traced back to the support to select / remove.
-    w.triStart = drawnTris.length / 3;
+    w.triStart = out.length / 3;
     if (w.kind === 'sway') {
       // A hand-placed sway brace: re-stood on the same face at the same spot, so
       // it follows the part when it turns (and says why if that face no longer
       // stands upright, or now runs into an earlier brace). A capped one stops at
       // its clicked point's height; the rest run up the whole face.
-      part.localToWorld(wa.copy(w.a));
-      const r = swayAtFace(topology, lastResult, rotM3.elements, w.face,
+      toWorld(w.a, wa);
+      const r = swayAtFace(topology, res, rot, w.face,
                            [wa.x, wa.y, wa.z], { ...swayOpts(), full: !w.capped }, { braces, walls: auto.walls });
       w.ok = r.ok;
       w.info = r;
-      if (r.ok) { braces.push(r); for (const t of r.tris) drawnTris.push(t); }
-      w.triEnd = drawnTris.length / 3;
+      if (r.ok) { braces.push(r); for (const t of r.tris) out.push(t); }
+      w.triEnd = out.length / 3;
       continue;
     }
-    part.localToWorld(wa.copy(w.a));
-    part.localToWorld(wb.copy(w.b));
+    toWorld(w.a, wa);
+    toWorld(w.b, wb);
     const r = drawnWall([wa.x, wa.y, wa.z], [wb.x, wb.y, wb.z], tris, 0, drawOpts);
     w.ok = r.ok;
     w.info = r;
-    if (r.ok) for (const t of r.tris) drawnTris.push(t);
-    w.triEnd = drawnTris.length / 3;
+    if (r.ok) for (const t of r.tris) out.push(t);
+    w.triEnd = out.length / 3;
   }
-  drawnMesh = meshFrom(drawnTris, drawMaterial, ifaceMaterial);
-  braceMemo.stamp = null;   // the braces a preview stands clear of have moved
-  if (braceShown) dropGhost();
-  syncSelection();
+  return out;
 }
 
 // ---- selecting a hand-placed support, to remove it -------------------------
@@ -345,13 +363,13 @@ function placeSecondPoint(hitPoint) {
  * away. Empty unless Auto's supports are actually on screen, and fins the user has
  * removed are left out -- they aren't there to hit.
  */
-function autoSupports() {
-  if (!finsVisible || !autoLike() || !lastBuilt) return { braces: [], walls: [] };
-  const outlines = lastBuilt.sway?.braces ?? [];
+function autoSupports(built = finsVisible && autoLike() ? lastBuilt : null, removed = removedIds) {
+  if (!built) return { braces: [], walls: [] };
+  const outlines = built.sway?.braces ?? [];
   const braces = [], walls = [];
   let k = 0;   // sway records and their outlines are emitted in the same order
-  for (const rec of lastBuilt.fins ?? []) {
-    const gone = removedIds.has(rec.id);
+  for (const rec of built.fins ?? []) {
+    const gone = removed.has(rec.id);
     if (rec.kind === 'sway') {
       const outline = outlines[k++];
       if (outline && !gone) braces.push(outline);

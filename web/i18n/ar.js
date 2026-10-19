@@ -380,6 +380,8 @@ export default {
   "converted from {unit} to mm": "تم التحويل من {unit} إلى mm",
   "restored {n} hand-placed supports and the settings": { one: "تمت استعادة {n} دعامة موضوعة يدوياً والإعدادات", other: "تمت استعادة {n} من الدعامات الموضوعة يدوياً، بالإضافة إلى الإعدادات" },
   "restored the settings": "تمت استعادة الإعدادات",
+  "restored {n} hand-placed supports; the plate keeps its settings": { one: "تمت استعادة {n} دعامة موضوعة يدوياً؛ تحتفظ اللوحة بإعداداتها", other: "تمت استعادة {n} من الدعامات الموضوعة يدوياً؛ تحتفظ اللوحة بإعداداتها" },
+  "the plate keeps its settings": "تحتفظ اللوحة بإعداداتها",
   "saved supports not loaded: the part changed since it was exported": "لم تُحمَّل الدعامات المحفوظة: تغيّرت القطعة منذ تصديرها",
   "saved supports not loaded: the saved session is damaged": "لم تُحمَّل الدعامات المحفوظة: الجلسة المحفوظة تالفة",
   "No printable orientation: this part balances on a point at every angle.": "لا توجد وضعية مناسبة للطباعة: ترتكز القطعة على نقطة مهما غيّرت اتجاهها.",

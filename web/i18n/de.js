@@ -396,6 +396,8 @@ export default {
   "converted from {unit} to mm": "von {unit} nach mm konvertiert",
   "restored {n} hand-placed supports and the settings": { one: "{n} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt", other: "{n} von Hand gesetzte Stütze(n) und die Einstellungen wiederhergestellt" },
   "restored the settings": "die Einstellungen wiederhergestellt",
+  "restored {n} hand-placed supports; the plate keeps its settings": { one: "{n} von Hand gesetzte Stütze wiederhergestellt; die Platte behält ihre Einstellungen", other: "{n} von Hand gesetzte Stützen wiederhergestellt; die Platte behält ihre Einstellungen" },
+  "the plate keeps its settings": "die Platte behält ihre Einstellungen",
   "saved supports not loaded: the part changed since it was exported": "gespeicherte Stützen nicht geladen: das Bauteil wurde seit dem Export geändert",
   "saved supports not loaded: the saved session is damaged": "gespeicherte Stützen nicht geladen: die Sitzungsdaten sind beschädigt",
   "No printable orientation: this part balances on a point at every angle.": "Keine druckbare Ausrichtung: Dieses Bauteil balanciert in jedem Winkel auf einem Punkt.",

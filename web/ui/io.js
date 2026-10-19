@@ -14,7 +14,7 @@ import { el } from './dom.js';
 import { part, setPart } from './part.js';
 import { partObjectOf, restoreSession } from './session.js';
 import { freePlate, currentPlate, returnTo, dropEmptyPlate, isBusy } from './plates.js';
-import { addSlot, dropAdded } from './models.js';
+import { addSlot, dropAdded, joinPlate } from './models.js';
 
 export let importNote = '';
 export let lastImportMeta = null;
@@ -53,6 +53,12 @@ export function renderImportNote() {
       notes.push(m.restored
         ? tn('restored {n} hand-placed support and the settings', 'restored {n} hand-placed supports and the settings', m.restored)
         : t('restored the settings'));
+    } else if (m.session === 'beside') {
+      // added beside a plate's models: the settings are the plate's (ui/models.js)
+      notes.push(m.restored
+        ? tn('restored {n} hand-placed support; the plate keeps its settings',
+          'restored {n} hand-placed supports; the plate keeps its settings', m.restored)
+        : t('the plate keeps its settings'));
     } else if (m.session === 'changed') {
       notes.push(t('saved supports not loaded: the part changed since it was exported'));
     } else if (m.session === 'unreadable') {
@@ -360,16 +366,19 @@ async function parseObj(buffer) {
 }
 
 /** setPart, then the saved session if the file carried one (the import note says
- *  how many supports came back, or why none did). */
-function afterLoad(geometry, name) {
+ *  how many supports came back, or why none did). `beside`: added to a plate of
+ *  models, whose settings and undo history go on (ui/models.js). */
+function afterLoad(geometry, name, beside = false) {
   const s = pendingSession;
   pendingSession = null;
   setPart(geometry, name);
+  if (beside) joinPlate();
   if (!s || !lastImportMeta) return;
   let r = { why: 'unreadable' };
-  try { r = restoreSession(s); } catch (err) { console.error(err); }
+  try { r = restoreSession(s, beside); } catch (err) { console.error(err); }
+  if (beside) joinPlate();
   lastImportMeta.restored = r.n ?? null;
-  lastImportMeta.session = r.why ?? 'restored';
+  lastImportMeta.session = r.why ?? (beside ? 'beside' : 'restored');
   importNote = renderImportNote();
   el('s-import-note').textContent = importNote;    // the load's report already ran
 }
@@ -386,7 +395,7 @@ async function loadFile(file, add = false) {
     const read = await landing(plate, before, await parseModel(await file.arrayBuffer()));
     if (!read) return;
     if (add) prev = park(read);
-    afterLoad(read.geometry, file.name);
+    afterLoad(read.geometry, file.name, prev >= 0);
   } catch (err) {
     console.error(err);
     if (prev >= 0) dropAdded(prev);

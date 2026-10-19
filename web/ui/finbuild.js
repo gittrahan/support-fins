@@ -21,6 +21,7 @@ import {
 } from './walls.js';
 import { finsVisible, finMode, autoLike } from './settings.js';
 import { topology, rotM3, lastResult, updateFit } from './part.js';
+import { scheduleParked } from './parkedbuild.js';
 
 export let finMesh = null;
 export let padMesh = null;
@@ -102,7 +103,10 @@ function clearSpinner() {
   el('spinner').classList.remove('show');
 }
 
-function finOpts() {
+/** The build request for the settings on the page; `isl`, the Full coverage island
+ *  starts of the model built (the live one's by default: ui/parkedbuild.js has its
+ *  own). */
+export function finOpts(isl = islands) {
   return { mode: finMode,
            bedPad: el('bed-pad').value !== 'off',
            plateOnly: el('plate-only').checked,
@@ -115,7 +119,7 @@ function finOpts() {
            layerHeight: el('layer-height').valueAsNumber,
            // Full coverage walls the island starts too (fins/fill.js): found here, on
            // the page, since the Worker's topology has no vertex ids (deleted below)
-           islands: finMode === 'full' ? islands : undefined,
+           islands: finMode === 'full' ? isl : undefined,
            // Full coverage aims at every reachable overhang: the slider is Auto's
            coverage: finMode === 'full' ? FIN.coverDefault : el('coverage').valueAsNumber / 100,
            // Auto places sway braces itself; in Draw they are clicked on by hand.
@@ -199,6 +203,7 @@ function supersedeBuild() {
 }
 
 export function refreshFins() {
+  scheduleParked();                    // the parked models follow the plate's settings
   if (!finsVisible || !lastResult || !topology) {
     supersedeBuild();                  // no build wanted now: drop any in-flight one so it can't re-add fins
     clearSpinner();
@@ -241,10 +246,7 @@ export function refreshFins() {
   // threw DataCloneError, leaving the build wedged. Send a shallow copy without
   // the cache (the worker rebuilds its own grid), and if a clone ever fails
   // anyway, build inline so the UI can never get stuck waiting on a reply.
-  const topoMsg = { ...topology };
-  delete topoMsg._insideGrid;
-  delete topoMsg.vid;         // islands.js's too: the engine never reads it (19 MB at 1.5M faces)
-  delete topoMsg._vgraph;      // islands.js's vertex graph: the page's, and big (6 ints a face)
+  const topoMsg = workerTopology(topology);
   try {
     worker.postMessage({ id: finGen, topology: topoMsg, result: lastResult, rot: rotM3.elements, opts: lastOpts });
   } catch (err) {
@@ -255,6 +257,15 @@ export function refreshFins() {
     finTris = padTris = [];
     applyBuilt(buildFins(topology, lastResult, rotM3.elements, lastOpts));
   }
+}
+
+/** `topo` as a Worker build takes it: without the page's caches (see refreshFins). */
+export function workerTopology(topo) {
+  const msg = { ...topo };
+  delete msg._insideGrid;
+  delete msg.vid;         // islands.js's too: the engine never reads it (19 MB at 1.5M faces)
+  delete msg._vgraph;     // islands.js's vertex graph: the page's, and big (6 ints a face)
+  return msg;
 }
 
 // Turn a finished buildFins result into meshes + readout. Shared by the worker

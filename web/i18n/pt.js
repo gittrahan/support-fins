@@ -364,6 +364,8 @@ export default {
   "converted from {unit} to mm": "convertido de {unit} para mm",
   "restored {n} hand-placed supports and the settings": { one: "{n} suporte posto à mão e as configurações restaurados", other: "{n} suportes postos à mão e as configurações restaurados" },
   "restored the settings": "configurações restauradas",
+  "restored {n} hand-placed supports; the plate keeps its settings": { one: "{n} suporte posto à mão restaurado; a placa mantém as suas configurações", other: "{n} suportes postos à mão restaurados; a placa mantém as suas configurações" },
+  "the plate keeps its settings": "a placa mantém as suas configurações",
   "saved supports not loaded: the part changed since it was exported": "suportes salvos não carregados: a peça mudou desde que foi exportada",
   "saved supports not loaded: the saved session is damaged": "suportes salvos não carregados: a sessão salva está danificada",
   "No printable orientation: this part balances on a point at every angle.": "Nenhuma orientação imprimível: esta peça se equilibra num ponto em qualquer ângulo.",

@@ -3,8 +3,14 @@
  * one of them live -- the one every tool works on -- and the rest parked, drawn
  * where they stand (ui/plateview.js). A click on a parked model swaps it in the way
  * a plate switch does: the live one is stashed as it stands (part.js stashPart keeps
- * the mesh and its weld; history.js takeState its walls, removals, settings and
- * pose) and the clicked one brought back as undo restores a state.
+ * the mesh and its weld; history.js takeState its walls, removals and pose) and the
+ * clicked one brought back as undo restores a state.
+ *
+ * The fin settings (every field, the mode, fins on or off) are the plate's, not a
+ * model's: models on one plate print in one job, and setting each one alike was a
+ * chore. A change made on the live model rebuilds the parked ones' fins in the
+ * background (ui/parkedbuild.js). So is the undo history, one for the plate: a step
+ * remembers whose it was, and undoing it edits that model again (history.js).
  *
  * The live model stays at the origin, where every tool, fin key, saved session and
  * cached sweep expects it. A slot's `xy` is where it stands on its plate, and the
@@ -15,7 +21,7 @@ import * as THREE from 'three';
 import { el } from './dom.js';
 import { camera, controls } from './scene.js';
 import { part, clearPart, stashPart, unstashPart } from './part.js';
-import { takeState, takeHistory, setHistory, restoreState, VIEWER_IDS } from './history.js';
+import { takeState, takeHistory, setHistory, restoreState, settingsKey, VIEWER_IDS } from './history.js';
 import { scaleState, setScaleState } from './scale.js';
 import { importState, setImportState } from './io.js';
 import { activeAdded, buildPending } from './finbuild.js';
@@ -35,17 +41,28 @@ export const liveXY = () => {
   return p.models[p.live].xy;
 };
 
-// Models on one plate print in one job: the layer height is the plate's, so a model
-// brought in takes the one showing (the viewer's and printer's settings stay too).
-// Read when used: history.js is in an import cycle with this module.
-const samePlate = () => new Set([...VIEWER_IDS, 'layer-height']);
+/** The live model's slot, which an undo step is tagged with (history.js). */
+export const liveSlot = () => {
+  const p = currentPlate();
+  return p?.models[p.live];
+};
+
+/** Edit slot `m` (an undo step's model): false when it is no longer on the plate. */
+export function focusSlot(m) {
+  const plate = currentPlate(), k = plate.models.indexOf(m);
+  if (k < 0) return false;
+  if (k !== plate.live) swap(k, false);
+  return true;
+}
 
 /** Put `plate`'s live model and its state away, leaving the page empty. */
 export function park(plate) {
   const m = plate.models[plate.live];
   if (!part) { m.stash = null; return; }
   // read before stashPart: it resets the history, scale, import note, cut and list
-  const state = takeState(), history = takeHistory(), scale = scaleState(), imp = importState();
+  const state = takeState(), scale = scaleState(), imp = importState();
+  plate.history = takeHistory();
+  plate.settings = { form: state.form, finMode: state.finMode, finsVisible: state.finsVisible };
   const section = sectionState(), suggest = suggestState();
   // Left before its fins were built (they build in the worker): the parked copy
   // keeps the fins it had when it was last parked, if the pose is still that one.
@@ -59,23 +76,26 @@ export function park(plate) {
   }
   const rec = stashPart();
   parkMesh(rec.mesh);
-  m.stash = { part: rec, fins, state, history, scale, imp, section, suggest };
+  // the settings its fins were built under (a build still in flight: none yet)
+  const finsKey = buildPending() ? null : settingsKey();
+  m.stash = { part: rec, fins, finsKey, state, scale, imp, section, suggest };
 }
 
-/** Bring `plate`'s live slot back (stashed, or empty); the page is empty. `keep`:
- *  the settings that stay as they are rather than follow the model. */
-export function unpark(plate, keep = VIEWER_IDS) {
+/** Bring `plate`'s live slot back (stashed, or empty) under the plate's settings;
+ *  the page is empty. The viewer's own settings stay as they are. */
+export function unpark(plate) {
   const m = plate.models[plate.live], s = m.stash;
   if (s) {
-    const form = { ...s.state.form };
-    for (const id of keep) {
+    // a model put back from a removal onto a plate that had none keeps its own
+    const own = plate.settings ?? s.state;
+    const form = { ...s.state.form, ...own.form };
+    for (const id of VIEWER_IDS) {
       const f = el(id);
       form[id] = f.type === 'checkbox' ? f.checked : f.value;
     }
     setImportState(s.imp);
     unstashPart(s.part);
-    restoreState({ ...s.state, form });
-    setHistory(s.history);
+    restoreState({ ...s.state, form, finMode: own.finMode, finsVisible: own.finsVisible });
     setScaleState(s.scale);
     restoreSection(s.section);
     restoreSuggestions(s.suggest);
@@ -83,7 +103,15 @@ export function unpark(plate, keep = VIEWER_IDS) {
     s.fins?.removeFromParent();
     m.ghost = { fins: s.fins, quat: s.part.mesh.quaternion.clone() };
   }
+  if (plate.history) setHistory(plate.history);
   m.stash = null;      // only once it is live: a throw above keeps the model
+}
+
+/** Add model loaded a file beside the plate's models: the plate's undo history goes
+ *  on past it (setPart started a fresh one). */
+export function joinPlate() {
+  const plate = currentPlate();
+  if (plate.history) setHistory(plate.history);
 }
 
 /** Free what a parked slot holds (a removal past its Undo). */
@@ -103,7 +131,7 @@ function swap(k, quiet) {
   const pos = camera.position.clone(), target = controls.target.clone();
   park(plate);
   plate.live = k;
-  unpark(plate, samePlate());
+  unpark(plate);
   redraw();
   if (quiet) return;
   const d = new THREE.Vector3(from[0] - to[0], from[1] - to[1], 0);
@@ -182,7 +210,7 @@ export function dropAdded(prev) {
   clearPart();
   plate.models.pop();
   plate.live = prev;
-  unpark(plate, samePlate());
+  unpark(plate);
   redraw();
 }
 

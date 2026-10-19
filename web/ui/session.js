@@ -115,9 +115,11 @@ const formOf = (form) => (form && typeof form === 'object'
  * Restore `s` onto the part setPart just loaded: { n } supports restored, or
  * { why: 'changed' } when the part read back isn't the one the session was saved
  * with (re-saved and edited in a slicer, say), { why: 'unreadable' } when the
- * session itself is malformed -- either way it then loads as a plain part.
+ * session itself is malformed -- either way it then loads as a plain part. `beside`:
+ * the part was added to a plate of models (ui/models.js), whose fin settings it takes
+ * rather than bring its own -- they are the plate's.
  */
-export function restoreSession(s) {
+export function restoreSession(s, beside = false) {
   if (!part || !topology || !s) return { why: 'unreadable' };
   if (!readable(s)) return { why: 'unreadable' };
   const bb = part.geometry.boundingBox;
@@ -134,8 +136,9 @@ export function restoreSession(s) {
   }
   restoreState({
     quat: [0, 0, 0, 1], walls, load: null, removedSigs: s.removed ?? [],
-    finMode: s.finMode ?? finMode, finsVisible: s.finsVisible ?? true, drawAugment: false,
-    form: formOf(s.form),
+    finMode: beside ? finMode : s.finMode ?? finMode,
+    finsVisible: beside ? finsVisible : s.finsVisible ?? true, drawAugment: false,
+    form: beside ? {} : formOf(s.form),
   });
   resetHistory();          // a fresh part: undo starts here, not at the plain load
   return { n: walls.length };

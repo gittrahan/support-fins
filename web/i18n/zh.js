@@ -415,6 +415,8 @@ export default {
   "converted from {unit} to mm": "已从 {unit} 转换为 mm",
   "restored {n} hand-placed supports and the settings": { other: "已恢复 {n} 处手动放置的支撑及全部设置" },
   "restored the settings": "已恢复设置",
+  "restored {n} hand-placed supports; the plate keeps its settings": { other: "已恢复 {n} 处手动放置的支撑；打印板保留其设置" },
+  "the plate keeps its settings": "打印板保留其设置",
   "saved supports not loaded: the part changed since it was exported": "未加载已保存的支撑：零件自导出后发生了改动",
   "saved supports not loaded: the saved session is damaged": "未加载已保存的支撑：会话数据已损坏",
   "No printable orientation: this part balances on a point at every angle.": "没有可打印的朝向：这个零件在任意角度下都只能以尖端保持平衡。",

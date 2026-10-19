@@ -29,8 +29,19 @@ export const pitch = () => {
   return v.x + Math.max(20, 0.12 * v.x);
 };
 
+// built under settings the plate has since changed: greyed until rebuilt (ui/parkedbuild.js)
+const staleFin = new THREE.MeshStandardMaterial({
+  color: 0x3d8a64, roughness: 0.7, metalness: 0, side: THREE.DoubleSide, transparent: true, opacity: 0.25,
+});
+
 /** A plate's fins as they stand (print space), for its parked copy; null if none. */
 export const ghostFins = (tris) => meshFrom(tris, ghostFin);
+
+/** Show parked `fins` as built under the plate's settings, or greyed (`fresh` false). */
+export function ghostLook(fins, fresh) {
+  const mat = fresh ? ghostFin : staleFin;
+  if (fins.material !== mat) { fins.material = mat; requestRender(); }
+}
 
 /** The parked copy is the stashed mesh itself: give it the ghost look. */
 export const parkMesh = (mesh) => { mesh.material = ghostPart; };
