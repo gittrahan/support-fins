@@ -13,8 +13,9 @@ import { ribbon, boxExtrude } from './solids.js';
 // FOOT, so the middle of a tall wall can be opened up to save filament. The
 // holes are shaped so the wall still prints with no support of its own: every
 // edge that roofs a hole climbs at CUT.slope (~55deg from horizontal) or
-// steeper, so no layer ever bridges open air. That rules out circles, hexagons
-// and slots with flat tops, and leaves the shapes below.
+// steeper, so no layer ever bridges open air. That rules out circles, flat-topped
+// hexagons and slots with flat tops, and leaves the shapes below (the honeycomb's
+// hexagons stand on a corner, stretched until their roofs are that steep).
 //
 // A cut wall is still built the repo's way: overlapping closed solids that the
 // slicer unions. A solid TOP BAND (the breakaway tip + a rail under it, so the
@@ -41,6 +42,15 @@ export const CUT = {
   latSlope: 1.5,  // strut rise per unit across (~56deg), steeper than `slope`
   roofMin: 1.0,   // a clipped lattice hole's roof may be as flat as 45deg, no flatter
   minArea: 3.0,   // smallest lattice hole worth cutting, mm2
+  // HONEYCOMB: hexagons stood on a corner in staggered rows, the solid left an even
+  // strut between every pair -- the lattice's diagonals plus short VERTICAL struts
+  // between neighbours in a row (each under the next row's hexagon, so the load
+  // still zig-zags down: whether that is stiffer is the cutout coupon's question).
+  hexPitch: 6.0,  // centre-to-centre along a row, mm
+  hexStrut: 1.2,  // strut width, measured square to the strut, mm
+  hexSlope: 1.4,  // roof rise per unit across (~55deg); 1/sqrt(3) is a regular hexagon,
+                  // whose 30deg roofs the cutout coupon's HEX30 ledge prints -- below
+                  // roofMin it is honoured as set, so only the coupon ever sets it
   minSaved: 0.10, // a wall whose holes open less of its face than this stays solid
 };
 
@@ -52,14 +62,15 @@ export const CUT = {
  *   diamond  -- the lattice look; roof and floor both slope
  *   triangle -- flat floor, pointed roof (a truss)
  *   arch     -- a slot with a pointed, gothic roof; the most open of the three
- * plus 'lattice' (see latticeHoles), which isn't one hole per cell.
+ * plus 'lattice' and 'honeycomb' (latticeHoles, honeycombHoles), which aren't one
+ * hole per cell.
  */
 const HOLES = {
   diamond:  { prof: [[0, 0], [1, 0.5], [0, 1]], roof: 0.5 },
   triangle: { prof: [[1, 0], [0, 1]], roof: 1 },
   arch:     { prof: [[1, 0], [1, null], [0, 1]], roof: null },   // null: set by slope
 };
-export const CUTOUT_PATTERNS = ['none', ...Object.keys(HOLES), 'lattice'];
+export const CUTOUT_PATTERNS = ['none', ...Object.keys(HOLES), 'lattice', 'honeycomb'];
 
 /**
  * The holes that fit a cell `w` wide and `H` tall, as [{a, z0, z1}] (half-width,
@@ -160,11 +171,13 @@ function roofsOk(P, k) {
  * A flatter edge would leave a bridge, so there the diamond is shrunk instead
  * until it fits whole. Anything smaller than a useful hole is left solid.
  */
-function latticeHoles(s, zLo, zHi, sA, sB) {
-  const k = CUT.latSlope, p = CUT.latPitch;
-  const inset = CUT.latStrut / 2 / (k / Math.hypot(1, k));   // strut half-width, measured flat
-  const a = p / 2 - inset, b = k * a;
-  if (a < CUT.minHalf) return [];
+/**
+ * The clip shared by the patterns that tile the whole zone (lattice, honeycomb):
+ * a function taking a convex CCW hole and returning it fitted to the zone's real
+ * outline, or null when no useful hole is left. Roofs the clip leaves flatter than
+ * `roofMin` are cut back to it.
+ */
+function zoneFit(s, zLo, zHi, sA, sB, roofMin) {
   // the zone's edges as half-planes, one per station segment (convex clip is
   // conservative where the outline bends: the hole only ever gets smaller)
   const segs = [];
@@ -188,25 +201,25 @@ function latticeHoles(s, zLo, zHi, sA, sB) {
     // A roof clipped to a zone edge flatter than roofMin would be a bridge. Rather
     // than give the hole up, drop that roof to exactly roofMin from its HIGH
     // corner: the hole keeps its reach along the slope with a printable roof.
-    for (let pass = 0; pass < 4 && P.length >= 3 && !roofsOk(P, CUT.roofMin); pass++) {
+    for (let pass = 0; pass < 4 && P.length >= 3 && !roofsOk(P, roofMin); pass++) {
       for (let n = 0; n < P.length; n++) {
         const A = P[n], B = P[(n + 1) % P.length];
         const dx = B[0] - A[0], dz = B[1] - A[1];
-        if (!(dx < -1e-9 && Math.abs(dz) < CUT.roofMin * -dx - 1e-9)) continue;
+        if (!(dx < -1e-9 && Math.abs(dz) < roofMin * -dx - 1e-9)) continue;
         if (Math.abs(dz) < 0.25 * -dx) {
           // a near-level roof: peak it in the middle, a gable rather than a lean-to
           const M = [(A[0] + B[0]) / 2, Math.min(A[1], B[1])];
-          P = clipPoly(P, (v) => M[1] - CUT.roofMin * (v[0] - M[0]) - v[1]);
-          P = clipPoly(P, (v) => M[1] + CUT.roofMin * (v[0] - M[0]) - v[1]);
+          P = clipPoly(P, (v) => M[1] - roofMin * (v[0] - M[0]) - v[1]);
+          P = clipPoly(P, (v) => M[1] + roofMin * (v[0] - M[0]) - v[1]);
         } else {
           const [H, Lo] = A[1] >= B[1] ? [A, B] : [B, A];
           const d = Math.sign(Lo[0] - H[0]);
-          P = clipPoly(P, (v) => H[1] - CUT.roofMin * (v[0] - H[0]) * d - v[1]);
+          P = clipPoly(P, (v) => H[1] - roofMin * (v[0] - H[0]) * d - v[1]);
         }
         break;
       }
     }
-    if (P.length < 3 || polyArea(P) < CUT.minArea || !roofsOk(P, CUT.roofMin)) return null;
+    if (P.length < 3 || polyArea(P) < CUT.minArea || !roofsOk(P, roofMin)) return null;
     // Too thin to be a hole: a sliver clipped along the zone's edge has room
     // lengthwise but none across. 2*area/perimeter is the inradius of a triangle
     // and a fair stand-in for any convex shape's half-thickness.
@@ -218,8 +231,22 @@ function latticeHoles(s, zLo, zHi, sA, sB) {
     if (2 * polyArea(P) / per < CUT.minHalf / 1.5) return null;
     return P;
   };
-  const z0 = Math.min(...zLo.filter((_, i) => s[i] >= sA && s[i] <= sB));
-  const zTop = Math.max(...zHi.filter((_, i) => s[i] >= sA && s[i] <= sB));
+  return fit;
+}
+
+/** Where the zone's holes start and stop: its lowest floor and highest top. */
+function zoneSpan(s, zLo, zHi, sA, sB) {
+  return [Math.min(...zLo.filter((_, i) => s[i] >= sA && s[i] <= sB)),
+          Math.max(...zHi.filter((_, i) => s[i] >= sA && s[i] <= sB))];
+}
+
+function latticeHoles(s, zLo, zHi, sA, sB) {
+  const k = CUT.latSlope, p = CUT.latPitch;
+  const inset = CUT.latStrut / 2 / (k / Math.hypot(1, k));   // strut half-width, measured flat
+  const a = p / 2 - inset, b = k * a;
+  if (a < CUT.minHalf) return [];
+  const fit = zoneFit(s, zLo, zHi, sA, sB, CUT.roofMin);
+  const [z0, zTop] = zoneSpan(s, zLo, zHi, sA, sB);
   const cols = Math.ceil((sB - sA) / p) + 1;
   const holes = [];
   for (let j = 0; z0 + j * (k * p / 2) - b <= zTop; j++) {
@@ -229,6 +256,40 @@ function latticeHoles(s, zLo, zHi, sA, sB) {
       if (sm + a < sA || sm - a > sB) continue;
       for (const f of [1, 0.8, 0.62, 0.46, 0.34]) {
         const P = fit([[sm, zc - b * f], [sm + a * f, zc], [sm, zc + b * f], [sm - a * f, zc]]);
+        if (P) { holes.push(P); break; }
+      }
+    }
+  }
+  return holes;
+}
+
+/**
+ * HONEYCOMB: hexagons stood on a corner, in staggered rows, fitted to the zone as
+ * the lattice's diamonds are. Each has vertical sides `h` tall and a pointed roof
+ * and floor rising CUT.hexSlope per unit across; `h` is the roof edge's length, so
+ * at a slope of 1/sqrt(3) it is a regular hexagon and steeper it is one stretched
+ * upright. Neighbours in a row leave a vertical strut CUT.hexStrut wide; the next
+ * row sits in the notches, its floors CUT.hexStrut square to the roofs below.
+ */
+function honeycombHoles(s, zLo, zHi, sA, sB) {
+  const k = CUT.hexSlope, p = CUT.hexPitch, t = CUT.hexStrut;
+  const a = (p - t) / 2, r = k * a, h = a * Math.hypot(1, k);
+  if (a < CUT.minHalf) return [];
+  // row to row: the floor above runs parallel to the roof below, t apart square to it
+  const dz = h + k * (p / 2 - t) + t * Math.hypot(1, k);
+  const fit = zoneFit(s, zLo, zHi, sA, sB, Math.min(CUT.roofMin, k));
+  const [z0, zTop] = zoneSpan(s, zLo, zHi, sA, sB);
+  const half = h / 2 + r;                              // centre to tip
+  const cols = Math.ceil((sB - sA) / p) + 1;
+  const holes = [];
+  for (let j = 0; z0 + half * 0.5 + j * dz - half <= zTop; j++) {
+    const zc = z0 + half * 0.5 + j * dz;
+    for (let i = -1; i <= cols; i++) {
+      const sm = sA + t / 2 + a + i * p + (j % 2 ? p / 2 : 0);
+      if (sm + a < sA || sm - a > sB) continue;
+      for (const f of [1, 0.8, 0.62, 0.46, 0.34]) {
+        const P = fit([[sm, zc - half * f], [sm + a * f, zc - h / 2 * f], [sm + a * f, zc + h / 2 * f],
+                       [sm, zc + half * f], [sm - a * f, zc + h / 2 * f], [sm - a * f, zc - h / 2 * f]]);
         if (P) { holes.push(P); break; }
       }
     }
@@ -358,6 +419,8 @@ export function cutWall(st, full, out, wall) {
   let holes;
   if (kind === 'lattice') {
     holes = latticeHoles(s, zLo, zHi, sA, sB);
+  } else if (kind === 'honeycomb') {
+    holes = honeycombHoles(s, zLo, zHi, sA, sB);
   } else {
     holes = [];
     for (let c = 0; c + 1 < edges.length; c++) {

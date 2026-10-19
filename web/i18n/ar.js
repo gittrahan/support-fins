@@ -294,6 +294,7 @@ export default {
   "Triangle": "مثلث",
   "Arch": "قوس",
   "Lattice": "شبكي",
+  "Honeycomb": "قرص العسل",
   "Wide-face coverage": "تغطية الأوجه العريضة",
   "Plate only": "على سطح الطباعة فقط",
   "Long walls": "جدران طويلة",

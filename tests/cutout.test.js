@@ -120,7 +120,7 @@ function midPlane(tris, step = 0.15) {
 }
 
 Deno.test('cutout: every piece is a closed, outward-wound solid', () => {
-  for (const pattern of ['diamond', 'triangle', 'arch', 'lattice']) {
+  for (const pattern of ['diamond', 'triangle', 'arch', 'lattice', 'honeycomb']) {
     const tris = wall(pattern);
     assert(isClosed(tris), `${pattern}: not closed`);
     for (const s of shells(tris)) assert(volume(s) > 0, `${pattern}: a piece is wound inside-out`);
@@ -131,7 +131,7 @@ Deno.test('cutout: pattern off, and a wall too short for a hole, are unchanged',
   const solid = wall('none');
   CUT.pattern = 'none';
   assert(JSON.stringify(wall('none')) === JSON.stringify(solid), 'off is not deterministic');
-  for (const pattern of ['diamond', 'triangle', 'arch', 'lattice']) {
+  for (const pattern of ['diamond', 'triangle', 'arch', 'lattice', 'honeycomb']) {
     assert(JSON.stringify(wall(pattern, LOW, 6)) === JSON.stringify(wall('none', LOW, 6)),
       `${pattern}: a 6mm wall got cut`);
   }
@@ -140,8 +140,8 @@ Deno.test('cutout: pattern off, and a wall too short for a hole, are unchanged',
 // Mid-plane sampling is the slow part; share one pass per pattern.
 const solidPlane = midPlane(wall('none'));
 const slopeSolid = midPlane(sloped('none'), 0.2);
-const slopeLattice = midPlane(sloped('lattice'), 0.2);
-const planes = Object.fromEntries(['diamond', 'triangle', 'arch', 'lattice']
+const slopePlanes = { lattice: midPlane(sloped('lattice'), 0.2), honeycomb: midPlane(sloped('honeycomb'), 0.2) };
+const planes = Object.fromEntries(['diamond', 'triangle', 'arch', 'lattice', 'honeycomb']
   .map((p) => [p, midPlane(wall(p))]));
 
 Deno.test('cutout: stays inside the solid wall and removes real material', () => {
@@ -219,28 +219,54 @@ Deno.test('cutout: the setting reaches an Auto build through tunables', () => {
   } finally { CUT.pattern = was; }
 });
 
-Deno.test('cutout: on a sloped fin the lattice climbs the slope, and still never bridges', () => {
-  const { grid, xs } = slopeLattice;
-  let solid = 0, cut = 0, outside = 0;
-  grid.forEach((row, i) => row.forEach((m, j) => {
-    const s = slopeSolid.grid[i][j];
-    if (s) solid++;
-    if (m) cut++;
-    if (m && !s) outside++;
-  }));
-  assert(outside / solid < 0.002, `${outside} samples outside the solid fin`);
-  // the old per-cell lattice cut ~0% here: every cell was short at its low end
-  const saved = 1 - cut / solid;
-  assert(saved > 0.3, `only ${(saved * 100).toFixed(0)}% of the sloped fin removed`);
-  for (let i = 1; i < grid.length; i++) {
-    for (let j = 1; j < xs.length - 1; j++) {
-      if (!grid[i][j] || grid[i - 1][j]) continue;
-      assert(grid[i - 1][j - 1] || grid[i - 1][j + 1], `unsupported roof at x=${xs[j].toFixed(2)}`);
+for (const pattern of ['lattice', 'honeycomb']) {
+  Deno.test(`cutout: on a sloped fin the ${pattern} climbs the slope, and still never bridges`, () => {
+    const { grid, xs } = slopePlanes[pattern];
+    let solid = 0, cut = 0, outside = 0;
+    grid.forEach((row, i) => row.forEach((m, j) => {
+      const s = slopeSolid.grid[i][j];
+      if (s) solid++;
+      if (m) cut++;
+      if (m && !s) outside++;
+    }));
+    assert(outside / solid < 0.002, `${pattern}: ${outside} samples outside the solid fin`);
+    // the old per-cell lattice cut ~0% here: every cell was short at its low end
+    const saved = 1 - cut / solid;
+    assert(saved > 0.3, `${pattern}: only ${(saved * 100).toFixed(0)}% of the sloped fin removed`);
+    for (let i = 1; i < grid.length; i++) {
+      for (let j = 1; j < xs.length - 1; j++) {
+        if (!grid[i][j] || grid[i - 1][j]) continue;
+        assert(grid[i - 1][j - 1] || grid[i - 1][j + 1], `${pattern}: unsupported roof at x=${xs[j].toFixed(2)}`);
+      }
     }
-  }
-  const tris = sloped('lattice');
-  assert(isClosed(tris), 'sloped lattice not closed');
-  for (const s of shells(tris)) assert(volume(s) > 0, 'a sloped lattice piece is inside-out');
+    const tris = sloped(pattern);
+    assert(isClosed(tris), `sloped ${pattern} not closed`);
+    for (const s of shells(tris)) assert(volume(s) > 0, `a sloped ${pattern} piece is inside-out`);
+  });
+}
+
+Deno.test('cutout: the honeycomb has vertical struts between its holes, the lattice none', () => {
+  // What sets the honeycomb apart: neighbours in a row leave a vertical strut,
+  // CUT.hexStrut wide with a hole on each side, as tall as a hexagon's side. (Not
+  // a column foot to top -- the next row's hexagon sits over each strut.) The
+  // lattice's diamonds only pinch together at their nodes (~1.5 mm).
+  const tallest = ({ grid, xs }) => {
+    const d = Math.round(CUT.hexStrut / (xs[1] - xs[0]));   // a strut width, in samples
+    let best = 0;
+    for (let j = d; j + d < xs.length; j++) {
+      if (Math.abs(xs[j]) > 30 - 2.5) continue;             // the end posts, open air past them
+      let run = 0;
+      for (let i = 0; i < grid.length; i++) {
+        run = grid[i][j] && !grid[i][j - d] && !grid[i][j + d] ? run + 1 : 0;
+        best = Math.max(best, run);
+      }
+    }
+    return best * 0.15;                                     // midPlane's default step, mm
+  };
+  const h = (CUT.hexPitch - CUT.hexStrut) / 2 * Math.hypot(1, CUT.hexSlope);
+  assert(tallest(planes.lattice) < 0.5 * h, `lattice: a ${tallest(planes.lattice).toFixed(2)} mm vertical strut`);
+  assert(tallest(planes.honeycomb) > 0.8 * h,
+    `honeycomb: tallest vertical strut ${tallest(planes.honeycomb).toFixed(2)} mm, want ~${h.toFixed(2)}`);
 });
 
 Deno.test('cutout: on real parts no pattern throws, leaves a hole in the mesh, or ADDS plastic', () => {
@@ -257,7 +283,7 @@ Deno.test('cutout: on real parts no pattern throws, leaves a hole in the mesh, o
     const build = (p) => fins.buildFins(topo, res, rot,
       { mode: 'auto', bedPad: true, tines: true, tunables: { cutout: p } }).triangles;
     const solid = volume(build('none'));
-    for (const p of ['diamond', 'triangle', 'arch', 'lattice']) {
+    for (const p of ['diamond', 'triangle', 'arch', 'lattice', 'honeycomb']) {
       const t = build(p);
       assert(isClosed(t), `${name} ${ax}${deg} ${p}: not closed`);
       assert(volume(t) <= solid * 1.02 + 1,
@@ -278,7 +304,7 @@ Deno.test('cutout: a cube on its edge (held by wedges) is cut too', () => {
     { mode: 'auto', bedPad: true, tines: true, tunables: { cutout } });
   const solid = build('none');
   assert(solid.fins.some((f) => f.kind === 'wedge'), 'expected wedges on the cube at X45');
-  for (const p of ['diamond', 'triangle', 'arch', 'lattice']) {
+  for (const p of ['diamond', 'triangle', 'arch', 'lattice', 'honeycomb']) {
     const b = build(p);
     assert(isClosed(b.triangles), `X45 ${p}: not closed`);
     for (const sh of shells(b.triangles)) assert(volume(sh) > 0, `X45 ${p}: a piece is inside-out`);
@@ -337,7 +363,7 @@ function sharedEdges(t) {
 }
 
 Deno.test('cutout: no welded edge is shared by more than two faces (issue #223)', () => {
-  const PATTERNS = ['diamond', 'triangle', 'arch', 'lattice'];
+  const PATTERNS = ['diamond', 'triangle', 'arch', 'lattice', 'honeycomb'];
   const check = (what, t) => {
     const { over, flat } = sharedEdges(t);
     assert(over === 0 && flat === 0, `${what}: ${over} edges on 3+ faces, ${flat} zero-area faces`);

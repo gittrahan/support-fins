@@ -322,6 +322,7 @@ export default {
   "Triangle": "三角",
   "Arch": "拱形",
   "Lattice": "网格",
+  "Honeycomb": "蜂窝",
   "Wide-face coverage": "大面覆盖率",
   "Plate only": "仅热床",
   "Long walls": "长墙",

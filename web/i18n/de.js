@@ -304,6 +304,7 @@ export default {
   "Triangle": "Dreieck",
   "Arch": "Bogen",
   "Lattice": "Gitter",
+  "Honeycomb": "Waben",
   "Wide-face coverage": "Flächenabdeckung",
   "Plate only": "Nur Druckplatte",
   "Long walls": "Lange Wände",

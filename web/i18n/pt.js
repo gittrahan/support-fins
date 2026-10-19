@@ -276,6 +276,7 @@ export default {
   "Triangle": "Triângulo",
   "Arch": "Arco",
   "Lattice": "Treliça",
+  "Honeycomb": "Favo de mel",
   "Wide-face coverage": "Cobertura de face larga",
   "Plate only": "Só na mesa",
   "Long walls": "Paredes longas",

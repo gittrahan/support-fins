@@ -300,6 +300,7 @@ export default {
 	"Triangle": "Driehoek",
 	"Arch": "Boog",
 	"Lattice": "Raster",
+	"Honeycomb": "Honingraat",
 	"Wide-face coverage": "Dekking 	brede vlakken",
 	"Plate only": "Alleen bed",
 	"no supports on the part": "(geen steunen op onderdeel)",
