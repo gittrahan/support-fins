@@ -150,7 +150,12 @@ checked inside the part. **Not tested on a resin printer.**
   (1.2 mm struts at 1.5:1, ~56°). Diamonds at the edge are clipped to the outline; a
   roof that clip leaves flatter than 45° is cut back to exactly 45° (a gable under a
   level top), so every hole roof is ≥ 45° -- the same rule the tool's overhang check
-  applies to the part. Walls too short for a 3 mm hole stay solid. The
+  applies to the part. **Honeycomb** fills the same outline the same way with
+  hexagons stood on a corner (6 mm pitch, 1.2 mm struts both ways: vertical between
+  neighbours in a row, diagonal between rows), stretched upright until their roofs
+  rise 1.4:1 (~55deg); a regular hexagon's 30deg roofs are a print question
+  (`prototype/calibration/cutout/`, the honeycomb gate). Under the coupon's ledge its
+  walls weigh about 10 % less than Lattice's. Walls too short for a 3 mm hole stay solid. The
   tined side fins (the Onshape port's; the web tool no longer builds them) are never
   cut -- their tines anchor across the whole blade.
 
