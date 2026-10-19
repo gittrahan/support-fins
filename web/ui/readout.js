@@ -4,7 +4,7 @@ import { t, tn } from './i18n.js';
  * grams receipt, and why a part got no fins.
  */
 import { PAD } from '../fins.js';
-import { bareArea } from '../fins/fill.js';
+import { bareArea, fillReach } from '../fins/fill.js';
 import { PROP } from '../prop.js';
 import { el } from './dom.js';
 
@@ -433,9 +433,10 @@ function updateFinReadout(built, ms) {
       lead.push(t('{area} mm² of overhang no wall can reach this way up — tilt the part, or add a wall by hand', { area: bare }));
     }
   }
-  // Auto: how much red its walls leave bare (fins/fill.js bareArea), in the panel,
-  // not behind the (i) -- a build that holds a quarter of a figure mustn't read as done. Full says its
-  // own above; a curved fill's line covers only its regions, so this one stands.
+  // Auto: how much red its walls leave past the fill's reach (fins/fill.js bareArea),
+  // as a fact behind the (i), not a warning: a tilted cube's strip past its end walls
+  // counts here and prints fine. Full says its own above; a curved fill's line covers
+  // only its regions, so this one stands.
   // Fins removed by hand held red too: measure again against the walls left (the
   // build's own number would hide what the removal dropped). Hand-drawn walls aren't
   // counted, so after one the line can only overstate what is bare.
@@ -447,8 +448,9 @@ function updateFinReadout(built, ms) {
   // (not when nothing was placed: "none possible" and its (i) say why, and Full
   // can't reach what Auto couldn't stand a wall under at all)
   if (ba && !fl && n && Math.round(ba.area) >= 1) {
-    lead.push(t('{area} mm² of overhang ({pct} %) is still bare — Full coverage reaches more',
-                { area: Math.round(ba.area), pct: Math.max(1, Math.round(100 * ba.area / ba.total)) }));
+    help.push(t('Auto leaves {area} mm² ({pct} %) of overhang more than {reach} mm from a wall — Full coverage adds walls there',
+                { area: Math.round(ba.area), pct: Math.max(1, Math.round(100 * ba.area / ba.total)),
+                  reach: Math.round(fillReach(built.bare.coverage)) }));
   }
   // Curved walls in Full: the straight build held more, so it was kept
   if (built.curvedDropped) {

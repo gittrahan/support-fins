@@ -400,7 +400,7 @@ export default {
   "Auto already reaches every overhang here, so Full coverage added nothing.": "「自动」在此已覆盖到每一个悬垂，因此全覆盖没有额外添加内容。",
   "Full coverage stopped at its wall limit with {area} mm² of overhang still bare — rotate the part, or add a wall by hand": "全覆盖在墙数上限处停止，仍有 {area} mm² 悬垂裸露 —— 请旋转零件，或手动添加一堵墙",
   "{area} mm² of overhang no wall can reach this way up — tilt the part, or add a wall by hand": "在这个朝向上有 {area} mm² 悬垂是任何墙都无法到达的 —— 请倾斜零件，或手动添加一堵墙",
-  "{area} mm² of overhang ({pct} %) is still bare — Full coverage reaches more": "仍有 {area} mm² 悬垂（{pct} %）裸露 —— 「全覆盖」能覆盖更多",
+  "Auto leaves {area} mm² ({pct} %) of overhang more than {reach} mm from a wall — Full coverage adds walls there": "「自动」留下 {area} mm²（{pct} %）的悬垂距墙超过 {reach} mm —— 「全覆盖」会在那里加墙",
   "{n} overhangs are too shallow for a fin this way up. Tilt the part steeper so a fin can follow it (try Suggest orientation), or add a wall by hand.": { other: "在这个朝向上有 {n} 处悬垂过于平缓，放不下鳍片。请把零件倾斜得更陡，让鳍片能够贴合（试试「推荐摆位」），或手动添加一堵墙。" },
   "{n} supports were cut short or left off because part of the model sits under the overhang and Plate only is on. Untick it to stand them on the part.": { other: "有 {n} 处支撑被截短或省略，因为悬垂下方就是模型本体，且开启了「仅热床」。取消勾选即可把它们立在零件上。" },
   "imported “{name}” of {total} objects": "已从 {total} 个对象中导入“{name}”",
