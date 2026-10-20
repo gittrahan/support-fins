@@ -189,20 +189,29 @@ Deno.test('draw: the squat stem and the full wall overlap, never meet flush', ()
   assert(Math.max(...brimX) > Math.min(...tallX) + 0.5, `brim ends at x ${Math.max(...brimX)}, full wall starts at ${Math.min(...tallX)}: flush, not overlapping`);
   // where the squat stem runs on into the full wall it sits inside it, not on its faces:
   // no face twice, no edge shared by two solids (local issue 057: a slicer reading the
-  // mesh's topology, as trimesh does, lost the wall's section there)
+  // mesh's topology lost the wall's section there) -- with the interface crest too,
+  // whose slope crest takes the stem's tip width
   const key = (v) => v.map((c) => Math.round(c * 1e4)).join(',');
-  const faces = new Map(), edges = new Map();
-  for (let i = 0; i < r.tris.length; i += 3) {
-    const t = [r.tris[i], r.tris[i + 1], r.tris[i + 2]].map(key);
-    const f = [...t].sort().join('|');
-    faces.set(f, (faces.get(f) ?? 0) + 1);
-    for (let j = 0; j < 3; j++) {
-      const e = [t[j], t[(j + 1) % 3]].sort().join('|');
-      edges.set(e, (edges.get(e) ?? 0) + 1);
+  const prior = P.iface;
+  try {
+    for (const iface of [false, 'all']) {
+      P.iface = iface;
+      const w = drawnWall([-9, 0, zAt(-9)], [8, 0, zAt(8)], pos, 0);
+      assert(w.ok && w.squat, `expected a mixed wall (crest ${iface}): ${w.reason}`);
+      const faces = new Map(), edges = new Map();
+      for (let i = 0; i < w.tris.length; i += 3) {
+        const t = [w.tris[i], w.tris[i + 1], w.tris[i + 2]].map(key);
+        const f = [...t].sort().join('|');
+        faces.set(f, (faces.get(f) ?? 0) + 1);
+        for (let j = 0; j < 3; j++) {
+          const e = [t[j], t[(j + 1) % 3]].sort().join('|');
+          edges.set(e, (edges.get(e) ?? 0) + 1);
+        }
+      }
+      assert([...faces.values()].every((n) => n === 1), `a face of the squat stem lies on the full wall's (crest ${iface})`);
+      assert([...edges.values()].every((n) => n === 2), `an edge is shared by the squat stem and the full wall (crest ${iface})`);
     }
-  }
-  assert([...faces.values()].every((n) => n === 1), 'a face of the squat stem lies on the full wall\'s');
-  assert([...edges.values()].every((n) => n === 2), 'an edge is shared by the squat stem and the full wall');
+  } finally { P.iface = prior; }
 });
 
 Deno.test('draw: a squat brim stays out of an underside that dips beside the line (torus)', () => {

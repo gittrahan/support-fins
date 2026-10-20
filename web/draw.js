@@ -339,7 +339,7 @@ function squatWall(topPA, line, tris, zBed, plateOnly = false) {
     if (tall[i] && !tall[i - 1] && !tall[i + 1]) tall[i] = false;
   }
   const t = [];
-  let i = 0;
+  let i = 0, squats = 0;
   while (i < line.length) {
     let j = i;
     while (j + 1 < line.length && tall[j + 1] === tall[i]) j++;
@@ -350,10 +350,13 @@ function squatWall(topPA, line, tris, zBed, plateOnly = false) {
       // its own first/last station, so one would only meet it face to face -- the pieces
       // must overlap, never sit flush (Fusion's weld). sweepSquat takes any h >= 0.6.
       // On those shared stations the squat stem has the full wall's section, so it is
-      // inset a hair to run inside it rather than on its faces (local issue 057).
+      // inset a hair to run inside it rather than on its faces (local issue 057); every
+      // other squat run twice as far, since across a tall run of 2-3 stations the squat
+      // runs either side reach into each other too.
       const from = Math.max(0, i - 2);
       const seg = line.slice(from, Math.min(line.length, j + 3));
-      const inset = seg.map((_, k) => (tall[from + k] ? SQUAT_INSET : 0));
+      const inn = SQUAT_INSET * (1 + squats++ % 2);
+      const inset = seg.map((_, k) => (tall[from + k] ? inn : 0));
       if (seg.length < 2 || !sweepSquat(seg, zBed, t, inset)) return null;
     }
     i = j + 1;

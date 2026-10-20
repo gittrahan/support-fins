@@ -21,9 +21,10 @@ import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
  * sits on the plate), wide enough to grip. Two overlapping solids the slicer
  * unions, exactly like `sweep`'s wall + flange.
  *
- * `inset` (optional, mm per station) narrows the stem on each side there: a stretch
- * that runs inside a full wall's stem (draw.js's mixed run) would otherwise have the
- * same section and meet it face on face, flush instead of overlapping.
+ * `inset` (optional, mm per station) narrows the stem, its tip and the brim on each
+ * side there: a stretch that runs inside a full wall's stem (draw.js's mixed run), or
+ * past another squat run's, would otherwise have the same section and meet it face
+ * on face, flush instead of overlapping.
  */
 export function sweepSquat(line, zBed, out, inset = null) {
   const wall = [], brim = [], crest = [];
@@ -48,7 +49,7 @@ export function sweepSquat(line, zBed, out, inset = null) {
     // where the interface crest runs, the stem stops at the crest's cut
     const inn = inset?.[i] ?? 0;
     const sh = stemHalf(top - ztip) - inn;   // no wider than its neck can climb from (044)
-    const c = crestCut(top, ztip, brimTop, kinds?.[i], 2 * sh);
+    const c = crestCut(top, ztip, brimTop, kinds?.[i], 2 * sh, PROP.tip - 2 * inn);
     crest.push(c?.ring(P) ?? null);
     const [zt, zTop, wTop] = c ? [c.zt, c.cut, c.wc] : [ztip, top, PROP.tip / 2 - inn];
 
@@ -58,10 +59,8 @@ export function sweepSquat(line, zBed, out, inset = null) {
       P(-wTop, zTop), P(-sh, zt), P(-sh, zBed),
     ]);
     // the brim: a thin flat slab overlapping the wall's base, for plate grip
-    brim.push([
-      P(+PROP.squatBrimW, zBed), P(+PROP.squatBrimW, brimTop),
-      P(-PROP.squatBrimW, brimTop), P(-PROP.squatBrimW, zBed),
-    ]);
+    const bw = PROP.squatBrimW - inn;
+    brim.push([P(+bw, zBed), P(+bw, brimTop), P(-bw, brimTop), P(-bw, zBed)]);
   }
   const from = out.length;
   ribbon(wall, out);
