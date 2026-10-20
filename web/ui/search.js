@@ -59,7 +59,8 @@ function nameOf(r) {
   if (r.dataset.origText) parts.push(r.dataset.origText);
   return fold(parts.join(' '));
 }
-const tipOf = (r) => fold(`${r.title} ${r.dataset.origTitle ?? ''}`);
+// a title parked by ui/tips.js while its picture card is up is still its title
+const tipOf = (r) => fold(`${r.title || r.dataset.tipTitle || ''} ${r.dataset.origTitle ?? ''}`);
 const shown = (r) => !r.closest('[hidden]');
 
 let saved = null;   // each section's open state from before the search

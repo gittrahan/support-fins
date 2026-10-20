@@ -39,6 +39,7 @@ import {
 import { finTris, padTris, lastBuilt } from './ui/finbuild.js';
 import { initSettings } from './ui/settings.js';
 import './ui/search.js';
+import './ui/tips.js';
 import { part, topology, rotM3, lastResult, threshold } from './ui/part.js';
 import { gizmo, hoverFace, layActive, cancelLay, layHover, layClick, ringPressTurned, clearRingPress } from './ui/pose.js';
 import { planeBusy, renderGhost } from './ui/section.js';

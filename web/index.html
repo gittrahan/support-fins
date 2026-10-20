@@ -289,7 +289,7 @@
       <span><span data-i18n="Layer height">Layer height</span> <span class="mut">mm</span></span>
       <input type="number" id="layer-height" min="0.08" max="0.6" step="0.04" value="0.2">
     </label>
-    <label data-i18n-title class="fld row" title="Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.">
+    <label data-i18n-title class="fld row" data-tip-pic="gap" title="Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.">
       <span><span data-i18n="Support gap">Support gap</span> <span class="mut">mm</span></span>
       <input type="number" id="gap" min="0.1" max="0.4" step="0.05" value="0.2">
     </label>
@@ -342,7 +342,7 @@
        just stands under the overhang and snaps off. Same fin, tines or no tines. -->
   <details class="sec" data-sec="tines" open>
     <summary>
-      <label data-i18n-title class="check sec-title" title="Tines fuse the support to the part so it grips instead of just propping. Off = plain breakaway wall.">
+      <label data-i18n-title class="check sec-title" data-tip-pic="tines" title="Tines fuse the support to the part so it grips instead of just propping. Off = plain breakaway wall.">
         <input type="checkbox" id="tines" checked><span data-i18n="Tines">Tines</span> <span class="mut" data-i18n="grip the part">grip the part</span>
       </label>
       <span class="sec-sum" id="sum-tines"></span>
@@ -483,18 +483,18 @@
         <span><span data-i18n="Brace walls above">Brace walls above</span> <span class="mut">cm</span></span>
         <input type="number" id="tall-ribs-height" min="5" max="200" step="0.1" value="10">
       </label>
-      <label data-i18n-title class="check" title="Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows. Hover an upright side to preview one, and click to add it.">
+      <label data-i18n-title class="check" data-tip-pic="sway" title="Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows. Hover an upright side to preview one, and click to add it.">
         <input type="checkbox" id="sway"><span data-i18n="Sway braces">Sway braces</span>
       </label>
-      <label data-i18n-title class="fld row" id="sway-from-fld" title="Height the brace tines start at. 0 = grip the whole height; raise it to tie on only above where the part starts to move.">
+      <label data-i18n-title class="fld row" id="sway-from-fld" data-tip-pic="sway-from" title="Height the brace tines start at. 0 = grip the whole height; raise it to tie on only above where the part starts to move.">
         <span><span data-i18n="Brace grip from">Brace grip from</span> <span class="mut" data-i18n="mm up">mm up</span></span>
         <input type="number" id="sway-from" min="0" max="2000" step="5" value="0">
       </label>
-      <label data-i18n-title class="fld row" id="sway-spacing-fld" title="Vertical distance between brace tines. Smaller = held tighter, more marks on the side. Default 6mm.">
+      <label data-i18n-title class="fld row" id="sway-spacing-fld" data-tip-pic="sway-spacing" title="Vertical distance between brace tines. Smaller = held tighter, more marks on the side. Default 6mm.">
         <span><span data-i18n="Brace tine spacing">Brace tine spacing</span> <span class="mut">mm</span></span>
         <input type="number" id="sway-spacing" min="2" max="30" step="1" value="6">
       </label>
-      <label data-i18n-title class="fld row" id="sway-depth-fld" title="How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%.">
+      <label data-i18n-title class="fld row" id="sway-depth-fld" data-tip-pic="sway-depth" title="How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%.">
         <span><span data-i18n="Brace depth">Brace depth</span> <span class="mut" data-i18n="% of height">% of height</span></span>
         <input type="number" id="sway-depth" min="5" max="50" step="1" value="15">
       </label>
