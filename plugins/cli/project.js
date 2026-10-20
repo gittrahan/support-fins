@@ -111,11 +111,11 @@ export async function finProject(input, args, io) {
   const report = new ProjectReport(args.check);
   try {
     const result = await processProject(input, args, io, report);
-    if (args.listObjects) return result;
+    if (args.listObjects || args.listPlates) return result;
     const data = report.data();
     return { ...result, ...data, report: `${result.report}\n${formatProjectReport(data)}` };
   } catch (e) {
-    if (!args.listObjects) e.projectReport = report.data();
+    if (!args.listObjects && !args.listPlates) e.projectReport = report.data();
     throw e;
   }
 }
@@ -124,7 +124,8 @@ async function processProject(input, args, io, report) {
   if (!/\.3mf$/i.test(input)) throw new Error('--preserve-project reads a Bambu Studio/MakerWorld .3mf');
   const output = args.output ?? input.replace(/\.3mf$/i, '-fins-project.3mf');
   if (!/\.3mf$/i.test(output)) throw new Error('--preserve-project writes a .3mf');
-  if (!args.listObjects && !args.check) {
+  const listing = args.listObjects || args.listPlates;
+  if (!listing && !args.check) {
     if (!io.checkProjectOutput || !io.writeProject) throw new Error('project output requires an atomic file-system writer');
     // In a batch, this output may alias a different input (including by hard link).
     // --overwrite authorizes replacing old outputs, never any of the source files.
@@ -151,12 +152,15 @@ async function processProject(input, args, io, report) {
   }
   const plates = children(config, 'plate');
   if (!plates.length) throw new Error('no plates in the project settings; save it from Bambu Studio, OrcaSlicer or QIDI Studio');
-  const membership = new Map();
+  const membership = new Map(), plateCounts = new Map();
   plates.forEach((p, i) => {
+    const id = metadata(p).plater_id ?? String(i + 1);
+    if (!id.trim() || plateCounts.has(id)) throw new Error(`empty or duplicate plate ID ${JSON.stringify(id)}; save distinct plates in the slicer`);
+    plateCounts.set(id, { id, objects: 0, printableObjects: 0 });
     for (const instance of children(p, 'model_instance')) {
       const md = metadata(instance), key = `${md.object_id}:${md.instance_id}`;
       if (membership.has(key)) throw new Error('ambiguous plate membership');
-      membership.set(key, { plate: metadata(p).plater_id ?? String(i + 1), node: p });
+      membership.set(key, { plate: id, node: p });
     }
   });
   const occurrences = new Map();
@@ -169,10 +173,31 @@ async function processProject(input, args, io, report) {
       printable: item.attrs.printable !== '0' && item.attrs.printable !== 'false',
       plate: membership.get(`${id}:${instance}`)?.plate ?? null };
   });
-  if (args.listObjects) return { input, output: null, objects: items.map(({ number, id, name, printable, plate }) =>
-    ({ number, id, name, printable, plate })), report: items.map((o) =>
-      `${o.number}: ${o.name} (resource ${o.id}, plate ${o.plate ?? '?'}, ${o.printable ? 'printable' : 'not printable'})`).join('\n') };
-  const selected = pick(items, args.objects);
+  for (const item of items) {
+    const plate = plateCounts.get(item.plate);
+    if (plate) { plate.objects++; if (item.printable) plate.printableObjects++; }
+  }
+  const requestedPlates = new Set(args.plates);
+  for (const id of requestedPlates) {
+    const plate = plateCounts.get(id);
+    if (!plate) throw new Error(`plate ${JSON.stringify(id)} is missing; use --list-plates`);
+    if (!listing && !plate.printableObjects) throw new Error(`plate ${JSON.stringify(id)} has no printable objects; use --list-plates`);
+  }
+  // Keep original build ordinals: filtering must not change --object numbers or
+  // the buildIndex used by the mesh reader. Names resolve inside these plates.
+  const inPlates = items.filter((o) => !requestedPlates.size || requestedPlates.has(o.plate));
+  if (listing) {
+    const summaries = [...plateCounts.values()].filter((p) => !requestedPlates.size || requestedPlates.has(p.id));
+    const report = summaries.map((p) => `Plate ${p.id}: ${p.objects} objects, ${p.printableObjects} printable`);
+    const result = { input, output: null, plates: summaries };
+    if (args.listObjects) {
+      result.objects = inPlates.map(({ number, id, name, printable, plate }) => ({ number, id, name, printable, plate }));
+      report.push(...inPlates.map((o) =>
+        `${o.number}: ${o.name} (resource ${o.id}, plate ${o.plate ?? '?'}, ${o.printable ? 'printable' : 'not printable'})`));
+    }
+    return { ...result, report: report.join('\n') };
+  }
+  const selected = pick(inPlates, args.objects);
   report.select(selected);
   if (!selected.length) throw new Error('no printable objects selected');
   const warn = (s) => io.err(`support-fins: ${input}: ${s}`);

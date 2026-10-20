@@ -42,7 +42,9 @@ export function helpText() {
     '  --json                one JSON line per file instead of the summary',
     '  --preserve-project    keep a Bambu Studio/MakerWorld project; add fins to all',
     '                        printable objects on their original plates',
-    '  --list-objects        with --preserve-project: list build-item numbers; write nothing',
+    '  --plate <id>          project mode: select a plate ID from the listing; repeat for several',
+    '  --list-objects        project mode: plate summary + build-item numbers; write nothing',
+    '  --list-plates         project mode: plate IDs and object counts; write nothing',
     '  --check               with --preserve-project: check settings and meshes; write nothing',
     '                        exit 1 if any selected object is incompatible',
     '  --fin-extruder <n>    project mode: existing filament slot for fins (1-based)',
@@ -77,6 +79,7 @@ class UsageError extends Error {}
 export function parseArgs(argv) {
   const out = { inputs: [], output: null, rot: null, finsOnly: false, object: null, objects: [],
                 json: false, help: false, dialog: {}, preserveProject: false, listObjects: false, check: false,
+                plates: [], listPlates: false,
                 finExtruder: null, disableNativeSupports: false, overwrite: false };
   let files = false;
   for (let i = 0; i < argv.length; i++) {
@@ -97,14 +100,20 @@ export function parseArgs(argv) {
     else if (a === '--rot') out.rot = parseRot(next());
     else if (a === '--fins-only') out.finsOnly = true;
     else if (a === '--object') { out.object = next(); out.objects.push(out.object); }
+    else if (a === '--plate') {
+      const v = next();
+      if (!v.trim() || v.startsWith('--')) throw new UsageError('--plate needs a plate ID (see --list-plates)');
+      out.plates.push(v);
+    }
     else if (a === '--json') out.json = true;
     else if (a === '--fin-extruder') {
       const v = next();
       if (!/^[1-9]\d*$/.test(v) || !Number.isSafeInteger(+v)) throw new UsageError('--fin-extruder must be a positive integer');
       out.finExtruder = +v;
-    } else if (['--preserve-project', '--list-objects', '--check', '--disable-native-supports', '--overwrite'].includes(a)) {
+    } else if (['--preserve-project', '--list-objects', '--list-plates', '--check', '--disable-native-supports', '--overwrite'].includes(a)) {
       if (value !== null) throw new UsageError(`${a} takes no value`);
       out[{ '--preserve-project': 'preserveProject', '--list-objects': 'listObjects', '--check': 'check',
+        '--list-plates': 'listPlates',
         '--disable-native-supports': 'disableNativeSupports', '--overwrite': 'overwrite' }[a]] = true;
     }
     else if (a.startsWith('--')) {
@@ -307,12 +316,14 @@ export async function run(argv, io) {
     if (args.preserveProject && (args.rot || args.finsOnly)) {
       throw new UsageError('--preserve-project keeps the existing pose and writes a full project; do not combine with --rot or --fins-only');
     }
-    if (!args.preserveProject && (args.check || args.listObjects || args.finExtruder !== null || args.disableNativeSupports || args.overwrite)) {
-      throw new UsageError('--check, --list-objects, --fin-extruder, --disable-native-supports and --overwrite require --preserve-project');
+    if (!args.preserveProject && (args.check || args.listObjects || args.listPlates || args.plates.length
+        || args.finExtruder !== null || args.disableNativeSupports || args.overwrite)) {
+      throw new UsageError('--plate, --check, --list-objects, --list-plates, --fin-extruder, --disable-native-supports and --overwrite require --preserve-project');
     }
-    if (args.check && (args.listObjects || args.output || args.overwrite)) {
-      throw new UsageError('--check writes nothing; do not combine with --list-objects, --output or --overwrite');
+    if (args.check && (args.listObjects || args.listPlates || args.output || args.overwrite)) {
+      throw new UsageError('--check writes nothing; do not combine with --list-objects, --list-plates, --output or --overwrite');
     }
+    if (args.listObjects && args.listPlates) throw new UsageError('use --list-objects or --list-plates, not both');
     if (!args.preserveProject && args.objects.length > 1) throw new UsageError('repeat --object only with --preserve-project');
     if (args.finsOnly && args.rot) {
       throw new UsageError('--fins-only lines up with the part as it is in your file, so it can\'t take --rot: '

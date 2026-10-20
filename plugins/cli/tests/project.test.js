@@ -39,23 +39,26 @@ async function compressed(files) {
 }
 
 async function fixture({ duplicate = false, negative = false, variable = null, layer = '0.16', printable = true, mirror = false,
-  app = 'BambuStudio-02.04.00.70', sequence = 'by layer', plateSequence = null } = {}) {
+  app = 'BambuStudio-02.04.00.70', sequence = 'by layer', plateSequence = null,
+  plateIDs = [1, 2], emptyPlates = [], together = false, sameName = false } = {}) {
   const cube = triples(block(0, 20, 0, 20, 0, 20));
   const q = Math.SQRT1_2;
   const resource = (id, file) => `<object id="${id}" type="model" p:UUID="original-${id}"><components>`
     + `<component objectid="1" p:path="/3D/Objects/${file}.model" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object>`;
   const model = (paint) => `<model unit="millimeter" xmlns="${CORE}"><resources><object id="1" type="model">`
     + meshXML(cube, (i) => i % 3 ? ` paint_color="${paint}"` : '') + '</object></resources></model>';
-  const obj = (id, slot) => `<object id="${id}"><metadata key="name" value="Part ${id}"/>`
+  const obj = (id, slot) => `<object id="${id}"><metadata key="name" value="Part ${sameName ? 10 : id}"/>`
     + `<metadata key="extruder" value="${slot}"/><metadata key="enable_support" value="1"/>`
     + `<part id="1" subtype="${negative && id === 10 ? 'negative_part' : 'normal_part'}">`
     + '<metadata key="name" value="painted body"/><metadata key="enable_support" value="1"/></part></object>';
-  const plate = (n, id) => `<plate><metadata key="plater_id" value="${n}"/><metadata key="locked" value="true"/>`
+  const instance = (id, n) => `<model_instance><metadata key="object_id" value="${id}"/><metadata key="instance_id" value="${duplicate && n === 2 ? 1 : 0}"/>`
+    + '<metadata key="identify_id" value="99"/></model_instance>';
+  const plate = (n, instances) => `<plate><metadata key="plater_id" value="${plateIDs[n - 1]}"/><metadata key="locked" value="true"/>`
     + (plateSequence && n === 1 ? `<metadata key="print_sequence" value="${plateSequence}"/>` : '')
     + `<metadata key="gcode_file" value="Metadata/plate_${n}.gcode"/>`
     + `<metadata key="thumbnail_file" value="Metadata/plate_${n}.png"/>`
-    + `<model_instance><metadata key="object_id" value="${id}"/><metadata key="instance_id" value="${duplicate && n === 2 ? 1 : 0}"/>`
-    + '<metadata key="identify_id" value="99"/></model_instance></plate>';
+    + instances + '</plate>';
+  const second = instance(duplicate ? 10 : 20, 2);
   const files = [
     { name: ROOT, data: `<model xmlns="${CORE}" xmlns:p="${PROD}" unit="millimeter" requiredextensions="p">`
       + `<metadata name="Application">${app}</metadata><resources>`
@@ -63,7 +66,9 @@ async function fixture({ duplicate = false, negative = false, variable = null, l
       + `<item objectid="10" printable="1" transform="${mirror ? -1 : 1} 0 0 0 ${q} ${q} 0 ${-q} ${q} 30 40 0"/>`
       + `<item objectid="${duplicate ? 10 : 20}" printable="${printable ? 1 : 0}" transform="1 0 0 0 ${q} ${q} 0 ${-q} ${q} 400 50 0"/>`
       + '</build></model>' },
-    { name: CONFIG, data: `<config>${obj(10, 1)}${obj(20, 2)}${plate(1, 10)}${plate(2, duplicate ? 10 : 20)}<assemble/></config>` },
+    { name: CONFIG, data: `<config>${obj(10, 1)}${obj(20, 2)}`
+      + plate(1, instance(10, 1) + (together ? second : '')) + plate(2, together ? '' : second)
+      + emptyPlates.map((id) => `<plate><metadata key="plater_id" value="${id}"/></plate>`).join('') + '<assemble/></config>' },
     { name: SETTINGS, data: JSON.stringify({ layer_height: layer, initial_layer_print_height: '0.3',
       filament_colour: ['#FFFFFF', '#123456'], filament_type: ['PETG', 'PETG'], enable_support: '1', print_sequence: sequence }) },
     { name: '3D/Objects/a.model', data: model('4') },
@@ -172,6 +177,137 @@ Deno.test('project: list build ordinals/resource IDs without generating; skip no
 Deno.test('project: repeated object selectors select several without duplicates', async () => {
   const r = await cli(await fixture(), ['--object', 'Part 20', '--object', '1', '--object', '1']);
   assert(r.code === 0 && r.result.objects.map((o) => o.number).join() === '1,2', r.err.join('\n'));
+});
+
+Deno.test('project: plate summaries include nonprintable and empty plates without reading meshes or writing', async () => {
+  const zip = new ProjectZip(await fixture({ plateIDs: [2, 5], printable: false, emptyPlates: [9], layer: '' }));
+  const source = new Uint8Array(await (await zip.patch(new Map([['3D/Objects/a.model', 'invalid mesh XML']]))).arrayBuffer());
+  const summaries = [{ id: '2', objects: 1, printableObjects: 1 },
+    { id: '5', objects: 1, printableObjects: 0 }, { id: '9', objects: 0, printableObjects: 0 }];
+  for (const flag of ['--list-objects', '--list-plates']) {
+    const r = await cli(source, [flag], {}, { checkProjectOutput: undefined, writeProject: undefined });
+    assert(r.code === 0 && r.fs.size === 1 && r.result.output === null, r.err.join('\n'));
+    assert(JSON.stringify(r.result.plates) === JSON.stringify(summaries), 'plate counts or IDs');
+    assert(r.result.report.startsWith('Plate 2: 1 objects, 1 printable\nPlate 5: 1 objects, 0 printable\nPlate 9: 0 objects, 0 printable'), 'human summary');
+    if (flag === '--list-objects') {
+      assert(r.result.objects[1].number === 2 && r.result.objects[1].plate === '5' && !r.result.objects[1].printable, 'existing object identity');
+      assert(r.result.report.includes('\n2: Part 20 (resource 20, plate 5, not printable)'), 'object list missing');
+    } else assert(!('objects' in r.result), 'plate listing includes individual objects');
+  }
+  const out = [], err = [];
+  const code = await run(['part.3mf', '--preserve-project', '--list-plates'], {
+    read: async () => source, out: (s) => out.push(s), err: (s) => err.push(s),
+  });
+  assert(code === 0 && out[0].includes('Plate 9: 0 objects, 0 printable') && !err.length, 'text listing needs a writer');
+});
+
+Deno.test('project: both listings filter plates, deduplicate IDs and retain global object numbers', async () => {
+  const source = await fixture({ plateIDs: [2, 5], emptyPlates: [9] });
+  for (const flag of ['--list-objects', '--list-plates']) {
+    const r = await cli(source, [flag, '--plate=9', '--plate', '5', '--plate', '5']);
+    assert(r.code === 0 && r.fs.size === 1, r.err.join('\n'));
+    assert(r.result.plates.map((p) => p.id).join() === '5,9', 'listing order/filter');
+    if (flag === '--list-objects') assert(r.result.objects.length === 1 && r.result.objects[0].number === 2, 'renumbered object');
+    const empty = await cli(source, [flag, '--plate', '9']);
+    assert(empty.code === 0 && empty.result.plates[0].objects === 0 && !empty.result.objects?.length, 'empty plate listing refused');
+  }
+});
+
+Deno.test('project: plate selection preserves unselected meshes, poses, membership and native supports', async () => {
+  const source = await fixture({ plateIDs: [2, 5] }), before = source.slice();
+  const r = await cli(source, ['--plate', '5', '--disable-native-supports']);
+  assert(r.code === 0 && r.result.objects.length === 1 && r.result.objects[0].number === 2
+    && r.result.objects[0].plate === '5' && r.result.objects[0].triangles > 0, r.err.join('\n'));
+  equal(source, before, 'input changed');
+  const old = new ProjectZip(source), zip = new ProjectZip(r.fs.get(r.result.output));
+  for (const name of ['3D/Objects/a.model', '3D/Objects/b.model', SETTINGS, 'Auxiliaries/私有.bin']) {
+    const a = old.entries.get(name), b = zip.entries.get(name);
+    equal(zip.bytes.slice(b.offset, b.end), old.bytes.slice(a.offset, a.end), `changed compressed ${name}`);
+  }
+  const originalRoot = xmlTree(await old.text(ROOT)), root = xmlTree(await zip.text(ROOT));
+  const originalItems = children(child(originalRoot, 'build'), 'item'), items = children(child(root, 'build'), 'item');
+  assert(items.length === 3 && JSON.stringify(items.slice(0, 2).map((o) => o.attrs))
+    === JSON.stringify(originalItems.map((o) => o.attrs)), 'original poses/build changed');
+  assert(items[2].attrs.transform === originalItems[1].attrs.transform, 'supports on wrong pose');
+  const config = xmlTree(await zip.text(CONFIG)), originalConfig = xmlTree(await old.text(CONFIG));
+  assert(metadata(children(config, 'object')[0]).enable_support === '1'
+    && metadata(children(config, 'object')[1]).enable_support === '0', 'unselected settings changed');
+  const plates = children(config, 'plate'), originalPlates = children(originalConfig, 'plate');
+  assert(JSON.stringify(children(plates[0], 'model_instance').map(metadata))
+    === JSON.stringify(children(originalPlates[0], 'model_instance').map(metadata)), 'unselected plate membership changed');
+  assert(children(plates[1], 'model_instance').length === 2
+    && metadata(children(plates[1], 'model_instance')[1]).object_id === r.result.objects[0].supportObject, 'supports on wrong plate');
+});
+
+Deno.test('project: repeatable plate IDs process each object once in original build order', async () => {
+  const r = await cli(await fixture({ plateIDs: [2, 5] }), ['--plate', '5', '--plate=2', '--plate', '5']);
+  assert(r.code === 0 && r.result.objects.map((o) => o.number).join() === '1,2', r.err.join('\n'));
+});
+
+Deno.test('project: plate-scoped object numbers and names do not select outside the plates', async () => {
+  const source = await fixture({ plateIDs: [2, 5], sameName: true });
+  for (const selector of ['2', 'Part 10']) {
+    const r = await cli(source, ['--plate', '5', '--object', selector]);
+    assert(r.code === 0 && r.result.objects.map((o) => o.number).join() === '2', r.err.join('\n'));
+  }
+  for (const flags of [['--plate', '5', '--object', '1'],
+    ['--plate', '2', '--plate', '5', '--object', 'Part 10']]) {
+    const r = await cli(source, flags);
+    assert(r.code === 1 && r.fs.size === 1 && r.err.some((s) => /missing|ambiguous/.test(s)), 'invalid object selection wrote output');
+  }
+  const nonprintable = await cli(await fixture({ printable: false, together: true }), ['--plate', '1', '--object', '2']);
+  assert(nonprintable.code === 1 && nonprintable.fs.size === 1 && nonprintable.err.some((s) => s.includes('not printable')), 'nonprintable object selected');
+});
+
+Deno.test('project: missing or empty requested plates fail before generation even alongside a valid plate', async () => {
+  const source = await fixture({ plateIDs: [2, 5], printable: false, emptyPlates: [9] });
+  const sentinel = bytes('existing output');
+  for (const [id, message] of [['1', 'is missing'], ['5', 'has no printable objects'], ['9', 'has no printable objects']]) {
+    const r = await cli(source, ['--plate', '2', '--plate', id, '--object', '1', '--overwrite'],
+      { 'part-fins-project.3mf': sentinel });
+    assert(r.code === 1 && r.fs.size === 2 && r.err.length === 1, 'selection error reached generation');
+    assert(JSON.parse(r.err[0]).error.includes(`plate "${id}" ${message}`), r.err.join('\n'));
+    equal(r.fs.get('part-fins-project.3mf'), sentinel, 'replaced output on selection error');
+  }
+  for (const flag of ['--list-objects', '--list-plates']) {
+    const r = await cli(source, [flag, '--plate', '1']);
+    assert(r.code === 1 && r.fs.size === 1 && r.err.some((s) => s.includes('missing')), 'listing accepted ordinal as plate ID');
+  }
+});
+
+Deno.test('project: plate-only selection skips unsupported objects but explicit objects must all succeed', async () => {
+  const source = await fixture({ together: true, negative: true });
+  const r = await cli(source, ['--plate', '1']);
+  assert(r.code === 0 && r.result.objects.map((o) => o.number).join() === '2'
+    && r.err.some((s) => s.includes('skipped object 1')), r.err.join('\n'));
+  const strict = await cli(source, ['--plate', '1', '--object', '1', '--object', '2']);
+  assert(strict.code === 1 && strict.fs.size === 1 && strict.err.some((s) => s.includes('negative parts')), 'explicit unsupported object was skipped');
+  const none = await cli(await fixture({ negative: true }), ['--plate', '1']);
+  assert(none.code === 1 && none.fs.size === 1 && none.err.some((s) => s.includes('none of the selected objects')), 'all-unsupported plate wrote output');
+});
+
+Deno.test('project: filtering does not load the mesh on an unselected plate', async () => {
+  const zip = new ProjectZip(await fixture());
+  const source = new Uint8Array(await (await zip.patch(new Map([['3D/Objects/a.model', null]]))).arrayBuffer());
+  const r = await cli(source, ['--plate', '2']);
+  assert(r.code === 0 && r.result.objects.map((o) => o.number).join() === '2', r.err.join('\n'));
+});
+
+Deno.test('project: absent plate IDs use the same fallback in listing and selection', async () => {
+  const zip = new ProjectZip(await fixture());
+  const config = (await zip.text(CONFIG)).replace(/<metadata key="plater_id" value="\d+"\/>/g, '');
+  const source = new Uint8Array(await (await zip.patch(new Map([[CONFIG, config]]))).arrayBuffer());
+  const listing = await cli(source, ['--list-plates']);
+  assert(listing.code === 0 && listing.result.plates.map((p) => p.id).join() === '1,2', 'fallback IDs');
+  const r = await cli(source, ['--plate', '2']);
+  assert(r.code === 0 && r.result.objects.map((o) => o.number).join() === '2', r.err.join('\n'));
+});
+
+Deno.test('project: duplicate or empty plate IDs cannot select an ambiguous plate', async () => {
+  for (const plateIDs of [[2, 2], ['', 5]]) {
+    const r = await cli(await fixture({ plateIDs }), ['--list-plates']);
+    assert(r.code === 1 && r.fs.size === 1 && r.err.some((s) => s.includes('empty or duplicate plate ID')), 'ambiguous plate IDs accepted');
+  }
 });
 
 for (const [label, options, flags, message] of [

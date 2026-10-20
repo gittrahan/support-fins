@@ -75,6 +75,9 @@ support-fins project.3mf --preserve-project
 # -> project-fins-project.3mf, all printable objects on all plates
 
 support-fins project.3mf --preserve-project --list-objects
+support-fins project.3mf --preserve-project --list-plates
+support-fins project.3mf --preserve-project --plate 2 --plate 5
+support-fins project.3mf --preserve-project --plate 5 --object 7
 support-fins project.3mf --preserve-project --object 2 --object 7 -o selected-fins.3mf
 support-fins project.3mf --preserve-project --fin-extruder 2 --disable-native-supports
 ```
@@ -87,10 +90,34 @@ supports object because the tines touch it; that is expected, and the plate stil
 prints. A project or plate that prints by object instead gets the fins as a part of each
 model (they would otherwise print after it), with a warning. Models needing no fins
 get nothing. Unselected and nonprintable objects remain in the output.
-`--list-objects` lists the original build-item
-numbers, names, resource IDs and plate IDs without generating anything; use its
-numbers with `--object`, or a unique object name. Build-item numbers are not 3MF
-resource IDs. Several `--object` flags select several objects.
+`--list-objects` shows a plate summary followed by the original build-item
+numbers, names, resource IDs and plate IDs. `--list-plates` shows just the summary:
+each plate's ID, total object count and printable-object count, including empty
+plates. Both commands are read-only and respect `--plate` filters. They list
+objects without testing whether their meshes/settings can generate fins;
+`--object` does not filter the listings. Choose one listing command at a time.
+
+Use the displayed plate IDs with `--plate`; repeat it to select several plates.
+These are the project's IDs, which may have gaps, not positions in the list.
+If a plate has no stored ID, its 1-based position is used in both listing and
+selection. Repeated IDs are deduplicated and objects retain their project order.
+Without `--plate`, the default remains all printable objects across all plates.
+For generation, every requested plate must exist and contain a printable object;
+otherwise the command fails before generating fins or writing output. Listing an
+empty plate is allowed. Counts refer to build items, including repeated instances.
+
+Use the listed build-item numbers with `--object`, or a unique object name.
+Build-item numbers are not 3MF resource IDs. Several `--object` flags select several
+objects. With `--plate`, each object selector must match within the chosen plates;
+numbers remain project-wide and names must be unique within those plates.
+For example, `--plate 5 --object 7` selects original object 7 only if it is on
+plate 5. Unselected plates and objects keep their geometry, placement and settings
+in the full output project; stale slice artifacts are discarded as described below.
+
+With `--json`, both listing commands add a `plates` array such as
+`[{"id":"2","objects":3,"printableObjects":2},{"id":"5","objects":0,"printableObjects":0}]`.
+`--list-objects` retains its existing `objects` array with original numbers and
+identities; `--list-plates` omits that object list. Both return `output: null`.
 
 The regular layer height comes from the project's `layer_height`, with object and
 part overrides considered. The first-layer height is a different setting.
@@ -115,9 +142,11 @@ This mode preserves the existing pose, so it cannot be combined with `--rot` or
 `--fins-only`. The input is protected against path aliases, symbolic links and
 hard links. An existing output requires `--overwrite`; the completed project is
 published atomically, and a failed object does not leave a partial output.
-Without `--object`, a model this mode can't handle (variable layer heights, a
-negative part, a shared instance, no plate) is skipped with a warning and left as it
-was; the rest get fins. A model named with `--object` must work, or nothing is written.
+Without `--object` (including plate-only selections), a model this mode can't handle
+(variable layer heights, a negative part, a shared instance, no plate) is skipped with a warning and left as it
+was; the rest get fins. If none of the selected objects can be processed, the
+command fails without writing output. A model named with `--object` must work,
+or nothing is written.
 
 The initial supported layout is a millimeter Bambu project with component
 assemblies referencing external mesh files and explicit plate assignments.

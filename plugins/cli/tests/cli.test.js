@@ -190,6 +190,13 @@ Deno.test('cli: bad arguments are exit 2 with a message in the flag\'s own units
     [['a.stl', 'b.stl', '-o', 'x.3mf'], /-o takes one input/],
     [['lb.stl', '--fins-only', '--rot', '0,35,0'], /--fins-only .* can't take --rot/],
     [['lb.stl', '--no-coverage'], /unknown option --no-coverage/],
+    [['lb.stl', '--plate', '2'], /require --preserve-project/],
+    [['lb.stl', '--list-plates'], /require --preserve-project/],
+    [['lb.stl', '--preserve-project', '--plate'], /--plate needs a value/],
+    [['lb.stl', '--preserve-project', '--plate='], /--plate needs a plate ID/],
+    [['lb.stl', '--preserve-project', '--plate', '--json'], /--plate needs a plate ID/],
+    [['lb.stl', '--preserve-project', '--list-plates=true'], /--list-plates takes no value/],
+    [['lb.stl', '--preserve-project', '--list-plates', '--list-objects'], /use --list-objects or --list-plates/],
     [[], /no input file/],
   ];
   for (const [argv, re] of cases) {
