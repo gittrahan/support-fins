@@ -4,6 +4,7 @@
 // only gives it a file system and an exit code.
 import { run } from './cli.js';
 import { checkProjectOutput, writeProject } from './project-io.js';
+import { openProjectCache } from './project-cache.js';
 
 const deno = globalThis.Deno;
 const fs = deno ? null : await import('node:fs/promises');
@@ -15,6 +16,7 @@ io.out = (line) => console.log(line);
 io.err = (line) => console.error(line);
 io.checkProjectOutput = checkProjectOutput;
 io.writeProject = writeProject;
+io.openProjectCache = openProjectCache;
 
 const argv = deno ? deno.args : globalThis.process.argv.slice(2);
 const code = await run(argv, io);

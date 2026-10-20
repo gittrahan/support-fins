@@ -260,6 +260,11 @@ async function processProject(input, args, io, report) {
   if (!args.check && plans.some((p) => p.native) && !args.disableNativeSupports) {
     warn('native slicer supports remain enabled; both native supports and fins may print. Use --disable-native-supports to turn them off on selected objects.');
   }
+  if (args.resume && !io.openProjectCache) throw new Error('--resume requires a file-system checkpoint store');
+  const cache = args.resume ? await io.openProjectCache({ input, bytes: zip.bytes,
+    selection: { objects: selected.map((o) => o.number), explicit: args.objects.length > 0 },
+    settings: { dialog: args.dialog, finExtruder: args.finExtruder, disableNativeSupports: args.disableNativeSupports },
+    cacheDir: args.cacheDir, warn }) : null;
   const rootEdits = [], configEdits = [], supportObjects = [], results = [];
   const newResources = [], newItems = [], plateInstances = new Map();
   let nextIdentify = 1 + Math.max(0, ...plates.flatMap((p) => children(p, 'model_instance'))
@@ -280,39 +285,44 @@ async function processProject(input, args, io, report) {
   // parsed geometry before the next object, instead of retaining an entire plate.
   for (const p of plans) {
     if (!args.check) warn(`object ${p.number}/${items.length}, plate ${p.plate}: ${p.name}; layer ${p.height} mm, filament ${p.slot}`);
+    let generated = await cache?.load(p.number);
+    const reused = !!generated;
     try {
-      const members = new Map([[ROOT, rootBytes], [CONFIG, configBytes]]);
-      const visiting = new Set(), visited = new Set();
-      const load = async (name) => {
-        if (visiting.has(name)) throw new Error('cyclic model-part references');
-        if (visited.has(name)) return;
-        visiting.add(name);
-        if (!members.has(name)) members.set(name, await zip.read(name));
-        const paths = new Set();
-        scanXML(new TextDecoder().decode(members.get(name)), (tag, attrs) => {
-          if (tag.split(':').pop() === 'model' && attrs.unit && attrs.unit !== 'millimeter') {
-            throw new Error(`project mode requires millimeter units in ${name}`);
-          }
-          if (tag.split(':').pop() === 'component') {
-            const path = Object.entries(attrs).find(([k]) => k.split(':').pop() === 'path')?.[1];
-            if (path) paths.add(partPath(path));
-          }
-        }, () => {});
-        for (const path of paths) await load(path);
-        visiting.delete(name); visited.add(name);
-      };
-      for (const component of children(child(p.object, 'components'), 'component')) {
-        const path = attr(component, 'path');
-        if (!path) throw new Error('inline component meshes are not yet supported in project mode');
-        await load(partPath(path));
+      if (!generated) {
+        const members = new Map([[ROOT, rootBytes], [CONFIG, configBytes]]);
+        const visiting = new Set(), visited = new Set();
+        const load = async (name) => {
+          if (visiting.has(name)) throw new Error('cyclic model-part references');
+          if (visited.has(name)) return;
+          visiting.add(name);
+          if (!members.has(name)) members.set(name, await zip.read(name));
+          const paths = new Set();
+          scanXML(new TextDecoder().decode(members.get(name)), (tag, attrs) => {
+            if (tag.split(':').pop() === 'model' && attrs.unit && attrs.unit !== 'millimeter') {
+              throw new Error(`project mode requires millimeter units in ${name}`);
+            }
+            if (tag.split(':').pop() === 'component') {
+              const path = Object.entries(attrs).find(([k]) => k.split(':').pop() === 'path')?.[1];
+              if (path) paths.add(partPath(path));
+            }
+          }, () => {});
+          for (const path of paths) await load(path);
+          visiting.delete(name); visited.add(name);
+        };
+        for (const component of children(child(p.object, 'components'), 'component')) {
+          const path = attr(component, 'path');
+          if (!path) throw new Error('inline component meshes are not yet supported in project mode');
+          await load(partPath(path));
+        }
+        const model = readThreeMFParts(members, { buildIndex: p.number - 1, doublePrecision: true, outwardWinding: true }).objects[0];
+        if (model.extras.some((e) => e.kind === 'negative')) throw new Error('negative parts are not supported in project mode');
+        if (args.check) {
+          Object.assign(report.object(p), { status: 'compatible', layerHeight: p.height, filament: p.slot });
+          continue;
+        }
+        generated = computeFins(model.positions, p.options);
       }
-      const model = readThreeMFParts(members, { buildIndex: p.number - 1, doublePrecision: true, outwardWinding: true }).objects[0];
-      if (model.extras.some((e) => e.kind === 'negative')) throw new Error('negative parts are not supported in project mode');
-      if (args.check) {
-        Object.assign(report.object(p), { status: 'compatible', layerHeight: p.height, filament: p.slot });
-        continue;
-      }
-      const { triangles, offset, stats } = computeFins(model.positions, p.options);
+      const { triangles, offset, stats } = generated;
       // Gather this object's edits and commit them only once nothing can throw, so a
       // skipped object leaves the project exactly as it was.
       const appended = [], own = { root: [], config: [], supports: [], resources: [], items: [], instances: [] };
@@ -359,7 +369,10 @@ async function processProject(input, args, io, report) {
       results.push({ number: p.number, id: p.id, name: p.name, plate: p.plate, supportObject: supportID,
         layerHeight: p.height, filament: p.slot, triangles: triangles.length / 9, stats });
       report.object(p).status = triangles.length ? 'processed' : 'no_supports';
-    } catch (e) { skipOrThrow(p, e); }
+    } catch (e) { skipOrThrow(p, e); continue; }
+    // A cache write failure must abort even in the default skip-on-object-error
+    // mode. Save only after all of this object's edits have succeeded.
+    if (cache && !reused) await cache.save(p.number, generated);
   }
   if (args.check) {
     // These small manifests are needed when writing a project. Check their
@@ -419,6 +432,7 @@ async function processProject(input, args, io, report) {
   const blob = await zip.patch(changes);
   await io.writeProject(input, output, new Uint8Array(await blob.arrayBuffer()), args.overwrite);
   report.outputWritten = true;
+  if (cache) await cache.finish();
   warn('project preserved; slice it again in Bambu Studio before printing.');
   return { input, output, objects: results, report: `${results.length} objects processed, `
     + `${results.filter((r) => r.triangles).length} support parts added; re-slice in Bambu Studio` };

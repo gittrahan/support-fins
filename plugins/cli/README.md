@@ -153,8 +153,45 @@ assemblies referencing external mesh files and explicit plate assignments.
 Shared build instances, negative parts (which would also subtract from added
 fins), inline-only assemblies, ZIP64 archives and other slicer project formats
 are refused with an explanation (in the every-object default, a model with one is skipped). Direct output from this mode is refused as
-input to avoid adding fins twice. Individually editable fins and resume caching
-are not included.
+input to avoid adding fins twice. Individually editable fins are not included.
+
+### Resume an interrupted project run
+
+Enable checkpoints on the **first run**, then repeat the command after an interruption:
+
+```sh
+support-fins project.3mf --preserve-project --resume
+# Optional: place the cache elsewhere, for example with a read-only source folder.
+support-fins project.3mf --preserve-project --resume --cache-dir /path/to/cache -o /path/to/output.3mf
+```
+
+`--resume` saves each successfully processed object's fin geometry, including objects
+that need no fins. Restarting reuses completed objects; the interrupted object starts
+over. The source project is untouched, and output is written only after processing.
+Default-mode skipped objects are still reported and left unchanged; they are never
+marked complete in the cache. Explicitly selected objects still must all succeed.
+
+The default cache is `<input>.fins-cache` beside the input (for example,
+`project.3mf.fins-cache`). `--cache-dir` chooses a parent cache folder that can hold
+several projects/runs. The CLI reports the actual run directory and reused objects
+on stderr, keeping `--json` stdout machine-readable. Checkpoints are local geometry
+data; keep them private like the original model.
+
+Reuse requires identical source-file contents, object selection, processing settings
+and runtime code/build. Changing any of those starts a fresh cache, with a message.
+Source checkouts include uncommitted runtime-source changes in that check; runtime
+upgrades can also invalidate checkpoints. Changing only the output filename, logging
+or `--overwrite` does not invalidate them. A damaged checkpoint is reported and its
+object recomputed. A checkpoint-write failure stops that file's processing, retaining
+earlier checkpoints rather than continuing without recovery.
+
+Completed checkpoints for the run are removed only after the output is successfully
+written. An interrupted run or output failure retains them. Incompatible runs and
+unfinished temporary writes may remain; delete their reported cache directories
+manually when no command is using them. Cleanup never recursively deletes the
+`--cache-dir` folder. Concurrent runs can repeat work when a checkpoint is removed
+before it is read. Runs without `--resume` neither read nor write checkpoints;
+`--cache-dir` requires `--resume`, which cannot be combined with `--list-objects`.
 
 ### Check compatibility before generating fins
 
@@ -249,6 +286,7 @@ messages are descriptive text; use status values and counts for automation.
 - `project.js` — preserve Bambu projects; `project-zip.js` / `project-xml.js` edit
   archive members and manifests, and `project-io.js` protects atomic output.
 - `project-report.js` — selected-object outcomes, counts and terminal formatting.
+- `project-cache.js` — optional checksummed per-object checkpoints for project mode.
 - `tests/cli.test.js` — `deno test -A plugins/cli/tests/`. Runs in memory: CLI fins equal
   `computeFins` on the posed part, and match the website's own path on lbracket@35.
 - The summary line is `plugins/shared/engine/report.js`, word for word with the Python

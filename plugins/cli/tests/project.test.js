@@ -2,6 +2,7 @@ import { deflateRawSync } from 'node:zlib';
 import { run } from '../cli.js';
 import { ProjectZip } from '../project-zip.js';
 import { checkProjectOutput, writeProject } from '../project-io.js';
+import { openProjectCache } from '../project-cache.js';
 import { xmlTree, children, child, metadata, editXML, insert } from '../project-xml.js';
 import { readThreeMF, readThreeMFParts, meshXML } from '../../../web/threemf.js';
 import { zipStore } from '../../../web/zip.js';
@@ -40,9 +41,9 @@ async function compressed(files) {
 
 async function fixture({ duplicate = false, negative = false, variable = null, layer = '0.16', printable = true, mirror = false,
   app = 'BambuStudio-02.04.00.70', sequence = 'by layer', plateSequence = null,
-  plateIDs = [1, 2], emptyPlates = [], together = false, sameName = false } = {}) {
+  plateIDs = [1, 2], emptyPlates = [], together = false, sameName = false, steep = false } = {}) {
   const cube = triples(block(0, 20, 0, 20, 0, 20));
-  const q = Math.SQRT1_2;
+  const q = steep ? 0.5 : Math.SQRT1_2, s = steep ? Math.sqrt(3) / 2 : q;
   const resource = (id, file) => `<object id="${id}" type="model" p:UUID="original-${id}"><components>`
     + `<component objectid="1" p:path="/3D/Objects/${file}.model" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object>`;
   const model = (paint) => `<model unit="millimeter" xmlns="${CORE}"><resources><object id="1" type="model">`
@@ -63,8 +64,8 @@ async function fixture({ duplicate = false, negative = false, variable = null, l
     { name: ROOT, data: `<model xmlns="${CORE}" xmlns:p="${PROD}" unit="millimeter" requiredextensions="p">`
       + `<metadata name="Application">${app}</metadata><resources>`
       + resource(10, 'a') + resource(20, 'b') + '</resources><build>'
-      + `<item objectid="10" printable="1" transform="${mirror ? -1 : 1} 0 0 0 ${q} ${q} 0 ${-q} ${q} 30 40 0"/>`
-      + `<item objectid="${duplicate ? 10 : 20}" printable="${printable ? 1 : 0}" transform="1 0 0 0 ${q} ${q} 0 ${-q} ${q} 400 50 0"/>`
+      + `<item objectid="10" printable="1" transform="${mirror ? -1 : 1} 0 0 0 ${q} ${s} 0 ${-s} ${q} 30 40 0"/>`
+      + `<item objectid="${duplicate ? 10 : 20}" printable="${printable ? 1 : 0}" transform="1 0 0 0 ${q} ${s} 0 ${-s} ${q} 400 50 0"/>`
       + '</build></model>' },
     { name: CONFIG, data: `<config>${obj(10, 1)}${obj(20, 2)}`
       + plate(1, instance(10, 1) + (together ? second : '')) + plate(2, together ? '' : second)
@@ -655,3 +656,136 @@ Deno.test('project report: terminal output explains check, generation and abort 
     assert(text.includes('Part 10') && text.includes('Part 20') && text.includes('negative parts'), 'missing object identities/reason');
   }
 });
+
+async function diskProject(fn, options = {}) {
+  const dir = await Deno.makeTempDir(), input = `${dir}/part.3mf`;
+  try {
+    const source = await fixture({ ...options, steep: true }); await Deno.writeFile(input, source);
+    const call = async (flags = [], wrap = (c) => c, writer = writeProject) => {
+      const out = [], err = [], hits = [], saved = [];
+      const code = await run([input, '--preserve-project', '--json', ...flags], {
+        read: (p) => Deno.readFile(p), out: (s) => out.push(s), err: (s) => err.push(s),
+        checkProjectOutput, writeProject: writer,
+        openProjectCache: async (r) => {
+          const cache = await openProjectCache(r, async () => 'integration-test');
+          return wrap({ ...cache,
+            load: async (n) => { const result = await cache.load(n); if (result) hits.push(n); return result; },
+            save: async (n, data) => { await cache.save(n, data); saved.push(n); } });
+        },
+      });
+      return { code, out, err, hits, saved, result: code === 0 ? JSON.parse(out[0]) : null };
+    };
+    await fn({ dir, input, source, call });
+  } finally { await Deno.remove(dir, { recursive: true }); }
+}
+
+Deno.test('project resume: interrupted run reuses completed objects; output equals fresh run', () => diskProject(async ({ dir, input, source, call }) => {
+  const stopped = await call(['--resume'], (cache) => ({ ...cache,
+    load: (n) => { if (n === 2) throw new Error('simulated interruption'); return cache.load(n); } }));
+  assert(stopped.code === 1 && stopped.saved.join() === '1', 'interruption did not retain object 1');
+  let outputExists = true;
+  try { await Deno.stat(`${dir}/part-fins-project.3mf`); } catch { outputExists = false; }
+  assert(!outputExists, 'interruption published partial output');
+  const resumed = await call(['--resume', '-o', `${dir}/resumed.3mf`]);
+  assert(resumed.code === 0 && resumed.hits.join() === '1' && resumed.saved.join() === '2', resumed.err.join('\n'));
+  const fresh = await call(['-o', `${dir}/fresh.3mf`]);
+  assert(fresh.code === 0 && !fresh.hits.length && !fresh.saved.length, fresh.err.join('\n'));
+  assert(fresh.result.objects.every((o) => o.stats.finTriangles > 0 && o.stats.padTriangles > 0), 'fixture needs both fins and bed pads');
+  assert(JSON.stringify(resumed.result.objects) === JSON.stringify(fresh.result.objects), 'resumed object report changed');
+  const a = new ProjectZip(await Deno.readFile(`${dir}/resumed.3mf`));
+  const b = new ProjectZip(await Deno.readFile(`${dir}/fresh.3mf`));
+  assert([...a.entries.keys()].join() === [...b.entries.keys()].join(), 'archive members changed on resume');
+  for (const name of a.entries.keys()) {
+    const x = await a.read(name), y = await b.read(name);
+    if (name === ROOT || name === SUPPORTS) {
+      const normalize = (v) => new TextDecoder().decode(v).replace(/p:UUID="[^"]*"/g, 'p:UUID="same"');
+      assert(normalize(x) === normalize(y), `resumed geometry/project differs: ${name}`);
+    } else equal(x, y, `resumed archive data changed: ${name}`);
+  }
+  equal(await Deno.readFile(input), source, 'source project changed');
+  let cacheExists = true;
+  try { await Deno.stat(`${input}.fins-cache`); } catch { cacheExists = false; }
+  assert(!cacheExists, 'cache retained after successful output');
+}));
+
+Deno.test('project resume: final-output failure retains all checkpoints and retries without generation', () => diskProject(async ({ call }) => {
+  const failed = await call(['--resume'], (c) => c, () => { throw new Error('output unavailable'); });
+  assert(failed.code === 1 && failed.saved.join() === '1,2', 'output failure lost work');
+  const done = await call(['--resume']);
+  assert(done.code === 0 && done.hits.join() === '1,2' && !done.saved.length, done.err.join('\n'));
+}));
+
+Deno.test('project resume: checkpoint-write failure aborts default mode instead of skipping the object', () => diskProject(async ({ call }) => {
+  const failed = await call(['--resume'], (c) => ({ ...c, save: (n, data) => {
+    if (n === 2) throw new Error('checkpoint disk full');
+    return c.save(n, data);
+  } }));
+  assert(failed.code === 1 && failed.saved.join() === '1' && failed.err.some((s) => s.includes('checkpoint disk full')), 'write failure swallowed');
+  assert(!failed.err.some((s) => s.includes('skipped object 2')), 'cache failure treated as unsupported model');
+  const resumed = await call(['--resume']);
+  assert(resumed.code === 0 && resumed.hits.join() === '1' && resumed.saved.join() === '2', resumed.err.join('\n'));
+}));
+
+Deno.test('project resume: default skips are never cached; explicit selections still fail', () => diskProject(async ({ call }) => {
+  const first = await call(['--resume'], (c) => c, () => { throw new Error('output unavailable'); });
+  assert(first.code === 1 && first.saved.join() === '2', 'skipped object cached');
+  const explicit = await call(['--resume', '--object', '1']);
+  assert(explicit.code === 1 && !explicit.saved.length && explicit.err.some((s) => s.includes('negative parts')), 'explicit failure changed');
+  const resumed = await call(['--resume']);
+  assert(resumed.code === 0 && resumed.hits.join() === '2' && resumed.err.some((s) => s.includes('skipped object 1')), resumed.err.join('\n'));
+}, { negative: true }));
+
+Deno.test('project resume: invalid flags fail before touching files', async () => {
+  for (const flags of [
+    ['--resume'], ['--preserve-project', '--cache-dir', 'cache'],
+    ['--preserve-project', '--resume', '--list-objects'], ['--preserve-project', '--resume=yes'],
+    ['--preserve-project', '--resume', '--cache-dir='], ['--preserve-project', '--resume', '--cache-dir'],
+  ]) {
+    let touched = false;
+    const code = await run(['part.3mf', ...flags], { read: () => { touched = true; }, out() {}, err() {} });
+    assert(code === 2 && !touched, `bad flags accepted: ${flags}`);
+  }
+});
+
+Deno.test('project resume: a killed subprocess leaves durable checkpoints reusable by the real CLI', () => diskProject(async ({ dir, input }) => {
+  // Stop exactly after committing the first checkpoint, not a timing-dependent
+  // sleep during geometry. The child then dies without finally/cleanup handlers.
+  const url = (file) => JSON.stringify(new URL(`../${file}`, import.meta.url).href);
+  const script = `${dir}/interrupt.mjs`;
+  await Deno.writeTextFile(script, `
+    import { run } from ${url('cli.js')};
+    import { openProjectCache } from ${url('project-cache.js')};
+    import { checkProjectOutput, writeProject } from ${url('project-io.js')};
+    await run(Deno.args, { read: Deno.readFile, out() {}, err() {}, checkProjectOutput, writeProject,
+      openProjectCache: async (r) => {
+        const c = await openProjectCache(r);
+        return { ...c, save: async (n, data) => { await c.save(n, data);
+          console.error('CHECKPOINT_READY'); await new Promise(() => {}); } };
+      } });
+  `);
+  const child = new Deno.Command(Deno.execPath(), { args: ['run', '-A', script, input, '--preserve-project', '--resume'],
+    stdout: 'null', stderr: 'piped' }).spawn();
+  const reader = child.stderr.getReader();
+  let timer, received = '';
+  try {
+    await Promise.race([
+      (async () => { while (!received.includes('CHECKPOINT_READY')) {
+        const { done, value } = await reader.read();
+        if (done) throw new Error(`checkpoint child exited early: ${received}`);
+        received += new TextDecoder().decode(value);
+      } })(),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('checkpoint child timed out')), 30000); }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    try { child.kill('SIGKILL'); } catch { /* already exited */ }
+    await child.status; await reader.cancel(); reader.releaseLock();
+  }
+  const command = new Deno.Command(Deno.execPath(), { args: ['run', '-RW',
+    new URL('../support-fins.js', import.meta.url).href, input, '--preserve-project', '--resume', '--json'],
+    stdout: 'piped', stderr: 'piped' });
+  const result = await command.output(), err = new TextDecoder().decode(result.stderr);
+  assert(result.code === 0 && err.includes('object 1: reusing completed checkpoint'), err);
+  assert(!err.includes('object 2: reusing'), 'interrupted object falsely completed');
+  assert(JSON.parse(new TextDecoder().decode(result.stdout)).objects.length === 2, 'resumed CLI omitted an object');
+}));

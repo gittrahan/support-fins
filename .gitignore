@@ -28,6 +28,8 @@ plugins/fusion/SupportFins/palette/fins_engine.js
 plugins/fusion/build/
 plugins/cura/build/
 plugins/cli/build/
+# Local resume checkpoints contain geometry from the input project.
+*.fins-cache/
 plugins/mcp/build/
 plugins/cura/SupportFins/dev_*
 plugins/freecad/build/
