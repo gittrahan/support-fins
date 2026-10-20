@@ -127,7 +127,13 @@ export function othersHistory() {
   const plate = currentPlate(), me = plate.models[plate.live];
   if (plate.models.length < 2) return null;
   const { undo, redo } = takeHistory();
-  return { undo: undo.filter((s) => s.who !== me), redo: redo.filter((s) => s.who !== me) };
+  // a move step names its models inside (history.js pushMoves): keep the others' moves
+  const keep = (list) => list.flatMap((s) => {
+    if (!s.moves) return s.who === me ? [] : [s];
+    const moves = s.moves.filter((x) => x.who !== me);
+    return moves.length ? [{ moves }] : [];
+  });
+  return { undo: keep(undo), redo: keep(redo) };
 }
 
 /** Free what a parked slot holds (a removal past its Undo). */

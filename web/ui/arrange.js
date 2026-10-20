@@ -17,7 +17,10 @@
  */
 import { el } from './dom.js';
 import { part } from './part.js';
-import { activeAdded } from './finbuild.js';
+import { activeAdded, finTris, padTris, buildPending } from './finbuild.js';
+import { drawnTris, drawShown } from './walls.js';
+import { finMode } from './settings.js';
+import { parkedSettled } from './parkedbuild.js';
 import { currentVolume } from './volume.js';
 import { currentPlate, isBusy } from './plates.js';
 import { showClash } from './plateview.js';
@@ -52,12 +55,12 @@ function partGrid(m, mesh) {
 export function slotGrid(m, live) {
   if (live) {
     if (!part) return null;
-    const added = activeAdded();
-    // the added triangles' own vertex arrays: a rebuild makes new ones
-    const same = m.fpAdded && m.fpAdded.n === added.length
-      && m.fpAdded.first === added[0] && m.fpAdded.last === added[added.length - 1];
-    if (!same) m.fpAdded = { n: added.length, first: added[0], last: added[added.length - 1], grid: rasterize(flat(added)) };
-    return union(partGrid(m, part), m.fpAdded.grid);
+    // what activeAdded reads: each array is a new one on every change
+    const key = [finTris, padTris, drawnTris, finMode, drawShown()];
+    if (!m.fpAdded || m.fpAdded.key.some((k, i) => k !== key[i])) {
+      m.fpAdded = { key, grid: rasterize(flat(activeAdded())) };
+    }
+    return joined(m, partGrid(m, part), m.fpAdded.grid);
   }
   const s = m.stash;
   if (!s) return null;
@@ -65,7 +68,20 @@ export function slotGrid(m, live) {
   if (!m.fpFins || m.fpFins.uuid !== fins?.uuid) {
     m.fpFins = { uuid: fins?.uuid, grid: fins ? rasterize(fins.getAttribute('position').array) : null };
   }
-  return union(partGrid(m, s.part.mesh), m.fpFins.grid);
+  return joined(m, partGrid(m, s.part.mesh), m.fpFins.grid);
+}
+
+/** The union of a slot's part and fin cells, kept while both are the same. */
+function joined(m, a, b) {
+  if (m.fpAll?.a !== a || m.fpAll.b !== b) m.fpAll = { a, b, grid: union(a, b) };
+  return m.fpAll.grid;
+}
+
+/** Slot `m`'s cells placed at its spot, kept while it stays (a drag moves one). */
+function placedAt(m, grid) {
+  const [x, y] = m.xy, c = m.fpAt;
+  if (c?.grid !== grid || c.x !== x || c.y !== y) m.fpAt = { grid, x, y, at: placed(grid, m.xy) };
+  return m.fpAt.at;
 }
 
 /** The plate's models with their footprints: [{ m, grid }], empty slots left out. */
@@ -75,6 +91,7 @@ function footprints() {
 }
 
 let colliding = false;
+let shown = '';       // the red cells on screen, to redraw only on a change
 /** Two models of the plate being edited share a cell (as of the last check). */
 export const overlapping = () => colliding;
 
@@ -84,11 +101,12 @@ export function checkOverlap() {
   const p = currentPlate();
   let cells = [];
   if (part && p?.models.length > 1) {
-    const at = footprints().map(({ m, grid }) => placed(grid, m.xy));
+    const at = footprints().map(({ m, grid }) => placedAt(m, grid));
     for (let a = 0; a < at.length; a++) for (let b = a + 1; b < at.length; b++) cells.push(...shared(at[a], at[b]));
   }
   syncButton();
-  showClash(cells);
+  const sig = cells.join(';');
+  if (sig !== shown) { shown = sig; showClash(cells); }
   const was = colliding;
   colliding = cells.length > 0;
   return was !== colliding;
@@ -99,9 +117,20 @@ function syncButton() {
   el('arrange-btn').hidden = !(part && p?.models.filter((m, k) => k === p.live || m.stash).length > 1);
 }
 
-/** Pack the plate being edited's models (the toolbar's Arrange). */
-export function arrange() {
-  if (!part || isBusy() || dragging()) return;
+let waiting = false;
+
+/** Pack the plate being edited's models (the toolbar's Arrange), once every fin
+ *  build is in: a model packed without the fins it is getting would collide. */
+export async function arrange() {
+  if (!part || waiting || isBusy() || dragging()) return;
+  const plate = currentPlate();
+  if (buildPending() || !(await settledNow())) {
+    waiting = true;
+    el('arrange-btn').disabled = true;
+    try { await parkedSettled(30000); } finally { waiting = false; el('arrange-btn').disabled = false; }
+    // switched, or picked up, meanwhile: that press was for another plate
+    if (currentPlate() !== plate || !part || isBusy() || dragging()) return;
+  }
   const fps = footprints();
   if (fps.length < 2) return;
   const v = currentVolume();
@@ -120,6 +149,9 @@ export function arrange() {
   pushMoves(moves.map(({ who }) => ({ who, xy: who.xy.slice() })));
   placeSlots(moves);
 }
+
+/** No build is in flight (a 0 ms parkedSettled answers at once when all are in). */
+const settledNow = () => parkedSettled(0);
 
 el('arrange-btn').addEventListener('click', arrange);
 document.addEventListener('partchange', syncButton);

@@ -475,7 +475,8 @@ export function updateFit() {
   const fit = el('s-fit');
   fit.textContent = big
     ? t(added.length ? 'does not fit (with fins)' : 'does not fit')
-    : off ? t('hangs off the bed') : clash ? t('models overlap') : t('fits');
+    : off && clash ? `${t('models overlap')} · ${t('hangs off the bed')}`
+      : off ? t('hangs off the bed') : clash ? t('models overlap') : t('fits');
   fit.classList.toggle('warn', big || off || clash);
 }
 
