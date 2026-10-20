@@ -64,10 +64,16 @@ function show(i) {
 /** Switch to plate `i`; the camera glides along the row unless `quiet`. */
 function go(i, quiet = false) {
   if (i === active || i < 0 || i >= plates.length) return;
-  const fromPos = camera.position.clone(), fromTarget = controls.target.clone();
-  const dx = (i - active) * pitch();
   const from = liveXY();
   stashActive();
+  arrive(i, from, quiet);
+}
+
+/** Edit plate `i`, the one being edited already stashed, its live model having stood
+ *  at `from`: the camera keeps its view of the row, then glides unless `quiet`. */
+function arrive(i, from, quiet) {
+  const fromPos = camera.position.clone(), fromTarget = controls.target.clone();
+  const dx = (i - active) * pitch();
   show(i);
   if (quiet) return;
   // the row slid under the camera by the plates' spacing and the two live models'
@@ -99,6 +105,10 @@ export function freePlate() {
 /** The plate being edited, for an import to come back to once its file is read. */
 export const currentPlate = () => plates[active];
 
+/** How many plates the row has, and which of them is being edited. */
+export const plateCount = () => plates.length;
+export const activePlate = () => active;
+
 /** Edit `plate` again (a switch while its file was read). False when it was deleted
  *  meanwhile, or Export all is switching: the import then lands nowhere. */
 export function returnTo(plate) {
@@ -125,6 +135,7 @@ let trash = null;
 const UNDO_MS = 10000;
 
 function expire() {
+  if (moved) { clearTimeout(moved.timer); moved = null; el('toast').hidden = true; }
   if (!trash) return;
   clearTimeout(trash.timer);
   trash.slots.forEach(disposeSlot);
@@ -209,7 +220,58 @@ function undoDelete() {
   show(i);
 }
 
-el('toast-undo').addEventListener('click', undoDelete);
+// ------------------------------------------------------- move to another plate
+
+// { m, from (the plate it left), xy (its spot there), timer }: the last move to
+// another plate, for the toast's Undo
+let moved = null;
+
+/**
+ * Move slot `m` of the plate being edited to plate `j` at `xy` (a drag dropped
+ * there, ui/move.js), or the free spot nearest the centre when a model there covers
+ * it. Plate `j` is then edited, `m` live, under its settings: its fins rebuild to
+ * them, and its walls, removals, pose and scale go with it. Its steps stay in the
+ * plate it left, passed over there while it is gone (history.js). The toast's Undo
+ * takes it back to `back` (its spot before the drag) unless `back` is null.
+ */
+export function moveToPlate(m, j, xy, back) {
+  const src = plates[active], dst = plates[j], k = src.models.indexOf(m);
+  if (busy || !dst || j === active || k < 0 || !(k === src.live ? part : m.stash)) return false;
+  expire();
+  const from = liveXY();
+  stashActive();
+  src.models.splice(k, 1);
+  if (!src.models.length) src.models = [slot()];
+  if (src.live > k || (src.live === k && k > 0)) src.live--;     // as Remove model goes on
+  m.xy = xy.slice();
+  const bare = dst.models.length === 1 && !dst.models[0].stash;
+  // its own settings only on a plate that has none yet (unpark)
+  const own = bare && !dst.settings;
+  if (bare) dst.models = [m];
+  else putBack(dst, [m]);
+  dst.live = dst.models.indexOf(m);
+  arrive(j, from, false);
+  if (!back) return true;
+  moved = { m, from: src, xy: back.slice(), timer: setTimeout(expire, UNDO_MS) };
+  el('toast-text').textContent = t(own ? 'Moved {name} to plate {n}' : 'Moved {name} to plate {n}: it takes that plate\'s settings',
+    { name: partName, n: j + 1 });
+  el('toast').hidden = false;
+  return true;
+}
+
+/** The toast's Undo of a move: the model back to the plate it left, where it was
+ *  (or the free spot nearest, if a model has been put there since). */
+function undoMove() {
+  if (!moved || busy) return;
+  const { m, from, xy } = moved;
+  expire();
+  const to = plates.indexOf(from), at = plates.findIndex((p) => p.models.includes(m));
+  if (to < 0 || at < 0 || to === at) return;
+  if (at !== active) go(at, true);
+  moveToPlate(m, to, xy, null);
+}
+
+el('toast-undo').addEventListener('click', () => (moved ? undoMove() : undoDelete()));
 el('remove-part').addEventListener('click', removeModel);
 
 // -------------------------------------------------------------------- export

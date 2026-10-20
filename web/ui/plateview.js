@@ -105,6 +105,25 @@ export function drawRow(plates, active) {
   requestRender();
 }
 
+// The plate a dragged model would move to (ui/move.js): its bed, lit.
+const target = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({
+  color: 0x4da3ff, transparent: true, opacity: 0.18, depthWrite: false, side: THREE.DoubleSide,
+}));
+target.visible = false;
+target.raycast = () => {};       // a display: the drag's own picks go through it
+scene.add(target);
+
+/** Light plate `i`'s bed (`active` being edited) as a drop's target; null clears it. */
+export function markTarget(i, active) {
+  const on = i !== null && i !== undefined;
+  if (on) {
+    const v = currentVolume();
+    target.scale.set(v.x, v.y, 1);
+    target.position.set(row.position.x + (i - active) * pitch(), row.position.y, 0.05);
+  }
+  if (target.visible !== on || on) { target.visible = on; requestRender(); }
+}
+
 /** The live model stands at `xy` on its plate: lay the row and the bed out around it. */
 export function shiftRow([lx, ly]) {
   row.position.set(-lx, -ly, 0);

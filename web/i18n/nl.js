@@ -319,6 +319,8 @@ export default {
 	"Put another model on this plate, beside this one. Click a model to edit it.": "Zet nog een model op deze plaat, naast dit model. Klik op een model om het te bewerken.",
 	"Removed {n} models": "{n} modellen verwijderd",
 	"Deleted plate {n}": "Plaat {n} verwijderd",
+	"Moved {name} to plate {n}": "{name} naar plaat {n} verplaatst",
+	"Moved {name} to plate {n}: it takes that plate's settings": "{name} naar plaat {n} verplaatst: het neemt de instellingen van die plaat over",
 	"See all": "Alles tonen",
 	"Pull the view back to show every plate": "Zoom uit om alle platen te tonen",
 	"Every plate's part and supports, one 3MF each, in one .zip file.": "Onderdeel en steunen van elke plaat, elk een 3MF, in één .zip-bestand.",

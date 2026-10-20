@@ -352,6 +352,8 @@ export default {
   "Put another model on this plate, beside this one. Click a model to edit it.": "在此打印板上、这个模型旁边再放一个模型。点击模型即可编辑。",
   "Removed {n} models": "已移除 {n} 个模型",
   "Deleted plate {n}": "已删除打印板 {n}",
+  "Moved {name} to plate {n}": "已将 {name} 移到第 {n} 块板",
+  "Moved {name} to plate {n}: it takes that plate's settings": "已将 {name} 移到第 {n} 块板：它采用该板的设置",
   "See all": "查看全部",
   "Pull the view back to show every plate": "拉远视角以显示所有打印板",
   "Every plate's part and supports, one 3MF each, in one .zip file.": "每个打印板的零件和支撑，各一个 3MF，打包为一个 .zip 文件。",

@@ -317,6 +317,8 @@ export default {
   "Put another model on this plate, beside this one. Click a model to edit it.": "ضع نموذجًا آخر على هذه اللوحة بجانب هذا النموذج. انقر على نموذج لتحريره.",
   "Removed {n} models": "تمت إزالة {n} نماذج",
   "Deleted plate {n}": "تم حذف اللوحة {n}",
+  "Moved {name} to plate {n}": "نُقل {name} إلى اللوحة {n}",
+  "Moved {name} to plate {n}: it takes that plate's settings": "نُقل {name} إلى اللوحة {n}: يأخذ إعدادات تلك اللوحة",
   "See all": "عرض الكل",
   "Pull the view back to show every plate": "تصغير العرض لإظهار كل اللوحات",
   "Every plate's part and supports, one 3MF each, in one .zip file.": "القطعة والدعامات لكل لوحة، ملف 3MF لكل منها، في ملف ‎.zip واحد.",

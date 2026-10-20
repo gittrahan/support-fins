@@ -330,6 +330,8 @@ export default {
   "Put another model on this plate, beside this one. Click a model to edit it.": "Ein weiteres Modell neben dieses auf die Platte legen. Klicke ein Modell an, um es zu bearbeiten.",
   "Removed {n} models": "{n} Modelle entfernt",
   "Deleted plate {n}": "Platte {n} gelöscht",
+  "Moved {name} to plate {n}": "{name} auf Platte {n} verschoben",
+  "Moved {name} to plate {n}: it takes that plate's settings": "{name} auf Platte {n} verschoben: es übernimmt deren Einstellungen",
   "See all": "Alle zeigen",
   "Pull the view back to show every plate": "Ansicht zurückziehen, um alle Platten zu zeigen",
   "Every plate's part and supports, one 3MF each, in one .zip file.": "Teil und Stützen jeder Platte, je eine 3MF, in einer .zip-Datei.",

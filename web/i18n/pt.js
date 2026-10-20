@@ -302,6 +302,8 @@ export default {
   "Put another model on this plate, beside this one. Click a model to edit it.": "Coloque outro modelo nesta mesa, ao lado deste. Clique num modelo para editá-lo.",
   "Removed {n} models": "{n} modelos removidos",
   "Deleted plate {n}": "Mesa {n} excluída",
+  "Moved {name} to plate {n}": "{name} movido para a placa {n}",
+  "Moved {name} to plate {n}: it takes that plate's settings": "{name} movido para a placa {n}: fica com as definições dessa placa",
   "See all": "Ver todas",
   "Pull the view back to show every plate": "Afastar a vista para mostrar todas as mesas",
   "Every plate's part and supports, one 3MF each, in one .zip file.": "A peça e os suportes de cada mesa, um 3MF cada, em um arquivo .zip.",

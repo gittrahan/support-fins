@@ -9,7 +9,9 @@
  * the bed and the parked models the other way (plateview.js shiftRow), and the camera
  * with them, so on screen the bed stays put and the model moves. A drag never pushes
  * one model into another (footprint.js dragStep): it stops where they would touch.
- * Each drag is one step of the plate's undo (history.js pushMove).
+ * Each drag is one step of the plate's undo (history.js pushMove) -- but one dropped
+ * with its middle over another plate's bed moves the model to that plate
+ * (plates.js moveToPlate), with an Undo in the toast; that plate is lit meanwhile.
  */
 import * as THREE from 'three';
 import { camera, controls, renderer, viewport, requestRender } from './scene.js';
@@ -19,8 +21,10 @@ import { drawnMesh } from './walls.js';
 import { addBadge } from './toolbar.js';
 import { pushMove } from './history.js';
 import { setGizmo } from './pose.js';
-import { currentPlate, isBusy, redraw } from './plates.js';
-import { parkedAt, shiftRow, parkedGroup } from './plateview.js';
+import { currentPlate, isBusy, redraw, plateCount, activePlate, moveToPlate } from './plates.js';
+import { parkedAt, shiftRow, parkedGroup, markTarget, pitch } from './plateview.js';
+import { plateUnder } from './platerow.js';
+import { currentVolume } from './volume.js';
 import { planeBusy } from './section.js';
 import { cancelLay, layActive } from './pose.js';
 import { cancelRemove, removeActive } from './remove.js';
@@ -77,7 +81,9 @@ function modelAt(e) {
   return k.model >= 0 ? { m: p.models[k.model], z: k.z } : null;
 }
 
-let drag = null;     // { m, from (its xy at the press), grab (the plate point pressed), id (the pointer), moved }
+// { m, from (its xy at the press), grab (the plate point pressed), id (the pointer),
+// moved, to (the other plate it is over: plateUnder) }
+let drag = null;
 /** A model is being dragged: Undo waits for the drop (history.js step). */
 export const dragging = () => !!drag;
 
@@ -144,16 +150,29 @@ renderer.domElement.addEventListener('pointermove', (e) => {
     parkedGroup(p.models.indexOf(drag.m))?.position.set(xy[0], xy[1], 0);
   }
   if (checkOverlap()) updateFit();     // the clash shows as it goes
+  drag.to = over(xy);
+  markTarget(drag.to?.plate ?? null, activePlate());
   requestRender();
 });
 
+/** The other plate a model at `xy` (the edited plate's coordinates) would be dropped
+ *  on, { plate, xy }, or null. */
+function over(xy) {
+  const v = currentVolume();
+  return plateUnder(xy, activePlate(), plateCount(), pitch(), v.x, v.y);
+}
+
 function endDrag(e) {
   if (!drag || (e?.pointerId !== undefined && e.pointerId !== drag.id)) return;
-  const { m, from, moved } = drag;
+  const { m, from, moved, to } = drag;
   drag = null;
   controls.enabled = true;
   renderer.domElement.style.cursor = '';
+  markTarget(null);
   if (!moved) return;
+  // dropped over another plate: the model goes to it, with an Undo in the toast
+  // (the switch emptied the page a moment, which turned Move off: it stays on)
+  if (to && moveToPlate(m, to.plate, to.xy, from)) { setMove(true); return; }
   pushMove(m, from);
   redraw();
   updateFit();
