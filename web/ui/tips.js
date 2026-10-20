@@ -31,6 +31,8 @@ document.body.appendChild(card);
 let owner = null;    // the element the card is showing for
 let timer = 0;
 let pressed = null;  // shown by a long press: its click (the finger lifting) is swallowed
+let byKey = false;   // was the last input a key? Chrome counts any focus of a text or
+                     // number field as :focus-visible, a click or a tap included
 
 const textOf = (el) => el.getAttribute('title') ?? el.dataset.tipTitle ?? '';
 
@@ -109,7 +111,7 @@ document.addEventListener('pointerout', (e) => {
 
 document.addEventListener('focusin', (e) => {
   const el = tipOf(e.target);
-  if (el && e.target.matches(':focus-visible')) show(el);
+  if (el && byKey && e.target.matches(':focus-visible')) show(el);
 });
 document.addEventListener('focusout', (e) => {
   const el = tipOf(e.target);
@@ -118,6 +120,8 @@ document.addEventListener('focusout', (e) => {
 
 // touch: a long press shows it; any later press hides it
 document.addEventListener('pointerdown', (e) => {
+  byKey = false;
+  pressed = null;    // Android sends no click after a long press, so a stale one goes here
   const el = tipOf(e.target);
   if (owner && owner !== el) hide();
   if (e.pointerType !== 'touch' || !el) return;
@@ -129,10 +133,14 @@ document.addEventListener('click', (e) => {
   pressed = null;
 }, true);
 for (const ev of ['pointerup', 'pointercancel']) {
-  document.addEventListener(ev, (e) => { if (e.pointerType === 'touch' && !owner) clearTimeout(timer); });
+  // a tap that lifts before the long press is just a tap, card up or not
+  document.addEventListener(ev, (e) => { if (e.pointerType === 'touch') clearTimeout(timer); });
 }
 
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+// Android's long press would also open the text-selection menu over the card
+document.addEventListener('contextmenu', (e) => { if (tipOf(e.target) && pressed) e.preventDefault(); });
+
+document.addEventListener('keydown', (e) => { byKey = true; if (e.key === 'Escape') hide(); });
 // a scroll (focus moving into the settings rail scrolls it) carries the card along,
 // and hides it once its setting is off screen
 addEventListener('scroll', () => {

@@ -30,15 +30,12 @@ const svg = (body) =>
   `<svg viewBox="0 0 240 130" width="240" height="130" aria-hidden="true" focusable="false">${body}</svg>`;
 
 export const TIP_PICS = {
-  // Sway braces: a rib tied to an upright side (left), and the same rib anchoring a
-  // leaning part from its up-facing back (right) -- the #351 case.
+  // Sway braces: a tapered rib standing out from an upright side, its foot on the
+  // plate, tied on with tines all the way up.
   sway: svg(BED
-    + '<rect class="tp-part" x="22" y="14" width="26" height="104"/>'
-    + '<path class="tp-sup" d="M50 118 L76 118 L52 20 L50 20 Z"/><rect class="tp-sup" x="48" y="115" width="34" height="3"/>'
-    + tines(() => 50, () => 48, 112, 24, 9)
-    + '<path class="tp-part" d="M150 118 L166 118 L110 24 L94 24 Z"/>'
-    + '<path class="tp-sup" d="M168 118 L192 118 L124 22 L112 22 Z"/><rect class="tp-sup" x="166" y="115" width="30" height="3"/>'
-    + tines((y) => 168 - (118 - y) * 0.596 + 1, (y) => 166 - (118 - y) * 0.596, 112, 30, 9)),
+    + '<rect class="tp-part" x="70" y="10" width="40" height="108"/>'
+    + '<path class="tp-sup" d="M112 118 L160 118 L114 16 L112 16 Z"/><rect class="tp-sup" x="110" y="115" width="56" height="3"/>'
+    + tines(() => 112, () => 110, 112, 22, 9)),
 
   // Brace grip from: no tines below the height set; they start there and run up.
   'sway-from': svg(BED
