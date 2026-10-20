@@ -30,7 +30,7 @@
  * module depends on neither: the caller passes the material's numbers, whether it
  * runs in the Worker (after fins.js applyTunables) or on the page (Draw).
  */
-import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt } from './planes.js';
+import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt, MAX_LEAN_DEG } from './planes.js';
 import { insidePart } from './inside.js';
 import { kissEnds } from './kiss.js';
 import { braceCrossRib } from './prop/brace.js';
@@ -40,6 +40,11 @@ import { loftExtrude, ribbon, roundedPolygon } from './solids.js';
 export const SWAY = {
   // which faces take a brace
   maxLeanDeg: 30,     // a face leaning further than this is an overhang or a roof, not a side
+  // ...unless it faces UP: the back of a leaning arm (GH #351). A brace placed by hand
+  // may anchor that, its inner edge leaning with the face as an overhang of its own,
+  // so up to the most a wall leans and still prints (planes.js MAX_LEAN_DEG, 45).
+  // Auto keeps to maxLeanDeg both ways.
+  maxBackLeanDeg: MAX_LEAN_DEG,
   minFaceH: 30,       // mm of face height before auto-placement bothers bracing it
   minTopFrac: 0.4,    // ...and it must reach this far up the part, or it braces the easy half
   minPartH: 30,       // mm; a shorter part doesn't sway enough to need this
@@ -100,6 +105,11 @@ export const SWAY = {
 };
 
 const leanCut = () => Math.sin((SWAY.maxLeanDeg * Math.PI) / 180);
+// the same, for a face whose normal points up (+z); the slack is planes.js's, so a
+// face it keeps at exactly 45 degrees isn't refused here by round-off
+const backCut = () => Math.sin((SWAY.maxBackLeanDeg * Math.PI) / 180) + 1e-6;
+/** Can a face with this normal z (in print space) take a brace placed by hand? */
+const takesBrace = (nz) => nz >= -leanCut() && nz <= backCut();
 
 /** Resolve the caller's options against the defaults, clamped to what prints. */
 function settings(opts = {}) {
@@ -227,7 +237,7 @@ function lowestHit(tris, fr, uLo, uHi, outline) {
  */
 export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   const S = settings(opts);
-  if (Math.abs(p.n.z) > leanCut()) {
+  if (!takesBrace(p.n.z)) {
     return { ok: false, reason: 'that face leans too far to stand a brace against — pick an upright side' };
   }
   const fr = { ...frameOf(p), uDir: { x: p.u.x, y: p.u.y } };
@@ -764,7 +774,7 @@ export function faceIsUpright(topo, rot, faceIndex) {
   const i = faceIndex * 3;
   const x = topo.nrm[i], y = topo.nrm[i + 1], z = topo.nrm[i + 2];
   const nz = rot[2] * x + rot[5] * y + rot[8] * z;
-  return Math.abs(nz) <= leanCut();
+  return takesBrace(nz);
 }
 
 /**

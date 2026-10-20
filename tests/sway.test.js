@@ -9,7 +9,7 @@
 //   - Draw's one-click brace works on an upright side and refuses a roof;
 //   - off by default: buildFins without the option is unchanged.
 
-import { block, blockTopo, buildTopology, analyze, fins, insideCount, isClosed, bbox, assert } from './_util.js';
+import { block, blockTopo, tiltedBlockTopo, buildTopology, analyze, fins, insideCount, isClosed, bbox, assert } from './_util.js';
 
 const topoOf = (pos) => buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
 
@@ -304,4 +304,52 @@ Deno.test('sway: "Brace tall walls" cross-ribs a brace over its start height, cl
   }
   const under = sway.buildSwayBraces(topo, res, ID, { ...opts, crossAbove: 200, crossRise: 0.5 });
   assert(under.ribs.every((r) => !r.cross), 'a brace under the start height got cross ribs');
+});
+
+/** A 50 x 12 x 190mm arm tilted `deg` off vertical, seated on its low edge, and its
+ *  biggest +Y-facing (the back, facing up) and -Y-facing (the underside) faces. */
+function leaningArm(deg) {
+  const topo = tiltedBlockTopo(-25, 25, -6, 6, 0, 190, deg);
+  const res = analyze(topo, 45, ID);
+  let back = -1, under = -1;
+  // the long faces, not the end caps (tilted, a cap's normal has a big Y part too)
+  for (let f = 0; f < topo.nFaces; f++) {
+    const ny = topo.nrm[f * 3 + 1];
+    if (ny > 0.5 && (back < 0 || topo.area[f] > topo.area[back])) back = f;
+    if (ny < -0.5 && (under < 0 || topo.area[f] > topo.area[under])) under = f;
+  }
+  // a click on face f, 60mm up its middle: its centroid, slid along the face to z = 60
+  const at = (f) => {
+    const P = topo.pos, c = [0, 1, 2].map((k) => (P[f * 9 + k] + P[f * 9 + 3 + k] + P[f * 9 + 6 + k]) / 3);
+    const n = [topo.nrm[f * 3], topo.nrm[f * 3 + 1], topo.nrm[f * 3 + 2]];
+    // up the face: horizontal x n, which climbs in z; scale it to land at z = 60
+    const up = [0, -n[2], n[1]].map((v) => v * Math.sign(n[1]));
+    const k = (60 - (c[2] + res.offset.z)) / up[2];
+    return [0, c[1] + res.offset.y + k * up[1], 60];
+  };
+  return { topo, res, back, under, at };
+}
+
+Deno.test('sway: Draw anchors a leaning arm from its up-facing back (GH #351), not its underside', () => {
+  const { topo, res, back, under, at } = leaningArm(40);
+  assert(sway.faceIsUpright(topo, ID, back), 'a back leaning 40 degrees and facing up should take a brace');
+  assert(!sway.faceIsUpright(topo, ID, under), 'an underside leaning 40 degrees is an overhang, not a side');
+  const opts = { tines: true, layerHeight: LAYER, full: true };
+  const r = sway.swayAtFace(topo, res, ID, back, at(back), opts);
+  assert(r.ok, `anchor brace failed: ${r.reason}`);
+  assert(r.height > 100, `the anchor should run most of the way up the arm, got ${r.height.toFixed(0)}mm`);
+  assert(isClosed(r.tris), 'anchor brace is not closed');
+  // it leans with the arm and stands off it: nothing of the rib is in the part
+  const ribOnly = sway.swayAtFace(topo, res, ID, back, at(back), { ...opts, tines: false });
+  const inside = insideCount(topo, ID, res.offset, ribOnly.tris.map((v) => [v[0], v[1], Math.max(v[2], 1e-3)]));
+  assert(inside === 0, `${inside} rib verts are inside the arm`);
+  assert(r.tines >= 10, `the anchor should grip all the way up, got ${r.tines} tines`);
+  assert(!sway.swayAtFace(topo, res, ID, under, at(under), opts).ok, 'the underside should refuse a brace');
+});
+
+Deno.test('sway: a back leaning past 45 degrees refuses an anchor -- its own edge would overhang', () => {
+  const { topo, res, back, at } = leaningArm(50);
+  assert(!sway.faceIsUpright(topo, ID, back), 'a back leaning 50 degrees should not take a brace');
+  const r = sway.swayAtFace(topo, res, ID, back, at(back), { tines: true, layerHeight: LAYER, full: true });
+  assert(!r.ok, 'a 50-degree back should be refused');
 });
