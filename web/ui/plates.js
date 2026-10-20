@@ -171,6 +171,7 @@ function removeModel() {
 
 function deletePlate(i) {
   if (busy) return;
+  if (moved?.from === plates[i]) expire();     // its Undo would have nowhere to go
   if (i === active) stashActive();
   const entry = plates[i];
   const slots = entry.models.filter((m) => m.stash);
@@ -227,16 +228,18 @@ function undoDelete() {
 let moved = null;
 
 /**
- * Move slot `m` of the plate being edited to plate `j` at `xy` (a drag dropped
- * there, ui/move.js), or the free spot nearest the centre when a model there covers
- * it. Plate `j` is then edited, `m` live, under its settings: its fins rebuild to
- * them, and its walls, removals, pose and scale go with it. Its steps stay in the
- * plate it left, passed over there while it is gone (history.js). The toast's Undo
- * takes it back to `back` (its spot before the drag) unless `back` is null.
+ * Move slot `m` (a model of any plate, usually the one being edited) to plate `j` at
+ * `xy` (a drag dropped there, ui/move.js), or the free spot nearest the centre when
+ * a model there covers it. Plate `j` is then edited, `m` live, under its settings:
+ * its fins rebuild to them, and its walls, removals, pose and scale go with it. Its
+ * steps stay in the plate it left, passed over there while it is gone (history.js).
+ * The toast's Undo takes it back to `back` (its spot before the drag) unless `back`
+ * is null.
  */
 export function moveToPlate(m, j, xy, back) {
-  const src = plates[active], dst = plates[j], k = src.models.indexOf(m);
-  if (busy || !dst || j === active || k < 0 || !(k === src.live ? part : m.stash)) return false;
+  const si = plates.findIndex((p) => p.models.includes(m));
+  const src = plates[si], dst = plates[j], k = src?.models.indexOf(m);
+  if (busy || !src || !dst || src === dst || !(si === active && k === src.live ? part : m.stash)) return false;
   expire();
   const from = liveXY();
   stashActive();
@@ -260,15 +263,14 @@ export function moveToPlate(m, j, xy, back) {
 }
 
 /** The toast's Undo of a move: the model back to the plate it left, where it was
- *  (or the free spot nearest, if a model has been put there since). */
+ *  (or the free spot nearest, if a model has been put there since), from whichever
+ *  plate is being edited -- one glide. */
 function undoMove() {
   if (!moved || busy) return;
   const { m, from, xy } = moved;
   expire();
-  const to = plates.indexOf(from), at = plates.findIndex((p) => p.models.includes(m));
-  if (to < 0 || at < 0 || to === at) return;
-  if (at !== active) go(at, true);
-  moveToPlate(m, to, xy, null);
+  const to = plates.indexOf(from);
+  if (to >= 0) moveToPlate(m, to, xy, null);
 }
 
 el('toast-undo').addEventListener('click', () => (moved ? undoMove() : undoDelete()));

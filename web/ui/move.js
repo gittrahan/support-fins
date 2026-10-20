@@ -38,7 +38,7 @@ export const moveActive = () => moving && !!part;
 export function setMove(v) {
   if ((!!v && !!part) === moving) return;   // a picker arming with Move off: its cursor stays
   moving = !!v && !!part;
-  if (!moving) endDrag();
+  if (!moving) endDrag(null, true);
   // the armed pickers wait on a click Move would take: one pointer mode at a time
   if (moving && layActive()) cancelLay();
   if (moving && removeActive()) cancelRemove();
@@ -162,7 +162,9 @@ function over(xy) {
   return plateUnder(xy, activePlate(), plateCount(), pitch(), v.x, v.y);
 }
 
-function endDrag(e) {
+/** The drag ends: a drop (`e`, the pointer's), or Move turned off (`leaving`), which
+ *  keeps the spot but moves nothing to another plate. */
+function endDrag(e, leaving = false) {
   if (!drag || (e?.pointerId !== undefined && e.pointerId !== drag.id)) return;
   const { m, from, moved, to } = drag;
   drag = null;
@@ -172,7 +174,7 @@ function endDrag(e) {
   if (!moved) return;
   // dropped over another plate: the model goes to it, with an Undo in the toast
   // (the switch emptied the page a moment, which turned Move off: it stays on)
-  if (to && moveToPlate(m, to.plate, to.xy, from)) { setMove(true); return; }
+  if (to && !leaving && moveToPlate(m, to.plate, to.xy, from)) { setMove(true); return; }
   pushMove(m, from);
   redraw();
   updateFit();
