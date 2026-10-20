@@ -118,13 +118,15 @@ export async function finProject(input, args, io) {
   }
   const zip = new ProjectZip(await io.read(input));
   if (zip.entries.has(MARKER) || zip.entries.has(SUPPORTS)) throw new Error('this project already has generated fins; use the original project');
+  // The layout, not the application name, is what this edits: Bambu Studio and its
+  // forks (OrcaSlicer, QIDI Studio, ...) all write these members and plates.
+  if (![ROOT, CONFIG, SETTINGS].every((n) => zip.entries.has(n))) {
+    throw new Error('--preserve-project needs a Bambu Studio-style project (Bambu Studio, OrcaSlicer, QIDI Studio): '
+      + `${[CONFIG, SETTINGS].filter((n) => !zip.entries.has(n)).join(', ') || ROOT} missing`);
+  }
   const [rootXML, configXML, settingsText] = await Promise.all([zip.text(ROOT), zip.text(CONFIG), zip.text(SETTINGS)]);
   const root = xmlTree(rootXML), config = xmlTree(configXML);
   if (root.attrs.unit !== 'millimeter') throw new Error('project mode currently requires millimeter units');
-  const app = children(root, 'metadata').find((m) => m.attrs.name === 'Application');
-  if (!app || !/BambuStudio|Bambu Studio/i.test(rootXML.slice(app.open, app.close))) {
-    throw new Error('--preserve-project currently supports Bambu Studio/MakerWorld projects only');
-  }
   const settings = JSON.parse(settingsText);
   const resources = child(root, 'resources'), build = child(root, 'build');
   if (!resources || !build) throw new Error('missing project resources/build');
@@ -134,6 +136,7 @@ export async function finProject(input, args, io) {
     throw new Error('duplicate project object IDs');
   }
   const plates = children(config, 'plate');
+  if (!plates.length) throw new Error('no plates in the project settings; save it from Bambu Studio, OrcaSlicer or QIDI Studio');
   const membership = new Map();
   plates.forEach((p, i) => {
     for (const instance of children(p, 'model_instance')) {
@@ -157,16 +160,36 @@ export async function finProject(input, args, io) {
       `${o.number}: ${o.name} (resource ${o.id}, plate ${o.plate ?? '?'}, ${o.printable ? 'printable' : 'not printable'})`).join('\n') };
   const selected = pick(items, args.objects);
   if (!selected.length) throw new Error('no printable objects selected');
-  const variable = [...zip.entries.keys()].some((n) => /(?:layer_heights_profile|layer_config_ranges)/i.test(n));
+  const warn = (s) => io.err(`support-fins: ${input}: ${s}`);
+  // Objects named with --object must all work; in the every-object default a model
+  // this mode can't handle is left as it was, with a warning, so the rest get fins.
+  const skipOrThrow = (o, e) => {
+    const message = `object ${o.number} (${o.name}): ${e.message}`;
+    if (args.objects.length) throw new Error(message);
+    warn(`skipped ${message}`);
+    return null;
+  };
+  // Variable layer heights are per object. Bambu numbers its profile lines by object
+  // order; other writers use the resource ID, so either match marks the object.
+  const variableIDs = new Set();
+  for (const name of zip.entries.keys()) {
+    if (/layer_heights_profile\.txt$/i.test(name)) {
+      for (const m of (await zip.text(name)).matchAll(/^object_id=(\d+)\|/gm)) variableIDs.add(+m[1]);
+    } else if (/layer_config_ranges\.xml$/i.test(name)) {
+      for (const o of children(xmlTree(await zip.text(name)), 'object')) variableIDs.add(+o.attrs.id);
+    }
+  }
+  const order = new Map(children(resources, 'object').map((o, i) => [o.attrs.id, i + 1]));
   const plans = selected.map((o) => {
     try {
       if (!o.object || !o.config || !o.plate) throw new Error('missing object settings or plate assignment');
-      if (occurrences.get(o.id) !== 1) throw new Error('shared build instances are not supported yet; make each instance independent in Bambu Studio');
+      if (occurrences.get(o.id) !== 1) throw new Error('shared build instances are not supported yet; make each instance independent in the slicer');
       if (!child(o.object, 'components') || child(o.object, 'mesh')) throw new Error('expected a Bambu component assembly');
       if (children(o.config, 'part').some((p) => p.attrs.subtype === 'negative_part')) {
         throw new Error('negative parts would cut the added fins; project mode does not yet support them');
       }
       const transform = matrix(o.item.attrs.transform); inverse(transform);
+      const variable = variableIDs.has(+o.id) || variableIDs.has(order.get(o.id));
       const height = regularHeight(settings, o.config, args.dialog.layerHeight, variable);
       const slot = filament(settings, o.config, args.finExtruder);
       const options = optionsFromDialog({ ...args.dialog, layerHeight: height });
@@ -174,13 +197,20 @@ export async function finProject(input, args, io) {
       const native = enabled(own.enable_support ?? settings.enable_support)
         || children(o.config, 'part').some((p) => enabled(metadata(p).enable_support));
       return { ...o, transform, height, slot, options, native };
-    } catch (e) { throw new Error(`object ${o.number} (${o.name}): ${e.message}`); }
-  });
-  const warn = (s) => io.err(`support-fins: ${input}: ${s}`);
+    } catch (e) { return skipOrThrow(o, e); }
+  }).filter(Boolean);
+  if (!plans.length) throw new Error('none of the selected objects can take fins in project mode (see the warnings above)');
+  // By-object printing finishes one object before the next starts, so the fins can't
+  // be their own object there: they become a part of the model (tines weld to it).
+  const byObject = /object/i.test(String(settings.print_sequence ?? ''));
+  if (byObject) warn('the project prints by object: fins are added as a part of each model, so their tines weld to it');
   if (plans.some((p) => p.native) && !args.disableNativeSupports) {
     warn('native slicer supports remain enabled; both native supports and fins may print. Use --disable-native-supports to turn them off on selected objects.');
   }
   const rootEdits = [], configEdits = [], supportObjects = [], results = [];
+  const newResources = [], newItems = [], plateInstances = new Map();
+  let nextIdentify = 1 + Math.max(0, ...plates.flatMap((p) => children(p, 'model_instance'))
+    .map((i) => +metadata(i).identify_id).filter(Number.isFinite));
   let nextID = Math.max(0, ...[...objects.keys(), ...children(config, 'object')
     .flatMap((o) => children(o, 'part').map((p) => p.attrs.id))].map((id) => {
       if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(+id)) throw new Error('invalid resource ID');
@@ -226,28 +256,57 @@ export async function finProject(input, args, io) {
       const model = readThreeMFParts(members, { buildIndex: p.number - 1, doublePrecision: true }).objects[0];
       if (model.extras.some((e) => e.kind === 'negative')) throw new Error('negative parts are not supported in project mode');
       const { triangles, offset, stats } = computeFins(model.positions, p.options);
-      const appended = [];
+      // Gather this object's edits and commit them only once nothing can throw, so a
+      // skipped object leaves the project exactly as it was.
+      const appended = [], own = { root: [], config: [], supports: [], resources: [], items: [], instances: [] };
+      let supportID = null;
       if (triangles.length) {
         const id = String(nextID++), name = `${p.name} supports`;
         const mesh = supportMesh(triangles, offset, p.transform);
-        supportObjects.push(`<object id="${id}" type="model" name="${esc(name)}" p:UUID="${crypto.randomUUID()}">${mesh}</object>`);
-        rootEdits.push(insert(child(p.object, 'components'),
-          `<component objectid="${id}" ${prefix}:path="/${SUPPORTS}" ${prefix}:UUID="${crypto.randomUUID()}" transform="${identity.join(' ')}"/>`));
-        appended.push(`<part id="${id}" subtype="normal_part">${meta('name', name)}${meta('extruder', p.slot)}`
-          + `${meta('matrix', '1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1')}</part>`);
-      }
-      if (args.disableNativeSupports) {
-        setMetadata(p.config, 'enable_support', '0', configEdits, appended);
-        for (const part of children(p.config, 'part')) {
-          const own = children(part, 'metadata').filter((m) => m.attrs.key === 'enable_support');
-          for (const m of own) configEdits.push([m.start, m.end, meta('enable_support', '0')]);
+        own.supports.push(`<object id="${id}" type="model" name="${esc(name)}" p:UUID="${crypto.randomUUID()}">${mesh}</object>`);
+        const component = `<component objectid="${id}" ${prefix}:path="/${SUPPORTS}" ${prefix}:UUID="${crypto.randomUUID()}" transform="${identity.join(' ')}"/>`;
+        const part = `<part id="${id}" subtype="normal_part">${meta('name', name)}${meta('extruder', p.slot)}`
+          + `${meta('matrix', '1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1')}</part>`;
+        if (byObject) {
+          own.root.push(insert(child(p.object, 'components'), component));
+          appended.push(part);
+        } else {
+          // Their own object, as the site's 3MF does: its own perimeters, so a tine only
+          // touches the part. Same build transform and plate, so it opens in register.
+          supportID = String(nextID++);
+          own.resources.push(`<object id="${supportID}" ${prefix}:UUID="${crypto.randomUUID()}" type="model">`
+            + `<components>${component}</components></object>`);
+          own.items.push(`<item objectid="${supportID}" ${prefix}:UUID="${crypto.randomUUID()}"`
+            + ` transform="${esc(p.item.attrs.transform ?? identity.join(' '))}" printable="1"/>`);
+          own.config.push([p.config.end, p.config.end, `<object id="${supportID}">${meta('name', name)}`
+            + `${meta('extruder', p.slot)}${meta('enable_support', '0')}${part}</object>`]);
+          own.instances.push(`<model_instance>${meta('object_id', supportID)}${meta('instance_id', '0')}`
+            + `${meta('identify_id', nextIdentify++)}</model_instance>`);
         }
       }
-      if (appended.length) configEdits.push(insert(p.config, appended.join('')));
-      results.push({ number: p.number, id: p.id, name: p.name, plate: p.plate,
+      if (args.disableNativeSupports) {
+        setMetadata(p.config, 'enable_support', '0', own.config, appended);
+        for (const part of children(p.config, 'part')) {
+          const set = children(part, 'metadata').filter((m) => m.attrs.key === 'enable_support');
+          for (const m of set) own.config.push([m.start, m.end, meta('enable_support', '0')]);
+        }
+      }
+      if (appended.length) own.config.push(insert(p.config, appended.join('')));
+      rootEdits.push(...own.root); configEdits.push(...own.config); supportObjects.push(...own.supports);
+      newResources.push(...own.resources); newItems.push(...own.items);
+      if (own.instances.length) {
+        const plate = membership.get(`${p.id}:${p.instance}`).node;
+        plateInstances.set(plate, [...(plateInstances.get(plate) ?? []), ...own.instances]);
+      }
+      results.push({ number: p.number, id: p.id, name: p.name, plate: p.plate, supportObject: supportID,
         layerHeight: p.height, filament: p.slot, triangles: triangles.length / 9, stats });
-    } catch (e) { throw new Error(`object ${p.number} (${p.name}): ${e.message}`); }
+    } catch (e) { skipOrThrow(p, e); }
   }
+  if (!results.length) throw new Error('no objects could be finned (see the warnings above)');
+  if (newResources.length) {
+    rootEdits.push(insert(resources, newResources.join('')), insert(build, newItems.join('')));
+  }
+  for (const [plate, instances] of plateInstances) configEdits.push(insert(plate, instances.join('')));
   const changes = new Map();
   // Slicing caches cannot describe the augmented model. Keep custom_gcode_per_layer.xml:
   // it contains user-authored pauses/filament changes, not the generated toolpath.

@@ -948,10 +948,11 @@ export async function readThreeMF(bytes) {
 /**
  * Already opened package members. The CLI project editor loads just the selected
  * build item's dependencies, one item at a time; it never rewrites these meshes.
- * doublePrecision also restores outward winding under mirrored transforms for
- * analysis. The normal browser import retains its existing float32/paint order.
+ * doublePrecision keeps float64 positions; outwardWinding flips triangles under a
+ * mirrored transform so they stay outward for analysis. The normal browser import
+ * uses neither and retains its existing float32/paint order.
  */
-export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = false } = {}) {
+export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = false, outwardWinding = false } = {}) {
 
   const rootName = findRootPart(parts);
   if (!rootName || !parts.has(rootName)) throw new Error('no 3D model part found in this 3MF');
@@ -1004,7 +1005,7 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
     const stats = { meshes: 0, skipped: 0, dropped: 0, missing: 0 };
     const roles = { parts: slicerParts.get(item.objectid),
       ranges: (path, id) => (path === rootName ? prusaVols.get(id) : null) };
-    emitObject(getPart, rootName, item.objectid, item.transform, sink, new Set(), stats, null, roles, doublePrecision);
+    emitObject(getPart, rootName, item.objectid, item.transform, sink, new Set(), stats, null, roles, outwardWinding);
     if (buildIndex !== null && (stats.missing || stats.dropped || stats.cycles)) {
       throw new Error('selected object has missing resources, cyclic components or invalid triangle references');
     }

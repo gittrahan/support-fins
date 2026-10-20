@@ -66,7 +66,8 @@ For an AI client (Claude Code, Claude Desktop), the same tool is an MCP server:
 
 ## Keeping a Bambu Studio project
 
-Use `--preserve-project` on a Bambu Studio/MakerWorld project to keep its original
+Use `--preserve-project` on a Bambu Studio/MakerWorld project (or one saved by a
+Bambu-based slicer with the same layout: OrcaSlicer, QIDI Studio) to keep its original
 painted meshes, filament/printer/process settings, object positions and plates:
 
 ```sh
@@ -78,8 +79,14 @@ support-fins project.3mf --preserve-project --object 2 --object 7 -o selected-fi
 support-fins project.3mf --preserve-project --fin-extruder 2 --disable-native-supports
 ```
 
-Generated fins are grouped into one support part per model; models needing no
-fins get no empty part. Unselected and nonprintable objects remain in the output.
+Each model's fins become their own object, `<name> supports`, with the model's pose
+and plate, the way the site's 3MF exports them: each keeps its own perimeters, so a
+tine only touches the part and breaks away cleanly. The slicer's own supports are off
+on that object. Bambu Studio reports "G-code path conflicts" between a model and its
+supports object because the tines touch it; that is expected, and the plate still
+prints. A project that prints by object instead gets the fins as a part of each
+model (they would otherwise print after it), with a warning. Models needing no fins
+get nothing. Unselected and nonprintable objects remain in the output.
 `--list-objects` lists the original build-item
 numbers, names, resource IDs and plate IDs without generating anything; use its
 numbers with `--object`, or a unique object name. Build-item numbers are not 3MF
@@ -87,7 +94,7 @@ resource IDs. Several `--object` flags select several objects.
 
 The regular layer height comes from the project's `layer_height`, with object and
 part overrides considered. The first-layer height is a different setting.
-Missing, conflicting or variable layer heights require an explicit
+Missing, conflicting or variable layer heights (per object) require an explicit
 `--layer-height` for fin generation; this does not change the project's slicing
 settings. Fins inherit the object's base filament, or an unambiguous part
 assignment. `--fin-extruder N` selects an existing 1-based filament slot; the
@@ -108,12 +115,15 @@ This mode preserves the existing pose, so it cannot be combined with `--rot` or
 `--fins-only`. The input is protected against path aliases, symbolic links and
 hard links. An existing output requires `--overwrite`; the completed project is
 published atomically, and a failed object does not leave a partial output.
+Without `--object`, a model this mode can't handle (variable layer heights, a
+negative part, a shared instance, no plate) is skipped with a warning and left as it
+was; the rest get fins. A model named with `--object` must work, or nothing is written.
 
 The initial supported layout is a millimeter Bambu project with component
 assemblies referencing external mesh files and explicit plate assignments.
 Shared build instances, negative parts (which would also subtract from added
 fins), inline-only assemblies, ZIP64 archives and other slicer project formats
-are refused with an explanation. Direct output from this mode is refused as
+are refused with an explanation (in the every-object default, a model with one is skipped). Direct output from this mode is refused as
 input to avoid adding fins twice. Individually editable fins and resume caching
 are not included.
 

@@ -28,7 +28,14 @@ export async function writeProject(input, output, bytes, overwrite = false) {
     await handle.close(); handle = null;
     await checkProjectOutput(input, output, overwrite);
     if (overwrite) await fs.rename(temporary, output);
-    else await fs.link(temporary, output); // atomic, fails if a destination appeared during generation
+    else {
+      // Atomic, fails if a destination appeared during generation. exFAT and some
+      // network shares have no hard links: an exclusive copy still never replaces one.
+      try { await fs.link(temporary, output); } catch (e) {
+        if (!['EPERM', 'ENOTSUP', 'ENOSYS', 'EOPNOTSUPP'].includes(e.code)) throw e;
+        await fs.copyFile(temporary, output, fs.constants.COPYFILE_EXCL);
+      }
+    }
   } finally {
     if (handle) await handle.close();
     await fs.unlink(temporary).catch((e) => { if (e.code !== 'ENOENT') throw e; });

@@ -38,7 +38,8 @@ async function compressed(files) {
   return new Uint8Array(await new Blob([...chunks, ...records, end]).arrayBuffer());
 }
 
-async function fixture({ duplicate = false, negative = false, variable = false, layer = '0.16', printable = true, mirror = false } = {}) {
+async function fixture({ duplicate = false, negative = false, variable = null, layer = '0.16', printable = true, mirror = false,
+  app = 'BambuStudio-02.04.00.70', sequence = 'by layer' } = {}) {
   const cube = triples(block(0, 20, 0, 20, 0, 20));
   const q = Math.SQRT1_2;
   const resource = (id, file) => `<object id="${id}" type="model" p:UUID="original-${id}"><components>`
@@ -56,14 +57,14 @@ async function fixture({ duplicate = false, negative = false, variable = false, 
     + '<metadata key="identify_id" value="99"/></model_instance></plate>';
   const files = [
     { name: ROOT, data: `<model xmlns="${CORE}" xmlns:p="${PROD}" unit="millimeter" requiredextensions="p">`
-      + '<metadata name="Application">BambuStudio-02.04.00.70</metadata><resources>'
+      + `<metadata name="Application">${app}</metadata><resources>`
       + resource(10, 'a') + resource(20, 'b') + '</resources><build>'
       + `<item objectid="10" printable="1" transform="${mirror ? -1 : 1} 0 0 0 ${q} ${q} 0 ${-q} ${q} 30 40 0"/>`
       + `<item objectid="${duplicate ? 10 : 20}" printable="${printable ? 1 : 0}" transform="1 0 0 0 ${q} ${q} 0 ${-q} ${q} 400 50 0"/>`
       + '</build></model>' },
     { name: CONFIG, data: `<config>${obj(10, 1)}${obj(20, 2)}${plate(1, 10)}${plate(2, duplicate ? 10 : 20)}<assemble/></config>` },
     { name: SETTINGS, data: JSON.stringify({ layer_height: layer, initial_layer_print_height: '0.3',
-      filament_colour: ['#FFFFFF', '#123456'], filament_type: ['PETG', 'PETG'], enable_support: '1' }) },
+      filament_colour: ['#FFFFFF', '#123456'], filament_type: ['PETG', 'PETG'], enable_support: '1', print_sequence: sequence }) },
     { name: '3D/Objects/a.model', data: model('4') },
     { name: '3D/Objects/b.model', data: model('8') },
     { name: '_rels/.rels', data: `<Relationships xmlns="${RELS}"><Relationship Id="root" Target="/${ROOT}" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>` },
@@ -77,7 +78,8 @@ async function fixture({ duplicate = false, negative = false, variable = false, 
     { name: 'Metadata/slice_info.config', data: '<config/>' },
     { name: 'Auxiliaries/私有.bin', data: new Uint8Array([0, 255, 1, 128]) },
   ];
-  if (variable) files.push({ name: 'Metadata/layer_heights_profile.txt', data: 'variable' });
+  // variable: the object_id a profile line names (1 = first object by order, 10 = its resource ID)
+  if (variable) files.push({ name: 'Metadata/layer_heights_profile.txt', data: `object_id=${variable}|0;0.2;5;0.1;20;0.1;\n` });
   return compressed(files);
 }
 
@@ -105,25 +107,36 @@ Deno.test('project: preserve compressed painted meshes/settings, plates and sour
   }
   equal(zip.comment, old.comment, 'archive comment');
   const root = xmlTree(await zip.text(ROOT)), originalRoot = xmlTree(await old.text(ROOT));
-  assert(JSON.stringify(child(root, 'build').children.map((n) => n.attrs))
-    === JSON.stringify(child(originalRoot, 'build').children.map((n) => n.attrs)), 'build items moved');
+  const items = child(root, 'build').children, originalItems = child(originalRoot, 'build').children;
+  assert(JSON.stringify(items.slice(0, 2).map((n) => n.attrs)) === JSON.stringify(originalItems.map((n) => n.attrs)), 'build items moved');
+  // The fins are their own objects, appended after the originals with the same pose.
+  const ids = r.result.objects.map((o) => o.supportObject);
+  assert(items.length === 4 && items.slice(2).every((n, i) => n.attrs.objectid === ids[i]
+    && n.attrs.transform === originalItems[i].attrs.transform), 'supports not their own objects in register');
   const cfg = xmlTree(await zip.text(CONFIG)), originalCfg = xmlTree(await old.text(CONFIG));
   const membership = (c) => children(c, 'plate').map((p) => [metadata(p).plater_id,
     metadata(p).locked, children(p, 'model_instance').map(metadata)]);
-  assert(JSON.stringify(membership(cfg)) === JSON.stringify(membership(originalCfg)), 'plate membership changed');
+  const plates = membership(cfg), originalPlates = membership(originalCfg);
+  plates.forEach(([id, locked, instances], i) => {
+    assert(JSON.stringify([id, locked, instances.slice(0, -1)]) === JSON.stringify(originalPlates[i]), 'plate membership changed');
+    assert(instances.at(-1).object_id === ids[i] && instances.at(-1).identify_id !== '99', 'supports not on their part\'s plate');
+  });
+  const supportCfg = children(cfg, 'object').filter((o) => ids.includes(o.attrs.id));
+  assert(supportCfg.length === 2 && supportCfg.every((o) => metadata(o).enable_support === '0'), 'supports object supported by the slicer');
   assert(r.result.objects.map((o) => o.filament).join() === '1,2', 'base filament not inherited');
   assert(r.result.objects.every((o) => o.layerHeight === 0.16 && o.triangles > 0), 'regular height or fins missing');
   assert(r.err.some((s) => s.includes('native slicer supports remain enabled')), 'no native support warning');
-  assert(children(cfg, 'object').every((o) => metadata(o).enable_support === '1'), 'native supports changed');
+  assert(children(cfg, 'object').filter((o) => !ids.includes(o.attrs.id)).every((o) => metadata(o).enable_support === '1'), 'native supports changed');
   assert(!zip.entries.has('Metadata/plate_1.gcode') && !zip.entries.has('Metadata/slice_info.config')
     && !zip.entries.has('Metadata/plate_1.png'), 'stale slice artifacts retained');
   assert(!(await zip.text('[Content_Types].xml')).includes('/Metadata/plate_1.gcode'), 'dangling content-type override');
   const objects = (await readThreeMF(output)).objects;
   const members = new Map(await Promise.all([...old.entries.keys()].map(async (n) => [n, await old.read(n)])));
   for (let i = 0; i < 2; i++) {
-    const original = readThreeMFParts(members, { buildIndex: i, doublePrecision: true }).objects[0];
+    const original = readThreeMFParts(members, { buildIndex: i, doublePrecision: true, outwardWinding: true }).objects[0];
     const direct = computeFins(original.positions, optionsFromDialog({ layerHeight: 0.16 }));
-    const fin = objects[i].positions.slice(original.positions.length);
+    assert(objects[i].positions.length === original.positions.length, 'fins inside the part object');
+    const fin = objects[i + 2].positions;
     assert(fin.length === direct.triangles.length, 'support triangle count differs');
     const offset = [direct.offset.x, direct.offset.y, direct.offset.z];
     for (let j = 0; j < fin.length; j++) assertClose(fin[j], direct.triangles[j] - offset[j % 3], 4e-5, `object ${i} support coordinate ${j}`);
@@ -136,8 +149,9 @@ Deno.test('project: selection retains unselected objects; override only selected
   assert(r.code === 0, r.err.join('\n'));
   assert(r.result.objects.length === 1 && r.result.objects[0].number === 2 && r.result.objects[0].filament === 1, 'selection/slot');
   const cfg = xmlTree(await new ProjectZip(r.fs.get(r.result.output)).text(CONFIG));
-  const [a, b] = children(cfg, 'object');
-  assert(children(a, 'part').length === 1 && children(b, 'part').length === 2, 'wrong object got fins');
+  const [a, b, fins] = children(cfg, 'object');
+  assert(children(a, 'part').length === 1 && children(b, 'part').length === 1, 'fins inside a part object');
+  assert(fins.attrs.id === r.result.objects[0].supportObject && metadata(fins).extruder === '1', 'wrong object got fins');
   assert(metadata(a).enable_support === '1' && metadata(b).enable_support === '0', 'wrong native support override');
   assert(metadata(child(b, 'part')).enable_support === '0', 'part-level native support stayed enabled');
   assert(!r.err.some((s) => s.includes('remain enabled')), 'misleading support warning');
@@ -161,8 +175,9 @@ Deno.test('project: repeated object selectors select several without duplicates'
 
 for (const [label, options, flags, message] of [
   ['shared instances', { duplicate: true }, [], 'shared build instances'],
-  ['negative parts', { negative: true }, [], 'negative parts'],
-  ['variable height', { variable: true }, [], 'variable layer'],
+  ['negative parts', { negative: true }, ['--object', '1'], 'negative parts'],
+  ['variable height', { variable: 1 }, ['--object', '1'], 'variable layer'],
+  ['variable height by resource ID', { variable: 10 }, ['--object', '1'], 'variable layer'],
   ['missing height', { layer: '' }, [], 'regular layer'],
   ['absent filament', {}, ['--fin-extruder', '3'], 'filament slot'],
 ]) {
@@ -173,8 +188,43 @@ for (const [label, options, flags, message] of [
 }
 
 Deno.test('project: explicit regular height overrides variable-height inference; no first-layer substitution', async () => {
-  const r = await cli(await fixture({ variable: true, layer: '' }), ['--layer-height', '0.24']);
+  const r = await cli(await fixture({ variable: 1, layer: '' }), ['--layer-height', '0.24']);
   assert(r.code === 0 && r.result.objects.every((o) => o.layerHeight === 0.24), r.err.join('\n'));
+});
+
+for (const [label, options] of [['negative part', { negative: true }], ['variable height', { variable: 1 }]]) {
+  Deno.test(`project: every-object default skips a ${label} with a warning and fins the rest`, async () => {
+    const r = await cli(await fixture(options));
+    assert(r.code === 0 && r.result.objects.map((o) => o.number).join() === '2', r.err.join('\n'));
+    assert(r.err.some((s) => s.includes('skipped object 1')), 'skip not reported');
+  });
+}
+
+Deno.test('project: the variable profile marks only its own object', async () => {
+  const r = await cli(await fixture({ variable: 2 }));
+  assert(r.code === 0 && r.result.objects.map((o) => o.number).join() === '1', r.err.join('\n'));
+});
+
+Deno.test('project: OrcaSlicer and QIDI Studio projects in the same layout are accepted', async () => {
+  for (const app of ['OrcaSlicer-02.03.01', 'QIDIStudio-02.03.01.51']) {
+    const r = await cli(await fixture({ app }), ['--object', '1']);
+    assert(r.code === 0 && r.result.objects[0].triangles > 0, `${app}: ${r.err.join('\n')}`);
+  }
+});
+
+Deno.test('project: a project without the Bambu-style settings is refused by layout', async () => {
+  const zip = new ProjectZip(await fixture());
+  const source = new Uint8Array(await (await zip.patch(new Map([[CONFIG, null]]))).arrayBuffer());
+  const r = await cli(source);
+  assert(r.code === 1 && r.err.some((s) => s.includes('Bambu Studio-style project')), r.err.join('\n'));
+});
+
+Deno.test('project: by-object printing keeps the fins a part of their model, with a warning', async () => {
+  const r = await cli(await fixture({ sequence: 'by object' }), ['--object', '1']);
+  assert(r.code === 0 && r.result.objects[0].supportObject === null, r.err.join('\n'));
+  assert(r.err.some((s) => s.includes('prints by object')), 'no by-object warning');
+  const cfg = xmlTree(await new ProjectZip(r.fs.get(r.result.output)).text(CONFIG));
+  assert(children(cfg, 'object').length === 2 && children(children(cfg, 'object')[0], 'part').length === 2, 'fins not a part');
 });
 
 for (const [label, member, replace, message] of [
@@ -200,8 +250,7 @@ Deno.test('project: mirrored build keeps its pose and outward supports', async (
   assert(r.code === 0 && r.result.objects[0].triangles > 0, r.err.join('\n'));
   const zip = new ProjectZip(r.fs.get(r.result.output));
   const members = new Map(await Promise.all([...zip.entries.keys()].map(async (n) => [n, await zip.read(n)])));
-  const object = readThreeMFParts(members, { buildIndex: 0, doublePrecision: true }).objects[0];
-  const fins = object.positions.slice(12 * 9);
+  const fins = readThreeMFParts(members, { buildIndex: 2, doublePrecision: true, outwardWinding: true }).objects[0].positions;
   let volume = 0;
   for (let i = 0; i < fins.length; i += 9) {
     volume += fins[i] * (fins[i + 4] * fins[i + 8] - fins[i + 5] * fins[i + 7])
