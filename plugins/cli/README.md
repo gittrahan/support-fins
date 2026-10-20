@@ -127,12 +127,98 @@ are refused with an explanation (in the every-object default, a model with one i
 input to avoid adding fins twice. Individually editable fins and resume caching
 are not included.
 
+### Check compatibility before generating fins
+
+```sh
+support-fins project.3mf --preserve-project --check
+support-fins project.3mf --preserve-project --check --object 2 --object 7 --json
+# Check with the same overrides you intend to use for generation:
+support-fins project.3mf --preserve-project --check --layer-height 0.2 --fin-extruder 2
+```
+
+`--check` inspects all printable objects, or the objects selected with `--object`.
+It checks project settings and loads referenced meshes one object at a time using
+the same reader as generation. It reports the first blocking reason for each
+incompatible object and continues checking the rest, even with explicit selections.
+Native-support and print-by-object warnings are informational. Nonprintable and
+unselected objects are excluded from the report; `--list-objects` still lists all
+build items without checking compatibility.
+
+The check reads the input only: no fins, output project or cache are created, and
+no output destination is tested. It works even when the default output already
+exists. With Deno, a check needs no write permission:
+
+```sh
+deno run --allow-read plugins/cli/support-fins.js project.3mf --preserve-project --check
+```
+
+Do not combine `--check`
+with `--list-objects`, `--output` or `--overwrite`; the existing project-mode
+restrictions on `--rot` and `--fins-only` also apply.
+
+A compatible result means the current project settings and reader accepted the
+object. It does **not** guarantee that generation, output writing, slicing or
+printing will succeed, or that all overhangs can receive fins. Checks do not repair
+meshes. A problem in a shared manifest can affect several objects. Running a check
+is optional; normal generation keeps its existing checks without an additional
+full-project scan.
+
+Exit codes:
+
+- `--check`: **0** when all selected objects pass; **1** when any is incompatible,
+  no printable objects are selected, or the project cannot be read.
+- Generation: **0** when output is written, including runs that skip some objects;
+  **1** for failure (including all objects skipped). Explicit selections still
+  must all succeed before output is written.
+- **2** for invalid command arguments in either mode. For several input files, a
+  failed check/file makes the overall exit code 1; other files are still processed.
+
+### Per-object reports
+
+Project checking and generation report every selected object's identity, plate,
+status, first blocking `reason` (or `null`), and `warnings` (an array of messages).
+The terminal report includes summary counts and whether output was written.
+
+`--json` keeps existing fields, including `objects` for successfully processed
+objects during generation, and adds:
+
+- `mode`: `check` or `generate`.
+- `outputWritten`: whether this invocation wrote an output project.
+- `objectResults`: all selected objects, in build order, with `number`, `id`,
+  `name`, `plate`, `status`, `reason` and `warnings`. Compatible check results also
+  include the resolved `layerHeight` and `filament`.
+- `summary`: `selected` and a count for each status below, including zero counts.
+
+| Status | Meaning |
+| --- | --- |
+| `compatible` / `incompatible` | Check accepted the object / found a blocking problem. No fins generated. |
+| `processed` | Generation completed for this object with support geometry. |
+| `no_supports` | Generation completed with no support geometry. This does not prove support is unnecessary. |
+| `skipped` | Default-mode generation left an unsupported or failed object unchanged. |
+| `failed` | An explicitly selected object failed, aborting generation. |
+| `not_processed` | The run aborted before this object's processing completed. |
+
+`processed` and `no_supports` describe computation; always check `outputWritten`
+before treating the results as saved. If a later object or the final write fails,
+the report retains known outcomes, but no output was written. If the project or
+selection cannot be read, object identities may be unavailable and the result list
+is empty. Existing files at the output path are not evidence of this run's success.
+
+Completed check reports go to stdout, including incompatible checks with exit 1;
+`objects` is empty and `output` is `null`. Successful generation reports also go
+to stdout. Fatal errors keep the existing stderr JSON record with `input` and
+`error`, now accompanied by the report fields when available. Progress and warnings
+remain on stderr, which may contain non-JSON lines. `--list-objects` and ordinary
+non-project exports retain their existing report formats. Reasons and warning
+messages are descriptive text; use status values and counts for automation.
+
 ## Code
 
 - `support-fins.js` — the entry: gives `cli.js` a file system (Deno or Node) and an exit code.
 - `cli.js` — flags, pose, read STL/3MF, `computeFins`, write. No file system of its own.
 - `project.js` — preserve Bambu projects; `project-zip.js` / `project-xml.js` edit
   archive members and manifests, and `project-io.js` protects atomic output.
+- `project-report.js` — selected-object outcomes, counts and terminal formatting.
 - `tests/cli.test.js` — `deno test -A plugins/cli/tests/`. Runs in memory: CLI fins equal
   `computeFins` on the posed part, and match the website's own path on lbracket@35.
 - The summary line is `plugins/shared/engine/report.js`, word for word with the Python

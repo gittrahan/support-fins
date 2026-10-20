@@ -3,6 +3,7 @@
 import { computeFins, optionsFromDialog } from '../shared/engine/fins_entry.js';
 import { readThreeMFParts, scanXML, meshXML } from '../../web/threemf.js';
 import { ProjectZip } from './project-zip.js';
+import { ProjectReport, formatProjectReport } from './project-report.js';
 import { xmlTree, child, children, metadata, meta, attr, escapeXML as esc, insert, editXML } from './project-xml.js';
 
 const ROOT = '3D/3dmodel.model', CONFIG = 'Metadata/model_settings.config';
@@ -107,10 +108,23 @@ function setMetadata(node, key, value, edits, appended) {
 }
 
 export async function finProject(input, args, io) {
+  const report = new ProjectReport(args.check);
+  try {
+    const result = await processProject(input, args, io, report);
+    if (args.listObjects) return result;
+    const data = report.data();
+    return { ...result, ...data, report: `${result.report}\n${formatProjectReport(data)}` };
+  } catch (e) {
+    if (!args.listObjects) e.projectReport = report.data();
+    throw e;
+  }
+}
+
+async function processProject(input, args, io, report) {
   if (!/\.3mf$/i.test(input)) throw new Error('--preserve-project reads a Bambu Studio/MakerWorld .3mf');
   const output = args.output ?? input.replace(/\.3mf$/i, '-fins-project.3mf');
   if (!/\.3mf$/i.test(output)) throw new Error('--preserve-project writes a .3mf');
-  if (!args.listObjects) {
+  if (!args.listObjects && !args.check) {
     if (!io.checkProjectOutput || !io.writeProject) throw new Error('project output requires an atomic file-system writer');
     // In a batch, this output may alias a different input (including by hard link).
     // --overwrite authorizes replacing old outputs, never any of the source files.
@@ -159,12 +173,16 @@ export async function finProject(input, args, io) {
     ({ number, id, name, printable, plate })), report: items.map((o) =>
       `${o.number}: ${o.name} (resource ${o.id}, plate ${o.plate ?? '?'}, ${o.printable ? 'printable' : 'not printable'})`).join('\n') };
   const selected = pick(items, args.objects);
+  report.select(selected);
   if (!selected.length) throw new Error('no printable objects selected');
   const warn = (s) => io.err(`support-fins: ${input}: ${s}`);
   // Objects named with --object must all work; in the every-object default a model
   // this mode can't handle is left as it was, with a warning, so the rest get fins.
   const skipOrThrow = (o, e) => {
     const message = `object ${o.number} (${o.name}): ${e.message}`;
+    Object.assign(report.object(o), { reason: e.message,
+      status: args.check ? 'incompatible' : args.objects.length ? 'failed' : 'skipped' });
+    if (args.check) return null;
     if (args.objects.length) throw new Error(message);
     warn(`skipped ${message}`);
     return null;
@@ -201,11 +219,17 @@ export async function finProject(input, args, io) {
       // can override the project's print sequence.
       const sequence = metadata(membership.get(`${o.id}:${o.instance}`).node).print_sequence ?? settings.print_sequence;
       const byObject = /object/i.test(String(sequence ?? ''));
+      const result = report.object(o);
+      if (native && !args.disableNativeSupports) result.warnings.push('native slicer supports remain enabled; both native supports and fins may print');
+      if (byObject) result.warnings.push('prints by object: any generated fins become a part of this model, so their tines weld to it');
+      if (args.disableNativeSupports && children(o.config, 'metadata').filter((m) => m.attrs.key === 'enable_support').length > 1) {
+        throw new Error('duplicate enable_support setting');
+      }
       return { ...o, transform, height, slot, options, native, byObject };
     } catch (e) { return skipOrThrow(o, e); }
   }).filter(Boolean);
-  if (!plans.length) throw new Error('none of the selected objects can take fins in project mode (see the warnings above)');
-  if (plans.some((p) => p.native) && !args.disableNativeSupports) {
+  if (!plans.length && !args.check) throw new Error('none of the selected objects can take fins in project mode (see the warnings above)');
+  if (!args.check && plans.some((p) => p.native) && !args.disableNativeSupports) {
     warn('native slicer supports remain enabled; both native supports and fins may print. Use --disable-native-supports to turn them off on selected objects.');
   }
   const rootEdits = [], configEdits = [], supportObjects = [], results = [];
@@ -227,7 +251,7 @@ export async function finProject(input, args, io) {
   // Load only this object's dependency tree. Discard the inflated meshes and
   // parsed geometry before the next object, instead of retaining an entire plate.
   for (const p of plans) {
-    warn(`object ${p.number}/${items.length}, plate ${p.plate}: ${p.name}; layer ${p.height} mm, filament ${p.slot}`);
+    if (!args.check) warn(`object ${p.number}/${items.length}, plate ${p.plate}: ${p.name}; layer ${p.height} mm, filament ${p.slot}`);
     try {
       const members = new Map([[ROOT, rootBytes], [CONFIG, configBytes]]);
       const visiting = new Set(), visited = new Set();
@@ -256,6 +280,10 @@ export async function finProject(input, args, io) {
       }
       const model = readThreeMFParts(members, { buildIndex: p.number - 1, doublePrecision: true, outwardWinding: true }).objects[0];
       if (model.extras.some((e) => e.kind === 'negative')) throw new Error('negative parts are not supported in project mode');
+      if (args.check) {
+        Object.assign(report.object(p), { status: 'compatible', layerHeight: p.height, filament: p.slot });
+        continue;
+      }
       const { triangles, offset, stats } = computeFins(model.positions, p.options);
       // Gather this object's edits and commit them only once nothing can throw, so a
       // skipped object leaves the project exactly as it was.
@@ -302,7 +330,15 @@ export async function finProject(input, args, io) {
       }
       results.push({ number: p.number, id: p.id, name: p.name, plate: p.plate, supportObject: supportID,
         layerHeight: p.height, filament: p.slot, triangles: triangles.length / 9, stats });
+      report.object(p).status = triangles.length ? 'processed' : 'no_supports';
     } catch (e) { skipOrThrow(p, e); }
+  }
+  if (args.check) {
+    // These small manifests are needed when writing a project. Check their
+    // readability too, without constructing geometry or an output archive.
+    xmlTree(await zip.text('[Content_Types].xml'));
+    for (const name of zip.entries.keys()) if (name.endsWith('.rels')) xmlTree(await zip.text(name));
+    return { input, output: null, objects: [], report: 'Project compatibility check; generation and slicing have not been tested.' };
   }
   if (!results.length) throw new Error('no objects could be finned (see the warnings above)');
   if (newResources.length) {
@@ -354,6 +390,7 @@ export async function finProject(input, args, io) {
   }
   const blob = await zip.patch(changes);
   await io.writeProject(input, output, new Uint8Array(await blob.arrayBuffer()), args.overwrite);
+  report.outputWritten = true;
   warn('project preserved; slice it again in Bambu Studio before printing.');
   return { input, output, objects: results, report: `${results.length} objects processed, `
     + `${results.filter((r) => r.triangles).length} support parts added; re-slice in Bambu Studio` };

@@ -15,6 +15,7 @@ import { readOBJ } from '../../web/obj.js';
 import { cutNegatives } from '../../web/cut.js';
 import { unzip } from '../../web/zip.js';
 import { finProject } from './project.js';
+import { formatProjectReport } from './project-report.js';
 
 // --- flags from options.json -------------------------------------------------
 
@@ -42,6 +43,8 @@ export function helpText() {
     '  --preserve-project    keep a Bambu Studio/MakerWorld project; add fins to all',
     '                        printable objects on their original plates',
     '  --list-objects        with --preserve-project: list build-item numbers; write nothing',
+    '  --check               with --preserve-project: check settings and meshes; write nothing',
+    '                        exit 1 if any selected object is incompatible',
     '  --fin-extruder <n>    project mode: existing filament slot for fins (1-based)',
     '  --disable-native-supports  project mode: disable slicer supports on selected objects',
     '  --overwrite           project mode: allow replacing an existing output',
@@ -73,7 +76,7 @@ class UsageError extends Error {}
 /** argv (without the program name) -> { inputs, output, rot, finsOnly, object, json, help, dialog } */
 export function parseArgs(argv) {
   const out = { inputs: [], output: null, rot: null, finsOnly: false, object: null, objects: [],
-                json: false, help: false, dialog: {}, preserveProject: false, listObjects: false,
+                json: false, help: false, dialog: {}, preserveProject: false, listObjects: false, check: false,
                 finExtruder: null, disableNativeSupports: false, overwrite: false };
   let files = false;
   for (let i = 0; i < argv.length; i++) {
@@ -99,9 +102,9 @@ export function parseArgs(argv) {
       const v = next();
       if (!/^[1-9]\d*$/.test(v) || !Number.isSafeInteger(+v)) throw new UsageError('--fin-extruder must be a positive integer');
       out.finExtruder = +v;
-    } else if (['--preserve-project', '--list-objects', '--disable-native-supports', '--overwrite'].includes(a)) {
+    } else if (['--preserve-project', '--list-objects', '--check', '--disable-native-supports', '--overwrite'].includes(a)) {
       if (value !== null) throw new UsageError(`${a} takes no value`);
-      out[{ '--preserve-project': 'preserveProject', '--list-objects': 'listObjects',
+      out[{ '--preserve-project': 'preserveProject', '--list-objects': 'listObjects', '--check': 'check',
         '--disable-native-supports': 'disableNativeSupports', '--overwrite': 'overwrite' }[a]] = true;
     }
     else if (a.startsWith('--')) {
@@ -304,8 +307,11 @@ export async function run(argv, io) {
     if (args.preserveProject && (args.rot || args.finsOnly)) {
       throw new UsageError('--preserve-project keeps the existing pose and writes a full project; do not combine with --rot or --fins-only');
     }
-    if (!args.preserveProject && (args.listObjects || args.finExtruder !== null || args.disableNativeSupports || args.overwrite)) {
-      throw new UsageError('--list-objects, --fin-extruder, --disable-native-supports and --overwrite require --preserve-project');
+    if (!args.preserveProject && (args.check || args.listObjects || args.finExtruder !== null || args.disableNativeSupports || args.overwrite)) {
+      throw new UsageError('--check, --list-objects, --fin-extruder, --disable-native-supports and --overwrite require --preserve-project');
+    }
+    if (args.check && (args.listObjects || args.output || args.overwrite)) {
+      throw new UsageError('--check writes nothing; do not combine with --list-objects, --output or --overwrite');
     }
     if (!args.preserveProject && args.objects.length > 1) throw new UsageError('repeat --object only with --preserve-project');
     if (args.finsOnly && args.rot) {
@@ -327,9 +333,11 @@ export async function run(argv, io) {
     try {
       const r = await finFile(input, args, io, engineOptions);
       io.out(args.json ? JSON.stringify(r) : `${r.input} -> ${r.output ?? '(nothing)'}: ${r.report}`);
+      if (args.check && r.summary.incompatible) failed++;
     } catch (e) {
       failed++;
-      io.err(args.json ? JSON.stringify({ input, error: e.message }) : `support-fins: ${input}: ${e.message}`);
+      io.err(args.json ? JSON.stringify({ input, error: e.message, ...(e.projectReport ?? {}) })
+        : `support-fins: ${input}: ${e.message}` + (e.projectReport ? `\n${formatProjectReport(e.projectReport)}` : ''));
     }
   }
   return failed ? 1 : 0;

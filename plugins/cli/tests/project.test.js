@@ -84,7 +84,7 @@ async function fixture({ duplicate = false, negative = false, variable = null, l
   return compressed(files);
 }
 
-async function cli(source, flags = [], additional = {}) {
+async function cli(source, flags = [], additional = {}, overrides = {}) {
   const fs = new Map([['part.3mf', source], ...Object.entries(additional)]), out = [], err = [];
   const io = { read: async (p) => fs.get(p), write: async (p, b) => fs.set(p, b),
     out: (s) => out.push(s), err: (s) => err.push(s),
@@ -92,8 +92,8 @@ async function cli(source, flags = [], additional = {}) {
       if (input === output || fs.has(output) && !overwrite) throw new Error('unsafe output');
     },
     writeProject: async (_input, output, b) => { fs.set(output, b); } };
-  const code = await run(['part.3mf', '--preserve-project', '--json', ...flags], io);
-  return { code, fs, out, err, result: code === 0 ? JSON.parse(out[0]) : null };
+  const code = await run(['part.3mf', '--preserve-project', '--json', ...flags], { ...io, ...overrides });
+  return { code, fs, out, err, result: out.length ? JSON.parse(out[0]) : null };
 }
 
 Deno.test('project: preserve compressed painted meshes/settings, plates and source; add aligned supports', async () => {
@@ -337,4 +337,180 @@ Deno.test('project IO: aliases/symlinks/hard links cannot overwrite source; comp
     for await (const entry of Deno.readDir(dir)) names.push(entry.name);
     assert(!names.some((n) => n.startsWith('.support-fins')), 'temporary file leaked');
   } finally { await Deno.remove(dir, { recursive: true }); }
+});
+
+Deno.test('project check: read-only settings/mesh checks, even when output already exists', async () => {
+  const source = await fixture(), before = source.slice();
+  const forbidden = () => { throw new Error('check touched output'); };
+  const r = await cli(source, ['--check'], { 'part-fins-project.3mf': bytes('keep') },
+    { write: forbidden, checkProjectOutput: forbidden, writeProject: forbidden });
+  assert(r.code === 0 && r.fs.size === 2, r.err.join('\n'));
+  equal(source, before, 'check changed source');
+  assert(new TextDecoder().decode(r.fs.get('part-fins-project.3mf')) === 'keep', 'existing output changed');
+  assert(r.result.mode === 'check' && r.result.output === null && !r.result.outputWritten, 'check claims output');
+  assert(r.result.objects.length === 0 && r.result.summary.compatible === 2, 'check claims generated objects');
+  assert(r.result.objectResults.map((o) => o.plate).join() === '1,2', 'lost plate identities');
+  assert(r.result.objectResults.every((o) => o.status === 'compatible' && o.layerHeight === 0.16), 'settings not resolved');
+});
+
+Deno.test('project check: all selected objects inspected, including explicit incompatible selections', async () => {
+  const source = await fixture({ negative: true });
+  for (const flags of [[], ['--object', '1', '--object', '2']]) {
+    const r = await cli(source, ['--check', ...flags]);
+    assert(r.code === 1 && r.out.length === 1 && !r.err.length && r.fs.size === 1, 'check stream/exit/write');
+    const [bad, good] = r.result.objectResults;
+    assert(bad.status === 'incompatible' && bad.reason.includes('negative parts'), 'missing blocking reason');
+    assert(good.status === 'compatible' && r.result.summary.selected === 2, 'check stopped at first problem');
+  }
+  const selected = await cli(source, ['--check', '--object', '2', '--object', 'Part 20']);
+  assert(selected.code === 0 && selected.result.summary.selected === 1, 'selection not respected/deduplicated');
+});
+
+Deno.test('project check: all-incompatible results are still a complete check report', async () => {
+  const r = await cli(await fixture({ duplicate: true }), ['--check']);
+  assert(r.code === 1 && r.result.summary.incompatible === 2 && !r.err.length, 'incomplete all-incompatible report');
+  assert(r.result.objectResults.every((o) => o.reason.includes('shared build instances')), 'lost reasons');
+});
+
+Deno.test('project check: selection respects printable state and rejects invalid selectors', async () => {
+  const source = await fixture({ printable: false });
+  const r = await cli(source, ['--check']);
+  assert(r.code === 0 && r.result.summary.selected === 1, 'checked nonprintable object');
+  for (const object of ['2', 'missing']) {
+    const bad = await cli(source, ['--check', '--object', object]);
+    assert(bad.code === 1 && !bad.out.length && !JSON.parse(bad.err.at(-1)).outputWritten, 'bad selection accepted');
+  }
+});
+
+Deno.test('project check: overrides resolve compatibility and warnings remain informational', async () => {
+  const source = await fixture({ variable: 1, plateSequence: 'by object' });
+  const bad = await cli(source, ['--check']);
+  assert(bad.code === 1 && bad.result.objectResults[0].reason.includes('--layer-height'), 'missing corrective hint');
+  const r = await cli(source, ['--check', '--layer-height', '0.24', '--fin-extruder', '2']);
+  assert(r.code === 0 && r.result.objectResults.every((o) => o.layerHeight === 0.24 && o.filament === 2), 'overrides ignored');
+  assert(r.result.objectResults[0].warnings.some((s) => s.includes('prints by object')), 'missing plate warning');
+  assert(r.result.objectResults.every((o) => o.warnings.some((s) => s.includes('native slicer supports'))), 'missing native support warnings');
+  const off = await cli(source, ['--check', '--layer-height', '0.24', '--disable-native-supports']);
+  assert(off.code === 0 && off.result.objectResults.every((o) => !o.warnings.some((s) => s.includes('native slicer supports'))), 'disabled native supports warned');
+});
+
+for (const [label, member, change, message, affected = 1] of [
+  ['missing mesh', '3D/Objects/a.model', () => null, 'missing project member'],
+  ['invalid vertex', '3D/Objects/a.model', (s) => s.replace(/x="[^"]*"/, 'x="NaN"'), 'invalid mesh vertex'],
+  ['invalid triangle', '3D/Objects/a.model', (s) => s.replace(/v1="[^"]*"/, 'v1="99999"'), 'invalid triangle references'],
+  ['wrong units', '3D/Objects/a.model', (s) => s.replace('millimeter', 'inch'), 'millimeter units'],
+  ['cyclic file references', '3D/Objects/a.model', (s) => s.replace('</object>', '<components><component objectid="1" p:path="/3D/Objects/a.model"/></components></object>'), 'cyclic model-part references'],
+  // The existing strict reader parses all root transforms for each selection;
+  // a malformed shared manifest prevents either object from being loaded.
+  ['invalid transform', ROOT, (s) => s.replace('transform="1 0 0 0 1 0 0 0 1 0 0 0"', 'transform="1 2"'), 'invalid component/build transform', 2],
+  ['inline components', ROOT, (s) => s.replace('p:path="/3D/Objects/a.model"', ''), 'inline component meshes'],
+]) {
+  Deno.test(`project check: ${label} reported without hiding other objects`, async () => {
+    const zip = new ProjectZip(await fixture());
+    const source = new Uint8Array(await (await zip.patch(new Map([[member, change(await zip.text(member))]]))).arrayBuffer());
+    const r = await cli(source, ['--check']);
+    assert(r.code === 1 && r.fs.size === 1, 'check accepted invalid mesh or wrote output');
+    assert(r.result.objectResults[0].reason.includes(message), r.result.objectResults[0].reason);
+    assert(r.result.summary.incompatible === affected && r.result.summary.not_processed === 0, 'later object not checked');
+  });
+}
+
+Deno.test('project check: corrupt mesh bytes fail even though metadata can be listed', async () => {
+  const source = await fixture(), zip = new ProjectZip(source);
+  source[zip.entries.get('3D/Objects/a.model').start] ^= 255;
+  const listed = await cli(source, ['--list-objects']);
+  assert(listed.code === 0 && !('objectResults' in listed.result), 'listing contract changed');
+  const r = await cli(source, ['--check']);
+  assert(r.code === 1 && r.result.summary.incompatible === 1 && r.result.summary.compatible === 1, 'corrupt payload not detected');
+});
+
+Deno.test('project check: unreadable project/manifests use existing fatal-error stream', async () => {
+  const zip = new ProjectZip(await fixture());
+  for (const source of [bytes('not a zip'), new Uint8Array(await (await zip.patch(new Map([
+    ['[Content_Types].xml', '<broken>'],
+  ]))).arrayBuffer())]) {
+    const r = await cli(source, ['--check']);
+    assert(r.code === 1 && !r.out.length && r.fs.size === 1, 'fatal check stream/write');
+    const error = JSON.parse(r.err.at(-1));
+    assert(error.error && error.mode === 'check' && !error.outputWritten, 'missing fatal check context');
+  }
+});
+
+Deno.test('project report: mixed generation retains successful objects and adds all selected outcomes', async () => {
+  const r = await cli(await fixture({ negative: true }));
+  assert(r.code === 0 && r.result.outputWritten && r.result.mode === 'generate', 'partial generation behavior changed');
+  assert(r.result.objects.length === 1 && r.result.objects[0].number === 2, 'legacy objects changed');
+  const [skipped, done] = r.result.objectResults;
+  assert(skipped.status === 'skipped' && skipped.reason.includes('negative parts'), 'missing skipped outcome');
+  assert(done.status === 'processed' && r.result.summary.processed === 1 && r.result.summary.skipped === 1, 'counts incomplete');
+  assert(r.result.report.includes('skipped') && r.result.report.includes('Part 10'), 'human report omits skip');
+});
+
+Deno.test('project report: no generated supports is separate from skipped or unchecked', async () => {
+  const zip = new ProjectZip(await fixture());
+  const root = (await zip.text(ROOT)).replace(/transform="[^"]*"/g, 'transform="1 0 0 0 1 0 0 0 1 0 0 0"');
+  const source = new Uint8Array(await (await zip.patch(new Map([[ROOT, root]]))).arrayBuffer());
+  const r = await cli(source, ['--pad-style', 'off', '--no-sway']);
+  assert(r.code === 0 && r.result.outputWritten && r.result.objects.every((o) => o.triangles === 0), 'fixture generated supports');
+  assert(r.result.summary.no_supports === 2 && r.result.summary.skipped === 0, 'zero-support result missing');
+});
+
+Deno.test('project report: explicit planning failure marks remaining selections not processed', async () => {
+  const r = await cli(await fixture({ negative: true }), ['--object', '1', '--object', '2']);
+  assert(r.code === 1 && !r.out.length && r.fs.size === 1, 'explicit failure published output');
+  const error = JSON.parse(r.err.at(-1));
+  assert(!error.outputWritten && error.summary.failed === 1 && error.summary.not_processed === 1, 'lost abort outcomes');
+  assert(error.objectResults[0].reason.includes('negative parts'), 'failure reason lost');
+});
+
+Deno.test('project report: later explicit mesh failure retains computation results without claiming output', async () => {
+  const zip = new ProjectZip(await fixture());
+  const source = new Uint8Array(await (await zip.patch(new Map([['3D/Objects/b.model', null]]))).arrayBuffer());
+  const r = await cli(source, ['--object', '1', '--object', '2']);
+  const error = JSON.parse(r.err.at(-1));
+  assert(r.code === 1 && r.fs.size === 1 && !error.outputWritten, 'failed run claims output');
+  assert(error.summary.processed === 1 && error.summary.failed === 1, 'known outcomes lost');
+});
+
+Deno.test('project report: all-skipped and output-write failures retain their complete outcomes', async () => {
+  const skipped = await cli(await fixture({ duplicate: true }));
+  const s = JSON.parse(skipped.err.at(-1));
+  assert(skipped.code === 1 && s.summary.skipped === 2 && !s.outputWritten, 'all-skipped result');
+  const failed = await cli(await fixture(), [], {}, { writeProject: () => { throw new Error('disk full'); } });
+  const f = JSON.parse(failed.err.at(-1));
+  assert(failed.code === 1 && failed.fs.size === 1 && f.summary.processed === 2 && !f.outputWritten, 'write failure lost results');
+  assert(f.error === 'disk full', 'write error lost');
+});
+
+Deno.test('project check: conflicting flags rejected before input is read', async () => {
+  for (const flags of [['--list-objects'], ['-o', 'out.3mf'], ['--overwrite'], ['--rot', '0,45,0'], ['--fins-only'], ['--check=yes']]) {
+    const r = await cli(bytes('invalid'), ['--check', ...flags], {}, { read: () => { throw new Error('read input'); } });
+    assert(r.code === 2 && !r.err.some((s) => s.includes('read input')), `accepted ${flags}`);
+  }
+  const errors = [];
+  const code = await run(['part.3mf', '--check'], { err: (s) => errors.push(s) });
+  assert(code === 2 && errors[0].includes('require --preserve-project'), 'check accepted outside project mode');
+});
+
+Deno.test('project check: batch reports every input and preserves a nonzero aggregate result', async () => {
+  const r = await cli(await fixture({ negative: true }), ['--check', 'good.3mf'], { 'good.3mf': await fixture() });
+  assert(r.code === 1 && r.out.length === 2 && r.fs.size === 2, 'batch stopped early or wrote output');
+  assert(JSON.parse(r.out[0]).summary.incompatible === 1 && JSON.parse(r.out[1]).summary.compatible === 2, 'batch results lost');
+});
+
+Deno.test('project report: terminal output explains check, generation and abort outcomes', async () => {
+  for (const [flags, expectedCode, expected] of [
+    [['--check'], 1, ['compatibility only', 'no fins generated', 'incompatible', 'compatible']],
+    [[], 0, ['output written', 'skipped', 'processed']],
+    [['--object', '1', '--object', '2'], 1, ['no output written', 'failed', 'not processed']],
+  ]) {
+    const out = [], err = [];
+    const code = await run(['part.3mf', '--preserve-project', ...flags], {
+      read: async () => await fixture({ negative: true }), out: (s) => out.push(s), err: (s) => err.push(s),
+      checkProjectOutput: () => {}, writeProject: () => {},
+    });
+    const text = [...out, ...err].join('\n');
+    assert(code === expectedCode && expected.every((s) => text.includes(s)), text);
+    assert(text.includes('Part 10') && text.includes('Part 20') && text.includes('negative parts'), 'missing object identities/reason');
+  }
 });
