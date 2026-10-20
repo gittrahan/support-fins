@@ -16,6 +16,7 @@ import { el } from './dom.js';
 import { camera, controls, renderer } from './scene.js';
 import { download } from '../stl.js';
 import { zipStore } from '../zip.js';
+import { checkOverlap } from './arrange.js';
 import { part, partName } from './part.js';
 import { buildPending, finMesh, padMesh } from './finbuild.js';
 import { drawnMesh } from './walls.js';
@@ -342,6 +343,7 @@ function render() {
   add.disabled = empty;
   document.body.classList.toggle('no-part', empty);
   drawRow(plates, active);
+  checkOverlap();      // the red cells are the edited plate's
 }
 /** The tabs and the row again, after a model swap on the plate (models.js). */
 export const redraw = () => render();

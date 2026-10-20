@@ -20,7 +20,7 @@ import { hideSuggestions } from './suggest.js';
 // an export switching through the models (ui/plates.js locked) holds them still
 import { isBusy } from './plates.js';
 import { liveSlot, focusSlot } from './models.js';
-import { placeSlot, dragging } from './move.js';
+import { placeSlots, dragging } from './move.js';
 import { currentPlate } from './plates.js';
 
 // A whole-state snapshot stack, not a command log. The undoable state is small
@@ -118,8 +118,11 @@ export function commitGesture(s, changed) {
 }
 
 /** Model `who` was moved from `xy` (ui/move.js): one step, its spot alone. */
-export function pushMove(who, xy) {
-  undoStack.push({ move: true, who, xy });
+export const pushMove = (who, xy) => pushMoves([{ who, xy }]);
+
+/** Models were moved, each `who` from its `xy` (Arrange: ui/arrange.js): one step. */
+export function pushMoves(moves) {
+  undoStack.push({ moves });
   if (undoStack.length > 100) undoStack.shift();
   redoStack.length = 0;
   syncHistButtons();
@@ -208,12 +211,14 @@ function step(from, to) {
   // a removed model's steps stay, for its Undo from the toast to bring back with it
   for (let i = from.length - 1; i >= 0; i--) {
     const s = from[i];
-    if (s.move) {
-      // a move (ui/move.js): the model goes back where it stood, edited or parked
-      if (!currentPlate().models.includes(s.who)) continue;
+    if (s.moves) {
+      // a move (ui/move.js, ui/arrange.js): the models go back where they stood,
+      // edited or parked -- those still on the plate
+      const on = s.moves.filter((x) => currentPlate().models.includes(x.who));
+      if (!on.length) continue;
       from.splice(i, 1);
-      to.push({ move: true, who: s.who, xy: s.who.xy.slice() });
-      placeSlot(s.who, s.xy);
+      to.push({ moves: on.map((x) => ({ who: x.who, xy: x.who.xy.slice() })) });
+      placeSlots(on);
       syncHistButtons();
       return;
     }

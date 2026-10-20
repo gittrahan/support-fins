@@ -30,6 +30,8 @@ import { suggestState, restoreSuggestions } from './suggest.js';
 import { currentVolume } from './volume.js';
 import { ghostFins, parkMesh, glide } from './plateview.js';
 import { currentPlate, isBusy, redraw } from './plates.js';
+import { slotGrid, GAP } from './arrange.js';
+import { rasterize, placed, shared, dilate, bedGrid, take, findSpot } from './footprint.js';
 
 /** A model's place on a plate. `stash` holds it while parked; the live slot's is
  *  null (its state is the live one), and so is an empty plate's one slot. */
@@ -191,25 +193,17 @@ export function parkedOff() {
   });
 }
 
-const GAP = 10;      // mm between footprints: room for a new model's pad and wall bases
-const STEP = 5;      // mm: the grid a new model's spot is searched on
-
-/** Where a `w` x `h` model goes on `plate`, clear of its parked models but `skip`:
- *  the free spot nearest the bed's centre, or past the others' right edge when the
- *  bed has none. */
-function spot(plate, w, h, skip = []) {
-  const v = currentVolume(), hx = v.x / 2 - w / 2, hy = v.y / 2 - h / 2;
-  const taken = plate.models.filter((m) => m.stash && !skip.includes(m)).map(footprint);
-  const free = (x, y) => taken.every(([x0, y0, x1, y1]) =>
-    x + w / 2 + GAP <= x0 || x - w / 2 - GAP >= x1 || y + h / 2 + GAP <= y0 || y - h / 2 - GAP >= y1);
-  let best = null, bestD = Infinity;
-  for (let y = -Math.floor(hy / STEP) * STEP; y <= hy; y += STEP) {
-    for (let x = -Math.floor(hx / STEP) * STEP; x <= hx; x += STEP) {
-      const d = x * x + y * y;
-      if (d < bestD && free(x, y)) { best = [x, y]; bestD = d; }
-    }
-  }
-  return best ?? [Math.max(...taken.map((r) => r[2])) + GAP + w / 2, 0];
+/** Where a model of footprint `grid` (ui/footprint.js, about its own spot) goes on
+ *  `plate`, GAP mm clear of its parked models but `skip`: the free spot nearest the
+ *  bed's centre, or past the others' right edge when the bed has none. */
+function spot(plate, grid, skip = []) {
+  const v = currentVolume(), bed = bedGrid(v.x, v.y);
+  const others = plate.models.filter((m) => m.stash && !skip.includes(m)).map((m) => placed(slotGrid(m, false), m.xy));
+  for (const g of others) take(bed, g);
+  const at = grid && findSpot(bed, grid, GAP);
+  if (at) return at;
+  const right = Math.max(v.x / 2, ...others.filter(Boolean).map((g) => g.x0 + g.w));
+  return grid ? [Math.ceil(right + GAP - grid.x0), Math.round(-(grid.y0 + grid.h / 2))] : [right + GAP, 0];
 }
 
 /**
@@ -220,10 +214,12 @@ function spot(plate, w, h, skip = []) {
 export function addSlot(geometry) {
   const plate = currentPlate(), prev = plate.live;
   if (!part) return -1;
+  // as setPart will stand it, centred on its spot; its fins are still to come
   geometry.computeBoundingBox();
-  const bb = geometry.boundingBox;
+  const bb = geometry.boundingBox, cx = (bb.min.x + bb.max.x) / 2, cy = (bb.min.y + bb.max.y) / 2;
+  const grid = rasterize(geometry.getAttribute('position').array, [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, -cx, -cy, 0, 1]);
   park(plate);
-  plate.models.push(slot(spot(plate, bb.max.x - bb.min.x, bb.max.y - bb.min.y)));
+  plate.models.push(slot(spot(plate, grid)));
   plate.live = plate.models.length - 1;
   return prev;
 }
@@ -247,18 +243,9 @@ export function dropAdded(prev) {
  */
 export function putBack(plate, slots) {
   for (const m of slots) {
-    const [x0, y0, x1, y1] = footprint(m);
-    const clash = plate.models.some((o) => {
-      if (!o.stash) return false;
-      const [a0, b0, a1, b1] = footprint(o);
-      return x0 < a1 + GAP && x1 > a0 - GAP && y0 < b1 + GAP && y1 > b0 - GAP;
-    });
-    if (clash) {
-      // spot() places the box's middle; the model's spot is off it by the fins' reach
-      const [cx, cy] = [(x0 + x1) / 2 - m.xy[0], (y0 + y1) / 2 - m.xy[1]];
-      const [sx, sy] = spot(plate, x1 - x0, y1 - y0, [m]);
-      m.xy = [sx - cx, sy - cy];
-    }
+    const grid = slotGrid(m, false), near = dilate(placed(grid, m.xy), GAP);
+    const clash = plate.models.some((o) => o.stash && shared(near, placed(slotGrid(o, false), o.xy)).length);
+    if (clash) m.xy = spot(plate, grid, [m]);
     plate.models.push(m);
   }
 }

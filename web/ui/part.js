@@ -25,6 +25,7 @@ import { gizmo, hoverFace, setGizmo, setLayPlacing } from './pose.js';
 import { resetScale } from './scale.js';
 import { updateIslands, renderIslandText, hadIslands } from './islands.js';
 import { liveXY, parkedOff } from './models.js';
+import { checkOverlap, overlapping } from './arrange.js';
 
 const partMaterial = new THREE.MeshStandardMaterial({
   color: 0xffffff, roughness: 0.62, metalness: 0.05,
@@ -467,11 +468,15 @@ export function updateFit() {
   const [mx, my] = liveXY(), e = 1e-6;
   const off = !big && (x0 + mx < -v.x / 2 - e || x1 + mx > v.x / 2 + e || y0 + my < -v.y / 2 - e
     || y1 + my > v.y / 2 + e || parkedOff());
+  // not per frame of a turn on the rings: a big part's cells take tens of ms, and
+  // the release shades (and checks) again
+  if (!gizmo.dragging) checkOverlap();
+  const clash = overlapping();
   const fit = el('s-fit');
   fit.textContent = big
     ? t(added.length ? 'does not fit (with fins)' : 'does not fit')
-    : off ? t('hangs off the bed') : t('fits');
-  fit.classList.toggle('warn', big || off);
+    : off ? t('hangs off the bed') : clash ? t('models overlap') : t('fits');
+  fit.classList.toggle('warn', big || off || clash);
 }
 
 export let lastResult = null;

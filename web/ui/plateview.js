@@ -109,6 +109,34 @@ export function drawRow(plates, active) {
 export function shiftRow([lx, ly]) {
   row.position.set(-lx, -ly, 0);
   plate.position.set(-lx, -ly, 0);
+  clash.position.set(-lx, -ly, 0);
+  requestRender();
+}
+
+// Where models of the plate being edited collide (ui/arrange.js): red cells drawn
+// through everything, since the clash is inside the parts and their pads.
+const clash = new THREE.Group();
+scene.add(clash);
+const clashMat = new THREE.MeshBasicMaterial({
+  color: 0xff3b30, transparent: true, opacity: 0.6, depthTest: false, depthWrite: false, side: THREE.DoubleSide,
+});
+
+/** Show `cells` ([x, y] plate mm, each a 1 mm cell's corner) as the clash; [] clears it. */
+export function showClash(cells) {
+  for (const c of clash.children) c.geometry.dispose();
+  clash.clear();
+  if (cells.length) {
+    const pos = new Float32Array(cells.length * 18), z = 0.1;
+    cells.forEach(([x, y], k) => {
+      pos.set([x, y, z, x + 1, y, z, x + 1, y + 1, z, x, y, z, x + 1, y + 1, z, x, y + 1, z], k * 18);
+    });
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    const m = new THREE.Mesh(g, clashMat);
+    m.renderOrder = 10;
+    m.raycast = () => {};        // a display: clicks go to what is under it
+    clash.add(m);
+  }
   requestRender();
 }
 

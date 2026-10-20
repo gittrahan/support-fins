@@ -23,6 +23,7 @@ import { parkedAt, shiftRow, parkedGroup } from './plateview.js';
 import { planeBusy } from './section.js';
 import { cancelLay, layActive } from './pose.js';
 import { cancelRemove, removeActive } from './remove.js';
+import { checkOverlap } from './arrange.js';
 
 let moving = false;
 /** The Move tool is on: a press on a model drags it, and no other tool picks. */
@@ -88,11 +89,14 @@ function placeLive(m, xy) {
   shiftRow(xy);
 }
 
-/** Put slot `m` of the plate being edited at `xy` (an undo of a move, or a drag's end). */
-export function placeSlot(m, xy) {
+/** Put each slot `who` of the plate being edited at its `xy` (an undo of a move, or
+ *  Arrange). */
+export function placeSlots(moves) {
   const p = currentPlate();
-  if (p.models[p.live] === m) placeLive(m, xy);
-  else m.xy = xy;
+  for (const { who, xy } of moves) {
+    if (p.models[p.live] === who) placeLive(who, xy.slice());
+    else who.xy = xy.slice();
+  }
   redraw();
   updateFit();
 }
@@ -134,6 +138,7 @@ renderer.domElement.addEventListener('pointermove', (e) => {
     drag.m.xy = xy;
     parkedGroup(p.models.indexOf(drag.m))?.position.set(xy[0], xy[1], 0);
   }
+  if (checkOverlap()) updateFit();     // the clash shows as it goes
   requestRender();
 });
 
