@@ -7,8 +7,9 @@
  *
  * The live model stays at the origin, where every tool expects it; moving it shifts
  * the bed and the parked models the other way (plateview.js shiftRow), and the camera
- * with them, so on screen the bed stays put and the model moves. Each drag is one
- * step of the plate's undo (history.js pushMove).
+ * with them, so on screen the bed stays put and the model moves. A drag never pushes
+ * one model into another (footprint.js dragStep): it stops where they would touch.
+ * Each drag is one step of the plate's undo (history.js pushMove).
  */
 import * as THREE from 'three';
 import { camera, controls, renderer, viewport, requestRender } from './scene.js';
@@ -23,7 +24,8 @@ import { parkedAt, shiftRow, parkedGroup } from './plateview.js';
 import { planeBusy } from './section.js';
 import { cancelLay, layActive } from './pose.js';
 import { cancelRemove, removeActive } from './remove.js';
-import { checkOverlap } from './arrange.js';
+import { checkOverlap, clashAt } from './arrange.js';
+import { dragStep } from './footprint.js';
 
 let moving = false;
 /** The Move tool is on: a press on a model drags it, and no other tool picks. */
@@ -129,8 +131,11 @@ renderer.domElement.addEventListener('pointermove', (e) => {
   if (e.pointerId !== drag.id) return;
   const at = plateAtPointer(e);
   if (!at) return;
-  const xy = [round(drag.from[0] + at[0] - drag.grab[0]), round(drag.from[1] + at[1] - drag.grab[1])];
-  if (!drag.moved && Math.hypot(xy[0] - drag.from[0], xy[1] - drag.from[1]) < 0.5) return;
+  const to = [round(drag.from[0] + at[0] - drag.grab[0]), round(drag.from[1] + at[1] - drag.grab[1])];
+  if (!drag.moved && Math.hypot(to[0] - drag.from[0], to[1] - drag.from[1]) < 0.5) return;
+  // never into another model: it stops short, or slides along the other's edge
+  const xy = dragStep(drag.m.xy, to, (q) => clashAt(drag.m, q));
+  if (xy === drag.m.xy) return;
   drag.moved = true;
   const p = currentPlate();
   if (p.models[p.live] === drag.m) placeLive(drag.m, xy);

@@ -20,6 +20,7 @@ import { nozzle } from '../nozzle.js';
 import { exportAll, currentPlate, locked } from './plates.js';
 import { eachModel, parkedFins, liveXY } from './models.js';
 import { currentVolume } from './volume.js';
+import { overlapping, arrange } from './arrange.js';
 
 /**
  * Export the part AS ORIENTED, seated on the plate, with the fins as extra
@@ -207,6 +208,10 @@ function setOpen(open) {
     note.hidden = !ready || !noFins;
     note.textContent = finsVisible ? t('No supports on this plate: STL and 3MF write the part alone.')
                                    : t('No fins yet: STL and 3MF write the part alone. Click Add fins first.');
+    // models that collide print into each other: say so where the file is written
+    // (the plate's 3MF; an STL is the model being edited alone), Arrange to hand
+    const clash = ready && overlapping();
+    el('export-clash').hidden = el('export-arrange').hidden = !clash;
     menu.querySelector('button:not(:disabled)')?.focus();
   }
 }
@@ -250,6 +255,10 @@ export async function whileWaiting(fn) {
     waiting = false;
   }
 }
+el('export-arrange').addEventListener('click', () => {
+  setOpen(false);
+  arrange();
+});
 // Every plate, one 3MF each (ui/plates.js); shown only with more than one plate.
 el('export-all').addEventListener('click', () => {
   setOpen(false);

@@ -199,6 +199,7 @@ body.no-part #viewport canvas { pointer-events: none; }
    grows only a little while it shows. */
 .menu-note { max-width: 200px; margin: 2px 6px 6px; color: var(--dim); font-size: 12px; line-height: 1.4; }
 .menu-note[hidden] { display: none; }
+.menu-note.warn { color: #ff6b6b; }
 /* Plugins menu (web/ui/plugins.js): the same dropped panel, wide enough for a
    row per plugin with its install note; scrolls when the window is short. */
 .plugins-wrap, .calibrate-wrap { position: relative; }
@@ -1097,4 +1098,21 @@ body.no-part #viewport canvas { pointer-events: none; }
   box-shadow: 0 6px 24px rgb(0 0 0 / .35);
 }
 #toast[hidden] { display: none; }
+
+/* Models that collide (ui/arrange.js): under the plate tabs, red like the cells. */
+#clash-banner {
+  position: fixed;
+  z-index: 3;                /* under the top bar's menus */
+  left: 50%; top: calc(var(--topbar-h) + 44px);
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 12px;
+  padding: 6px 8px 6px 14px;
+  border: 1px solid #ff6b6b;
+  border-radius: 8px;
+  background: var(--panel);
+  color: #ff8a8a;
+  font-size: 13px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / .35);
+}
+#clash-banner[hidden] { display: none; }
 @media (max-width: 900px) { #toast { bottom: 120px; } }

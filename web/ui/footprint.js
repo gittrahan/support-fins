@@ -226,3 +226,19 @@ export function pack(grids, bx, by, gap) {
   }
   return out;
 }
+
+/**
+ * A drag's step (ui/move.js): where a model at `at` goes when the pointer asks for
+ * `to`, given `clash(xy)`, the cells it would share with the others there. The
+ * whole step when it clashes no more than where it is (clear, or no worse while it
+ * is dragged out of a clash); else the step along x alone, then y alone, so it
+ * slides along the other's edge; else it stays. Returns the spot.
+ */
+export function dragStep(at, to, clash) {
+  const now = clash(at);
+  for (const xy of [to, [to[0], at[1]], [at[0], to[1]]]) {
+    if (xy[0] === at[0] && xy[1] === at[1]) continue;
+    if (clash(xy) <= now) return xy;
+  }
+  return at;
+}

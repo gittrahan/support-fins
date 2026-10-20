@@ -6,7 +6,9 @@
 //   - two models touching share a cell; one standing in an L's corner shares none;
 //   - off the millimetre grid a footprint widens, so a 0.3 mm gap still warns;
 //   - pack keeps every model on the bed and `gap` mm clear of the others, and says
-//     null for one there is no room for.
+//     null for one there is no room for;
+//   - a drag's step never goes into another model: it stops short, slides along the
+//     other's edge, and one already in a clash may only come out.
 
 import { WEB, assert } from './_util.js';
 
@@ -108,4 +110,36 @@ Deno.test('findSpot: beside what is taken, gap kept', () => {
   assert(at, 'found one');
   assert(fp.shared(fp.dilate(fp.placed(g, [0, 0]), 10), fp.placed(g, at)).length === 0, 'kept clear');
   assert(Math.hypot(...at) <= 33, `near the middle: ${at}`);
+});
+
+// a 10 x 10 model dragged toward one standing at x 20..30, y 0..10
+const wall = fp.placed(fp.rasterize(box(0.2, 0.2, 9.8, 9.8)), [20, 0]);
+const me = fp.rasterize(box(0.2, 0.2, 9.8, 9.8));
+const clash = (xy) => fp.shared(fp.placed(me, xy), wall).length;
+
+Deno.test('dragStep: a clear step is taken whole', () => {
+  const xy = fp.dragStep([0, 0], [5, -3], clash);
+  assert(xy[0] === 5 && xy[1] === -3, `got ${xy}`);
+});
+
+Deno.test('dragStep: a step into another model stops where it is', () => {
+  const at = [9, 0];
+  assert(fp.dragStep(at, [15, 0], clash) === at, 'straight into it: it stays');
+});
+
+Deno.test('dragStep: a diagonal into another model slides along its edge', () => {
+  // pressing right and up against its side: the x goes nowhere, the y still does
+  const xy = fp.dragStep([9, 0], [14, 4], clash);
+  assert(xy[0] === 9 && xy[1] === 4, `got ${xy}`);
+  // below its corner, clear of it: the whole step
+  const yx = fp.dragStep([9, -12], [12, -11], clash);
+  assert(yx[0] === 12 && yx[1] === -11, `clear whole: ${yx}`);
+});
+
+Deno.test('dragStep: one already in a clash may come out, not go deeper', () => {
+  const at = [15, 0];
+  assert(clash(at) > 0, 'starts inside');
+  assert(fp.dragStep(at, [18, 0], clash) === at, 'deeper: it stays');
+  const out = fp.dragStep(at, [12, 0], clash);
+  assert(out[0] === 12 && clash(out) < clash(at), `out: ${out}`);
 });

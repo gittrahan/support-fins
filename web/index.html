@@ -111,8 +111,10 @@
   <span class="menu-wrap">
     <button class="btn" id="export" aria-haspopup="menu" aria-expanded="false"
             aria-controls="export-menu" data-i18n="Export ▾">Export&nbsp;▾</button>
-    <div class="menu" id="export-menu" role="menu" aria-describedby="export-nofins" hidden>
+    <div class="menu" id="export-menu" role="menu" aria-describedby="export-nofins export-clash" hidden>
       <p class="menu-note" id="export-nofins" hidden></p>
+      <p class="menu-note warn" id="export-clash" hidden data-i18n="Models overlap: the 3MF prints them into each other.">Models overlap: the 3MF prints them into each other.</p>
+      <button role="menuitem" id="export-arrange" hidden data-i18n="Arrange first">Arrange first</button>
       <button role="menuitem" id="export-stl"
               data-i18n-title title="Part and fins merged into one solid.">STL</button>
       <button role="menuitem" id="export-3mf" data-i18n-title title="Part and supports as two separate objects, so the slicer keeps them apart and the tines only touch the part: they snap off cleaner. Opens in place in Bambu Studio, OrcaSlicer and PrusaSlicer; don't Arrange or move one without the other. 'No config, geometry only' is expected.">3MF</button>
@@ -222,6 +224,8 @@
      with its own pose, settings and walls. + adds an empty plate; × deletes one. -->
 <nav id="plates" aria-label="Plates"></nav>
 <!-- A deleted plate or removed model, with Undo for a few seconds (ui/plates.js). -->
+<!-- Models of this plate collide (ui/arrange.js): red on the bed, and Arrange to hand. -->
+<div id="clash-banner" role="alert" hidden><span data-i18n="Models overlap: they would print into each other.">Models overlap: they would print into each other.</span><button type="button" class="btn sm" id="clash-arrange" data-i18n="Arrange">Arrange</button></div>
 <div id="toast" role="status" hidden><span id="toast-text"></span><button type="button" class="btn sm" id="toast-undo" data-i18n="Undo">Undo</button></div>
 
 <!-- Right rail: the fin options (top, grows down) and the status/receipt card

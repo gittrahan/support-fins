@@ -2,9 +2,10 @@
  * Models that collide, and Arrange (local issue 052 PR 4). Each model of the plate
  * being edited has a footprint (ui/footprint.js): the 1 mm cells its part, fins and
  * pad cover at any height. Where two share a cell they would print into each other:
- * those cells show red on the bed (plateview.js showClash) and the Volume line says
- * so. The export is not held back -- a slicer shows the same clash, and the user may
- * mean it.
+ * those cells show red on the bed (plateview.js showClash), a banner over the view
+ * offers Arrange, and the Volume line and the Export menu say so. A drag never makes
+ * one (ui/move.js stops it short), but a turn, a fin rebuild or an undo can. The
+ * export is not held back -- a slicer shows the same clash, and the user may mean it.
  *
  * Arrange (the toolbar's) packs the plate's models: the biggest first, each at the
  * free spot nearest the bed's centre, GAP mm from the others, turned as they are --
@@ -95,6 +96,19 @@ let shown = '';       // the red cells on screen, to redraw only on a change
 /** Two models of the plate being edited share a cell (as of the last check). */
 export const overlapping = () => colliding;
 
+/** How many cells slot `m` of the plate being edited would share with the others
+ *  standing at `xy` (a drag's step, ui/move.js: one stops short of a collision). */
+export function clashAt(m, xy) {
+  const p = currentPlate();
+  if (!part || !(p?.models.length > 1)) return 0;
+  const fps = footprints(), me = fps.find((f) => f.m === m);
+  if (!me) return 0;
+  const at = placed(me.grid, xy);
+  let n = 0;
+  for (const f of fps) if (f !== me) n += shared(at, placedAt(f.m, f.grid)).length;
+  return n;
+}
+
 /** Check the plate being edited for collisions: the red cells and the Volume line's
  *  flag. Returns whether the flag changed. */
 export function checkOverlap() {
@@ -109,6 +123,7 @@ export function checkOverlap() {
   if (sig !== shown) { shown = sig; showClash(cells); }
   const was = colliding;
   colliding = cells.length > 0;
+  el('clash-banner').hidden = !colliding;
   return was !== colliding;
 }
 
@@ -126,8 +141,9 @@ export async function arrange() {
   const plate = currentPlate();
   if (buildPending() || !(await settledNow())) {
     waiting = true;
-    el('arrange-btn').disabled = true;
-    try { await parkedSettled(30000); } finally { waiting = false; el('arrange-btn').disabled = false; }
+    const btns = [el('arrange-btn'), el('clash-arrange')];
+    btns.forEach((b) => { b.disabled = true; });
+    try { await parkedSettled(30000); } finally { waiting = false; btns.forEach((b) => { b.disabled = false; }); }
     // switched, or picked up, meanwhile: that press was for another plate
     if (currentPlate() !== plate || !part || isBusy() || dragging()) return;
   }
@@ -154,4 +170,5 @@ export async function arrange() {
 const settledNow = () => parkedSettled(0);
 
 el('arrange-btn').addEventListener('click', arrange);
+el('clash-arrange').addEventListener('click', arrange);
 document.addEventListener('partchange', syncButton);
