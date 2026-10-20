@@ -64,10 +64,65 @@ deno compile -RW --include plugins/shared/engine/options.json \
 For an AI client (Claude Code, Claude Desktop), the same tool is an MCP server:
 [`plugins/mcp/`](../mcp/README.md).
 
+## Keeping a Bambu Studio project
+
+Use `--preserve-project` on a Bambu Studio/MakerWorld project to keep its original
+painted meshes, filament/printer/process settings, object positions and plates:
+
+```sh
+support-fins project.3mf --preserve-project
+# -> project-fins-project.3mf, all printable objects on all plates
+
+support-fins project.3mf --preserve-project --list-objects
+support-fins project.3mf --preserve-project --object 2 --object 7 -o selected-fins.3mf
+support-fins project.3mf --preserve-project --fin-extruder 2 --disable-native-supports
+```
+
+Generated fins are grouped into one support part per model; models needing no
+fins get no empty part. Unselected and nonprintable objects remain in the output.
+`--list-objects` lists the original build-item
+numbers, names, resource IDs and plate IDs without generating anything; use its
+numbers with `--object`, or a unique object name. Build-item numbers are not 3MF
+resource IDs. Several `--object` flags select several objects.
+
+The regular layer height comes from the project's `layer_height`, with object and
+part overrides considered. The first-layer height is a different setting.
+Missing, conflicting or variable layer heights require an explicit
+`--layer-height` for fin generation; this does not change the project's slicing
+settings. Fins inherit the object's base filament, or an unambiguous part
+assignment. `--fin-extruder N` selects an existing 1-based filament slot; the
+original palette and model assignments stay intact.
+
+Native slicer supports are preserved, and the CLI reports when they remain
+enabled: both native supports and fins may print. `--disable-native-supports`
+sets `enable_support` to false only on selected objects and their part overrides.
+The project-wide setting and unselected objects are retained.
+
+**Re-slice the output in Bambu Studio.** Generated toolpaths, slice information
+and referenced plate previews are discarded because they describe the old
+geometry. User-authored layer-change commands are retained. Original mesh files
+and other unchanged members retain their compressed ZIP bytes; only the necessary
+manifests/settings and new support resources are written.
+
+This mode preserves the existing pose, so it cannot be combined with `--rot` or
+`--fins-only`. The input is protected against path aliases, symbolic links and
+hard links. An existing output requires `--overwrite`; the completed project is
+published atomically, and a failed object does not leave a partial output.
+
+The initial supported layout is a millimeter Bambu project with component
+assemblies referencing external mesh files and explicit plate assignments.
+Shared build instances, negative parts (which would also subtract from added
+fins), inline-only assemblies, ZIP64 archives and other slicer project formats
+are refused with an explanation. Direct output from this mode is refused as
+input to avoid adding fins twice. Individually editable fins and resume caching
+are not included.
+
 ## Code
 
 - `support-fins.js` — the entry: gives `cli.js` a file system (Deno or Node) and an exit code.
 - `cli.js` — flags, pose, read STL/3MF, `computeFins`, write. No file system of its own.
+- `project.js` — preserve Bambu projects; `project-zip.js` / `project-xml.js` edit
+  archive members and manifests, and `project-io.js` protects atomic output.
 - `tests/cli.test.js` — `deno test -A plugins/cli/tests/`. Runs in memory: CLI fins equal
   `computeFins` on the posed part, and match the website's own path on lbracket@35.
 - The summary line is `plugins/shared/engine/report.js`, word for word with the Python
