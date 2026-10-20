@@ -187,6 +187,22 @@ Deno.test('draw: the squat stem and the full wall overlap, never meet flush', ()
   const brimX = r.tris.filter((v) => v[2] <= P.squatBrimH + 1e-6 && Math.abs(v[1]) > P.th).map((v) => v[0]);
   const tallX = r.tris.filter((v) => v[2] > P.minHeight).map((v) => v[0]);
   assert(Math.max(...brimX) > Math.min(...tallX) + 0.5, `brim ends at x ${Math.max(...brimX)}, full wall starts at ${Math.min(...tallX)}: flush, not overlapping`);
+  // where the squat stem runs on into the full wall it sits inside it, not on its faces:
+  // no face twice, no edge shared by two solids (local issue 057: a slicer reading the
+  // mesh's topology, as trimesh does, lost the wall's section there)
+  const key = (v) => v.map((c) => Math.round(c * 1e4)).join(',');
+  const faces = new Map(), edges = new Map();
+  for (let i = 0; i < r.tris.length; i += 3) {
+    const t = [r.tris[i], r.tris[i + 1], r.tris[i + 2]].map(key);
+    const f = [...t].sort().join('|');
+    faces.set(f, (faces.get(f) ?? 0) + 1);
+    for (let j = 0; j < 3; j++) {
+      const e = [t[j], t[(j + 1) % 3]].sort().join('|');
+      edges.set(e, (edges.get(e) ?? 0) + 1);
+    }
+  }
+  assert([...faces.values()].every((n) => n === 1), 'a face of the squat stem lies on the full wall\'s');
+  assert([...edges.values()].every((n) => n === 2), 'an edge is shared by the squat stem and the full wall');
 });
 
 Deno.test('draw: a squat brim stays out of an underside that dips beside the line (torus)', () => {

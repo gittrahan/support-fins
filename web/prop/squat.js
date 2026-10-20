@@ -20,8 +20,12 @@ import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
  * thin WIDE brim instead: two layers tall (snaps off, leaves no part mark since it
  * sits on the plate), wide enough to grip. Two overlapping solids the slicer
  * unions, exactly like `sweep`'s wall + flange.
+ *
+ * `inset` (optional, mm per station) narrows the stem on each side there: a stretch
+ * that runs inside a full wall's stem (draw.js's mixed run) would otherwise have the
+ * same section and meet it face on face, flush instead of overlapping.
  */
-export function sweepSquat(line, zBed, out) {
+export function sweepSquat(line, zBed, out, inset = null) {
   const wall = [], brim = [], crest = [];
   const kinds = crestKinds(line);          // the interface crest's plan, null when off
   const brimTop = zBed + PROP.squatBrimH;
@@ -42,10 +46,11 @@ export function sweepSquat(line, zBed, out) {
     const ztip = Math.max(top - PROP.tipH, brimTop + 0.05);
     const P = (o, z) => [p[0] + sx * o, p[1] + sy * o, z];
     // where the interface crest runs, the stem stops at the crest's cut
-    const sh = stemHalf(top - ztip);   // no wider than its neck can climb from (044)
+    const inn = inset?.[i] ?? 0;
+    const sh = stemHalf(top - ztip) - inn;   // no wider than its neck can climb from (044)
     const c = crestCut(top, ztip, brimTop, kinds?.[i], 2 * sh);
     crest.push(c?.ring(P) ?? null);
-    const [zt, zTop, wTop] = c ? [c.zt, c.cut, c.wc] : [ztip, top, PROP.tip / 2];
+    const [zt, zTop, wTop] = c ? [c.zt, c.cut, c.wc] : [ztip, top, PROP.tip / 2 - inn];
 
     // the stem: bed to breakaway tip, th-wide then necking to the contact tip
     wall.push([

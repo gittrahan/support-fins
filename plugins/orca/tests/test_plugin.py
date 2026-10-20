@@ -96,13 +96,16 @@ def run_case(model, trafo, layer_height=0.2, config=None):
     return po, res, want, stats
 
 
-@pytest.mark.parametrize("model,deg,shift,scale", [
-    ("cube", 45, (137.25, 88.5, 12.0), 1.0),     # parked off-centre, lifted
-    ("wedge", 45, (40.0, 200.0, 0.0), 1.0),
-    ("ramp", 45, (-30.0, 5.0, 0.0), 1.004),      # with XY/Z shrinkage compensation
+@pytest.mark.parametrize("model,deg,shift,scale,config", [
+    ("cube", 45, (137.25, 88.5, 12.0), 1.0, None),     # parked off-centre, lifted
+    ("wedge", 45, (40.0, 200.0, 0.0), 1.0, None),
+    ("ramp", 45, (-30.0, 5.0, 0.0), 1.004, None),      # with XY/Z shrinkage compensation
+    # Full coverage: its mixed squat/full walls once met face on face, and the oracle
+    # (trimesh reads topology) lost their section on the low layers (local issue 057)
+    ("lbracket", 40, (20.0, -15.0, 0.0), 1.0, {"mode": "full"}),
 ])
-def test_fins_land_exactly_where_a_finned_stl_would(model, deg, shift, scale):
-    po, res, want, stats = run_case(model, rot_x(deg, shift, scale))
+def test_fins_land_exactly_where_a_finned_stl_would(model, deg, shift, scale, config):
+    po, res, want, stats = run_case(model, rot_x(deg, shift, scale), config=config)
     assert res.status is fake_orca.PluginResult.Success, res
     assert stats["braces"] >= 1
     worst, total_fin = 0.0, 0.0
