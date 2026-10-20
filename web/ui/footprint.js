@@ -229,16 +229,28 @@ export function pack(grids, bx, by, gap) {
 
 /**
  * A drag's step (ui/move.js): where a model at `at` goes when the pointer asks for
- * `to`, given `clash(xy)`, the cells it would share with the others there. The
- * whole step when it clashes no more than where it is (clear, or no worse while it
- * is dragged out of a clash); else the step along x alone, then y alone, so it
- * slides along the other's edge; else it stays. Returns the spot.
+ * `to`, given `clash(xy)`, the cells it would share with the others there. Never
+ * into a worse clash than where it is (clear, or no worse while it is dragged out
+ * of one): the whole step when that holds -- a jump to a clear spot past another
+ * model too, the way out of a ring's hole -- else as far along it as holds, in
+ * half-millimetre steps, so a fast drag still stops at the other's edge; then the
+ * rest along x alone or y alone, so it slides along that edge. Returns the spot
+ * (`at` itself when it stays).
  */
 export function dragStep(at, to, clash) {
   const now = clash(at);
-  for (const xy of [to, [to[0], at[1]], [at[0], to[1]]]) {
-    if (xy[0] === at[0] && xy[1] === at[1]) continue;
+  if (clash(to) <= now) return to;
+  const r = (v) => Math.round(v * 10) / 10;
+  const n = Math.ceil(Math.hypot(to[0] - at[0], to[1] - at[1]) / 0.5);
+  let best = at;
+  for (let k = 1; k < n; k++) {
+    const p = [r(at[0] + (to[0] - at[0]) * k / n), r(at[1] + (to[1] - at[1]) * k / n)];
+    if (clash(p) > now) break;
+    best = p;
+  }
+  for (const xy of [[to[0], best[1]], [best[0], to[1]]]) {
+    if (xy[0] === best[0] && xy[1] === best[1]) continue;
     if (clash(xy) <= now) return xy;
   }
-  return at;
+  return best;
 }

@@ -123,14 +123,15 @@ Deno.test('dragStep: a clear step is taken whole', () => {
 });
 
 Deno.test('dragStep: a step into another model stops where it is', () => {
-  const at = [9, 0];
+  const at = [10, 0];        // touching: a cell further shares the wall's first column
+  assert(clash(at) === 0 && clash([10.1, 0]) > 0, 'the setup touches');
   assert(fp.dragStep(at, [15, 0], clash) === at, 'straight into it: it stays');
 });
 
 Deno.test('dragStep: a diagonal into another model slides along its edge', () => {
   // pressing right and up against its side: the x goes nowhere, the y still does
-  const xy = fp.dragStep([9, 0], [14, 4], clash);
-  assert(xy[0] === 9 && xy[1] === 4, `got ${xy}`);
+  const xy = fp.dragStep([10, 0], [14, 4], clash);
+  assert(xy[0] === 10 && xy[1] === 4, `got ${xy}`);
   // below its corner, clear of it: the whole step
   const yx = fp.dragStep([9, -12], [12, -11], clash);
   assert(yx[0] === 12 && yx[1] === -11, `clear whole: ${yx}`);
@@ -142,4 +143,15 @@ Deno.test('dragStep: one already in a clash may come out, not go deeper', () => 
   assert(fp.dragStep(at, [18, 0], clash) === at, 'deeper: it stays');
   const out = fp.dragStep(at, [12, 0], clash);
   assert(out[0] === 12 && clash(out) < clash(at), `out: ${out}`);
+});
+
+Deno.test('dragStep: a fast step into another model still stops at its edge', () => {
+  // 15 mm in one pointer event, straight at it: it gets to within a cell, not 15 short
+  const xy = fp.dragStep([0, 0], [15, 0], clash);
+  assert(clash(xy) === 0 && xy[0] >= 9.5, `got ${xy}`);
+});
+
+Deno.test('dragStep: a jump to a clear spot past another model is taken', () => {
+  const xy = fp.dragStep([0, 0], [40, 0], clash);
+  assert(xy[0] === 40 && xy[1] === 0, `got ${xy}`);
 });

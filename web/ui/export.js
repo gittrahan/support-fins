@@ -212,7 +212,7 @@ function setOpen(open) {
     // (the plate's 3MF; an STL is the model being edited alone), Arrange to hand
     const clash = ready && overlapping();
     el('export-clash').hidden = el('export-arrange').hidden = !clash;
-    menu.querySelector('button:not(:disabled)')?.focus();
+    menu.querySelector('button:not(:disabled):not([hidden])')?.focus();
   }
 }
 
