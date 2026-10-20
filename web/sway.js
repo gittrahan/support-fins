@@ -460,8 +460,13 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     const o = fr.toWorld(sOut(0) - inset, uc, 0);
     const slope = sInSlope + (SWAY.topDepth - D0) / H;
     const lean = [fr.nh.x * slope, fr.nh.y * slope];
+    // ...sheared to follow the outer edge, which leans by the face's lean AND the
+    // taper: a thin plate past 45 degrees sags. An anchor on a steep back (#351) or a
+    // deep brace gets none rather than one that overhangs; skipped, not clamped, since
+    // a rib leaning less than the edge would part from it toward the top.
+    const crossOk = Math.abs(slope) <= 1 + 1e-6;
     const clearArm = (t) => (opts.crossClear ? opts.crossClear(t) : true);
-    for (const sgn of [1, -1]) {
+    for (const sgn of crossOk ? [1, -1] : []) {
       const d = [p.u.x * sgn, p.u.y * sgn], start = out.length;
       const c = braceCrossRib(out, partTris, o, d, 0, H, D0, lean, clearArm, opts.crossRise, th);
       if (!c) continue;

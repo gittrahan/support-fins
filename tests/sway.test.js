@@ -347,9 +347,28 @@ Deno.test('sway: Draw anchors a leaning arm from its up-facing back (GH #351), n
   assert(!sway.swayAtFace(topo, res, ID, under, at(under), opts).ok, 'the underside should refuse a brace');
 });
 
-Deno.test('sway: a back leaning past 45 degrees refuses an anchor -- its own edge would overhang', () => {
-  const { topo, res, back, at } = leaningArm(50);
-  assert(!sway.faceIsUpright(topo, ID, back), 'a back leaning 50 degrees should not take a brace');
-  const r = sway.swayAtFace(topo, res, ID, back, at(back), { tines: true, layerHeight: LAYER, full: true });
-  assert(!r.ok, 'a 50-degree back should be refused');
+Deno.test('sway: an anchor brace never overhangs past 45 degrees, cross ribs included', () => {
+  // "Brace tall walls" is on by default and an anchor is tall, so it gets cross
+  // ribs; sheared along its outer edge (the face's lean plus the taper) they once
+  // overhung 48-54 degrees on a steep back. Deep (reach 0.5) is the worst case.
+  for (const deg of [30, 40, 44]) {
+    const { topo, res, back, at } = leaningArm(deg);
+    for (const reach of [0.15, 0.5]) {
+      const r = sway.swayAtFace(topo, res, ID, back, at(back),
+        { tines: false, layerHeight: LAYER, full: true, crossAbove: 100, reach });
+      assert(r.ok, `${deg} deg, reach ${reach}: ${r.reason}`);
+      let worst = 0;
+      for (let i = 0; i + 3 <= r.tris.length; i += 3) {
+        const [a, b, c] = [r.tris[i], r.tris[i + 1], r.tris[i + 2]];
+        if (Math.max(a[2], b[2], c[2]) < 0.01) continue;              // the underside, on the plate
+        const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+        const n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+        const len = Math.hypot(...n);
+        if (len < 1e-9) continue;
+        const nz = n[2] / len;
+        if (nz < 0) worst = Math.max(worst, (Math.asin(Math.min(1, -nz)) * 180) / Math.PI);
+      }
+      assert(worst <= 45 + 0.01, `${deg} deg back, reach ${reach}: the brace overhangs ${worst.toFixed(1)} degrees`);
+    }
+  }
 });
