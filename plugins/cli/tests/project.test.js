@@ -39,7 +39,7 @@ async function compressed(files) {
 }
 
 async function fixture({ duplicate = false, negative = false, variable = null, layer = '0.16', printable = true, mirror = false,
-  app = 'BambuStudio-02.04.00.70', sequence = 'by layer' } = {}) {
+  app = 'BambuStudio-02.04.00.70', sequence = 'by layer', plateSequence = null } = {}) {
   const cube = triples(block(0, 20, 0, 20, 0, 20));
   const q = Math.SQRT1_2;
   const resource = (id, file) => `<object id="${id}" type="model" p:UUID="original-${id}"><components>`
@@ -51,6 +51,7 @@ async function fixture({ duplicate = false, negative = false, variable = null, l
     + `<part id="1" subtype="${negative && id === 10 ? 'negative_part' : 'normal_part'}">`
     + '<metadata key="name" value="painted body"/><metadata key="enable_support" value="1"/></part></object>';
   const plate = (n, id) => `<plate><metadata key="plater_id" value="${n}"/><metadata key="locked" value="true"/>`
+    + (plateSequence && n === 1 ? `<metadata key="print_sequence" value="${plateSequence}"/>` : '')
     + `<metadata key="gcode_file" value="Metadata/plate_${n}.gcode"/>`
     + `<metadata key="thumbnail_file" value="Metadata/plate_${n}.png"/>`
     + `<model_instance><metadata key="object_id" value="${id}"/><metadata key="instance_id" value="${duplicate && n === 2 ? 1 : 0}"/>`
@@ -78,7 +79,7 @@ async function fixture({ duplicate = false, negative = false, variable = null, l
     { name: 'Metadata/slice_info.config', data: '<config/>' },
     { name: 'Auxiliaries/私有.bin', data: new Uint8Array([0, 255, 1, 128]) },
   ];
-  // variable: the object_id a profile line names (1 = first object by order, 10 = its resource ID)
+  // variable: the object_id a profile line names, by object order (1 = the first object)
   if (variable) files.push({ name: 'Metadata/layer_heights_profile.txt', data: `object_id=${variable}|0;0.2;5;0.1;20;0.1;\n` });
   return compressed(files);
 }
@@ -177,7 +178,6 @@ for (const [label, options, flags, message] of [
   ['shared instances', { duplicate: true }, [], 'shared build instances'],
   ['negative parts', { negative: true }, ['--object', '1'], 'negative parts'],
   ['variable height', { variable: 1 }, ['--object', '1'], 'variable layer'],
-  ['variable height by resource ID', { variable: 10 }, ['--object', '1'], 'variable layer'],
   ['missing height', { layer: '' }, [], 'regular layer'],
   ['absent filament', {}, ['--fin-extruder', '3'], 'filament slot'],
 ]) {
@@ -203,6 +203,19 @@ for (const [label, options] of [['negative part', { negative: true }], ['variabl
 Deno.test('project: the variable profile marks only its own object', async () => {
   const r = await cli(await fixture({ variable: 2 }));
   assert(r.code === 0 && r.result.objects.map((o) => o.number).join() === '1', r.err.join('\n'));
+});
+
+Deno.test('project: a profile number is object order, never a resource ID', async () => {
+  // Resource 2 doesn't exist here; 20 would be object 2's ID. Neither is an object's order.
+  const r = await cli(await fixture({ variable: 20 }));
+  assert(r.code === 0 && r.result.objects.map((o) => o.number).join() === '1,2', r.err.join('\n'));
+});
+
+Deno.test('project: a plate set to print by object keeps only its fins a part of the model', async () => {
+  const r = await cli(await fixture({ plateSequence: 'by object' }));
+  assert(r.code === 0, r.err.join('\n'));
+  assert(r.result.objects[0].supportObject === null && r.result.objects[1].supportObject !== null, 'plate override ignored');
+  assert(r.err.some((s) => s.includes('object 1 (Part 10) prints by object')), 'no by-object warning');
 });
 
 Deno.test('project: OrcaSlicer and QIDI Studio projects in the same layout are accepted', async () => {

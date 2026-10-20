@@ -169,8 +169,8 @@ export async function finProject(input, args, io) {
     warn(`skipped ${message}`);
     return null;
   };
-  // Variable layer heights are per object. Bambu numbers its profile lines by object
-  // order; other writers use the resource ID, so either match marks the object.
+  // Variable layer heights are per object, numbered by object order (1-based), not
+  // resource ID: Bambu renumbers resources when it saves and keeps these numbers.
   const variableIDs = new Set();
   for (const name of zip.entries.keys()) {
     if (/layer_heights_profile\.txt$/i.test(name)) {
@@ -189,21 +189,22 @@ export async function finProject(input, args, io) {
         throw new Error('negative parts would cut the added fins; project mode does not yet support them');
       }
       const transform = matrix(o.item.attrs.transform); inverse(transform);
-      const variable = variableIDs.has(+o.id) || variableIDs.has(order.get(o.id));
+      const variable = variableIDs.has(order.get(o.id));
       const height = regularHeight(settings, o.config, args.dialog.layerHeight, variable);
       const slot = filament(settings, o.config, args.finExtruder);
       const options = optionsFromDialog({ ...args.dialog, layerHeight: height });
       const own = metadata(o.config);
       const native = enabled(own.enable_support ?? settings.enable_support)
         || children(o.config, 'part').some((p) => enabled(metadata(p).enable_support));
-      return { ...o, transform, height, slot, options, native };
+      // By-object printing finishes one object before the next starts, so the fins
+      // can't be their own object there: they become a part of the model. A plate
+      // can override the project's print sequence.
+      const sequence = metadata(membership.get(`${o.id}:${o.instance}`).node).print_sequence ?? settings.print_sequence;
+      const byObject = /object/i.test(String(sequence ?? ''));
+      return { ...o, transform, height, slot, options, native, byObject };
     } catch (e) { return skipOrThrow(o, e); }
   }).filter(Boolean);
   if (!plans.length) throw new Error('none of the selected objects can take fins in project mode (see the warnings above)');
-  // By-object printing finishes one object before the next starts, so the fins can't
-  // be their own object there: they become a part of the model (tines weld to it).
-  const byObject = /object/i.test(String(settings.print_sequence ?? ''));
-  if (byObject) warn('the project prints by object: fins are added as a part of each model, so their tines weld to it');
   if (plans.some((p) => p.native) && !args.disableNativeSupports) {
     warn('native slicer supports remain enabled; both native supports and fins may print. Use --disable-native-supports to turn them off on selected objects.');
   }
@@ -253,7 +254,7 @@ export async function finProject(input, args, io) {
         if (!path) throw new Error('inline component meshes are not yet supported in project mode');
         await load(partPath(path));
       }
-      const model = readThreeMFParts(members, { buildIndex: p.number - 1, doublePrecision: true }).objects[0];
+      const model = readThreeMFParts(members, { buildIndex: p.number - 1, doublePrecision: true, outwardWinding: true }).objects[0];
       if (model.extras.some((e) => e.kind === 'negative')) throw new Error('negative parts are not supported in project mode');
       const { triangles, offset, stats } = computeFins(model.positions, p.options);
       // Gather this object's edits and commit them only once nothing can throw, so a
@@ -267,7 +268,8 @@ export async function finProject(input, args, io) {
         const component = `<component objectid="${id}" ${prefix}:path="/${SUPPORTS}" ${prefix}:UUID="${crypto.randomUUID()}" transform="${identity.join(' ')}"/>`;
         const part = `<part id="${id}" subtype="normal_part">${meta('name', name)}${meta('extruder', p.slot)}`
           + `${meta('matrix', '1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1')}</part>`;
-        if (byObject) {
+        if (p.byObject) {
+          warn(`object ${p.number} (${p.name}) prints by object: its fins are a part of it, so their tines weld to it`);
           own.root.push(insert(child(p.object, 'components'), component));
           appended.push(part);
         } else {

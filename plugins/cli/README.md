@@ -84,7 +84,7 @@ and plate, the way the site's 3MF exports them: each keeps its own perimeters, s
 tine only touches the part and breaks away cleanly. The slicer's own supports are off
 on that object. Bambu Studio reports "G-code path conflicts" between a model and its
 supports object because the tines touch it; that is expected, and the plate still
-prints. A project that prints by object instead gets the fins as a part of each
+prints. A project or plate that prints by object instead gets the fins as a part of each
 model (they would otherwise print after it), with a warning. Models needing no fins
 get nothing. Unselected and nonprintable objects remain in the output.
 `--list-objects` lists the original build-item
