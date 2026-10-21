@@ -28,6 +28,8 @@ window.addEventListener('languagechange', render);
 
 const EASE_MS = 450;
 let gliding = 0;   // a second click mid-glide takes over from the first
+/** Stop a glide where it is (a drag on the view cube takes over). */
+export const stopGlide = () => { gliding++; };
 
 /** Glide the camera round to look back along `dir` at the target, same distance.
  *  The view cube (ui/viewcube.js) uses it too. */

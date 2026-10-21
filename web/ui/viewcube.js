@@ -18,7 +18,7 @@ import { Vector3 } from 'three';
 import { el } from './dom.js';
 import { camera, controls, renderer } from './scene.js';
 import { VIEWS, CUBE_FACES, HOME_DIR, cubeCellDir } from './viewpresets.js';
-import { glideTo } from './camviews.js';
+import { glideTo, stopGlide } from './camviews.js';
 
 const S = 64;                       // cube edge, px
 const AXES = [['X', '#ff5a5a'], ['Y', '#5ad65a'], ['Z', '#5a8cff']];   // the rotate rings' colours
@@ -99,7 +99,7 @@ const cellAt = (e) => e.target.closest?.('.vc-cell');
 
 let press = null;                   // { id, x, y, dragged }
 stage.addEventListener('pointerdown', (e) => {
-  if (e.button !== 0) return;
+  if (e.button !== 0 || press) return;   // one pointer at a time (a second finger)
   press = { id: e.pointerId, x: e.clientX, y: e.clientY, dragged: false };
   stage.setPointerCapture(e.pointerId);
   e.preventDefault();
@@ -108,7 +108,9 @@ stage.addEventListener('pointermove', (e) => {
   if (!press || e.pointerId !== press.id) { light(cellAt(e)?.dataset.dir ?? ''); return; }
   const dx = e.clientX - press.x, dy = e.clientY - press.y;
   if (!press.dragged && Math.hypot(dx, dy) < 4) return;
-  if (!press.dragged) { press.dragged = true; light(''); stage.classList.add('dragging'); }
+  if (!press.dragged) { press.dragged = true; light(''); stage.classList.add('dragging'); stopGlide(); }
+  // a tool holding the orbit still (a ring or section drag) holds the cube's too
+  if (!controls.enabled || !controls.enableRotate) return;
   // the canvas's own orbit rate (OrbitControls: a full turn per view height)
   const k = (2 * Math.PI * controls.rotateSpeed) / renderer.domElement.clientHeight;
   controls._rotateLeft(k * dx);
@@ -126,9 +128,11 @@ function release(e) {
   // a capture retargets the up to the stage: find the cell under the pointer
   const cell = document.elementFromPoint(e.clientX, e.clientY)?.closest?.('.vc-cell');
   if (cell && cube.contains(cell)) glideTo(cell.dataset.dir.split(',').map(Number));
+  light('');                        // the cube turns away under a still pointer
 }
 stage.addEventListener('pointerup', release);
 stage.addEventListener('pointercancel', release);
+stage.addEventListener('contextmenu', (e) => e.preventDefault());
 stage.addEventListener('pointerleave', () => { if (!press) light(''); });
 home.addEventListener('click', () => glideTo(HOME_DIR));
 
@@ -136,19 +140,36 @@ home.addEventListener('click', () => glideTo(HOME_DIR));
 
 const bar = el('viewbar');
 const over = (a, b) => b.width && b.right > a.left && b.left < a.right && b.bottom > a.top && b.top < a.bottom;
-/** Hide the cube under an open popover, over the stats card, or under the top bar. */
+const GAP = 12;
+/**
+ * Room to show: step right past the stats card when it reaches down beside the cube
+ * (toolbar.js only parks the bar itself beside the card when the card reaches the
+ * bar); hide under an open popover or the top bar, or where it would still cover the
+ * card, the settings panel, the plate tabs (at the bottom on a narrow window) or a status note.
+ */
 function fit() {
   if (bar.hidden) return;
-  const r = root.getBoundingClientRect();
+  root.style.left = '0px';
+  let r = root.getBoundingClientRect();
+  const cards = [...el('left-rail').children].map((card) => card.getBoundingClientRect());
+  const card = cards.find((c) => over(r, c));
+  if (card) {
+    root.style.left = `${card.right + GAP - r.left}px`;
+    r = root.getBoundingClientRect();
+  }
   const off = r.top < el('topbar').getBoundingClientRect().bottom
-    || [...el('left-rail').children].some((card) => over(r, card.getBoundingClientRect()))
+    || r.right > innerWidth
+    || cards.some((c) => over(r, c))
+    || [el('plates'), ...el('right-rail').children, el('status')].some((b) => over(r, b.getBoundingClientRect()))
     || [...bar.querySelectorAll('.vb-pop:not([hidden])')].some((pop) =>
       (!pop.classList.contains('vb-tip') || pop.classList.contains('show'))
       && over(r, pop.getBoundingClientRect()));
   root.classList.toggle('vc-off', off);
 }
 addEventListener('resize', fit);
-new ResizeObserver(fit).observe(el('stats'));
+// the card grows; a wrapping top bar pushes the whole rail down without resizing it
+const roomWatch = new ResizeObserver(fit);
+for (const id of ['stats', 'topbar', 'left-rail', 'plates', 'right-rail']) roomWatch.observe(el(id));
 el('left-rail').addEventListener('scroll', fit);
 // toolbar.js parks the bar beside the stats card (its left), shows and hides it and
 // its popovers, and places a popover above its badge; the ring-drag angle shows by class
