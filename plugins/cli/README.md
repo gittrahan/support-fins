@@ -165,13 +165,14 @@ support-fins project.3mf --preserve-project --check --object 2 --object 7 --json
 support-fins project.3mf --preserve-project --check --layer-height 0.2 --fin-extruder 2
 ```
 
-`--check` inspects all printable objects, or the objects selected with `--object`.
+`--check` inspects all printable objects, or the objects selected with `--plate`
+and `--object`.
 It checks project settings and loads referenced meshes one object at a time using
 the same reader as generation. It reports the first blocking reason for each
 incompatible object and continues checking the rest, even with explicit selections.
 Native-support and print-by-object warnings are informational. Nonprintable and
 unselected objects are excluded from the report; `--list-objects` still lists all
-build items without checking compatibility.
+build items (within any `--plate` filter) without checking compatibility.
 
 The check reads the input only: no fins, output project or cache are created, and
 no output destination is tested. It works even when the default output already
@@ -182,7 +183,7 @@ deno run --allow-read plugins/cli/support-fins.js project.3mf --preserve-project
 ```
 
 Do not combine `--check`
-with `--list-objects`, `--output` or `--overwrite`; the existing project-mode
+with `--list-objects`, `--list-plates`, `--output` or `--overwrite`; the existing project-mode
 restrictions on `--rot` and `--fins-only` also apply.
 
 A compatible result means the current project settings and reader accepted the
