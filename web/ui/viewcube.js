@@ -140,30 +140,39 @@ home.addEventListener('click', () => glideTo(HOME_DIR));
 
 const bar = el('viewbar');
 const over = (a, b) => b.width && b.right > a.left && b.left < a.right && b.bottom > a.top && b.top < a.bottom;
-const GAP = 12;
+const GAP = 12, LIFT = 8;
 /**
- * Room to show: step right past the stats card when it reaches down beside the cube
- * (toolbar.js only parks the bar itself beside the card when the card reaches the
- * bar); hide under an open popover or the top bar, or where it would still cover the
- * card, the settings panel, the plate tabs (at the bottom on a narrow window) or a status note.
+ * Room to show. The cube sits LIFT above the toolbar's left end; a toolbar popover
+ * or the ring-drag angle showing over it lifts it to sit above that instead (Rotate
+ * is open the whole time a part is being turned), and the stats card reaching down
+ * beside it steps it right past the card (toolbar.js parks the bar itself beside the
+ * card only when the card reaches the bar). Hidden where none of that makes room: under
+ * the top bar, or still over the card, the settings panel, the plate tabs (at the
+ * bottom on a narrow window) or a status note. The spot is worked out from the bar's
+ * box, not the cube's -- that eases between spots (CSS) and would measure mid-way.
  */
 function fit() {
   if (bar.hidden) return;
-  root.style.left = '0px';
-  let r = root.getBoundingClientRect();
-  const cards = [...el('left-rail').children].map((card) => card.getBoundingClientRect());
-  const card = cards.find((c) => over(r, c));
-  if (card) {
-    root.style.left = `${card.right + GAP - r.left}px`;
-    r = root.getBoundingClientRect();
+  const b = bar.getBoundingClientRect(), w = root.offsetWidth, h = root.offsetHeight;
+  const x0 = b.left, y0 = b.top - LIFT - h;
+  let x = x0, y = y0;
+  const box = () => ({ left: x, right: x + w, top: y, bottom: y + h });
+  const cards = [...el('left-rail').children].map((c) => c.getBoundingClientRect());
+  const pops = [...bar.querySelectorAll('.vb-pop:not([hidden])')]
+    .filter((p) => !p.classList.contains('vb-tip') || p.classList.contains('show'))
+    .map((p) => p.getBoundingClientRect());
+  const others = [el('plates'), ...el('right-rail').children, el('status')].map((o) => o.getBoundingClientRect());
+  for (let pass = 0; pass < 3; pass++) {
+    const pop = pops.filter((p) => over(box(), p));
+    if (pop.length) y = Math.min(...pop.map((p) => p.top)) - LIFT - h;
+    const card = cards.find((c) => over(box(), c));
+    if (card) x = card.right + GAP;
+    if (!pop.length && !card) break;
   }
-  const off = r.top < el('topbar').getBoundingClientRect().bottom
-    || r.right > innerWidth
-    || cards.some((c) => over(r, c))
-    || [el('plates'), ...el('right-rail').children, el('status')].some((b) => over(r, b.getBoundingClientRect()))
-    || [...bar.querySelectorAll('.vb-pop:not([hidden])')].some((pop) =>
-      (!pop.classList.contains('vb-tip') || pop.classList.contains('show'))
-      && over(r, pop.getBoundingClientRect()));
+  const r = box();
+  const off = r.top < el('topbar').getBoundingClientRect().bottom || r.right > innerWidth
+    || [...cards, ...pops, ...others].some((o) => over(r, o));
+  root.style.transform = `translate(${x - x0}px, ${y - y0}px)`;
   root.classList.toggle('vc-off', off);
 }
 addEventListener('resize', fit);

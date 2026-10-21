@@ -717,12 +717,14 @@ body.no-part #viewport canvas { pointer-events: none; }
 .nav-pick { color: var(--dim); font-size: 12px; }
 .vb-pop .nav-pick select { margin-left: 6px; padding: 2px 6px; font-size: 12px; }
 /* View cube (#350, ui/viewcube.js): above the toolbar at its left end, out of the
-   way of the popovers (it hides while one opened over it is showing) */
+   way of the popovers: one opening over it lifts it above (viewcube.js fit) */
 #viewcube {
   position: absolute; left: 0; bottom: calc(100% + 8px);
   display: flex; align-items: flex-end; gap: 2px;
   pointer-events: none;
+  transition: transform .18s ease;
 }
+@media (prefers-reduced-motion: reduce) { #viewcube { transition: none; } }
 #viewcube.vc-off { visibility: hidden; }
 #viewcube .vc-stage {
   position: relative; width: 116px; height: 116px;
