@@ -427,6 +427,13 @@ export default {
 	"{n} pin": { one: "{n} pin", other: "{n} pinnen" },
 	"The pins attach each wall to the part, as a resin print needs.": "De pinnen verbinden elke wand met het onderdeel, zoals een harsprint nodig heeft.",
 	"resin": "hars",
+	"Pins per wall": "Pinnen per wand",
+	"fewer": "minder",
+	"more": "meer",
+	"fewer pins": "minder pinnen",
+	"more pins": "meer pinnen",
+	"pins": "pinnen",
+	"How many pins each wall gets. Fewer = fewer marks to clean up; more = held at more points. Pin depth is what makes each pin hold harder.": "Hoeveel pinnen elke wand krijgt. Minder = minder sporen om weg te werken; meer = op meer punten vastgehouden. De pindiepte bepaalt hoe stevig elke pin vasthoudt.",
 	// Sway braces: hover preview, cross ribs, tall-wall rib height (#318)
 	"Brace walls above": "Wanden verstevigen vanaf",
 	"Walls taller than this height get face ribs. 5 cm or more; default 10 cm.": "Wanden hoger dan deze hoogte krijgen ribben aan beide zijden. Minimaal 5 cm, standaard 10 cm.",

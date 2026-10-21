@@ -137,6 +137,14 @@ export const TIP_PICS = {
     + '<rect class="tp-part" x="134" y="10" width="44" height="108"/><rect class="tp-sup" x="184" y="10" width="16" height="108"/>'
     + tines(() => 184, () => 178, 112, 14, 7)),
 
+  // Pins per wall (Tine grip in resin mode): fewer pins (left) or more (right),
+  // each up across the gap into the underside.
+  'pin-spacing': svg(BED
+    + slab(8, 114, 16, 52) + '<rect class="tp-sup" x="26" y="60" width="70" height="58"/>'
+    + [34, 88].map((x) => `<line class="tp-tine" x1="${x}" y1="60" x2="${x}" y2="42"/>`).join('')
+    + slab(126, 232, 16, 52) + '<rect class="tp-sup" x="144" y="60" width="70" height="58"/>'
+    + [150, 162, 174, 186, 198, 208].map((x) => `<line class="tp-tine" x1="${x}" y1="60" x2="${x}" y2="42"/>`).join('')),
+
   // Direction: horizontal tines into a side (FDM), or vertical pins up from the wall
   // top, across the gap and a little into the underside (resin).
   'tine-dir': svg(BED

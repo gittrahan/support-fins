@@ -156,11 +156,23 @@ function debouncedRefresh(ms = 180) {
 // Tine grip only means anything when the tines are on, so hide its slider with the
 // toggle (keeps the panel honest -- no dead control).
 // Tine grip + layer height only matter when Tines is on -- hide both otherwise.
+// With vertical (resin) pins the slider only spaces the pins -- Pin depth is what
+// holds harder -- so it says that there (#309: "not sure what light vs tight grip
+// are changing").
+const PIN_SPACING_TIP = 'How many pins each wall gets. Fewer = fewer marks to clean up; more = '
+  + 'held at more points. Pin depth is what makes each pin hold harder.';
+let gripTip = null;
 function syncTineGrip() {
   const on = el('tines').checked;
   el('tinegrip-fld').hidden = !on;
   el('tinedir-fld').hidden = !on;
   const pins = on && el('tine-dir').value === 'vertical';
+  const grip = el('tinegrip-fld');
+  gripTip ??= (grip.dataset.origTitle ??= grip.title);
+  grip.querySelector('.grip-tines').hidden = pins;
+  grip.querySelector('.grip-pins').hidden = !pins;
+  grip.title = t(pins ? PIN_SPACING_TIP : gripTip);
+  grip.dataset.tipPic = pins ? 'pin-spacing' : 'tine-density';
   el('pindepth-fld').hidden = !pins;
   el('resin-note').hidden = !pins;
   // The Light pad is one layer tall, and the interface band is one layer of the
@@ -170,6 +182,7 @@ function syncTineGrip() {
     && el('iface').value === 'off';
 }
 el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); });
+window.addEventListener('languagechange', syncTineGrip);   // the swapped tooltip, retranslated
 // Tine direction (GitHub #309): vertical lays resin pins (prop/pins.js). This page's
 // copy is set here for Draw; the Worker gets it in the build's tunables.
 export function tineDirTunables() {
@@ -378,10 +391,10 @@ export function syncSectionSums() {
     el('iface').value === 'off' ? null : t('interface'),
   ].filter(Boolean).join(' · ');
   const grip = el('tine-density').valueAsNumber;
-  el('sum-tines').textContent = el('tines').checked
-    ? t(grip <= 20 ? 'light grip' : grip >= 80 ? 'firm grip' : 'medium grip')
-      + (el('tine-dir').value === 'vertical' ? ` · ${t('resin')}` : '')
-    : t('off');
+  el('sum-tines').textContent = !el('tines').checked ? t('off')
+    : el('tine-dir').value === 'vertical'
+      ? `${t(grip <= 20 ? 'fewer pins' : grip >= 80 ? 'more pins' : 'pins')} · ${t('resin')}`
+      : t(grip <= 20 ? 'light grip' : grip >= 80 ? 'firm grip' : 'medium grip');
   syncMore();
 }
 el('fin-opts').addEventListener('input', syncSectionSums);
