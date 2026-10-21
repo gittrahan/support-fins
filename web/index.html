@@ -258,14 +258,14 @@
        from the keyboard and the section memory keeps it open or shut. Build volume
        stays in the top bar. ui/settings.js syncSectionSums writes the line. -->
   <details class="sec printer" data-sec="printer">
-    <summary data-i18n-title title="Your printer: nozzle, layer height, support gap, interface material. Click to change.">
+    <summary data-tip-pic="printer" data-i18n-title title="Your printer: nozzle, layer height, support gap, interface material. Click to change.">
       <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6V2h8v4M3 6h10a1.5 1.5 0 0 1 1.5 1.5V11H12v3H4v-3H1.5V7.5A1.5 1.5 0 0 1 3 6z" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
       <span class="printer-txt" id="sum-printer"></span>
       <span class="printer-edit"><span class="when-shut" data-i18n="Edit">Edit</span><span class="when-open" data-i18n="Done">Done</span></span>
     </summary>
     <!-- Nozzle: the support widths scale from their 0.4 numbers (web/nozzle.js) so a
          0.6 or 0.8 nozzle doesn't drop the tines or lay the wall as one line. -->
-    <label class="fld row" id="nozzle-fld" data-i18n-title title="Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one.">
+    <label data-tip-pic="nozzle" class="fld row" id="nozzle-fld" data-i18n-title title="Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one.">
       <span><span data-i18n="Nozzle">Nozzle</span> <span class="mut">mm</span></span>
       <select id="nozzle">
         <option value="0.2">0.2</option>
@@ -285,7 +285,7 @@
          clean bead and BEND off instead of tearing. That only holds if this matches
          the layer height you actually slice at -- set it wrong and the tines slice
          into ~1.5 layers and leave welts. Shown only when Tines is on. -->
-    <label class="fld row" id="layerh-fld" data-i18n-title title="Set this to the layer height you slice at. The grip tines are one layer tall so they snap off clean; if this doesn't match your slicer, the tines tear and leave marks. Default 0.2mm.">
+    <label data-tip-pic="layer-height" class="fld row" id="layerh-fld" data-i18n-title title="Set this to the layer height you slice at. The grip tines are one layer tall so they snap off clean; if this doesn't match your slicer, the tines tear and leave marks. Default 0.2mm.">
       <span><span data-i18n="Layer height">Layer height</span> <span class="mut">mm</span></span>
       <input type="number" id="layer-height" min="0.08" max="0.6" step="0.04" value="0.2">
     </label>
@@ -298,7 +298,7 @@
          to print in a material that won't bond to the part (PETG under PLA). Flat
          contacts only by default: on a tilted underside the band climbs every layer,
          and PETG wouldn't print on the narrow PLA tip (a 35deg cube). -->
-    <label class="fld row" data-i18n-title title="For a printer with two or more toolheads. The top layer of a wall exports as its own part of the supports, shown purple: give it a material that won't bond to the part (PETG under PLA) for a clean release. Flat contacts: only under flat undersides, where it works and costs a few tool changes. Everywhere: every wall top and the tines too, a tool change every layer on a tilted part. 3MF only.">
+    <label data-tip-pic="iface" class="fld row" data-i18n-title title="For a printer with two or more toolheads. The top layer of a wall exports as its own part of the supports, shown purple: give it a material that won't bond to the part (PETG under PLA) for a clean release. Flat contacts: only under flat undersides, where it works and costs a few tool changes. Everywhere: every wall top and the tines too, a tool change every layer on a tilted part. 3MF only.">
       <span data-i18n="Interface material">Interface material</span>
       <select id="iface">
         <option value="off" data-i18n="Off">Off</option>
@@ -352,7 +352,7 @@
          floor keeps at least a few tines so it still holds; Firm = a dense comb (max grip)
          for a tippy or tall part, at the cost of more marks on the supported face.
          Shown only when Tines is on. -->
-    <label class="fld" id="tinegrip-fld"
+    <label data-tip-pic="tine-density" class="fld" id="tinegrip-fld"
            data-i18n-title title="How tightly to space the grip tines. Light = fewest marks (default), a per-wall floor keeps grip; Firm = dense comb / max grip for a tippy or tall part.">
       <span><span data-i18n="Tine grip">Tine grip</span> <span class="mut"><span data-i18n="light">light</span> ⟶ <span data-i18n="firm">firm</span></span></span>
       <input type="range" id="tine-density" min="0" max="100" step="5" value="0">
@@ -361,7 +361,7 @@
          peeled off the vat every layer, so its supports must be attached -- vertical
          pins up across the gap and into the part (prop/pins.js), and a wall on the
          part welds its foot. Untested on a resin printer. -->
-    <label class="fld row" id="tinedir-fld"
+    <label data-tip-pic="tine-dir" class="fld row" id="tinedir-fld"
            data-i18n-title title="Horizontal: one-layer tines that grip the part and snap off clean (FDM). Vertical: pins that stand up from each wall into the part, like a resin slicer's contact tips, for resin printers, where every support has to be attached.">
       <span data-i18n="Direction">Direction</span>
       <select id="tine-dir">
@@ -369,7 +369,7 @@
         <option value="vertical" data-i18n="Vertical (resin)">Vertical (resin)</option>
       </select>
     </label>
-    <label class="fld row" id="pindepth-fld" hidden
+    <label data-tip-pic="pin-depth" class="fld row" id="pindepth-fld" hidden
            data-i18n-title title="How far each pin sinks into the part, like a resin slicer's contact depth. Deeper holds harder and leaves a bigger mark. Default 0.3 mm.">
       <span data-i18n="Pin depth">Pin depth</span>
       <input type="number" id="pin-depth" min="0.05" max="1" step="0.05" value="0.3">
@@ -384,7 +384,7 @@
          save filament. Every hole has a pointed roof (>=45deg) so nothing bridges;
          the contact top, foot and ends stay solid, and a wall too short for a hole
          stays solid. Tined side fins are not cut -- their tines anchor all over. -->
-    <label data-i18n-title class="fld row" title="Cut holes through tall breakaway walls to save filament. The top edge that holds the part, the foot, and the wall's ends stay solid, and every hole has a pointed roof so it prints without bridging. Short walls stay solid.">
+    <label data-tip-pic="cutout" data-i18n-title class="fld row" title="Cut holes through tall breakaway walls to save filament. The top edge that holds the part, the foot, and the wall's ends stay solid, and every hole has a pointed roof so it prints without bridging. Short walls stay solid.">
       <span data-i18n="Cutouts">Cutouts</span><select id="cutout">
         <option value="none" data-i18n="None">None</option>
         <option value="diamond" data-i18n="Diamond">Diamond</option>
@@ -398,13 +398,13 @@
          Shown only in Suggest mode (toggled in ui/settings.js). Per-fin removal (Auto only,
          shown via ui/remove.js syncRemoveUI): arm a click-to-remove mode, hover lights a
          fin red, click drops just that one; Restore all brings every one back. -->
-    <button data-i18n-title class="btn sm" id="augment-toggle" hidden data-search="Add walls by hand"
+    <button data-tip-pic="add-walls" data-i18n-title class="btn sm" id="augment-toggle" hidden data-search="Add walls by hand"
             data-i18n-title title="Place extra breakaway walls by hand, on top of the auto-placed ones.">+ Add walls by hand</button>
     <div id="remove-fins-controls" hidden>
       <div class="draw-btns">
-        <button class="btn sm" id="remove-fins-toggle" hidden data-search="Remove fins"
+        <button data-tip-pic="remove-fins" class="btn sm" id="remove-fins-toggle" hidden data-search="Remove fins"
                 data-i18n-title title="Click a fin to remove just that one. Esc or right-click cancels."><span data-i18n="Remove fins">Remove fins</span></button>
-        <button class="btn sm" id="restore-fins" hidden data-i18n-title
+        <button data-tip-pic="restore-fins" class="btn sm" id="restore-fins" hidden data-i18n-title
                 title="Bring back every fin removed in this orientation."><span data-i18n="Restore all">Restore all</span></button>
       </div>
     </div>
@@ -416,7 +416,7 @@
   <div id="draw-controls" hidden>
     <p class="draw-hint" id="draw-hint" data-i18n-html="Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.">Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.</p>
     <div class="draw-btns">
-      <button class="btn sm" id="draw-remove" hidden data-i18n-title
+      <button data-tip-pic="draw-remove" class="btn sm" id="draw-remove" hidden data-i18n-title
               title="Remove the support you clicked (Delete or Backspace also works)."><span data-i18n="Remove selected">Remove selected</span></button>
       <button class="btn sm" id="draw-clear"><span data-i18n="Clear all">Clear all</span></button>
     </div>
@@ -436,7 +436,7 @@
     <summary><span class="sec-title" data-i18n="More settings">More settings</span><span class="sec-sum more-count" id="more-count"></span></summary>
     <div class="group">
       <h5 data-i18n="Hold the part">Hold the part</h5>
-      <label data-i18n-title class="fld row" title="A tilted part rests on an edge and peels off the plate without a pad. Auto: Light, or Sure hold when the part meets the plate on a point or a small round foot (it shows which). Light: one layer, 0.12mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove. Custom: set every number yourself.">
+      <label data-tip-pic="bed-pad" data-i18n-title class="fld row" title="A tilted part rests on an edge and peels off the plate without a pad. Auto: Light, or Sure hold when the part meets the plate on a point or a small round foot (it shows which). Light: one layer, 0.12mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove. Custom: set every number yourself.">
         <span data-i18n="Bed pad">Bed pad</span><select id="bed-pad">
           <option value="off" data-i18n="Off">Off</option>
           <option value="auto" selected data-i18n="Auto">Auto</option>
@@ -445,25 +445,25 @@
           <option value="custom" data-i18n="Custom">Custom</option>
         </select>
       </label>
-      <label data-i18n-title class="fld row" data-pad-custom hidden title="How tall the pad is. Only the first layer grips the plate; more layers make it stiffer and harder to peel.">
+      <label data-tip-pic="pad-h" data-i18n-title class="fld row" data-pad-custom hidden title="How tall the pad is. Only the first layer grips the plate; more layers make it stiffer and harder to peel.">
         <span><span data-i18n="Pad thickness">Pad thickness</span> <span class="mut">mm</span></span>
         <input type="number" id="pad-h" min="0.1" max="1.0" step="0.05" value="0.2">
       </label>
-      <label class="fld row" data-pad-custom hidden data-i18n-title title="Sideways clearance between the pad and the part's first layer. 0.12mm lets first-layer squish just close it, the way a slicer brim holds; bigger comes off easier and holds less. Under 0.1mm most slicers merge the gap and the pad welds on. 0 = no gap (Pad grip decides).">
+      <label data-tip-pic="pad-gap" class="fld row" data-pad-custom hidden data-i18n-title title="Sideways clearance between the pad and the part's first layer. 0.12mm lets first-layer squish just close it, the way a slicer brim holds; bigger comes off easier and holds less. Under 0.1mm most slicers merge the gap and the pad welds on. 0 = no gap (Pad grip decides).">
         <span><span data-i18n="Pad gap">Pad gap</span> <span class="mut">mm</span></span>
         <input type="number" id="pad-gap" min="0" max="0.5" step="0.01" value="0.12">
       </label>
-      <label data-i18n-title class="fld row" data-pad-custom hidden title="Where the pad meets the part's underside. Positive bites in to hold harder; 0 is flush; negative leaves a gap that snaps off cleaner.">
+      <label data-tip-pic="pad-grip" data-i18n-title class="fld row" data-pad-custom hidden title="Where the pad meets the part's underside. Positive bites in to hold harder; 0 is flush; negative leaves a gap that snaps off cleaner.">
         <span><span data-i18n="Pad grip">Pad grip</span> <span class="mut">mm</span></span>
         <input type="number" id="pad-grip" min="-0.2" max="0.3" step="0.05" value="0">
       </label>
-      <label data-i18n-title class="fld row" data-pad-custom hidden title="How far the pad spreads past the part's contact with the plate. More spread = more plate grip.">
+      <label data-tip-pic="pad-margin" data-i18n-title class="fld row" data-pad-custom hidden title="How far the pad spreads past the part's contact with the plate. More spread = more plate grip.">
         <span><span data-i18n="Pad spread">Pad spread</span> <span class="mut">mm</span></span>
         <input type="number" id="pad-margin" min="1" max="12" step="0.5" value="4">
       </label>
       <!-- Wall lines (web/nozzle.js, after #210): lines across a wall, for a tall part
            or a big printer. 2 is the tuned wall; the tip and tines stay one line. -->
-      <label data-i18n-title class="fld row" title="How many nozzle lines thick the walls, wedges and sway braces are. 2 is the standard wall. More lines make stiffer supports for tall parts. The contact tip and tines stay one line wide, so the supports still break off the same way.">
+      <label data-tip-pic="wall-lines" data-i18n-title class="fld row" title="How many nozzle lines thick the walls, wedges and sway braces are. 2 is the standard wall. More lines make stiffer supports for tall parts. The contact tip and tines stay one line wide, so the supports still break off the same way.">
         <span data-i18n="Wall lines">Wall lines</span><select id="wall-lines">
           <option value="2" selected>2</option>
           <option value="4">4</option>
@@ -476,10 +476,10 @@
       <h5 data-i18n="Tall parts">Tall parts</h5>
       <!-- Brace tall walls (local issue 046, fins/tall.js + draw.js braceTall): face ribs
            at the plate on every wall over BRACE.tallH, Auto's and drawn. On by default. -->
-      <label data-i18n-title class="check" title="Walls taller than the selected height get triangular ribs at the plate, off both faces, so they don't sway as they print. Untick for plain walls.">
+      <label data-tip-pic="tall-ribs" data-i18n-title class="check" title="Walls taller than the selected height get triangular ribs at the plate, off both faces, so they don't sway as they print. Untick for plain walls.">
         <input type="checkbox" id="tall-ribs" checked><span data-i18n="Brace tall walls">Brace tall walls</span>
       </label>
-      <label data-i18n-title class="fld row" id="tall-ribs-height-fld" title="Walls taller than this height get face ribs. 5 cm or more; default 10 cm.">
+      <label data-tip-pic="tall-ribs-height" data-i18n-title class="fld row" id="tall-ribs-height-fld" title="Walls taller than this height get face ribs. 5 cm or more; default 10 cm.">
         <span><span data-i18n="Brace walls above">Brace walls above</span> <span class="mut">cm</span></span>
         <input type="number" id="tall-ribs-height" min="5" max="200" step="0.1" value="10">
       </label>
@@ -498,10 +498,10 @@
         <span><span data-i18n="Brace depth">Brace depth</span> <span class="mut" data-i18n="% of height">% of height</span></span>
         <input type="number" id="sway-depth" min="5" max="50" step="1" value="15">
       </label>
-      <label data-i18n-title class="fld row" id="full-brace-depth-fld" title="Use the selected Brace depth percentage beyond the usual 60 mm limit. Larger braces need more plate space and material; collisions can shorten or refuse them. Off keeps the 60 mm limit.">
+      <label data-tip-pic="full-brace-depth" data-i18n-title class="fld row" id="full-brace-depth-fld" title="Use the selected Brace depth percentage beyond the usual 60 mm limit. Larger braces need more plate space and material; collisions can shorten or refuse them. Off keeps the 60 mm limit.">
         <span data-i18n="Full brace depth">Full brace depth</span><input type="checkbox" id="full-brace-depth">
       </label>
-      <label data-i18n-title class="fld row" id="sway-cross-height-fld" title="Cross-rib height as a percentage of sway brace height. 10–90%, default 50%. Requires Brace tall walls and the brace to exceed its start height. Does not change the horizontal reach.">
+      <label data-tip-pic="sway-cross-height" data-i18n-title class="fld row" id="sway-cross-height-fld" title="Cross-rib height as a percentage of sway brace height. 10–90%, default 50%. Requires Brace tall walls and the brace to exceed its start height. Does not change the horizontal reach.">
         <span><span data-i18n="Cross-rib height">Cross-rib height</span> <span class="mut" data-i18n="% of height">% of height</span></span>
         <input type="number" id="sway-cross-height" min="10" max="90" step="1" value="50">
       </label>
@@ -513,7 +513,7 @@
            This sets the row pitch: Sparse = fewer fins / less plastic, Dense = more.
            A floor keeps at least one brace so a wide face is never left bare. Only
            bites on a broad face; narrow parts keep their 2-corner bracing. Auto only. -->
-      <label data-i18n-title class="fld" id="coverage-fld"
+      <label data-tip-pic="coverage" data-i18n-title class="fld" id="coverage-fld"
              title="How densely to line a WIDE overhang face with fins. The middle is the anti-sag default; drag LEFT for fewer fins (a small part can go down to one — the readout warns if a broad face then risks sagging), RIGHT for more support. Narrow parts are unaffected.">
         <span><span data-i18n="Wide-face coverage">Wide-face coverage</span> <span class="mut"><span data-i18n="sparse">sparse</span> ⟶ <span data-i18n="dense">dense</span></span></span>
         <input type="range" id="coverage" min="0" max="100" step="5" value="50">
@@ -521,30 +521,30 @@
       <!-- Plate only (#218): every support stands on the build plate, none on the part
            itself. An overhang with part under it is left bare and the readout says how
            many; Draw refuses a line over the part with the reason. -->
-      <label data-i18n-title class="check" title="Stand every support on the build plate, never on the part itself. An overhang with part under it is left unsupported, and the readout says how many.">
+      <label data-tip-pic="plate-only" data-i18n-title class="check" title="Stand every support on the build plate, never on the part itself. An overhang with part under it is left unsupported, and the readout says how many.">
         <input type="checkbox" id="plate-only"><span data-i18n="Plate only">Plate only</span>
       </label>
       <!-- Long walls (Full coverage only, fins/rows.js): rows of long walls along the
            part's length before the patch-by-patch fill. On by default; untick for the
            patch fill alone (shorter walls, less plastic). -->
-      <label data-i18n-title class="check" id="long-walls-fld" hidden title="Full coverage lays rows of long walls along the part's length first, the way you'd draw them by hand, then fills what they miss. Holds more of the overhang and uses more plastic. Untick for short walls under each overhang patch.">
+      <label data-tip-pic="long-walls" data-i18n-title class="check" id="long-walls-fld" hidden title="Full coverage lays rows of long walls along the part's length first, the way you'd draw them by hand, then fills what they miss. Holds more of the overhang and uses more plastic. Untick for short walls under each overhang patch.">
         <input type="checkbox" id="long-walls" checked><span data-i18n="Long walls">Long walls</span> <span class="mut" data-i18n="along the part">along the part</span>
       </label>
       <!-- Curved walls (#25, prop/curved.js): a bending downhill wall wins its region
            when it holds as much as the straight walls, whatever it weighs. Off by
            default; Auto and Full only (hidden in Draw, ui/settings.js). -->
-      <label data-i18n-title class="check" id="curved-walls-fld" title="Let the walls under a curved overhang bend with it down to the plate wherever they can, even at more plastic. Extra walls cover what the curves miss. Auto and Full coverage only.">
+      <label data-tip-pic="curved-walls" data-i18n-title class="check" id="curved-walls-fld" title="Let the walls under a curved overhang bend with it down to the plate wherever they can, even at more plastic. Extra walls cover what the curves miss. Auto and Full coverage only.">
         <input type="checkbox" id="curved-walls"><span data-i18n="Curved walls">Curved walls</span> <span class="mut" data-i18n="follow the curve, more plastic">follow the curve, more plastic</span>
       </label>
     </div>
     <div class="group">
       <h5 data-i18n="Display">Display</h5>
-      <label class="check" data-i18n-title title="Shade overhangs too small for a fin amber, with a card saying they print unsupported. Off drops the highlight and the card; the readout still counts them.">
+      <label data-tip-pic="highlight-small" class="check" data-i18n-title title="Shade overhangs too small for a fin amber, with a card saying they print unsupported. Off drops the highlight and the card; the readout still counts them.">
         <input type="checkbox" id="highlight-small" checked><span data-i18n="Highlight small overhangs">Highlight small overhangs</span>
       </label>
       <!-- Island starts (ui/islands.js, local issue 041): the red cones only; the
            readout count and the card stay either way. -->
-      <label class="check" data-i18n-title title="Draw a red cone under each spot whose first layer starts in midair. Off hides the cones; the readout and the card still count them.">
+      <label data-tip-pic="show-islands" class="check" data-i18n-title title="Draw a red cone under each spot whose first layer starts in midair. Off hides the cones; the readout and the card still count them.">
         <input type="checkbox" id="show-islands"><span data-i18n="Show midair starts">Show midair starts</span>
       </label>
     </div>

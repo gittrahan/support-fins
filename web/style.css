@@ -1137,3 +1137,18 @@ body.no-part #viewport canvas { pointer-events: none; }
 .tp-tine { stroke: #7be0a0; stroke-width: 2; }
 .tp-dim, .tp-dim-head { stroke: var(--accent); stroke-width: 1.5; fill: none; }
 .tp-mark { stroke: var(--dim); stroke-width: 1; stroke-dasharray: 4 3; }
+.tp-tool { fill: #5b6472; }
+.tp-layer { stroke: var(--bg); stroke-width: 1; }
+.tp-bead { fill: #3fae6a; stroke: var(--bg); stroke-width: 1; }
+.tp-sup2 { fill: #2b8a52; }
+.tp-iface { fill: #a070e0; }
+.tp-hole { fill: var(--bg); }
+.tp-hand { fill: color-mix(in srgb, var(--accent) 35%, transparent); stroke: var(--accent); stroke-width: 1.5; }
+.tp-ghost { fill: none; stroke: var(--dim); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.tp-picked { fill: #3fae6a; stroke: var(--accent); stroke-width: 2.5; }
+.tp-x { stroke: #e05a4f; stroke-width: 3; fill: none; }
+.tp-cursor { fill: #fff; stroke: #111; stroke-width: 1; }
+.tp-amber { stroke: #f0a830; stroke-width: 4; }
+.tp-cone { fill: #e05a4f; }
+.tp-plan { fill: #8fa3c8; opacity: 0.45; }
+.tp-band { stroke: #3fae6a; stroke-width: 5; }

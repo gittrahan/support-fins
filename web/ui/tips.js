@@ -1,11 +1,10 @@
 /**
- * TIP CARDS (GH #351): every setting's tooltip shows in a card, with a small diagram
- * for the settings that are easier shown than told, for anyone reading the tooltips
- * in a second language.
+ * TIP CARDS (GH #351): every setting's tooltip shows in a card under a small diagram,
+ * for anyone reading the tooltips in a second language.
  *
  * Any element with a `title` in the settings panel (#fin-opts) gets the card; one
  * with data-tip-pic="<key>" (a picture in ui/tippics.js) gets it anywhere, picture
- * on top. The text stays the element's own `title`, translated by ui/i18n.js as
+ * on top (a title with no picture yet gets the card text only). The text stays the element's own `title`, translated by ui/i18n.js as
  * before; this only shows it in a card instead of the browser's plain tooltip.
  * Titles outside the panel are left to the browser.
  *
