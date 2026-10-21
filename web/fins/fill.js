@@ -517,7 +517,7 @@ function boxGrid() {
  * and its ribs (its own wall excepted; joined flanges allowed, as for the walls).
  * Appends to `triangles`, adds each wall's ribs as a second triRange; returns the count.
  */
-function braceFill(props, floors, triangles, tris, autoTris) {
+function braceFill(props, floors, triangles, tris, autoTris, shared = true) {
   let autoGrid = null;
   const grids = props.map(() => null);
   const gridOf = (k) => {
@@ -533,8 +533,8 @@ function braceFill(props, floors, triangles, tris, autoTris) {
     const out = [];
     const clear = (t) => {
       if (!autoGrid) { autoGrid = boxGrid(); autoGrid.add(autoTris); }
-      if (autoGrid.hits(t, PROP.sideClear, true)) return false;
-      for (let j = 0; j < props.length; j++) if (j !== k && gridOf(j).hits(t, PROP.sideClear, true)) return false;
+      if (autoGrid.hits(t, PROP.sideClear, shared)) return false;
+      for (let j = 0; j < props.length; j++) if (j !== k && gridOf(j).hits(t, PROP.sideClear, shared)) return false;
       return true;
     };
     const built = braceWall(q.line, (i) => floors[k][i], tris, 0, out, (t) => {
@@ -559,7 +559,7 @@ function braceFill(props, floors, triangles, tris, autoTris) {
  * its own two walls (Auto's, the other fill walls, their ribs and ties). Appends to
  * `triangles`; the struts join wall A's triRanges. Returns how many ties.
  */
-function tieFill(props, floors, triangles, tris, others) {
+function tieFill(props, floors, triangles, tris, others, shared = true) {
   // per wall: its plate stations as [x, y, zMax], zMax where its ties must stop
   const plate = props.map((q, k) => {
     if (!floors[k] || q.height < TIE.minHeight) return [];
@@ -582,7 +582,7 @@ function tieFill(props, floors, triangles, tris, others) {
     if (count[k] >= TIE.perWall || count[j] >= TIE.perWall) continue;
     const out = [];
     if (!tieWalls(a, b, Math.min(a[2], b[2]), tris, 0, out)) continue;
-    if (others.hits(out, PROP.sideClear, true, (t) => t?.fill && (t.k === k || t.k === j))) continue;
+    if (others.hits(out, PROP.sideClear, shared, (t) => t?.fill && (t.k === k || t.k === j))) continue;
     const at = triangles.length;
     for (const t of out) triangles.push(t);
     props[k].triRanges.push([at, triangles.length]);
@@ -666,6 +666,10 @@ function fillOnce(topo, result, rot, opts, built) {
   // Plate only (#218): no wall on the part -- never the retry that stands one there,
   // and every try refuses a station with part under it (stationClear's `plate`)
   const plateOnly = opts.plateOnly === true, strict = plateOnly ? { plate: true } : null;
+  // Separate walls (#309, the resin default): no wall crosses another or joins its
+  // flange -- resin cures crossing walls and shared bases into one block that won't
+  // break apart. Never the flange or joined retries, and no flange band is shared.
+  const apart = opts.separateWalls === true, shared = !apart;
   const drawOpts = { under: true, tines: opts.tines ?? true, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
                      plateOnly, topo, rot, offset: result.offset };
   let tines = 0;
@@ -698,7 +702,7 @@ function fillOnce(topo, result, rot, opts, built) {
   // gets a try.
   const wallFor = (live, g, local = false) => {
     const redAt = redGrid(g.map((i) => live[i]));
-    let aims = null, builds = 0, partOk = local && !plateOnly, flangeOk = local, joinOk = local;
+    let aims = null, builds = 0, partOk = local && !plateOnly, flangeOk = local && !apart, joinOk = local && !apart;
     // the first of `cands` that builds, keeps off every support and holds new red:
     // true; CAP; aims (this group's tries are used up); or null (none built)
     const tryLines = (cands) => {
@@ -737,7 +741,7 @@ function fillOnce(topo, result, rot, opts, built) {
         stats.tries++;
         const r = drawnWall(c.a, c.b, tris, 0, drawOpts);
         const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0]
-          : others.hits(r.tris, PROP.sideClear, local, joined ? isFill : null) ? 'touches a support' : null;
+          : others.hits(r.tris, PROP.sideClear, local && shared, joined ? isFill : null) ? 'touches a support' : null;
         if (why) {
           stats.refused[why] = (stats.refused[why] ?? 0) + 1;
           // (the relaxation that let it through: on the part, on the plate, or joined)
@@ -774,7 +778,7 @@ function fillOnce(topo, result, rot, opts, built) {
       const sub = localPatch(live, rest);
       builds = 0;
       partOk = !plateOnly;
-      flangeOk = joinOk = true;
+      flangeOk = joinOk = !apart;
       // (one bridge: a patch is at most 2 x FILL.local across)
       const r = tryLines(candidateLines(live, sub, lineR(sub), FILL.bridge, true));
       if (r === true || r === CAP) return r;
@@ -809,7 +813,7 @@ function fillOnce(topo, result, rot, opts, built) {
       for (const p of red) { w += p[3]; x += p[0] * p[3]; y += p[1] * p[3]; }
       // (the red only: a row is along the model's length, an island start is a point)
       const r = rowWalls({ pts: red, heading: field(x / w, y / w) ?? 0, R, tris, drawOpts, minGain: FILL.minGain,
-        fits: (t) => !others.hits(t.tris, PROP.sideClear, true), keep: (t) => keep(t),
+        fits: (t) => !others.hits(t.tris, PROP.sideClear, shared), keep: (t) => keep(t),
         room: () => stats.walls < FILL.maxWalls, nFaces: topo.nFaces });
       stats.rows = r.walls;
       stats.rowBuilds = r.builds;
@@ -857,9 +861,9 @@ function fillOnce(topo, result, rot, opts, built) {
     // stopped on its budget with a start still untried: the card says so
     stats.islandsCapped = full() && isl.some((p) => !held(p) && !dead.has(p));
   }
-  stats.ribs = braceFill(props, floors, triangles, tris, built.triangles ?? []);
+  stats.ribs = braceFill(props, floors, triangles, tris, built.triangles ?? [], shared);
   props.forEach((q, k) => { for (const [a, b] of q.triRanges.slice(1)) others.add(triangles.slice(a, b), { fill: true, k }); });
-  stats.ties = tieFill(props, floors, triangles, tris, others);
+  stats.ties = tieFill(props, floors, triangles, tris, others, shared);
   const leftIsl = isl.filter((p) => !held(p));
   return { triangles, props, tines,
            unserved: { area: leftRed.reduce((s, p) => s + p[3], 0), pts: leftRed.map((p) => [p[0], p[1], p[2]]),

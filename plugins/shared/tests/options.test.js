@@ -42,6 +42,7 @@ const SITE_EXCLUDED = {
   'sway-cross-height': 'browser sway cross-ribs only; plugin dialogs retain the default rib height ratio',
   'tall-ribs': 'the plugins build with the engine default (on, as the site starts); a dialog control can follow',
   'tall-ribs-height': 'browser tall-wall rib threshold; plugin dialogs retain the default 100 mm height',
+  'separate-walls': 'the plugins build Full coverage with joined walls (the engine default); a dialog control can follow',
   'file': 'loading a model is the host\'s job', 'file-add': 'adding a model to the plate is the host\'s job', 'volume': 'site build-volume preview',
   'vx': 'site build-volume preview', 'vy': 'site build-volume preview', 'vz': 'site build-volume preview',
   'plugins-computer': 'picks which plugin download to offer',

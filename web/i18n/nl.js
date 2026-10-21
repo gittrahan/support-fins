@@ -434,6 +434,8 @@ export default {
 	"more pins": "meer pinnen",
 	"pins": "pinnen",
 	"How many pins each wall gets. More pins = a firmer hold; fewer = fewer marks to clean up. Add pins before deepening them: a deeper pin leaves a bigger mark and is harder to snap off.": "Hoeveel pinnen elke wand krijgt. Meer pinnen = steviger vast; minder = minder sporen om weg te werken. Voeg liever pinnen toe dan ze dieper te maken: een diepere pin laat een groter spoor na en breekt lastiger af.",
+	"Separate walls": "Losse wanden",
+	"Full coverage lets a wall cross another or share its base on the plate, so a crowded part peels off as one support. Tick to keep every wall apart: a resin print cures joined walls into one block that won't break away. Ticks itself for Vertical (resin) tines. Can leave a little more overhang bare.": "Volledige dekking laat een wand een andere kruisen of zijn voet op de plaat delen, zodat een vol onderdeel als één support loskomt. Vink aan om elke wand los te houden: een harsprint hardt verbonden wanden uit tot één blok dat niet afbreekt. Vinkt zichzelf aan bij verticale tanden (hars). Kan iets meer overhang onbedekt laten.",
 	// Sway braces: hover preview, cross ribs, tall-wall rib height (#318)
 	"Brace walls above": "Wanden verstevigen vanaf",
 	"Walls taller than this height get face ribs. 5 cm or more; default 10 cm.": "Wanden hoger dan deze hoogte krijgen ribben aan beide zijden. Minimaal 5 cm, standaard 10 cm.",

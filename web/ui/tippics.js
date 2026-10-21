@@ -287,6 +287,19 @@ export const TIP_PICS = {
     + '<rect class="tp-plan" x="126" y="20" width="104" height="90"/>'
     + [38, 63, 88].map((y) => `<rect class="tp-sup" x="134" y="${y}" width="88" height="4"/>`).join('')),
 
+  // Separate walls (seen from above, each wall on its wider foot): Full coverage
+  // may cross walls and join their feet into one base (left); ticked, every wall
+  // and foot stands apart (right).
+  'separate-walls': svg(
+    '<rect class="tp-plan" x="10" y="20" width="104" height="90"/>'
+    + '<rect class="tp-sup2" x="18" y="52" width="88" height="18"/><rect class="tp-sup2" x="40" y="28" width="18" height="76"/>'
+    + '<rect class="tp-sup2" x="56" y="70" width="40" height="18"/>'
+    + '<rect class="tp-sup" x="18" y="59" width="88" height="4"/><rect class="tp-sup" x="47" y="28" width="4" height="76"/>'
+    + '<rect class="tp-sup" x="56" y="77" width="40" height="4"/>'
+    + '<rect class="tp-plan" x="126" y="20" width="104" height="90"/>'
+    + [[134, 32], [134, 76], [184, 32], [184, 76]].map(([x, y]) => `<rect class="tp-sup2" x="${x}" y="${y}" width="40" height="18"/>`
+      + `<rect class="tp-sup" x="${x}" y="${y + 7}" width="40" height="4"/>`).join('')),
+
   // Curved walls (a round part seen from above): walls that bend along its curved
   // rim (right) instead of short straight ones under it (left).
   'curved-walls': svg(

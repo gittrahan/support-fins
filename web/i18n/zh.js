@@ -300,6 +300,8 @@ export default {
   "more pins": "较多针",
   "pins": "针",
   "How many pins each wall gets. More pins = a firmer hold; fewer = fewer marks to clean up. Add pins before deepening them: a deeper pin leaves a bigger mark and is harder to snap off.": "每面墙放多少根针。针越多 = 抓得越牢；越少 = 需要清理的痕迹越少。先加针，再加深：针越深，留下的痕迹越大，也越难掰掉。",
+  "Separate walls": "分开的墙",
+  "Full coverage lets a wall cross another or share its base on the plate, so a crowded part peels off as one support. Tick to keep every wall apart: a resin print cures joined walls into one block that won't break away. Ticks itself for Vertical (resin) tines. Can leave a little more overhang bare.": "完全覆盖允许一面墙穿过另一面墙或在打印板上共用底座，让拥挤的零件作为一个支撑一起剥离。勾选后每面墙保持分开：树脂打印会把相连的墙固化成一块掰不开的整体。选择垂直（树脂）齿时会自动勾选。可能会多留一点悬垂没有支撑。",
   "light": "轻",
   "firm": "牢",
   "light grip": "轻咬合",

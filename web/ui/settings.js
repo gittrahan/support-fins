@@ -51,6 +51,7 @@ export function syncCoverageUI() {
   fld.classList.toggle('disabled', full);
   fld.title = t(full ? COVER_TIP_FULL : coverTip);
   el('long-walls-fld').hidden = !full;   // Full coverage's own (fins/rows.js)
+  el('separate-walls-fld').hidden = !full;   // only the fill pass joins walls (#309)
   el('curved-walls-fld').hidden = !autoLike();   // Draw lays its own lines
   syncMore();   // coverage counts as changed only while the build reads it
 }
@@ -189,7 +190,12 @@ window.addEventListener('languagechange', syncTineGrip);   // the swapped toolti
 export function tineDirTunables() {
   return { tineDir: el('tine-dir').value, pinDepth: el('pin-depth').valueAsNumber };
 }
-el('tine-dir').addEventListener('change', () => { applyTunables(tineDirTunables()); syncTineGrip(); refreshFins(); });
+// Resin cures joined walls into one block (#309), so picking a direction sets
+// Separate walls to match; the box is the user's to change after.
+el('tine-dir').addEventListener('change', (e) => {
+  if (e.isTrusted) el('separate-walls').checked = el('tine-dir').value === 'vertical';
+  applyTunables(tineDirTunables()); syncTineGrip(); refreshFins();
+});
 el('pin-depth').addEventListener('input', () => { applyTunables(tineDirTunables()); debouncedRefresh(); });
 el('tine-density').addEventListener('input', () => debouncedRefresh());
 el('layer-height').addEventListener('input', () => debouncedRefresh());
@@ -247,6 +253,7 @@ el('cutout').addEventListener('change', () => {
 el('plate-only').addEventListener('change', () => refreshFins());
 // Long walls: Full coverage's rows (fins/rows.js), read by the build in the Worker.
 el('long-walls').addEventListener('change', () => refreshFins());
+el('separate-walls').addEventListener('change', () => refreshFins());
 // Brace tall walls: Auto's in the Worker (fins/tall.js), drawn ones on the page.
 function syncTallRibs() {
   el('tall-ribs-height-fld').hidden = !el('tall-ribs').checked;

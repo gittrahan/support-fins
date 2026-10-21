@@ -438,6 +438,8 @@ export default {
   "more pins": "دبابيس أكثر",
   "pins": "دبابيس",
   "How many pins each wall gets. More pins = a firmer hold; fewer = fewer marks to clean up. Add pins before deepening them: a deeper pin leaves a bigger mark and is harder to snap off.": "عدد الدبابيس التي يحصل عليها كل جدار. دبابيس أكثر = تثبيت أقوى؛ أقل = علامات أقل للتنظيف. أضف دبابيس قبل أن تزيد عمقها: الدبوس الأعمق يترك علامة أكبر ويصعب كسره.",
+  "Separate walls": "جدران منفصلة",
+  "Full coverage lets a wall cross another or share its base on the plate, so a crowded part peels off as one support. Tick to keep every wall apart: a resin print cures joined walls into one block that won't break away. Ticks itself for Vertical (resin) tines. Can leave a little more overhang bare.": "التغطية الكاملة تسمح لجدار بأن يعبر جدارًا آخر أو يشاركه قاعدته على اللوح، فتنفصل القطعة المزدحمة كدعامة واحدة. فعّلها لإبقاء كل جدار منفصلًا: طباعة الراتنج تُصلّب الجدران المتصلة في كتلة واحدة لا تنكسر. تُفعَّل تلقائيًا مع الأسنان العمودية (راتنج). قد تترك قليلًا من التدلي دون دعم.",
   // Sway braces: hover preview, cross ribs, tall-wall rib height (#318)
   "Brace walls above": "تدعيم الجدران الأعلى من",
   "Walls taller than this height get face ribs. 5 cm or more; default 10 cm.": "تحصل الجدران الأعلى من هذا الارتفاع على أضلاع على الوجهين. 5 سم أو أكثر؛ الافتراضي 10 سم.",

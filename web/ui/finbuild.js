@@ -111,6 +111,7 @@ export function finOpts(isl = islands) {
            bedPad: el('bed-pad').value !== 'off',
            plateOnly: el('plate-only').checked,
            longWalls: el('long-walls').checked,   // Full coverage only (fins/rows.js)
+           separateWalls: el('separate-walls').checked,   // Full coverage only (#309)
            tallRibs: el('tall-ribs').checked,     // face ribs on tall walls (fins/tall.js)
            // Curved walls (prop/curved.js): Auto and Full only, like sway
            curvedWalls: autoLike() && el('curved-walls').checked ? true : undefined,
