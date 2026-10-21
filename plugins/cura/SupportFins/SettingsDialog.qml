@@ -32,6 +32,11 @@ UM.Dialog
             width: dialog.width - UM.Theme.getSize("default_margin").width * 4
             spacing: UM.Theme.getSize("narrow_margin").height
 
+            // Cura.ComboBox reads its empty-list text from an id `catalog` in the file using
+            // it; without one each choice row logs a TypeError on open (#364). Here, not on
+            // the dialog: UM.Dialog's children take Items only.
+            UM.I18nCatalog { id: catalog; name: "cura" }
+
             Repeater
             {
                 model: manager.rows
