@@ -247,6 +247,13 @@ export const TIP_PICS = {
     + '<line class="tp-mark" x1="20" y1="50" x2="216" y2="50"/>'
     + vArrow(208, 50, 118)),
 
+  // Tie walls together: neighbouring walls (seen end on) joined by zigzag struts
+  // from the plate up to just under their tops, one frame instead of three.
+  'tie-walls': svg(BED
+    + slab(30, 210, 6, 20)
+    + wall(56, 64, 28) + wall(116, 124, 28) + wall(176, 184, 28)
+    + '<path class="tp-strut" d="M64 116 L116 86 L64 56 L116 36 M176 116 L124 86 L176 56 L124 36"/>'),
+
   // Full brace depth: past the usual limit (dashed), the brace keeps its share.
   'full-brace-depth': svg(BED
     + '<rect class="tp-part" x="20" y="6" width="22" height="112"/>'

@@ -1152,3 +1152,4 @@ body.no-part #viewport canvas { pointer-events: none; }
 .tp-cone { fill: #e05a4f; }
 .tp-plan { fill: #8fa3c8; opacity: 0.45; }
 .tp-band { stroke: #3fae6a; stroke-width: 5; }
+.tp-strut { stroke: #3fae6a; stroke-width: 3; fill: none; stroke-linejoin: round; }
