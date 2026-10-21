@@ -502,7 +502,7 @@ export default {
   "fewer pins": "menos pinos",
   "more pins": "mais pinos",
   "pins": "pinos",
-  "How many pins each wall gets. Fewer = fewer marks to clean up; more = held at more points. Pin depth is what makes each pin hold harder.": "Quantos pinos cada parede recebe. Menos = menos marcas para limpar; mais = presa em mais pontos. A profundidade do pino é o que faz cada pino segurar com mais força.",
+  "How many pins each wall gets. More pins = a firmer hold; fewer = fewer marks to clean up. Add pins before deepening them: a deeper pin leaves a bigger mark and is harder to snap off.": "Quantos pinos cada parede recebe. Mais pinos = fixação mais firme; menos = menos marcas para limpar. Acrescente pinos antes de aprofundá-los: um pino mais fundo deixa uma marca maior e é mais difícil de quebrar.",
   // Sway braces: hover preview, cross ribs, tall-wall rib height (#318)
   "Brace walls above": "Reforçar paredes acima de",
   "Walls taller than this height get face ribs. 5 cm or more; default 10 cm.": "Paredes mais altas que isso ganham nervuras nas duas faces. 5 cm ou mais; padrão 10 cm.",

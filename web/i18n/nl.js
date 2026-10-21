@@ -433,7 +433,7 @@ export default {
 	"fewer pins": "minder pinnen",
 	"more pins": "meer pinnen",
 	"pins": "pinnen",
-	"How many pins each wall gets. Fewer = fewer marks to clean up; more = held at more points. Pin depth is what makes each pin hold harder.": "Hoeveel pinnen elke wand krijgt. Minder = minder sporen om weg te werken; meer = op meer punten vastgehouden. De pindiepte bepaalt hoe stevig elke pin vasthoudt.",
+	"How many pins each wall gets. More pins = a firmer hold; fewer = fewer marks to clean up. Add pins before deepening them: a deeper pin leaves a bigger mark and is harder to snap off.": "Hoeveel pinnen elke wand krijgt. Meer pinnen = steviger vast; minder = minder sporen om weg te werken. Voeg liever pinnen toe dan ze dieper te maken: een diepere pin laat een groter spoor na en breekt lastiger af.",
 	// Sway braces: hover preview, cross ribs, tall-wall rib height (#318)
 	"Brace walls above": "Wanden verstevigen vanaf",
 	"Walls taller than this height get face ribs. 5 cm or more; default 10 cm.": "Wanden hoger dan deze hoogte krijgen ribben aan beide zijden. Minimaal 5 cm, standaard 10 cm.",

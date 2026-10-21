@@ -156,11 +156,12 @@ function debouncedRefresh(ms = 180) {
 // Tine grip only means anything when the tines are on, so hide its slider with the
 // toggle (keeps the panel honest -- no dead control).
 // Tine grip + layer height only matter when Tines is on -- hide both otherwise.
-// With vertical (resin) pins the slider only spaces the pins -- Pin depth is what
-// holds harder -- so it says that there (#309: "not sure what light vs tight grip
-// are changing").
-const PIN_SPACING_TIP = 'How many pins each wall gets. Fewer = fewer marks to clean up; more = '
-  + 'held at more points. Pin depth is what makes each pin hold harder.';
+// With vertical (resin) pins the slider only spaces the pins, so it says that there
+// (#309: "not sure what light vs tight grip are changing"). More pins is the way to
+// hold harder: resin slicers sink a tip 0-0.2 mm, and a deeper pin scars more.
+const PIN_SPACING_TIP = 'How many pins each wall gets. More pins = a firmer hold; fewer = fewer '
+  + 'marks to clean up. Add pins before deepening them: a deeper pin leaves a bigger mark and '
+  + 'is harder to snap off.';
 let gripTip = null;
 function syncTineGrip() {
   const on = el('tines').checked;

@@ -437,7 +437,7 @@ export default {
   "fewer pins": "دبابيس أقل",
   "more pins": "دبابيس أكثر",
   "pins": "دبابيس",
-  "How many pins each wall gets. Fewer = fewer marks to clean up; more = held at more points. Pin depth is what makes each pin hold harder.": "عدد الدبابيس التي يحصل عليها كل جدار. أقل = علامات أقل للتنظيف؛ أكثر = تثبيت في نقاط أكثر. عمق الدبوس هو ما يجعل كل دبوس يمسك بقوة أكبر.",
+  "How many pins each wall gets. More pins = a firmer hold; fewer = fewer marks to clean up. Add pins before deepening them: a deeper pin leaves a bigger mark and is harder to snap off.": "عدد الدبابيس التي يحصل عليها كل جدار. دبابيس أكثر = تثبيت أقوى؛ أقل = علامات أقل للتنظيف. أضف دبابيس قبل أن تزيد عمقها: الدبوس الأعمق يترك علامة أكبر ويصعب كسره.",
   // Sway braces: hover preview, cross ribs, tall-wall rib height (#318)
   "Brace walls above": "تدعيم الجدران الأعلى من",
   "Walls taller than this height get face ribs. 5 cm or more; default 10 cm.": "تحصل الجدران الأعلى من هذا الارتفاع على أضلاع على الوجهين. 5 سم أو أكثر؛ الافتراضي 10 سم.",

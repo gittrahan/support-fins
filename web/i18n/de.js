@@ -453,7 +453,7 @@ export default {
   "fewer pins": "weniger Stifte",
   "more pins": "mehr Stifte",
   "pins": "Stifte",
-  "How many pins each wall gets. Fewer = fewer marks to clean up; more = held at more points. Pin depth is what makes each pin hold harder.": "Wie viele Stifte jede Wand bekommt. Weniger = weniger Spuren zum Nacharbeiten; mehr = an mehr Punkten gehalten. Die Stifttiefe bestimmt, wie fest jeder Stift hält.",
+  "How many pins each wall gets. More pins = a firmer hold; fewer = fewer marks to clean up. Add pins before deepening them: a deeper pin leaves a bigger mark and is harder to snap off.": "Wie viele Stifte jede Wand bekommt. Mehr Stifte = festerer Halt; weniger = weniger Spuren zum Nacharbeiten. Lieber mehr Stifte als tiefere: ein tieferer Stift hinterlässt eine größere Spur und lässt sich schwerer abbrechen.",
   // Sway braces: hover preview, cross ribs, tall-wall rib height (#318)
   "Brace walls above": "Wände versteifen ab",
   "Walls taller than this height get face ribs. 5 cm or more; default 10 cm.": "Wände über dieser Höhe bekommen Rippen an beiden Seiten. Mindestens 5 cm, Standard 10 cm.",

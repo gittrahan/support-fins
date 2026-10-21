@@ -299,7 +299,7 @@ export default {
   "fewer pins": "较少针",
   "more pins": "较多针",
   "pins": "针",
-  "How many pins each wall gets. Fewer = fewer marks to clean up; more = held at more points. Pin depth is what makes each pin hold harder.": "每面墙放多少根针。更少 = 需要清理的痕迹更少；更多 = 在更多点上固定。针深决定每根针抓得多牢。",
+  "How many pins each wall gets. More pins = a firmer hold; fewer = fewer marks to clean up. Add pins before deepening them: a deeper pin leaves a bigger mark and is harder to snap off.": "每面墙放多少根针。针越多 = 抓得越牢；越少 = 需要清理的痕迹越少。先加针，再加深：针越深，留下的痕迹越大，也越难掰掉。",
   "light": "轻",
   "firm": "牢",
   "light grip": "轻咬合",
