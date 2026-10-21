@@ -529,11 +529,12 @@
       <label data-tip-pic="plate-only" data-i18n-title class="check" title="Stand every support on the build plate, never on the part itself. An overhang with part under it is left unsupported, and the readout says how many.">
         <input type="checkbox" id="plate-only"><span data-i18n="Plate only">Plate only</span>
       </label>
-      <!-- Separate walls (Full coverage only, #309, fins/fill.js `separateWalls`): no
+      <!-- Separate walls (Full coverage, and Auto's Curved walls fill; #309, fins/fill.js
+           `separateWalls`): no
            fill wall crosses another or joins its flange. Ticks and unticks itself with
            the tine Direction (resin cures joined walls into one block); the user can
            override it after. -->
-      <label data-tip-pic="separate-walls" data-i18n-title class="check" id="separate-walls-fld" hidden title="Full coverage lets a wall cross another or share its base on the plate, so a crowded part peels off as one support. Tick to keep every wall apart: a resin print cures joined walls into one block that won't break away. Ticks itself for Vertical (resin) tines. Can leave a little more overhang bare.">
+      <label data-tip-pic="separate-walls" data-i18n-title class="check" id="separate-walls-fld" hidden title="Full coverage lets a wall cross another or share its base on the plate, so a crowded part peels off as one support. Tick to keep every wall apart: a resin print cures joined walls into one block that won't break away. Ticks itself for Vertical (resin) tines. Thin ties between tall walls stay: they snap. Can leave a little more overhang bare.">
         <input type="checkbox" id="separate-walls"><span data-i18n="Separate walls">Separate walls</span>
       </label>
       <!-- Long walls (Full coverage only, fins/rows.js): rows of long walls along the

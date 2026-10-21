@@ -10,7 +10,8 @@ const build = (name, o = {}) => {
   return fins.buildFins(topo, analyze(topo, 45, I), I, { mode: 'full', bedPad: true, ...o });
 };
 
-/** Pairs of fill walls whose bottom 1 mm (flange, foot) boxes, split per triangle, overlap. */
+/** Pairs of fill walls whose bottom 1 mm (flange, foot) boxes, split per triangle, overlap
+ *  (each wall's own range: its ribs and ties are a frame with it, see the PR). */
 function touchingBases(b) {
   const fill = b.fins.filter((f) => f.fill);
   const boxes = fill.map((f) => {
@@ -38,8 +39,9 @@ Deno.test('separate walls: Full joins none, and keeps every fill wall\'s base ap
   assert(touchingBases(apart) === 0, `${touchingBases(apart)} pairs of fill-wall bases overlap`);
 });
 
-Deno.test('separate walls: off is the build without the option', () => {
-  const a = build('torus'), b = build('torus', { separateWalls: false });
+Deno.test('separate walls: off is the default build, which joins walls', () => {
+  const a = build('sphere'), b = build('sphere', { separateWalls: false });
+  assert(b.fill.joined > 0, 'unticked, Full still joins walls as before');
   assert(a.triangles.length === b.triangles.length, 'same triangle count');
   for (let i = 0; i < a.triangles.length; i++) {
     for (let k = 0; k < 3; k++) if (a.triangles[i][k] !== b.triangles[i][k]) throw new Error(`vertex ${i} moved`);
