@@ -527,7 +527,7 @@ export default {
   "Pad spread": "Abertura da base",
   "Show midair starts": "Mostrar inícios no ar",
   "Horizontal: one-layer tines that grip the part and snap off clean (FDM). Vertical: pins that stand up from each wall into the part, like a resin slicer's contact tips, for resin printers, where every support has to be attached.": "Horizontal: dentes de uma camada que prendem a peça e destacam limpo (FDM). Vertical: pinos que sobem de cada parede até a peça, como as pontas de contato de um fatiador de resina, para impressoras de resina, onde todo suporte precisa estar preso.",
-  "How far each pin sinks into the part, like a resin slicer's contact depth. Deeper holds harder and leaves a bigger mark. Default 0.3 mm.": "Quanto cada pino entra na peça, como a profundidade de contato de um fatiador de resina. Mais fundo segura mais e deixa marca maior. Padrão 0,3 mm.",
+  "How far each pin sinks into the part, like a resin slicer's contact depth. Resin slicers sink a tip 0-0.2 mm; deeper leaves a bigger mark and is harder to snap off. Default 0.1 mm.": "Até onde cada pino entra na peça, como a profundidade de contato de um fatiador de resina. Fatiadores de resina afundam a ponta 0-0,2 mm; mais fundo deixa uma marca maior e é mais difícil de quebrar. Padrão 0,1 mm.",
   "Bring back every fin removed in this orientation.": "Traz de volta todas as aletas removidas nesta orientação.",
   "Draw a red cone under each spot whose first layer starts in midair. Off hides the cones; the readout and the card still count them.": "Desenha um cone vermelho sob cada ponto cuja primeira camada começa no ar. Desligado esconde os cones; o painel e o aviso continuam contando.",
 };

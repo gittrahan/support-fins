@@ -15,7 +15,7 @@ function build(name, tunables) {
     return { topo, res, b, caps: globalThis.__TINECAP };
   } finally {
     delete globalThis.__TINECAP;
-    fins.applyTunables({ tineDir: 'horizontal', pinDepth: 0.3 });   // module state back to the default
+    fins.applyTunables({ tineDir: 'horizontal', pinDepth: 0.1 });   // module state back to the default
   }
 }
 
@@ -27,7 +27,7 @@ Deno.test('pins: a flat span the comb can\'t grip gets pins (lowledge)', () => {
 });
 
 Deno.test('pins: every pin sinks pinDepth into the part, none pokes out the top', () => {
-  for (const depth of [0.3, 1.0]) {
+  for (const depth of [0.1, 0.3, 1.0]) {
     const { topo, res, caps } = build('lowledge', { tineDir: 'vertical', pinDepth: depth });
     for (const { x, y, z } of caps) {
       // z is a half layer under the underside; the pin's top is depth into the part
@@ -59,4 +59,23 @@ Deno.test('pins: a wall on the part welds its foot under vertical (no floating i
   try { assert(prop.PROP.footGap === 0, 'vertical kept the FDM foot gap'); }
   finally { fins.applyTunables({ tineDir: 'horizontal' }); }
   assert(prop.PROP.footGap > 0, 'horizontal lost the foot gap');
+});
+
+Deno.test('pins: each pin narrows to its contact tip where it meets the part', () => {
+  const { topo, res, b, caps } = build('lowledge', { tineDir: 'vertical' });
+  const tipR = prop.PROP.pinTipW / 2 * Math.SQRT2 + 1e-6, fullR = prop.PROP.pinW / 2 * Math.SQRT2;
+  const verts = b.triangles;   // a flat run of [x, y, z] vertices, three per triangle
+  for (const { x, y, z } of caps) {
+    let under = z;
+    while (!insidePart(topo, IDENTITY, res.offset, x, y, under)) under += 0.02;
+    const near = verts.filter(([vx, vy]) => Math.hypot(vx - x, vy - y) < fullR + 0.01);
+    const atPart = near.filter((v) => v[2] >= under - 0.06);
+    assert(atPart.length > 0, `no pin at ${x.toFixed(1)},${y.toFixed(1)}`);
+    for (const [vx, vy] of atPart) {
+      assert(Math.hypot(vx - x, vy - y) <= tipR,
+        `a pin at ${x.toFixed(1)},${y.toFixed(1)} is wider than its tip where it meets the part`);
+    }
+    assert(near.some(([vx, vy, vz]) => vz < under - 0.1 && Math.hypot(vx - x, vy - y) > tipR),
+      `a pin at ${x.toFixed(1)},${y.toFixed(1)} never widens below the part`);
+  }
 });

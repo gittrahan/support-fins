@@ -58,7 +58,8 @@ with pins:
 | | value | why |
 |---|---|---|
 | pin width `pinW` | 0.4 mm square | a resin contact tip's 0.3–0.6, inside the 0.6 wall tip |
-| pin depth `pinDepth` | 0.3 mm (field 0.05–1) | how far into the part; halved down to ¼ where the part is thinner, else no pin |
+| pin tip `pinTipW` | 0.25 mm square | narrows from `pinW` across the gap, so it snaps at the part's surface |
+| pin depth `pinDepth` | 0.1 mm (field 0.05–1) | how far into the part (resin presets: 0–0.2); halved down to ¼ where the part is thinner, else no pin |
 | spacing | the Tine grip slider's step | 2 mm dense … 5 mm light, ≥ 3 per wall |
 | bottom | `tineOverlap` (0.3) inside the wall top | so they union |
 | foot gap | 0 (welded) | a wall on the part would otherwise start as a floating island |

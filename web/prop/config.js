@@ -261,6 +261,9 @@ export const PROP = {
   // across the gap and pinDepth into the underside. Untested on a resin printer.
   tineDir: 'horizontal',
   pinW: 0.4,           // pin width: a resin contact tip's 0.3-0.6 mm, inside the 0.6 wall tip
-  pinDepth: 0.3,       // how far a pin sinks into the part (the user's "Pin depth")
+  pinTipW: 0.25,       // where it meets the part: a light-to-medium resin tip (0.15-0.5)
+  pinDepth: 0.1,       // how far a pin sinks into the part (the user's "Pin depth"):
+                       // resin presets sink a tip 0-0.2 mm (Lychee 0, Titancraft 0.07);
+                       // deeper scars more and snaps harder (#309, front walls needed a tool)
   pinDepthMax: 1.0,    // the field's ceiling
 };

@@ -73,3 +73,23 @@ export function loftExtrude(polyLo, polyHi, lo, hi, P, out) {
     out.push(vlo[0], vlo[i + 1], vlo[i]);
   }
 }
+
+/** boxExtrude through a stack of outlines: polys[i] (same vertex count and order) at
+ *  zs[i], zs rising. One closed solid -- a resin pin that narrows to its contact tip. */
+export function stackExtrude(polys, zs, P, out) {
+  const n = polys[0].length;
+  const rings = polys.map((poly, r) => poly.map(([a, b]) => P(a, b, zs[r])));
+  for (let r = 0; r + 1 < rings.length; r++) {
+    const vlo = rings[r], vhi = rings[r + 1];
+    for (let i = 0; i < n; i++) {
+      const j = (i + 1) % n;
+      out.push(vlo[i], vlo[j], vhi[j]);
+      out.push(vlo[i], vhi[j], vhi[i]);
+    }
+  }
+  const vlo = rings[0], vhi = rings[rings.length - 1];
+  for (let i = 1; i < n - 1; i++) {
+    out.push(vhi[0], vhi[i], vhi[i + 1]);
+    out.push(vlo[0], vlo[i + 1], vlo[i]);
+  }
+}

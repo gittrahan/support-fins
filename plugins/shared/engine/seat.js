@@ -43,7 +43,7 @@ export function clearances(opts) {
     // Always sent, so a host's next build doesn't keep the last one's direction: the
     // engine's PROP is module state (#309: 'vertical' lays resin pins).
     tineDir: pick('tineDir', opts.tineDir ?? 'horizontal', ['horizontal', 'vertical']),
-    pinDepth: opts.pinDepth ?? 0.3,
+    pinDepth: opts.pinDepth ?? 0.1,
   };
   return { tunables };
 }

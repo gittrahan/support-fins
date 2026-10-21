@@ -290,7 +290,7 @@ export default {
   "Vertical (resin)": "垂直（树脂）",
   "Horizontal: one-layer tines that grip the part and snap off clean (FDM). Vertical: pins that stand up from each wall into the part, like a resin slicer's contact tips, for resin printers, where every support has to be attached.": "水平：单层齿咬住零件，折断时干净脱落（FDM 熔融挤出）。垂直：从每堵墙向上立起插针、扎入零件，类似树脂切片软件的接触触点，适用于树脂打印机 —— 树脂打印的每一处支撑都必须与零件相连。",
   "Pin depth": "插针深度",
-  "How far each pin sinks into the part, like a resin slicer's contact depth. Deeper holds harder and leaves a bigger mark. Default 0.3 mm.": "每根插针扎入零件的深度，类似树脂切片软件中的接触深度。越深固定越牢，但留下的痕迹越大。默认 0.3 mm。",
+  "How far each pin sinks into the part, like a resin slicer's contact depth. Resin slicers sink a tip 0-0.2 mm; deeper leaves a bigger mark and is harder to snap off. Default 0.1 mm.": "每根插针扎入零件的深度，类似树脂切片软件中的接触深度。树脂切片软件让支撑尖端扎入 0-0.2 mm；越深留下的痕迹越大，也越难掰掉。默认 0.1 mm。",
   "Not tested on a resin printer yet. Tell us how it prints on GitHub issue #309.": "尚未在树脂打印机上实测。欢迎到 GitHub 第 309 号 issue 告诉我们实际打印效果。",
   "resin": "树脂",
   "light": "轻",
