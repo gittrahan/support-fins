@@ -716,6 +716,46 @@ body.no-part #viewport canvas { pointer-events: none; }
 .layers-toggle { color: var(--dim); font-size: 12px; }
 .nav-pick { color: var(--dim); font-size: 12px; }
 .vb-pop .nav-pick select { margin-left: 6px; padding: 2px 6px; font-size: 12px; }
+/* View cube (#350, ui/viewcube.js): above the toolbar at its left end, out of the
+   way of the popovers (it hides while one opened over it is showing) */
+#viewcube {
+  position: absolute; left: 0; bottom: calc(100% + 8px);
+  display: flex; align-items: flex-end; gap: 2px;
+  pointer-events: none;
+}
+#viewcube.vc-off { visibility: hidden; }
+#viewcube .vc-stage {
+  position: relative; width: 116px; height: 116px;
+  pointer-events: auto; cursor: pointer; touch-action: none; user-select: none;
+}
+#viewcube .vc-stage.dragging { cursor: grabbing; }
+#viewcube .vc-cube {
+  position: absolute; left: 50%; top: 50%; width: 0; height: 0;
+  transform-style: preserve-3d;
+}
+#viewcube .vc-face {
+  position: absolute; left: -32px; top: -32px; width: 64px; height: 64px;
+  box-sizing: border-box;
+  display: grid; grid-template: 13px 1fr 13px / 13px 1fr 13px;
+  border: 1px solid color-mix(in srgb, #fff 22%, transparent);
+  background: color-mix(in srgb, var(--btn) 88%, transparent);
+  backface-visibility: hidden;
+}
+#viewcube .vc-cell { display: flex; align-items: center; justify-content: center; min-width: 0; }
+#viewcube .vc-cell.hot { background: color-mix(in srgb, var(--accent) 55%, transparent); }
+#viewcube .vc-cell span {
+  color: var(--text); font-size: 11px; font-weight: 600; letter-spacing: .02em;
+  white-space: nowrap; pointer-events: none;
+}
+#viewcube .vc-side { display: flex; flex-direction: column; align-items: center; gap: 4px; pointer-events: auto; }
+#viewcube .vc-home {
+  display: inline-flex; padding: 4px; border: 1px solid var(--glass-line); border-radius: 6px;
+  background: var(--glass); color: var(--text); cursor: pointer;
+}
+#viewcube .vc-home:hover { color: var(--accent); }
+#viewcube .vc-home .ico { width: 14px; height: 14px; }
+#viewcube .vc-axes { width: 32px; height: 32px; overflow: visible; }
+#viewcube .vc-axes text { font-size: 7px; font-weight: 700; }
 /* Camera views (#350): opposite sides paired in columns -- Front/Back, Left/Right, Top/Bottom */
 .vb-pop #cam-views { display: grid; grid-template-rows: auto auto; grid-auto-flow: column; gap: 4px; }
 

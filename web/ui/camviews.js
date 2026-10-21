@@ -6,7 +6,7 @@ import { t } from './i18n.js';
  */
 import { el } from './dom.js';
 import { camera, controls, requestRender } from './scene.js';
-import { VIEWS, viewPosition, orbitLerp } from './viewpresets.js';
+import { VIEWS, dirPosition, orbitLerp } from './viewpresets.js';
 
 const row = el('cam-views');
 
@@ -19,7 +19,7 @@ function render() {
     b.className = 'btn sm';
     b.textContent = t(v.label);
     b.title = t(v.hint);
-    b.addEventListener('click', () => go(key));
+    b.addEventListener('click', () => glideTo(v.dir));
     row.appendChild(b);
   }
 }
@@ -29,10 +29,12 @@ window.addEventListener('languagechange', render);
 const EASE_MS = 450;
 let gliding = 0;   // a second click mid-glide takes over from the first
 
-function go(key) {
+/** Glide the camera round to look back along `dir` at the target, same distance.
+ *  The view cube (ui/viewcube.js) uses it too. */
+export function glideTo(dir) {
   const tgt = controls.target.clone();
   const from = camera.position.clone().sub(tgt).toArray();
-  const to = viewPosition(key, [0, 0, 0], Math.hypot(...from));
+  const to = dirPosition(dir, [0, 0, 0], Math.hypot(...from));
   // An orbit still easing out from a drag would carry on past the view, off square.
   controls._sphericalDelta.set(0, 0, 0);
   controls._panOffset.set(0, 0, 0);

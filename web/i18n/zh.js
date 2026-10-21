@@ -31,6 +31,7 @@ export default {
   "Top": "顶",
   "Bottom": "底",
   "Camera view": "相机视图",
+  "Home view: front right, from above. Keeps the zoom.": "初始视图：右前方俯视。保持缩放。",
   "Look at the part from the front.": "从前方查看零件。",
   "Look at the part from the back.": "从后方查看零件。",
   "Look at the part from the left.": "从左侧查看零件。",

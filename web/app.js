@@ -31,6 +31,7 @@ import './ui/calibrate.js';
 import './ui/topbar.js';
 import './ui/navigation.js';
 import './ui/camviews.js';
+import { syncViewCube } from './ui/viewcube.js';
 import './ui/scale.js';
 import { updateReadout } from './ui/readout.js';
 import {
@@ -233,6 +234,7 @@ function tick(now) {
     camPos.copy(camera.position);
     camQuat.copy(camera.quaternion);
     requestRender(250);
+    syncViewCube();
   }
   sizeMarkers();
   renderer.render(scene, camera);

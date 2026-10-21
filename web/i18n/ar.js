@@ -23,6 +23,7 @@ export default {
   "Top": "علوي",
   "Bottom": "سفلي",
   "Camera view": "منظر الكاميرا",
+  "Home view: front right, from above. Keeps the zoom.": "المنظر الافتراضي: من الأمام يمينًا ومن الأعلى. يحتفظ بالتكبير.",
   "Look at the part from the front.": "عرض القطعة من الأمام.",
   "Look at the part from the back.": "عرض القطعة من الخلف.",
   "Look at the part from the left.": "عرض القطعة من اليسار.",

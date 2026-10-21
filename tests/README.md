@@ -232,6 +232,9 @@ use it; the site parses with three.js's `STLLoader`):
 - the glide between views swings round the target at the same distance (Front to
   Back in a straight line would run through it);
 - every view has a label and a tooltip.
+- the **view cube**'s faces read upright from outside (and its middle cells are the
+  buttons' views); its 3x3 cells give 26 distinct views -- each corner on 3 faces,
+  each edge on 2; a click straight up or down leans to the front like Top/Bottom.
 
 **`step.test.js`** -- STEP import through the real vendored OpenCascade WASM (the
 same `stepObjects()` the app's worker output goes through):

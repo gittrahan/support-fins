@@ -22,6 +22,7 @@ export default {
   "Top": "Boven",
   "Bottom": "Onder",
   "Camera view": "Camerastandpunt",
+  "Home view: front right, from above. Keeps the zoom.": "Startweergave: rechtsvoor, van boven. Behoudt de zoom.",
   "Look at the part from the front.": "Bekijk het onderdeel van voren.",
   "Look at the part from the back.": "Bekijk het onderdeel van achteren.",
   "Look at the part from the left.": "Bekijk het onderdeel van links.",

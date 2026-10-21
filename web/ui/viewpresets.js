@@ -22,10 +22,40 @@ export const VIEWS = {
 };
 
 /** Where the camera goes for view `key`, `dist` from `target` ([x, y, z]). */
-export function viewPosition(key, target, dist) {
-  const d = VIEWS[key].dir;
-  const n = Math.hypot(...d);
-  return target.map((t, i) => t + (d[i] / n) * dist);
+export const viewPosition = (key, target, dist) => dirPosition(VIEWS[key].dir, target, dist);
+
+/** Where the camera goes looking back along `dir` (any length) at `target`, `dist`
+ *  from it. Straight up or down leans TILT toward the front, as Top and Bottom do. */
+export function dirPosition(dir, target, dist) {
+  let [x, y, z] = dir;
+  if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) y = -TILT * Math.abs(z);
+  const n = Math.hypot(x, y, z);
+  return [target[0] + (x / n) * dist, target[1] + (y / n) * dist, target[2] + (z / n) * dist];
+}
+
+/** The default view's direction (scene.js frame()): front right, from above. */
+export const HOME_DIR = [0.62, -0.72, 0.55];
+
+/**
+ * The view cube's faces (ui/viewcube.js). `n` points out of the face, `u` is right
+ * and `v` down on it as read from outside, so its label stands upright in that face's
+ * own view (Top: the back of the plate up, Bottom: the front up). Each face is a 3x3
+ * grid of click targets: the middle one is the face, an edge strip the view halfway
+ * to the face beyond it, a corner the view from that corner of the cube.
+ */
+export const CUBE_FACES = {
+  front:  { n: [0, -1, 0], u: [1, 0, 0],  v: [0, 0, -1] },
+  back:   { n: [0, 1, 0],  u: [-1, 0, 0], v: [0, 0, -1] },
+  left:   { n: [-1, 0, 0], u: [0, -1, 0], v: [0, 0, -1] },
+  right:  { n: [1, 0, 0],  u: [0, 1, 0],  v: [0, 0, -1] },
+  top:    { n: [0, 0, 1],  u: [1, 0, 0],  v: [0, -1, 0] },
+  bottom: { n: [0, 0, -1], u: [1, 0, 0],  v: [0, 1, 0] },
+};
+
+/** The view direction for cell (`col`, `row`), each -1, 0 or 1, of cube face `key`. */
+export function cubeCellDir(key, col, row) {
+  const { n, u, v } = CUBE_FACES[key];
+  return n.map((c, i) => c + col * u[i] + row * v[i]);
 }
 
 /**

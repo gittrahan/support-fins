@@ -22,6 +22,7 @@ export default {
   "Top": "Topo",
   "Bottom": "Base",
   "Camera view": "Vista da câmera",
+  "Home view: front right, from above. Keeps the zoom.": "Vista inicial: frente à direita, de cima. Mantém o zoom.",
   "Look at the part from the front.": "Ver a peça de frente.",
   "Look at the part from the back.": "Ver a peça por trás.",
   "Look at the part from the left.": "Ver a peça pela esquerda.",

@@ -22,6 +22,7 @@ export default {
   "Top": "Oben",
   "Bottom": "Unten",
   "Camera view": "Kameraansicht",
+  "Home view: front right, from above. Keeps the zoom.": "Startansicht: von vorne rechts, von oben. Behält den Zoom.",
   "Look at the part from the front.": "Das Bauteil von vorne ansehen.",
   "Look at the part from the back.": "Das Bauteil von hinten ansehen.",
   "Look at the part from the left.": "Das Bauteil von links ansehen.",
