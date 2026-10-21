@@ -137,29 +137,30 @@ export const TIP_PICS = {
     + '<rect class="tp-part" x="134" y="10" width="44" height="108"/><rect class="tp-sup" x="184" y="10" width="16" height="108"/>'
     + tines(() => 184, () => 178, 112, 14, 7)),
 
-  // Direction: horizontal tines into a side (FDM), or vertical pins up into an
-  // underside (resin).
+  // Direction: horizontal tines into a side (FDM), or vertical pins up from the wall
+  // top, across the gap and a little into the underside (resin).
   'tine-dir': svg(BED
     + '<rect class="tp-part" x="20" y="10" width="40" height="108"/><rect class="tp-sup" x="66" y="22" width="16" height="96"/>'
     + tines(() => 66, () => 60, 108, 30, 10)
-    + slab(126, 226, 16, 50)
-    + '<rect class="tp-sup" x="156" y="64" width="40" height="54"/>'
-    + [162, 176, 190].map((x) => `<line class="tp-tine" x1="${x}" y1="64" x2="${x}" y2="44"/>`).join('')),
+    + slab(126, 226, 16, 52)
+    + '<rect class="tp-sup" x="156" y="60" width="40" height="58"/>'
+    + [162, 176, 190].map((x) => `<line class="tp-tine" x1="${x}" y1="60" x2="${x}" y2="42"/>`).join('')),
 
-  // Pin depth: how far each pin sinks into the part.
+  // Pin depth: how far each pin sinks into the part, past the gap it crosses.
   'pin-depth': svg(BED
     + slab(20, 220, 8, 60)
-    + '<rect class="tp-sup" x="84" y="86" width="72" height="32"/>'
-    + [96, 116, 136].map((x) => `<rect class="tp-sup" x="${x}" y="46" width="6" height="40"/>`).join('')
-    + '<line class="tp-mark" x1="142" y1="46" x2="196" y2="46"/>'
-    + vArrow(186, 46, 60)),
+    + '<rect class="tp-sup" x="84" y="74" width="72" height="44"/>'
+    + [96, 116, 136].map((x) => `<rect class="tp-sup" x="${x}" y="42" width="6" height="32"/>`).join('')
+    + '<line class="tp-mark" x1="142" y1="42" x2="196" y2="42"/>'
+    + vArrow(186, 42, 60)),
 
-  // Cutouts: holes through a tall wall, each with a pointed roof; the top, foot and
-  // ends stay solid.
+  // Cutouts (honeycomb shown): holes through a tall wall, each with a pointed roof
+  // so it prints without bridging; the top, foot and ends stay solid.
   cutout: svg(BED
     + slab(16, 224, 4, 18)
     + '<rect class="tp-sup" x="20" y="26" width="200" height="92"/>'
-    + [58, 98, 138, 178].map((x) => `<path class="tp-hole" d="M${x} 40 L${x + 16} 72 L${x} 104 L${x - 16} 72 Z"/>`).join('')),
+    + [[41, 52],[62, 52],[83, 52],[104, 52],[125, 52],[146, 52],[167, 52],[188, 52],[51.5, 78.9],[72.5, 78.9],[93.5, 78.9],[114.5, 78.9],[135.5, 78.9],[156.5, 78.9],[177.5, 78.9]].map(([x, y]) =>
+      `<path class="tp-hole" d="M${x} ${y - 17.9} L${x + 9} ${y - 5} L${x + 9} ${y + 5} L${x} ${y + 17.9} L${x - 9} ${y + 5} L${x - 9} ${y - 5} Z"/>`).join('')),
 
   // + Add: an extra wall placed by hand beside the automatic ones.
   'add-walls': svg(BED
@@ -260,14 +261,15 @@ export const TIP_PICS = {
     + slab(8, 114, 16, 44) + wall(26, 38, 52) + wall(84, 96, 52)
     + slab(126, 232, 16, 44) + [132, 152, 172, 192, 212].map((x) => wall(x, x + 12, 52)).join('')),
 
-  // Plate only: supports stand on the plate, never on the part; an overhang with
-  // part under it is left.
+  // Plate only: supports stand on the plate, never on the part. The shelf and the
+  // right of the top hang over the plate and get walls; the top above the shelf
+  // has part under it, so it's left.
   'plate-only': svg(BED
-    + '<path class="tp-part" d="M20 20 L220 20 L220 42 L130 42 L130 118 L90 118 L90 42 L20 42 Z"/>'
-    + '<rect class="tp-part" x="20" y="82" width="50" height="36"/>'
-    + '<line class="tp-over" x1="20" y1="42" x2="90" y2="42"/><line class="tp-over" x1="130" y1="42" x2="220" y2="42"/>'
-    + cross(45, 62)
-    + wall(160, 186, 50)),
+    + '<path class="tp-part" d="M20 18 L220 18 L220 36 L134 36 L134 118 L104 118 L104 84 L44 84 L44 72 L104 72 L104 36 L20 36 Z"/>'
+    + '<line class="tp-over" x1="20" y1="36" x2="104" y2="36"/><line class="tp-over" x1="134" y1="36" x2="220" y2="36"/>'
+    + '<line class="tp-over" x1="44" y1="84" x2="104" y2="84"/>'
+    + cross(66, 54)
+    + wall(64, 80, 92) + wall(168, 184, 44)),
 
   // Long walls (seen from above): rows along the part's length (right) instead of
   // short walls under each patch (left).
@@ -277,13 +279,13 @@ export const TIP_PICS = {
     + '<rect class="tp-plan" x="126" y="20" width="104" height="90"/>'
     + [38, 63, 88].map((y) => `<rect class="tp-sup" x="134" y="${y}" width="88" height="4"/>`).join('')),
 
-  // Curved walls (seen from above): the wall bends with a curved overhang (right)
-  // instead of short straight walls under it (left).
+  // Curved walls (a round part seen from above): walls that bend along its curved
+  // rim (right) instead of short straight ones under it (left).
   'curved-walls': svg(
-    '<path class="tp-over" fill="none" d="M14 104 Q62 4 110 104"/>'
-    + '<path class="tp-band" fill="none" d="M24 104 L44 66 M48 58 L76 58 M80 66 L100 104"/>'
-    + '<path class="tp-over" fill="none" d="M130 104 Q178 4 226 104"/>'
-    + '<path class="tp-band" fill="none" d="M138 104 Q178 20 218 104"/>'),
+    '<circle class="tp-plan" cx="62" cy="65" r="50"/><circle class="tp-over" fill="none" cx="62" cy="65" r="42"/>'
+    + '<path class="tp-band" fill="none" d="M44 29 L80 29 M98 47 L98 83 M80 101 L44 101 M26 83 L26 47"/>'
+    + '<circle class="tp-plan" cx="178" cy="65" r="50"/><circle class="tp-over" fill="none" cx="178" cy="65" r="42"/>'
+    + '<path class="tp-band" fill="none" d="M178 31 A34 34 0 0 1 212 65 M212 71 A34 34 0 0 1 184 99 M172 99 A34 34 0 0 1 144 71 M144 59 A34 34 0 0 1 172 31"/>'),
 
   // Highlight small overhangs: an overhang too small for a fin is shaded amber and
   // prints unsupported; the big one gets its fin.
