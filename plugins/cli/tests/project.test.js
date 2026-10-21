@@ -739,6 +739,7 @@ Deno.test('project resume: invalid flags fail before touching files', async () =
   for (const flags of [
     ['--resume'], ['--preserve-project', '--cache-dir', 'cache'],
     ['--preserve-project', '--resume', '--list-objects'], ['--preserve-project', '--resume=yes'],
+    ['--preserve-project', '--resume', '--list-plates'], ['--preserve-project', '--resume', '--check'],
     ['--preserve-project', '--resume', '--cache-dir='], ['--preserve-project', '--resume', '--cache-dir'],
   ]) {
     let touched = false;

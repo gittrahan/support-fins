@@ -333,7 +333,9 @@ export async function run(argv, io) {
     if (!args.preserveProject && args.objects.length > 1) throw new UsageError('repeat --object only with --preserve-project');
     if (args.resume && !args.preserveProject) throw new UsageError('--resume requires --preserve-project');
     if (args.cacheDir !== null && !args.resume) throw new UsageError('--cache-dir requires --resume');
-    if (args.listObjects && args.resume) throw new UsageError('--list-objects does not generate fins; do not combine with --resume');
+    for (const [on, flag] of [[args.listObjects, '--list-objects'], [args.listPlates, '--list-plates'], [args.check, '--check']]) {
+      if (on && args.resume) throw new UsageError(`${flag} does not generate fins; do not combine with --resume`);
+    }
     if (args.finsOnly && args.rot) {
       throw new UsageError('--fins-only lines up with the part as it is in your file, so it can\'t take --rot: '
         + 'pose the part in your file, or write part + fins (.3mf)');
