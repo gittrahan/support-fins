@@ -67,8 +67,9 @@ export function sweepSquat(line, zBed, out, inset = null) {
   const from = out.length;
   ribbon(wall, out);
   // resin pins (#309): a windowed brim, so it flexes off a resin plate (not on an
-  // inset run, whose brim is narrowed to stay off its neighbour's)
-  if (PROP.tineDir !== 'vertical' || inset || !windowedFlange(feet, out)) ribbon(brim, out);
+  // inset run, whose brim is narrowed to stay off its neighbour's; Draw passes an
+  // all-zero inset on an all-squat line)
+  if (PROP.tineDir !== 'vertical' || inset?.some((v) => v > 0) || !windowedFlange(feet, out)) ribbon(brim, out);
   if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
   return true;
 }

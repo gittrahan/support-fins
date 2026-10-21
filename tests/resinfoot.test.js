@@ -1,7 +1,7 @@
 // Resin feet (GitHub #309, web/prop/resinfoot.js): with Vertical (resin) pins a wall's
 // base flange is windowed -- a strip under the stem plus spaced pads -- so it flexes
 // off a resin plate. Pinned: less of the plate is covered than by the solid flange,
-// every support is still closed, and the horizontal (FDM) build is untouched.
+// and every support is still closed. (FDM is untouched: the sweep vs main.)
 
 import { loadModel, analyze, buildTopology, fins, isClosed, assert } from './_util.js';
 const { windowedFlange, RESIN_FOOT } = await import('../web/prop/resinfoot.js');
@@ -69,15 +69,6 @@ Deno.test('resin feet: a full wall\'s flange is windowed too (a shelf 20 mm up)'
   const a = plateArea(fdm.triangles), b = plateArea(resin.triangles);
   assert(b < 0.8 * a, `windows cut the plate contact: ${b.toFixed(1)} vs ${a.toFixed(1)} mm2`);
   assert(isClosed(resin.triangles), 'every support solid is still closed');
-});
-
-Deno.test('resin feet: the horizontal build is the one before the switch existed', () => {
-  const a = build('lowledge', { tineDir: 'horizontal' });
-  const b = build('lowledge', {});
-  assert(a.triangles.length === b.triangles.length, 'same triangle count');
-  for (let i = 0; i < a.triangles.length; i++) {
-    for (let k = 0; k < 3; k++) if (a.triangles[i][k] !== b.triangles[i][k]) throw new Error(`vertex ${i} moved`);
-  }
 });
 
 Deno.test('resin feet: pads at both ends, windows between, a short flange stays solid', () => {
