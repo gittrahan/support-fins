@@ -57,6 +57,7 @@ import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified
 import { PROP } from './prop/config.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
 import { bends } from './prop/curved.js';
+import { circularRegions, circularTracks } from './prop/circular.js';
 import { DOWNHILL, downhillLines } from './prop/downhill.js';
 import { latticeStruts, strutPatches } from './prop/lattice.js';
 import { raceAgainst, rasterRest, rasterTracks, withRaster } from './prop/raster.js';
@@ -129,11 +130,17 @@ export function coverRowSpan(coverage) {
  * @returns {{triangles, props, skipped, served, sagRisk}}
  */
 export function buildProps(topo, result, rot, opts = {}) {
+  opts = { ...opts, circularFrames: circularRegions(topo, result, rot) };
   const capFrom = globalThis.__TINECAP?.length ?? 0;    // tests' tine capture: see withRaster
   const normal = buildPass(topo, result, rot, opts, null);
-  const base = opts.raster === false ? normal
+  const rasterBase = opts.raster === false ? normal
     : withRaster(topo, result, rot, opts, normal, capFrom,
                  (regions) => buildPass(topo, result, rot, opts, regions));
+  // Circular candidates use a local geometric frame. The race still checks the
+  // surrounding faces and lowest grip; keep the original layout if they lose.
+  const base = opts.raster !== false && opts.circularFrames.size ? raceAgainst(topo, result, rot, opts, rasterBase, capFrom,
+    (regions) => buildPass(topo, result, rot, { ...opts, onlyRegions: regions, circularPass: true }, null),
+    'circular', null, 0, null, true) : rasterBase;
   // Downhill walls (issue #25): walls that run down the overhang and follow it to
   // the plate, raced per region against what the passes above built -- a region
   // swaps only when they hold more. opts.downhill === true only: Auto turns it on
@@ -276,6 +283,8 @@ function buildPass(topo, result, rot, opts, raster) {
   for (let ri = 0; ri < result.regions.length; ri++) {
     if (only && !only.has(ri)) continue;
     const rFaces = result.regions[ri].faces;
+    const circular = opts.circularFrames?.get(ri);
+    if (opts.circularPass && !circular) continue;
     // Seat the WHOLE region's triangles once, shared by all its sub-patches.
     // The polyline each wall follows comes from its own sub-patch, but the
     // surface its top must CLEAR is the whole region's: a wall near a patch
@@ -298,6 +307,13 @@ function buildPass(topo, result, rot, opts, raster) {
         gx += v[0]; gy += v[1]; gz += v[2];
       }
       regionPts.push([gx / 3, gy / 3, gz / 3]);
+    }
+
+    if (opts.circularPass) {
+      const circularLines = circular && circularTracks(circular, regionTris, step, rowSpan);
+      if (circularLines?.length) patches.push({ faces: rFaces, area: regionArea,
+        region: ri, tris: regionTris, lines: circularLines });
+      continue;
     }
 
     // Downhill pass (prop/downhill.js): walls down the region's slope, for the
