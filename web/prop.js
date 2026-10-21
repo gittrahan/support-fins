@@ -425,7 +425,9 @@ function buildPass(topo, result, rot, opts, raster) {
       // no longer a refusal: its wall is built and flagged inBore. Works on a COPY so
       // the plate path's own `line` is untouched.
       const tri0 = out.length;
-      let pa = buildPartAttached(line, partTris, topo, rot, off, out);
+      // (a track carried on onto a rim goes as it was: the rim's faces ride the
+      // plate path only)
+      let pa = buildPartAttached(line.base ?? line, partTris, topo, rot, off, out);
       // (Plate only: undo it and take the plate path, as a bed overhang would)
       if (plateOnly && (pa.ok || pa.floored)) { out.length = tri0; skipped.onPart++; pa = {}; }
       if (pa.ok && patch.smallTube) {
@@ -454,7 +456,7 @@ function buildPass(topo, result, rot, opts, raster) {
         // its tines right after, so wall + tines are contiguous -> one segment.
         props.push({ ...pa.prop, area: patch.area, region: patch.region, tines: nT,
                      caps: c0 === null ? undefined : [c0, capAt()], grip: grip.z,
-                     trimmed: line.length - pa.prop.stations,
+                     trimmed: (line.base ?? line).length - pa.prop.stations,
                      id: nextId++, kind: 'prop',
                      triRanges: [[tri0, out.length]] });
         continue;

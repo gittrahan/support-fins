@@ -498,6 +498,7 @@ function toEdge(t, du, ux, uy, edgeTris) {
   // tined against its region, which a rim split off by height is not part of
   const far = more[more.length - 1];
   const rim = facesNear(edgeTris, end[0], end[1], far[0], far[1], 1);
+  t.base ??= t.slice();                     // as patched, for the part-attached path
   t.edgeTris = t.edgeTris ? joinTris(t.edgeTris, rim) : rim;
   if (du < 0) t.unshift(...more.reverse()); else t.push(...more);
 }
