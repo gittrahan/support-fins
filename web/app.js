@@ -30,6 +30,7 @@ import './ui/plugins.js';
 import './ui/calibrate.js';
 import './ui/topbar.js';
 import './ui/navigation.js';
+import './ui/camviews.js';
 import './ui/scale.js';
 import { updateReadout } from './ui/readout.js';
 import {

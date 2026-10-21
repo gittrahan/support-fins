@@ -716,6 +716,8 @@ body.no-part #viewport canvas { pointer-events: none; }
 .layers-toggle { color: var(--dim); font-size: 12px; }
 .nav-pick { color: var(--dim); font-size: 12px; }
 .vb-pop .nav-pick select { margin-left: 6px; padding: 2px 6px; font-size: 12px; }
+/* Camera views (#350): opposite sides paired in columns -- Front/Back, Left/Right, Top/Bottom */
+.vb-pop #cam-views { display: grid; grid-template-rows: auto auto; grid-auto-flow: column; gap: 4px; }
 
 /* ---------- strength arrow (load direction) ---------- */
 .vb-pop.loadfx .loadfx-lede { flex-basis: 100%; margin: 0 0 3px;
