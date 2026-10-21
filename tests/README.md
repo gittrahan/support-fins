@@ -80,7 +80,8 @@ and the key edge cases (-0, half-micron rounding, NaN, huge coordinates, duplica
 coverage exemption: recognised circular bores stay clear in Auto and Full, while
 larger bores and neighbouring overhangs keep their supports. Procedural geometry
 checks the classifier boundary, shared-plugin reporting, unchanged highlighting,
-pose-local classification and the explicit Draw path. This reuses the existing
+pose-local classification, cavity keep-clear volumes ending at the actual floor,
+nearby ceilings in Full mode and the explicit Draw path. This reuses the existing
 heuristic, not an exact diameter measurement or a general removability test.
 
 **`wedge_clear.test.js`** -- a wedge never runs through the part under the face it

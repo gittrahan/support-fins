@@ -179,15 +179,31 @@ export function automaticTargets(topo, result, rot) {
   const coverageClasses = classify(topo, result, rot);
   const excludedSupportFaces = Uint8Array.from(coverageClasses, (c) => c === HOLE ? 1 : 0);
   const regions = result.regions.filter((r) => !excludedSupportFaces[r.faces[0]]);
-  const excludedSupportTris = [];
+  const excludedSupportTris = [], excludedSupportVolumes = [];
   if (excludedSupportFaces.some(Boolean)) {
     const tris = seatedPartTris(topo, rot, result.offset);
     for (let f = 0; f < topo.nFaces; f++) if (excludedSupportFaces[f]) {
       for (let k = 0; k < 9; k++) excludedSupportTris.push(tris[f * 9 + k]);
+      const a = Array.from(tris.slice(f * 9, f * 9 + 3));
+      const b = Array.from(tris.slice(f * 9 + 3, f * 9 + 6));
+      const c = Array.from(tris.slice(f * 9 + 6, f * 9 + 9));
+      const x = (a[0] + b[0] + c[0]) / 3, y = (a[1] + b[1] + c[1]) / 3;
+      const z = (a[2] + b[2] + c[2]) / 3;
+      // The actual upward-facing floor, not another diameter or cavity rule.
+      // A triangular prism conservatively reserves the space below this roof
+      // in Full's existing triangle-box collision grid. Keep the source intact.
+      let floor = -Infinity;
+      for (const [h, nz] of surfaceHitsAt(tris, x, y)) {
+        if (nz > 0 && h < z - 1e-6) floor = Math.max(floor, h);
+      }
+      if (!Number.isFinite(floor)) continue;
+      const A = [a[0], a[1], floor], B = [b[0], b[1], floor], C = [c[0], c[1], floor];
+      excludedSupportVolumes.push(a, b, c, A, B, C,
+        a, b, B, a, B, A, b, c, C, b, C, B, c, a, A, c, A, C);
     }
   }
   return {
-    ...result, regions, coverageClasses, excludedSupportFaces, excludedSupportTris,
+    ...result, regions, coverageClasses, excludedSupportFaces, excludedSupportTris, excludedSupportVolumes,
     smallHoleRegions: result.regions.length - regions.length,
   };
 }

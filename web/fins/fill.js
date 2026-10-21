@@ -663,6 +663,11 @@ function fillOnce(topo, result, rot, opts, built) {
   const field = opts.longWalls !== false ? headingField(topo, result, rot) : null;
   const others = boxGrid();
   others.add(built.triangles ?? []);
+  // Reserve the excluded cavity as well as excluding its roof as a target.
+  // Otherwise removing its old wall opens a route for Full's fill candidates,
+  // including walls aimed at a neighbouring overhang. This is collision-only;
+  // it neither emits a support nor claims that any red area is held.
+  others.add(result.excludedSupportVolumes ?? []);
   // Plate only (#218): no wall on the part -- never the retry that stands one there,
   // and every try refuses a station with part under it (stationClear's `plate`)
   const plateOnly = opts.plateOnly === true, strict = plateOnly ? { plate: true } : null;

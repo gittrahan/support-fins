@@ -27,6 +27,12 @@ short-wall and fill passes; curved tracing cannot grow back onto excluded faces.
 The full model remains available for collision checks and the ceiling stays
 highlighted. Larger bores still get supports, and Draw remains an explicit choice.
 
+Full coverage also reserves the space between each excluded ceiling triangle
+and the model's upward-facing floor in its existing collision grid. These
+keep-clear volumes are computed once with the classification and never emitted
+as supports or credited as held area. This prevents removal of the trapped wall
+from opening a new route through the cavity for supports aimed elsewhere.
+
 The readout reports recognised small-hole ceilings left for bridging separately
 from overhangs where placement failed; plugin stats expose `smallHoleRegions`
 (zero when none). Check the slicer preview and print settings: exclusion does not

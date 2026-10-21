@@ -53,6 +53,10 @@ Deno.test('small holes: one generation shares its classification, without cachin
   const targets = automaticTargets(topo, res, IDENTITY3);
   assert(classify(topo, targets, IDENTITY3) === targets.coverageClasses);
   assertEquals(targets.regions.length, 0);
+  assert(targets.excludedSupportVolumes.length > 0, 'Full reserves the cavity without emitting it');
+  const lowest = Math.min(...targets.excludedSupportVolumes.map((p) => p[2]));
+  assert(lowest >= 7.49 + res.offset.z && lowest < 8 + res.offset.z,
+    'the keep-clear volume ends at the actual bore floor');
   const inHole = [0 + res.offset.x, res.offset.y, 12.5 + res.offset.z];
   assert(touchesSmallHole(targets, [inHole]), 'a later pass must reject the exempt ceiling');
   assert(!touchesSmallHole(targets, [[inHole[0], inHole[1], inHole[2] + 10]]),
@@ -107,4 +111,19 @@ Deno.test('small holes: keep neighbouring overhangs supported, and report throug
     assertEquals(plugin.stats.braces + plugin.stats.props, built.props.length);
     assert(plugin.overFaces.length > 0, 'intentional exclusions stay highlighted');
   }
+});
+
+Deno.test('small holes: Full keeps nearby ceilings supported without routing through the bore', () => {
+  const pos = Float64Array.from([...circularBore(),
+    ...block(16, 40, -10, 10, 10, 15), ...block(-40, -16, -10, 10, 10, 15)]);
+  const topo = topology(pos), result = analyze(topo, 45, IDENTITY3);
+  const built = buildFins(topo, result, IDENTITY3, { mode: 'full', coverage: 1, bedPad: true });
+  assertEquals(built.smallHoleRegions, 1);
+  assert(built.props.some((p) => p.line?.some((q) => q[0] > 16 + result.offset.x)));
+  assert(built.props.some((p) => p.line?.some((q) => q[0] < -16 + result.offset.x)));
+  for (const p of built.triangles) {
+    const [x, y, z] = [p[0] - result.offset.x, p[1] - result.offset.y, p[2] - result.offset.z];
+    assert(!(Math.abs(x) < 14.9 && Math.hypot(y, z - 10) < 2.49), 'Full routed a wall through the excluded cavity');
+  }
+  assert(built.bare.area < 0.02 * built.bare.total, 'neighbouring ceilings must retain coverage');
 });
