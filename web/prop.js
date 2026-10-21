@@ -55,7 +55,7 @@ import { MIN_REGION_AREA } from './overhangs.js';
 import { buildPartAttached } from './prop/attached.js';
 import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified, stationIsClear, tallBody, tallSpan, welds, withLowTails } from './prop/clearance.js';
 import { PROP } from './prop/config.js';
-import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
+import { contourTop, lowerSag, settleTop, slopeCap, straightness } from './prop/contact.js';
 import { bends } from './prop/curved.js';
 import { DOWNHILL, downhillLines } from './prop/downhill.js';
 import { latticeStruts, strutPatches } from './prop/lattice.js';
@@ -63,7 +63,7 @@ import { raceAgainst, rasterRest, rasterTracks, withRaster } from './prop/raster
 import { tubeRivalry } from './prop/rival.js';
 import { TRACE, traceGroups } from './prop/trace.js';
 import { buildSquatBed } from './prop/squat.js';
-import { seat } from './prop/surface.js';
+import { joinTris, seat, undersideOf } from './prop/surface.js';
 import { sweep } from './prop/sweep.js';
 import { emitTines, tineStepFor } from './prop/tines.js';
 import { patchTracks, splitRegion, tubeLine } from './prop/tracks.js';
@@ -247,6 +247,10 @@ function buildPass(topo, result, rot, opts, raster) {
     }
   }
 
+  // its down-facing faces, built on first use: where a row's track looks past its
+  // patch for a rim (patchTracks, PROP.edgeReach)
+  let underside = null;
+
   // DENSE grip comb, uniform along every grippable wall. A tip-over-risk scale
   // (commit c0fcf8e) once let "stable" parts fall back to a sparse 9mm comb -- which
   // starved shallow parts down to a few nubs that read as "laying on the face"
@@ -395,7 +399,8 @@ function buildPass(topo, result, rot, opts, raster) {
         }
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
-      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan, patch.axis ?? null);
+      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan, patch.axis ?? null,
+                          underside ??= undersideOf(partTris));
       // The user chose sub-cap spacing (wantSparse) AND this face actually landed a
       // multi-row gap wider than the cap. Flag it so the UI can warn (never blocks;
       // Matthew's call). Single-row faces (spacing 0) can't sag, so they don't warn.
@@ -407,6 +412,9 @@ function buildPass(topo, result, rot, opts, raster) {
     // are appended to `lines` mid-loop (rasterRest).
     for (let li = 0; li < lines.length; li++) {
       const line = lines[li];
+      // a track carried on onto a rim past its patch brings the rim's faces
+      // (patchTracks): its top meets them too
+      const lineTris = line.edgeTris ? joinTris(regionTris, line.edgeTris) : regionTris;
       // PART-ATTACHED first: if solid part sits below this overhang, a support
       // must stand on THAT floor, not stilt to the plate through the part (the
       // bug Matthew hit on a real hub). buildPartAttached declines on an ordinary
@@ -457,10 +465,10 @@ function buildPass(topo, result, rot, opts, raster) {
       // near a patch boundary can run under a sibling patch's faces, and
       // clearance measured against patch-only triangles welded walls to
       // geometry they could not see (gap 0.003mm, flank 0.011mm, hub_corner).
-      contourTop(line, regionTris);
-      lowerSag(line, regionTris);
+      contourTop(line, lineTris);
+      lowerSag(line, lineTris);
       // pin the wall's low end to the squat floor, not the nearest 1mm station
-      if (insertFloorStations(line).length) contourTop(line, regionTris);
+      if (insertFloorStations(line).length) contourTop(line, lineTris);
 
       // SQUAT BED PASS: hold the near-bed stations too low for the flanged wall
       // below (which discards everything under minHeight as stub/blocked). It runs
@@ -471,13 +479,13 @@ function buildPass(topo, result, rot, opts, raster) {
       const squatLine = line.map((p) => [p[0], p[1], p[2]]);
       const claimed = line.map(() => false);
       const runSquat = () => {
-        for (const sq of buildSquatBed(squatLine, regionTris, topo, rot, off, out, claimed)) {
+        for (const sq of buildSquatBed(squatLine, lineTris, topo, rot, off, out, claimed)) {
           // a squat wall's base is the thin brim, not the tall flange, so tines
           // attach from squatBrimH up (the default minTop would skip every one).
           const t0 = out.length, c0 = capAt(), grip = { z: Infinity };
           const nT = withTines ? emitTines(
             sq.line.map((p) => [p[0], p[1], p[2] + PROP.gap]),
-            regionTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH, tineHeight, null, grip) : 0;
+            lineTris, topo, rot, off, out, tineStepEff, PROP.squatBrimH, tineHeight, null, grip) : 0;
           tally.tines += nT;
           servedRegions.add(patch.region);
           // buildSquatBed pushed this wall (sq.triRange) BEFORE every squat wall's
@@ -521,7 +529,12 @@ function buildPass(topo, result, rot, opts, raster) {
       // It runs here rather than earlier because trimming changes which part of
       // the edge is closest, so settling before the trim settles the wrong
       // thing.
-      settleTop(sub, regionTris);
+      settleTop(sub, lineTris);
+      // A top stepping down onto a rim (an extended track) is settled to the gap
+      // straight up, but under a flank steeper than ~47deg that leaves it nearer
+      // than the weld floor sideways (welds), and the station at the step failed:
+      // the rim tail was cut off. Hold such a top to 45deg instead.
+      if (line.edgeTris) slopeCap(sub);
 
       // Settling can push a station that was only just tall enough below the
       // floor, and `sweep` would then throw away the whole wall -- the same
@@ -600,7 +613,7 @@ function buildPass(topo, result, rot, opts, raster) {
         // The grip comb: nubs along this wall's settled top that bite into the
         // part. `settled` carries the surface z; emitTines subtracts the gap.
         const c0 = capAt(), grip = { z: Infinity }, wallEnd = out.length;
-        const nT = withTines ? emitTines(settled, regionTris, topo, rot, off, out, tineStepEff, undefined, tineHeight,
+        const nT = withTines ? emitTines(settled, lineTris, topo, rot, off, out, tineStepEff, undefined, tineHeight,
                                          tallBody(settledBody), grip) : 0;
         tally.tines += nT;
         props.push({

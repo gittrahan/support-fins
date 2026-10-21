@@ -222,6 +222,24 @@ export function contourTop(line, tris, band = Infinity) {
 }
 
 /**
+ * Lower stations until no step of the top climbs steeper than 45deg: the higher
+ * end comes down to the lower one plus the run between them. Lower only.
+ */
+export function slopeCap(line) {
+  for (let pass = 0; pass < line.length; pass++) {
+    let moved = false;
+    for (let i = 0; i < line.length - 1; i++) {
+      const p = line[i], q = line[i + 1];
+      const run = Math.hypot(q[0] - p[0], q[1] - p[1]);
+      if (p[2] - q[2] > run + 1e-6) { line[i] = [p[0], p[1], q[2] + run]; moved = true; }
+      else if (q[2] - p[2] > run + 1e-6) { line[i + 1] = [q[0], q[1], p[2] + run]; moved = true; }
+    }
+    if (!moved) break;
+  }
+  return line;
+}
+
+/**
  * Shift a finished contact line so its CLOSEST approach to the part is exactly
  * `gap` -- no more, no less.
  *

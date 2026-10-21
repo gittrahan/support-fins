@@ -103,6 +103,57 @@ function zOn(tris, i, x, y) {
   return l1 * az + l2 * bz + l3 * cz;
 }
 
+// Two triangle soups as one.
+export function joinTris(a, b) {
+  const out = new Float64Array(a.length + b.length);
+  out.set(a); out.set(b, a.length);
+  return out;
+}
+
+/**
+ * The faces of `tris` facing down (an underside: what a wall's top can meet), as
+ * their own soup. A floor under an overhang faces up, so a lookup on this never
+ * mistakes it for the overhang.
+ */
+export function undersideOf(tris) {
+  const keep = [];
+  for (let f = 0; f < tris.length; f += 9) {
+    const ux = tris[f + 3] - tris[f], uy = tris[f + 4] - tris[f + 1];
+    const vx = tris[f + 6] - tris[f], vy = tris[f + 7] - tris[f + 1];
+    if (ux * vy - uy * vx < 0) keep.push(f);
+  }
+  const out = new Float64Array(keep.length * 9);
+  keep.forEach((f, k) => out.set(tris.subarray(f, f + 9), k * 9));
+  return out;
+}
+
+/**
+ * The faces of `tris` whose XY bounds come within `r` of the segment (x0, y0) --
+ * (x1, y1)'s bounding box, as their own soup (a coarse corridor: enough for a
+ * surface lookup along the segment, never short of a face it crosses).
+ */
+export function facesNear(tris, x0, y0, x1, y1, r) {
+  const g = buildZGrid(tris);
+  const lo = [Math.min(x0, x1) - r, Math.min(y0, y1) - r], hi = [Math.max(x0, x1) + r, Math.max(y0, y1) + r];
+  const seen = new Set();
+  const a0 = Math.max(0, Math.floor((lo[0] - g.minX) * g.sx)), a1 = Math.min(g.NX - 1, Math.floor((hi[0] - g.minX) * g.sx));
+  const b0 = Math.max(0, Math.floor((lo[1] - g.minY) * g.sy)), b1 = Math.min(g.NY - 1, Math.floor((hi[1] - g.minY) * g.sy));
+  for (let a = a0; a <= a1; a++) for (let b = b0; b <= b1; b++) {
+    const c = a * g.NY + b;
+    for (let k = g.start[c]; k < g.start[c + 1]; k++) {
+      const f = g.items[k];
+      if (seen.has(f)) continue;
+      const xs = [tris[f], tris[f + 3], tris[f + 6]], ys = [tris[f + 1], tris[f + 4], tris[f + 7]];
+      if (Math.max(...xs) < lo[0] || Math.min(...xs) > hi[0] || Math.max(...ys) < lo[1] || Math.min(...ys) > hi[1]) continue;
+      seen.add(f);
+    }
+  }
+  const out = new Float64Array(seen.size * 9);
+  let k = 0;
+  for (const f of seen) out.set(tris.subarray(f, f + 9), 9 * k++);
+  return out;
+}
+
 // surfaceZAt wants only the LOWEST height, so it walks a second copy of the cell
 // lists ordered by how low each triangle can reach and stops at the first that
 // can't beat the best so far. A column through a tall part crosses every surface

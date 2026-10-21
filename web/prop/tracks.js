@@ -10,7 +10,7 @@ import { insidePart } from '../inside.js';
 import { faceAdjacency } from '../planes.js';
 import { PROP } from './config.js';
 import { contactLine, straightness } from './contact.js';
-import { surfaceZAt } from './surface.js';
+import { facesNear, joinTris, surfaceZAt } from './surface.js';
 
 /**
  * Split one overhang region into locally-straight sub-patches.
@@ -319,7 +319,7 @@ function convexAbout(rn, regionTris, cx, cy, ux, uy) {
  * region's.
  */
 export function patchTracks(pts, patchTris, step = PROP.stationStep, support = null,
-                            span = PROP.maxUnsupportedSpan, axis = null) {
+                            span = PROP.maxUnsupportedSpan, axis = null, edgeTris = null) {
   if (!pts.length) return [];
 
   // The 2x2 XY covariance of the patch, plus its cross-terms with Z. This used to
@@ -457,12 +457,49 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
     }
     if (cur.length) tracks.push(cur);
   }
+  if (edgeTris && flat) {   // a rim round a flat underside (#269); a curve's patches meet their own rows
+    const du = (uHi - uLo) / nSt;
+    for (const t of tracks) toEdge(t, -du, ux, uy, edgeTris), toEdge(t, du, ux, uy, edgeTris);
+  }
   const kept = tracks.filter((t) => t.length >= PROP.minStations);
   // The lateral gap between adjacent rows this face ended up with. The caller
   // compares it to the anti-sag cap to decide whether to warn: only a face wide
   // enough to want >1 row can actually sag, and only when its spacing exceeds cap.
   kept.spacing = rows.spacing;
   return kept;
+}
+
+/**
+ * Carry a track's end (`du` < 0 its start, > 0 its end) on along the part's
+ * underside `edgeTris` (its down-facing faces) to where that meets air, when it does so within
+ * PROP.edgeReach and stays within edgeReach of the end's height: a rim or a lip
+ * past the patch (see PROP.edgeReach). Otherwise the track is left as it was.
+ */
+function toEdge(t, du, ux, uy, edgeTris) {
+  const end = du < 0 ? t[0] : t[t.length - 1];
+  const more = [];
+  let curled = false;
+  for (let k = 1; ; k++) {
+    if (k * Math.abs(du) > PROP.edgeReach + 1e-9) return;   // the part goes on: no rim
+    const x = end[0] + ux * du * k, y = end[1] + uy * du * k;
+    const z = surfaceZAt(edgeTris, x, y);
+    if (z === null) break;                                   // air: the edge
+    if (Math.abs(z - end[2]) > PROP.edgeReach) return;
+    // the underside curling back up steeper than 45deg -- a bead's outer flank --
+    // holds itself up, so the wall ends here (a top run on up it cut into the
+    // bead); but only a rim's flank meets air within the reach, where a sphere's
+    // goes on climbing, so keep looking for it
+    const prev = more.length ? more[more.length - 1] : end;
+    if (curled || z - prev[2] > Math.abs(du)) { curled = true; continue; }
+    more.push([x, y, z]);
+  }
+  if (!more.length) return;
+  // the rim's own faces ride with the track: its top is contoured, settled and
+  // tined against its region, which a rim split off by height is not part of
+  const far = more[more.length - 1];
+  const rim = facesNear(edgeTris, end[0], end[1], far[0], far[1], 1);
+  t.edgeTris = t.edgeTris ? joinTris(t.edgeTris, rim) : rim;
+  if (du < 0) t.unshift(...more.reverse()); else t.push(...more);
 }
 
 /**

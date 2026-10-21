@@ -182,6 +182,14 @@ export const PROP = {
   // flush wall there is just plastic (a cube on its default pose went 3 -> 5
   // walls). Up to this slope from horizontal: 30deg, ~0.35 mm a layer, a line width.
   edgeFlatDeg: 30,
+  // A row's track ends where its PATCH ends, but the part can carry on past that
+  // as a narrow strip of its own: a rim, a bead or a lip round a flat underside,
+  // too thin for a wall and split off by its slope or its height. The rows
+  // stopped ~2 mm short of it and the rim printed over air (#269). So a track end
+  // follows the part's underside on, this far at most, when the underside meets
+  // air within it and steps no more than this up or down on the way. Past it the
+  // part goes on (a wide face of its own, a boss, a spine): the track stops as before.
+  edgeReach: 4,
 
   // --- TINES (the grip comb) ---------------------------------------------
   // A plain prop stops `gap` under the overhang and the part bridges over it:
