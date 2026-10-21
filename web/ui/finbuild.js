@@ -113,6 +113,7 @@ export function finOpts(isl = islands) {
            longWalls: el('long-walls').checked,   // Full coverage only (fins/rows.js)
            separateWalls: el('separate-walls').checked,   // Full coverage only (#309)
            tallRibs: el('tall-ribs').checked,     // face ribs on tall walls (fins/tall.js)
+           tieWalls: el('tie-walls').checked,     // ties between neighbouring walls (fins/ties.js)
            // Curved walls (prop/curved.js): Auto and Full only, like sway
            curvedWalls: autoLike() && el('curved-walls').checked ? true : undefined,
            tines: el('tines').checked,

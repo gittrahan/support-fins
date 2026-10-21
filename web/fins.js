@@ -30,6 +30,7 @@
  *                 reach rule that holds it -- shared with the coverage scoreboard
  *   fill.js       Full coverage: Draw-built walls under the red Auto left bare
  *   tall.js       face ribs on walls over BRACE.tallH, last, around everything placed
+ *   ties.js       ties between neighbouring walls (GH #57), after the ribs; opt-in
  *   downhill.js   downhill walls kept only if the whole build is no worse (#25)
  *
  * Each module imports only modules above it in this list and never fins.js.
@@ -43,6 +44,7 @@ import { FIN } from './fins/config.js';
 import { buildPad, PAD } from './fins/pad.js';
 import { bedContact, forgetSeated, seatedPartTris, seatingOf } from './fins/seating.js';
 import { braceTallWalls } from './fins/tall.js';
+import { tieAllWalls } from './fins/ties.js';
 import { lastResortWalls } from './fins/shortwalls.js';
 import { bareArea, fillCoverage } from './fins/fill.js';
 import { findIslands } from './islands.js';
@@ -143,6 +145,9 @@ export function buildFins(topo, result, rot, opts = {}) {
   // Tall walls get face ribs, last, around everything placed (fins/tall.js). Draw
   // ribs its own walls on the page (draw.js braceTall).
   if (opts.mode !== 'draw' && opts.tallRibs !== false) braceTallWalls(topo, result, rot, built);
+  // Then neighbouring walls are tied into frames (fins/ties.js, GH #57), after the
+  // ribs so a tie never takes their plate. Opt-in until printed.
+  if (opts.mode !== 'draw' && opts.tieWalls === true) tieAllWalls(topo, result, rot, built);
   crestPart(null);   // the crest's part is only for this build (a Worker keeps no mesh)
   forgetSeated(topo);   // nor the seated part: a page building inline would hold it
   // A piece of the part that starts in mid-air (a cut clean through, a loose
@@ -224,7 +229,7 @@ function withFill(topo, result, rot, opts, auto) {
   const fins = props.map((q) => ({
     height: q.height, length: q.span, tines: q.tines, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
     id: wid++, kind: 'prop', fill: true, triRanges: q.triRanges, line: q.line, span: q.span,
-    ...(q.joined ? { joined: true } : {}), ...(q.braces ? { braces: q.braces } : {}),
+    ...(q.joined ? { joined: true } : {}), ...(q.braces ? { braces: q.braces } : {}), ...(q.ties ? { ties: q.ties } : {}),
   }));
   const withTines = opts.tines !== false;
   return {

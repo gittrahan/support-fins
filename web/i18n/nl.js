@@ -441,6 +441,10 @@ export default {
 	"Walls taller than this height get face ribs. 5 cm or more; default 10 cm.": "Wanden hoger dan deze hoogte krijgen ribben aan beide zijden. Minimaal 5 cm, standaard 10 cm.",
 	"Walls taller than the selected height get triangular ribs at the plate, off both faces, so they don't sway as they print. Untick for plain walls.": "Wanden hoger dan de ingestelde hoogte krijgen bij het printbed driehoekige ribben aan beide zijden, zodat ze tijdens het printen niet wiebelen. Vink uit voor gewone wanden.",
 	"Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows. Hover an upright side to preview one, and click to add it.": "Plaats taps toelopende steunribben tegen de verticale zijden van een hoog onderdeel. De tanden grijpen over de hele hoogte aan en voorkomen dat het onderdeel tijdens het printen verschuift of wiebelt. Beweeg over een verticale zijde om er een vooraf te zien, en klik om hem te plaatsen.",
+	// Tie walls together (#57)
+	"Tie walls together": "Wanden verbinden",
+	"Tie neighbouring walls taller than 3 cm together with zigzag struts, so they stand as one frame instead of each swaying on its own as they print (fast bed slingers). More plastic, and the struts come off with the walls.": "Verbind naburige wanden hoger dan 3 cm met zigzagstutten, zodat ze als één frame staan in plaats van elk apart te wiebelen tijdens het printen (snelle bedslingers). Meer plastic; de stutten gaan er samen met de wanden af.",
+	"{n} wall ties": { one: "{n} wandverbinding", other: "{n} wandverbindingen" },
 	"Cross-rib height": "Hoogte kruisribben",
 	"% of height": "% van de hoogte",
 	"Cross-rib height as a percentage of sway brace height. 10–90%, default 50%. Requires Brace tall walls and the brace to exceed its start height. Does not change the horizontal reach.": "Hoogte van de kruisribben als percentage van de hoogte van de verstevigingsrib. 10–90%, standaard 50%. Werkt alleen met ribben voor hoge wanden aan en een verstevigingsrib boven de beginhoogte daarvan. Verandert het bereik op het printbed niet.",

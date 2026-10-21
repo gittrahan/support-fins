@@ -268,6 +268,8 @@ el('tall-ribs-height').addEventListener('change', () => {
   el('tall-ribs-height').value = String(BRACE.tallH / 10);
   debouncedRefresh();
 });
+// Tie walls together (GH #57): Auto's and Full's, in the Worker (fins/ties.js).
+el('tie-walls').addEventListener('change', () => refreshFins());
 // Curved walls (#25): read by Auto's build in the Worker (finbuild.js finOpts).
 el('curved-walls').addEventListener('change', () => { syncCoverageUI(); refreshFins(); });
 

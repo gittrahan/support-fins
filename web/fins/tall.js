@@ -46,6 +46,9 @@ function pieces(p, q, r, fn, depth = 0) {
  * fill.js's 3D boxGrid in height only, on the safe side (a rib is refused under a
  * leaning wedge it might have cleared); that grid cost 4 s on bigplate Y35.
  */
+const mine = (tag, own) => (tag instanceof Set ? [...tag].some((t) => mine(t, own))
+  : own instanceof Set ? own.has(tag) : tag === own);
+
 export function planGrid() {
   const cells = new Map();
   const key = (i, j) => (i + 32768) * 65536 + (j + 32768);
@@ -64,7 +67,9 @@ export function planGrid() {
         });
       }
     },
-    /** Does another support (not `own`) stand within sideClear of the rib `vs`? */
+    /** Does another support (not `own`, a tag or a Set of them) stand within
+     *  sideClear of the rib `vs`? A piece added with a Set of tags (a tie, fins/ties.js:
+     *  its two walls) is another's only if it shares none of them. */
     hits(vs, own = undefined) {
       const pad = PROP.sideClear;
       let hit = false;
@@ -75,7 +80,7 @@ export function planGrid() {
           cellsOf(x0, y0, x1, y1, (k) => {
             if (hit) return;
             for (const o of cells.get(k) ?? []) {
-              if (o[5] !== own && o[4] <= zHi + pad && o[0] <= x1 && x0 <= o[2] && o[1] <= y1 && y0 <= o[3]) { hit = true; return; }
+              if (!mine(o[5], own) && o[4] <= zHi + pad && o[0] <= x1 && x0 <= o[2] && o[1] <= y1 && y0 <= o[3]) { hit = true; return; }
             }
           });
         });

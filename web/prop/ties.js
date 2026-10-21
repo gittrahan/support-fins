@@ -60,10 +60,12 @@ function strutHitsPart(tris, o, d, u0, z0, u1, z1) {
  * The tie between plan points `a` (on wall A's line) and `b` (on wall B's), both
  * standing on the plate at zBed, under `zMax` (the lower wall's limit). Appends the
  * struts to `out` and returns how many, or 0 (out untouched) when none fits.
+ * `maxSpan` is the farthest apart the walls may be (fins/ties.js ties Auto's wider
+ * comb).
  */
-export function tieWalls(a, b, zMax, tris, zBed, out) {
+export function tieWalls(a, b, zMax, tris, zBed, out, maxSpan = TIE.maxSpan) {
   const dx = b[0] - a[0], dy = b[1] - a[1], span = Math.hypot(dx, dy);
-  if (span < TIE.minSpan || span > TIE.maxSpan) return 0;
+  if (span < TIE.minSpan || span > maxSpan) return 0;
   const d = [dx / span, dy / span], o = [a[0], a[1]];
   const climb = span * TIE.slope;                 // one strut's rise
   const e = TIE.into;

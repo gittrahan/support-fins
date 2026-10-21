@@ -329,7 +329,8 @@ function updateFinReadout(built, ms) {
   const removedN = removedIds.size;
   const removedTxt = removedN ? ` (${t('{n} removed', { n: removedN })})` : '';
   const sw = built.sway;
-  const ribTxt = built.tallRibs ? ` · ${tn('{n} wall rib', '{n} wall ribs', built.tallRibs)}` : '';
+  const ribTxt = (built.tallRibs ? ` · ${tn('{n} wall rib', '{n} wall ribs', built.tallRibs)}` : '')
+    + (built.wallTies ? ` · ${tn('{n} wall tie', '{n} wall ties', built.wallTies)}` : '');
   const swayTxt = sw?.count
     ? `${autoTxt || drawnTxt ? ' + ' : ''}${tn('{n} sway brace', '{n} sway braces', sw.count)}`
       + (sw.tines ? ` · ${t('{n} brace tines', { n: sw.tines })}` : '')

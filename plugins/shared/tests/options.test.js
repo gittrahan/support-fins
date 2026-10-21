@@ -54,6 +54,7 @@ const SITE_EXCLUDED = {
   'wall-lines': 'site first, with the nozzle; the plugins build 2-line walls (web/nozzle.js)',
   'nozzle': 'site first; the plugins build at 0.4 until their dialogs take it (web/nozzle.js)',
   'curved-walls': 'site first, off by default: the plugins build without it until the print test (web/prop/curved.js)',
+  'tie-walls': 'site first, off by default: the plugins build without wall ties until the print test (web/fins/ties.js)',
 };
 
 Deno.test('options.json is well formed', () => {
