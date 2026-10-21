@@ -481,6 +481,10 @@ def _finish(ctx, fins, stats):
     """The engine's fins -> the readout and the bodies to add."""
     body, frame, s = ctx['body'], ctx['frame'], ctx['s']
     lines = list(ctx['pre'])
+    holes = stats.get('smallHoleRegions', 0)
+    if holes:
+        lines.append('%d small-hole ceiling%s left unsupported for bridging. Check the slicer preview and print settings.'
+                     % (holes, '' if holes == 1 else 's'))
     groups = shells.fin_groups(fins, stats.get('finTriangles', 0), stats.get('swayTriangles', 0))
     if _session.get('earlier'):
         lines.append('%d support bod%s from an earlier run %s already in Supports; delete them '

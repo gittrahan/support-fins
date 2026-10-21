@@ -124,6 +124,8 @@ def test_no_fins_still_reports_overhangs_left_bare(monkeypatch):
     po = fake_orca.FakePrintObject(part, rot_x(45, (50, 50, 0)))
     monkeypatch.setattr(SF, "compute_fins", lambda *a: (np.zeros((0, 3, 3)), {"unserved": 2}))
     assert "2 overhangs are too shallow" in SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6)
+    monkeypatch.setattr(SF, "compute_fins", lambda *a: (np.zeros((0, 3, 3)), {"smallHoleRegions": 1}))
+    assert "1 small-hole ceiling left unsupported for bridging" in SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6)
     monkeypatch.setattr(SF, "compute_fins", lambda *a: (np.zeros((0, 3, 3)), {}))
     assert SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6) == "no fins needed"
 

@@ -80,6 +80,7 @@ export function traceGroups(topo, result, rot, off, tried) {
     for (const f of queue) {
       for (let k = start[f]; k < start[f + 1]; k++) {
         const g = items[k];
+        if (result.excludedSupportFaces?.[g]) continue;
         if (label[g] >= 0) { if (label[g] !== label[f]) join(label[g], label[f]); continue; }
         if (result.onBed[g] || nz(g) > -grow) continue;
         centre(g);

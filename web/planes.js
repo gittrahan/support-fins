@@ -92,7 +92,7 @@ export const MIN_PATCH_AREA = 25.0; // mm^2
  *          frame, its extent in that frame, and its triangles projected into
  *          (u, t) so tine placement can test coverage.
  */
-export function findWallPatches(topo, rot, offset, stats = null) {
+export function findWallPatches(topo, rot, offset, stats = null, excludedFaces = null) {
   const { pos, nFaces, nrm, area } = topo;
   // A hair of slack past the exact sine. 45 degrees is the most common tilt a
   // user dials in -- a cube on its edge -- and its face normal lands on sin(45)
@@ -108,6 +108,7 @@ export function findWallPatches(topo, rot, offset, stats = null) {
   const rn = new Float64Array(nFaces * 3);
   const upright = new Uint8Array(nFaces);
   for (let f = 0; f < nFaces; f++) {
+    if (excludedFaces?.[f]) continue;
     const i = f * 3;
     const x = nrm[i], y = nrm[i + 1], z = nrm[i + 2];
     const nx = rot[0] * x + rot[3] * y + rot[6] * z;

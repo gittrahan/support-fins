@@ -48,6 +48,7 @@ import { bareArea, fillCoverage } from './fins/fill.js';
 import { findIslands } from './islands.js';
 import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
 import { judgeDownhill } from './fins/downhill.js';
+import { automaticTargets } from './fins/coverage.js';
 import { bends, CURVED } from './prop/curved.js';
 import { applyNozzle, applyWallLines } from './nozzle.js';
 
@@ -140,7 +141,11 @@ export function applyTunables(t = {}) {
  * @param opts.bedPad   add the pad when bed contact is too small to hold
  */
 export function buildFins(topo, result, rot, opts = {}) {
+  // Keep the original analysis for rendering/export callers. Every automatic
+  // pass below shares this view; Draw remains an explicit placement decision.
+  if (opts.mode !== 'draw') result = automaticTargets(topo, result, rot);
   const built = buildFinsAndBraces(topo, result, rot, opts);
+  built.smallHoleRegions = result.smallHoleRegions ?? 0;
   // Tall walls get face ribs, last, around everything placed (fins/tall.js). Draw
   // ribs its own walls on the page (draw.js braceTall).
   if (opts.mode !== 'draw' && opts.tallRibs !== false) braceTallWalls(topo, result, rot, built);
@@ -298,7 +303,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // The wedge candidates: broad down-facing patches. Found before the props so
     // a raster wall can be kept off the ones the normal pass leaves to a wedge
     // (wedgeVeto).
-    const wedgeable = findWallPatches(topo, rot, result.offset).filter((p) =>
+    const wedgeable = findWallPatches(topo, rot, result.offset, null, result.excludedSupportFaces).filter((p) =>
       p.n.z < -0.05 && p.area >= PERP.minArea && (p.u1 - p.u0) >= PERP.minWidth);
     const wedgeOpts = { tines: withTines, pitch: covPitch, tineDensity: opts.tineDensity,
                         layerHeight: opts.layerHeight };

@@ -50,6 +50,9 @@ function explainNoFins(b) {
     return t('part of the model sits under these overhangs, and Plate only is on — '
          + 'untick it to stand supports on the part, or rotate');
   }
+  if (b.smallHoleRegions && !b.unserved) {
+    return t('recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer');
+  }
   if (b.mode === 'prop') {
     const s = b.skipped ?? {};
     if (!b.rejected.sites) return t('no overhangs to prop in this orientation');
@@ -477,6 +480,11 @@ function updateFinReadout(built, ms) {
                  + 'follow it (try Suggest orientation), or add a wall by hand.',
                  '{n} overhangs are too shallow for a fin this way up. Tilt the part steeper so a fin can '
                  + 'follow it (try Suggest orientation), or add a wall by hand.', built.unserved));
+  }
+  if (built.smallHoleRegions) {
+    lead.push(tn('{n} small-hole ceiling left unsupported for bridging — check the slicer preview and print settings.',
+                 '{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.',
+                 built.smallHoleRegions));
   }
   // Plate only (#218) left these bare: say so, so the red isn't a mystery
   const onPart = built.skipped?.onPart ?? 0;

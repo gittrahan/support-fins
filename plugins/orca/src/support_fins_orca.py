@@ -337,7 +337,7 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
     fins, stats = compute_fins(soup, layer_height, cfg, nozzle)
     if len(fins) == 0:
         # Quality first: no fins can still mean overhangs left bare, so say so.
-        bare = stats.get("unserved") or stats.get("floating")
+        bare = stats.get("unserved") or stats.get("floating") or stats.get("smallHoleRegions")
         return host_report(stats) if bare else "no fins needed"
     pts = soup.reshape(-1, 3)
     bbox = print_object.bounding_box()

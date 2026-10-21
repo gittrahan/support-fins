@@ -76,6 +76,13 @@ and the key edge cases (-0, half-micron rounding, NaN, huge coordinates, duplica
 - no `bore` skip reason: a refusal is counted as `stub` / `blocked` / `buried`
   (the old `bore` count was mostly short runs, e.g. artichoke X30's 54).
 
+**`small_holes.test.js`** -- automatic placement honours the existing tiny-hole
+coverage exemption: recognised circular bores stay clear in Auto and Full, while
+larger bores and neighbouring overhangs keep their supports. Procedural geometry
+checks the classifier boundary, shared-plugin reporting, unchanged highlighting,
+pose-local classification and the explicit Draw path. This reuses the existing
+heuristic, not an exact diameter measurement or a general removability test.
+
 **`wedge_clear.test.js`** -- a wedge never runs through the part under the face it
 holds (GH #254: a channel at 45deg got a wedge under its upper plate straight through
 the lower one, impossible to remove). A U-channel at X±45; points sampled across each

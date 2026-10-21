@@ -570,6 +570,21 @@ class FusionSide(unittest.TestCase):
         res = fins_command._compute(dialog(design.rootComponent.xYConstructionPlane))
         self.assertTrue(any('floats 4.0 mm' in l for l in res['plain']))
 
+    def test_small_hole_exclusions_are_reported_with_or_without_other_fins(self):
+        design, _ = mesh_design(posed(read_stl('lbracket'), 35))
+        real = engine_host.compute_fins
+        try:
+            for empty in (False, True):
+                def with_hole(soup, options=None):
+                    fins, stats = real(soup, options)
+                    return ([] if empty else fins), dict(stats, smallHoleRegions=1)
+                engine_host.compute_fins = with_hole
+                res = fins_command._compute(dialog(design.rootComponent.xYConstructionPlane))
+                self.assertTrue(any('1 small-hole ceiling left unsupported for bridging' in line
+                                    for line in res['plain']))
+        finally:
+            engine_host.compute_fins = real
+
     def test_a_piece_not_joined_to_the_rest_is_flagged(self):
         # engines with floatingPieces report it in stats; the readout must say so
         design, _ = mesh_design(posed(read_stl('lbracket'), 35))

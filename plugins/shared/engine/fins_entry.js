@@ -223,6 +223,7 @@ export function computeFins(positions, options = {}) {
       swaySkipped: built.sway?.skipped ?? 0,
       swayReason: built.sway?.reason ?? null,
       unserved: built.unserved ?? null,
+      smallHoleRegions: built.smallHoleRegions ?? 0,
       // pieces that start in mid-air (see overhangs.js floatingPieces), with the
       // drop of the first: the plugins' readouts say so, as the site's does
       floating: built.floating?.length ?? 0,

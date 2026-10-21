@@ -24,6 +24,9 @@ export function reportLine(stats) {
   // Sway braces hold the tall sides, not an overhang: never added to the walls.
   if (stats.swayBraces) head += `, ${plural(stats.swayBraces, 'sway brace', 'sway braces')}`;
   const parts = [head];
+  if (stats.smallHoleRegions) {
+    parts.push(`${plural(stats.smallHoleRegions, 'small-hole ceiling', 'small-hole ceilings')} left unsupported for bridging`);
+  }
   const unserved = stats.unserved || 0;
   if (unserved) {
     parts.push(`${unserved} overhang${unserved === 1 ? ' is' : 's are'} too shallow `

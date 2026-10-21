@@ -350,10 +350,14 @@ Deno.test('cli: the summary line says what was left unsupported, word for word w
     { braces: 0, props: 2, tines: 0, unserved: 3, floating: 1, floatingDrop: 4.26 },
     { braces: 2, tines: 5, floating: 2, floatingDrop: 12 },
     { braces: 1, tines: 2, floating: 1, floatingDrop: 4.25 },   // a tie: Python rounds to even
+    { braces: 0, tines: 0, smallHoleRegions: 1 },
+    { braces: 2, tines: 4, smallHoleRegions: 2, unserved: 1 },
   ];
   assert(/1 overhang is too shallow/.test(reportLine(samples[1])), reportLine(samples[1]));
   assert(/one piece isn't joined to the rest: it starts 4\.3 mm up/.test(reportLine(samples[2])), reportLine(samples[2]));
   assert(/it starts 4\.2 mm up/.test(reportLine(samples[4])), reportLine(samples[4]));
+  assert(reportLine(samples[5]) === '0 walls, 0 tines; 1 small-hole ceiling left unsupported for bridging');
+  assert(reportLine(samples[6]).includes('2 small-hole ceilings left unsupported for bridging'));
   let py;
   try {
     py = new Deno.Command('python3', {

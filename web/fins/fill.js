@@ -58,7 +58,7 @@
  */
 import { drawnLine, drawnWall, DRAW_MIN_LEN } from '../draw.js';
 import { BRACE, braceWall, footFor, PART_BAND, PROP, surfaceHitsAt, TIE, tieWalls } from '../prop.js';
-import { classify, reachOf, PLATE_Z, MUST } from './coverage.js';
+import { classify, reachOf, PLATE_Z, MUST, touchesSmallHole } from './coverage.js';
 import { seatedPartTris } from './seating.js';
 import { headingField } from './field.js';
 import { rowWalls } from './rows.js';
@@ -740,6 +740,9 @@ function fillOnce(topo, result, rot, opts, built) {
         if (builds++ >= FILL.groupTries) return aims;
         stats.tries++;
         const r = drawnWall(c.a, c.b, tris, 0, drawOpts);
+        // Candidates aimed at neighbouring MUST faces may cross an exempt roof.
+        // An intentional exclusion is neither a failed build nor unserved red.
+        if (r.ok && touchesSmallHole(result, r.top)) continue;
         const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0]
           : others.hits(r.tris, PROP.sideClear, local && shared, joined ? isFill : null) ? 'touches a support' : null;
         if (why) {
@@ -813,7 +816,7 @@ function fillOnce(topo, result, rot, opts, built) {
       for (const p of red) { w += p[3]; x += p[0] * p[3]; y += p[1] * p[3]; }
       // (the red only: a row is along the model's length, an island start is a point)
       const r = rowWalls({ pts: red, heading: field(x / w, y / w) ?? 0, R, tris, drawOpts, minGain: FILL.minGain,
-        fits: (t) => !others.hits(t.tris, PROP.sideClear, shared), keep: (t) => keep(t),
+        fits: (t) => !touchesSmallHole(result, t.top) && !others.hits(t.tris, PROP.sideClear, shared), keep: (t) => keep(t),
         room: () => stats.walls < FILL.maxWalls, nFaces: topo.nFaces });
       stats.rows = r.walls;
       stats.rowBuilds = r.builds;

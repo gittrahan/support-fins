@@ -12,6 +12,8 @@
  * plan and 0..1.5 mm below it, or it sits on the plate (z < PLATE_Z).
  */
 import { insidePart } from '../inside.js';
+import { surfaceHitsAt } from '../prop/surface.js';
+import { seatedPartTris } from './seating.js';
 
 export const PLATE_Z = 0.6;   // a face this low is held by the plate itself
 
@@ -61,6 +63,10 @@ const LOW_Z = 0.82;
  * per face, since a curved underside runs from the plate up through it.
  */
 export function classify(topo, res, rot) {
+  // A generation's placement view carries the classification of the ORIGINAL
+  // overhangs. Reuse it across races and fill; never cache on analyze's mutable
+  // scratch buffers or on the topology (a later build may have a different pose).
+  if (res.coverageClasses) return res.coverageClasses;
   const { pos, nFaces, adjA, adjB, nrm, area } = topo;
   const off = res.offset;
   const cls = new Uint8Array(nFaces);
@@ -160,4 +166,38 @@ export function classify(topo, res, rot) {
     }
   }
   return cls;
+}
+
+/**
+ * Automatic placement targets, without changing the caller's red/highlight mask
+ * or removing any geometry from collision/floor probes. classify labels whole
+ * connected overhang patches, so a kept region is either a hole or not a hole.
+ * The excluded face mask also stops wedge/curved passes, whose targets can grow
+ * beyond analyze's kept regions, from putting a wall back inside a small bore.
+ */
+export function automaticTargets(topo, result, rot) {
+  const coverageClasses = classify(topo, result, rot);
+  const excludedSupportFaces = Uint8Array.from(coverageClasses, (c) => c === HOLE ? 1 : 0);
+  const regions = result.regions.filter((r) => !excludedSupportFaces[r.faces[0]]);
+  const excludedSupportTris = [];
+  if (excludedSupportFaces.some(Boolean)) {
+    const tris = seatedPartTris(topo, rot, result.offset);
+    for (let f = 0; f < topo.nFaces; f++) if (excludedSupportFaces[f]) {
+      for (let k = 0; k < 9; k++) excludedSupportTris.push(tris[f * 9 + k]);
+    }
+  }
+  return {
+    ...result, regions, coverageClasses, excludedSupportFaces, excludedSupportTris,
+    smallHoleRegions: result.regions.length - regions.length,
+  };
+}
+
+// A fill/row line can cross a ceiling it was not aimed at. Test its settled
+// contact stations against the excluded surfaces, while retaining the COMPLETE
+// model for every floor and clearance probe. Draw's half-mm settling allowance
+// is used here too; this is a target veto, not another hole-size heuristic.
+export function touchesSmallHole(result, line) {
+  const tris = result.excludedSupportTris;
+  return !!tris?.length && line.some((p) => surfaceHitsAt(tris, p[0], p[1])
+    .some(([z]) => Math.abs(z - p[2]) <= 0.5));
 }

@@ -189,3 +189,5 @@ def test_report_says_what_was_not_reached():
     # sway braces hold the tall sides, not an overhang: named apart, never added to the walls
     assert host.host_report({"braces": 1, "tines": 1, "swayBraces": 4}) == "1 wall, 1 tine, 4 sway braces"
     assert host.host_report({"braces": 2, "swayBraces": 1}) == "2 walls, 0 tines, 1 sway brace"
+    assert host.host_report({"smallHoleRegions": 1}) == "0 walls, 0 tines; 1 small-hole ceiling left unsupported for bridging"
+    assert "2 small-hole ceilings left unsupported for bridging" in host.host_report({"smallHoleRegions": 2})

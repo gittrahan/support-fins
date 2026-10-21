@@ -17,6 +17,23 @@ A fin with no tines only holds the part in one direction. The part falls *away* 
 sideways — Slant3D demos a real cube that did exactly that, mid-print. **Tines are the
 entire point, not a refinement.**
 
+## Small holes and automatic placement
+
+Auto and Full coverage leave a recognised tiny-hole ceiling unsupported, using
+the existing `fins/coverage.js` HOLE classification (nominally a bore around 6 mm
+or smaller). A wall can fit inside such an opening but be impossible to reach
+and remove. The exclusion is shared by the normal, raster, downhill, wedge,
+short-wall and fill passes; curved tracing cannot grow back onto excluded faces.
+The full model remains available for collision checks and the ceiling stays
+highlighted. Larger bores still get supports, and Draw remains an explicit choice.
+
+The readout reports recognised small-hole ceilings left for bridging separately
+from overhangs where placement failed; plugin stats expose `smallHoleRegions`
+(zero when none). Check the slicer preview and print settings: exclusion does not
+guarantee a successful bridge. This is the existing heuristic, not an exact
+diameter or extraction-path test. It measures the selected overhang band, so its
+recognition also depends on the overhang threshold and mesh geometry.
+
 ## Dimensions
 
 | feature | value | rationale |
