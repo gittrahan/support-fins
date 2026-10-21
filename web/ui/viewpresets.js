@@ -27,3 +27,23 @@ export function viewPosition(key, target, dist) {
   const n = Math.hypot(...d);
   return target.map((t, i) => t + (d[i] / n) * dist);
 }
+
+/**
+ * The camera offset from the target (`from` to `to`, both [x, y, z]) eased `e` of the
+ * way, swung around the target rather than straight across: Front to Back is 180°,
+ * and a straight line runs through the target (the camera dives into the part and
+ * comes out with no heading). Heading and tilt (Z up) turn the short way round and
+ * the distance eases on its own.
+ */
+export function orbitLerp(from, to, e) {
+  const sph = ([x, y, z]) => {
+    const r = Math.hypot(x, y, z);
+    return [r, Math.atan2(y, x), Math.acos(Math.max(-1, Math.min(1, z / r)))];
+  };
+  const [r0, h0, t0] = sph(from), [r1, h1, t1] = sph(to);
+  let dh = (h1 - h0) % (2 * Math.PI);
+  if (dh > Math.PI) dh -= 2 * Math.PI;
+  if (dh < -Math.PI) dh += 2 * Math.PI;
+  const r = r0 + (r1 - r0) * e, h = h0 + dh * e, t = t0 + (t1 - t0) * e;
+  return [r * Math.sin(t) * Math.cos(h), r * Math.sin(t) * Math.sin(h), r * Math.cos(t)];
+}

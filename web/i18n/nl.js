@@ -21,6 +21,7 @@ export default {
   "Right": "Rechts",
   "Top": "Boven",
   "Bottom": "Onder",
+  "Camera view": "Camerastandpunt",
   "Look at the part from the front.": "Bekijk het onderdeel van voren.",
   "Look at the part from the back.": "Bekijk het onderdeel van achteren.",
   "Look at the part from the left.": "Bekijk het onderdeel van links.",

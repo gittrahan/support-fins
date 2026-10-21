@@ -30,6 +30,7 @@ export default {
   "Right": "右",
   "Top": "顶",
   "Bottom": "底",
+  "Camera view": "相机视图",
   "Look at the part from the front.": "从前方查看零件。",
   "Look at the part from the back.": "从后方查看零件。",
   "Look at the part from the left.": "从左侧查看零件。",

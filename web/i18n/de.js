@@ -21,6 +21,7 @@ export default {
   "Right": "Rechts",
   "Top": "Oben",
   "Bottom": "Unten",
+  "Camera view": "Kameraansicht",
   "Look at the part from the front.": "Das Bauteil von vorne ansehen.",
   "Look at the part from the back.": "Das Bauteil von hinten ansehen.",
   "Look at the part from the left.": "Das Bauteil von links ansehen.",

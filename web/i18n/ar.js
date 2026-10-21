@@ -22,6 +22,7 @@ export default {
   "Right": "يمين",
   "Top": "علوي",
   "Bottom": "سفلي",
+  "Camera view": "منظر الكاميرا",
   "Look at the part from the front.": "عرض القطعة من الأمام.",
   "Look at the part from the back.": "عرض القطعة من الخلف.",
   "Look at the part from the left.": "عرض القطعة من اليسار.",

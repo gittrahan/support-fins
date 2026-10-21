@@ -21,6 +21,7 @@ export default {
   "Right": "Direita",
   "Top": "Topo",
   "Bottom": "Base",
+  "Camera view": "Vista da câmera",
   "Look at the part from the front.": "Ver a peça de frente.",
   "Look at the part from the back.": "Ver a peça por trás.",
   "Look at the part from the left.": "Ver a peça pela esquerda.",

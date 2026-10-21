@@ -229,6 +229,8 @@ use it; the site parses with three.js's `STLLoader`):
   the orbit target, at the distance it was (the zoom and the spot being drawn at stay);
 - Top and Bottom lean a hair toward the front, so OrbitControls keeps a heading
   (straight down its up axis it has none);
+- the glide between views swings round the target at the same distance (Front to
+  Back in a straight line would run through it);
 - every view has a label and a tooltip.
 
 **`step.test.js`** -- STEP import through the real vendored OpenCascade WASM (the
