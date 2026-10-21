@@ -30,7 +30,9 @@ export const TIE = {
   // WAS 1.2 deep measured straight up -- ~0.7 square to a 55deg strut, under two 0.4
   // lines, so a 0.6 nozzle's slicer could drop it and a 35 mm strut flexed (#359)
   perp: 1.4,
-  thick: 1.4 * Math.hypot(1, Math.tan((60 * Math.PI) / 180)),   // the same, straight up (2.8)
+  // the same, straight up, at TIE.slope (2.8): NOMINAL -- a steepened tie works out its
+  // own (tieWalls); this only sizes how many struts fit at TIE.slope
+  thick: 1.4 * Math.hypot(1, Math.tan((60 * Math.PI) / 180)),
   slopeMax: Math.tan((75 * Math.PI) / 180),      // a tie steepens to reach the wall's top,
                                                  // no further: past this it barely braces
   minSpan: 2.0,   // mm: closer than this the two walls' feet already meet

@@ -1,6 +1,6 @@
 /**
  * Tie coupon, step 2: the site's Auto build of gen.py's part twice -- with Tie walls
- * together and without -- keeping each build's supports under its own shelf.
+ * together and without -- keeping each build's supports under its own table.
  *
  *   deno run -A prototype/calibration/ties/build.js     # -> out/ties-coupon.3mf + .stl
  */
@@ -8,7 +8,7 @@ import { finsIn, finsWith, keep, loadCoupon, supportOf, writeCoupon } from '../c
 
 const c = loadCoupon(import.meta.url);
 const sup = [];
-console.log('shelf  walls  ties');
+console.log('table  walls  ties');
 for (const r of c.rungs) {
   const built = finsWith(c, { tieWalls: r.tie });
   const walls = finsIn(c, built, r.box).filter((f) => f.kind === 'prop');
