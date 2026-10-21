@@ -9,7 +9,8 @@
  * the way along), plus full-width pads RESIN_FOOT.pad long with RESIN_FOOT.window of
  * plate between them, on both sides. Each pad is its own closed box overlapping the
  * strip (overlapping solids, never flush). A flange shorter than one pad + window
- * stays solid: there is nothing to flex.
+ * stays solid: there is nothing to flex. Each pad's outer edges slope up at 45deg, like
+ * a resin slicer's bevelled raft edge, so a scraper's blade starts under it.
  */
 import { ribbon } from '../solids.js';
 
@@ -17,6 +18,7 @@ export const RESIN_FOOT = {
   pad: 1.5,       // mm: a full-width pad along the wall
   window: 2.0,    // mm: the plate left bare between two pads
   strip: 0.4,     // mm: the strip reaches this far past the stem on each side
+  bevel: 1.0,     // the pad's outer edge slopes up this many mm per mm of height (45deg)
 };
 
 /**
@@ -40,7 +42,7 @@ export function windowedFlange(feet, out) {
   const pitch = n > 1 ? (L - pad) / (n - 1) : 0;
   for (let k = 0; k < n; k++) {
     const a = at(feet, s, k * pitch), b = at(feet, s, k * pitch + pad);
-    ribbon([sec(a.f, a.p, a.f.foot), sec(b.f, b.p, b.f.foot)], out);
+    ribbon([padSec(a.f, a.p), padSec(b.f, b.p)], out);
   }
   return true;
 }
@@ -49,6 +51,15 @@ export function windowedFlange(feet, out) {
 const sec = (f, p, half) => {
   const P = (o, z) => [p[0] + f.sx * o, p[1] + f.sy * o, z];
   return [P(+half, f.zBed), P(+half, f.baseTop), P(-half, f.baseTop), P(-half, f.zBed)];
+};
+
+// a pad's cross-section: full width on the plate, its outer edges bevelled up to no
+// narrower than the strip on top
+const padSec = (f, p) => {
+  const P = (o, z) => [p[0] + f.sx * o, p[1] + f.sy * o, z];
+  const top = Math.max(Math.min(f.foot, f.sh + RESIN_FOOT.strip),
+                       f.foot - RESIN_FOOT.bevel * (f.baseTop - f.zBed));
+  return [P(+f.foot, f.zBed), P(+top, f.baseTop), P(-top, f.baseTop), P(-f.foot, f.zBed)];
 };
 
 // the point `d` along the wall (clamped to it), with the nearer station's frame
