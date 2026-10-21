@@ -155,8 +155,11 @@ async function processProject(input, args, io, report) {
   const membership = new Map(), plateCounts = new Map();
   plates.forEach((p, i) => {
     const id = metadata(p).plater_id ?? String(i + 1);
-    if (!id.trim() || plateCounts.has(id)) throw new Error(`empty or duplicate plate ID ${JSON.stringify(id)}; save distinct plates in the slicer`);
-    plateCounts.set(id, { id, objects: 0, printableObjects: 0 });
+    // An empty or repeated ID only matters where plates are picked or listed by it;
+    // plain generation ran on such projects before --plate and still does.
+    if (!id.trim() || plateCounts.has(id)) {
+      if (listing || args.plates.length) throw new Error(`empty or duplicate plate ID ${JSON.stringify(id)}; save distinct plates in the slicer`);
+    } else plateCounts.set(id, { id, objects: 0, printableObjects: 0 });
     for (const instance of children(p, 'model_instance')) {
       const md = metadata(instance), key = `${md.object_id}:${md.instance_id}`;
       if (membership.has(key)) throw new Error('ambiguous plate membership');

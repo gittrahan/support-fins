@@ -307,6 +307,11 @@ Deno.test('project: duplicate or empty plate IDs cannot select an ambiguous plat
   for (const plateIDs of [[2, 2], ['', 5]]) {
     const r = await cli(await fixture({ plateIDs }), ['--list-plates']);
     assert(r.code === 1 && r.fs.size === 1 && r.err.some((s) => s.includes('empty or duplicate plate ID')), 'ambiguous plate IDs accepted');
+    const picked = await cli(await fixture({ plateIDs }), ['--plate', '5']);
+    assert(picked.code === 1 && picked.fs.size === 1, 'a plate picked from ambiguous IDs');
+    // no plate named: generation runs as it did before --plate existed
+    const all = await cli(await fixture({ plateIDs }));
+    assert(all.code === 0 && all.result.objects.length === (plateIDs[0] ? 2 : 1), all.err.join('\n'));
   }
 });
 
