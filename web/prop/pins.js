@@ -60,11 +60,12 @@ export function emitPins(line, tris, topo, rot, offset, out, stepArg = PROP.tine
     const corners = [[-half, -half], [half, -half], [half, half], [-half, half]]
       .map(([a, b]) => [x + ux * a + vx * b, y + uy * a + vy * b]);
     // where each corner meets the part: the pin's top clears the HIGHEST, so all four bite
-    let meet = -Infinity;
+    let meet = -Infinity, low = Infinity;
     for (const [cx, cy] of corners) {
       const e = entry(cx, cy, wallTop);
       if (e === null) return;               // a corner off the part's edge: no pin
       meet = Math.max(meet, e);
+      low = Math.min(low, e);
     }
     // sink pinDepth in, shallower where the part is thinner than that; a section too
     // thin for even a quarter of it gets no pin (it would print through)
@@ -74,11 +75,13 @@ export function emitPins(line, tris, topo, rot, offset, out, stepArg = PROP.tine
     }
     if (top === null) return;
     // from inside the wall (tineOverlap down, so they union), full width to the wall
-    // top, narrowing across the gap to the tip where it meets the part, tip-wide to `top`
-    const bot = wallTop - PROP.tineOverlap;
-    const neck = Math.min(wallTop, meet - 0.05);   // meet >= wallTop: the taper never flattens
+    // top, narrowing across the gap to the tip a probe step under the LOWEST corner's
+    // meet (the surface is within PROBE below it) -- so on a sloped or curved underside
+    // the part touches the pin only where it's tip-wide -- then tip-wide to `top`
+    const bot = wallTop - PROP.tineOverlap, tipZ = low - PROBE;
+    const neck = Math.min(wallTop, tipZ - 0.05);   // low >= wallTop: neck stays over bot
     const sq = (h) => [[-h, -h], [h, -h], [h, h], [-h, h]], tip = PROP.pinTipW / 2;
-    stackExtrude([sq(half), sq(half), sq(tip), sq(tip)], [bot, neck, meet, top],
+    stackExtrude([sq(half), sq(half), sq(tip), sq(tip)], [bot, neck, tipZ, top],
       (a, b, c) => [x + ux * a + vx * b, y + uy * a + vy * b, c], out);
     if (grip && bot < grip.z) grip.z = bot;
     if (globalThis.__TINECAP) globalThis.__TINECAP.push({ x, y, z: z - (tineH ?? PROP.tineH) / 2, biteX: 0, biteY: 0 });
