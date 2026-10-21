@@ -59,7 +59,7 @@ function nameOf(r) {
   if (r.dataset.origText) parts.push(r.dataset.origText);
   return fold(parts.join(' '));
 }
-// a title parked by ui/tips.js while its picture card is up is still its title
+// a title parked by ui/tips.js while its card is up is still its title
 const tipOf = (r) => fold(`${r.title || r.dataset.tipTitle || ''} ${r.dataset.origTitle ?? ''}`);
 const shown = (r) => !r.closest('[hidden]');
 

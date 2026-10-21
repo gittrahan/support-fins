@@ -1,11 +1,13 @@
 /**
- * PICTURE TIPS (GH #351): a hover card with a small diagram for the settings that
- * are easier shown than told, for anyone reading the tooltips in a second language.
+ * TIP CARDS (GH #351): every setting's tooltip shows in a card, with a small diagram
+ * for the settings that are easier shown than told, for anyone reading the tooltips
+ * in a second language.
  *
- * An element opts in with data-tip-pic="<key>" (a picture in ui/tippics.js). Its
- * text stays its own `title`, translated by ui/i18n.js as before; this only shows it
- * in a card under the picture instead of the browser's plain tooltip. Every other
- * title is left to the browser.
+ * Any element with a `title` in the settings panel (#fin-opts) gets the card; one
+ * with data-tip-pic="<key>" (a picture in ui/tippics.js) gets it anywhere, picture
+ * on top. The text stays the element's own `title`, translated by ui/i18n.js as
+ * before; this only shows it in a card instead of the browser's plain tooltip.
+ * Titles outside the panel are left to the browser.
  *
  * The native tooltip would pop up over the card, so while the card is up the title
  * is parked in data-tip-title and put back when it goes. Anything that sets the
@@ -17,6 +19,7 @@
  */
 import { TIP_PICS } from './tippics.js';
 
+const SCOPE = '#fin-opts';
 const HOVER_MS = 350;
 const PRESS_MS = 450;
 const GUTTER = 16;
@@ -66,15 +69,18 @@ function place(el) {
 function show(el) {
   clearTimeout(timer);
   if (owner && owner !== el) hide();
-  const pic = TIP_PICS[el.dataset.tipPic];
-  if (!pic) return;
+  const pic = TIP_PICS[el.dataset.tipPic] ?? '';
+  const text = textOf(el).trim();
+  if (!pic && !text) return;
   owner = el;
-  const text = textOf(el);
   park(el);
   card.innerHTML = pic;
-  const p = document.createElement('p');
-  p.textContent = text;
-  card.appendChild(p);
+  card.classList.toggle('plain', !pic);
+  if (text) {
+    const p = document.createElement('p');
+    p.textContent = text;
+    card.appendChild(p);
+  }
   card.hidden = false;
   el.setAttribute('aria-describedby', card.id);
   place(el);
@@ -89,7 +95,13 @@ function hide() {
   card.hidden = true;
 }
 
-const tipOf = (target) => target instanceof Element ? target.closest('[data-tip-pic]') : null;
+// the innermost element with a tip: a picture, or a title in the settings panel
+// (data-tip-title is a title parked while its card is up)
+function tipOf(target) {
+  if (!(target instanceof Element)) return null;
+  const el = target.closest('[data-tip-pic], [title], [data-tip-title]');
+  return el && (el.dataset.tipPic || el.closest(SCOPE)) ? el : null;
+}
 
 document.addEventListener('pointerover', (e) => {
   if (e.pointerType === 'touch') return;

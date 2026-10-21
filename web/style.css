@@ -1117,14 +1117,16 @@ body.no-part #viewport canvas { pointer-events: none; }
 #clash-banner[hidden] { display: none; }
 @media (max-width: 900px) { #toast { bottom: 120px; } }
 
-/* Picture tips (ui/tips.js): a card with a small diagram over the setting's own
-   title text. The diagrams use the scene's colours: part, supports, overhang. */
+/* Tip cards (ui/tips.js): a setting's own title text in a card, under a small
+   diagram where it has one. The diagrams use the scene's colours: part, supports,
+   overhang. A card without one is only as wide as its text. */
 .tip-card {
   position: fixed; z-index: 60; width: 260px; max-width: calc(100vw - 32px);
   box-sizing: border-box; padding: 10px 12px; pointer-events: none;
   background: var(--panel); border: 1px solid var(--btn-line); border-radius: 8px;
   box-shadow: 0 6px 24px rgb(0 0 0 / 0.45); color: var(--text);
 }
+.tip-card.plain { width: max-content; max-width: min(260px, calc(100vw - 32px)); }
 .tip-card svg { display: block; width: 100%; height: auto; margin-bottom: 8px;
   background: var(--bg); border-radius: 4px; }
 .tip-card p { margin: 0; font-size: 12px; line-height: 1.45; }
