@@ -370,6 +370,35 @@ a mess"), and a 45° cleat sole needs walls down its slope that cross the one al
 | clearance | `sideClear` (0.35) off the part (none inside it); off every support but its own two walls | a fused tie doesn't break away from the part |
 | order | after the ribs | ties don't take plate or room from walls or ribs |
 
+## Circular recess placement — `web/prop/circular.js`
+
+Complete, concentric circular boundaries with a straight radial profile have a
+shared local measurement: centre, inner/outer radius, radial heights and angular
+extent. The fit requires at least 12 boundary vertices, no missing sector over
+30°, and residuals within `max(0.002 mm, radius × 0.0001)`. Ellipses, partial
+boundaries, irregular rims and curved radial profiles retain their existing path.
+Flat circles can be measured; the additional placement currently applies to
+sloped annular recesses with room for the existing minimum wall span.
+
+Radial candidates derive their count from the existing coverage pitch, an outer
+edge pitch no wider than `maxUnsupportedSpan`, and foot clearance at the inner
+radius. Thus Sparse cannot remove useful supports merely to make circular counts
+agree; Dense can request more. No observed fin count is a preset. The local rim
+chord, or the area centroid of nearby geometry below the ceiling when asymmetric,
+defines the angular phase. A symmetric circle can change phase without changing
+its count. All measurements and intermediate placement remain double precision.
+
+Candidates are sampled at half the normal station step, then use the usual
+part-attached/plate builder, settling, tine generation and solid-clearance checks
+against the **complete** model. They compete against the existing placement on
+held area and lowest grip, including neighbouring faces. An equal-area candidate
+may win; a worse one retains the original layout, including useful baseline walls
+that fit beside it. `raster: false` continues to disable all placement races.
+
+This changes default geometry for accepted circular recesses. It does not
+redistribute already built supports or solve spacing across obstructed arcs.
+Related to GitHub #50; general organic and complex curved placement remains open.
+
 ## Downhill walls (Auto and Full) — `web/prop/downhill.js`, `web/fins/downhill.js`
 
 Not printed yet. Issue #25: walls that run down an overhang and follow it to the plate,

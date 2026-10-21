@@ -207,13 +207,17 @@ export function withRaster(topo, result, rot, opts, normal, capFrom, rasterPass)
  * whatever they hold or weigh, and every region is tried, not only the ones `normal`
  * left bare (curved walls, prop/curved.js).
  * Downhill lines (prop/downhill.js) race through here as 'downhill'.
+ * `equivalent`: also try fully held regions and prefer the second placement
+ * when its held area is equal. Circular candidates use this to choose a local
+ * frame even where world-axis rows already hold the circle. Unlike `lenient`,
+ * this still enforces the grip rule and retains useful, clear baseline walls.
  */
 export function raceAgainst(topo, result, rot, opts, normal, capFrom, pass, tag, maxGrow = null, rel = RACE_REL,
-                            lenient = null) {
+                            lenient = null, equivalent = false) {
   const faces = overhangFaces(topo, result, rot);
   const want = rasterWanted(faces, result, normal);
   // Curved walls: a region the walls above already hold may still take a curve
-  const tried = lenient ? new Set(result.regions.map((_, i) => i)) : want;
+  const tried = lenient || equivalent ? new Set(result.regions.map((_, i) => i)) : want;
   if (!tried.size) return normal;
   const cap = globalThis.__TINECAP;
   const capNormal = cap ? cap.slice() : null;
@@ -222,7 +226,7 @@ export function raceAgainst(topo, result, rot, opts, normal, capFrom, pass, tag,
   if (opts.rasterVeto) raster.props = raster.props.filter((q) => !opts.rasterVeto(q, normal.props));
   const capRaster = globalThis.__TINECAP;
   globalThis.__TINECAP = cap;
-  const raced = raceRegions(faces, result, normal, raster, tag, maxGrow, rel, lenient, want);
+  const raced = raceRegions(faces, result, normal, raster, tag, maxGrow, rel, lenient, equivalent ? null : want, equivalent);
   if (!raced[`${tag}Regions`]) return normal;
   if (cap) {
     cap.length = capFrom;
@@ -321,7 +325,7 @@ function keepers(qa, qb, near, force = false) {
  * forces curves: a group whose walls don't bend keeps its `a` walls.
  */
 function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = RACE_REL, lenient = null,
-                     wanted = null) {
+                     wanted = null, equivalent = false) {
   const A = byRegion(a.props), B = byRegion(b.props);
   const out = [], props = [], served = new Set();
   let tines = 0, volume = 0, swapped = 0, sagRisk = a.sagRisk;
@@ -361,7 +365,8 @@ function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = 
         if (hb > 0) extra = keepers(qa, qb, near, true);
       } else if (!b.leaderOf && (!wanted || wanted.has(ri))) {   // a traced group only forces a curve
         const tooHeavy = maxGrow !== null && qa.length && vol(qb) > maxGrow * vol(qa);
-        if (!tooHeavy && hb > ha + Math.max(RACE_ABS, rel * ha)) extra = keepers(qa, qb, near);
+        if (!tooHeavy && (hb > ha + Math.max(RACE_ABS, rel * ha)
+            || (equivalent && hb > 0 && hb >= ha - 1e-6))) extra = keepers(qa, qb, near);
       }
     }
     if (!extra) { for (const q of qa) take(a, q); continue; }

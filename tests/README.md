@@ -298,3 +298,13 @@ ordinary/squat/wedge/Sway bodies and interface contacts, clearance, removal rang
 opt-in-to-legacy reset and STL/component-3MF export on a synthetic metre-high post.
 The browser toggle starts off; legacy geometry references are unchanged. Physical
 adhesion and tall-print stability still need comparison prints.
+
+**`circular.test.js`** — local circular/annular measurements and conical-recess
+placement (`web/prop/circular.js`). `_circular.js` generates publishable closed
+fixtures independently of any supplied project. Checks translation, duplicate
+instances, Z rotations 0/5/15/30/90°, triangle order, tessellation, unchanged
+recesses on different-height bodies, genuinely different recesses, coverage
+settings, Full mode, nearby-context phase, closed meshes and shared-adapter
+agreement. Ellipses and incomplete rings retain their existing path. Circle
+counts are derived from geometry; the tests compare instances rather than pin
+an observed count. Run `deno test -A tests/circular.test.js` during iteration.
