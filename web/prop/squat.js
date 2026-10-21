@@ -12,6 +12,7 @@ import { PROP } from './config.js';
 import { settleTop } from './contact.js';
 import { stemHalf } from './sweep.js';
 import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
+import { windowedFlange } from './resinfoot.js';
 
 /**
  * Sweep a SQUAT breakaway wall: a thin wall necking to the breakaway tip, on a
@@ -27,7 +28,7 @@ import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
  * on face, flush instead of overlapping.
  */
 export function sweepSquat(line, zBed, out, inset = null) {
-  const wall = [], brim = [], crest = [];
+  const wall = [], brim = [], crest = [], feet = [];
   const kinds = crestKinds(line);          // the interface crest's plan, null when off
   const brimTop = zBed + PROP.squatBrimH;
   for (let i = 0; i < line.length; i++) {
@@ -61,10 +62,13 @@ export function sweepSquat(line, zBed, out, inset = null) {
     // the brim: a thin flat slab overlapping the wall's base, for plate grip
     const bw = PROP.squatBrimW - inn;
     brim.push([P(+bw, zBed), P(+bw, brimTop), P(-bw, brimTop), P(-bw, zBed)]);
+    feet.push({ p, sx, sy, foot: bw, sh, zBed, baseTop: brimTop });
   }
   const from = out.length;
   ribbon(wall, out);
-  ribbon(brim, out);
+  // resin pins (#309): a windowed brim, so it flexes off a resin plate (not on an
+  // inset run, whose brim is narrowed to stay off its neighbour's)
+  if (PROP.tineDir !== 'vertical' || inset || !windowedFlange(feet, out)) ribbon(brim, out);
   if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
   return true;
 }

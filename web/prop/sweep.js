@@ -10,6 +10,7 @@ import { cutWall } from '../cutout.js';
 import { ribbon } from '../solids.js';
 import { PROP } from './config.js';
 import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
+import { windowedFlange } from './resinfoot.js';
 
 /**
  * Foot half-width for a wall of height `h`.
@@ -76,7 +77,7 @@ export function stemHalf(rise) {
  * outline. Replaces the single cone-footed solid that read as a golf tee.
  */
 export function sweep(line, zBed, out, minH = PROP.minHeight) {
-  const wall = [], flange = [], st = [], crest = [];
+  const wall = [], flange = [], st = [], crest = [], feet = [];
   const kinds = crestKinds(line);          // the interface crest's plan, null when off
   for (let i = 0; i < line.length; i++) {
     const p = line[i];
@@ -114,12 +115,14 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
     flange.push([
       P(+foot, zBed), P(+foot, baseTop), P(-foot, baseTop), P(-foot, zBed),
     ]);
+    feet.push({ p, sx, sy, foot, sh, zBed, baseTop });
     st.push({ p, sx, sy, top: zTop, ztip: zt, holeTop: ztip, tipHalf: wTop, sh, bot: zBed, botTip: baseTop, taperBot: false });
   }
 
   const from = out.length;
   if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
-  ribbon(flange, out);
+  // resin pins (#309): a windowed flange, so the base flexes off a resin plate
+  if (PROP.tineDir !== 'vertical' || !windowedFlange(feet, out)) ribbon(flange, out);
   if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
   return true;
 }
