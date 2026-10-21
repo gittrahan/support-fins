@@ -22,6 +22,7 @@ import { TIP_PICS } from './tippics.js';
 const SCOPE = '#fin-opts';
 const HOVER_MS = 350;
 const PRESS_MS = 450;
+const SLOP = 8;       // px a finger may wander and still be a long press
 const GUTTER = 16;
 
 const card = document.createElement('div');
@@ -130,15 +131,28 @@ document.addEventListener('focusout', (e) => {
   if (el && el === owner && !el.contains(e.relatedTarget)) hide();
 });
 
+// A field you type in keeps its own long press (select, paste): the card would beat
+// it and swallow its menu.
+const typed = (t) => t instanceof Element && (t.isContentEditable
+  || t.matches('textarea, input:not([type=checkbox], [type=radio], [type=range], [type=button], [type=submit])'));
+
 // touch: a long press shows it; any later press hides it
+let from = null;     // where the finger went down: moving off it (a slider drag) isn't a press
 document.addEventListener('pointerdown', (e) => {
   byKey = false;
   pressed = null;    // Android sends no click after a long press, so a stale one goes here
   const el = tipOf(e.target);
   if (owner && owner !== el) hide();
-  if (e.pointerType !== 'touch' || !el) return;
+  if (e.pointerType !== 'touch' || !el || typed(e.target)) return;
   clearTimeout(timer);
+  from = [e.clientX, e.clientY];
   timer = setTimeout(() => { show(el); pressed = el; }, PRESS_MS);
+});
+document.addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'touch' && from && Math.hypot(e.clientX - from[0], e.clientY - from[1]) > SLOP) {
+    clearTimeout(timer);
+    from = null;
+  }
 });
 document.addEventListener('click', (e) => {
   if (pressed && pressed.contains(e.target)) { e.preventDefault(); e.stopPropagation(); }
