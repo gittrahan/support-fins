@@ -407,14 +407,16 @@ function buildPass(topo, result, rot, opts, raster) {
       if (wantSparse && lines.length && lines.spacing > PROP.maxUnsupportedSpan) tally.sagRisk = true;
     }
     if (!lines.length) { skipped.noLine++; continue; }
+    // the rows carried onto a rim (patchTracks) meet its faces too: one soup for
+    // the patch, not a copy of the region per row
+    const rims = lines.filter((l) => l.edgeTris).map((l) => l.edgeTris);
+    const rimTris = rims.length ? joinTris(regionTris, rims.reduce(joinTris)) : regionTris;
 
     // An index loop, not for...of over a copy: a raster track's leftover pieces
     // are appended to `lines` mid-loop (rasterRest).
     for (let li = 0; li < lines.length; li++) {
       const line = lines[li];
-      // a track carried on onto a rim past its patch brings the rim's faces
-      // (patchTracks): its top meets them too
-      const lineTris = line.edgeTris ? joinTris(regionTris, line.edgeTris) : regionTris;
+      const lineTris = line.edgeTris ? rimTris : regionTris;
       // PART-ATTACHED first: if solid part sits below this overhang, a support
       // must stand on THAT floor, not stilt to the plate through the part (the
       // bug Matthew hit on a real hub). buildPartAttached declines on an ordinary
@@ -535,7 +537,9 @@ function buildPass(topo, result, rot, opts, raster) {
       // A top stepping down onto a rim (an extended track) is settled to the gap
       // straight up, but under a flank steeper than ~47deg that leaves it nearer
       // than the weld floor sideways (welds), and the station at the step failed:
-      // the rim tail was cut off. Hold such a top to 45deg instead.
+      // the rim tail was cut off. Hold such a top to 45deg instead. A top can't
+      // step straight down, so under a lip the ramp reaches back under the plate
+      // as far as the lip drops (3 mm for a 3 mm lip), that far below the gap.
       if (line.edgeTris) slopeCap(sub);
 
       // Settling can push a station that was only just tall enough below the

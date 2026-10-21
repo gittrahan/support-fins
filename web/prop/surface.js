@@ -128,9 +128,9 @@ export function undersideOf(tris) {
 }
 
 /**
- * The faces of `tris` whose XY bounds come within `r` of the segment (x0, y0) --
- * (x1, y1)'s bounding box, as their own soup (a coarse corridor: enough for a
- * surface lookup along the segment, never short of a face it crosses).
+ * The faces of `tris` whose XY bounds overlap the box round the segment (x0, y0)
+ * -- (x1, y1) grown by `r`, as their own soup: every face a surface lookup along
+ * the segment can meet (and, on a diagonal, some it can't).
  */
 export function facesNear(tris, x0, y0, x1, y1, r) {
   const g = buildZGrid(tris);
@@ -143,8 +143,8 @@ export function facesNear(tris, x0, y0, x1, y1, r) {
     for (let k = g.start[c]; k < g.start[c + 1]; k++) {
       const f = g.items[k];
       if (seen.has(f)) continue;
-      const xs = [tris[f], tris[f + 3], tris[f + 6]], ys = [tris[f + 1], tris[f + 4], tris[f + 7]];
-      if (Math.max(...xs) < lo[0] || Math.min(...xs) > hi[0] || Math.max(...ys) < lo[1] || Math.min(...ys) > hi[1]) continue;
+      if (Math.max(tris[f], tris[f + 3], tris[f + 6]) < lo[0] || Math.min(tris[f], tris[f + 3], tris[f + 6]) > hi[0] ||
+          Math.max(tris[f + 1], tris[f + 4], tris[f + 7]) < lo[1] || Math.min(tris[f + 1], tris[f + 4], tris[f + 7]) > hi[1]) continue;
       seen.add(f);
     }
   }
