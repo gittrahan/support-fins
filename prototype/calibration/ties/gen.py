@@ -6,11 +6,15 @@ web/fins/ties.js; GH #57, local issue 060.)
 A user, #57: fins "a few inches or a dozen or so cm" up "start to flop all over the
 place" on a bed slinger at speed, until layers miss. Ties have never been printed.
 
-ONE solid piece: a spine on the plate with a 40 x 45 mm shelf out from each side,
-80 mm up -- under the 10 cm Brace tall walls height, so no ribs: the ties are the only
-difference. Auto stands a comb of ~15 mm-spaced walls under each shelf; one side is
-built with Tie walls together (TIED), the other without (BARE). A stair bracket
-(1 mm steps, 45 deg) carries each shelf's root. The shelf's top says which.
+TWO separate pieces, TIED and BARE, so a bare wall that flops can't take the tied
+side down with it (#359 review: the first draft, one 8 mm spine carrying two 45 mm
+shelves 80 mm up, was top-heavy and risky in itself). Each is a table: a 3 mm deck,
+its underside 60 mm up, on two solid 12 x 40 mm legs, 46 mm of open span between
+them -- the part is stout, and the only tall thin things on the plate are the walls
+under test. 60 mm is twice Tie walls together's 3 cm floor and under the 10 cm Brace
+tall walls height, so no ribs: the ties are the only difference. Auto stands its
+comb under each deck; TIED is built with Tie walls together, BARE without. The deck's
+top says which.
 
     python3 prototype/calibration/ties/gen.py && deno run -A prototype/calibration/ties/build.js
 """
@@ -20,19 +24,18 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from coupon import bx, label, write  # noqa: E402
 
-H, SHELF_T, SHELF_L, REACH, SPINE_W, BRACKET = 80.0, 2.0, 40.0, 45.0, 8.0, 8
+H, DECK_T, LEG, SPAN, DEPTH, APART = 60.0, 3.0, 12.0, 46.0, 40.0, 25.0
+LEN = LEG + SPAN + LEG
 parts, rungs = [], []
-parts.append(bx(0, SHELF_L, -SPINE_W / 2, SPINE_W / 2, 0, H + SHELF_T))      # the spine
-for k, (side, name) in enumerate([(1, 'TIED'), (-1, 'BARE')]):
-    face = side * SPINE_W / 2
-    s0, s1 = sorted([face, face + side * REACH])
-    parts.append(bx(0, SHELF_L, s0, s1, H, H + SHELF_T))
-    for s in range(1, BRACKET + 1):                    # stair bracket under the root
-        b0, b1 = sorted([face - side * 0.5, face + side * s])
-        parts.append(bx(0, SHELF_L, b0, b1, H - (BRACKET + 1 - s), H + 0.01))
-    parts += label(name, SHELF_L / 2, face + side * REACH * 0.6, H + SHELF_T, size=6)
+for k, name in enumerate(['TIED', 'BARE']):
+    y0 = k * (DEPTH + APART)
+    y1 = y0 + DEPTH
+    parts.append(bx(0, LEG, y0, y1, 0, H + DECK_T))                 # the legs
+    parts.append(bx(LEN - LEG, LEN, y0, y1, 0, H + DECK_T))
+    parts.append(bx(0, LEN, y0, y1, H, H + DECK_T))                 # the deck
+    parts += label(name, LEN / 2, (y0 + y1) / 2, H + DECK_T, size=6)
     rungs.append({'id': k + 1, 'name': name, 'tie': name == 'TIED',
-                  'box': [-20.0, SHELF_L + 20.0, min(s0, s1) - 2.0 if side > 0 else min(s0, s1) - 30.0,
-                          max(s0, s1) + 30.0 if side > 0 else max(s0, s1) + 2.0]})
-m = write(__file__, parts, rungs)
+                  'box': [-5.0, LEN + 5.0, y0 - APART / 2, y1 + APART / 2]})
+m = write(__file__, parts, rungs, one_piece=False)
+assert len(m.split(only_watertight=False)) == 2, 'two separate tables'
 print(f'tie coupon {m.extents.round(1)} mm')
