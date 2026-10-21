@@ -7,11 +7,12 @@ import { tiltedBlockTopo, analyze, fins, prop, assert, assertClose, loadModel, r
 import { applyNozzle, applyWallLines, wallLinesFit, WALL_LINES } from '../web/nozzle.js';
 import { SWAY } from '../web/sway.js';
 import { PERP } from '../web/fins/wedges.js';
+import { TIE } from '../web/prop/ties.js';
 
 const IDENTITY = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 const knobs = () => ({ th: prop.PROP.th, tip: prop.PROP.tip, tineW: prop.PROP.tineW,
   perpTh: PERP.th, swayTineW: SWAY.tineW, swayThMin: SWAY.thMin, swayThMax: SWAY.thMax,
-  swayThPerMm: SWAY.thPerMm, wallHalf: SWAY.wallHalf });
+  swayThPerMm: SWAY.thPerMm, wallHalf: SWAY.wallHalf, tiePerp: TIE.perp, tieThick: TIE.thick });
 
 /** Volume of the supports built for a tilted block (no bed pad), at this nozzle. */
 function volumeAt(nozzle, wallLines = 2) {
@@ -53,7 +54,7 @@ Deno.test('nozzle: a bigger nozzle widens everything, a smaller one only the one
     assertClose(prop.PROP.tip, base.tip / 2, 1e-9, 'tip at 0.2');
     assertClose(SWAY.tineW, base.swayTineW / 2, 1e-9, 'brace tine at 0.2');
     // A free-standing wall gets no stiffer from a finer nozzle: never below 0.4's.
-    for (const k of ['th', 'perpTh', 'swayThMin', 'swayThMax', 'swayThPerMm', 'wallHalf']) {
+    for (const k of ['th', 'perpTh', 'swayThMin', 'swayThMax', 'swayThPerMm', 'wallHalf', 'tiePerp', 'tieThick']) {
       assert(knobs()[k] === base[k], `${k} shrank at 0.2`);
     }
   } finally { applyNozzle(0.4); }

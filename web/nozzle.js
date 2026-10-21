@@ -21,6 +21,7 @@
 import { PROP } from './prop/config.js';
 import { SWAY } from './sway.js';
 import { PERP } from './fins/wedges.js';
+import { TIE } from './prop/ties.js';
 
 export const NOZZLE_REF = 0.4;
 export const NOZZLE_MAX = 2.0;
@@ -36,7 +37,7 @@ const BASE = Object.freeze({
   footMin: PROP.footMin, footMax: PROP.footMax, squatBrimW: PROP.squatBrimW, edgeInset: PROP.edgeInset,
   perpTh: PERP.th,
   swayTineW: SWAY.tineW, swayThMin: SWAY.thMin, swayThMax: SWAY.thMax, swayThPerMm: SWAY.thPerMm,
-  wallHalf: SWAY.wallHalf,
+  wallHalf: SWAY.wallHalf, tiePerp: TIE.perp,
 });
 
 export let nozzle = NOZZLE_REF;
@@ -70,6 +71,9 @@ function rescale() {
   SWAY.thMin = Math.max(BASE.swayThMin * grow, PROP.th);
   SWAY.thMax = Math.max(BASE.swayThMax * grow, PROP.th);
   SWAY.thPerMm = BASE.swayThPerMm * grow;   // same height to reach thMax
+  // A tie strut is structural too: it grows with the nozzle, square to its run
+  TIE.perp = BASE.tiePerp * grow;
+  TIE.thick = TIE.perp * Math.hypot(1, TIE.slope);
   // The braces' keep-clear half-width assumes the widest wall's half (PERP's):
   // a wider wedge needs the braces that much further off.
   SWAY.wallHalf = BASE.wallHalf + (PERP.th - BASE.perpTh) / 2;

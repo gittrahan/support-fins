@@ -1,6 +1,6 @@
 // TIES (web/prop/ties.js, local issue 036): a zigzag of struts between two neighbouring
 // walls, so a forest of thin fill walls stands as one frame. Every strut must print
-// without support (55deg, each starting on the plate or the strut below), stop under
+// without support (60deg or steeper, each starting on the plate or the strut below), stop under
 // the lower wall's limit, keep sideClear off the part, and be a closed outward solid.
 import { assert, block } from './_util.js';
 import { PROP, TIE, tieWalls } from '../web/prop.js';
@@ -15,11 +15,10 @@ const vol = (out, from, to) => {
   return s / 6;
 };
 
-Deno.test('ties: two walls 6 mm apart get a zigzag of 55deg struts, under the limit, each a closed outward solid', () => {
+Deno.test('ties: two walls 6 mm apart get a zigzag of 60deg struts, under the limit, each a closed outward solid', () => {
   const out = [];
   const n = tieWalls([0, 0], [6, 0], 30, NONE, 0, out);
-  const climb = 6 * TIE.slope;
-  assert(n === Math.floor((30 - TIE.thick - TIE.into * TIE.slope) / climb), `struts ${n}`);
+  assert(n === Math.floor((30 - TIE.thick - TIE.into * TIE.slope) / (6 * TIE.slope)), `struts ${n}`);
   const zs = out.map((v) => v[2]);
   assert(Math.min(...zs) >= -1e-9, 'nothing under the plate');
   assert(Math.max(...zs) <= 30 + 1e-9, `struts stop under the limit (top ${Math.max(...zs).toFixed(2)})`);
@@ -29,7 +28,8 @@ Deno.test('ties: two walls 6 mm apart get a zigzag of 55deg struts, under the li
   for (let s = 0; s < n; s++) {
     const v = vol(out, s * per, (s + 1) * per);
     assert(v > 0, `strut ${s} wound inward (${v.toFixed(3)})`);
-    const len = (6 + 2 * TIE.into) * PROP.th * TIE.thick; // run x across x depth (a sheared box)
+    const len = (6 + 2 * TIE.into) * PROP.th * TIE.thick; // run x across x depth (a sheared box), ~
+                                                          // (the struts steepen a little to reach 30)
     assert(Math.abs(v - len) < 0.35 * len, `strut ${s} volume ${v.toFixed(2)} vs ~${len.toFixed(2)}`);
   }
   // every strut rises at TIE.slope: printable without support
@@ -77,4 +77,27 @@ Deno.test('ties: the top strut\'s far end stays under the limit, and no end sits
   const xs = out.map((v) => v[0]);
   assert(Math.min(...xs) > -PROP.th / 2 + 0.05 && Math.max(...xs) < 6 + PROP.th / 2 - 0.05,
     `ends at ${Math.min(...xs).toFixed(2)} / ${Math.max(...xs).toFixed(2)}, wall faces at +-${PROP.th / 2}`);
+});
+
+Deno.test('ties: struts are never flatter than 60deg nor thinner than TIE.perp, and reach up the walls', () => {
+  // #359: 1.2 mm deep at 55deg was ~0.7 mm square to the strut. A 15 mm pair under a
+  // 53 mm limit fits one 60deg strut; it steepens to climb the wall, not stop halfway.
+  for (const [span, zMax] of [[6, 30], [6, 55], [11, 40], [15, 53.5], [20, 53.5]]) {
+    const out = [], n = tieWalls([0, 0], [span, 0], zMax, NONE, 0, out, 20);
+    assert(n >= 1, `${span} mm under ${zMax}: no tie`);
+    let top = 0;
+    for (let k = 0; k < n; k++) {
+      const v = out.slice(k * 36, (k + 1) * 36);
+      const lo = Math.min(...v.map((p) => p[0])), hi = Math.max(...v.map((p) => p[0]));
+      const zs = (x) => v.filter((p) => Math.abs(p[0] - x) < 1e-9).map((p) => p[2]);
+      const [a, b] = [zs(lo), zs(hi)];
+      const depth = Math.max(...b) - Math.min(...b);                  // straight up, at the end off the plate
+      const slope = Math.abs((Math.max(...b) + Math.min(...b)) - (Math.max(...a) + Math.min(...a))) / 2 / (hi - lo);
+      assert(slope >= TIE.slope - 1e-6 && slope <= TIE.slopeMax + 1e-6, `${span} mm strut ${k}: slope ${slope.toFixed(2)}`);
+      assert(depth / Math.hypot(1, slope) >= TIE.perp - 1e-6, `${span} mm strut ${k}: ${(depth / Math.hypot(1, slope)).toFixed(2)} mm thick`);
+      top = Math.max(top, ...v.map((p) => p[2]));
+    }
+    assert(top <= zMax + 1e-6, `${span} mm: over the limit (${top.toFixed(2)})`);
+    if (span * TIE.slopeMax * n > zMax) assert(top > zMax - 1, `${span} mm under ${zMax}: stops at ${top.toFixed(1)}`);
+  }
 });

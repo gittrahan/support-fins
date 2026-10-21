@@ -4,7 +4,7 @@
  * fins extend upwards a few inches ... they start to flop all over the place" --
  * "sway bars at say a 45 degree angle stitching the fins together".
  *
- * That is prop/ties.js's tie: a zigzag of 55deg struts between two neighbouring
+ * That is prop/ties.js's tie: a zigzag of 60deg struts between two neighbouring
  * walls, a Warren truss that makes the pair one frame, stiff across the thin side a
  * lone wall flops along. The Full coverage fill pass already ties its own walls;
  * this ties every wall Auto or Full placed that stands on the plate over TIE_WALL_H,
@@ -26,11 +26,11 @@ import { planGrid } from './tall.js';
 export const TIE_WALL_H = 30;
 
 /** mm: the farthest apart two walls are tied. Auto's comb stands ~15 mm apart, past
- *  the fill pass's TIE.maxSpan; a 55deg strut across 20 mm still needs no support. */
+ *  the fill pass's TIE.maxSpan; a 60deg strut across 20 mm still needs no support. */
 export const TIE_WALL_SPAN = 20;
 
 /** mm: ties stop this far under a wall's tip taper. The fill pass stops them at
- *  TIE.rise (70 %) of the wall; a 15 mm comb's 55deg struts climb 21 mm each, so on a
+ *  TIE.rise (70 %) of the wall; a 15 mm comb's 60deg struts climb 26 mm each, so on a
  *  60 mm wall that left one strut and the top 40 mm -- where the reports saw the
  *  flop -- free. The contact and its tines are in the top few mm. */
 export const TIE_WALL_TOP = 5;
