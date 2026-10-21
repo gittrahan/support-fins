@@ -54,6 +54,7 @@ export function syncCoverageUI() {
   // only the fill pass joins walls (#309): Full's, and Auto's under Curved walls
   el('separate-walls-fld').hidden = !(full || (autoLike() && el('curved-walls').checked));
   el('curved-walls-fld').hidden = !autoLike();   // Draw lays its own lines
+  el('tie-walls-fld').hidden = !autoLike();      // and Draw's walls aren't tied yet (fins/ties.js)
   syncMore();   // coverage counts as changed only while the build reads it
 }
 // Suggest + Draw mix: when true, the pointer places hand-drawn walls ON TOP of the

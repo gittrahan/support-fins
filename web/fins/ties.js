@@ -38,6 +38,50 @@ export const TIE_WALL_TOP = 5;
 const ON_PLATE = 0.05;   // mm: a station whose floor is this close to the bed stands on it
 
 /**
+ * The bed pad's plan footprint, PAD_CELL cells: fn(tris) -> does a piece of `tris`
+ * low enough to meet the pad stand within sideClear of it in plan? The pad is only
+ * the first layers (a bigplate pad is 233k triangles, 1.8 s split into the clash
+ * grid's 1 mm pieces), so its cells are enough: on the safe side, a tie is refused
+ * near the pad it might have cleared.
+ */
+const PAD_CELL = 1.0;
+function padCells(pad) {
+  if (!pad?.length) return () => false;
+  const cells = new Set(), key = (i, j) => i * 100003 + j;
+  let top = 0;
+  for (let n = 0; n + 2 < pad.length; n += 3) {
+    const p = pad[n], q = pad[n + 1], t = pad[n + 2];
+    top = Math.max(top, p[2], q[2], t[2]);
+    for (let i = Math.floor(Math.min(p[0], q[0], t[0]) / PAD_CELL); i <= Math.floor(Math.max(p[0], q[0], t[0]) / PAD_CELL); i++) {
+      for (let j = Math.floor(Math.min(p[1], q[1], t[1]) / PAD_CELL); j <= Math.floor(Math.max(p[1], q[1], t[1]) / PAD_CELL); j++) cells.add(key(i, j));
+    }
+  }
+  const c = PROP.sideClear, zc = top + c;
+  return (tris) => {
+    for (let n = 0; n + 2 < tris.length; n += 3) {
+      // the triangle clipped to z <= zc: its corners down there and its edges' crossings
+      const tri = [tris[n], tris[n + 1], tris[n + 2]], low = [];
+      for (let e = 0; e < 3; e++) {
+        const u = tri[e], v = tri[(e + 1) % 3];
+        if (u[2] <= zc) low.push(u);
+        if ((u[2] - zc) * (v[2] - zc) < 0) {
+          const f = (zc - u[2]) / (v[2] - u[2]);
+          low.push([u[0] + f * (v[0] - u[0]), u[1] + f * (v[1] - u[1])]);
+        }
+      }
+      if (!low.length) continue;
+      const xs = low.map((v) => v[0]), ys = low.map((v) => v[1]);
+      for (let i = Math.floor((Math.min(...xs) - c) / PAD_CELL); i <= Math.floor((Math.max(...xs) + c) / PAD_CELL); i++) {
+        for (let j = Math.floor((Math.min(...ys) - c) / PAD_CELL); j <= Math.floor((Math.max(...ys) + c) / PAD_CELL); j++) {
+          if (cells.has(key(i, j))) return true;
+        }
+      }
+    }
+    return false;
+  };
+}
+
+/**
  * Tie the walls of `built` (buildFins' result, seated frame, bed at z 0) in place:
  * triangles appended to wall A's triRanges, `f.ties` counted on both walls, and
  * `built.wallTies` the number of ties added.
@@ -78,20 +122,32 @@ export function tieAllWalls(topo, result, rot, built) {
   }
   if (!pairs.length) return built;
   pairs.sort((p, q) => p.d - q.d);
-  // Only what a strut could meet goes in the clash grid: under the highest tie
+  // Only what a strut could meet goes in the clash grid: under the highest tie, and
+  // in plan near a pair's line (splitting every support into the grid's 1 mm pieces
+  // cost 2.3 s on bigplate X30 Full)
   const zTop = Math.max(...pairs.map((p) => Math.min(p.a[2], p.b[2]))) + PROP.sideClear;
-  const low = (p, q, r) => Math.min(p[2], q[2], r[2]) <= zTop;
+  const r = PROP.th / 2 + PROP.sideClear + TIE.into + 1;
+  const boxes = pairs.map(({ a, b }) => [Math.min(a[0], b[0]) - r, Math.min(a[1], b[1]) - r,
+    Math.max(a[0], b[0]) + r, Math.max(a[1], b[1]) + r]);
+  const low = (p, q, t) => {
+    if (Math.min(p[2], q[2], t[2]) > zTop) return false;
+    const x0 = Math.min(p[0], q[0], t[0]), x1 = Math.max(p[0], q[0], t[0]);
+    const y0 = Math.min(p[1], q[1], t[1]), y1 = Math.max(p[1], q[1], t[1]);
+    return boxes.some((o) => x0 <= o[2] && o[0] <= x1 && y0 <= o[3] && o[1] <= y1);
+  };
   const grid = planGrid();
   fins.forEach((f, k) => { for (const [a, b] of f.triRanges ?? []) grid.add(built.triangles.slice(a, b), k, low); });
-  if (built.padTriangles?.length) grid.add(built.padTriangles, null, low);
+  const onPad = padCells(built.padTriangles);
   const count = new Map(fins.map((f, k) => [k, f.ties ?? 0]));
   const triangles = [...built.triangles];
   for (const { a, b, k, m } of pairs) {
     if (count.get(k) >= TIE.perWall || count.get(m) >= TIE.perWall) continue;
+    // the clash grid first: it turns most pairs away far cheaper than the part check
+    const own = new Set([k, m]), zMax = Math.min(a[2], b[2]);
     const out = [];
-    if (!tieWalls(a, b, Math.min(a[2], b[2]), tris, 0, out, TIE_WALL_SPAN)) continue;
-    const own = new Set([k, m]);
-    if (grid.hits(out, own)) continue;
+    if (!tieWalls(a, b, zMax, tris, 0, out, TIE_WALL_SPAN, false) || grid.hits(out, own) || onPad(out)) continue;
+    out.length = 0;
+    if (!tieWalls(a, b, zMax, tris, 0, out, TIE_WALL_SPAN)) continue;
     grid.add(out, own);
     const at = triangles.length;
     for (const v of out) triangles.push(v);

@@ -61,9 +61,10 @@ function strutHitsPart(tris, o, d, u0, z0, u1, z1) {
  * standing on the plate at zBed, under `zMax` (the lower wall's limit). Appends the
  * struts to `out` and returns how many, or 0 (out untouched) when none fits.
  * `maxSpan` is the farthest apart the walls may be (fins/ties.js ties Auto's wider
- * comb).
+ * comb). `checkPart` false skips the part clearance -- the costly part -- for a
+ * caller that rules the tie out more cheaply first, then builds it again checked.
  */
-export function tieWalls(a, b, zMax, tris, zBed, out, maxSpan = TIE.maxSpan) {
+export function tieWalls(a, b, zMax, tris, zBed, out, maxSpan = TIE.maxSpan, checkPart = true) {
   const dx = b[0] - a[0], dy = b[1] - a[1], span = Math.hypot(dx, dy);
   if (span < TIE.minSpan || span > maxSpan) return 0;
   const d = [dx / span, dy / span], o = [a[0], a[1]];
@@ -79,7 +80,7 @@ export function tieWalls(a, b, zMax, tris, zBed, out, maxSpan = TIE.maxSpan) {
     const z0 = zBed + s * climb, z1 = z0 + climb;
     // out to its ends: past each wall's centreline, where a slanted corner can show
     const g = s % 2 ? -1 : 1, rise = e * TIE.slope;
-    if (strutHitsPart(tris, o, d, u0 - g * e, Math.max(zBed, z0 - rise), u1 + g * e, z1 + rise)) return 0;
+    if (checkPart && strutHitsPart(tris, o, d, u0 - g * e, Math.max(zBed, z0 - rise), u1 + g * e, z1 + rise)) return 0;
     struts.push([u0, z0, u1, z1]);
   }
   const h = PROP.th / 2;
