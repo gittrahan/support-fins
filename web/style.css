@@ -1291,5 +1291,7 @@ body.no-part #viewport canvas { pointer-events: none; }
   body.plates-below { --chips-h: 88px; }
   body.plates-below #plates { top: calc(var(--topbar-h) + 44px); left: 14px; right: auto; max-width: calc(100vw - 28px); }
   #fps { display: none; }
+  /* the view toolbar's popovers: buttons a fingertip can hit */
+  .vb-pop .btn.sm { min-height: 36px; padding: 0 12px; }
 }
 

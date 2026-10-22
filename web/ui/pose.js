@@ -163,8 +163,14 @@ addBadge('rotate-badge', { pop: 'rotate-pop', onFold: () => { if (layPlacing) ca
 // part, #53); the 90deg buttons, Reset and Lay a face flat still turn it.
 // Remembered, storage optional, like "Highlight small overhangs".
 const RINGS_KEY = 'sf.showRings';
-let showRings = true;
-try { showRings = localStorage.getItem(RINGS_KEY) !== '0'; } catch { /* storage off */ }
+// A touch screen starts with them off: on a phone they cover most of the part, so
+// a pinch that lands on one turned the part instead of zooming. A saved choice
+// wins either way, and the box turns them on.
+let showRings = !matchMedia('(pointer: coarse)').matches;
+try {
+  const saved = localStorage.getItem(RINGS_KEY);
+  if (saved !== null) showRings = saved !== '0';
+} catch { /* storage off */ }
 el('show-rings').checked = showRings;
 el('rings-hint').hidden = !showRings;
 el('show-rings').addEventListener('change', (e) => {
