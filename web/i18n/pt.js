@@ -554,4 +554,6 @@ export default {
   "Bring back every fin removed in this orientation.": "Traz de volta todas as aletas removidas nesta orientação.",
   "Draw a red cone under each spot whose first layer starts in midair. Off hides the cones; the readout and the card still count them.": "Desenha um cone vermelho sob cada ponto cuja primeira camada começa no ar. Desligado esconde os cones; o painel e o aviso continuam contando.",
   "Build volume, overhang, calibration, plugins, language and links.": "Volume de impressão, saliência, calibração, plugins, idioma e links.",
+  "Part": "Peça",
+  "Fin settings": "Configurações das aletas",
 };

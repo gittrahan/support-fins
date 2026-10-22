@@ -29,6 +29,7 @@ import { buildExportGeometry } from './ui/export.js';
 import './ui/plugins.js';
 import './ui/calibrate.js';
 import './ui/topbar.js';
+import './ui/phone.js';
 import './ui/navigation.js';
 import './ui/camviews.js';
 import { syncViewCube } from './ui/viewcube.js';

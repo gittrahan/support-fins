@@ -135,7 +135,10 @@ export function buildPlate(sx, sy, sz) {
 /** Point the camera at the part, backed off far enough to see all of it. */
 export function frame(size) {
   const reach = Math.max(size.x, size.y, size.z, 40);
-  const dist = reach * 2.1;
+  // The 45° field of view is vertical: a portrait phone sees far less across, so
+  // back off until the part fits the width too. Any window wider than tall (every
+  // desktop) keeps the old distance.
+  const dist = reach * 2.1 * Math.max(1, 0.7 / camera.aspect);
   camera.position.set(dist * 0.62, -dist * 0.72, dist * 0.55);
   camera.near = Math.max(0.5, reach / 200);
   camera.far = dist * 12;

@@ -227,6 +227,16 @@
 
 </div><!-- /left-rail -->
 
+<!-- A phone (style.css, ui/phone.js): the stats card and the fin settings fold
+     behind these two chips under the top bar, one open at a time, so the part
+     isn't under a card the moment it loads. Shown with a part on the plate. -->
+<div id="phone-chips" hidden>
+  <button type="button" class="btn chip" id="chip-stats" aria-expanded="false" aria-controls="stats"><span
+          data-i18n="Part">Part</span>&nbsp;▾</button>
+  <button type="button" class="btn chip" id="chip-opts" aria-expanded="false" aria-controls="fin-opts" hidden><span
+          data-i18n="Fin settings">Fin settings</span>&nbsp;▾</button>
+</div>
+
 <!-- Plate tabs (ui/plates.js): each plate with its models (ui/models.js), each model
      with its own pose, settings and walls. + adds an empty plate; × deletes one. -->
 <nav id="plates" aria-label="Plates"></nav>

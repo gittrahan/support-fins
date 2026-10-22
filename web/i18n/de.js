@@ -484,4 +484,6 @@ export default {
   "Brace · {mm} mm · move up for full height": "Stützrippe · {mm} mm · höher für volle Höhe",
   "Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.": "Klicken Sie zwei Punkte über einen Überhang – direkt auf die roten Flächen –, um eine Stützwand zu ziehen. Fahren Sie mit der Maus über eine aufrechte Seite, um eine Stützrippe vorab zu sehen: Ihre Oberkante folgt dem Mauszeiger, und nahe dem oberen Ende der Seite reicht sie über die volle Höhe. Klicken setzt sie. Esc oder Rechtsklick bricht ab.",
   "Build volume, overhang, calibration, plugins, language and links.": "Bauraum, Überhang, Kalibrierung, Plugins, Sprache und Links.",
+  "Part": "Bauteil",
+  "Fin settings": "Finnen-Einstellungen",
 };

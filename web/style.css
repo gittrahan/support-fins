@@ -1258,3 +1258,38 @@ body.no-part #viewport canvas { pointer-events: none; }
 .tp-cone { fill: #e05a4f; }
 .tp-plan { fill: #8fa3c8; opacity: 0.45; }
 .tp-band { stroke: #3fae6a; stroke-width: 5; }
+
+/* ---------- phone: a part on the plate ---------- */
+
+/* Phone (ui/phone.js): the stats card and the fin settings fold behind two chips
+   under the top bar, one open at a time; the plate tabs sit right of the chips
+   instead of over the toolbar; the status/receipt card sits just above the view
+   toolbar; the fps readout goes. The rails start under the chip row. */
+#phone-chips { display: none; }
+@media (max-width: 600px) {
+  :root { --chips-h: 44px; }
+  #phone-chips:not([hidden]) {
+    position: fixed; z-index: 3;
+    top: var(--topbar-h); left: 14px;
+    display: flex; gap: 6px;
+  }
+  #phone-chips .chip { min-height: 36px; padding: 0 12px; }
+  #phone-chips .chip[hidden] { display: none; }
+  #phone-chips .chip[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+
+  body:not(.show-stats) #stats { display: none; }
+  body:not(.show-opts) #fin-opts { display: none; }
+  #left-rail { top: calc(var(--topbar-h) + var(--chips-h)); right: 14px; }
+  #stats { width: auto; max-width: none; align-self: stretch; }
+  #right-rail { top: calc(var(--topbar-h) + var(--chips-h)); left: 14px; bottom: 64px; }
+  #fin-opts { width: auto; max-width: none; align-self: stretch; }
+  #status { width: auto; max-width: none; align-self: stretch; }
+  #plates {
+    top: var(--topbar-h); bottom: auto; left: auto; right: 14px;
+    transform: none; max-width: calc(100vw - 230px);
+  }
+  body.plates-below { --chips-h: 88px; }
+  body.plates-below #plates { top: calc(var(--topbar-h) + 44px); left: 14px; right: auto; max-width: calc(100vw - 28px); }
+  #fps { display: none; }
+}
+

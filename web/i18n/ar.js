@@ -468,4 +468,6 @@ export default {
   "Brace · {mm} mm · move up for full height": "دعامة · {mm} مم · تحرّك لأعلى للارتفاع الكامل",
   "Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.": "انقر على نقطتين عبر بروز معلّق — مباشرةً على الأوجه الحمراء — لوضع جدار قابل للكسر على امتداد الخط. ومرّر المؤشر فوق جانب رأسي لمعاينة دعامة تمنع التمايل: يتبع أعلاها المؤشر، وقرب أعلى الجانب تمتد بالارتفاع الكامل. انقر لإضافتها. اضغط Esc أو انقر بزر الفأرة الأيمن للإلغاء.",
   "Build volume, overhang, calibration, plugins, language and links.": "حجم الطباعة، والبروز، والمعايرة، والإضافات، واللغة، والروابط.",
+  "Part": "القطعة",
+  "Fin settings": "إعدادات الزعانف",
 };
