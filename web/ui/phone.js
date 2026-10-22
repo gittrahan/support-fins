@@ -31,9 +31,11 @@ for (const id of Object.keys(panels)) watch.observe(el(id), { attributes: true, 
 sync();
 
 el('viewport').addEventListener('pointerdown', () => show(null));
-document.addEventListener('keydown', (e) => {
+// window capture runs before topbar.js's document capture: an Escape that folds
+// the ☰ sheet or closes one of its menus doesn't fold these as well
+addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !document.querySelector('#topbar.more-open')) show(null);
-});
+}, true);
 
 // The plate tabs sit right of the chips; when the chips' words leave them too
 // little room (a long language), they drop to a row of their own under the chips.
