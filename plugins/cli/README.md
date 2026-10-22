@@ -136,10 +136,10 @@ original palette and model assignments stay intact.
 
 **Nozzle diameter.** Project mode reads `nozzle_diameter` from
 `Metadata/project_settings.config`. A single value, or an array of identical
-diameters such as `["0.4", "0.4"]`, applies to the selected objects. A missing,
-invalid or unsupported value, or different diameters such as `["0.4", "0.8"]`,
-requires `--nozzle`. These cases follow the same skip/error rules as other
-unsupported object settings, and `--check` reports them as incompatible.
+diameters such as `["0.4", "0.4"]`, applies to the selected objects, used as saved
+(a 0.5 mm nozzle builds at 0.5). A missing or unreadable value, or different
+diameters such as `["0.4", "0.8"]`, builds at the 0.4 mm default, as before this
+setting existed, with a warning on each object; `--check` reports the same.
 Filament slots are not nozzle indices: `--fin-extruder` does not resolve which
 physical nozzle prints an object.
 
@@ -280,7 +280,8 @@ objects during generation, and adds:
   `name`, `plate`, `status`, `reason` and `warnings`. Compatible check results also
   include the resolved `layerHeight` and `filament`.
 - Once nozzle settings are resolved, `objectResults` also includes numeric
-  `nozzle` (mm) and `nozzleSource` (`project` or `override`). Successful generation
+  `nozzle` (mm) and `nozzleSource` (`project`, `override`, or `default` when the
+  project's diameter was missing or mixed). Successful generation
   includes these fields in `objects` and the output's
   `Metadata/support_fins_project.json` marker as well. Terminal reports show the
   diameter and its source.

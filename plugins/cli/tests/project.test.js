@@ -127,21 +127,22 @@ Deno.test('project nozzle: saved diameter equals an explicit run, is reported an
   assert(checked.result.report.includes('nozzle 0.8 mm (project)'), 'human report omits diameter');
 });
 
-Deno.test('project nozzle: ambiguous/missing settings follow check, skip, explicit selection and listing rules', async () => {
+Deno.test('project nozzle: ambiguous/missing settings build at 0.4 with a warning, like before the setting', async () => {
+  const plain = await cli(await fixture({ steep: true }));
   for (const nozzle of [null, [], ['0.4', '0.8'], ['0.4', 'bad']]) {
-    const source = await fixture({ nozzle });
+    const source = await fixture({ nozzle, steep: true });
     const checked = await cli(source, ['--check']);
-    assert(checked.code === 1 && checked.fs.size === 1 && checked.result.summary.incompatible === 2, 'check accepted invalid nozzle');
-    assert(checked.result.objectResults.every((o) => o.reason.includes('--nozzle')), 'check lacks remedy');
-    for (const flags of [[], ['--object', '1']]) {
-      const failed = await cli(source, flags), error = JSON.parse(failed.err.at(-1));
-      assert(failed.code === 1 && failed.fs.size === 1, 'unresolved nozzle wrote output');
-      assert(error.summary[flags.length ? 'failed' : 'skipped'] === (flags.length ? 1 : 2), 'object error policy changed');
-    }
-    const listed = await cli(source, ['--list-objects']);
-    assert(listed.code === 0 && listed.fs.size === 1 && listed.result.objects.length === 2, 'cannot discover objects needing override');
+    assert(checked.code === 0 && checked.fs.size === 1 && checked.result.summary.incompatible === 0, 'check refused a defaulted nozzle');
+    assert(checked.result.objectResults.every((o) => o.nozzle === 0.4 && o.nozzleSource === 'default'
+      && o.warnings.some((w) => w.includes('--nozzle'))), 'check lacks the default and its remedy');
+    const r = await cli(source);
+    assert(r.code === 0, r.err.join('\n'));
+    assert(r.result.objects.every((o) => o.nozzle === 0.4 && o.nozzleSource === 'default'), 'not built at 0.4');
+    const a = new ProjectZip(r.fs.get('part-fins-project.3mf')), b = new ProjectZip(plain.fs.get('part-fins-project.3mf'));
+    const normalize = (t) => t.replace(/p:UUID="[^"]*"/g, 'p:UUID="same"');
+    assert(normalize(await a.text(SUPPORTS)) === normalize(await b.text(SUPPORTS)), 'defaulted fins differ from a 0.4 project');
     const fixed = await cli(source, ['--nozzle', '0.8', '--object', '2', '--fin-extruder', '1']);
-    assert(fixed.code === 0 && fixed.result.objects.length === 1 && fixed.result.objects[0].nozzle === 0.8, 'explicit remedy failed');
+    assert(fixed.code === 0 && fixed.result.objects.length === 1 && fixed.result.objects[0].nozzle === 0.8, 'explicit override failed');
   }
 });
 

@@ -239,7 +239,7 @@ async function processProject(input, args, io, report) {
       const variable = variableIDs.has(order.get(o.id));
       const height = regularHeight(settings, o.config, args.dialog.layerHeight, variable);
       const slot = filament(settings, o.config, args.finExtruder);
-      const nozzle = projectNozzle(settings, args.dialog.nozzle);
+      const { warning: nozzleWarning, ...nozzle } = projectNozzle(settings, args.dialog.nozzle);
       const options = optionsFromDialog({ ...args.dialog, layerHeight: height, nozzle: nozzle.nozzle });
       const own = metadata(o.config);
       const native = enabled(own.enable_support ?? settings.enable_support)
@@ -252,6 +252,7 @@ async function processProject(input, args, io, report) {
       const result = report.object(o);
       Object.assign(result, nozzle);
       if (nozzle.nozzleSource === 'override') result.warnings.push('nozzle override applies to fin generation only; saved printer settings are unchanged');
+      if (nozzleWarning) result.warnings.push(nozzleWarning);
       if (native && !args.disableNativeSupports) result.warnings.push('native slicer supports remain enabled; both native supports and fins may print');
       if (byObject) result.warnings.push('prints by object: any generated fins become a part of this model, so their tines weld to it');
       if (args.disableNativeSupports && children(o.config, 'metadata').filter((m) => m.attrs.key === 'enable_support').length > 1) {
