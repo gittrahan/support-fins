@@ -27,6 +27,11 @@ short-wall and fill passes; curved tracing cannot grow back onto excluded faces.
 The full model remains available for collision checks and the ceiling stays
 highlighted. Larger bores still get supports, and Draw remains an explicit choice.
 
+Containment probes for this classification use the full seated model and count
+coincident triangle hits as one surface. Opposite-facing hits at a tangent cancel.
+This keeps a probe on a tessellation seam from treating bore air as solid or
+inventing a floor; it does not change the general collision predicates.
+
 Full coverage also reserves the space between each excluded ceiling triangle
 and the model's upward-facing floor in its existing collision grid. These
 keep-clear volumes are computed once with the classification and never emitted

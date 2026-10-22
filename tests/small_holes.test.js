@@ -127,3 +127,49 @@ Deno.test('small holes: Full keeps nearby ceilings supported without routing thr
   }
   assert(built.bare.area < 0.02 * built.bare.total, 'neighbouring ceilings must retain coverage');
 });
+
+// A CAD export may split a bore lengthwise at its centre. A containment ray
+// there can hit two triangles of one surface; that must not turn air into solid.
+function seamBore(diameter, segments, axialSegments, yaw, translated) {
+  const pos = circularBore({ diameter, segments, axialSegments });
+  const [c, s] = yaw === 90 ? [0, 1] : [1, 0];
+  for (let i = 0; i < pos.length; i += 3) {
+    const x = pos[i], y = pos[i + 1];
+    pos[i] = c * x - s * y + (translated ? 30 : 0);
+    pos[i + 1] = s * x + c * y + (translated ? 110 : 0);
+  }
+  return pos;
+}
+
+Deno.test('small holes: coincident mesh seams do not change classification across seating paths', () => {
+  for (const segments of [64, 96]) for (const axialSegments of [1, 2]) {
+    for (const yaw of [0, 90]) for (const translated of [false, true]) {
+      const pos = seamBore(4, segments, axialSegments, yaw, translated);
+      const label = `${segments} facets, ${axialSegments} axial strips, ${yaw}°, translated=${translated}`;
+      const topo = topology(pos), res = analyze(topo, 45, IDENTITY3);
+      assertEquals(automaticTargets(topo, res, IDENTITY3).smallHoleRegions, 1, label);
+      const plugin = computeFins(pos, { mode: 'auto', threshold: 45 });
+      assertEquals(plugin.stats.smallHoleRegions, 1, `shared adapter: ${label}`);
+      assertEquals(plugin.triangles.length, 0, `shared adapter: ${label}`);
+    }
+  }
+});
+
+Deno.test('small holes: seam-tessellated bores stay empty in Auto and Full, with larger controls supported', () => {
+  for (const mode of ['auto', 'full']) for (const diameter of [4, 5, 5.8, 10]) {
+    const pos = seamBore(diameter, 64, 2, 90, true);
+    const topo = topology(pos), res = analyze(topo, 45, IDENTITY3);
+    const built = buildFins(topo, res, IDENTITY3, { mode, bedPad: true, curvedWalls: true });
+    const plugin = computeFins(pos, { mode, threshold: 45 });
+    const excluded = diameter < 6 ? 1 : 0;
+    assertEquals(built.smallHoleRegions, excluded, `${mode}: ${diameter} mm`);
+    assertEquals(plugin.stats.smallHoleRegions, excluded, `shared ${mode}: ${diameter} mm`);
+    if (excluded) {
+      assertEquals(built.triangles.length, 0);
+      assertEquals(plugin.triangles.length, 0);
+    } else {
+      assert(built.props.length > 0, 'large-bore control must retain support');
+      assert(plugin.stats.braces + plugin.stats.props > 0);
+    }
+  }
+});

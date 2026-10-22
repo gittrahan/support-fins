@@ -81,8 +81,10 @@ coverage exemption: recognised circular bores stay clear in Auto and Full, while
 larger bores and neighbouring overhangs keep their supports. Procedural geometry
 checks the classifier boundary, shared-plugin reporting, unchanged highlighting,
 pose-local classification, cavity keep-clear volumes ending at the actual floor,
-nearby ceilings in Full mode and the explicit Draw path. This reuses the existing
-heuristic, not an exact diameter measurement or a general removability test.
+nearby ceilings in Full mode and the explicit Draw path. Axially subdivided
+bores reproduce coincident ray hits on CAD mesh seams, with translated X/Y bores,
+two tessellations, both seating paths, and a larger supported control. This reuses
+the existing heuristic, not an exact diameter measurement or a general removability test.
 
 **`wedge_clear.test.js`** -- a wedge never runs through the part under the face it
 holds (GH #254: a channel at 45deg got a wedge under its upper plate straight through

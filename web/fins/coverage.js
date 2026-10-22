@@ -11,7 +11,6 @@
  * A face is HELD (reachOf) when a wall-top point lies within R of its centroid in
  * plan and 0..1.5 mm below it, or it sits on the plate (z < PLATE_Z).
  */
-import { insidePart } from '../inside.js';
 import { surfaceHitsAt } from '../prop/surface.js';
 import { seatedPartTris } from './seating.js';
 
@@ -86,7 +85,27 @@ export function classify(topo, res, rot) {
     let p = patches.get(r); if (!p) patches.set(r, (p = []));
     p.push(f);
   }
-  const inside = (x, y, z) => insidePart(topo, rot, off, x, y, z);
+  // These few hole-recognition probes often land exactly on a CAD tessellation
+  // seam. Counting each incident triangle as a separate crossing can turn air
+  // into solid (or invent a floor). Use the existing seated vertical probes,
+  // count a coincident surface once, and cancel opposite-facing tangent hits.
+  // Keep this local: automatic exclusion must not change collision predicates.
+  let tris;
+  const inside = (x, y, z) => {
+    const hits = surfaceHitsAt(tris ??= seatedPartTris(topo, rot, off), x, y).filter(([h]) => h >= z - 1e-9).sort((a, b) => a[0] - b[0]);
+    let crossings = 0;
+    for (let i = 0; i < hits.length;) {
+      const height = hits[i][0];
+      let up = false, down = false;
+      do {
+        up ||= hits[i][1] > 0;
+        down ||= hits[i][1] < 0;
+        i++;
+      } while (i < hits.length && Math.abs(hits[i][0] - height) < 1e-7);
+      if (up !== down) crossings++;
+    }
+    return (crossings & 1) === 1;
+  };
   for (const faces of patches.values()) {
     // plan extent across the patch's minor axis (2D PCA of its vertices)
     const pts = [];
