@@ -3,8 +3,9 @@
 No Cura imports, so tests load it on its own. The settings themselves are the shared
 options.json (the site's settings); this file only adds what is Cura's:
 
-  * Layer height is Cura's own (hostSupplied: slicer): read from the profile, never
-    asked, so it can't disagree with what Cura slices.
+  * Layer height and nozzle size are Cura's own (hostSupplied: slicer): read from the
+    profile and the part's extruder, never asked, so they can't disagree with what
+    Cura slices.
   * Stale fins: tilting or scaling a part after its fins were added makes them wrong
     (they're a child object, so they tilt and scale WITH the part). Moving it, turning
     it about the vertical, or mirroring it doesn't: the fins follow and still fit.
@@ -63,10 +64,14 @@ def shown_options(schema):
     return [o for o in schema["options"] if o.get("hostSupplied") != "slicer"]
 
 
-def engine_values(values, layer_height):
+def engine_values(values, layer_height, nozzle=None):
     """Dialog values -> the {key: value} host_options takes: the saved values plus
-    Cura's own layer height."""
-    return dict(values, layerHeight=float(layer_height))
+    Cura's own layer height and, when the extruder says, its nozzle size (mm; None
+    keeps the engine's 0.4)."""
+    out = dict(values, layerHeight=float(layer_height))
+    if nozzle is not None:
+        out["nozzle"] = float(nozzle)
+    return out
 
 
 def rows(schema, values):

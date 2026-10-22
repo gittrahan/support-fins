@@ -27,7 +27,7 @@ def test_first_run_is_the_sites_defaults():
     values = settings.load(SCHEMA, "")
     assert values["gap"] == 0.2
     assert values["coverage"] == 0.5 and values["tines"] is True and values["padStyle"] == "auto"
-    assert "layerHeight" not in values          # Cura's profile supplies it, never asked
+    assert "layerHeight" not in values and "nozzle" not in values   # Cura supplies them, never asked
 
 
 def test_a_broken_or_old_preference_falls_back_to_defaults():
@@ -51,11 +51,13 @@ def test_engine_values_add_curas_layer_height():
     out = settings.engine_values(values, 0.12)
     assert out["layerHeight"] == 0.12 and out["gap"] == 0.2
     assert "layerHeight" not in values                      # the saved values are left alone
+    assert "nozzle" not in out                              # no extruder size: the engine's 0.4
+    assert settings.engine_values(values, 0.2, 0.6)["nozzle"] == 0.6
 
 
 def test_dialog_rows_show_percents_and_the_gap():
     rows = {r["key"]: r for r in settings.rows(SCHEMA, settings.load(SCHEMA, ""))}
-    assert "layerHeight" not in rows
+    assert "layerHeight" not in rows and "nozzle" not in rows   # Cura's own
     assert (rows["coverage"]["value"], rows["coverage"]["max"], rows["coverage"]["step"]) == (50, 100, 5)
     assert rows["sway.reach"]["value"] == 15              # not 15.000000000000002
     gap = rows["gap"]

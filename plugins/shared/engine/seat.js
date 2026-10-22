@@ -3,7 +3,7 @@
 // pick its clearances differently.
 import { MATERIAL } from '../../../web/materials.js';
 import { CUTOUT_PATTERNS } from '../../../web/cutout.js';
-import { nozzleChoice } from './nozzle.js';
+import { nozzleSize } from './nozzle.js';
 
 // The site's Bed pad choices minus Custom (a plugin dialog shows presets, not the
 // four custom numbers). 'off' is the site's Off, the same as bedPad: false.
@@ -39,7 +39,7 @@ export function clearances(opts) {
   const tunables = {
     // Both are module state: every build/drawn wall must reset the previous call.
     // Wall-line selection remains a browser feature; plugin walls use two lines.
-    nozzle: Number(nozzleChoice(opts.nozzle)), wallLines: 2,
+    nozzle: nozzleSize(opts.nozzle), wallLines: 2,
     padH: MATERIAL.pla.padH, padGrab: MATERIAL.pla.padGrab, propGap: gapOf(opts.gap),
     // Off builds no pad, so which style it carries doesn't matter; Auto keeps it valid.
     padStyle: pick('padStyle', opts.padStyle, PAD_STYLES) === 'off' ? 'auto' : opts.padStyle,

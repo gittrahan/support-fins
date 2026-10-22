@@ -63,7 +63,7 @@ ln -s "$PWD/plugins/cura/build/SupportFins" ~/Library/Application\ Support/cura/
 - **Ctrl+Z** takes the fins off again. *Remove Support Fins* removes them from the selected
   parts, or from every part when nothing is selected.
 - Several parts (selected, or the whole plate): each gets its own fins. Groups: ungroup first.
-- Layer height comes from the active profile, so the tines land on real layers.
+- Layer height comes from the active profile, so the tines land on real layers, and the nozzle size from the part's extruder, so walls and tines are sized in its lines.
 
 **Settings: Extensions › Support Fins › Support Fins Settings…** The website's settings
 (overhang angle, tines and grip, support gap, bed pad, sway braces, cutouts, coverage), with its

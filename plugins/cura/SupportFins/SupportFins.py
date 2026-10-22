@@ -152,17 +152,18 @@ class SupportFins(QObject, Extension):
         app = CuraApplication.getInstance()
         layer = app.getGlobalContainerStack().getProperty("layer_height", "value")
         saved = settings.load(self.schema(), app.getPreferences().getValue(settings.PREF))
-        soups, poses = [], []
+        soups, poses, values = [], [], []
         for part in parts:
             md = part.getMeshData().getTransformed(part.getWorldTransformation())
             soups.append(frames.part_soup(md.getVertices(),
                                           md.getIndices() if md.hasIndices() else None))
             poses.append(part.getWorldTransformation().getData().copy())
+            values.append(settings.engine_values(saved, layer, self._nozzle(part)))
         self._progress = Message("Computing fins…", lifetime=0, dismissable=False,
                                  progress=-1, title=TITLE)
         self._progress.show()
         self._pending = (parts, poses, list(skipped))
-        self._job = FinsJob(soups, [settings.engine_values(saved, layer)] * len(parts))
+        self._job = FinsJob(soups, values)
         # A bound method, not a lambda: Uranium's Signal holds plain functions weakly.
         self._job.finished.connect(self._onJobFinished)
         self._job.start()
@@ -241,6 +242,16 @@ class SupportFins(QObject, Extension):
         return node
 
     # -- selection ------------------------------------------------------------------
+    def _nozzle(self, part):
+        """The nozzle size (mm) on the extruder that prints this part, or None to keep
+        the engine's 0.4."""
+        mgr = CuraApplication.getInstance().getExtruderManager()
+        pos = part.callDecoration("getActiveExtruderPosition")
+        stack = mgr.getExtruderStack(int(pos)) if pos is not None else None
+        stack = stack or mgr.getActiveExtruderStack()
+        size = stack.getProperty("machine_nozzle_size", "value") if stack else None
+        return size if isinstance(size, (int, float)) and size > 0 else None
+
     def _selected_parts(self):
         return scope.selected_parts(Selection.getAllSelectedObjects(), is_fins)
 

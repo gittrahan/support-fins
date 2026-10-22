@@ -2,7 +2,7 @@
 // style or a wall cutout gets what the website builds with the same picks.
 //
 //   deno test --allow-read plugins/shared/tests/
-import { computeFins, ENGINE_DEFAULTS } from '../engine/fins_entry.js';
+import { computeFins, ENGINE_DEFAULTS, optionsFromDialog } from '../engine/fins_entry.js';
 import { readSTL, MODELS, analyze, fins, rotY, assert, isClosed } from '../../../tests/_util.js';
 import { buildTopology, IDENTITY3 } from '../../../web/overhangs.js';
 import { MATERIAL } from '../../../web/materials.js';
@@ -96,8 +96,14 @@ Deno.test('nozzle: adapter matches the website at each diameter and resets betwe
   } finally { resetPla(); }
 });
 
-Deno.test('nozzle: direct adapter calls reject unsupported values', () => {
-  for (const nozzle of [null, true, [], {}, '', ' ', '0.8mm', 0, -1, 0.3, 2.5, NaN, Infinity]) {
+Deno.test('nozzle: a host\'s own size is used as is; what the engine can\'t scale to is refused', () => {
+  try {
+    // A slicer's 0.5 (hostSupplied): its own widths, not 0.4's or 0.6's.
+    const half = computeFins(PART, { ...OPTS, nozzle: 0.5 }).triangles;
+    for (const other of [0.4, 0.6]) assert(!same(half, computeFins(PART, { ...OPTS, nozzle: other }).triangles), `0.5 built as ${other}`);
+    assert(same(half, computeFins(PART, { ...OPTS, ...optionsFromDialog({ nozzle: '0.5' }) }).triangles), 'dialog spelling differs');
+  } finally { resetPla(); }
+  for (const nozzle of [null, true, [], {}, '', ' ', '0.8mm', 0, -1, 0.05, 2.5, NaN, Infinity]) {
     let error;
     try { computeFins(PART, { nozzle }); } catch (e) { error = e; }
     assert(error?.message.includes('nozzle'), `accepted ${JSON.stringify(nozzle)}`);

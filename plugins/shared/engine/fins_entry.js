@@ -19,7 +19,7 @@ import { buildTopology, analyze, DEFAULT_THRESHOLD, IDENTITY3 } from '../../../w
 import { buildFins } from '../../../web/fins.js';
 import { seatSoup, clearances, flatten } from './seat.js';
 import SCHEMA from './options.json' with { type: 'json' };
-import { nozzleChoice } from './nozzle.js';
+import { nozzleSize } from './nozzle.js';
 
 // The dialog settings (options.json) are the one source of their defaults: every
 // plugin's dialog is built from the same file, so the entry can't disagree with it.
@@ -69,7 +69,8 @@ export function optionsFromDialog(values = {}) {
     const bad = (why) => new Error(`${key} ${why}, got ${JSON.stringify(raw)}`);
     let v = raw;
     if (key === 'nozzle') {
-      out.nozzle = nozzleChoice(raw);
+      // A choice in a dialog, but a slicer supplies its own size (hostSupplied).
+      out.nozzle = nozzleSize(raw);
       continue;
     }
     if (o.type === 'bool') {

@@ -283,7 +283,38 @@ def test_full_coverage_from_the_config_adds_walls():
 
 def test_a_bad_key_or_value_fails_the_slice_by_name():
     for config, want in (({"sparkle": 1}, "sparkle"), ({"mode": "draw"}, "mode"),
-                         ({"gap": 3}, "gap"), ({"layerHeight": 0.1}, "Orca's own layer height")):
+                         ({"gap": 3}, "gap"), ({"layerHeight": 0.1}, "Orca's own layer height"),
+                         ({"nozzle": "0.8"}, "Orca's own nozzle")):
         _, res = _fin_area(config)
         assert res.status is fake_orca.PluginResult.RecoverableError and want in res.message, res.message
         assert "ValueError" not in res.message, res.message
+
+
+class _Cfg:
+    def __init__(self, **kv):
+        self.kv = kv
+
+    def config_value(self, key):
+        return self.kv.get(key)
+
+
+@pytest.mark.parametrize("cfg,want", [
+    ({}, None),                                                   # Orca doesn't say: engine's 0.4
+    ({"nozzle_diameter": "0.6"}, 0.6),
+    ({"nozzle_diameter": "0.4,0.8", "wall_filament": "2"}, 0.8),  # the wall extruder's
+    ({"nozzle_diameter": [0.4, 0.8], "wall_filament": "9"}, 0.8), # past the list: the last
+    ({"nozzle_diameter": "junk"}, None),
+])
+def test_nozzle_comes_from_orcas_printer_settings(cfg, want):
+    assert SF._nozzle(_Cfg(**cfg)) == want
+
+
+def test_the_nozzle_reaches_the_engine():
+    po = fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45))
+    soup = SF.posed_part_soup(po)
+    soup = soup - np.array([0.0, 0.0, soup[:, :, 2].min()])
+    default, _ = SF.compute_fins(soup, 0.2, dict(SF._DEFAULTS))
+    same, _ = SF.compute_fins(soup, 0.2, dict(SF._DEFAULTS), 0.4)
+    wide, _ = SF.compute_fins(soup, 0.2, dict(SF._DEFAULTS), 0.8)
+    assert np.array_equal(default, same)
+    assert default.shape != wide.shape or not np.allclose(default, wide)

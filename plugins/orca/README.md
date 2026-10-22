@@ -70,7 +70,8 @@ site when a default changes). For example:
 ```
 
 Calibration coupon results map straight across: `threshold` (angle), `gap`,
-`padStyle`. Layer height is always Orca's own, so `layerHeight` is refused. A key the
+`padStyle`. Layer height and nozzle size are always Orca's own (the nozzle is the wall
+extruder's `nozzle_diameter`), so `layerHeight` and `nozzle` are refused. A key the
 engine doesn't know, or a value out of range, fails the slice with the engine's
 message (`unknown dialog option sparkle`), instead of printing default fins. On/off
 settings take `true`/`false` (or `1`/`0`).

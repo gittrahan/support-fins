@@ -66,10 +66,12 @@ mini-racer as a wheel Blender installs; it uses the per-fin pieces and drawWall)
 [Rhino](../rhino/README.md) (the same, with mini-racer pip-installed by Rhino 8 itself).
 Onshape (FeatureScript) and Prusa (Lua) can't run JavaScript, so they don't use this.
 
-**Nozzle.** Schema-generated dialogs and MCP settings offer the website's nozzle
-diameters, including 0.8 mm, with 0.4 mm as the default. Select the diameter
-manually in these hosts; automatic detection is currently limited to the CLI's
-preserved-project mode. Both Auto and Draw apply the selected diameter with
+**Nozzle.** Schema-built CAD dialogs (FreeCAD, Blender, Rhino, SolidWorks) and MCP
+settings offer the website's nozzle diameters, including 0.8 mm, with 0.4 mm as the
+default. Slicer plugins don't ask (hostSupplied, like layer height): Cura reads the
+part's extruder's `machine_nozzle_size`, Orca the wall extruder's `nozzle_diameter`,
+the CLI's preserved-project mode the project's `nozzle_diameter`, and a size off the
+site's list (0.3, 0.5) is used as is. Both Auto and Draw apply the diameter with
 two-line walls on every call, resetting any previous nozzle/wall-line state.
 Layer height and support gap remain separate settings. This exposes the existing
 website scaling; it does not add material presets or nozzle-specific calibration.
