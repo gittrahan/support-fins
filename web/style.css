@@ -117,22 +117,65 @@ body.no-part #viewport canvas { pointer-events: none; }
 }
 /* A phone: one row -- logo, Import, Add fins, Export, the ☰ button (and the error
    badge). Everything marked .more folds behind ☰ (ui/topbar.js toggles
-   .more-open); opened, it wraps onto rows under the first, the two fields a row
-   each so the slider gets the width. */
+   .more-open). Opened, the bar becomes a sheet under that row: the two fields as
+   label | control rows, then Calibrate, Plugins and Language as full-width rows
+   whose panels open in place (an accordion, not a popover off the sheet's edge),
+   then GitHub and Ko-fi side by side. */
 #topbar .more-btn { display: none; }
 @media (max-width: 600px) {
   #topbar { gap: 8px; }
-  #topbar .more-btn { display: inline-flex; }
+  #topbar .more-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 40px; }
+  #topbar .more-btn[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
   #topbar:not(.more-open) > .more { display: none; }
   #topbar > .more { order: 1; }
-  #topbar.more-open { background: var(--bg); border-bottom: 1px solid var(--line); }
-  #topbar.more-open > .field.more { flex: 1 0 100%; justify-content: flex-start; }
-  #topbar.more-open > .field.more[hidden] { display: none; }
-  #topbar.more-open #thr { flex: 1; width: auto; }
-  #topbar.more-open #volume { flex: 1; }
-  /* the menus and links share one row: slimmer padding so Ko-fi doesn't wrap alone */
-  #topbar > .more > .btn, #topbar > .btn.more { padding-left: 9px; padding-right: 9px; }
-  #topbar .more-btn[aria-expanded="true"] { color: var(--accent); }
+
+  #topbar.more-open {
+    background: var(--panel);
+    border-bottom: 1px solid var(--line);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, .5);
+    padding-bottom: 14px;
+  }
+  /* the first .more row opens the sheet: a hairline under the toolbar row */
+  #topbar.more-open > .field.more:first-of-type {
+    margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--line);
+  }
+  /* label | control | value */
+  #topbar.more-open > .field.more {
+    flex: 1 0 100%;
+    display: flex; align-items: center; gap: 10px;
+    min-height: 40px; color: var(--dim);
+  }
+  #topbar.more-open > .field.more > span:first-child,
+  #topbar.more-open > .field.more > .lbl { display: inline; flex: 0 0 96px; }
+  #topbar.more-open #volume { flex: 1; margin-left: 0; min-height: 36px; }
+  #topbar.more-open #thr { flex: 1; width: auto; margin: 0; }
+  #topbar.more-open #thr-val { flex: 0 0 36px; text-align: right; }
+  #topbar.more-open > .custom-vol { padding-left: 106px; gap: 6px; }
+  #topbar.more-open > .custom-vol input { flex: 1; min-width: 0; min-height: 34px; }
+
+  /* menu rows */
+  #topbar.more-open > .calibrate-wrap,
+  #topbar.more-open > .plugins-wrap,
+  #topbar.more-open > .menu-wrap.more { flex: 1 0 100%; }
+  #topbar.more-open > .calibrate-wrap { margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--line); }
+  #topbar.more-open > .more > .btn {
+    display: block; width: 100%; min-height: 44px;
+    padding: 0 14px; text-align: start; font-size: 15px;
+  }
+  /* their panels open in place under the row */
+  #topbar.more-open > .more > .menu {
+    position: static; width: auto; min-width: 0;
+    max-height: 50vh; overflow-y: auto;
+    margin-top: 6px; box-shadow: none;
+  }
+  #topbar.more-open > .more > .menu [role="menuitem"] { min-height: 40px; text-align: start; }
+
+  /* links: two equal buttons, words back on */
+  #topbar.more-open > .btn.more {
+    flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center;
+    gap: 6px; min-height: 44px; margin-top: 6px;
+  }
+  #topbar.more-open > .btn.more .lbl { display: inline; }
 }
 #topbar .spacer { flex: 1; pointer-events: none; }
 
