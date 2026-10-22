@@ -47,6 +47,7 @@ import { part, topology, rotM3, lastResult, threshold } from './ui/part.js';
 import { gizmo, hoverFace, layActive, cancelLay, layHover, layClick, ringPressTurned, clearRingPress } from './ui/pose.js';
 import { planeBusy, renderGhost } from './ui/section.js';
 import { moveActive } from './ui/move.js';
+import { watchTaps } from './ui/tap.js';
 
 // ------------------------------------------------------------------ keyboard
 
@@ -75,6 +76,7 @@ addEventListener('keydown', (e) => {
 // One set of viewport listeners, routed by mode: remove, then draw, then lay flat.
 
 let pressAt = null;
+const isTap = watchTaps(renderer.domElement);   // a finger's tap, never a pinch (ui/tap.js)
 let pressOnPlane = false;   // the press landed on the section plane's handle
 renderer.domElement.addEventListener('pointermove', (ev) => {
   // Move (ui/move.js) owns the pointer: no pick lights up under a drag
@@ -142,9 +144,9 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   pressAt = null;
   if (!from || !part || !topology) return;
 
-  // a drag is an orbit, not a pick; with Move on, nothing is picked (a click on a
-  // parked model still edits it: ui/plates.js)
-  if (Math.hypot(e.clientX - from.x, e.clientY - from.y) > 4 || moveActive()) return;
+  // a drag or a pinch is navigation, not a pick; with Move on, nothing is picked (a
+  // click on a parked model still edits it: ui/plates.js)
+  if (!isTap(e) || moveActive()) return;
   // a click on the section plane's handle is the handle's, not a pick
   if (pressOnPlane) return;
 

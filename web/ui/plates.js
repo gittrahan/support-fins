@@ -25,6 +25,7 @@ import { parkedSettled } from './parkedbuild.js';
 import { sectionPick } from './section.js';
 import { slot, liveXY, park, unpark, disposeSlot, select, takeLive, putBack } from './models.js';
 import { drawRow, pitch, plateAt, glide, frameAll } from './plateview.js';
+import { watchTaps } from './tap.js';
 
 // One entry per plate: its model slots (models.js) and which of them is live -- or,
 // on a plate not being edited, which comes back live when it is -- and, kept when
@@ -331,14 +332,14 @@ export async function exportAll() {
 // A click (not a drag) on another plate in the view switches to it, and on a parked
 // model edits that model.
 let downAt = null;
+const isTap = watchTaps(renderer.domElement);   // a finger's tap, never a pinch (tap.js)
 renderer.domElement.addEventListener('pointerdown', (e) => {
   downAt = e.button === 0 ? [e.clientX, e.clientY] : null;
 });
 renderer.domElement.addEventListener('pointerup', (e) => {
   if (!downAt || busy || (plates.length < 2 && plates[0].models.length < 2)) return;
-  const moved = Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]);
   downAt = null;
-  if (moved > 4) return;
+  if (!isTap(e)) return;
   const hit = plateAt(e, plates.length, active, [part, finMesh, padMesh, drawnMesh, ...sectionPick()]);
   if (!hit) return;
   if (hit.plate === active) { if (hit.model >= 0) select(hit.model); return; }
