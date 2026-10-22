@@ -115,6 +115,25 @@ body.no-part #viewport canvas { pointer-events: none; }
      the left edge */
   #export-menu { right: auto; left: 0; }
 }
+/* A phone: one row -- logo, Import, Add fins, Export, the ☰ button (and the error
+   badge). Everything marked .more folds behind ☰ (ui/topbar.js toggles
+   .more-open); opened, it wraps onto rows under the first, the two fields a row
+   each so the slider gets the width. */
+#topbar .more-btn { display: none; }
+@media (max-width: 600px) {
+  #topbar { gap: 8px; }
+  #topbar .more-btn { display: inline-flex; }
+  #topbar:not(.more-open) > .more { display: none; }
+  #topbar > .more { order: 1; }
+  #topbar.more-open { background: var(--bg); border-bottom: 1px solid var(--line); }
+  #topbar.more-open > .field.more { flex: 1 0 100%; justify-content: flex-start; }
+  #topbar.more-open > .field.more[hidden] { display: none; }
+  #topbar.more-open #thr { flex: 1; width: auto; }
+  #topbar.more-open #volume { flex: 1; }
+  /* the menus and links share one row: slimmer padding so Ko-fi doesn't wrap alone */
+  #topbar > .more > .btn, #topbar > .btn.more { padding-left: 9px; padding-right: 9px; }
+  #topbar .more-btn[aria-expanded="true"] { color: var(--accent); }
+}
 #topbar .spacer { flex: 1; pointer-events: none; }
 
 .brand {

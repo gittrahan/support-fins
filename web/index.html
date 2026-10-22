@@ -90,16 +90,16 @@
   <label class="btn primary">
     <span data-i18n="Import">Import</span><input type="file" id="file" multiple accept=".stl,.3mf,.step,.stp,.obj,model/stl,application/sla,application/vnd.ms-pki.stl,model/3mf,application/vnd.ms-package.3dmanufacturing-3dmodel+xml,model/step,application/step,model/obj,application/octet-stream" hidden>
   </label>
-  <label class="field">
+  <label class="field more">
     <span class="lbl" data-i18n="Build volume">Build volume</span>
     <select id="volume" aria-label="Build volume"></select>
   </label>
-  <span class="field custom-vol" id="custom-vol" hidden>
+  <span class="field custom-vol more" id="custom-vol" hidden>
     <input type="number" id="vx" min="20" max="2000" step="1" aria-label="width">×<input
            type="number" id="vy" min="20" max="2000" step="1" aria-label="depth">×<input
            type="number" id="vz" min="20" max="2000" step="1" aria-label="height">mm
   </span>
-  <label class="field" data-i18n-title title="Surface angle from the plate below which a face needs support.">
+  <label class="field more" data-i18n-title title="Surface angle from the plate below which a face needs support.">
     <span data-i18n="Overhang">Overhang</span>
     <input type="range" id="thr" min="30" max="70" step="1" value="45">
     <output id="thr-val">45°</output>
@@ -124,9 +124,15 @@
               data-i18n-title title="Every plate's part and supports, one 3MF each, in one .zip file." data-i18n="All plates (3MF)">All plates (3MF)</button>
     </div>
   </span>
+  <!-- A phone folds everything marked .more (the build volume, the overhang
+       slider, the menus and links below) behind this button, so the bar stays one
+       row over the view instead of three (ui/topbar.js, style.css). -->
+  <button class="btn more-btn" id="more-btn" aria-expanded="false"
+          data-i18n-title title="Build volume, overhang, calibration, plugins, language and links."
+          aria-label="More">☰</button>
   <!-- Calibration prints (web/ui/calibrate.js): one test print per setting, its
        print time and filament on the row, the files served from web/calibration/. -->
-  <span class="calibrate-wrap">
+  <span class="calibrate-wrap more">
     <button class="btn" id="calibrate" aria-haspopup="dialog" aria-expanded="false"
             aria-controls="calibrate-menu"
             data-i18n-title="Test prints that tune the settings to your printer and filament." data-i18n="Calibrate ▾" title="Test prints that tune the settings to your printer and filament.">Calibrate&nbsp;▾</button>
@@ -140,7 +146,7 @@
   <!-- Plugin downloads (web/ui/plugins.js): every slicer / CAD plugin from the
        rolling plugins-latest release, one row each, one "Your computer" picker for
        the ones that ship a file per platform. -->
-  <span class="plugins-wrap">
+  <span class="plugins-wrap more">
     <button class="btn" id="plugins" aria-haspopup="dialog" aria-expanded="false"
             aria-controls="plugins-menu" data-i18n="Plugins ▾">Plugins&nbsp;▾</button>
     <div class="menu plugins-panel" id="plugins-menu" role="dialog" aria-label="Plugin downloads" hidden>
@@ -152,7 +158,8 @@
         <a href="https://github.com/gittrahan/support-fins/releases/tag/plugins-latest"
            target="_blank" rel="noopener" data-i18n="All files">All files</a></p>
     </div>
-  </span>  <span class="menu-wrap">
+  </span>
+  <span class="menu-wrap more">
     <button class="btn" id="lang-btn" aria-haspopup="menu" aria-expanded="false"
             aria-controls="lang-menu" data-i18n="Language ▾">Language&nbsp;▾</button>
     <div class="menu" id="lang-menu" role="menu" hidden>
@@ -164,11 +171,11 @@
       <button role="menuitem" id="lang-opt-nl">Nederlands</button>
     </div>
   </span>
-  <a class="btn gh" href="https://github.com/gittrahan/support-fins" target="_blank" rel="noopener"
+  <a class="btn gh more" href="https://github.com/gittrahan/support-fins" target="_blank" rel="noopener"
      data-i18n-title title="Source code on GitHub. Runs entirely in your browser; no file ever leaves your machine."
      aria-label="Support Fins on GitHub"><svg viewBox="0 0 16 16" width="16" height="16"
      aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg><span class="lbl">&nbsp;GitHub</span></a>
-  <a class="btn kofi" href="https://ko-fi.com/matthewtrahan" target="_blank" rel="noopener" aria-label="Ko-fi"
+  <a class="btn kofi more" href="https://ko-fi.com/matthewtrahan" target="_blank" rel="noopener" aria-label="Ko-fi"
      data-i18n-title title="Support Fins is free and open source — buy me a coffee on Ko-fi.">☕<span class="lbl">&nbsp;Ko-fi</span></a>
   <!-- Error badge: hidden until the page hits an error (the inline script in <head>
        collects them), so a "nothing works" report -- a phone browser blocking a

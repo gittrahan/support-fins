@@ -553,4 +553,5 @@ export default {
   "How far each pin sinks into the part, like a resin slicer's contact depth. Resin slicers sink a tip 0-0.2 mm; deeper leaves a bigger mark and is harder to snap off. Default 0.1 mm.": "Até onde cada pino entra na peça, como a profundidade de contato de um fatiador de resina. Fatiadores de resina afundam a ponta 0-0,2 mm; mais fundo deixa uma marca maior e é mais difícil de quebrar. Padrão 0,1 mm.",
   "Bring back every fin removed in this orientation.": "Traz de volta todas as aletas removidas nesta orientação.",
   "Draw a red cone under each spot whose first layer starts in midair. Off hides the cones; the readout and the card still count them.": "Desenha um cone vermelho sob cada ponto cuja primeira camada começa no ar. Desligado esconde os cones; o painel e o aviso continuam contando.",
+  "Build volume, overhang, calibration, plugins, language and links.": "Volume de impressão, saliência, calibração, plugins, idioma e links.",
 };

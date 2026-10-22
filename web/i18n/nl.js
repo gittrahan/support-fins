@@ -463,4 +463,5 @@ export default {
 	"Brace · full height {mm} mm": "Rib · volle hoogte {mm} mm",
 	"Brace · {mm} mm · move up for full height": "Rib · {mm} mm · hoger voor volle hoogte",
 	"Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.": "Klik op twee punten aan weerszijden van een overhang — rechtstreeks op de rode vlakken — om langs die lijn een afbreekbare steunwand te plaatsen. Beweeg over een rechtopstaand zijvlak om een verstevigingsrib vooraf te zien: de bovenkant volgt de cursor, en vlak bij de bovenkant van de zijde loopt hij over de volle hoogte. Klik om hem te plaatsen. Esc of rechtsklikken annuleert.",
+  "Build volume, overhang, calibration, plugins, language and links.": "Bouwvolume, overhang, kalibratie, plug-ins, taal en links.",
 };
