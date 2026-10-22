@@ -66,6 +66,14 @@ mini-racer as a wheel Blender installs; it uses the per-fin pieces and drawWall)
 [Rhino](../rhino/README.md) (the same, with mini-racer pip-installed by Rhino 8 itself).
 Onshape (FeatureScript) and Prusa (Lua) can't run JavaScript, so they don't use this.
 
+**Nozzle.** Schema-generated dialogs and MCP settings offer the website's nozzle
+diameters, including 0.8 mm, with 0.4 mm as the default. Select the diameter
+manually in these hosts; automatic detection is currently limited to the CLI's
+preserved-project mode. Both Auto and Draw apply the selected diameter with
+two-line walls on every call, resetting any previous nozzle/wall-line state.
+Layer height and support gap remain separate settings. This exposes the existing
+website scaling; it does not add material presets or nozzle-specific calibration.
+
 CI: [`.github/workflows/plugins.yml`](../../.github/workflows/plugins.yml) rebuilds and tests
 the plugins on every PR and push that touches `web/` or `plugins/`, and on main publishes
 the builds to the [`plugins-latest`](https://github.com/gittrahan/support-fins/releases/tag/plugins-latest)

@@ -78,13 +78,13 @@ def test_units_on_the_way_to_the_engine():
               "BraceGripFrom": 12.0, "BraceTineSpacing": 8.0, "BraceDepth": 20,
               "Cutouts": "Lattice", "WideFaceCoverage": 100, "PlateOnly": True,
               "Direction": "Vertical (resin)", "PinDepth": 0.5,
-              "PlacementMode": "Full coverage — every overhang", "LongWalls": False}
+              "PlacementMode": "Full coverage — every overhang", "LongWalls": False, "Nozzle": "0.8"}
     values = props.dialog_values(SCHEMA, lambda n: set_to[n])
     assert values == {"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 0.35,
                       "layerHeight": 0.16, "padStyle": "sure", "sway.on": True, "sway.gripFrom": 12.0,
                       "sway.tineSpacing": 8.0, "sway.reach": 0.2, "cutout": "lattice", "coverage": 1.0,
                       "plateOnly": True, "tineDir": "vertical", "pinDepth": 0.5,
-                      "mode": "full", "longWalls": False}
+                      "mode": "full", "longWalls": False, "nozzle": "0.8"}
 
 
 def test_bounded_numbers_carry_the_engines_range():

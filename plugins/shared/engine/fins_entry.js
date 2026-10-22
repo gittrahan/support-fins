@@ -19,6 +19,7 @@ import { buildTopology, analyze, DEFAULT_THRESHOLD, IDENTITY3 } from '../../../w
 import { buildFins } from '../../../web/fins.js';
 import { seatSoup, clearances, flatten } from './seat.js';
 import SCHEMA from './options.json' with { type: 'json' };
+import { nozzleChoice } from './nozzle.js';
 
 // The dialog settings (options.json) are the one source of their defaults: every
 // plugin's dialog is built from the same file, so the entry can't disagree with it.
@@ -33,6 +34,7 @@ export const ENGINE_DEFAULTS = Object.freeze({
   coverage: OPTION.coverage.default,         // 0..1 (the site's slider / 100)
   plateOnly: OPTION.plateOnly.default,       // supports on the plate only, none on the part (#218)
   layerHeight: OPTION.layerHeight.default,   // a slicer host passes its own
+  nozzle: OPTION.nozzle.default,
   threshold: DEFAULT_THRESHOLD,              // degrees; options.json's default is pinned to it
   gap: OPTION.gap.default,             // mm: the site's Support gap (PROP.gap)
   padStyle: OPTION.padStyle.default,   // one of PAD_STYLES
@@ -66,6 +68,10 @@ export function optionsFromDialog(values = {}) {
     if (raw === null || raw === undefined || raw === '') continue;
     const bad = (why) => new Error(`${key} ${why}, got ${JSON.stringify(raw)}`);
     let v = raw;
+    if (key === 'nozzle') {
+      out.nozzle = nozzleChoice(raw);
+      continue;
+    }
     if (o.type === 'bool') {
       v = asBool(raw);
       if (v === undefined) throw bad('must be true or false');

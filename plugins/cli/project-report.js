@@ -32,7 +32,8 @@ export function formatProjectReport({ mode, outputWritten, objectResults, summar
       : outputWritten ? 'output written' : 'no output written')];
   for (const o of objectResults) {
     lines.push(`  object ${o.number} ${JSON.stringify(o.name)}, plate ${o.plate ?? '?'}: `
-      + o.status.replaceAll('_', ' ') + (o.reason ? ` — ${o.reason}` : ''));
+      + o.status.replaceAll('_', ' ') + (o.nozzle === undefined ? '' : `; nozzle ${o.nozzle} mm (${o.nozzleSource})`)
+      + (o.reason ? ` — ${o.reason}` : ''));
     for (const warning of o.warnings) lines.push(`    warning: ${warning}`);
   }
   return lines.join('\n');

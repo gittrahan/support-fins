@@ -10,6 +10,7 @@ import { PROP } from '../../../web/prop.js';
 import { PERP } from '../../../web/fins/wedges.js';
 import { CUT } from '../../../web/cutout.js';
 import { SWAY } from '../../../web/sway.js';
+import { applyNozzle, applyWallLines } from '../../../web/nozzle.js';
 
 const OPTS = { mode: 'auto', bedPad: true, tines: true, tineDensity: 0, coverage: 0.5, layerHeight: 0.2 };
 const PLATE = [137.25, 88.5, 3.0];
@@ -73,6 +74,34 @@ Deno.test('defaults are gap 0.2, Auto pad, no cutout: the website defaults', () 
   const plain = computeFins(PART, OPTS).triangles;
   const explicit = computeFins(PART, { ...OPTS, gap: 0.2, padStyle: 'auto', cutout: 'none' }).triangles;
   assert(same(plain, explicit), 'spelling out the defaults changed the fins');
+});
+
+Deno.test('nozzle: adapter matches the website at each diameter and resets between calls', () => {
+  try {
+    const baseline = computeFins(PART, OPTS).triangles;
+    for (const nozzle of [0.8, undefined, 0.2, 0.4, 0.6, 0.25, 1, 1.2, 1.4, 1.6, 1.8, 2]) {
+      // An unrelated browser/host call may have changed both pieces of state.
+      applyNozzle(0.6); applyWallLines(4);
+      const actual = computeFins(PART, { ...OPTS, ...(nozzle === undefined ? {} : { nozzle }) });
+      const m = MATERIAL.pla, topo = topoOf(centred(PART));
+      const expected = Float32Array.from(flat(fins.buildFins(topo, analyze(topo, 45, IDENTITY3), IDENTITY3, {
+        ...OPTS, tunables: { nozzle: nozzle ?? 0.4, wallLines: 2, padH: m.padH, padGrab: m.padGrab,
+          propGap: 0.2, padStyle: 'auto', cutout: 'none', tineDir: 'horizontal', pinDepth: 0.1 },
+      })));
+      assert(actual.triangles.length > 0 && same(actual.triangles, expected), `nozzle ${nozzle}: differs from website`);
+      if (nozzle === undefined || nozzle === 0.4) assert(same(actual.triangles, baseline), 'default geometry leaked');
+      else assert(!same(actual.triangles, baseline), `nozzle ${nozzle} did not change supports`);
+      assert(PROP.gap === 0.2, 'nozzle changed the support gap');
+    }
+  } finally { resetPla(); }
+});
+
+Deno.test('nozzle: direct adapter calls reject unsupported values', () => {
+  for (const nozzle of [null, true, [], {}, '', ' ', '0.8mm', 0, -1, 0.3, 2.5, NaN, Infinity]) {
+    let error;
+    try { computeFins(PART, { nozzle }); } catch (e) { error = e; }
+    assert(error?.message.includes('nozzle'), `accepted ${JSON.stringify(nozzle)}`);
+  }
 });
 
 Deno.test('gap 0.3: same fins as the website builds with Support gap 0.3, and not 0.2\'s', () => {

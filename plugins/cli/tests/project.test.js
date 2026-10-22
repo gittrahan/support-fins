@@ -41,7 +41,7 @@ async function compressed(files) {
 
 async function fixture({ duplicate = false, negative = false, variable = null, layer = '0.16', printable = true, mirror = false,
   app = 'BambuStudio-02.04.00.70', sequence = 'by layer', plateSequence = null,
-  plateIDs = [1, 2], emptyPlates = [], together = false, sameName = false, steep = false } = {}) {
+  plateIDs = [1, 2], emptyPlates = [], together = false, sameName = false, steep = false, nozzle = ['0.4'] } = {}) {
   const cube = triples(block(0, 20, 0, 20, 0, 20));
   const q = steep ? 0.5 : Math.SQRT1_2, s = steep ? Math.sqrt(3) / 2 : q;
   const resource = (id, file) => `<object id="${id}" type="model" p:UUID="original-${id}"><components>`
@@ -70,7 +70,7 @@ async function fixture({ duplicate = false, negative = false, variable = null, l
     { name: CONFIG, data: `<config>${obj(10, 1)}${obj(20, 2)}`
       + plate(1, instance(10, 1) + (together ? second : '')) + plate(2, together ? '' : second)
       + emptyPlates.map((id) => `<plate><metadata key="plater_id" value="${id}"/></plate>`).join('') + '<assemble/></config>' },
-    { name: SETTINGS, data: JSON.stringify({ layer_height: layer, initial_layer_print_height: '0.3',
+    { name: SETTINGS, data: JSON.stringify({ layer_height: layer, initial_layer_print_height: '0.3', nozzle_diameter: nozzle,
       filament_colour: ['#FFFFFF', '#123456'], filament_type: ['PETG', 'PETG'], enable_support: '1', print_sequence: sequence }) },
     { name: '3D/Objects/a.model', data: model('4') },
     { name: '3D/Objects/b.model', data: model('8') },
@@ -101,6 +101,49 @@ async function cli(source, flags = [], additional = {}, overrides = {}) {
   const code = await run(['part.3mf', '--preserve-project', '--json', ...flags], { ...io, ...overrides });
   return { code, fs, out, err, result: out.length ? JSON.parse(out[0]) : null };
 }
+
+Deno.test('project nozzle: saved diameter equals an explicit run, is reported and never edits printer settings', async () => {
+  const source = await fixture({ nozzle: ['0.80', 0.8], steep: true });
+  const automatic = await cli(source), explicit = await cli(source, ['--nozzle', '0.8']);
+  const narrow = await cli(source, ['--nozzle', '0.4']);
+  for (const r of [automatic, explicit, narrow]) assert(r.code === 0, r.err.join('\n'));
+  const a = new ProjectZip(automatic.fs.get('part-fins-project.3mf'));
+  const b = new ProjectZip(explicit.fs.get('part-fins-project.3mf'));
+  const c = new ProjectZip(narrow.fs.get('part-fins-project.3mf'));
+  const normalize = (s) => s.replace(/p:UUID="[^"]*"/g, 'p:UUID="same"');
+  assert(normalize(await a.text(SUPPORTS)) === normalize(await b.text(SUPPORTS)), 'auto diameter not forwarded');
+  assert(normalize(await a.text(SUPPORTS)) !== normalize(await c.text(SUPPORTS)), 'override not forwarded');
+  for (const zip of [a, b, c]) equal(await zip.read(SETTINGS), await new ProjectZip(source).read(SETTINGS), 'printer settings changed');
+  const marker = JSON.parse(await a.text('Metadata/support_fins_project.json'));
+  for (const objects of [automatic.result.objects, automatic.result.objectResults, marker.objects]) {
+    assert(objects.every((o) => o.nozzle === 0.8 && o.nozzleSource === 'project'), 'diameter/source missing');
+  }
+  assert(narrow.result.objectResults.every((o) => o.nozzle === 0.4 && o.nozzleSource === 'override'
+    && o.warnings.some((s) => s.includes('saved printer settings are unchanged'))), 'override not explained');
+  assert(automatic.err.some((s) => s.includes('nozzle 0.8 mm (project)')), 'progress omits diameter');
+  const checked = await cli(source, ['--check']);
+  assert(checked.code === 0 && checked.fs.size === 1
+    && checked.result.objectResults.every((o) => o.nozzle === 0.8 && o.nozzleSource === 'project'), 'check differs from generation');
+  assert(checked.result.report.includes('nozzle 0.8 mm (project)'), 'human report omits diameter');
+});
+
+Deno.test('project nozzle: ambiguous/missing settings follow check, skip, explicit selection and listing rules', async () => {
+  for (const nozzle of [null, [], ['0.4', '0.8'], ['0.4', 'bad']]) {
+    const source = await fixture({ nozzle });
+    const checked = await cli(source, ['--check']);
+    assert(checked.code === 1 && checked.fs.size === 1 && checked.result.summary.incompatible === 2, 'check accepted invalid nozzle');
+    assert(checked.result.objectResults.every((o) => o.reason.includes('--nozzle')), 'check lacks remedy');
+    for (const flags of [[], ['--object', '1']]) {
+      const failed = await cli(source, flags), error = JSON.parse(failed.err.at(-1));
+      assert(failed.code === 1 && failed.fs.size === 1, 'unresolved nozzle wrote output');
+      assert(error.summary[flags.length ? 'failed' : 'skipped'] === (flags.length ? 1 : 2), 'object error policy changed');
+    }
+    const listed = await cli(source, ['--list-objects']);
+    assert(listed.code === 0 && listed.fs.size === 1 && listed.result.objects.length === 2, 'cannot discover objects needing override');
+    const fixed = await cli(source, ['--nozzle', '0.8', '--object', '2', '--fin-extruder', '1']);
+    assert(fixed.code === 0 && fixed.result.objects.length === 1 && fixed.result.objects[0].nozzle === 0.8, 'explicit remedy failed');
+  }
+});
 
 Deno.test('project: preserve compressed painted meshes/settings, plates and source; add aligned supports', async () => {
   const source = await fixture(), before = source.slice(), r = await cli(source);
@@ -714,6 +757,21 @@ Deno.test('project resume: final-output failure retains all checkpoints and retr
   const done = await call(['--resume']);
   assert(done.code === 0 && done.hits.join() === '1,2' && !done.saved.length, done.err.join('\n'));
 }));
+
+Deno.test('project resume: a changed nozzle override or saved diameter cannot reuse old geometry', async () => {
+  for (const change of ['override', 'project']) await diskProject(async ({ input, source, call }) => {
+    const failed = await call(['--resume'], (c) => c, () => { throw new Error('output unavailable'); });
+    assert(failed.code === 1 && failed.saved.join() === '1,2', 'setup did not checkpoint');
+    if (change === 'project') {
+      const zip = new ProjectZip(source), settings = JSON.parse(await zip.text(SETTINGS));
+      settings.nozzle_diameter = ['0.8'];
+      await Deno.writeFile(input, new Uint8Array(await (await zip.patch(new Map([[SETTINGS, JSON.stringify(settings)]]))).arrayBuffer()));
+    }
+    const r = await call(['--resume', ...(change === 'override' ? ['--nozzle', '0.8'] : [])]);
+    assert(r.code === 0 && !r.hits.length && r.saved.join() === '1,2', `${change}: stale nozzle checkpoint reused`);
+    assert(r.result.objects.every((o) => o.nozzle === 0.8 && o.nozzleSource === change), 'wrong resumed settings');
+  });
+});
 
 Deno.test('project resume: checkpoint-write failure aborts default mode instead of skipping the object', () => diskProject(async ({ call }) => {
   const failed = await call(['--resume'], (c) => ({ ...c, save: (n, data) => {

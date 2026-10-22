@@ -8,6 +8,7 @@
 // plugin dialog control.
 import { computeFins, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from '../shared/engine/fins_entry.js';
 import { reportLine } from '../shared/engine/report.js';
+import { nozzleChoice } from '../shared/engine/nozzle.js';
 import { VERSION } from './version.js';
 import { readSTL, writeBinarySTL } from '../../web/stl.js';
 import { readThreeMF, writeThreeMF } from '../../web/threemf.js';
@@ -51,6 +52,7 @@ export function helpText() {
     '  --disable-native-supports  project mode: disable slicer supports on selected objects',
     '  --overwrite           project mode: allow replacing an existing output',
     '                        default: <part>-fins-project.3mf; repeat --object to select several',
+    '                        nozzle: read from project unless --nozzle overrides fin generation',
     '  --resume              project mode: save/reuse completed-object checkpoints',
     '  --cache-dir <path>    with --resume: cache folder (default: <input>.fins-cache)',
     '  -h, --help            this text',
@@ -138,7 +140,7 @@ export function parseArgs(argv) {
           if (v.trim() === '' || !Number.isFinite(n)) throw new UsageError(`--${flag} must be a number, got ${JSON.stringify(v)}`);
           out.dialog[o.key] = o.percent ? n / 100 : n;
         } else {
-          out.dialog[o.key] = v;
+          out.dialog[o.key] = o.key === 'nozzle' ? nozzleChoice(v) : v;
         }
       }
     } else if (a.startsWith('-') && a !== '-') {

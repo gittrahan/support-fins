@@ -26,6 +26,27 @@ import { unzip, zipStore } from '../../../web/zip.js';
 
 const LBRACKET = Deno.readFileSync(`${MODELS}lbracket.stl`);
 
+Deno.test('cli: nozzle reaches generated geometry, defaults to 0.4 and rejects bad arguments before I/O', async () => {
+  const args = ['lb.stl', '--rot', '0,35,0', '-o', 'out.stl'];
+  const plain = await cli(args), explicit = await cli([...args, '--nozzle', '0.4']);
+  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  assert(plain.code === 0 && explicit.code === 0 && same(plain.fs.get('out.stl'), explicit.fs.get('out.stl')), 'default changed');
+  for (const value of ['0.2', '0.6', '0.8', '1', '2.0']) {
+    const r = await cli([...args, `--nozzle=${value}`]);
+    assert(r.code === 0 && !same(r.fs.get('out.stl'), plain.fs.get('out.stl')), `nozzle ${value}: ignored`);
+  }
+  const help = await cli(['--help']);
+  assert(help.out.join().includes('--nozzle') && help.out.join().includes('0.8'), 'help missing nozzle');
+  for (const value of ['', ' ', 'bad', 'NaN', 'Infinity', '0', '-0.4', '0.3', '2.5', '0.8mm']) {
+    const errors = [];
+    const code = await run(['lb.stl', `--nozzle=${value}`], {
+      read: () => { throw new Error('unexpected read'); }, write: () => { throw new Error('unexpected write'); },
+      out: () => {}, err: (s) => errors.push(s),
+    });
+    assert(code === 2 && errors.join().includes('--nozzle'), `${value}: ${errors.join()}`);
+  }
+});
+
 /** An in-memory file system + captured output. */
 function memIO(files = {}) {
   const fs = new Map(Object.entries(files));

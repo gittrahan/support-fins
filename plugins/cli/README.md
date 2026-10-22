@@ -11,6 +11,7 @@ same settings: the flags are generated from `plugins/shared/engine/options.json`
 support-fins part.stl                          # -> part-fins.3mf next to it (part + fins)
 support-fins part.stl --rot 0,35,0             # pose it first: the site's X · Y · Z readout
 support-fins *.stl --gap 0.3 --coverage 70        # PETG: a wider Support gap
+support-fins part.stl --nozzle 0.8             # scale supports for a 0.8 mm nozzle
 support-fins roof.stl --mode full              # Full coverage: walls under every overhang Auto leaves bare
 support-fins part.stl -o out.stl               # one STL with part + fins merged
 support-fins part.stl --fins-only              # part-fins-only.stl, lines up with part.stl
@@ -31,6 +32,11 @@ Settings the site would hide (`--sway-reach` without `--sway`) run but warn.
 
 **Settings** are the site's, in the site's units: percent sliders take 0-100
 (`--coverage 70`, `--tine-density 50`), on/off settings are `--sway` / `--no-tines`.
+`--nozzle` takes a diameter in mm: 0.2, 0.25, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4,
+1.6, 1.8 or 2.0. Ordinary STL/3MF processing defaults to 0.4 mm; it does not
+read printer settings. Nozzle scaling uses the website's two-line walls and
+contact-tip/tine sizing. It does not select a material profile or change layer
+height or the support gap.
 
 **What it tells you.** One line per file: walls, tines, and anything left unsupported
 (overhangs too shallow for a fin this way up, pieces that start in mid-air). That is a
@@ -80,6 +86,7 @@ support-fins project.3mf --preserve-project --plate 2 --plate 5
 support-fins project.3mf --preserve-project --plate 5 --object 7
 support-fins project.3mf --preserve-project --object 2 --object 7 -o selected-fins.3mf
 support-fins project.3mf --preserve-project --fin-extruder 2 --disable-native-supports
+support-fins project.3mf --preserve-project --object 2 --nozzle 0.8
 ```
 
 Each model's fins become their own object, `<name> supports`, with the model's pose
@@ -126,6 +133,24 @@ Missing, conflicting or variable layer heights (per object) require an explicit
 settings. Fins inherit the object's base filament, or an unambiguous part
 assignment. `--fin-extruder N` selects an existing 1-based filament slot; the
 original palette and model assignments stay intact.
+
+**Nozzle diameter.** Project mode reads `nozzle_diameter` from
+`Metadata/project_settings.config`. A single value, or an array of identical
+diameters such as `["0.4", "0.4"]`, applies to the selected objects. A missing,
+invalid or unsupported value, or different diameters such as `["0.4", "0.8"]`,
+requires `--nozzle`. These cases follow the same skip/error rules as other
+unsupported object settings, and `--check` reports them as incompatible.
+Filament slots are not nozzle indices: `--fin-extruder` does not resolve which
+physical nozzle prints an object.
+
+An explicit `--nozzle` takes precedence for all selected objects. For a project
+with different nozzle sizes, select objects printed with the same diameter and
+supply that diameter explicitly. The override changes fin geometry only; the
+saved printer settings remain unchanged, and the CLI reports a warning.
+The project is the source of truth: save the intended printer/nozzle settings
+in your slicer first. The CLI does not verify installed hardware, flow type or
+left/right tool assignments. Non-0.4 mm projects now use their saved diameter
+instead of the previous fixed 0.4 mm scaling; 0.4 mm output is unchanged.
 
 Native slicer supports are preserved, and the CLI reports when they remain
 enabled: both native supports and fins may print. `--disable-native-supports`
@@ -199,7 +224,7 @@ before it is read. Runs without `--resume` neither read nor write checkpoints;
 support-fins project.3mf --preserve-project --check
 support-fins project.3mf --preserve-project --check --object 2 --object 7 --json
 # Check with the same overrides you intend to use for generation:
-support-fins project.3mf --preserve-project --check --layer-height 0.2 --fin-extruder 2
+support-fins project.3mf --preserve-project --check --layer-height 0.2 --fin-extruder 2 --nozzle 0.8
 ```
 
 `--check` inspects all printable objects, or the objects selected with `--plate`
@@ -254,6 +279,11 @@ objects during generation, and adds:
 - `objectResults`: all selected objects, in build order, with `number`, `id`,
   `name`, `plate`, `status`, `reason` and `warnings`. Compatible check results also
   include the resolved `layerHeight` and `filament`.
+- Once nozzle settings are resolved, `objectResults` also includes numeric
+  `nozzle` (mm) and `nozzleSource` (`project` or `override`). Successful generation
+  includes these fields in `objects` and the output's
+  `Metadata/support_fins_project.json` marker as well. Terminal reports show the
+  diameter and its source.
 - `summary`: `selected` and a count for each status below, including zero counts.
 
 | Status | Meaning |

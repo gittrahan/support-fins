@@ -34,12 +34,12 @@ const PLATE = [137.25, 88.5, 3.0];
 
 // The site's call (web/ui/walls.js rebuildDrawn): the part in the print frame
 // (analyze's offset applied), the clicks in that frame, the gap's tunables set.
-function siteWall(pos, a, b, gap = 0.2, layerHeight = 0.2) {
+function siteWall(pos, a, b, gap = 0.2, layerHeight = 0.2, nozzle = 0.4) {
   const topo = buildTopology({ getAttribute: () => ({ array: pos }) });
   const res = analyze(topo, 45, IDENTITY3);
   const o = [res.offset.x, res.offset.y, res.offset.z];
   const m = MATERIAL.pla;
-  applyTunables({ padH: m.padH, padGrab: m.padGrab, propGap: gap });
+  applyTunables({ padH: m.padH, padGrab: m.padGrab, propGap: gap, nozzle, wallLines: 2 });
   return drawnWall(add(a, o), add(b, o), moved(pos, o), 0,
     { tines: true, tineDensity: 0, layerHeight, topo, rot: IDENTITY3, offset: res.offset });
 }
@@ -135,8 +135,23 @@ Deno.test('drawWall refuses bad endpoints and bad options', () => {
 Deno.test('drawWall leaves the next computeFins unchanged', () => {
   const { pos, a, b } = tiltedBlock();
   const before = computeFins(pos, {});
-  drawWall(pos, a, b, { gap: 0.3, cutout: 'lattice' });
+  drawWall(pos, a, b, { gap: 0.3, cutout: 'lattice', nozzle: 0.8 });
   const after = computeFins(pos, {});
   assert(after.triangles.length === before.triangles.length && after.triangles.every((v, i) => v === before.triangles[i]),
     'computeFins after a drawWall differs from before it');
+});
+
+Deno.test('drawWall: nozzle matches the website and does not leak from automatic builds', () => {
+  const { pos, a, b } = tiltedBlock();
+  const baseline = drawWall(pos, a, b);
+  for (const nozzle of [0.8, 0.2, 0.6, 0.4]) {
+    const r = drawWall(pos, a, b, { nozzle }), site = siteWall(pos, a, b, 0.2, 0.2, nozzle);
+    assert(r.ok && site.ok, 'wall failed');
+    assert(r.triangles.length === site.tris.length * 3 && worst(back(r), siteBack(site, pos)) < 1e-4,
+      `nozzle ${nozzle}: drawn wall differs from website`);
+    computeFins(pos, { nozzle });
+    const after = drawWall(pos, a, b);
+    assert(after.triangles.length === baseline.triangles.length
+      && after.triangles.every((v, i) => v === baseline.triangles[i]), 'automatic build nozzle leaked into Draw');
+  }
 });

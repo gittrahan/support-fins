@@ -53,6 +53,7 @@ Deno.test('mcp: the settings schema is the CLI\'s flags, in the site\'s units', 
     assert(Object.keys(s).join() === [...OPTION_FLAGS.keys()].join(), `${t.name}: one setting per CLI flag`);
     assert(s.coverage.default === 50 && s.coverage.maximum === 100, 'percent sliders read 0-100, like the site');
     assert(s.gap.default === 0.2 && s['pad-style'].enum.includes('sure'), 'mm and choices as the site has them');
+    assert(s.nozzle.default === '0.4' && s.nozzle.enum.includes('0.8') && s.nozzle.enum.includes('2.0'), 'nozzle choices missing');
     assert(/only used when tines is on/.test(s['tine-density'].description), 'when a setting matters is said');
   }
   assert(!('rot' in TOOLS[1].inputSchema.properties), 'fins_only lines up with the file: no rot');
@@ -60,9 +61,9 @@ Deno.test('mcp: the settings schema is the CLI\'s flags, in the site\'s units', 
 
 Deno.test('mcp: fin_part writes exactly what the command line writes', async () => {
   const io = memIO();
-  const r = await callTool('fin_part', { path: 'lb.stl', rot: [0, 35, 0], settings: { coverage: 70, sway: true } }, io);
+  const r = await callTool('fin_part', { path: 'lb.stl', rot: [0, 35, 0], settings: { coverage: 70, sway: true, nozzle: '0.8' } }, io);
   assert(!r.isError, r.content[0].text);
-  const cli = await viaCLI(['lb.stl', '--rot', '0,35,0', '--coverage', '70', '--sway']);
+  const cli = await viaCLI(['lb.stl', '--rot', '0,35,0', '--coverage', '70', '--sway', '--nozzle', '0.8']);
   assert(cli.code === 0 && same(io.fs.get('lb-fins.3mf'), cli.fs.get('lb-fins.3mf')), '3MF differs from the CLI\'s');
   assert(r.structuredContent.output === 'lb-fins.3mf' && r.structuredContent.stats.braces >= 1, 'output + stats');
   assert(/^wrote lb-fins\.3mf: \d+ walls?, \d+ tines?/.test(r.content[0].text), r.content[0].text);
@@ -77,7 +78,7 @@ Deno.test('mcp: bad input is a tool error that says why, and writes nothing', as
   const cases = [
     [{ path: 'lb.stl', settings: { coverage: 150 } }, /coverage must be 0\.\.100, got 150/],
     [{ path: 'lb.stl', settings: { coverage: '70' } }, /coverage must be a number/],
-    [{ path: 'lb.stl', settings: { sparkle: 1 } }, /unknown setting "sparkle"; the settings are mode, threshold, tines/],
+    [{ path: 'lb.stl', settings: { sparkle: 1 } }, /unknown setting "sparkle"; the settings are mode, threshold, nozzle, tines/],
     [{ path: 'lb.stl', rot: [0, 35] }, /rot must be \[x, y, z\]/],
     [{ path: 'missing.stl' }, /No such file: missing\.stl/],
     [{ path: 'lb.stl', output: 'lb.stl' }, /won't overwrite the input/],

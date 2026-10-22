@@ -17,7 +17,7 @@ import { seatSoup, clearances, flatten, snap } from './seat.js';
 /**
  * @param positions  the part, as for computeFins
  * @param a, b       [x, y, z] the wall's ends, in the same frame as `positions`
- * @param options    as for computeFins (gap, tines, tineDensity, layerHeight,
+ * @param options    as for computeFins (nozzle, gap, tines, tineDensity, layerHeight,
  *                   threshold); the rest is ignored
  * @returns {{ ok: true, triangles: Float32Array, offset, stats: {length, height, tines, partAttached} }
  *          | { ok: false, reason: string }}

@@ -4,6 +4,7 @@ import { computeFins, optionsFromDialog } from '../shared/engine/fins_entry.js';
 import { readThreeMFParts, scanXML, meshXML } from '../../web/threemf.js';
 import { ProjectZip } from './project-zip.js';
 import { ProjectReport, formatProjectReport } from './project-report.js';
+import { projectNozzle } from './project-nozzle.js';
 import { xmlTree, child, children, metadata, meta, attr, escapeXML as esc, insert, editXML } from './project-xml.js';
 
 const ROOT = '3D/3dmodel.model', CONFIG = 'Metadata/model_settings.config';
@@ -238,7 +239,8 @@ async function processProject(input, args, io, report) {
       const variable = variableIDs.has(order.get(o.id));
       const height = regularHeight(settings, o.config, args.dialog.layerHeight, variable);
       const slot = filament(settings, o.config, args.finExtruder);
-      const options = optionsFromDialog({ ...args.dialog, layerHeight: height });
+      const nozzle = projectNozzle(settings, args.dialog.nozzle);
+      const options = optionsFromDialog({ ...args.dialog, layerHeight: height, nozzle: nozzle.nozzle });
       const own = metadata(o.config);
       const native = enabled(own.enable_support ?? settings.enable_support)
         || children(o.config, 'part').some((p) => enabled(metadata(p).enable_support));
@@ -248,12 +250,14 @@ async function processProject(input, args, io, report) {
       const sequence = metadata(membership.get(`${o.id}:${o.instance}`).node).print_sequence ?? settings.print_sequence;
       const byObject = /object/i.test(String(sequence ?? ''));
       const result = report.object(o);
+      Object.assign(result, nozzle);
+      if (nozzle.nozzleSource === 'override') result.warnings.push('nozzle override applies to fin generation only; saved printer settings are unchanged');
       if (native && !args.disableNativeSupports) result.warnings.push('native slicer supports remain enabled; both native supports and fins may print');
       if (byObject) result.warnings.push('prints by object: any generated fins become a part of this model, so their tines weld to it');
       if (args.disableNativeSupports && children(o.config, 'metadata').filter((m) => m.attrs.key === 'enable_support').length > 1) {
         throw new Error('duplicate enable_support setting');
       }
-      return { ...o, transform, height, slot, options, native, byObject };
+      return { ...o, transform, height, slot, ...nozzle, options, native, byObject };
     } catch (e) { return skipOrThrow(o, e); }
   }).filter(Boolean);
   if (!plans.length && !args.check) throw new Error('none of the selected objects can take fins in project mode (see the warnings above)');
@@ -284,7 +288,7 @@ async function processProject(input, args, io, report) {
   // Load only this object's dependency tree. Discard the inflated meshes and
   // parsed geometry before the next object, instead of retaining an entire plate.
   for (const p of plans) {
-    if (!args.check) warn(`object ${p.number}/${items.length}, plate ${p.plate}: ${p.name}; layer ${p.height} mm, filament ${p.slot}`);
+    if (!args.check) warn(`object ${p.number}/${items.length}, plate ${p.plate}: ${p.name}; layer ${p.height} mm, filament ${p.slot}, nozzle ${p.nozzle} mm (${p.nozzleSource})`);
     let generated = await cache?.load(p.number);
     const reused = !!generated;
     try {
@@ -367,6 +371,7 @@ async function processProject(input, args, io, report) {
         plateInstances.set(plate, [...(plateInstances.get(plate) ?? []), ...own.instances]);
       }
       results.push({ number: p.number, id: p.id, name: p.name, plate: p.plate, supportObject: supportID,
+        nozzle: p.nozzle, nozzleSource: p.nozzleSource,
         layerHeight: p.height, filament: p.slot, triangles: triangles.length / 9, stats });
       report.object(p).status = triangles.length ? 'processed' : 'no_supports';
     } catch (e) { skipOrThrow(p, e); continue; }
