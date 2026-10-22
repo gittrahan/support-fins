@@ -9,8 +9,11 @@
  * the way along), plus full-width pads RESIN_FOOT.pad long with RESIN_FOOT.window of
  * plate between them, on both sides. Each pad is its own closed box overlapping the
  * strip (overlapping solids, never flush). A flange shorter than one pad + window
- * stays solid: there is nothing to flex. Each pad's outer edges slope up at 45deg, like
- * a resin slicer's bevelled raft edge, so a scraper's blade starts under it.
+ * stays solid: there is nothing to flex. Each pad's outer edges are undercut at 45deg:
+ * narrow on the plate, full width on top. A resin print hangs upside down, so the lip is
+ * an ordinary 45deg overhang off the plate; the tester asked for this way round (the
+ * first cut bevelled up from the plate instead), so a scraper's blade slides into the
+ * gap under the lip and pries the pad up rather than cutting a thin edge off the plate.
  */
 import { ribbon } from '../solids.js';
 
@@ -18,7 +21,7 @@ export const RESIN_FOOT = {
   pad: 1.5,       // mm: a full-width pad along the wall
   window: 2.0,    // mm: the plate left bare between two pads
   strip: 0.4,     // mm: the strip reaches this far past the stem on each side
-  bevel: 1.0,     // the pad's outer edge slopes up this many mm per mm of height (45deg)
+  bevel: 1.0,     // the pad's outer edge undercuts this many mm per mm of height (45deg)
 };
 
 /**
@@ -53,13 +56,13 @@ const sec = (f, p, half) => {
   return [P(+half, f.zBed), P(+half, f.baseTop), P(-half, f.baseTop), P(-half, f.zBed)];
 };
 
-// a pad's cross-section: full width on the plate, its outer edges bevelled up to no
-// narrower than the strip on top
+// a pad's cross-section: full width on top, its outer edges undercut down to no
+// narrower than the strip on the plate
 const padSec = (f, p) => {
   const P = (o, z) => [p[0] + f.sx * o, p[1] + f.sy * o, z];
-  const top = Math.max(Math.min(f.foot, f.sh + RESIN_FOOT.strip),
+  const bed = Math.max(Math.min(f.foot, f.sh + RESIN_FOOT.strip),
                        f.foot - RESIN_FOOT.bevel * (f.baseTop - f.zBed));
-  return [P(+f.foot, f.zBed), P(+top, f.baseTop), P(-top, f.baseTop), P(-f.foot, f.zBed)];
+  return [P(+bed, f.zBed), P(+f.foot, f.baseTop), P(-f.foot, f.baseTop), P(-bed, f.zBed)];
 };
 
 // the point `d` along the wall (clamped to it), with the nearer station's frame

@@ -91,9 +91,10 @@ Deno.test('resin feet: pads at both ends, windows between, a short flange stays 
     assert(xs[i] - xs[i - 1] >= RESIN_FOOT.pad + RESIN_FOOT.window - 1e-6, `a window between pads ${i - 1} and ${i}`);
   }
   assert(isClosed(out), 'strip and pads are closed solids');
-  // each pad's outer edge slopes up: full width on the plate, narrower on top
+  // each pad's outer edge is undercut: narrower on the plate, full width on top, so a
+  // scraper slides under the lip (the print hangs upside down: a 45deg overhang)
   const wide = (z) => Math.max(...out.filter((v) => Math.abs(v[2] - z) < 1e-9).map((v) => Math.abs(v[1])));
-  assert(wide(0) === 2 && Math.abs(wide(0.6) - (2 - 0.6 * RESIN_FOOT.bevel)) < 1e-6,
-    `pads bevel up from the plate: ${wide(0)} -> ${wide(0.6)}`);
+  assert(Math.abs(wide(0) - (2 - 0.6 * RESIN_FOOT.bevel)) < 1e-6 && wide(0.6) === 2,
+    `pads undercut from the top: ${wide(0)} on the plate -> ${wide(0.6)} on top`);
   assert(!windowedFlange(short, []), 'a 4 mm flange is left solid');
 });
