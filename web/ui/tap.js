@@ -15,6 +15,7 @@ export function tapTracker() {
   const down = new Map();   // pointerId -> { x, y, multi }
   return {
     press(id, x, y) {
+      down.delete(id);   // a press whose release never arrived: not a second pointer
       for (const p of down.values()) p.multi = true;
       down.set(id, { x, y, multi: down.size > 0 });
     },
@@ -23,6 +24,7 @@ export function tapTracker() {
       return !!p && !p.multi && Math.hypot(x - p.x, y - p.y) <= slop(pointerType);
     },
     release(id) { down.delete(id); },
+    clear() { down.clear(); },
   };
 }
 
@@ -40,6 +42,9 @@ export function watchTaps(canvas) {
   for (const type of ['pointerup', 'pointercancel']) {
     addEventListener(type, (e) => tracker.release(e.pointerId));
   }
+  // a release lost to a tab switch or an OS gesture can't leave a finger "down"
+  // that makes every later tap read as a pinch
+  addEventListener('blur', () => tracker.clear());
   const isTap = (e) => tracker.isTap(e.pointerId, e.clientX, e.clientY, e.pointerType);
   watched.set(canvas, isTap);
   return isTap;

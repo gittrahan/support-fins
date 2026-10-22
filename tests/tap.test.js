@@ -34,3 +34,14 @@ Deno.test('tap: a fresh press after a pinch is a tap again; unknown pointers are
   assert(t.isTap(3, 12, 11, 'touch'), 'a lone tap after a pinch');
   assert(!t.isTap(9, 0, 0, 'touch'), 'a pointerup with no press here (it started off the canvas)');
 });
+
+Deno.test('tap: a press whose release was lost does not poison the next tap', () => {
+  const t = tapTracker();
+  t.press(1, 0, 0);                  // the mouse's up never arrived
+  t.press(1, 50, 50);
+  assert(t.isTap(1, 51, 50, 'mouse'), 'the same pointer pressing again is not a second pointer');
+  t.press(7, 0, 0);                  // a finger's up lost to a tab switch
+  t.clear();
+  t.press(8, 20, 20);
+  assert(t.isTap(8, 22, 21, 'touch'), 'after a clear, a lone tap is a tap');
+});
