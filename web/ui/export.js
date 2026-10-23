@@ -11,7 +11,7 @@ import { el } from './dom.js';
 import { t } from './i18n.js';
 import { finMode, finsVisible } from './settings.js';
 import { part, topology, lastResult, rotM3, partName } from './part.js';
-import { activeAdded, buildPending } from './finbuild.js';
+import { activeAdded, buildPending, drawError } from './finbuild.js';
 import { sessionOf } from './session.js';
 import { sessionForm, settingsKeyOf, VIEWER_IDS } from './history.js';
 import { parkedSettled } from './parkedbuild.js';
@@ -34,7 +34,7 @@ import { overlapping, arrange } from './arrange.js';
  * Returns null when there is nothing to export.
  */
 export function buildExportGeometry() {
-  if (!part || !topology || !lastResult) return null;
+  if (!part || !topology || !lastResult || buildPending() || drawError()) return null;
   return modelGeometry({
     mesh: part, topology, rot: rotM3.elements, offset: lastResult.offset, name: partName,
     // whichever walls the live mode contributes -- hand-drawn in Draw, suggested
@@ -117,7 +117,7 @@ function placed(g, [x, y]) {
 export function plateReady(plate) {
   if (!plate.settings) return !plate.models.some((m) => m.stash);
   const key = settingsKeyOf(plate.settings);
-  return plate.models.every((m) => !m.stash || m.stash.finsKey === key);
+  return plate.models.every((m) => !m.stash || (!m.stash.drawError && m.stash.finsKey === key));
 }
 
 /**
@@ -127,6 +127,7 @@ export function plateReady(plate) {
  */
 export function plateGeometry(plate = currentPlate()) {
   const shown = plate === currentPlate();
+  if (plate.models.some((m) => m.stash?.drawError) || (shown && (drawError() || buildPending()))) return [];
   const gs = plate.models.map((m, k) => {
     if (shown && k === plate.live) {
       const g = buildExportGeometry();
@@ -140,10 +141,11 @@ export function plateGeometry(plate = currentPlate()) {
 /** The plate being edited the old way, each model made live in turn to build it
  *  (when its parked builds would not settle). */
 async function plateGeometryLive() {
-  return (await eachModel((xy) => {
+  const gs = await eachModel((xy) => {
     const g = buildExportGeometry();
     return g && placed(g, xy);
-  })).filter(Boolean);
+  });
+  return gs.every(Boolean) ? gs : [];
 }
 
 /** A file name for the plate `gs`: the model's own, or the first one's and a count. */
@@ -195,8 +197,8 @@ function setOpen(open) {
   if (open) {
     // nothing to write until a part is loaded; no fins-only file without fins; and
     // nothing while a rebuild is out -- the old fins under the new settings' name
-    const ready = !!(part && topology && lastResult) && !buildPending();
-    el('export-stl').disabled = el('export-3mf').disabled = !ready;
+    const ready = !!(part && topology && lastResult) && !buildPending() && !drawError();
+    el('export-stl').disabled = el('export-3mf').disabled = el('export-all').disabled = !ready;
     // STL and Fins only write the model being edited; 3MF the whole plate, whose
     // parked models' fins count too
     const noFins = activeAdded().length === 0 && !parkedFins();
@@ -220,6 +222,7 @@ btn.addEventListener('click', () => setOpen(menu.hidden));
 for (const [id, write] of Object.entries(FORMATS)) {
   el(id).addEventListener('click', async () => {
     setOpen(false);
+    if (buildPending() || drawError()) return;
     // an STL is the model being edited, alone and centred (a slicer centres it
     // anyway); a 3MF of one, that one where it stands on the plate
     if (id !== 'export-3mf' || currentPlate().models.length === 1) {
@@ -233,6 +236,7 @@ for (const [id, write] of Object.entries(FORMATS)) {
     const plate = currentPlate();
     const gs = await whileWaiting(async () => {
       const settled = await parkedSettled();
+      if (drawError()) return null;
       // switched away meanwhile: that plate, if its models are current
       if (currentPlate() !== plate) return plateReady(plate) ? plateGeometry(plate) : null;
       return settled ? plateGeometry() : locked(plateGeometryLive);
@@ -267,7 +271,7 @@ el('export-all').addEventListener('click', () => {
 
 /** `gs` (plateGeometry) as a 3MF, [blob, name], for Export all plates; null when
  *  there is nothing to write. */
-export const plate3MF = (gs) => (gs.length ? FORMATS['export-3mf'](gs) : null);
+export const plate3MF = (gs) => (gs.length && !drawError() ? FORMATS['export-3mf'](gs) : null);
 
 /** The plate being edited the old way (plateGeometryLive), for Export all plates
  *  when one's parked builds are not current (it holds the plates still). */

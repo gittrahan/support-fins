@@ -4,6 +4,7 @@
  * on screen. Owns the last build and the triangles the export reads.
  */
 import * as THREE from 'three';
+export { drawError } from './drawstatus.js';
 import { buildFins, FIN, PAD } from '../fins.js';
 import { BRACE, PROP } from '../prop.js';
 import { CUT } from '../cutout.js';
@@ -17,7 +18,7 @@ import {
 import { updateReadout } from './readout.js';
 import { islands } from './islands.js';
 import {
-  drawnTris, drawnMesh, drawMaterial, drawShown, clearPreview, rebuildDrawn,
+  drawnTris, drawnMesh, drawMaterial, drawShown, clearPreview, rebuildDrawn, manualPending,
 } from './walls.js';
 import { finsVisible, finMode, autoLike } from './settings.js';
 import { topology, rotM3, lastResult, updateFit } from './part.js';
@@ -85,7 +86,7 @@ let finSpinnerTimer = null;  // shows the spinner only if a build runs past ~1s
 let finBusy = false;         // a worker build is outstanding (used to supersede it)
 /** A worker build is outstanding: the fins on screen are the last settings', not
  *  the current ones -- Export waits, so a file never carries the wrong ones (#279). */
-export const buildPending = () => finBusy;
+export const buildPending = () => finBusy || manualPending();
 
 // Reveal the spinner only for builds that actually run long, so a sub-second
 // rebuild never flashes it. Cleared the moment the build lands (applyBuilt).

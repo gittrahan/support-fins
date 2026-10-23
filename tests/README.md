@@ -10,6 +10,12 @@ deno test --allow-read tests/
 
 ## What's pinned (and why it exists)
 
+**`draw_worker.test.js`** -- real background workers produce the current Draw wall
+and Sway geometry, including nozzle/tine direction/interface settings, tall-wall
+clearance and owned triangle ranges. Queue tests pin bounded previews, placement
+priority, model changes, cancellation, late replies and a single fresh-worker retry
+for creation, runtime or reply errors. Run with `deno test -A tests/draw_worker.test.js`.
+
 **`sway_clearance.test.js`** -- square-ended Sway feet and bodies keep the 1 mm
 clearance without imaginary round caps rejecting opposite sides of a thin wall.
 Pins rotated 2/6 mm walls, cross ribs, duplicate refusal, actual overlap and gaps

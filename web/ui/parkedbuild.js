@@ -17,7 +17,8 @@ import { findIslands } from '../islands.js';
 import { buildFins } from '../fins.js';
 import { assignKeys, matchRemoved } from './finkeys.js';
 import { finOpts, workerTopology, buildPending } from './finbuild.js';
-import { sweepDrawn, printTriangles } from './walls.js';
+import { sweepDrawn, applyDrawItems } from './walls.js';
+import { parkedDrawQueue, reportTask } from './drawstatus.js';
 import { threshold } from './part.js';
 import { finMode, finsVisible, autoLike } from './settings.js';
 import { settingsKey } from './history.js';
@@ -69,12 +70,25 @@ function next() {
   if (job) {
     if (job.key === key && current(job)) return;      // its reply calls next
     worker?.terminate();                              // built for settings since changed
+    parkedDrawQueue.dispose();
     worker = undefined;
     job = null;
   }
   const m = plate.models.find((s) => parked(s) && s.stash.finsKey !== key);
   if (m) build(m, key);
+  else {
+    parkedDrawQueue.dispose(); parkedDrawQueue.model = null;
+    reportTask('parked', false, plate.models.some(m => parked(m) && m.stash.drawError)
+      ? new Error('A parked model needs its hand placements retried') : null);
+  }
 }
+
+addEventListener('retry-draw', () => {
+  for (const m of currentPlate().models) if (m.stash) {
+    m.stash.finsKey = null; m.stash.drawError = false;
+  }
+  reportTask('parked', false); scheduleParked();
+});
 
 function build(m, key) {
   const s = m.stash, mesh = s.part.mesh, topo = s.part.topology;
@@ -125,11 +139,15 @@ function getWorker() {
 
 /** `built` (null: fins off) becomes `j.m`'s parked fins, unless it was made live,
  *  taken off, or the settings changed meanwhile. */
-function land(j, built) {
-  job = null;
+async function land(j, built) {
+  if (job && job !== j) return;
   const { m, key } = j;
-  if (!current(j) || settingsKey() !== key) { scheduleParked(); return; }
+  if (!current(j) || settingsKey() !== key) {
+    if (job === j) job = null;
+    scheduleParked(); return;
+  }
   const s = m.stash, tris = [];
+  s.drawError = false;
   if (built) {
     // Auto's walls, less the fins this model had removed (ui/remove.js adoptFins)
     let gone = new Set();
@@ -145,11 +163,27 @@ function land(j, built) {
     const walls = s.state.walls;
     if (walls.length && (finMode === 'draw' || autoLike())) {
       const at = new THREE.Vector3(j.res.offset.x, j.res.offset.y, j.res.offset.z);
-      for (const t of sweepDrawn({
-        topology: j.topo, res: j.res, rot: j.rot, tris: printTriangles(j.topo, j.rot, j.res.offset), walls,
-        toWorld: (v, out) => out.copy(v).applyQuaternion(j.mesh.quaternion).add(at),
-        auto: autoLike() ? built : null, gone,
-      })) tris.push(t);
+      reportTask('parked', true);
+      let manual, failure;
+      try {
+        manual = await sweepDrawn({
+          topology: j.topo, res: j.res, rot: j.rot, walls, queue: parkedDrawQueue,
+          toWorld: (v, out) => out.copy(v).applyQuaternion(j.mesh.quaternion).add(at),
+          auto: autoLike() ? built : null, gone,
+        });
+      } catch (error) { failure = error; }
+      if (job !== j || !current(j) || settingsKey() !== key) {
+        if (job === j) job = null;
+        scheduleParked(); return;
+      }
+      if (manual) {
+        applyDrawItems(walls, manual.items);
+        for (const t of manual.triangles) tris.push(t);
+      } else {
+        s.drawError = true;
+        failure ??= new Error('Hand-placed support calculation was cancelled');
+      }
+      reportTask('parked', false, failure);
     }
     for (const t of built.padTriangles ?? []) tris.push(t);
   }
@@ -157,6 +191,7 @@ function land(j, built) {
   s.fins = tris.length ? ghostFins(tris) : null;
   s.added = tris;
   s.finsKey = key;
+  if (job === j) job = null;
   redraw();
   scheduleParked();
 }
