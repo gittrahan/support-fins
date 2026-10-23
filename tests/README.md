@@ -272,3 +272,13 @@ braces, unchanged capped/short geometry, expanded-foot collisions with the part
 and existing supports, collision-limited height/depth, real Auto worker on/off
 requests, removal ownership and STL/component-3MF export with interface tags.
 Full brace depth starts off in the browser; legacy goldens stay unchanged.
+
+**`circular.test.js`** — local circular/annular measurements and conical-recess
+placement (`web/prop/circular.js`). `_circular.js` generates publishable closed
+fixtures independently of any supplied project. Checks translation, duplicate
+instances, Z rotations 0/5/15/30/90°, triangle order, tessellation, unchanged
+recesses on different-height bodies, genuinely different recesses, coverage
+settings, Full mode, nearby-context phase, closed meshes and shared-adapter
+agreement. Ellipses and incomplete rings retain their existing path. Circle
+counts are derived from geometry; the tests compare instances rather than pin
+an observed count. Run `deno test -A tests/circular.test.js` during iteration.
