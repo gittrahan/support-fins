@@ -105,8 +105,8 @@ async function cli(source, flags = [], additional = {}, overrides = {}) {
 Deno.test('project: Separate walls reaches selected geometry and preserves the other model and settings', async () => {
   const source = await fixture({ positions: readSTL(Deno.readFileSync(`${MODELS}sphere.stl`)) });
   const args = ['--mode', 'full', '--object', '1'];
-  const plain = await cli(source, args), off = await cli(source, [...args, '--no-separate-walls']);
-  const on = await cli(source, [...args, '--separate-walls']);
+  const plain = await cli(source, args), off = await cli(source, [...args, '--separate-walls', 'off']);
+  const on = await cli(source, [...args, '--separate-walls', 'on']);
   const supports = [];
   const original = new ProjectZip(source);
   for (const r of [plain, off, on]) {
@@ -120,7 +120,7 @@ Deno.test('project: Separate walls reaches selected geometry and preserves the o
     assert(JSON.stringify(metadata(unselected(await zip.text(CONFIG))))
       === JSON.stringify(metadata(unselected(await original.text(CONFIG)))), 'unselected settings changed');
   }
-  assert(supports[0] === supports[1], 'false changed default geometry');
+  assert(supports[0] === supports[1], 'off is not Auto for FDM tines');
   assert(supports[0] !== supports[2], 'separation not forwarded in project mode');
 });
 
@@ -782,13 +782,13 @@ Deno.test('project resume: final-output failure retains all checkpoints and retr
 }));
 
 Deno.test('project resume: Separate walls reuses matching checkpoints and invalidates the opposite setting', () => diskProject(async ({ call }) => {
-  const flags = ['--resume', '--mode', 'full', '--separate-walls'];
+  const flags = ['--resume', '--mode', 'full', '--separate-walls', 'on'];
   const failOutput = () => { throw new Error('output unavailable'); };
   const initial = await call(flags, (c) => c, failOutput);
   assert(initial.code === 1 && initial.saved.join() === '1,2', 'did not checkpoint both objects');
   const same = await call(flags, (c) => c, failOutput);
   assert(same.code === 1 && same.hits.join() === '1,2' && !same.saved.length, 'matching settings not reused');
-  const changed = await call(['--resume', '--mode', 'full', '--no-separate-walls']);
+  const changed = await call(['--resume', '--mode', 'full', '--separate-walls', 'off']);
   assert(changed.code === 0 && !changed.hits.length && changed.saved.join() === '1,2', 'stale separation reused');
   assert(changed.err.some((s) => s.includes('no compatible checkpoints')), 'cache invalidation not explained');
 }));

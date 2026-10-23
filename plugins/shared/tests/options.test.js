@@ -13,6 +13,7 @@ import { FIN } from '../../../web/fins/config.js';
 
 const SCHEMA = JSON.parse(Deno.readTextFileSync(new URL('../engine/options.json', import.meta.url)));
 const HTML = Deno.readTextFileSync(new URL('../../../web/index.html', import.meta.url));
+const SETTINGS_JS = Deno.readTextFileSync(new URL('../../../web/ui/settings.js', import.meta.url));
 const OPTS = SCHEMA.options;
 const byKey = Object.fromEntries(OPTS.map((o) => [o.key, o]));
 const close = (a, b) => Math.abs(a - b) < 1e-9;
@@ -35,6 +36,9 @@ function siteControl(id) {
 const fromSite = (o, v) => (o.percent ? Number(v) / 100 : Number(v));
 // Options the site shows that a plugin dialog deliberately leaves out (options.json $comment).
 const SITE_ONLY_CHOICES = { padStyle: ['custom'], mode: ['draw'] };
+// A site checkbox the site ticks itself from another control; a dialog stores what it
+// holds, so the schema offers Auto (the site's own rule) beside On and Off.
+const SITE_AUTO_CHECKBOX = { separateWalls: 'ticked by the site when Vertical (resin) tines is picked' };
 // Every site control that is NOT in options.json, and why. A new control on the site
 // fails the test below until it is added to the schema or listed here.
 const SITE_EXCLUDED = {
@@ -80,7 +84,13 @@ Deno.test('options.json is well formed', () => {
 Deno.test('every default, range and choice is the website\'s', () => {
   for (const o of OPTS) {
     const site = siteControl(o.site);
-    if (o.type === 'bool') {
+    if (o.key in SITE_AUTO_CHECKBOX) {
+      assert(site.type === 'checkbox' && !site.checked, `${o.key}: #${o.site} is not an unticked checkbox`);
+      assert(o.choices.map((c) => c.value).join() === 'auto,on,off' && o.default === 'auto', `${o.key}: not Auto / On / Off`);
+      // ...and the site still ticks it from the tine direction, which Auto copies
+      assert(/el\('separate-walls'\)\.checked = el\('tine-dir'\)\.value === 'vertical'/.test(SETTINGS_JS),
+        `${o.key}: web/ui/settings.js no longer ticks #${o.site} for Vertical tines; Auto copies that rule`);
+    } else if (o.type === 'bool') {
       assert(site.type === 'checkbox', `${o.key}: #${o.site} is not a checkbox`);
       assert(site.checked === o.default, `${o.key}: default ${o.default}, site ${site.checked}`);
     } else if (o.type === 'number') {
@@ -150,23 +160,20 @@ Deno.test('optionVisible hides exactly what the site hides (web/ui/settings.js)'
   assert(shown('coverage', {}) && !shown('coverage', { mode: 'full' }), 'coverage follows Auto');
   assert(!shown('longWalls', {}) && shown('longWalls', { mode: 'full' }), 'Long walls follows Full coverage');
   for (const tineDir of ['horizontal', 'vertical']) for (const tines of [true, false]) {
-    const values = { tineDir, tines, separateWalls: true };
+    const values = { tineDir, tines, separateWalls: 'on' };
     assert(!shown('separateWalls', values) && shown('separateWalls', { ...values, mode: 'full' }),
       'Separate walls follows Full coverage, not tines or direction');
-    assert(optionsFromDialog(values).separateWalls === true, 'hidden value lost when changing modes');
+    assert(optionsFromDialog(values).separateWalls === 'on', 'hidden value lost when changing modes');
   }
 });
 
-Deno.test('Separate walls is opt-in and uses the shared boolean validation', () => {
-  assert(byKey.separateWalls.default === false && ENGINE_DEFAULTS.separateWalls === false, 'not opt-in');
-  assert(!('separateWalls' in optionsFromDialog({ tineDir: 'vertical' })), 'resin implicitly enabled separation');
-  for (const [raw, expected] of [[true, true], [false, false], ['true', true], ['false', false]]) {
-    assert(optionsFromDialog({ separateWalls: raw }).separateWalls === expected, `wrong boolean: ${raw}`);
-  }
-  for (const separateWalls of [1, 0, 'yes', [], {}]) {
+Deno.test('Separate walls defaults to Auto and takes only its choices', () => {
+  assert(byKey.separateWalls.default === 'auto' && ENGINE_DEFAULTS.separateWalls === 'auto', 'not Auto');
+  for (const v of ['auto', 'on', 'off']) assert(optionsFromDialog({ separateWalls: v }).separateWalls === v, v);
+  for (const separateWalls of [true, false, 'true', 1, 'yes', [], {}]) {
     let error;
     try { optionsFromDialog({ separateWalls }); } catch (e) { error = e; }
-    assert(error?.message.includes('separateWalls must be true or false'), 'invalid boolean accepted');
+    assert(error?.message.includes('separateWalls must be one of auto, on, off'), `accepted ${JSON.stringify(separateWalls)}`);
   }
 });
 

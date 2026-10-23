@@ -52,14 +52,14 @@ def test_units_on_the_way_to_the_engine():
               "layerHeight": 0.16, "padStyle": "sure", "sway_on": True, "sway_gripFrom": 12.0,
               "sway_tineSpacing": 8.0, "sway_reach": 20.0, "cutout": "lattice", "coverage": 100.0,
               "plateOnly": True, "tineDir": "vertical", "pinDepth": 0.5,
-              "mode": "full", "longWalls": False, "nozzle": "0.8", "separateWalls": True}
+              "mode": "full", "longWalls": False, "nozzle": "0.8", "separateWalls": "on"}
     values = schema.dialog_values(SCHEMA, lambda n: set_to[n])
     assert values == pytest.approx({"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 0.35,
                                     "layerHeight": 0.16, "padStyle": "sure", "sway.on": True,
                                     "sway.gripFrom": 12.0, "sway.tineSpacing": 8.0, "sway.reach": 0.2,
                                     "cutout": "lattice", "coverage": 1.0, "plateOnly": True,
                                     "tineDir": "vertical", "pinDepth": 0.5,
-                                    "mode": "full", "longWalls": False, "nozzle": "0.8", "separateWalls": True})
+                                    "mode": "full", "longWalls": False, "nozzle": "0.8", "separateWalls": "on"})
 
 
 def test_ranges_are_the_engines():
@@ -99,11 +99,11 @@ def test_the_engine_takes_what_the_panel_sends(engine):
     f32 = lambda x: struct.unpack("f", struct.pack("f", x))[0]
     tops = {s["name"]: f32(s.get("max", s.get("soft_max"))) if s["kind"] == "float" else s["default"] for s in SPECS}
     tops["sway_on"] = True
-    tops["separateWalls"] = True
+    tops["separateWalls"] = "on"
     opts = host.host_options(ctx, schema.dialog_values(SCHEMA, lambda n: tops[n]))
     assert opts["coverage"] == 1.0 and opts["sway"]["reach"] == 0.5     # 100 % and 50 % arrive / 100
     assert opts["gap"] == 0.4
-    assert opts["separateWalls"] is True
+    assert opts["separateWalls"] == "on"
 
 
 def test_a_key_clash_is_refused():

@@ -28,7 +28,7 @@ const OPTION = Object.fromEntries(SCHEMA.options.map((o) => [o.key, o]));
 export const ENGINE_DEFAULTS = Object.freeze({
   mode: OPTION.mode.default,                 // 'auto' | 'full' (Full coverage, web/fins/fill.js)
   longWalls: OPTION.longWalls.default,       // Full coverage's rows along the part (fins/rows.js)
-  separateWalls: OPTION.separateWalls.default, // opt-in, also for resin: no joined fill walls or bases
+  separateWalls: OPTION.separateWalls.default, // 'auto' (on for vertical resin tines, as the site ticks it) | 'on' | 'off'
   bedPad: true,        // older hosts' switch; padStyle 'off' turns the pad off too
   tines: OPTION.tines.default,
   tineDensity: OPTION.tineDensity.default,   // 0..1 (the site's slider / 100)
@@ -114,6 +114,17 @@ export function optionVisible(key, values = {}) {
   return (option(key).showIf || []).every(holds);
 }
 
+// Separate walls, resolved: the site ticks its box when Vertical (resin) tines is
+// picked (web/ui/settings.js), but a dialog stores whatever it holds, so the
+// schema's 'auto' stands in for that. true/false are taken as on/off.
+function separateWalls(opts) {
+  const v = opts.separateWalls;
+  if (v === true || v === 'on') return true;
+  if (v === false || v === 'off') return false;
+  if (v === 'auto' || v == null) return opts.tineDir === 'vertical';
+  throw new Error(`separateWalls must be auto, on, off, true or false, got ${JSON.stringify(v)}`);
+}
+
 function option(key) {
   if (!Object.hasOwn(OPTION, key)) throw new Error(`unknown dialog option ${key}`);
   return OPTION[key];
@@ -161,7 +172,7 @@ export function computeFins(positions, options = {}) {
     // Full coverage aims at every reachable overhang: the slider is Auto's, so Full
     // builds at its default as the site does (ui/finbuild.js finOpts)
     coverage: opts.mode === 'full' ? OPTION.coverage.default : opts.coverage,
-    plateOnly: opts.plateOnly, longWalls: opts.longWalls, separateWalls: opts.separateWalls,
+    plateOnly: opts.plateOnly, longWalls: opts.longWalls, separateWalls: separateWalls(opts),
     // `sway` is forwarded whole, so a host passes the same object the website's
     // options panel builds; buildFins ignores it unless `on` is set. Like the site
     // (ui/finbuild.js swayOpts), braces take the Support gap unless the

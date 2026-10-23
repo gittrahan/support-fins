@@ -72,24 +72,28 @@ function bounds(pos) {
   return { lo, hi };
 }
 
-Deno.test('cli: Separate walls is opt-in, reaches Full coverage and warns in Auto', async () => {
+Deno.test('cli: Separate walls is Auto / on / off, reaches Full coverage and warns in Auto', async () => {
   const source = Deno.readFileSync(`${MODELS}sphere.stl`), files = { 'sphere.stl': source };
   const args = ['sphere.stl', '--mode', 'full', '-o', 'out.stl'];
-  const plain = await cli(args, files);
-  const on = await cli([...args, '--separate-walls'], files);
-  const off = await cli([...args, '--no-separate-walls'], files);
-  for (const r of [plain, on, off]) assert(r.code === 0, r.err.join('\n'));
+  const plain = await cli(args, files), auto = await cli([...args, '--separate-walls', 'auto'], files);
+  const on = await cli([...args, '--separate-walls', 'on'], files);
+  const off = await cli([...args, '--separate-walls', 'off'], files);
+  const resin = await cli([...args, '--tine-dir', 'vertical'], files);
+  const resinOn = await cli([...args, '--tine-dir', 'vertical', '--separate-walls', 'on'], files);
+  for (const r of [plain, auto, on, off, resin, resinOn]) assert(r.code === 0, r.err.join('\n'));
   const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
-  assert(!same(plain.fs.get('out.stl'), on.fs.get('out.stl')), 'flag did not change Full coverage');
-  assert(same(plain.fs.get('out.stl'), off.fs.get('out.stl')), 'explicit false changed default');
-  const auto = await cli(['sphere.stl', '--separate-walls', '-o', 'out.stl'], files);
+  const stl = (r) => r.fs.get('out.stl');
+  assert(!same(stl(plain), stl(on)), 'on did not change Full coverage');
+  assert(same(stl(plain), stl(off)) && same(stl(plain), stl(auto)), 'Auto is not off for FDM tines');
+  assert(same(stl(resin), stl(resinOn)), 'Auto is not on for resin tines');
+  const inAuto = await cli(['sphere.stl', '--separate-walls', 'on', '-o', 'out.stl'], files);
   const normal = await cli(['sphere.stl', '-o', 'out.stl'], files);
-  assert(auto.code === 0 && same(auto.fs.get('out.stl'), normal.fs.get('out.stl')), 'Auto changed');
-  assert(auto.err.some((s) => s.includes('--separate-walls does nothing')), 'inactive setting not explained');
-  assert((await cli(['--help'])).out.join().includes('--separate-walls'), 'help omits flag');
-  for (const flag of ['--separate-walls=true', '--separate-walls=false', '--no-separate-walls=true']) {
-    const r = await cli(['missing.stl', flag]);
-    assert(r.code === 2 && r.err.join().includes('takes no value') && !r.fs.has('missing-fins.3mf'), 'bad flag not refused');
+  assert(inAuto.code === 0 && same(stl(inAuto), stl(normal)), 'Auto mode changed');
+  assert(inAuto.err.some((s) => s.includes('--separate-walls does nothing')), 'inactive setting not explained');
+  assert((await cli(['--help'])).out.join().includes('--separate-walls <auto|on|off>'), 'help omits flag');
+  for (const flags of [['--separate-walls', 'true'], ['--no-separate-walls']]) {
+    const r = await cli(['missing.stl', ...flags]);
+    assert(r.code === 2 && !r.fs.has('missing-fins.3mf'), `bad flag not refused: ${flags.join(' ')}`);
   }
 });
 

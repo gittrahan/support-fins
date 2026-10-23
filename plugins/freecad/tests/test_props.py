@@ -49,7 +49,7 @@ def test_every_option_is_one_property():
     ("gap", "SupportGap", "App::PropertyFloatConstraint"),
     ("threshold", "Overhang", "App::PropertyFloatConstraint"),
     ("tines", "Tines", "App::PropertyBool"),
-    ("separateWalls", "SeparateWalls", "App::PropertyBool"),
+    ("separateWalls", "SeparateWalls", "App::PropertyEnumeration"),
     ("tineDensity", "TineGrip", "App::PropertyPercent"),
     ("layerHeight", "LayerHeight", "App::PropertyLength"),
     ("padStyle", "BedPad", "App::PropertyEnumeration"),
@@ -81,13 +81,13 @@ def test_units_on_the_way_to_the_engine():
               "BraceGripFrom": 12.0, "BraceTineSpacing": 8.0, "BraceDepth": 20,
               "Cutouts": "Lattice", "WideFaceCoverage": 100, "PlateOnly": True,
               "Direction": "Vertical (resin)", "PinDepth": 0.5,
-              "PlacementMode": "Full coverage — every overhang", "LongWalls": False, "Nozzle": "0.8", "SeparateWalls": True}
+              "PlacementMode": "Full coverage — every overhang", "LongWalls": False, "Nozzle": "0.8", "SeparateWalls": "On"}
     values = props.dialog_values(SCHEMA, lambda n: set_to[n])
     assert values == {"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 0.35,
                       "layerHeight": 0.16, "padStyle": "sure", "sway.on": True, "sway.gripFrom": 12.0,
                       "sway.tineSpacing": 8.0, "sway.reach": 0.2, "cutout": "lattice", "coverage": 1.0,
                       "plateOnly": True, "tineDir": "vertical", "pinDepth": 0.5,
-                      "mode": "full", "longWalls": False, "nozzle": "0.8", "separateWalls": True}
+                      "mode": "full", "longWalls": False, "nozzle": "0.8", "separateWalls": "on"}
 
 
 def test_bounded_numbers_carry_the_engines_range():
@@ -156,10 +156,10 @@ def test_restored_document_gains_separate_walls_without_resetting_settings(tmp_p
     obj = DocumentObject()
     proxy = module.SupportFins.__new__(module.SupportFins)
     proxy.onDocumentRestored(obj)
-    assert obj.SeparateWalls is False  # also when a saved object uses resin pins
+    assert obj.SeparateWalls == "Auto (on for resin)"  # resin pins then separate, as on the site
     assert obj.SupportGap == 0.3 and obj.Direction == "Vertical (resin)"
     assert obj.PlacementMode == "Full coverage — every overhang"
-    obj.SeparateWalls = True
+    obj.SeparateWalls = "Off"
     proxy.onDocumentRestored(obj)
-    assert obj.SeparateWalls is True
+    assert obj.SeparateWalls == "Off"
     assert obj.PropertiesList.count("SeparateWalls") == 1
