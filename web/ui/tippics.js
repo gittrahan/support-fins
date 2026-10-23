@@ -300,6 +300,13 @@ export const TIP_PICS = {
     + [[134, 32], [134, 76], [184, 32], [184, 76]].map(([x, y]) => `<rect class="tp-sup2" x="${x}" y="${y}" width="40" height="18"/>`
       + `<rect class="tp-sup" x="${x}" y="${y + 7}" width="40" height="4"/>`).join('')),
 
+  // Rounded feet (one wall on its foot, seen from above): square foot corners (left),
+  // or rounded inside the same outline (right, the old corners dashed).
+  'rounded-feet': svg(
+    '<rect class="tp-sup2" x="18" y="51" width="88" height="28"/><rect class="tp-sup" x="18" y="63" width="88" height="4"/>'
+    + '<rect class="tp-ghost" x="134" y="51" width="88" height="28"/>'
+    + '<rect class="tp-sup2" x="134" y="51" width="88" height="28" rx="14"/><rect class="tp-sup" x="134" y="63" width="88" height="4"/>'),
+
   // Curved walls (a round part seen from above): walls that bend along its curved
   // rim (right) instead of short straight ones under it (left).
   'curved-walls': svg(
