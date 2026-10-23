@@ -152,8 +152,9 @@ export { SCHEMA as OPTIONS_SCHEMA };
  *              and options, not across edits.
  *   overFaces  indices of the INPUT faces in the overhang regions the engine supports:
  *              the site paints these red (web/ui/part.js paintOverhangs, res.kept)
- *   smallFaces faces past the threshold in regions too small to fin, painted amber
- *              on the site: a host should show them too, not hide them
+ *   smallFaces faces past the threshold in area-based slivers or recognised
+ *              small-hole ceilings left for bridging, painted amber on the site
+ *              after generation: a host should show them too, not hide them
  */
 export function computeFins(positions, options = {}) {
   const opts = { ...ENGINE_DEFAULTS, ...options };
@@ -161,11 +162,6 @@ export function computeFins(positions, options = {}) {
   const { pos, shift } = seatSoup(positions);
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   const result = analyze(topo, opts.threshold, IDENTITY3);
-  // Read now: `over` is the topology's own buffer, which a later analyze() refills.
-  const overFaces = [], smallFaces = [];
-  for (let f = 0; f < result.over.length; f++) {
-    if (result.kept[f]) overFaces.push(f); else if (result.over[f]) smallFaces.push(f);
-  }
   const built = buildFins(topo, result, IDENTITY3, {
     mode: opts.mode, bedPad: opts.bedPad && opts.padStyle !== 'off', tines: opts.tines,
     tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
@@ -183,6 +179,13 @@ export function computeFins(positions, options = {}) {
                     : undefined,
     tunables,
   });
+  // buildFins does not re-analyse the mesh. Its automatic exclusion mask moves
+  // only exempt ceilings to amber, without changing the original analysis.
+  const overFaces = [], smallFaces = [];
+  for (let f = 0; f < result.over.length; f++) {
+    if (result.kept[f] && !built.smallHoleMask?.[f]) overFaces.push(f);
+    else if (result.over[f]) smallFaces.push(f);
+  }
   const fin = flatten(built.triangles);
   const pad = flatten(built.padTriangles || []);
   const triangles = new Float32Array(fin.length + pad.length);

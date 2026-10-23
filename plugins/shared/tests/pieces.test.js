@@ -6,6 +6,8 @@
 import { computeFins } from '../engine/fins_entry.js';
 import { readSTL, MODELS, analyze, rotX, rotY, assert, block } from '../../../tests/_util.js';
 import { buildTopology, IDENTITY3 } from '../../../web/overhangs.js';
+import { buildFins } from '../../../web/fins.js';
+import { circularBore } from '../../../tests/_bore.js';
 
 function posed(name, m, dx = 40, dy = -12, dz = 5) {
   const p = readSTL(Deno.readFileSync(`${MODELS}${name}.stl`));
@@ -51,12 +53,17 @@ for (const [name, pose, rot] of CASES) {
   }
 }
 
-// The site's colours (web/ui/part.js paintOverhangs): red = res.kept, amber = over
-// but in a region too small to fin.
-function siteFaces(soup) {
-  const res = analyze(buildTopology({ getAttribute: () => ({ array: soup }) }), 45, IDENTITY3);
+// The site's colours after generation: only automatic generation marks hole
+// ceilings amber. The original analysis still describes all overhang faces.
+function siteFaces(soup, mode = 'auto') {
+  const topo = buildTopology({ getAttribute: () => ({ array: soup }) });
+  const res = analyze(topo, 45, IDENTITY3);
+  const built = buildFins(topo, res, IDENTITY3, { mode });
   const red = [], amber = [];
-  for (let f = 0; f < res.over.length; f++) if (res.kept[f]) red.push(f); else if (res.over[f]) amber.push(f);
+  for (let f = 0; f < res.over.length; f++) {
+    if (res.kept[f] && !built.smallHoleMask?.[f]) red.push(f);
+    else if (res.over[f]) amber.push(f);
+  }
   return { red, amber };
 }
 
@@ -92,4 +99,19 @@ Deno.test('overFaces / smallFaces are the faces the site paints red / amber, any
 Deno.test('overFaces is empty for a part with no overhang', () => {
   const r = computeFins(posed('cube', IDENTITY3), {});
   assert(r.overFaces.length === 0 && r.smallFaces.length === 0, 'overhang faces on a flat cube');
+});
+
+Deno.test('small-hole face indices match browser generation, including Draw and translated meshes', () => {
+  for (const diameter of [4, 5.8, 10]) for (const mode of ['auto', 'full', 'draw']) {
+    const soup = circularBore({ diameter, segments: 64, axialSegments: 2 });
+    const shifted = soup.map((v, i) => v + [40, -12, 5][i % 3]);
+    const want = siteFaces(soup, mode), result = computeFins(shifted, { mode });
+    assert(JSON.stringify([...result.overFaces]) === JSON.stringify(want.red));
+    assert(JSON.stringify([...result.smallFaces]) === JSON.stringify(want.amber));
+    assert(result.overFaces instanceof Int32Array && result.smallFaces instanceof Int32Array);
+    assert(new Set([...result.overFaces, ...result.smallFaces]).size === want.red.length + want.amber.length);
+    if (diameter < 6 && mode !== 'draw') {
+      assert(want.red.length === 0 && want.amber.length > 0, 'exempt ceiling must be amber');
+    } else assert(want.red.length > 0, 'large bore / Draw must remain red');
+  }
 });

@@ -92,8 +92,9 @@ def host_compute_pieces(ctx, soup, options):
                   triangle is in exactly one piece (fins_entry.js computeFins).
       over_faces  indices of faces of `soup` in the overhangs the engine supports
                   (the site paints them red)
-      small_faces past the threshold but in regions too small to fin (the site's
-                  amber): show them too -- an overhang nothing holds isn't hidden
+      small_faces past the threshold in area-based slivers or small-hole ceilings
+                  left for bridging (the site's amber after generation): show them
+                  too -- an overhang nothing holds isn't hidden
     """
     import numpy as np  # here, not at the top: Orca reports a failed numpy install itself
     raw = ctx.call("SupportFinsEngine.computeFinsB64", _soup_b64(soup), json.dumps(options))

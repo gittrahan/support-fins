@@ -22,6 +22,8 @@ Deno.test('small holes: Auto and Full leave a recognised circular bore clear', (
       assertEquals(built.props.length, 0);
       assertEquals(built.triangles.length, 0);
       assertEquals(built.unserved, 0, 'an intentional exclusion is not a failed placement');
+      assert(built.smallHoleMask instanceof Uint8Array);
+      assertEquals(built.smallHoleMask, automaticTargets(topo, res, IDENTITY3).excludedSupportFaces);
       assertEquals(res.over, over, 'the original overhang highlighting must survive');
       assertEquals(res.kept, kept);
       assert(res.regions === regions, 'the caller owns its original regions');
@@ -35,6 +37,7 @@ Deno.test('small holes: larger circular bores retain automatic support', () => {
   for (const mode of ['auto', 'full']) {
     const built = buildFins(topo, res, IDENTITY3, { mode, bedPad: true });
     assertEquals(built.smallHoleRegions, 0);
+    assert(!built.smallHoleMask.some(Boolean));
     assert(built.props.some((p) => p.inBore), `${mode}: missing larger-bore support`);
   }
 });
@@ -68,6 +71,7 @@ Deno.test('small holes: one generation shares its classification, without cachin
   const upright = analyze(topo, 45, rot);
   const built = buildFins(topo, upright, rot, { mode: 'auto', bedPad: true });
   assertEquals(built.smallHoleRegions, 0);
+  assert(!built.smallHoleMask.some(Boolean));
 });
 
 Deno.test('small holes: Draw does not apply the automatic exclusion', () => {
@@ -75,6 +79,7 @@ Deno.test('small holes: Draw does not apply the automatic exclusion', () => {
   const res = analyze(topo, 45, IDENTITY3);
   const built = buildFins(topo, res, IDENTITY3, { mode: 'draw', bedPad: true });
   assertEquals(built.smallHoleRegions, 0);
+  assertEquals(built.smallHoleMask, null);
   assert(res.regions.length > 0);
   const drawn = drawWall(circularBore(), [-12, 0, 12.5], [12, 0, 12.5]);
   assert(drawn.ok && drawn.stats.partAttached && drawn.triangles.length > 0,
@@ -109,7 +114,14 @@ Deno.test('small holes: keep neighbouring overhangs supported, and report throug
     const plugin = computeFins(pos, { mode, threshold: 45 });
     assertEquals(plugin.stats.smallHoleRegions, 1);
     assertEquals(plugin.stats.braces + plugin.stats.props, built.props.length);
-    assert(plugin.overFaces.length > 0, 'intentional exclusions stay highlighted');
+    assert(plugin.overFaces.length > 0, 'the neighbouring overhang remains red');
+    assert(plugin.smallFaces.length > 0, 'the excluded ceiling is amber');
+    const amber = new Set(plugin.smallFaces);
+    assert(plugin.overFaces.every((f) => !amber.has(f)), 'red and amber never overlap');
+    assert(plugin.overFaces instanceof Int32Array && plugin.smallFaces instanceof Int32Array);
+    for (let f = 0; f < res.over.length; f++) {
+      assertEquals(amber.has(f), !!(res.over[f] && (!res.kept[f] || built.smallHoleMask[f])));
+    }
   }
 });
 
@@ -151,6 +163,8 @@ Deno.test('small holes: coincident mesh seams do not change classification acros
       const plugin = computeFins(pos, { mode: 'auto', threshold: 45 });
       assertEquals(plugin.stats.smallHoleRegions, 1, `shared adapter: ${label}`);
       assertEquals(plugin.triangles.length, 0, `shared adapter: ${label}`);
+      assertEquals(plugin.overFaces.length, 0, `red exempt ceiling: ${label}`);
+      assert(plugin.smallFaces.length > 0, `missing amber: ${label}`);
     }
   }
 });

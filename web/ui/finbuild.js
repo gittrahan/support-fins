@@ -20,7 +20,7 @@ import {
   drawnTris, drawnMesh, drawMaterial, drawShown, clearPreview, rebuildDrawn,
 } from './walls.js';
 import { finsVisible, finMode, autoLike } from './settings.js';
-import { topology, rotM3, lastResult, updateFit } from './part.js';
+import { topology, rotM3, lastResult, updateFit, setSmallHoleHighlight } from './part.js';
 import { scheduleParked } from './parkedbuild.js';
 
 export let finMesh = null;
@@ -81,6 +81,9 @@ let finWorker;               // undefined = not tried yet, null = unavailable, e
 let finGen = 0;              // bumped per request; a reply with a stale id is ignored
 let finT0 = 0;               // start time of the in-flight build, for the readout timing
 let lastOpts = null;
+let buildSource = null;
+const currentBuild = () => finsVisible && buildSource?.topology === topology
+  && buildSource?.result === lastResult && buildSource?.mode === finMode;
 let finSpinnerTimer = null;  // shows the spinner only if a build runs past ~1s
 let finBusy = false;         // a worker build is outstanding (used to supersede it)
 /** A worker build is outstanding: the fins on screen are the last settings', not
@@ -165,7 +168,10 @@ export function swayOpts() {
 function makeFinWorker() {
   const w = new Worker(new URL('../finworker.js', import.meta.url), { type: 'module' });
   w.onmessage = (e) => {
-    if (e.data.id !== finGen) return;              // a newer pose already superseded this build
+    if (w !== finWorker || !finBusy || e.data.id !== finGen) return;
+    // A drag re-analyses on every frame but requests new fins only on release.
+    // An old reply during the drag must not land on the newer analysis.
+    if (!currentBuild()) { finBusy = false; clearSpinner(); return; }
     finBusy = false;
     if (e.data.error) {                            // worker failed -- build inline so support still appears
       applyBuilt(buildFins(topology, lastResult, rotM3.elements, lastOpts));
@@ -180,7 +186,8 @@ function makeFinWorker() {
   // index.html would light up for a build that recovered inline)
   w.onerror = (e) => {
     e.preventDefault();
-    const dropped = finBusy;
+    if (w !== finWorker) return;
+    const dropped = finBusy && currentBuild();
     finWorker = null; finBusy = false; clearSpinner();
     if (dropped) refreshFins();
   };
@@ -200,11 +207,14 @@ function getFinWorker() {
 // the spinner looked stuck and the stale fins lingered. Terminating discards the
 // running + queued work so only the latest pose computes.
 function supersedeBuild() {
+  finGen++;
+  buildSource = null;
   if (finBusy && finWorker) { finWorker.terminate(); finWorker = undefined; }
   finBusy = false;
 }
 
 export function refreshFins() {
+  setSmallHoleHighlight(null);
   scheduleParked();                    // the parked models follow the plate's settings
   if (!finsVisible || !lastResult || !topology) {
     supersedeBuild();                  // no build wanted now: drop any in-flight one so it can't re-add fins
@@ -224,6 +234,7 @@ export function refreshFins() {
   finT0 = performance.now();
   lastOpts = finOpts();
   supersedeBuild();                    // discard any older in-flight pose before starting this one
+  buildSource = { topology, result: lastResult, mode: finMode };
   const worker = getFinWorker();
   if (!worker) {                       // no worker available: build inline (old behaviour)
     for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
@@ -236,7 +247,6 @@ export function refreshFins() {
   // Leave the current fins on screen (greyed) until the fresh build lands, so the
   // viewport never blanks mid-recalc. markFinsStale also shows "generating supports…";
   // the spinner joins it only if the build runs past the arm delay.
-  finGen++;
   finBusy = true;
   markFinsStale();
   armSpinner();
@@ -277,6 +287,7 @@ export function workerTopology(topo) {
 // and that logic lives in fins/pad.js + fins/seating.js), so Draw ignores the
 // suggested walls and shows the hand-drawn ones instead.
 function applyBuilt(built) {
+  if (!currentBuild()) return;
   requestRender();      // a worker build lands outside any input event
   finBusy = false;
   clearSpinner();
@@ -289,6 +300,7 @@ function applyBuilt(built) {
   finMaterial.opacity = padMaterial.opacity = ifaceMaterial.opacity = 1;
 
   lastBuilt = built;
+  setSmallHoleHighlight(built, buildSource.result);
   padTris = built.padTriangles;
   padMesh = meshFrom(padTris, padMaterial);
 

@@ -8,6 +8,12 @@
 // 中文没有复数变化，复数一律只写 other（Intl.PluralRules("zh") 恒返回 other）。
 
 export default {
+  "recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer": "识别出的小孔顶部不添加支撑，以保持孔口畅通；请在切片软件中检查桥接",
+  "{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.": {"other":"{n} 个小孔顶部不添加支撑，留作桥接 — 请检查切片预览和打印设置。"},
+  "none needed: small holes left for bridging": {"other":"无需支撑：小孔留作桥接"},
+  "Amber after generation: small-hole ceilings left for bridging": "生成后显示为琥珀色：留作桥接的小孔顶部",
+  "{n} small holes left for bridging": {"other":"{n} 个小孔留作桥接"},
+  "Shade small overhangs amber: area-based slivers and, after generation, small-hole ceilings left for bridging. Off hides their shading; the readout still counts them.": "将小悬垂显示为琥珀色：面积较小的区域，以及生成后留作桥接的小孔顶部。关闭会隐藏其着色；读数仍会统计它们。",
   "Full coverage": "全覆盖",
   "Draw": "绘制",
   "Places supports for you.": "自动为你放置支撑。",

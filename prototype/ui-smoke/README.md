@@ -15,6 +15,9 @@ KEEP=/some/dir prototype/ui-smoke/vs-base.sh   # keep the JSON dumps
 # one run, to look at or to diff by hand
 deno run -A prototype/ui-smoke/ui-smoke.js --model cone --out run.json
 deno run -A prototype/ui-smoke/compare.js base.json run.json
+
+# small-hole readouts, translations, vertex colours and worker lifecycle
+deno run -A prototype/ui-smoke/small-holes.js
 ```
 
 **The script:** load → rotate X, Y → fins on → remove the nearest fin (hover,

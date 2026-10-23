@@ -1,4 +1,10 @@
 export default {
+  "recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer": "Os tetos reconhecidos de furos pequenos ficam sem suporte para manter as aberturas livres; verifique as pontes no fatiador",
+  "{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.": {"one":"{n} teto de furo pequeno sem suporte para formar uma ponte — verifique a prévia do fatiador e as configurações de impressão.","other":"{n} tetos de furos pequenos sem suporte para formar pontes — verifique a prévia do fatiador e as configurações de impressão.","many":"{n} tetos de furos pequenos sem suporte para formar pontes — verifique a prévia do fatiador e as configurações de impressão."},
+  "none needed: small holes left for bridging": {"one":"nenhum necessário: furo pequeno deixado para ponte","other":"nenhum necessário: furos pequenos deixados para pontes","many":"nenhum necessário: furos pequenos deixados para pontes"},
+  "Amber after generation: small-hole ceilings left for bridging": "Âmbar após a geração: tetos de furos pequenos deixados para pontes",
+  "{n} small holes left for bridging": {"one":"{n} furo pequeno deixado para ponte","other":"{n} furos pequenos deixados para pontes","many":"{n} furos pequenos deixados para pontes"},
+  "Shade small overhangs amber: area-based slivers and, after generation, small-hole ceilings left for bridging. Off hides their shading; the readout still counts them.": "Realça em âmbar saliências pequenas: regiões de área pequena e, após a geração, tetos de furos pequenos deixados para pontes. Desativar oculta o realce; a leitura continua a contá-los.",
   "Full coverage": "Cobertura total",
   "Draw": "Desenhar",
   "Places supports for you.": "Posiciona os suportes para você.",

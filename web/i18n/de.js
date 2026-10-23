@@ -1,4 +1,10 @@
 export default {
+  "recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer": "Erkannte Decken kleiner Löcher bleiben ungestützt, damit die Öffnungen frei bleiben; Brückenbildung im Slicer prüfen",
+  "{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.": {"one":"{n} Decke eines kleinen Lochs bleibt zum Überbrücken ungestützt — Slicer-Vorschau und Druckeinstellungen prüfen.","other":"{n} Decken kleiner Löcher bleiben zum Überbrücken ungestützt — Slicer-Vorschau und Druckeinstellungen prüfen."},
+  "none needed: small holes left for bridging": {"one":"keine nötig: kleines Loch wird überbrückt","other":"keine nötig: kleine Löcher werden überbrückt"},
+  "Amber after generation: small-hole ceilings left for bridging": "Gelborange nach der Erzeugung: Decken kleiner Löcher, die überbrückt werden",
+  "{n} small holes left for bridging": {"one":"{n} kleines Loch wird überbrückt","other":"{n} kleine Löcher werden überbrückt"},
+  "Shade small overhangs amber: area-based slivers and, after generation, small-hole ceilings left for bridging. Off hides their shading; the readout still counts them.": "Kleine Überhänge gelborange markieren: flächenmäßig kleine Bereiche und nach der Erzeugung Decken kleiner Löcher, die überbrückt werden. Aus blendet ihre Markierung aus; die Anzeige zählt sie weiterhin.",
   "Full coverage": "Volle Abdeckung",
   "Draw": "Zeichnen",
   "Places supports for you.": "Platziert die Stützen für Sie.",

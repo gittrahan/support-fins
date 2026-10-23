@@ -1,4 +1,10 @@
 export default {
+  "recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer": "Herkende plafonds van kleine gaten blijven zonder ondersteuning om de openingen vrij te houden; controleer het overbruggen in de slicer",
+  "{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.": {"one":"{n} plafond van een klein gat blijft zonder ondersteuning voor overbrugging — controleer het slicervoorbeeld en de printinstellingen.","other":"{n} plafonds van kleine gaten blijven zonder ondersteuning voor overbrugging — controleer het slicervoorbeeld en de printinstellingen."},
+  "none needed: small holes left for bridging": {"one":"geen nodig: klein gat wordt overbrugd","other":"geen nodig: kleine gaten worden overbrugd"},
+  "Amber after generation: small-hole ceilings left for bridging": "Amber na genereren: plafonds van kleine gaten die worden overbrugd",
+  "{n} small holes left for bridging": {"one":"{n} klein gat wordt overbrugd","other":"{n} kleine gaten worden overbrugd"},
+  "Shade small overhangs amber: area-based slivers and, after generation, small-hole ceilings left for bridging. Off hides their shading; the readout still counts them.": "Markeer kleine overhangen amber: splinters met een klein oppervlak en, na genereren, plafonds van kleine gaten die worden overbrugd. Uit verbergt hun markering; de uitlezing blijft ze tellen.",
   "Full coverage": "Volledig",
   "Draw": "Getekend",
   "Places supports for you.": "Plaatst de ondersteuningen voor je.",

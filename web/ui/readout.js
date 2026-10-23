@@ -50,7 +50,7 @@ function explainNoFins(b) {
     return t('part of the model sits under these overhangs, and Plate only is on — '
          + 'untick it to stand supports on the part, or rotate');
   }
-  if (b.smallHoleRegions && !b.unserved) {
+  if (onlySmallHoles(b)) {
     return t('recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer');
   }
   if (b.mode === 'prop') {
@@ -103,6 +103,16 @@ function explainNoFins(b) {
          + '— rotate, or switch to Draw and place one by hand');
   }
   return t('the workable spots would put the fin inside the part — try rotating');
+}
+
+// An intentional empty result is different from a failed placement. Do not let
+// a hole beside another target, or an unsafe part, hide the real failure.
+function onlySmallHoles(b) {
+  return b.mode !== 'draw' && b.smallHoleRegions > 0
+    && b.smallHoleRegions === lastResult?.regions.length
+    && !b.unserved && !b.skipped?.onPart && !b.floating?.length
+    && !b.sway?.reason
+    && !(b.seating?.kind === 'point' && !b.pad);
 }
 
 // Grams use the selected material's density (materialDensity, set by applyMaterial),
@@ -338,15 +348,19 @@ function updateFinReadout(built, ms) {
       + (sw.tines ? ` · ${t('{n} brace tines', { n: sw.tines })}` : '')
       + (sw.cross ? ` · ${tn('{n} brace rib', '{n} brace ribs', sw.cross)}` : '')
     : '';
-  box.textContent = (autoTxt + ribTxt + drawnTxt + swayTxt + removedTxt) || t('none possible');
-  box.classList.toggle('warn', n === 0 && !drawnOk && !sw?.count);
+  const noneNeeded = !n && !removedN && !sw?.count
+    && !(drawShown() && drawnWalls.length) && onlySmallHoles(built);
+  box.textContent = (autoTxt + ribTxt + drawnTxt + swayTxt + removedTxt) || (noneNeeded
+    ? tn('none needed: small hole left for bridging', 'none needed: small holes left for bridging', built.smallHoleRegions)
+    : t('none possible'));
+  box.classList.toggle('warn', n === 0 && !drawnOk && !sw?.count && !noneNeeded);
 
   // `lead` = short + must-see, stays in the panel; `help` = how-it-works and
   // how-to-fix, goes behind the (i). Split so the panel doesn't read as a wall.
   const lead = [];
   const help = [];
   if (!n && !drawnOk) {
-    // Nothing placed -- the box already says "none possible"; the why goes in the
+    // Nothing placed -- the box names the outcome; the why goes in the
     // (i), since it's a paragraph and the user can hover for it.
     help.push(explainNoFins(built));
   } else if (n) {

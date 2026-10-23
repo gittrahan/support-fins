@@ -146,6 +146,10 @@ export function buildFins(topo, result, rot, opts = {}) {
   if (opts.mode !== 'draw') result = automaticTargets(topo, result, rot);
   const built = buildFinsAndBraces(topo, result, rot, opts);
   built.smallHoleRegions = result.smallHoleRegions ?? 0;
+  // Face indices stay in the caller's input order. Reuse the generation's mask
+  // for highlighting; rendering must not reclassify during a pose drag. Draw is
+  // an explicit placement decision and has no automatic exclusions.
+  built.smallHoleMask = opts.mode === 'draw' ? null : result.excludedSupportFaces;
   // Tall walls get face ribs, last, around everything placed (fins/tall.js). Draw
   // ribs its own walls on the page (draw.js braceTall).
   if (opts.mode !== 'draw' && opts.tallRibs !== false) braceTallWalls(topo, result, rot, built);

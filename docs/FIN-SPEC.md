@@ -24,8 +24,12 @@ the existing `fins/coverage.js` HOLE classification (nominally a bore around 6 m
 or smaller). A wall can fit inside such an opening but be impossible to reach
 and remove. The exclusion is shared by the normal, raster, downhill, wedge,
 short-wall and fill passes; curved tracing cannot grow back onto excluded faces.
-The full model remains available for collision checks and the ceiling stays
-highlighted. Larger bores still get supports, and Draw remains an explicit choice.
+The full model remains available for collision checks. After automatic generation,
+the ceiling is highlighted amber, separately labelled from area-based slivers.
+Highlight small overhangs hides both amber categories when disabled; exempt
+ceilings do not turn red. Before generation, with supports off, and in Draw,
+the original overhang analysis supplies the colours. Larger bores still get
+supports, and Draw remains an explicit choice.
 
 Containment probes for this classification use the full seated model and count
 coincident triangle hits as one surface. Opposite-facing hits at a tangent cancel.
@@ -39,7 +43,9 @@ as supports or credited as held area. This prevents removal of the trapped wall
 from opening a new route through the cavity for supports aimed elsewhere.
 
 The readout reports recognised small-hole ceilings left for bridging separately
-from overhangs where placement failed; plugin stats expose `smallHoleRegions`
+from overhangs where placement failed. If every retained region is exempt and
+there is no other placement or seating failure, the Fins row says "none needed"
+rather than "none possible". Plugin stats expose `smallHoleRegions`
 (zero when none). Check the slicer preview and print settings: exclusion does not
 guarantee a successful bridge. This is the existing heuristic, not an exact
 diameter or extraction-path test. It measures the selected overhang band, so its

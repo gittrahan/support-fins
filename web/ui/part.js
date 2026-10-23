@@ -51,14 +51,22 @@ let lastSize = null;
 const SHADE = {
   plain: new THREE.Color().setHex(0xb9c2d0, THREE.SRGBColorSpace),
   over: new THREE.Color().setHex(0xff5a4d, THREE.SRGBColorSpace),
-  // an overhang too small to support (a sliver analyze drops): it prints
-  // unsupported, so it must still show -- amber, like the over-warn card
+  // An area-based sliver, or after generation an exempt small-hole ceiling:
+  // it prints unsupported, so it must still show in amber.
   small: new THREE.Color().setHex(0xffb454, THREE.SRGBColorSpace),
   bed: new THREE.Color().setHex(0x3f7fd0, THREE.SRGBColorSpace),
 };
 // paintOverhangs' record of what each face shows, as an index into SHADES
 const SHADES = [null, SHADE.plain, SHADE.over, SHADE.small, SHADE.bed];
 let painted = null, paintedAttr = null;
+let smallHoleHighlight = null;
+
+/** Install only a completed build's classification for the analysis it used. */
+export function setSmallHoleHighlight(built, result = lastResult) {
+  smallHoleHighlight = built?.smallHoleMask && result === lastResult
+    ? { result, mask: built.smallHoleMask, count: built.smallHoleRegions } : null;
+  paintOverhangs();
+}
 
 /**
  * Drop `geometry` onto the plate: centred in XY, its lowest point resting on
@@ -179,6 +187,7 @@ export function stashPart() {
   part = null;
   topology = null;
   lastResult = lastShadeRes = null;
+  smallHoleHighlight = null;
   flatRegions = null;
   painted = paintedAttr = null;
   lastSize = null;
@@ -255,6 +264,7 @@ function computeFlatBaseline() {
  */
 export function paintOverhangs(res = lastResult) {
   if (!part || !topology || !res) return;
+  const holes = smallHoleHighlight?.result === res ? smallHoleHighlight : null;
   const colors = part.geometry.getAttribute('color');
   const arr = colors.array;
   // Write only the faces whose colour changed since the last paint, and upload
@@ -268,7 +278,8 @@ export function paintOverhangs(res = lastResult) {
   }
   let lo = n, hi = -1;
   for (let f = 0; f < n; f++) {
-    const k = res.kept[f] ? 2 : res.over[f] && highlightSmall ? 3 : res.onBed[f] ? 4 : 1;
+    const k = holes?.mask[f] ? (highlightSmall ? 3 : 1)
+      : res.kept[f] ? 2 : res.over[f] && highlightSmall ? 3 : res.onBed[f] ? 4 : 1;
     if (painted[f] === k) continue;
     painted[f] = k;
     if (f < lo) lo = f;
@@ -302,6 +313,12 @@ export function paintOverhangs(res = lastResult) {
     sw.title = t('Amber: overhangs under {area} mm², too small for a fin', { area: MIN_REGION_AREA });
     sOver.append(' (+', sw, `${tn('{n} sliver', '{n} slivers', dropped)})`);
   }
+  if (holes?.count) {
+    const sw = document.createElement('i');
+    sw.className = 'sw sw-small';
+    sw.title = t('Amber after generation: small-hole ceilings left for bridging');
+    sOver.append(' (', sw, tn('{n} small hole left for bridging', '{n} small holes left for bridging', holes.count), ')');
+  }
   sOver.classList.toggle('good', res.regions.length === 0 && !dropped);
   renderIslandText();
 
@@ -325,6 +342,7 @@ export function paintOverhangs(res = lastResult) {
 
 export function shade() {
   if (!part || !topology) return new THREE.Vector3();
+  smallHoleHighlight = null;  // a new pose/threshold needs its own completed build
   rotM3.setFromMatrix4(rotM4.makeRotationFromQuaternion(part.quaternion));
 
   const t0 = performance.now();
@@ -500,21 +518,7 @@ export function syncPartLanguage() {
     if (note) el('s-import-note').textContent = note;
   }
   if (!lastShadeRes) return;
-  const dropped = lastShadeRes.rawRegionCount - lastShadeRes.regions.length;
-  const regCount = lastShadeRes.regions.length;
-  const sOver = el('s-over');
-  if (regCount === 0) {
-    sOver.textContent = t('none');
-  } else {
-    sOver.textContent = tn('{n} region', '{n} regions', regCount);
-  }
-  if (dropped) {
-    const sw = document.createElement('i');
-    sw.className = 'sw sw-small';
-    sw.title = t('Amber: overhangs under {area} mm², too small for a fin', { area: MIN_REGION_AREA });
-    sOver.append(' (+', sw, `${tn('{n} sliver', '{n} slivers', dropped)})`);
-  }
-  renderIslandText();
+  paintOverhangs(lastShadeRes);
 }
 
 window.addEventListener('languagechange', syncPartLanguage);
