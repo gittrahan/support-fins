@@ -72,6 +72,27 @@ function bounds(pos) {
   return { lo, hi };
 }
 
+Deno.test('cli: Separate walls is opt-in, reaches Full coverage and warns in Auto', async () => {
+  const source = Deno.readFileSync(`${MODELS}sphere.stl`), files = { 'sphere.stl': source };
+  const args = ['sphere.stl', '--mode', 'full', '-o', 'out.stl'];
+  const plain = await cli(args, files);
+  const on = await cli([...args, '--separate-walls'], files);
+  const off = await cli([...args, '--no-separate-walls'], files);
+  for (const r of [plain, on, off]) assert(r.code === 0, r.err.join('\n'));
+  const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+  assert(!same(plain.fs.get('out.stl'), on.fs.get('out.stl')), 'flag did not change Full coverage');
+  assert(same(plain.fs.get('out.stl'), off.fs.get('out.stl')), 'explicit false changed default');
+  const auto = await cli(['sphere.stl', '--separate-walls', '-o', 'out.stl'], files);
+  const normal = await cli(['sphere.stl', '-o', 'out.stl'], files);
+  assert(auto.code === 0 && same(auto.fs.get('out.stl'), normal.fs.get('out.stl')), 'Auto changed');
+  assert(auto.err.some((s) => s.includes('--separate-walls does nothing')), 'inactive setting not explained');
+  assert((await cli(['--help'])).out.join().includes('--separate-walls'), 'help omits flag');
+  for (const flag of ['--separate-walls=true', '--separate-walls=false', '--no-separate-walls=true']) {
+    const r = await cli(['missing.stl', flag]);
+    assert(r.code === 2 && r.err.join().includes('takes no value') && !r.fs.has('missing-fins.3mf'), 'bad flag not refused');
+  }
+});
+
 // v' = A (B v), column-major like three.js Matrix3.elements
 const mul = (A, B) => { const C = new Array(9).fill(0);
   for (let c = 0; c < 3; c++) for (let r = 0; r < 3; r++) for (let k = 0; k < 3; k++) C[c * 3 + r] += A[k * 3 + r] * B[c * 3 + k];

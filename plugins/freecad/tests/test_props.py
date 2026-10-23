@@ -14,8 +14,10 @@ Pinned:
     its .Value.
 """
 import json
+import importlib.util
 import pathlib
 import sys
+import types
 
 import pytest
 
@@ -47,6 +49,7 @@ def test_every_option_is_one_property():
     ("gap", "SupportGap", "App::PropertyFloatConstraint"),
     ("threshold", "Overhang", "App::PropertyFloatConstraint"),
     ("tines", "Tines", "App::PropertyBool"),
+    ("separateWalls", "SeparateWalls", "App::PropertyBool"),
     ("tineDensity", "TineGrip", "App::PropertyPercent"),
     ("layerHeight", "LayerHeight", "App::PropertyLength"),
     ("padStyle", "BedPad", "App::PropertyEnumeration"),
@@ -78,13 +81,13 @@ def test_units_on_the_way_to_the_engine():
               "BraceGripFrom": 12.0, "BraceTineSpacing": 8.0, "BraceDepth": 20,
               "Cutouts": "Lattice", "WideFaceCoverage": 100, "PlateOnly": True,
               "Direction": "Vertical (resin)", "PinDepth": 0.5,
-              "PlacementMode": "Full coverage — every overhang", "LongWalls": False, "Nozzle": "0.8"}
+              "PlacementMode": "Full coverage — every overhang", "LongWalls": False, "Nozzle": "0.8", "SeparateWalls": True}
     values = props.dialog_values(SCHEMA, lambda n: set_to[n])
     assert values == {"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 0.35,
                       "layerHeight": 0.16, "padStyle": "sure", "sway.on": True, "sway.gripFrom": 12.0,
                       "sway.tineSpacing": 8.0, "sway.reach": 0.2, "cutout": "lattice", "coverage": 1.0,
                       "plateOnly": True, "tineDir": "vertical", "pinDepth": 0.5,
-                      "mode": "full", "longWalls": False, "nozzle": "0.8"}
+                      "mode": "full", "longWalls": False, "nozzle": "0.8", "separateWalls": True}
 
 
 def test_bounded_numbers_carry_the_engines_range():
@@ -123,3 +126,40 @@ def test_a_freecad_builtin_name_is_refused():
 def test_retired_settings_are_not_current_ones():
     # a restored file drops these; one that came back would be deleted on open
     assert not set(props.RETIRED) & {s["name"] for s in SPECS}
+
+
+def test_restored_document_gains_separate_walls_without_resetting_settings(tmp_path, monkeypatch):
+    # Load the real restore hook with a minimal document-property stand-in; no CAD
+    # geometry or GUI is mocked. The staged schema is what build.py ships.
+    source = HERE.parent / "SupportFins" / "supportfins_freecad.py"
+    staged = tmp_path / source.name
+    staged.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    (tmp_path / "options.json").write_text(json.dumps(SCHEMA), encoding="utf-8")
+    monkeypatch.setitem(sys.modules, "FreeCAD", types.SimpleNamespace())
+    spec = importlib.util.spec_from_file_location("restore_test", staged)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
+    class DocumentObject:
+        def __init__(self):
+            self.PropertiesList = ["SupportGap", "Direction", "PlacementMode"]
+            self.SupportGap = 0.3
+            self.Direction = "Vertical (resin)"
+            self.PlacementMode = "Full coverage — every overhang"
+
+        def addProperty(self, kind, name, group, tooltip):
+            self.PropertiesList.append(name)
+
+        def setEditorMode(self, name, mode):
+            pass
+
+    obj = DocumentObject()
+    proxy = module.SupportFins.__new__(module.SupportFins)
+    proxy.onDocumentRestored(obj)
+    assert obj.SeparateWalls is False  # also when a saved object uses resin pins
+    assert obj.SupportGap == 0.3 and obj.Direction == "Vertical (resin)"
+    assert obj.PlacementMode == "Full coverage — every overhang"
+    obj.SeparateWalls = True
+    proxy.onDocumentRestored(obj)
+    assert obj.SeparateWalls is True
+    assert obj.PropertiesList.count("SeparateWalls") == 1

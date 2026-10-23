@@ -7,7 +7,7 @@ import { xmlTree, children, child, metadata, editXML, insert } from '../project-
 import { readThreeMF, readThreeMFParts, meshXML } from '../../../web/threemf.js';
 import { zipStore } from '../../../web/zip.js';
 import { computeFins, optionsFromDialog } from '../../shared/engine/fins_entry.js';
-import { assert, assertClose, block } from '../../../tests/_util.js';
+import { assert, assertClose, block, readSTL, MODELS } from '../../../tests/_util.js';
 
 const ROOT = '3D/3dmodel.model', CONFIG = 'Metadata/model_settings.config';
 const SETTINGS = 'Metadata/project_settings.config', SUPPORTS = '3D/SupportFins/supports.model';
@@ -41,8 +41,8 @@ async function compressed(files) {
 
 async function fixture({ duplicate = false, negative = false, variable = null, layer = '0.16', printable = true, mirror = false,
   app = 'BambuStudio-02.04.00.70', sequence = 'by layer', plateSequence = null,
-  plateIDs = [1, 2], emptyPlates = [], together = false, sameName = false, steep = false, nozzle = ['0.4'] } = {}) {
-  const cube = triples(block(0, 20, 0, 20, 0, 20));
+  plateIDs = [1, 2], emptyPlates = [], together = false, sameName = false, steep = false, nozzle = ['0.4'], positions = null } = {}) {
+  const cube = triples(positions ?? block(0, 20, 0, 20, 0, 20));
   const q = steep ? 0.5 : Math.SQRT1_2, s = steep ? Math.sqrt(3) / 2 : q;
   const resource = (id, file) => `<object id="${id}" type="model" p:UUID="original-${id}"><components>`
     + `<component objectid="1" p:path="/3D/Objects/${file}.model" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object>`;
@@ -101,6 +101,28 @@ async function cli(source, flags = [], additional = {}, overrides = {}) {
   const code = await run(['part.3mf', '--preserve-project', '--json', ...flags], { ...io, ...overrides });
   return { code, fs, out, err, result: out.length ? JSON.parse(out[0]) : null };
 }
+
+Deno.test('project: Separate walls reaches selected geometry and preserves the other model and settings', async () => {
+  const source = await fixture({ positions: readSTL(Deno.readFileSync(`${MODELS}sphere.stl`)) });
+  const args = ['--mode', 'full', '--object', '1'];
+  const plain = await cli(source, args), off = await cli(source, [...args, '--no-separate-walls']);
+  const on = await cli(source, [...args, '--separate-walls']);
+  const supports = [];
+  const original = new ProjectZip(source);
+  for (const r of [plain, off, on]) {
+    assert(r.code === 0 && r.result.objects.length === 1 && r.result.objects[0].number === 1, r.err.join('\n'));
+    const zip = new ProjectZip(r.fs.get('part-fins-project.3mf'));
+    supports.push((await zip.text(SUPPORTS)).replace(/p:UUID="[^"]*"/g, 'p:UUID="same"'));
+    for (const name of ['3D/Objects/a.model', '3D/Objects/b.model', SETTINGS]) {
+      equal(await zip.read(name), await original.read(name), `source changed: ${name}`);
+    }
+    const unselected = (xml) => children(xmlTree(xml), 'object').find((o) => o.attrs.id === '20');
+    assert(JSON.stringify(metadata(unselected(await zip.text(CONFIG))))
+      === JSON.stringify(metadata(unselected(await original.text(CONFIG)))), 'unselected settings changed');
+  }
+  assert(supports[0] === supports[1], 'false changed default geometry');
+  assert(supports[0] !== supports[2], 'separation not forwarded in project mode');
+});
 
 Deno.test('project nozzle: saved diameter equals an explicit run, is reported and never edits printer settings', async () => {
   const source = await fixture({ nozzle: ['0.80', 0.8], steep: true });
@@ -757,6 +779,18 @@ Deno.test('project resume: final-output failure retains all checkpoints and retr
   assert(failed.code === 1 && failed.saved.join() === '1,2', 'output failure lost work');
   const done = await call(['--resume']);
   assert(done.code === 0 && done.hits.join() === '1,2' && !done.saved.length, done.err.join('\n'));
+}));
+
+Deno.test('project resume: Separate walls reuses matching checkpoints and invalidates the opposite setting', () => diskProject(async ({ call }) => {
+  const flags = ['--resume', '--mode', 'full', '--separate-walls'];
+  const failOutput = () => { throw new Error('output unavailable'); };
+  const initial = await call(flags, (c) => c, failOutput);
+  assert(initial.code === 1 && initial.saved.join() === '1,2', 'did not checkpoint both objects');
+  const same = await call(flags, (c) => c, failOutput);
+  assert(same.code === 1 && same.hits.join() === '1,2' && !same.saved.length, 'matching settings not reused');
+  const changed = await call(['--resume', '--mode', 'full', '--no-separate-walls']);
+  assert(changed.code === 0 && !changed.hits.length && changed.saved.join() === '1,2', 'stale separation reused');
+  assert(changed.err.some((s) => s.includes('no compatible checkpoints')), 'cache invalidation not explained');
 }));
 
 Deno.test('project resume: a changed nozzle override or saved diameter cannot reuse old geometry', async () => {

@@ -22,6 +22,13 @@ in the site's units (percent sliders 0-100). The client sees the whole list, wit
 defaults and ranges, in the tool schema. `fin_part` also takes `rot`: `[x, y, z]`, the
 "X · Y · Z" readout under the part on printfins.com.
 
+For Full coverage with separated fill walls, pass
+`"settings": {"mode": "full", "separate-walls": true}` to either tool. The setting
+defaults to `false`, even with `"tine-dir": "vertical"`; send `false` to disable it
+explicitly. It prevents fill walls from crossing other walls or sharing their bases,
+but can leave more overhang unsupported. Intentional thin ties remain; resin
+removability needs print testing. In Auto it has no effect and returns a warning.
+
 The result is the CLI's report line ("5 walls, 20 tines; 1 overhang is too shallow for a
 fin this way up (tilt the part steeper)") plus the numbers behind it. Unsupported
 overhangs are reported, not errors. A bad setting or an unreadable file is a tool error

@@ -110,6 +110,32 @@ Deno.test('nozzle: a host\'s own size is used as is; what the engine can\'t scal
   }
 });
 
+Deno.test('Separate walls: browser parity, opt-in for either direction, and ignored in Auto', () => {
+  const sphere = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}sphere.stl`)));
+  for (let i = 0; i < sphere.length; i++) sphere[i] += PLATE[i % 3];
+  try {
+    for (const tineDir of ['horizontal', 'vertical']) {
+      const opts = { ...OPTS, mode: 'full', tineDir };
+      const joined = computeFins(sphere, opts).triangles;
+      const apart = computeFins(sphere, { ...opts, separateWalls: true }).triangles;
+      assert(!same(joined, apart), `${tineDir}: separation did not reach geometry`);
+      assert(same(joined, computeFins(sphere, { ...opts, separateWalls: false }).triangles), 'false changed default');
+      assert(same(joined, computeFins(sphere, opts).triangles), 'separation leaked into next default call');
+      const topo = topoOf(centred(sphere)), m = MATERIAL.pla;
+      const web = fins.buildFins(topo, analyze(topo, 45, IDENTITY3), IDENTITY3, {
+        ...opts, separateWalls: true,
+        tunables: { nozzle: 0.4, wallLines: 2, padH: m.padH, padGrab: m.padGrab,
+          propGap: 0.2, padStyle: 'auto', cutout: 'none', tineDir, pinDepth: 0.1 },
+      });
+      assert(web.fill.joined === 0, 'browser joined fill walls with separation enabled');
+      assert(same(apart, Float32Array.from(flat(web))), `${tineDir}: adapter differs from browser geometry`);
+      const auto = computeFins(sphere, { ...opts, mode: 'auto' }).triangles;
+      assert(same(auto, computeFins(sphere, { ...opts, mode: 'auto', separateWalls: true }).triangles),
+        `${tineDir}: separation changed Auto`);
+    }
+  } finally { resetPla(); }
+});
+
 Deno.test('gap 0.3: same fins as the website builds with Support gap 0.3, and not 0.2\'s', () => {
   try {
     const narrow = computeFins(PART, OPTS);

@@ -13,12 +13,27 @@ support-fins part.stl --rot 0,35,0             # pose it first: the site's X · 
 support-fins *.stl --gap 0.3 --coverage 70        # PETG: a wider Support gap
 support-fins part.stl --nozzle 0.8             # scale supports for a 0.8 mm nozzle
 support-fins roof.stl --mode full              # Full coverage: walls under every overhang Auto leaves bare
+support-fins roof.stl --mode full --separate-walls  # keep fill walls and their bases apart
 support-fins part.stl -o out.stl               # one STL with part + fins merged
 support-fins part.stl --fins-only              # part-fins-only.stl, lines up with part.stl
 support-fins plate.3mf --object 2              # a 3MF with several objects: pick one
 support-fins part.stl --json                   # one JSON line per file (stats + summary)
 support-fins --help                            # every setting, with the site's defaults
 ```
+
+**Separate walls.** `--mode full --separate-walls` prevents fill walls from crossing
+other walls or sharing their bases. It may leave more overhang unsupported;
+intentional thin ties remain, and resin removability still needs print testing.
+The default is off, including with `--tine-dir vertical`. Use `--no-separate-walls`
+to turn it off explicitly. In Auto the flag changes no geometry and produces an
+inactive-setting warning. It also works with preserved projects, for example:
+
+```sh
+support-fins project.3mf --preserve-project --mode full --separate-walls
+```
+
+It applies to selected objects without changing the saved slicer settings. With
+`--resume`, changing this setting starts a fresh cache instead of reusing old fins.
 
 **Rotation.** The part is finned the way it sits in the file (z up), unless `--rot`
 turns it. `--rot` takes the numbers printfins.com shows under the part ("X 35° · Y 0° ·

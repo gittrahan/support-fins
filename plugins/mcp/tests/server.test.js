@@ -22,8 +22,8 @@ function memIO(files = { 'lb.stl': LBRACKET }) {
     write: async (p, b) => { fs.set(p, b); },
   };
 }
-async function viaCLI(argv) {
-  const io = memIO();
+async function viaCLI(argv, files) {
+  const io = memIO(files);
   const code = await run(argv, { ...io, out: () => {}, err: () => {} });
   return { code, fs: io.fs };
 }
@@ -55,6 +55,8 @@ Deno.test('mcp: the settings schema is the CLI\'s flags, in the site\'s units', 
     assert(s.gap.default === 0.2 && s['pad-style'].enum.includes('sure'), 'mm and choices as the site has them');
     assert(s.nozzle.default === '0.4' && s.nozzle.enum.includes('0.8') && s.nozzle.enum.includes('2.0'), 'nozzle choices missing');
     assert(/only used when tines is on/.test(s['tine-density'].description), 'when a setting matters is said');
+    assert(s['separate-walls'].type === 'boolean' && s['separate-walls'].default === false
+      && /only used when mode is full/.test(s['separate-walls'].description), 'Separate walls schema/default missing');
   }
   assert(!('rot' in TOOLS[1].inputSchema.properties), 'fins_only lines up with the file: no rot');
 });
@@ -74,6 +76,27 @@ Deno.test('mcp: fin_part writes exactly what the command line writes', async () 
   assert(!none.isError && none.structuredContent.output === null && /nothing written/.test(none.content[0].text), 'no overhang, no file');
 });
 
+Deno.test('mcp: Separate walls matches CLI for both values and both tools', async () => {
+  const files = { 'sphere.stl': Deno.readFileSync(`${MODELS}sphere.stl`) };
+  for (const tool of ['fin_part', 'fins_only']) {
+    const outputs = [];
+    for (const enabled of [false, true]) {
+      const io = memIO(files);
+      const r = await callTool(tool, { path: 'sphere.stl', output: 'out.stl',
+        settings: { mode: 'full', 'separate-walls': enabled } }, io);
+      const cli = await viaCLI(['sphere.stl', '-o', 'out.stl', '--mode', 'full',
+        enabled ? '--separate-walls' : '--no-separate-walls', ...(tool === 'fins_only' ? ['--fins-only'] : [])], files);
+      assert(!r.isError && cli.code === 0, r.content[0].text);
+      const output = io.fs.get('out.stl');
+      assert(same(output, cli.fs.get('out.stl')), `${tool}: differs from CLI`);
+      outputs.push(output);
+    }
+    assert(!same(...outputs), `${tool}: setting did not affect output`);
+  }
+  const auto = await callTool('fin_part', { path: 'sphere.stl', settings: { 'separate-walls': true } }, memIO(files));
+  assert(!auto.isError && /warning: separate-walls does nothing/.test(auto.content[0].text), 'Auto warning lost');
+});
+
 Deno.test('mcp: bad input is a tool error that says why, and writes nothing', async () => {
   const cases = [
     [{ path: 'lb.stl', settings: { coverage: 150 } }, /coverage must be 0\.\.100, got 150/],
@@ -86,6 +109,8 @@ Deno.test('mcp: bad input is a tool error that says why, and writes nothing', as
     [{ path: 'lb.stl', object: {} }, /object is a 1-based number or a name/],
     [{ path: 'lb.stl', toString: 5 }, /fin_part takes no "toString"/],
     [{ path: 'lb.stl', settings: { constructor: 1 } }, /unknown setting "constructor"/],
+    [{ path: 'lb.stl', settings: { 'separate-walls': 'true' } }, /separate-walls is true or false/],
+    [{ path: 'lb.stl', settings: { 'separate-walls': 1 } }, /separate-walls is true or false/],
   ];
   for (const [args, want] of cases) {
     const io = memIO();

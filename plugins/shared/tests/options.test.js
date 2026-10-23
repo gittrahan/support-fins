@@ -42,7 +42,6 @@ const SITE_EXCLUDED = {
   'sway-cross-height': 'browser sway cross-ribs only; plugin dialogs retain the default rib height ratio',
   'tall-ribs': 'the plugins build with the engine default (on, as the site starts); a dialog control can follow',
   'tall-ribs-height': 'browser tall-wall rib threshold; plugin dialogs retain the default 100 mm height',
-  'separate-walls': 'the plugins build Full coverage with joined walls (the engine default); a dialog control can follow',
   'file': 'loading a model is the host\'s job', 'file-add': 'adding a model to the plate is the host\'s job', 'volume': 'site build-volume preview',
   'vx': 'site build-volume preview', 'vy': 'site build-volume preview', 'vz': 'site build-volume preview',
   'plugins-computer': 'picks which plugin download to offer',
@@ -150,6 +149,25 @@ Deno.test('optionVisible hides exactly what the site hides (web/ui/settings.js)'
   // the coverage slider is Auto's; Long walls is Full coverage's (settings.js syncCoverageUI)
   assert(shown('coverage', {}) && !shown('coverage', { mode: 'full' }), 'coverage follows Auto');
   assert(!shown('longWalls', {}) && shown('longWalls', { mode: 'full' }), 'Long walls follows Full coverage');
+  for (const tineDir of ['horizontal', 'vertical']) for (const tines of [true, false]) {
+    const values = { tineDir, tines, separateWalls: true };
+    assert(!shown('separateWalls', values) && shown('separateWalls', { ...values, mode: 'full' }),
+      'Separate walls follows Full coverage, not tines or direction');
+    assert(optionsFromDialog(values).separateWalls === true, 'hidden value lost when changing modes');
+  }
+});
+
+Deno.test('Separate walls is opt-in and uses the shared boolean validation', () => {
+  assert(byKey.separateWalls.default === false && ENGINE_DEFAULTS.separateWalls === false, 'not opt-in');
+  assert(!('separateWalls' in optionsFromDialog({ tineDir: 'vertical' })), 'resin implicitly enabled separation');
+  for (const [raw, expected] of [[true, true], [false, false], ['true', true], ['false', false]]) {
+    assert(optionsFromDialog({ separateWalls: raw }).separateWalls === expected, `wrong boolean: ${raw}`);
+  }
+  for (const separateWalls of [1, 0, 'yes', [], {}]) {
+    let error;
+    try { optionsFromDialog({ separateWalls }); } catch (e) { error = e; }
+    assert(error?.message.includes('separateWalls must be true or false'), 'invalid boolean accepted');
+  }
 });
 
 Deno.test('optionsFromDialog: nests, checks, drops sway when off', () => {
@@ -213,7 +231,7 @@ Deno.test('every option reaches the geometry (no dead dialog control)', () => {
   const bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));  // upright: braced
   try {
     const plain = computeFins(lbracket, {}).triangles;
-    const portal = posed('portal', 90), rowed = posed('lbracket', 40, rotX);
+    const portal = posed('portal', 90), rowed = posed('lbracket', 40, rotX), sphere = posed('sphere', 0);
     const braced = computeFins(bar, { sway: { on: true } }).triangles;
     for (const o of OPTS) {
       const [, sub] = o.key.split('.');
@@ -227,6 +245,9 @@ Deno.test('every option reaches the geometry (no dead dialog control)', () => {
           : o.key === 'longWalls'   // shown only in Full coverage
             ? changesFins(rowed, o, computeFins(rowed, { mode: 'full' }).triangles,
                 (v) => computeFins(rowed, { mode: 'full', longWalls: v }))
+          : o.key === 'separateWalls'   // the sphere has joined fill walls and bases
+            ? changesFins(sphere, o, computeFins(sphere, { mode: 'full' }).triangles,
+                (v) => computeFins(sphere, { mode: 'full', separateWalls: v }))
           : o.key === 'plateOnly'
             ? changesFins(portal, o, computeFins(portal, {}).triangles, (v) => computeFins(portal, { plateOnly: v }))
           : changesFins(lbracket, o, plain, (v) => computeFins(lbracket, { [o.key]: v }));

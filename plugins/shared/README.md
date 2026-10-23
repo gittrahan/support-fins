@@ -76,6 +76,17 @@ two-line walls on every call, resetting any previous nozzle/wall-line state.
 Layer height and support gap remain separate settings. This exposes the existing
 website scaling; it does not add material presets or nozzle-specific calibration.
 
+**Separate walls.** In Full coverage, set `separateWalls: true` to keep fill walls
+from crossing other walls or sharing their bases. This may leave more overhang
+unsupported; intentional thin ties remain, so it does not make every support a
+disconnected piece or guarantee resin removability. It defaults to **false**, even
+with vertical resin tines; unlike the browser's direction selector, plugins do not
+enable it automatically. Auto ignores it and keeps the stored value for Full coverage.
+FreeCAD, Blender, Cura, Rhino and SolidWorks expose the schema control; Orca accepts
+`{"mode":"full","separateWalls":true}` in its plugin config. The CLI flag is
+`--separate-walls`, and MCP uses `"separate-walls": true` in `settings`. Fusion's
+hand-written dialog, Prusa and Onshape do not expose this shared-schema control.
+
 CI: [`.github/workflows/plugins.yml`](../../.github/workflows/plugins.yml) rebuilds and tests
 the plugins on every PR and push that touches `web/` or `plugins/`, and on main publishes
 the builds to the [`plugins-latest`](https://github.com/gittrahan/support-fins/releases/tag/plugins-latest)
