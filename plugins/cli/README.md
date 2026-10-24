@@ -167,7 +167,8 @@ left/right tool assignments. Non-0.4 mm projects now use their saved diameter
 instead of the previous fixed 0.4 mm scaling; 0.4 mm output is unchanged.
 
 Native slicer supports are preserved, and the CLI reports when they remain
-enabled: both native supports and fins may print. `--disable-native-supports`
+enabled: both native supports and fins may print, and their toolpaths can conflict
+in the slicer. `--disable-native-supports`
 sets `enable_support` to false only on selected objects and their part overrides.
 The project-wide setting and unselected objects are retained.
 
