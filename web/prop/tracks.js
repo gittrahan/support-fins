@@ -472,12 +472,13 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
  * lip of up to half a pitch past the last row; on a FREE edge (air past it, see
  * freeEdge) that lip is a cantilever, and on the slenderness coupon a 4 mm one
  * curled on every ledge. So the outermost row MOVES OUT to a free edge, flush
- * (PROP.edgeInset), and the rows spread evenly between the two ends: the same
- * number of walls unless that would widen the pitch (then one more). #143 added a
- * row there instead and kept the old ones, which doubled every free edge
+ * (PROP.edgeInset), and the rows spread evenly between the two ends, the
+ * spread never wider than the old pitch -- which, with two or more rows, is one
+ * more row than before (the ends moved out, the span grew). #143 added a row
+ * beside each end instead and kept the old ones, which doubled every free edge
  * (lowledge 3 -> 5 walls, a cube at X20-30 3 -> 5, two walls ~6 mm apart);
- * Matthew 2026-10-01: same count, the end ones flush; 2026-10-23: but never a
- * wider gap than the pitch.
+ * Matthew 2026-10-01: same count, the end ones flush; 2026-10-23: never a wider
+ * gap than the pitch, so +1 row and no doubling (gaps stay near the pitch).
  * With no free edge, no part to probe, or a steep underside (`probe` null; see
  * PROP.edgeFlatDeg), the old layout exactly.
  */
