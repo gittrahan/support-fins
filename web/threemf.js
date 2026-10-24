@@ -555,7 +555,7 @@ function compose(a, b) {
 const SKIP_TYPES = new Set(['support', 'surface', 'other']);
 
 /** Parse one 3D/*.model part into { objects, items, unit }. */
-function parseModelXML(xml, strict = false) {
+function parseModelXML(xml, strict = false, withComponents = false) {
   const objects = new Map();   // id -> { type, name, verts, tris, components, paint, rgb }
   const items = [];            // { objectid, transform }
   const groups = new Map();    // material/colour group id -> ['#RRGGBB', ...]
@@ -564,6 +564,9 @@ function parseModelXML(xml, strict = false) {
   let cur = null;              // object being filled
   let group = null;            // <basematerials>/<colorgroup> being filled
   let inVertices = false;
+  // Only provenance callers retain source topology and property resources.
+  const properties = [], propertyStack = [];
+  let inResources = false, inObject = false, modelAttributes = null;
   const transform = (s) => {
     const m = parseMatrix(s);
     if (strict && s !== undefined) {
@@ -575,8 +578,20 @@ function parseModelXML(xml, strict = false) {
   };
 
   scanXML(xml, (tag, a, selfClosing) => {
-    switch (local(tag)) {
+    const name = local(tag);
+    if (withComponents) {
+      if (name === 'resources') inResources = !selfClosing;
+      else if (name === 'object') inObject = !selfClosing;
+      else if (inResources && !inObject) {
+        const node = { name: tag, attributes: { ...a }, children: [] };
+        if (propertyStack.length) propertyStack.at(-1).children.push(node);
+        else properties.push(node);
+        if (!selfClosing) propertyStack.push(node);
+      }
+    }
+    switch (name) {
       case 'model':
+        if (withComponents) modelAttributes = { ...a };
         if (a.unit) unit = a.unit;
         break;
       // Colour as the core spec states it (a material table and an index per
@@ -600,6 +615,8 @@ function parseModelXML(xml, strict = false) {
         }
         cur = { type: a.type || 'model', name: a.name || '', verts: [], tris: [], components: [],
                 pid: a.pid, pindex: a.pindex, paint: null, rgb: null };
+        if (withComponents) cur.source = { attributes: { ...a }, vertices: cur.verts,
+          indices: cur.tris, triangleAttributes: [], properties, modelAttributes };
         objects.set(String(a.id), cur);
         if (selfClosing) cur = null;
         break;
@@ -623,6 +640,10 @@ function parseModelXML(xml, strict = false) {
         }
         const t = cur.tris.length / 3;
         cur.tris.push(+a.v1, +a.v2, +a.v3);
+        if (withComponents) {
+          const attrs = Object.fromEntries(Object.entries(a).filter(([k]) => !/^v[123]$/.test(k)));
+          if (Object.keys(attrs).length) cur.source.triangleAttributes[t] = attrs;
+        }
         // A slicer's painted colours (PAINT_ATTRS), kept verbatim: the string
         // subdivides THIS triangle against its own vertex order, which the whole
         // import -> export path keeps, so it stays valid however the part turns.
@@ -659,6 +680,11 @@ function parseModelXML(xml, strict = false) {
     }
   }, (tag) => {
     const t = local(tag);
+    if (withComponents) {
+      if (t === 'object') inObject = false;
+      else if (t === 'resources') inResources = false;
+      else if (propertyStack.at(-1)?.name === tag) propertyStack.pop();
+    }
     if (t === 'object') cur = null;
     else if (t === 'vertices') inVertices = false;
     else if (t === 'basematerials' || t === 'colorgroup') group = null;
@@ -705,6 +731,31 @@ const stripExt = (s) => s.replace(/\.(stl|3mf|obj|step|stp)$/i, '');
  * settings: the export writes those afresh, the part in print space.
  */
 const PLACEMENT_KEY = /^(name|matrix|volume_type|modifier|source_\w+)$/;
+
+/** Raw Bambu part attributes/settings, including normal parts. Keep duplicate
+ * records and XML-escaped values: an exporter must resolve ambiguity explicitly,
+ * not silently choose a material or discard metadata. Used only withComponents. */
+function bambuComponentSettings(xml) {
+  const objects = new Map();
+  let object = null, part = null;
+  if (!xml) return objects;
+  scanXML(xml, (tag, attributes, closed) => {
+    const name = local(tag);
+    if (name === 'object') {
+      object = { metadata: [], parts: [] }; objects.set(attributes.id, object);
+      if (closed) object = null;
+    } else if (name === 'part' && object) {
+      part = { attributes: { ...attributes }, metadata: [] }; object.parts.push(part);
+      if (closed) part = null;
+    } else if (name === 'metadata' && object && attributes.key !== undefined) {
+      (part ?? object).metadata.push([attributes.key, attributes.value ?? '']);
+    }
+  }, (tag) => {
+    if (local(tag) === 'part') part = null;
+    else if (local(tag) === 'object') object = part = null;
+  });
+  return objects;
+}
 
 /**
  * Each root object's filament (paintcode.js), from whichever slicer config says:
@@ -866,7 +917,8 @@ function parsePrusaConfig(configXML, filaments) {
 // a config's role, copied per use: each occurrence gets its own soup (and name)
 const named = (r) => r && { ...r };
 
-function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles = null, orient = false, fil = 0) {
+function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles = null, orient = false,
+  fil = 0, components = null, route = [], partId = null) {
   const part = getPart(path);
   const obj = part && part.objects.get(id);
   if (!obj) { stats.missing++; return; }        // dangling ref: a broken file
@@ -887,6 +939,19 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
     m[0] * (m[4] * m[8] - m[5] * m[7])
     - m[1] * (m[3] * m[8] - m[5] * m[6])
     + m[2] * (m[3] * m[7] - m[4] * m[6])) < 0;
+  const groups = components ? new Map() : null;
+  const record = (r, target) => {
+    let c = groups.get(r);
+    if (!c) {
+      c = { path, objectId: id, partId, route: [...route], kind: r?.kind ?? 'model',
+        transform: m ? [...m] : null, cornerOrder: mirrored ? [0, 2, 1] : [0, 1, 2],
+        source: obj.source, sourceFaces: [], firstTriangle: target.out.length / 9, target };
+      groups.set(r, c); components.push(c);
+    }
+    return c;
+  };
+  // Keep empty leaf occurrences visible to a strict project caller.
+  if (components && !tris.length && !obj.components.length) record(role, sink(role));
   let partTris = 0;
   for (let t = 0; t < tris.length; t += 3) {
     // A triangle indexing a vertex that does not exist is a broken file. Check
@@ -900,7 +965,8 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
       continue;
     }
     const r = ranges ? ranges.find((v) => t / 3 >= v.first && t / 3 <= v.last) ?? role : role;
-    const { out, col } = sink(r);
+    const target = sink(r), { out, col } = target;
+    if (components) record(r, target).sourceFaces.push(t / 3);
     if (!r) partTris++;
     if (col) {
       const k = out.length / 9;
@@ -922,12 +988,13 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
   }
   if (partTris) stats.meshes++;
 
-  for (const c of obj.components) {
+  for (const [componentIndex, c] of obj.components.entries()) {
     const childPath = c.path ? partName(c.path) : path;
     emitObject(getPart, childPath, c.objectid, compose(c.transform, m), sink, seen, stats,
       named(roles?.parts?.get(c.objectid)) ?? role,
       roles && { ranges: roles.ranges, filRanges: roles.filRanges, filObject: roles.filObject, paint: roles.paint }, orient,
-      roles?.filament?.parts.get(c.objectid) || fil);
+      roles?.filament?.parts.get(c.objectid) || fil,
+      components, components ? [...route, componentIndex] : route, route.length ? partId : c.objectid);
   }
   seen.delete(key);
 }
@@ -995,8 +1062,18 @@ export async function readThreeMF(bytes) {
  * doublePrecision keeps float64 positions; outwardWinding flips triangles under a
  * mirrored transform so they stay outward for analysis. The normal browser import
  * uses neither and retains its existing float32/paint order.
+ * withComponents adds one record per leaf mesh occurrence (including empty
+ * leaves), with its buildIndex/route, root partId, source mesh, world-mm positions
+ * and original sourceFaces. cornerOrder maps each emitted corner to the source
+ * triangle's corners; transform is composed BEFORE unitScale. firstTriangle is
+ * relative to the main mesh or that extra's mesh. Source topology/property tables
+ * are shared between occurrences; positions are views of the existing arrays.
+ * Settings and source attributes retain XML-escaped values, including unknown
+ * attributes, for a later exporter to interpret or explicitly reject. This is
+ * opt-in: ordinary callers neither retain this data nor pay for its parsing.
  */
-export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = false, outwardWinding = false } = {}) {
+export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = false, outwardWinding = false,
+  withComponents = false } = {}) {
 
   const rootName = findRootPart(parts);
   if (!rootName || !parts.has(rootName)) throw new Error('no 3D model part found in this 3MF');
@@ -1007,7 +1084,7 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
   const getPart = (name) => {
     if (parsed.has(name)) return parsed.get(name);
     const data = parts.get(name);
-    const p = data ? parseModelXML(new TextDecoder().decode(data), buildIndex !== null) : null;
+    const p = data ? parseModelXML(new TextDecoder().decode(data), buildIndex !== null, withComponents) : null;
     parsed.set(name, p);
     return p;
   };
@@ -1019,6 +1096,7 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
   const filaments = new Map();
   const bambu = text('Metadata/model_settings.config');
   const { names, parts: slicerParts } = parseBambuConfig(bambu, filaments);
+  const componentSettings = withComponents ? bambuComponentSettings(bambu) : null;
   addPrusa3Parts(text('Metadata/PrusaSlicer3_project.json'), slicerParts, filaments);
   const prusaVols = parsePrusaConfig(text('Metadata/Slic3r_PE_model.config'), filaments);
   // a part's filament goes out as paint (paintcode.js), in the file's slicer's words
@@ -1044,6 +1122,7 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
   for (const [index, item] of roots.entries()) {
     if (buildIndex !== null && index !== buildIndex) continue;
     const main = { out: [], col: { paint: [], rgb: [] } };
+    const components = withComponents ? [] : null;
     const extra = new Map();        // role -> { out }: one soup per non-printing part
     const sink = (role) => {
       if (!role) return main;
@@ -1058,7 +1137,7 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
       filRanges: (path, id) => (path === rootName ? filaments.get(id)?.ranges : null),
       filObject: (path, id) => (path === rootName ? filaments.get(id)?.object : 0) };
     emitObject(getPart, rootName, item.objectid, item.transform, sink, new Set(), stats, null, roles, outwardWinding,
-      filament?.object ?? 0);
+      filament?.object ?? 0, components);
     if (buildIndex !== null && (stats.missing || stats.dropped || stats.cycles)) {
       throw new Error('selected object has missing resources, cyclic components or invalid triangle references');
     }
@@ -1069,6 +1148,15 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
     if (!main.out.length) continue;
 
     const positions = toMM(main.out);
+    const extraPositions = new Map([...extra].map(([role, s]) => [s, toMM(s.out)]));
+    const componentInfo = components?.map(({ target, sourceFaces, ...c }) => {
+      const all = target === main ? positions : extraPositions.get(target);
+      const config = componentSettings.get(item.objectid);
+      return { ...c, buildIndex: index, unitScale: scale, sourceFaces: Uint32Array.from(sourceFaces),
+        positions: all.subarray(c.firstTriangle * 9, (c.firstTriangle + sourceFaces.length) * 9),
+        settings: config?.parts.filter((p) => p.attributes.id === c.partId) ?? [],
+        objectSettings: config?.metadata ?? [] };
+    });
     const { col } = main;
     const rootObj = root.objects.get(item.objectid);
     objects.push({
@@ -1081,7 +1169,8 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
       bbox: bbox(positions),
       colors: col.paint.length || col.rgb.length ? col : null,
       extras: [...extra].filter(([, s]) => s.out.length)
-        .map(([role, s]) => ({ kind: role.kind, name: role.name, settings: role.settings, positions: toMM(s.out) })),
+        .map(([role, s]) => ({ kind: role.kind, name: role.name, settings: role.settings, positions: extraPositions.get(s) })),
+      ...(components ? { components: componentInfo } : {}),
     });
   }
 

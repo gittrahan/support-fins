@@ -4,6 +4,14 @@ Fast, offline invariant tests for the geometry the tool bakes into an STL. Pure
 geometry in, triangle soup out -- so every test builds something and asserts a
 property no future change may quietly break.
 
+**`provenance.test.js`** pins the opt-in 3MF component metadata and subtraction
+source-face hints used by project processing. It checks repeated/nested parts,
+mirrored corner order, material identities and raw facet attributes, empty
+cutters, and missing/cyclic dependencies. Asking for provenance must leave the
+existing geometry and ordinary reader result unchanged. A boolean source-face
+ID is not a paint mapping: consumers still need to verify geometric containment
+before transferring triangle-relative painting to a split face.
+
 ```sh
 deno test --allow-read tests/
 ```

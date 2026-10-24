@@ -32,6 +32,16 @@ export function negativeComponents(object, config) {
  * `cut` is a private test seam for failures that must never reach generation. */
 export async function subtractProjectNegatives(model, expected, cut = cutNegatives) {
   const negatives = model.extras.filter((e) => e.kind === 'negative');
+  if (model.components) {
+    // One declared negative component can wrap several leaf meshes. Count root
+    // component occurrences, not leaf meshes or mesh IDs reused at other poses.
+    const occurrences = new Set(model.components
+      .filter((c) => c.kind === 'negative' && c.positions.length)
+      .map((c) => c.route[0]));
+    if (occurrences.size !== expected) {
+      throw new Error(`negative parts: expected ${expected} cutter components, decoded ${occurrences.size} occurrences; missing or empty cutter geometry`);
+    }
+  }
   if (negatives.length !== expected) {
     throw new Error(`negative parts: expected ${expected} cutter components, decoded ${negatives.length}; missing or empty cutter geometry`);
   }
@@ -94,7 +104,8 @@ export async function projectPositions(zip, rootBytes, configBytes, plan) {
     if (!path) throw new Error('inline component meshes are not yet supported in project mode');
     await load(partPath(path));
   }
-  const model = readThreeMFParts(members, { buildIndex: plan.number - 1, doublePrecision: true, outwardWinding: true }).objects[0];
+  const model = readThreeMFParts(members, { buildIndex: plan.number - 1, doublePrecision: true,
+    outwardWinding: true, withComponents: plan.negativeCount > 0 }).objects[0];
   members.clear();
   return subtractProjectNegatives(model, plan.negativeCount);
 }

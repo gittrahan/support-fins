@@ -150,9 +150,8 @@ function shellsOf(w, positions) {
   }
   if (!solids.length || stray > MAX_STRAY * total) { for (const s of solids) s.delete(); return null; }
   if (solids.length === 1) return solids[0];
-  const all = w.Manifold.union(solids);
-  for (const s of solids) s.delete();
-  return all;
+  try { return w.Manifold.union(solids); }
+  finally { for (const s of solids) s.delete(); }
 }
 
 /** The part as a closed solid, or null when it is not one. */
@@ -164,6 +163,11 @@ const negativeSolid = (w, positions) => tryManifold(w, meshOf(w, positions, null
 /**
  * Cut an object's negative parts out of it.
  * @param obj  a readThreeMF object: { positions, colors, extras }
+ * @param options.provenance opt-in sourceFaces: input body face IDs, or -1 for
+ *   cutter-created faces. These are boolean-library provenance hints, NOT paint
+ *   coordinates: verify coplanar containment before remapping facet attributes.
+ *   An uncut fallback retains identity indices, and must still be checked via
+ *   why/cut/uncut. Does not change geometry or the ordinary result shape.
  * @returns { positions, colors, cut, uncut, why }: the cut part (the input's
  *   own positions/colors when nothing was cut), how many negative parts were cut
  *   and how many were not, and why NONE was, when that is the whole object's
@@ -171,9 +175,10 @@ const negativeSolid = (w, positions) => tryManifold(w, meshOf(w, positions, null
  *   remove all of it) or 'load' (the cutter would not load). With `why` null an
  *   uncut negative part is not a closed solid itself.
  */
-export async function cutNegatives(obj) {
+export async function cutNegatives(obj, { provenance = false } = {}) {
   const negs = (obj.extras ?? []).filter((e) => e.kind === 'negative');
-  const same = { positions: obj.positions, colors: obj.colors ?? null, cut: 0, uncut: negs.length, why: null };
+  const same = { positions: obj.positions, colors: obj.colors ?? null, cut: 0, uncut: negs.length, why: null,
+    ...(provenance ? { sourceFaces: Int32Array.from({ length: obj.positions.length / 9 }, (_, i) => i) } : {}) };
   if (!negs.length) return same;
 
   let w;
@@ -183,17 +188,24 @@ export async function cutNegatives(obj) {
   const part = partSolid(w, obj.positions, Uint32Array.from({ length: nTri }, (_, i) => i), partID);
   if (!part) return { ...same, why: 'open' };
 
-  const tools = [];
-  for (const n of negs) {
-    const s = negativeSolid(w, n.positions);
-    if (s) tools.push(s);
+  const tools = [], owned = new Set([part]);
+  let out;
+  try {
+    for (const n of negs) {
+      const s = negativeSolid(w, n.positions);
+      if (s) { tools.push(s); owned.add(s); }
+    }
+    if (!tools.length) return same;
+    const tool = tools.length === 1 ? tools[0] : w.Manifold.union(tools);
+    owned.add(tool);
+    const result = part.subtract(tool);
+    owned.add(result);
+    out = result.getMesh();
+  } finally {
+    // In particular, a failed boolean must not retain earlier objects' WASM
+    // allocations during a long project run.
+    for (const s of owned) s.delete();
   }
-  if (!tools.length) { part.delete(); return same; }
-
-  const tool = tools.length === 1 ? tools[0] : w.Manifold.union(tools);
-  const result = part.subtract(tool);
-  const out = result.getMesh();
-  for (const s of new Set([part, tool, result, ...tools])) s.delete();
 
   const { vertProperties: vp, triVerts: tv, numProp: np, faceID, runIndex, runOriginalID } = out;
   if (!tv.length) return { ...same, why: 'whole' };
@@ -202,8 +214,17 @@ export async function cutNegatives(obj) {
     const o = tv[i] * np;
     positions[i * 3] = vp[o]; positions[i * 3 + 1] = vp[o + 1]; positions[i * 3 + 2] = vp[o + 2];
   }
+  let sourceFaces;
+  if (provenance) {
+    sourceFaces = new Int32Array(tv.length / 3).fill(-1);
+    for (let r = 0; r < runOriginalID.length; r++) {
+      if (runOriginalID[r] !== partID) continue;
+      for (let t = runIndex[r] / 3; t < runIndex[r + 1] / 3; t++) sourceFaces[t] = faceID[t];
+    }
+  }
   return { positions, colors: carryColors(obj, positions, faceID, runIndex, runOriginalID, partID),
-    cut: tools.length, uncut: negs.length - tools.length, why: null };
+    cut: tools.length, uncut: negs.length - tools.length, why: null,
+    ...(provenance ? { sourceFaces } : {}) };
 }
 
 /**
