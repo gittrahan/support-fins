@@ -32,14 +32,30 @@ Deno.test('free edge: an overhang free on both sides gets a wall at each end', (
   assert(xs.some((x) => Math.abs(x - (8 - PROP.edgeInset)) < 0.05), `no flush wall at the +x edge: ${xs.map((x) => x.toFixed(2))}`);
 });
 
-Deno.test('free edge: the end row moves out, it is not doubled -- a 40 mm deck keeps 3 walls', () => {
+Deno.test('free edge: the end row moves out, it is not doubled -- a 40 mm deck, 4 walls at the pitch', () => {
   // a deck 40 mm across x and 80 long in y, a post under each y end: the walls
   // run along y, both x edges free. Mid-strip it got 3 rows at -13.3, 0, 13.3;
-  // #143 added flush rows beside the outer two (5 walls).
+  // #143 added flush rows beside the outer two (5 walls); moving the outer two
+  // out flush alone left the middle 19.4 mm either side, so one more row keeps
+  // the 13.3 mm pitch: 4 walls, 12.9 apart.
   const xs = wallXs(new Float32Array([...block(-20, 20, 40, 44, 0, 17), ...block(-20, 20, -44, -40, 0, 17),
                                       ...block(-20, 20, -40, 40, 15, 17)]));
   const gaps = xs.slice(1).map((x, i) => x - xs[i]);
   assert(Math.min(...gaps) > 9, `two walls ${Math.min(...gaps).toFixed(2)} mm apart: ${xs.map((x) => x.toFixed(2))}`);
+  assert(Math.max(...gaps) < 40 / 3 + 1e-6, `a ${Math.max(...gaps).toFixed(2)} mm gap, wider than the 13.3 mm pitch: ${xs.map((x) => x.toFixed(2))}`);
   assert(Math.abs(xs[0] - (-20 + PROP.edgeInset)) < 0.05 && Math.abs(xs.at(-1) - (20 - PROP.edgeInset)) < 0.05,
     `end walls not flush: ${xs.map((x) => x.toFixed(2))}`);
+});
+
+Deno.test('free edge: one free edge -- the far row moves out flush, the gaps stay within the pitch', () => {
+  // spine x -2..2 up to z 30; ledge x 2..32 (30 deep), 60 long, underside at z 15:
+  // walls along y, the spine side attached (its row stays), the far side free.
+  // Three rows mid-strip at a 10 mm pitch (7, 17, 27); moving the far one out flush
+  // alone would open 14.4 mm, so they spread over one more: evenly, never doubled.
+  const xs = wallXs(new Float32Array([...block(-2, 2, -30, 30, 0, 30), ...block(2, 32, -30, 30, 15, 17)]));
+  const gaps = xs.slice(1).map((x, i) => x - xs[i]);
+  assert(Math.abs(xs.at(-1) - (32 - PROP.edgeInset)) < 0.05, `far row not flush: ${xs.map((x) => x.toFixed(2))}`);
+  assert(Math.abs(xs[0] - 7) < 0.05, `the attached side's row moved: ${xs.map((x) => x.toFixed(2))}`);
+  assert(Math.max(...gaps) <= 10 + 1e-6, `a ${Math.max(...gaps).toFixed(2)} mm gap, wider than the 10 mm pitch: ${xs.map((x) => x.toFixed(2))}`);
+  assert(Math.min(...gaps) > 7.5, `two walls ${Math.min(...gaps).toFixed(2)} mm apart (doubled): ${xs.map((x) => x.toFixed(2))}`);
 });
