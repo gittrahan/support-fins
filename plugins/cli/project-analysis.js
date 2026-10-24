@@ -33,6 +33,9 @@ export function negativeComponents(object, config) {
 export async function subtractProjectNegatives(model, expected, cut = cutNegatives) {
   const negatives = model.extras.filter((e) => e.kind === 'negative');
   if (model.components) {
+    if (model.components.some((c) => c.kind === 'negative' && !c.positions.length)) {
+      throw new Error('negative parts contain missing or empty cutter geometry');
+    }
     // One declared negative component can wrap several leaf meshes. Count root
     // component occurrences, not leaf meshes or mesh IDs reused at other poses.
     const occurrences = new Set(model.components

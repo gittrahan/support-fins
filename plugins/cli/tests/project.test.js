@@ -117,6 +117,20 @@ async function cli(source, flags = [], additional = {}, overrides = {}) {
   return { code, fs, out, err, result: out.length ? JSON.parse(out[0]) : null };
 }
 
+Deno.test('project: an empty nested cutter cannot hide beside a valid leaf in the same component', async () => {
+  const original = await fixture({ upright: true, cutters: [{ positions: block(4, 8, 4, 8, -1, 21) }] });
+  const zip = new ProjectZip(original), path = '3D/Objects/cutter0.model';
+  const xml = await zip.text(path), tree = xmlTree(xml);
+  const cutter = child(child(tree, 'resources'), 'object'), mesh = child(cutter, 'mesh');
+  const nested = '<object id="2"><components><component objectid="30"/><component objectid="31"/></components></object>'
+    + `<object id="30">${xml.slice(mesh.start, mesh.end)}</object>`
+    + '<object id="31"><mesh><vertices/><triangles/></mesh></object>';
+  const source = new Uint8Array(await (await zip.patch(new Map([[path, bytes(editXML(xml, [[cutter.start, cutter.end, nested]]))]]))).arrayBuffer());
+  const checked = await cli(source, ['--check', '--object', '1']);
+  assert(checked.code !== 0 && checked.fs.size === 1, 'incomplete nested cutter accepted');
+  assert(JSON.stringify(checked.result).includes('empty cutter geometry'), 'missing nested geometry was not explained');
+});
+
 Deno.test('project: Separate walls reaches selected geometry and preserves the other model and settings', async () => {
   const source = await fixture({ positions: readSTL(Deno.readFileSync(`${MODELS}sphere.stl`)) });
   const args = ['--mode', 'full', '--object', '1'];
