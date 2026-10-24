@@ -1,11 +1,12 @@
 // Bambu project augmentation. Original meshes are only read for analysis: their
 // bytes, painting and resource references never pass through a geometry writer.
 import { computeFins, optionsFromDialog } from '../shared/engine/fins_entry.js';
-import { readThreeMFParts, scanXML, meshXML } from '../../web/threemf.js';
+import { meshXML } from '../../web/threemf.js';
 import { ProjectZip } from './project-zip.js';
 import { ProjectReport, formatProjectReport } from './project-report.js';
 import { projectNozzle } from './project-nozzle.js';
-import { xmlTree, child, children, metadata, meta, attr, escapeXML as esc, insert, editXML } from './project-xml.js';
+import { negativeComponents, projectPositions } from './project-analysis.js';
+import { xmlTree, child, children, metadata, meta, escapeXML as esc, insert, editXML } from './project-xml.js';
 
 const ROOT = '3D/3dmodel.model', CONFIG = 'Metadata/model_settings.config';
 const SETTINGS = 'Metadata/project_settings.config', MARKER = 'Metadata/support_fins_project.json';
@@ -47,13 +48,6 @@ function supportMesh(tris, offset, m) {
     + m[2] * (m[3] * m[7] - m[4] * m[6]);
   if (determinant < 0) for (let j = 0; j < points.length; j += 3) [points[j + 1], points[j + 2]] = [points[j + 2], points[j + 1]];
   return meshXML(points);
-}
-
-function partPath(path) {
-  const name = path.replace(/^\//, '');
-  if (!name || name.includes('\\') || /[:?#%]/.test(name)
-      || name.split('/').some((p) => !p || p === '..' || p === '.')) throw new Error(`unsupported model path: ${path}`);
-  return name;
 }
 
 function pick(items, selectors) {
@@ -232,9 +226,7 @@ async function processProject(input, args, io, report) {
       if (!o.object || !o.config || !o.plate) throw new Error('missing object settings or plate assignment');
       if (occurrences.get(o.id) !== 1) throw new Error('shared build instances are not supported yet; make each instance independent in the slicer');
       if (!child(o.object, 'components') || child(o.object, 'mesh')) throw new Error('expected a Bambu component assembly');
-      if (children(o.config, 'part').some((p) => p.attrs.subtype === 'negative_part')) {
-        throw new Error('negative parts would cut the added fins; project mode does not yet support them');
-      }
+      const negativeCount = negativeComponents(o.object, o.config);
       const transform = matrix(o.item.attrs.transform); inverse(transform);
       const variable = variableIDs.has(order.get(o.id));
       const height = regularHeight(settings, o.config, args.dialog.layerHeight, variable);
@@ -249,6 +241,9 @@ async function processProject(input, args, io, report) {
       // can override the project's print sequence.
       const sequence = metadata(membership.get(`${o.id}:${o.instance}`).node).print_sequence ?? settings.print_sequence;
       const byObject = /object/i.test(String(sequence ?? ''));
+      if (negativeCount && byObject) {
+        throw new Error('negative parts require print-by-layer; print-by-object is not supported for them yet');
+      }
       const result = report.object(o);
       Object.assign(result, nozzle);
       if (nozzle.nozzleSource === 'override') result.warnings.push('nozzle override applies to fin generation only; saved printer settings are unchanged');
@@ -258,7 +253,7 @@ async function processProject(input, args, io, report) {
       if (args.disableNativeSupports && children(o.config, 'metadata').filter((m) => m.attrs.key === 'enable_support').length > 1) {
         throw new Error('duplicate enable_support setting');
       }
-      return { ...o, transform, height, slot, ...nozzle, options, native, byObject };
+      return { ...o, transform, height, slot, ...nozzle, options, native, byObject, negativeCount };
     } catch (e) { return skipOrThrow(o, e); }
   }).filter(Boolean);
   if (!plans.length && !args.check) throw new Error('none of the selected objects can take fins in project mode (see the warnings above)');
@@ -294,38 +289,12 @@ async function processProject(input, args, io, report) {
     const reused = !!generated;
     try {
       if (!generated) {
-        const members = new Map([[ROOT, rootBytes], [CONFIG, configBytes]]);
-        const visiting = new Set(), visited = new Set();
-        const load = async (name) => {
-          if (visiting.has(name)) throw new Error('cyclic model-part references');
-          if (visited.has(name)) return;
-          visiting.add(name);
-          if (!members.has(name)) members.set(name, await zip.read(name));
-          const paths = new Set();
-          scanXML(new TextDecoder().decode(members.get(name)), (tag, attrs) => {
-            if (tag.split(':').pop() === 'model' && attrs.unit && attrs.unit !== 'millimeter') {
-              throw new Error(`project mode requires millimeter units in ${name}`);
-            }
-            if (tag.split(':').pop() === 'component') {
-              const path = Object.entries(attrs).find(([k]) => k.split(':').pop() === 'path')?.[1];
-              if (path) paths.add(partPath(path));
-            }
-          }, () => {});
-          for (const path of paths) await load(path);
-          visiting.delete(name); visited.add(name);
-        };
-        for (const component of children(child(p.object, 'components'), 'component')) {
-          const path = attr(component, 'path');
-          if (!path) throw new Error('inline component meshes are not yet supported in project mode');
-          await load(partPath(path));
-        }
-        const model = readThreeMFParts(members, { buildIndex: p.number - 1, doublePrecision: true, outwardWinding: true }).objects[0];
-        if (model.extras.some((e) => e.kind === 'negative')) throw new Error('negative parts are not supported in project mode');
+        const positions = await projectPositions(zip, rootBytes, configBytes, p);
         if (args.check) {
           Object.assign(report.object(p), { status: 'compatible', layerHeight: p.height, filament: p.slot });
           continue;
         }
-        generated = computeFins(model.positions, p.options);
+        generated = computeFins(positions, p.options);
       }
       const { triangles, offset, stats } = generated;
       // Gather this object's edits and commit them only once nothing can throw, so a

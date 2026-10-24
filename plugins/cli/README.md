@@ -180,17 +180,32 @@ manifests/settings and new support resources are written.
 This mode preserves the existing pose, so it cannot be combined with `--rot` or
 `--fins-only`. The input is protected against path aliases, symbolic links and
 hard links. An existing output requires `--overwrite`; the completed project is
-published atomically, and a failed object does not leave a partial output.
+published atomically; an aborted run does not publish an incomplete archive.
 Without `--object` (including plate-only selections), a model this mode can't handle
-(variable layer heights, a negative part, a shared instance, no plate) is skipped with a warning and left as it
+(variable layer heights, an unsupported negative part, a shared instance, no plate) is skipped with a warning and left as it
 was; the rest get fins. If none of the selected objects can be processed, the
 command fails without writing output. A model named with `--object` must work,
 or nothing is written.
 
 The initial supported layout is a millimeter Bambu project with component
 assemblies referencing external mesh files and explicit plate assignments.
-Shared build instances, negative parts (which would also subtract from added
-fins), inline-only assemblies, ZIP64 archives and other slicer project formats
+Negative parts are supported when the object's effective project/plate print
+sequence is **print by layer**. Supports are calculated from the subtracted shape;
+the original editable bodies, cutters and painting remain in the project. Fins
+are separate objects on the same plate, so the original cutters do not cut them.
+Existing placement rules still apply: recognized small holes are left for bridging,
+while larger cutouts may receive fins. The saved print sequence is never changed.
+
+Subtraction must succeed completely. Missing/empty cutters, open bodies, unapplied
+cutters, or cutters removing the whole body make that object incompatible; no fins
+are generated from an uncut or partially cut fallback. Batch and plate-only runs
+leave such objects unchanged and can write a partial result for the others;
+explicit `--object` selections fail without publishing output. Negative-bearing
+objects that print **by object** remain unsupported because their cutters would
+also cut fins added as parts of the same object. Ordinary objects without negatives
+keep their existing print-by-object behavior.
+
+Shared build instances, inline-only assemblies, ZIP64 archives and other slicer project formats
 are refused with an explanation (in the every-object default, a model with one is skipped). Direct output from this mode is refused as
 input to avoid adding fins twice. Individually editable fins are not included.
 
@@ -224,6 +239,10 @@ or `--overwrite` does not invalidate them. A damaged checkpoint is reported and 
 object recomputed. A checkpoint-write failure stops that file's processing, retaining
 earlier checkpoints rather than continuing without recovery.
 
+For negative-bearing objects, only results from successful complete subtraction
+are checkpointed. Reusing a compatible checkpoint skips both subtraction and fin
+generation; an incompatible object's failed subtraction is retried on the next run.
+
 Completed checkpoints for the run are removed only after the output is successfully
 written. An interrupted run or output failure retains them. Incompatible runs and
 unfinished temporary writes may remain; delete their reported cache directories
@@ -244,9 +263,12 @@ support-fins project.3mf --preserve-project --check --layer-height 0.2 --fin-ext
 `--check` inspects all printable objects, or the objects selected with `--plate`
 and `--object`.
 It checks project settings and loads referenced meshes one object at a time using
-the same reader as generation. It reports the first blocking reason for each
+the same reader as generation. For eligible negative-bearing objects it also
+performs the same complete subtraction validation, which can take substantial
+time and memory on large meshes. It reports the first blocking reason for each
 incompatible object and continues checking the rest, even with explicit selections.
-Native-support and print-by-object warnings are informational. Nonprintable and
+Native-support and ordinary print-by-object warnings are informational; negative
+parts with print-by-object are incompatible. Nonprintable and
 unselected objects are excluded from the report; `--list-objects` still lists all
 build items (within any `--plate` filter) without checking compatibility.
 
@@ -263,7 +285,7 @@ with `--list-objects`, `--list-plates`, `--output` or `--overwrite`; the existin
 restrictions on `--rot` and `--fins-only` also apply.
 
 A compatible result means the current project settings and reader accepted the
-object. It does **not** guarantee that generation, output writing, slicing or
+object, including subtraction when applicable. It does **not** guarantee that generation, output writing, slicing or
 printing will succeed, or that all overhangs can receive fins. Checks do not repair
 meshes. A problem in a shared manifest can affect several objects. Running a check
 is optional; normal generation keeps its existing checks without an additional
@@ -332,6 +354,7 @@ messages are descriptive text; use status values and counts for automation.
   archive members and manifests, and `project-io.js` protects atomic output.
 - `project-report.js` — selected-object outcomes, counts and terminal formatting.
 - `project-cache.js` — optional checksummed per-object checkpoints for project mode.
+- `project-analysis.js` — per-object mesh loading and strict negative-part subtraction for preserved projects.
 - `tests/cli.test.js` — `deno test -A plugins/cli/tests/`. Runs in memory: CLI fins equal
   `computeFins` on the posed part, and match the website's own path on lbracket@35.
 - The summary line is `plugins/shared/engine/report.js`, word for word with the Python

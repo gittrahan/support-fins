@@ -3,9 +3,11 @@ import { run } from '../cli.js';
 import { ProjectZip } from '../project-zip.js';
 import { checkProjectOutput, writeProject } from '../project-io.js';
 import { openProjectCache } from '../project-cache.js';
+import { subtractProjectNegatives } from '../project-analysis.js';
 import { xmlTree, children, child, metadata, editXML, insert } from '../project-xml.js';
 import { readThreeMF, readThreeMFParts, meshXML } from '../../../web/threemf.js';
 import { zipStore } from '../../../web/zip.js';
+import { cutNegatives, setManifoldWasm } from '../../../web/cut.js';
 import { computeFins, optionsFromDialog } from '../../shared/engine/fins_entry.js';
 import { assert, assertClose, block, readSTL, MODELS } from '../../../tests/_util.js';
 
@@ -39,19 +41,27 @@ async function compressed(files) {
   return new Uint8Array(await new Blob([...chunks, ...records, end]).arrayBuffer());
 }
 
+// `negative` deliberately reclassifies the only body (a malformed empty object).
+// `cutters` adds real negative components alongside the printable body.
 async function fixture({ duplicate = false, negative = false, variable = null, layer = '0.16', printable = true, mirror = false,
   app = 'BambuStudio-02.04.00.70', sequence = 'by layer', plateSequence = null,
-  plateIDs = [1, 2], emptyPlates = [], together = false, sameName = false, steep = false, nozzle = ['0.4'], positions = null } = {}) {
+  plateIDs = [1, 2], emptyPlates = [], together = false, sameName = false, steep = false, nozzle = ['0.4'], positions = null,
+  cutters = [], upright = false } = {}) {
   const cube = triples(positions ?? block(0, 20, 0, 20, 0, 20));
-  const q = steep ? 0.5 : Math.SQRT1_2, s = steep ? Math.sqrt(3) / 2 : q;
+  const q = upright ? 1 : steep ? 0.5 : Math.SQRT1_2, s = upright ? 0 : steep ? Math.sqrt(3) / 2 : q;
   const resource = (id, file) => `<object id="${id}" type="model" p:UUID="original-${id}"><components>`
-    + `<component objectid="1" p:path="/3D/Objects/${file}.model" transform="1 0 0 0 1 0 0 0 1 0 0 0"/></components></object>`;
+    + `<component objectid="1" p:path="/3D/Objects/${file}.model" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>`
+    + (id === 10 ? cutters.map((c, i) => Array.from({ length: c.repeat ?? 1 }, () =>
+      `<component objectid="${i + 2}" p:path="/3D/Objects/cutter${i}.model" transform="${c.transform ?? '1 0 0 0 1 0 0 0 1 0 0 0'}"/>`).join('')).join('') : '')
+    + '</components></object>';
   const model = (paint) => `<model unit="millimeter" xmlns="${CORE}"><resources><object id="1" type="model">`
     + meshXML(cube, (i) => i % 3 ? ` paint_color="${paint}"` : '') + '</object></resources></model>';
   const obj = (id, slot) => `<object id="${id}"><metadata key="name" value="Part ${sameName ? 10 : id}"/>`
     + `<metadata key="extruder" value="${slot}"/><metadata key="enable_support" value="1"/>`
     + `<part id="1" subtype="${negative && id === 10 ? 'negative_part' : 'normal_part'}">`
-    + '<metadata key="name" value="painted body"/><metadata key="enable_support" value="1"/></part></object>';
+    + '<metadata key="name" value="painted body"/><metadata key="enable_support" value="1"/></part>'
+    + (id === 10 ? cutters.map((_, i) => `<part id="${i + 2}" subtype="negative_part"><metadata key="name" value="cutter ${i}"/>`
+      + '<metadata key="matrix" value="original cutter metadata"/></part>').join('') : '') + '</object>';
   const instance = (id, n) => `<model_instance><metadata key="object_id" value="${id}"/><metadata key="instance_id" value="${duplicate && n === 2 ? 1 : 0}"/>`
     + '<metadata key="identify_id" value="99"/></model_instance>';
   const plate = (n, instances) => `<plate><metadata key="plater_id" value="${plateIDs[n - 1]}"/><metadata key="locked" value="true"/>`
@@ -85,6 +95,11 @@ async function fixture({ duplicate = false, negative = false, variable = null, l
     { name: 'Metadata/slice_info.config', data: '<config/>' },
     { name: 'Auxiliaries/私有.bin', data: new Uint8Array([0, 255, 1, 128]) },
   ];
+  cutters.forEach((c, i) => {
+    if (c.positions != null) files.push({ name: `3D/Objects/cutter${i}.model`,
+      data: `<model unit="millimeter" xmlns="${CORE}"><resources><object id="${i + 2}" type="model">`
+        + meshXML(triples(c.positions)) + '</object></resources></model>' });
+  });
   // variable: the object_id a profile line names, by object order (1 = the first object)
   if (variable) files.push({ name: 'Metadata/layer_heights_profile.txt', data: `object_id=${variable}|0;0.2;5;0.1;20;0.1;\n` });
   return compressed(files);
@@ -883,3 +898,210 @@ Deno.test('project resume: a killed subprocess leaves durable checkpoints reusab
   assert(!err.includes('object 2: reusing'), 'interrupted object falsely completed');
   assert(JSON.parse(new TextDecoder().decode(result.stdout)).objects.length === 2, 'resumed CLI omitted an object');
 }));
+
+// Negative parts: actual printable bodies plus independent cutter components.
+const cavity = () => ({ positions: block(2, 18, -1, 21, 2, 12) });
+const normalizedXML = (s) => s.replace(/p:UUID="[^"]*"/g, 'p:UUID="same"');
+const nodeText = (xml, id, inResources = false) => {
+  const root = xmlTree(xml), parent = inResources ? child(root, 'resources') : root;
+  const node = children(parent, 'object').find((o) => o.attrs.id === id);
+  return xml.slice(node.start, node.end);
+};
+
+for (const mode of ['auto', 'full']) for (const mirror of [false, true]) {
+  Deno.test(`project negatives: ${mode}, mirror ${mirror} cuts all occurrences and preserves editable source`, async () => {
+    const source = await fixture({ upright: true, mirror, cutters: [cavity(), {
+      positions: block(0, 2, 0, 4, 0, 4), transform: '-1 0 0 0 1 0 0 0 1 20 8 3', repeat: 2,
+    }] });
+    const r = await cli(source, ['--object', '1', '--mode', mode]);
+    assert(r.code === 0 && r.result.objects[0].triangles > 0, r.err.join('\n'));
+    const original = new ProjectZip(source), saved = new ProjectZip(r.fs.get(r.result.output));
+    // ZIP headers and compressed mesh payloads, not merely equivalent decoded meshes.
+    for (const name of ['3D/Objects/a.model', '3D/Objects/b.model', '3D/Objects/cutter0.model',
+      '3D/Objects/cutter1.model', SETTINGS, 'Auxiliaries/私有.bin']) {
+      const a = original.entries.get(name), b = saved.entries.get(name);
+      equal(original.bytes.subarray(a.offset, a.end), saved.bytes.subarray(b.offset, b.end), `changed original ${name}`);
+    }
+    for (const name of [CONFIG, ROOT]) for (const id of ['10', '20']) {
+      assert(nodeText(await original.text(name), id, name === ROOT) === nodeText(await saved.text(name), id, name === ROOT),
+        `changed body/cutter metadata or unselected object: ${name} ${id}`);
+    }
+    const members = new Map(await Promise.all([...original.entries.keys()].map(async (n) => [n, await original.read(n)])));
+    const body = readThreeMFParts(members, { buildIndex: 0, doublePrecision: true, outwardWinding: true }).objects[0];
+    const cut = await cutNegatives(body);
+    assert(cut.cut === 3 && !cut.uncut && !cut.why, 'fixture did not apply every cutter occurrence');
+    const opts = optionsFromDialog({ mode, layerHeight: 0.16, nozzle: 0.4 });
+    assert(computeFins(body.positions, opts).triangles.length === 0, 'solid body should need no fins');
+    const direct = computeFins(cut.positions, opts), objects = (await readThreeMF(saved.bytes)).objects;
+    assert(objects.length === 3 && objects[0].extras.length === 3, 'cutters lost or fins attached to body');
+    equal(objects[0].positions, (await readThreeMF(source)).objects[0].positions, 'body replaced by boolean result');
+    const savedMembers = new Map(await Promise.all([...saved.entries.keys()].map(async (n) => [n, await saved.read(n)])));
+    const fin = readThreeMFParts(savedMembers, { buildIndex: 2, doublePrecision: true, outwardWinding: true }).objects[0].positions;
+    const offset = [direct.offset.x, direct.offset.y, direct.offset.z];
+    assert(fin.length === direct.triangles.length, 'did not generate from cut shape');
+    for (let j = 0; j < fin.length; j++) assertClose(fin[j], direct.triangles[j] - offset[j % 3], 4e-5, `fin vertex ${j}`);
+    const root = xmlTree(await saved.text(ROOT)), items = children(child(root, 'build'), 'item');
+    assert(items[0].attrs.transform === items[2].attrs.transform, 'support pose changed');
+    const cfg = xmlTree(await saved.text(CONFIG)), supportID = r.result.objects[0].supportObject;
+    assert(children(child(cfg, 'plate'), 'model_instance').some((i) => metadata(i).object_id === supportID), 'wrong support plate');
+    assert(metadata(children(cfg, 'object').find((o) => o.attrs.id === supportID)).enable_support === '0', 'support object has native supports');
+    assert(r.result.objectResults.length === 1 && r.result.objectResults[0].status === 'processed', 'unexpected report');
+  });
+}
+
+// Closed cylinder along X, cutting a genuine circular bore through the cube.
+function cylinder(diameter) {
+  const points = [], segments = 96, ring = (x, i) => [x, 10 + diameter / 2 * Math.cos(i * 2 * Math.PI / segments),
+    10 + diameter / 2 * Math.sin(i * 2 * Math.PI / segments)];
+  for (let i = 0; i < segments; i++) {
+    const a = ring(-1, i), b = ring(-1, i + 1), c = ring(21, i + 1), d = ring(21, i);
+    points.push(...a, ...b, ...c, ...a, ...c, ...d, ...a, ...[-1, 10, 10], ...b, ...d, ...c, ...[21, 10, 10]);
+  }
+  return Float64Array.from(points);
+}
+for (const diameter of [5, 10]) for (const mode of ['auto', 'full']) {
+  Deno.test(`project negatives: ${diameter} mm cut-created bore retains ${mode} small-hole policy`, async () => {
+    const r = await cli(await fixture({ upright: true, cutters: [{ positions: cylinder(diameter) }] }), ['--object', '1', '--mode', mode]);
+    assert(r.code === 0, r.err.join('\n'));
+    const o = r.result.objects[0];
+    assert(o.stats.smallHoleRegions === (diameter === 5 ? 1 : 0), 'cut-created bore misclassified');
+    assert((o.triangles === 0) === (diameter === 5), 'small bore filled or larger cavity lost supports');
+  });
+}
+
+Deno.test('project negatives: plate sequence overrides project sequence in both directions', async () => {
+  const allowed = await fixture({ cutters: [cavity()], sequence: 'by object', plateSequence: 'by layer' });
+  const r = await cli(allowed);
+  assert(r.code === 0 && r.result.objects.length === 2 && r.result.objects[0].supportObject
+    && !r.result.objects[1].supportObject, r.err.join('\n'));
+  const zip = new ProjectZip(r.fs.get(r.result.output));
+  equal(await zip.read(SETTINGS), await new ProjectZip(allowed).read(SETTINGS), 'saved sequence changed');
+  assert(metadata(child(xmlTree(await zip.text(CONFIG)), 'plate')).print_sequence === 'by layer', 'plate override changed');
+  for (const sequence of [{ sequence: 'by layer', plateSequence: 'by object' }, { sequence: 'by object' }]) {
+    const source = await fixture({ cutters: [cavity()], ...sequence });
+    const check = await cli(source, ['--check']), batch = await cli(source), explicit = await cli(source, ['--object', '1']);
+    assert(check.code === 1 && check.result.objectResults[0].reason.includes('print-by-layer'), 'check accepted by-object negative');
+    assert(batch.code === 0 && batch.result.objectResults[0].status === 'skipped', 'batch did not skip');
+    assert(explicit.code === 1 && explicit.fs.size === 1, 'explicit unsupported selection published output');
+  }
+});
+
+for (const [label, options, reason] of [
+  ['open body', { positions: block(0, 20, 0, 20, 0, 20).slice(0, 90), cutters: [cavity()] }, 'closed solid'],
+  ['open cutter', { cutters: [{ positions: cavity().positions.slice(0, 72) }] }, 'fully subtracted'],
+  ['partial cut', { cutters: [cavity(), { positions: cavity().positions.slice(0, 72) }] }, 'fully subtracted'],
+  ['missing cutter', { cutters: [{ positions: null }] }, 'missing'],
+  ['empty cutter', { cutters: [{ positions: new Float32Array() }] }, 'cutter'],
+  ['whole body', { cutters: [{ positions: block(-1, 21, -1, 21, -1, 21) }] }, 'entire printable mesh'],
+]) Deno.test(`project negatives: ${label} never falls back; check/batch/explicit failures`, async () => {
+  const source = await fixture({ ...options, upright: true });
+  const checked = await cli(source, ['--check']);
+  assert(checked.code === 1 && checked.fs.size === 1 && checked.result.objectResults[0].status === 'incompatible'
+    && checked.result.objectResults[0].reason.includes(reason), checked.out.join('\n'));
+  assert(checked.result.objectResults[1].status === 'compatible', 'check did not continue');
+  const batch = await cli(source);
+  assert(batch.code === 0 && batch.result.objectResults[0].status === 'skipped'
+    && batch.result.objects.map((o) => o.number).join() === '2', batch.err.join('\n'));
+  const output = new ProjectZip(batch.fs.get(batch.result.output)), original = new ProjectZip(source);
+  for (const name of [ROOT, CONFIG]) assert(nodeText(await output.text(name), '10', name === ROOT)
+    === nodeText(await original.text(name), '10', name === ROOT), 'skipped object changed');
+  for (const flags of [['--object', '1'], ['--plate', '1']]) {
+    const r = await cli(source, flags);
+    assert(r.code === 1 && r.fs.size === 1 && !r.result?.outputWritten, `failed selection published: ${flags}`);
+  }
+  for (const flag of ['--list-objects', '--list-plates']) {
+    const listing = await cli(source, [flag]);
+    assert(listing.code === 0 && listing.fs.size === 1, 'listing attempted geometry validation');
+  }
+});
+
+Deno.test('project negatives: strict adapter rejects exceptions, incomplete and invalid results', async () => {
+  const model = { positions: block(0, 20, 0, 20, 0, 20), extras: [{ kind: 'negative', ...cavity() }] };
+  const good = { positions: model.positions, cut: 1, uncut: 0, why: null };
+  for (const cut of [
+    () => { throw new Error('boolean exception'); },
+    () => ({ ...good, why: 'load' }), () => ({ ...good, uncut: 1 }), () => ({ ...good, cut: 0 }),
+    () => ({ ...good, positions: new Float32Array() }), () => ({ ...good, positions: new Float32Array(8) }),
+    () => ({ ...good, positions: new Float32Array(9).fill(NaN) }),
+    () => ({ ...good, positions: new Float32Array(9).fill(Infinity) }),
+  ]) {
+    let failed = false;
+    try { await subtractProjectNegatives(model, 1, cut); } catch { failed = true; }
+    assert(failed, 'accepted an unsafe fallback');
+  }
+  let invoked = false;
+  try { await subtractProjectNegatives(model, 2, () => { invoked = true; return good; }); } catch { /* expected */ }
+  assert(!invoked, 'missing occurrence not detected before subtraction');
+  const positions = new Float64Array(model.positions);
+  assert(await subtractProjectNegatives({ positions, extras: [] }, 0, () => { throw new Error('must bypass'); }) === positions,
+    'non-negative geometry changed');
+});
+
+Deno.test('project negatives: native-support override affects only selected original object', async () => {
+  const source = await fixture({ cutters: [cavity()] });
+  const r = await cli(source, ['--object', '1', '--disable-native-supports']);
+  assert(r.code === 0, r.err.join('\n'));
+  const cfg = xmlTree(await new ProjectZip(r.fs.get(r.result.output)).text(CONFIG));
+  const selected = children(cfg, 'object').find((o) => o.attrs.id === '10');
+  assert(metadata(selected).enable_support === '0', 'selected native supports not disabled');
+  assert(nodeText(await new ProjectZip(source).text(CONFIG), '20')
+    === nodeText(await new ProjectZip(r.fs.get(r.result.output)).text(CONFIG), '20'), 'unselected native supports changed');
+  assert(children(selected, 'part').some((p) => p.attrs.subtype === 'negative_part'), 'cutter metadata lost');
+});
+
+Deno.test('project negatives resume: interruption/final-write failure reuse completed subtractions; output equals fresh', () => diskProject(async ({ dir, call }) => {
+  const interrupted = await call(['--resume'], (c) => ({ ...c, load: (n) => {
+    if (n === 2) throw new Error('interrupted'); return c.load(n);
+  } }));
+  assert(interrupted.code === 1 && interrupted.saved.join() === '1', 'negative object not checkpointed');
+  // If subtraction runs again it fails: compatible checkpoints must bypass WASM.
+  setManifoldWasm(new Uint8Array([0]));
+  try {
+    const writeFailed = await call(['--resume'], (c) => c, () => { throw new Error('output unavailable'); });
+    assert(writeFailed.code === 1 && writeFailed.hits.join() === '1' && writeFailed.saved.join() === '2', 'subtraction was repeated');
+    const resumed = await call(['--resume', '-o', `${dir}/resumed.3mf`]);
+    assert(resumed.code === 0 && resumed.hits.join() === '1,2' && !resumed.saved.length, resumed.err.join('\n'));
+  } finally { setManifoldWasm(null); }
+  const fresh = await call(['-o', `${dir}/fresh.3mf`]);
+  assert(fresh.code === 0, fresh.err.join('\n'));
+  const a = new ProjectZip(await Deno.readFile(`${dir}/resumed.3mf`)), b = new ProjectZip(await Deno.readFile(`${dir}/fresh.3mf`));
+  for (const name of a.entries.keys()) {
+    if ([ROOT, SUPPORTS].includes(name)) assert(normalizedXML(await a.text(name)) === normalizedXML(await b.text(name)), `resume changed ${name}`);
+    else equal(await a.read(name), await b.read(name), `resume changed ${name}`);
+  }
+}, { cutters: [cavity()], upright: true }));
+
+Deno.test('project negatives resume: partially cut objects are retried, never checkpointed', () => diskProject(async ({ call }) => {
+  const failed = await call(['--resume'], (c) => c, () => { throw new Error('output unavailable'); });
+  assert(failed.code === 1 && failed.saved.join() === '2', 'failed subtraction cached');
+  const resumed = await call(['--resume']);
+  assert(resumed.code === 0 && resumed.hits.join() === '2' && !resumed.saved.length
+    && resumed.result.objectResults[0].status === 'skipped', resumed.err.join('\n'));
+}, { cutters: [cavity(), { positions: cavity().positions.slice(0, 72) }] }));
+
+for (const [label, member, change] of [
+  ['orphan metadata', CONFIG, (s) => s.replace('<part id="2" subtype="negative_part">', '<part id="99" subtype="negative_part">')],
+  ['ambiguous role', CONFIG, (s) => s.replace('</object>', '<part id="2" subtype="normal_part"/></object>')],
+  ['invalid cutter vertex', '3D/Objects/cutter0.model', (s) => s.replace(/x="[^"]*"/, 'x="NaN"')],
+  ['missing cutter resource', '3D/Objects/cutter0.model', (s) => s.replace('<object id="2"', '<object id="99"')],
+]) Deno.test(`project negatives: ${label} cannot lose a declared cutter`, async () => {
+  const zip = new ProjectZip(await fixture({ cutters: [cavity()] }));
+  const source = new Uint8Array(await (await zip.patch(new Map([[member, change(await zip.text(member))]]))).arrayBuffer());
+  const checked = await cli(source, ['--check']), generated = await cli(source, ['--object', '1']);
+  assert(checked.code === 1 && checked.result.objectResults[0].status === 'incompatible', checked.out.join('\n'));
+  assert(generated.code === 1 && generated.fs.size === 1, 'generated without declared cutter');
+});
+
+Deno.test('project negatives resume: source and generation settings invalidate successful cut results', async () => {
+  for (const change of ['source', 'settings']) await diskProject(async ({ input, source, call }) => {
+    const first = await call(['--resume'], (c) => c, () => { throw new Error('output unavailable'); });
+    assert(first.code === 1 && first.saved.join() === '1,2', 'setup failed');
+    if (change === 'source') {
+      const zip = new ProjectZip(source), name = '3D/Objects/cutter0.model';
+      await Deno.writeFile(input, new Uint8Array(await (await zip.patch(new Map([[name,
+        (await zip.text(name)).replaceAll('z="12"', 'z="14"')]]))).arrayBuffer()));
+    }
+    const r = await call(['--resume', ...(change === 'settings' ? ['--mode', 'full'] : [])]);
+    assert(r.code === 0 && !r.hits.length && r.saved.join() === '1,2', `${change}: reused stale subtraction`);
+  }, { cutters: [cavity()], upright: true });
+});
