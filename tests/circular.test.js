@@ -1,5 +1,6 @@
 import { assert, assertClose, isClosed, block } from './_util.js';
 import { recessedBody } from './_circular.js';
+import { circularBore } from './_bore.js';
 import { buildTopology, analyze, IDENTITY3 } from '../web/overhangs.js';
 import { buildFins } from '../web/fins.js';
 import { heldArea } from '../web/fins/downhill.js';
@@ -88,6 +89,29 @@ Deno.test('circular: two separated instances keep each feature count', () => {
   const together = run({}, {}, false, pair), single = run();
   assert(together.count === 2 * single.count);
   assert(together.built.tines === 2 * single.built.tines);
+});
+
+Deno.test('circular: recognised small holes stay exempt beside a circular recess', () => {
+  const recess = recessedBody();
+  const hole = circularBore({ diameter: 4 }).map((v, i) => v + (i % 3 === 0 ? 100 : 0));
+  // Exercise both region orders: automaticTargets filters hole regions before
+  // the circular placement race indexes the remaining ones.
+  for (const mode of ['auto', 'full']) for (const parts of [[hole, recess], [recess, hole]]) {
+    const options = { mode, threshold: 70, coverage: 1, gap: 0.3,
+      bedPad: false, tines: true, tineDensity: 1 };
+    const single = computeFins(recess, options);
+    const mixed = computeFins(Float64Array.from(parts.flatMap((p) => Array.from(p))), options);
+    assert(mixed.stats.smallHoleRegions === 1, 'the neighbouring bore must stay exempt');
+    assert(mixed.stats.braces + mixed.stats.props === single.stats.braces + single.stats.props);
+    assert(mixed.stats.tines === single.stats.tines);
+    assert(mixed.overFaces.length > 0 && mixed.smallFaces.length > 0, 'red recess and amber hole');
+    for (let i = 0; i < mixed.triangles.length; i += 3) {
+      const x = mixed.triangles[i] - mixed.offset.x;
+      const y = mixed.triangles[i + 1] - mixed.offset.y;
+      const z = mixed.triangles[i + 2] - mixed.offset.z;
+      assert(!(Math.abs(x - 100) < 14.9 && Math.hypot(y, z - 10) < 1.99), 'support inside exempt bore');
+    }
+  }
 });
 
 Deno.test('circular: Sparse, Default and Full preserve counts across rotations', () => {
