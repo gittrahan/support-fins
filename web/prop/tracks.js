@@ -473,9 +473,11 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
  * freeEdge) that lip is a cantilever, and on the slenderness coupon a 4 mm one
  * curled on every ledge. So the outermost row MOVES OUT to a free edge, flush
  * (PROP.edgeInset), and the rows spread evenly between the two ends: the same
- * number of walls. #143 added a row there instead and kept the old ones, which
- * doubled every free edge (lowledge 3 -> 5 walls, a cube at X20-30 3 -> 5, two
- * walls ~6 mm apart); Matthew 2026-10-01: same count, the end ones flush.
+ * number of walls unless that would widen the pitch (then one more). #143 added a
+ * row there instead and kept the old ones, which doubled every free edge
+ * (lowledge 3 -> 5 walls, a cube at X20-30 3 -> 5, two walls ~6 mm apart);
+ * Matthew 2026-10-01: same count, the end ones flush; 2026-10-23: but never a
+ * wider gap than the pitch.
  * With no free edge, no part to probe, or a steep underside (`probe` null; see
  * PROP.edgeFlatDeg), the old layout exactly.
  */
@@ -491,10 +493,12 @@ function rowOffsets(vLo, vHi, rowSpan, probe) {
       const a = lo ? vLo + e : rows[0], b = hi ? vHi - e : rows[n - 1];
       // one row can't stand at an end without leaving the rest bare: it keeps its
       // place mid-strip and the free ends get their own (as #143)
-      // Spread wider than both the old pitch and 2 x maxUnsupportedSpan (a point
-      // mid-gap out of a wall's reach), and the gap gets another row instead: two
-      // rows moved out to a 60 mm strip's ends left 59 mm bare (tshape X25 sparse).
-      const cap = Math.max(vExt / n, 2 * PROP.maxUnsupportedSpan);
+      // Spread wider than the old pitch, and the gaps get another row instead:
+      // moving the ends out must not open the middle. It used to allow up to
+      // 2 x maxUnsupportedSpan (a point mid-gap still in a wall's reach), which
+      // left a 40 mm deck's three walls 19.4 mm apart at a 12 mm pitch, and a
+      // turned ledge's (local issue 038) two rows 20 mm apart.
+      const cap = vExt / n;
       const m = Math.max(n, Math.ceil((b - a) / cap - 1e-9) + 1);
       rows = n === 1 ? [...(lo ? [a] : []), rows[0], ...(hi ? [b] : [])]
         : Array.from({ length: m }, (_, w) => a + ((b - a) * w) / (m - 1));
