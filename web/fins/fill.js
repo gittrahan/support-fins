@@ -427,7 +427,7 @@ const triBox = (t, i) => [Math.min(t[i][0], t[i + 1][0], t[i + 2][0]), Math.min(
   Math.max(t[i][1], t[i + 1][1], t[i + 2][1]), Math.max(t[i][2], t[i + 1][2], t[i + 2][2])];
 
 const BOX_EDGE = 2.0;    // mm: largest support-triangle box boxGrid works with (see boxesOf)
-const FLANGE_TOP = PROP.baseH + 0.05;   // mm: the plate flange's band, a hair over its top
+export const FLANGE_TOP = PROP.baseH + 0.05;   // mm: the plate flange's band, a hair over its top
 
 /**
  * fn(box) for pieces of triangle (a, b, c) no more than BOX_EDGE across: a long

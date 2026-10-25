@@ -7,7 +7,7 @@
 import { loadModel, analyze, fins, insideCount, rotX, tiltedBlockTopo, assert } from './_util.js';
 
 const { classify, reachOf, MUST, PLATE_Z } = await import('../web/fins/coverage.js');
-const { bareArea, fillReach, FILL } = await import('../web/fins/fill.js');
+const { bareArea, fillReach, FILL, FLANGE_TOP } = await import('../web/fins/fill.js');
 
 const OPTS = { bedPad: true, tines: true, tineDensity: 0, layerHeight: 0.2 };
 
@@ -63,12 +63,15 @@ Deno.test('fill: no added wall is inside the part', () => {
   assert(n === 0, `${n} fill vertices inside the part`);
 });
 
-Deno.test('fill: added walls keep sideClear off every other support, Auto\'s and each other (fused walls do not break away) -- a joined wall only off Auto\'s', () => {
+/** Fill walls within `pad` of another support: [[wall, support]] (support 0 = Auto's).
+ * `shared`: two pieces both in the plate flange band, one wholly within it, are a
+ * joined base (#196, fill.js `hits`), not a touch -- Separate walls allows none. */
+function fillTouches(auto, full, shared, pad = 0.3) {   // a hair under PROP.sideClear (0.35)
   const box = (t, i) => [0, 1, 2].map((k) => Math.min(t[i][k], t[i + 1][k], t[i + 2][k]))
     .concat([0, 1, 2].map((k) => Math.max(t[i][k], t[i + 1][k], t[i + 2][k])));
-  const pad = 0.3;   // a hair under PROP.sideClear (0.35)
   const touch = (b, o) => b[0] - pad <= o[3] && o[0] <= b[3] + pad && b[1] - pad <= o[4] && o[1] <= b[4] + pad
-    && b[2] - pad <= o[5] && o[2] <= b[5] + pad;
+    && b[2] - pad <= o[5] && o[2] <= b[5] + pad
+    && !(shared && Math.max(b[2], o[2]) <= FLANGE_TOP && Math.min(b[5], o[5]) <= FLANGE_TOP);
   // every support as its own list of triangle boxes: Auto's as one, each fill wall apart
   const walls = [[]], joined = [false];
   for (let i = 0; i < auto.triangles.length; i += 3) walls[0].push(box(auto.triangles, i));
@@ -78,12 +81,34 @@ Deno.test('fill: added walls keep sideClear off every other support, Auto\'s and
     walls.push(bs);
     joined.push(!!f.joined);
   }
-  assert(walls.length > 2, 'needs two fill walls to check them against each other');
+  const out = [];
   for (let w = 1; w < walls.length; w++) for (let v = 0; v < w; v++) {
     if (v > 0 && joined[w]) continue;   // crosses or meets a fill wall on purpose: one support with it
-    for (const b of walls[w]) for (const o of walls[v]) assert(!touch(b, o), `fill wall ${w} within ${pad} mm of support ${v}`);
+    if (walls[w].some((b) => walls[v].some((o) => touch(b, o)))) out.push([w, v]);
   }
+  return { out, walls: walls.length - 1 };
+}
+
+Deno.test('fill: added walls keep sideClear off every other support, Auto\'s and each other (fused walls do not break away) -- a joined wall only off Auto\'s', () => {
+  const { out, walls } = fillTouches(auto, full, false);
+  assert(walls > 1, 'needs two fill walls to check them against each other');
+  assert(!out.length, `fill wall ${out[0]?.[0]} within 0.3 mm of support ${out[0]?.[1]}`);
 });
+
+// Wedge and portal at X40 put fill walls side by side on the plate: their flanges join
+// (#196), their stems still keep sideClear. Separate walls (the resin default) joins
+// nothing, flanges included.
+for (const name of ['wedge', 'portal']) {
+  const t = loadModel(name), r = rotX(40), a = analyze(t, 45, r);
+  const au = fins.buildFins(t, a, r, { ...OPTS, mode: 'auto' });
+  Deno.test(`fill: ${name} X40 -- fill walls share only a plate flange, and with Separate walls not even that`, () => {
+    const fdm = fillTouches(au, fins.buildFins(t, a, r, { ...OPTS, mode: 'full' }), true);
+    assert(fdm.walls > 1, `${name}: needs fill walls`);
+    assert(!fdm.out.length, `${name}: fill wall ${fdm.out[0]?.[0]} within 0.3 mm of support ${fdm.out[0]?.[1]} above the flange`);
+    const sep = fillTouches(au, fins.buildFins(t, a, r, { ...OPTS, mode: 'full', separateWalls: true }), false);
+    assert(!sep.out.length, `${name} Separate walls: fill wall ${sep.out[0]?.[0]} within 0.3 mm of support ${sep.out[0]?.[1]}`);
+  });
+}
 
 Deno.test('fill: at every slider setting Full holds at least what Auto does, and adds a wall where Auto left red', () => {
   // the slider also sets Auto's own rows (fewer at 0, more at 1), so the
