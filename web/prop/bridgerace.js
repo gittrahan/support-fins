@@ -12,9 +12,9 @@
  *
  * buildProps drives it from its patch loop, like tubeRivalry:
  *
- *   const start = race.begin(patch, patches);  // top of every patch
- *   ...lines = patchTracks(...)...
- *   race.turned(patch, lines, patches, start); // queue the old-way twin
+ *   race.begin(patch);                  // top of every patch, before tubeRivalry's
+ *   ...lines = patchTracks(...)...      //   mark: a settle cuts `out` back
+ *   race.turned(patch, lines, patches); // queue the old-way twin
  *   ...build the patch's walls...
  *   race.finish();                             // after the loop
  *
@@ -77,20 +77,21 @@ export function bridgeRace(acc) {
   };
 
   return {
-    /** Top of every patch: settle a finished race; the mark a turned patch races from. */
+    /** Top of every patch: settle a finished race, or mark where the twin starts.
+     *  Before any other mark is taken -- a settle cuts `out` back, and a small
+     *  tube's mark taken first undid to past the end (holes in `out`). */
     begin(patch) {
-      if (pending && patch !== pending.twin) settle();
-      const m = snapshot();
-      if (pending && patch === pending.twin) pending.mid = m;
-      return m;
+      if (pending && patch === pending.twin) pending.mid = snapshot();
+      else if (pending) settle();
     },
     /** The patch's tracks are laid: if they were turned (`lines.turned` = the old
-     *  axis), queue its old-way twin next. */
-    turned(patch, lines, patches, start) {
+     *  axis), queue its old-way twin next. Nothing is built between begin and here,
+     *  so the race starts here: only turned patches pay for a snapshot. */
+    turned(patch, lines, patches) {
       if (!lines.turned || patch.bridgeTwin || patch.rival || patch.smallTube || patch.axis) return;
       const twin = { ...patch, axis: lines.turned, bridgeTwin: true };
       patches.splice(patches.indexOf(patch) + 1, 0, twin);   // for...of reaches it next
-      pending = { patch, twin, start, mid: null };
+      pending = { patch, twin, start: snapshot(), mid: null };
     },
     /** After the patch loop: settle the last race. */
     finish() { settle(); },

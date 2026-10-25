@@ -376,8 +376,8 @@ function buildPass(topo, result, rot, opts, raster) {
 
   for (const patch of patches) {
     const regionTris = patch.tris;
+    race.begin(patch);                   // first: settling a race cuts `out` back
     const mark = rivalry.begin(patch);  // a small tube undoes to here
-    const raceStart = race.begin(patch); // a turned flat patch races from here
     let lines;
     if (patch.lines) {
       // A tube's lowest-line track(s), fitted and resampled by tubeLine.
@@ -401,7 +401,7 @@ function buildPass(topo, result, rot, opts, raster) {
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
       lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan, patch.axis ?? null);
-      race.turned(patch, lines, patches, raceStart);
+      race.turned(patch, lines, patches);
       // The user chose sub-cap spacing (wantSparse) AND this face actually landed a
       // multi-row gap wider than the cap. Flag it so the UI can warn (never blocks;
       // Matthew's call). Single-row faces (spacing 0) can't sag, so they don't warn.

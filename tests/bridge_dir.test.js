@@ -49,3 +49,41 @@ Deno.test('bridge direction: when the old walls win the race, their region still
   const b = fins.buildFins(topo, res, I, { mode: 'auto', bedPad: true, coverage: 0 });
   assert(b.unserved === 0, `${b.unserved} unserved regions`);
 });
+
+// closed cylinder along +Y, axis at (cx, cz): a peg small enough to be a small tube
+const cylinderY = (cx, cz, r, y0, y1, n = 48) => {
+  const ring = (y) => Array.from({ length: n }, (_, i) => [cx + r * Math.cos(2 * Math.PI * i / n), y, cz + r * Math.sin(2 * Math.PI * i / n)]);
+  const A = ring(y0), B = ring(y1), t = [];
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    t.push(A[i], B[j], A[j], A[i], B[i], B[j], [cx, y0, cz], A[i], A[j], [cx, y1, cz], B[j], B[i]);
+  }
+  return t.flat();
+};
+// every wall's triangle ranges inside the build, none overlapping another's
+const rangesValid = (b, what) => {
+  const rs = b.props.flatMap((q) => q.triRanges).sort((a, c) => a[0] - c[0]);
+  assert(b.triangles.every((t) => t !== undefined), `${what}: holes in the triangles`);
+  for (let i = 0; i < rs.length; i++) {
+    assert(rs[i][0] >= 0 && rs[i][1] <= b.triangles.length, `${what}: range ${rs[i]} past ${b.triangles.length}`);
+    assert(i === 0 || rs[i][0] >= rs[i - 1][1], `${what}: ranges ${rs[i - 1]} and ${rs[i]} overlap`);
+  }
+};
+
+Deno.test('bridge direction: a race settled at a small tube leaves the build whole (ledge, then a peg)', () => {
+  // the tube's undo mark was taken before the race cut `out` back, so undoing it
+  // padded `out` past its end: holes, and a crash in the short-wall pass
+  for (const [dx, dy] of [[60, 0], [-60, 0], [0, 60], [0, -60]]) {
+    const ledge = [...block(dx, 28 + dx, -10 + dy, dy, 0, 27), ...block(dx, 28 + dx, dy, 14 + dy, 25, 27)];
+    const topo = topoOf(new Float32Array([...block(-15, 15, -10, 10, 0, 24), ...cylinderY(0, 14, 2.5, 9, 18), ...ledge]));
+    for (const raster of [false, true]) {
+      const b = fins.buildFins(topo, analyze(topo, 45, I), I, { mode: 'auto', bedPad: true, raster });
+      rangesValid(b, `ledge at ${dx},${dy} raster ${raster}`);
+    }
+  }
+});
+
+Deno.test('bridge direction: the old walls winning the race leaves the build whole (pillar plate)', () => {
+  const topo = topoOf(new Float32Array([...block(12, 16, 5, 9, 0, 25.01), ...block(0, 28, 0, 14, 25, 27)]));
+  rangesValid(fins.buildFins(topo, analyze(topo, 45, I), I, { mode: 'auto', bedPad: true, coverage: 0.5 }), 'pillar plate');
+});
