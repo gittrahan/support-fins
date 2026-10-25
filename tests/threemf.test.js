@@ -1099,6 +1099,10 @@ Deno.test('paint codes: a whole triangle per filament, and a painted one keeps i
   // split in two (bits 1,0 + special side 0,0): one child state 0, one filament 2
   assert(fillUnpainted('801', 3) === '80C1', `filled ${fillUnpainted('801', 3)}`);
   assert(fillUnpainted('8', 3) === '8' && fillUnpainted('1C', 2) === '1C', 'a code with no state 0 changed');
+  // two levels: a 2-way split whose first child is itself split, every leaf state 0
+  // nibbles (first first): 1000 root | 1000 child | 0000 0000 its leaves | 0000 leaf
+  // -> "00011"; each 0000 leaf becomes 0001 (filament 2) -> "88811"
+  assert(fillUnpainted('00011', 2) === '88811', `deep split ${fillUnpainted('00011', 2)}`);
   // a split with no children, or junk: left alone by the caller
   assert(fillUnpainted('1', 2) === null && fillUnpainted('Z4', 2) === null && fillUnpainted('04', 2) === null,
     'an unparseable code came back as a code');
@@ -1168,6 +1172,31 @@ Deno.test('3MF filaments: PrusaSlicer 2 object and volume filaments, as mmu_segm
     '', '<metadata type="object" key="extruder" value="3"/>');
   const q = o.objects[0].colors?.paint ?? [];
   assert([0, 1, 2].every((i) => q[i]?.v === '0C'), `object filament: ${JSON.stringify(q.map((x) => x?.v))}`);
+});
+
+Deno.test('3MF filaments: a PrusaSlicer 2 second instance (a wrapper object) keeps the object\'s filament', async () => {
+  const verts = [[0, 0, 0], [1, 0, 0], [0, 1, 0]].map((p) => `<vertex x="${p[0]}" y="${p[1]}" z="${p[2]}"/>`).join('');
+  const model = `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}"><resources>`
+    + `<object id="1" type="model"><mesh><vertices>${verts}</vertices><triangles><triangle v1="0" v2="1" v3="2"/></triangles></mesh></object>`
+    + '<object id="2" type="model"><components><component objectid="1"/></components></object>'
+    + '</resources><build><item objectid="1"/><item objectid="2" transform="1 0 0 0 1 0 0 0 1 5 0 0"/></build></model>';
+  const config = '<?xml version="1.0"?><config><object id="1" instances_count="2">'
+    + '<metadata type="object" key="extruder" value="3"/><volume firstid="0" lastid="0"/></object></config>';
+  const r = await readThreeMF(await packParts([
+    { name: '3D/3dmodel.model', data: model },
+    { name: 'Metadata/Slic3r_PE_model.config', data: config },
+  ]));
+  assert(r.objects.length === 2 && r.objects.every((o) => o.colors?.paint[0]?.v === '0C'),
+    `instances ${JSON.stringify(r.objects.map((o) => o.colors?.paint[0]?.v))}`);
+});
+
+Deno.test('3MF filaments: an object on filament 2 paints its part, not its modifier', async () => {
+  const r = await bambuFilaments('<object id="10"><metadata key="extruder" value="2"/>'
+    + '<part id="1" subtype="normal_part"/><part id="2" subtype="modifier_part"><metadata key="sparse_infill_density" value="80%"/></part></object>');
+  const o = r.objects[0];
+  assert(o.colors?.paint.filter((x) => x?.v === '8').length === TRIS && o.tris === TRIS, `part paint ${o.colors?.paint.length}`);
+  assert(o.extras.length === 1 && JSON.stringify(o.extras[0].settings) === '{"bambu":[["sparse_infill_density","80%"]]}',
+    `modifier ${JSON.stringify(o.extras)}`);
 });
 
 Deno.test('3MF filaments: PrusaSlicer 3 object_settings / volume_settings extruder', async () => {

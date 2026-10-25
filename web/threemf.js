@@ -881,6 +881,8 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
   const { verts, tris } = obj;
   const ranges = role ? null : roles?.ranges?.(path, id);
   const filRanges = roles?.filRanges?.(path, id);
+  // PrusaSlicer 2 names the mesh's object, which a second instance only points at
+  fil ||= roles?.filObject?.(path, id) ?? 0;
   const mirrored = orient && m && (
     m[0] * (m[4] * m[8] - m[5] * m[7])
     - m[1] * (m[3] * m[8] - m[5] * m[6])
@@ -924,7 +926,7 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
     const childPath = c.path ? partName(c.path) : path;
     emitObject(getPart, childPath, c.objectid, compose(c.transform, m), sink, seen, stats,
       named(roles?.parts?.get(c.objectid)) ?? role,
-      roles && { ranges: roles.ranges, filRanges: roles.filRanges, paint: roles.paint }, orient,
+      roles && { ranges: roles.ranges, filRanges: roles.filRanges, filObject: roles.filObject, paint: roles.paint }, orient,
       roles?.filament?.parts.get(c.objectid) || fil);
   }
   seen.delete(key);
@@ -1053,7 +1055,8 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
     const roles = { parts: slicerParts.get(item.objectid),
       ranges: (path, id) => (path === rootName ? prusaVols.get(id) : null),
       filament, paint,
-      filRanges: (path, id) => (path === rootName ? filaments.get(id)?.ranges : null) };
+      filRanges: (path, id) => (path === rootName ? filaments.get(id)?.ranges : null),
+      filObject: (path, id) => (path === rootName ? filaments.get(id)?.object : 0) };
     emitObject(getPart, rootName, item.objectid, item.transform, sink, new Set(), stats, null, roles, outwardWinding,
       filament?.object ?? 0);
     if (buildIndex !== null && (stats.missing || stats.dropped || stats.cycles)) {

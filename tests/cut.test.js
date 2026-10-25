@@ -127,7 +127,8 @@ Deno.test('cut: a cutter that will not load leaves the part uncut, says so, and 
 Deno.test('cut: paint stays on the faces the cut leaves whole, exactly as it was', async () => {
   const positions = block(0, 10, 0, 10, 0, 10);
   const paint = [], rgb = [];
-  for (let t = 0; t < 12; t++) { paint[t] = { name: 'paint_color', v: String(t) }; rgb[t] = '#FF0000'; }
+  // stroked codes (the last digit's low bits say "split"), the source triangle in front
+  for (let t = 0; t < 12; t++) { paint[t] = { name: 'paint_color', v: `${t.toString(16)}1` }; rgb[t] = '#FF0000'; }
   // a notch in the +x top edge: the top and +x faces are cut, the rest untouched
   const c = await cutNegatives({ positions, colors: { paint, rgb }, extras: [neg(block(8, 11, -1, 11, 8, 11))] });
   assert(c.cut === 1 && c.colors, 'no colours came through');
@@ -137,12 +138,23 @@ Deno.test('cut: paint stays on the faces the cut leaves whole, exactly as it was
     if (!p) continue;
     painted++;
     // painted only where it IS its source triangle, corner for corner
-    const f = Number(p.v);
+    const f = parseInt(p.v.slice(0, -1), 16);
     for (let k = 0; k < 9; k++) assert(c.positions[t * 9 + k] === positions[f * 9 + k], `tri ${t} painted as ${f} but moved`);
   }
   assert(painted >= 4, `only ${painted} triangles kept their paint`);   // -x, -y/+y halves, bottom...
   const walls = c.positions.length / 9 - c.colors.rgb.filter(Boolean).length;
   assert(walls > 0, 'the cut walls came out coloured');
+});
+
+Deno.test('cut: a whole-triangle code (a part\'s filament) stays on every piece of a cut face', async () => {
+  const positions = block(0, 10, 0, 10, 0, 10);
+  const paint = [];
+  for (let t = 0; t < 12; t++) paint[t] = { name: 'paint_color', v: '8' };
+  const c = await cutNegatives({ positions, colors: { paint, rgb: [] }, extras: [neg(block(8, 11, -1, 11, 8, 11))] });
+  assert(c.cut === 1 && c.colors, 'no colours came through');
+  const n = c.positions.length / 9, painted = c.colors.paint.filter((p) => p?.v === '8').length;
+  // every triangle of the cube's own surface, cut or not; only the cut's walls bare
+  assert(painted > 12 && painted < n, `${painted} of ${n} on filament 2`);
 });
 
 // --- the engine sees the cut ------------------------------------------------

@@ -48,6 +48,10 @@ export function wholeCode(n) {
   return n >= 1 && n <= MAX_STATE ? codeOf(leaf(n)) : null;
 }
 
+/** Is `code` one state over the whole triangle (no strokes)? Then it is as true
+ *  of any piece of it -- a cut keeps it (cut.js). */
+export const isWhole = (code) => /^[0-9A-Fa-f]+$/.test(code) && (parseInt(code.at(-1), 16) & 3) === 0;
+
 /** `code` with its state-0 (the part's filament) regions on filament `n`; null when
  *  the code does not parse -- the caller keeps it as it was. */
 export function fillUnpainted(code, n) {

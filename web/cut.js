@@ -19,6 +19,8 @@
  * paint, since the paint string subdivides the ORIGINAL triangle.
  */
 
+import { isWhole } from './paintcode.js';
+
 let wasm = null;
 let wasmBinary = null;
 
@@ -207,8 +209,9 @@ export async function cutNegatives(obj) {
 /**
  * The part's colours onto the cut triangles. A triangle from the part's own
  * surface (its run's original id is the part's) names its source triangle by
- * faceID: it keeps that triangle's rgb, and its paint only when it IS that
- * triangle, corner for corner -- paint subdivides the original's corners.
+ * faceID: it keeps that triangle's rgb, and its paint when it IS that triangle,
+ * corner for corner -- paint subdivides the original's corners -- or when the
+ * paint is one state over the whole of it (a part's filament, paintcode.js).
  * Triangles the negative part made (the cut's walls) stay uncoloured.
  */
 function carryColors(obj, positions, faceID, runIndex, runOriginalID, partID) {
@@ -224,7 +227,7 @@ function carryColors(obj, positions, faceID, runIndex, runOriginalID, partID) {
       if (!src.paint[f]) continue;
       let same = true;
       for (let k = 0; k < 9 && same; k++) same = positions[t * 9 + k] === P[f * 9 + k];
-      if (same) col.paint[t] = src.paint[f];
+      if (same || isWhole(src.paint[f].v)) col.paint[t] = src.paint[f];
     }
   }
   return col.paint.length || col.rgb.length ? col : null;
