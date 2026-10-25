@@ -177,12 +177,18 @@ export const PROP = {
   // every ledge. Between two rows the first layer is a bridge; past the last one
   // it is a cantilever. An ATTACHED edge (the part carries on) keeps its bridge.
   edgeInset: 0.6,   // grows with a nozzle's wider tip (nozzle.js)
-  // ...but only under a near-FLAT underside: the curl is a first layer printed
-  // as a sheet over air past the last wall. A steeper face steps out only
-  // layerH / tan(angle) per layer -- 0.2 mm at 45deg, nothing to curl -- and a
-  // flush wall there is just plastic (a cube on its default pose went 3 -> 5
-  // walls). Up to this slope from horizontal: 30deg, ~0.35 mm a layer, a line width.
-  edgeFlatDeg: 30,
+  // ...on every overhang (up to 45deg from horizontal). It was only under a
+  // near-flat underside (30deg): a steeper face steps out just layerH / tan(angle)
+  // per layer down the slope, and flush walls then doubled a cube (3 -> 5). But
+  // the lip along a SIDE edge, running down the slope, is a full cantilever at any
+  // slope -- a cube at X35-X44 kept a 6.7 mm strip bare past each end wall (#269)
+  // -- and since #384 a flush end is one more row, never doubled (cube X40 3 -> 4).
+  edgeFlatDeg: 45,
+  // With Sway on, the old 30deg: a sway brace keeps ~5 mm off any wall's foot, and a
+  // flush wall stands at the foot of the upright side it braces, so on a tilted box
+  // the braces had nowhere to go (box X40, portal, tshape: 2 -> 0). Sway is the
+  // user's own ask, so its braces win there (Matthew 2026-10-25).
+  edgeFlatDegSway: 30,
 
   // --- TINES (the grip comb) ---------------------------------------------
   // A plain prop stops `gap` under the overhang and the part bridges over it:

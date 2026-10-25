@@ -14,8 +14,9 @@ const build = (name, rot, o = {}) => {
   return { topo, res, b: fins.buildFins(topo, res, rot, { ...OPTS, ...o }) };
 };
 
-// the L-bracket and the tube at X40: rows win there (measured 72 -> 58 and 15 -> 9 mm2 bare)
-for (const name of ['lbracket', 'tube']) {
+// the sphere and the tube at X40: rows win there (measured 24.2 -> 17.5 and 14.8 -> 9.0 mm2
+// bare; the L-bracket was the first, until Auto's flush end walls left it ~nothing, #269)
+for (const name of ['sphere', 'tube']) {
   Deno.test(`rows: ${name} at X40 gets rows, and they leave less red bare than the patch lines alone`, () => {
     const on = build(name, rotX(40)).b, off = build(name, rotX(40), { longWalls: false }).b;
     assert(on.fill.rows > 0, `${name}: no rows`);
@@ -35,20 +36,20 @@ Deno.test('rows: where the rows lose (wedge, ramp, torus, bar at X40) the build 
 });
 
 Deno.test('rows: Plate only -- rows still build, none stands on the part', () => {
-  const b = build('lbracket', rotX(40), { plateOnly: true }).b;
+  const b = build('sphere', rotX(40), { plateOnly: true }).b;
   assert(b.fill.rows > 0, 'no rows with Plate only');
   assert(!b.props.some((q) => q.partAttached), 'a wall stands on the part');
 });
 
 Deno.test('rows: not under the sparse slider (one wall per group)', () => {
-  const b = build('lbracket', rotX(40), { coverage: 0.1 }).b;
+  const b = build('sphere', rotX(40), { coverage: 0.1 }).b;
   assert(b.fill.rows === 0 && b.fill.rowBuilds === 0, `rows ${b.fill.rows}, builds ${b.fill.rowBuilds}`);
 });
 
 Deno.test('rows: no row is inside the part, and rows keep sideClear off every other support', () => {
   // tines off: a tine's end kisses the surface, so its vertices sit ON it
   const rot = rotX(40);
-  const { topo, res, b } = build('lbracket', rot, { tines: false });
+  const { topo, res, b } = build('sphere', rot, { tines: false });
   const a = fins.buildFins(topo, res, rot, { ...OPTS, tines: false, mode: 'auto' });
   assert(b.fill.rows > 0);
   const n = insideCount(topo, rot, res.offset, b.triangles.slice(a.triangles.length));

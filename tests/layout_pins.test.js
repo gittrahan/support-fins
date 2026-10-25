@@ -10,11 +10,12 @@ import { loadModel, analyze, fins, rotX, rotY, assert } from './_util.js';
 const PINS = [
   // model, pose, rotation, walls
   ['cube', 'X25', rotX(25), 4],       // the end rows move out flush to the free edges, re-spaced at the pitch (#143 had added two beside them)
-  ['cube', 'X35', rotX(35), 3],
-  ['cube', 'X60', rotX(60), 3],
-  ['cube', 'Y35', rotY(35), 3],
-  ['lbracket', 'X35', rotX(35), 4],   // the plugins' reference part (plugins/*/tests pin its tines too)
-  ['lbracket', 'Y35', rotY(35), 4],
+  ['cube', 'X35', rotX(35), 4],       // flush on every overhang now, not only up to 30deg (#269: X35-X44 kept a 6.7 mm bare strip)
+  ['cube', 'X40', rotX(40), 4],
+  ['cube', 'X60', rotX(60), 4],
+  ['cube', 'Y35', rotY(35), 4],
+  ['lbracket', 'X35', rotX(35), 5],   // the plugins' reference part (plugins/*/tests pin its tines too)
+  ['lbracket', 'Y35', rotY(35), 5],
   ['ramp', 'X45', rotX(45), 0],
   ['wedge', 'X45', rotX(45), 0],
   ['tube', 'X25', rotX(25), 4],
@@ -28,3 +29,13 @@ for (const [name, pose, rot, want] of PINS) {
     assert(got === want, `${name} ${pose}: ${got} walls, pinned ${want} -- if the change is meant, update the pin`);
   });
 }
+
+// Sway on keeps the old 30deg cutoff (PROP.edgeFlatDegSway): a flush end wall stands
+// where the braces go, and the braces win. The cube at X40 keeps main's 3 walls at the
+// thirds and both its braces; with Sway off it gets 4, flush to both side edges.
+Deno.test('layout: cube X40 with Sway on keeps 3 walls and both braces', () => {
+  const topo = loadModel('cube'), rot = rotX(40), res = analyze(topo, 45, rot);
+  const b = fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true, coverage: 0.5, sway: { on: true } });
+  assert(b.props.length === 3, `${b.props.length} walls with Sway on, pinned 3`);
+  assert(b.sway?.count === 2, `${b.sway?.count} sway braces, pinned 2`);
+});

@@ -189,9 +189,16 @@ Deno.test('Tines off: plain walls are counted as walls (props), not lost', () =>
 });
 
 Deno.test('sway braces come back as their own block: fins | braces | pad', () => {
-  // lbracket @Y35 at twice the size gets fins, sway braces AND a pad (review, 018): the
-  // braces must slot in between without disturbing either neighbour.
-  const big = PART.map((v) => v * 2);
+  // lbracket at twice the size gets fins, sway braces AND a pad (review, 018): the
+  // braces must slot in between without disturbing either neighbour. At Y20, not the
+  // file's Y35: with Sway on, free edges past 30deg keep their old rows (a flush end
+  // wall would take the braces' column, PROP.edgeFlatDegSway), so at Y35 the fins
+  // differ by design; at 20deg both cutoffs agree.
+  const raw = readSTL(Deno.readFileSync(`${MODELS}lbracket.stl`)), m = rotY(20);
+  const big = new Float64Array(raw.length);
+  for (let i = 0; i < raw.length; i += 3) {
+    for (let k = 0; k < 3; k++) big[i + k] = 2 * (m[k] * raw[i] + m[3 + k] * raw[i + 1] + m[6 + k] * raw[i + 2]);
+  }
   const off = computeFins(big, OPTS), on = computeFins(big, { ...OPTS, sway: { on: true } });
   const s = on.stats;
   assert(off.stats.swayTriangles === 0, 'braces nobody asked for');

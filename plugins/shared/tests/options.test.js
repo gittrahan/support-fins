@@ -212,7 +212,7 @@ Deno.test('dialog defaults build exactly the engine defaults', () => {
 // A model tilted about Y. The lbracket at 35 deg gets walls, tines and a pad, so every
 // option shows -- but Plate only needs a wall standing on the part, which it has none
 // of: the portal on its side at Y90 stands its one wall on its lower leg. Long walls
-// needs rows that win the fill race: the lbracket at X40 (tests/rows.test.js).
+// needs rows that change the fill: the cylinder at X40.
 function posed(name = 'lbracket', deg = 35, rot = rotY) {
   const pos = readSTL(Deno.readFileSync(`${MODELS}${name}.stl`)), m = rot(deg);
   const out = new Float64Array(pos.length);
@@ -239,7 +239,7 @@ Deno.test('every option reaches the geometry (no dead dialog control)', () => {
   const bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));  // upright: braced
   try {
     const plain = computeFins(lbracket, {}).triangles;
-    const portal = posed('portal', 90), rowed = posed('lbracket', 40, rotX), sphere = posed('sphere', 0);
+    const portal = posed('portal', 90), rowed = posed('cylinder', 40, rotX), sphere = posed('sphere', 0);
     const braced = computeFins(bar, { sway: { on: true } }).triangles;
     for (const o of OPTS) {
       const [, sub] = o.key.split('.');
@@ -276,6 +276,6 @@ Deno.test('Full coverage ignores the coverage slider and Auto ignores Long walls
   assert(same(full, computeFins(lbracket, { mode: 'full', coverage: 1 }).triangles), 'Full read coverage 1');
   assert(!same(full, computeFins(lbracket, {}).triangles), 'Full built the same fins as Auto');
   // and Long walls is Full's alone: hidden in Auto, so it must not move Auto's fins
-  const rowed = posed('lbracket', 40, rotX), auto = computeFins(rowed, {}).triangles;
+  const rowed = posed('cylinder', 40, rotX), auto = computeFins(rowed, {}).triangles;
   assert(same(auto, computeFins(rowed, { longWalls: false }).triangles), 'Auto read Long walls');
 });

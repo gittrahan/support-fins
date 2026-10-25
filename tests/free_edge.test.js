@@ -4,7 +4,7 @@
 // Moved, not added: #143 added one and kept the old rows, so every free edge got
 // two walls ~6 mm apart (a cube at X20-30 3 -> 5 walls). An attached edge -- the
 // part carries on -- keeps its row where it was.
-import { buildTopology, analyze, fins, prop, block, assert } from './_util.js';
+import { buildTopology, analyze, fins, prop, block, assert, loadModel, rotX } from './_util.js';
 
 const { PROP } = prop;
 const I = [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -81,4 +81,17 @@ Deno.test('free edge: one free edge -- the walls cross the bridge out to it, the
     `end rows not flush with the ledge's free ends: ${ys.map((y) => y.toFixed(2))}`);
   assert(Math.max(...gaps) <= 12 + 1e-6, `a ${Math.max(...gaps).toFixed(2)} mm gap, wider than the 12 mm pitch: ${ys.map((y) => y.toFixed(2))}`);
   assert(Math.min(...gaps) > 9, `two walls ${Math.min(...gaps).toFixed(2)} mm apart (doubled): ${ys.map((y) => y.toFixed(2))}`);
+});
+
+Deno.test('free edge: a tilted cube (X35-X44) gets its end walls flush with both side edges (#269)', () => {
+  // the lip along a side edge runs down the slope, a cantilever at any tilt; with
+  // free-edge rows only up to 30deg, X35-X44 left 6.7 mm bare past each end wall
+  const topo = loadModel('cube');
+  for (const deg of [35, 40, 44]) {
+    const rot = rotX(deg), res = analyze(topo, 45, rot);
+    const b = fins.buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true, coverage: 0.5 });
+    const xs = b.props.map((q) => q.line.reduce((t, p) => t + p[0], 0) / q.line.length).sort((a, c) => a - c);
+    assert(Math.abs(xs[0] + 20 - PROP.edgeInset) < 0.05 && Math.abs(xs.at(-1) - 20 + PROP.edgeInset) < 0.05,
+      `X${deg}: end walls not flush with the side edges: ${xs.map((x) => x.toFixed(2))}`);
+  }
 });

@@ -27,9 +27,10 @@ function mustHeld(topo, res, rot, b) {
   return { held, must };
 }
 
-// The cube at X40 (Matthew's site check): Auto's three walls sit at the thirds, so a
-// 6.7 mm strip past each end wall is out of reach.
-const topo = loadModel('cube');
+// The staircase at X40: Auto leaves must-hold red on its treads' edges. (The cube at
+// X40 was this test's part -- Auto's three walls at the thirds left a 6.7 mm strip past
+// each end wall -- until the end walls moved out flush on every overhang, #269.)
+const topo = loadModel('staircase');
 const rot = rotX(40);
 const res = analyze(topo, 45, rot);
 const auto = fins.buildFins(topo, res, rot, { ...OPTS, mode: 'auto' });
@@ -48,7 +49,7 @@ Deno.test('fill: Full coverage keeps every Auto support, byte for byte, and only
 Deno.test('fill: it holds more of the must-hold red than Auto, and reports the rest', () => {
   const a = mustHeld(topo, res, rot, auto), f = mustHeld(topo, res, rot, full);
   assert(full.fill, 'full mode reports its fill');
-  assert(a.held < a.must - 1, 'precondition: Auto leaves the cube at X40 some red');
+  assert(a.held < a.must - 1, 'precondition: Auto leaves the staircase at X40 some red');
   assert(f.held > a.held, `no gain: ${a.held.toFixed(0)} -> ${f.held.toFixed(0)} of ${a.must.toFixed(0)}`);
   assert(Number.isFinite(full.fill.unservedArea) && Array.isArray(full.fill.unservedPts));
 });
@@ -57,7 +58,7 @@ Deno.test('fill: no added wall is inside the part', () => {
   // tines off: a tine's end kisses the surface, so its vertices sit ON it (Auto's do too)
   const o = { ...OPTS, tines: false };
   const a = fins.buildFins(topo, res, rot, { ...o, mode: 'auto' }), f = fins.buildFins(topo, res, rot, { ...o, mode: 'full' });
-  assert(f.fill.walls > 0, 'the cube at X40 gets fill walls');
+  assert(f.fill.walls > 0, 'the staircase at X40 gets fill walls');
   const n = insideCount(topo, rot, res.offset, f.triangles.slice(a.triangles.length));
   assert(n === 0, `${n} fill vertices inside the part`);
 });
@@ -85,7 +86,7 @@ Deno.test('fill: added walls keep sideClear off every other support, Auto\'s and
 });
 
 Deno.test('fill: at every slider setting Full holds at least what Auto does, and adds a wall where Auto left red', () => {
-  // the slider also sets Auto's own rows (1 wall at 0, 7 at 1 on this cube), so the
+  // the slider also sets Auto's own rows (fewer at 0, more at 1), so the
   // fill's count isn't monotonic -- what is: sparse still adds a wall where Auto left
   // red, and Full coverage at any setting holds at least what Auto does
   for (const coverage of [0, 0.5, 1]) {

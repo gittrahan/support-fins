@@ -93,10 +93,10 @@ def test_a_part_on_curas_plate_gets_the_sites_fins(host):
     cura_part = frames.cura_from_engine(engine_part) + [60, 0, -25]
     soup = frames.part_soup(cura_part.reshape(-1, 3))
     fins, stats = mod.host_compute(ctx, soup, {"layerHeight": 0.2})
-    assert (stats["braces"], stats["tines"]) == (4, 20)      # the site's result
+    assert (stats["braces"], stats["tines"]) == (5, 28)      # the site's result
     verts, _, centre = frames.fins_mesh(fins)
     world = verts + centre
     assert abs(world[:, 1].min()) < 1e-3                    # the pad is on the plate
     # and under the part, not at the origin
     assert abs((world[:, 0].min() + world[:, 0].max()) / 2 - 60) < 5
-    assert mod.host_report(stats) == "4 walls, 20 tines"
+    assert mod.host_report(stats) == "5 walls, 28 tines"

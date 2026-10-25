@@ -334,7 +334,7 @@ function buildPass(topo, result, rot, opts, raster) {
         continue;
       }
       const lines = rasterTracks(regionPts, regionTris, partTris, step, rowSpan,
-                                 { topo, rot, offset: off });
+                                 { topo, rot, offset: off, sway: !!opts.sway?.on });
       // the sparse-coverage sag warning, per region: it only counts if this region swaps
       if (wantSparse && lines.spacing > PROP.maxUnsupportedSpan) tally.sagRegions.add(ri);
       if (lines.length) patches.push({ faces: rFaces, area: regionArea, region: ri, tris: regionTris, lines });
@@ -400,7 +400,8 @@ function buildPass(topo, result, rot, opts, raster) {
         }
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
-      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan, patch.axis ?? null);
+      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off, sway: !!opts.sway?.on },
+                          rowSpan, patch.axis ?? null);
       race.turned(patch, lines, patches);
       // The user chose sub-cap spacing (wantSparse) AND this face actually landed a
       // multi-row gap wider than the cap. Flag it so the UI can warn (never blocks;

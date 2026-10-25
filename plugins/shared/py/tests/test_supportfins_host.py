@@ -52,7 +52,7 @@ def lbracket_35():
 def test_same_fins_as_the_site(ctx):
     # the counts the website and node give lbracket @35 X at 0.2 mm (015 spike, Node ref)
     fins, stats = host.host_compute(ctx, lbracket_35(), {"layerHeight": 0.2})
-    assert stats["braces"] == 4 and stats["tines"] == 20
+    assert stats["braces"] == 5 and stats["tines"] == 28
     assert fins.shape == (stats["finTriangles"] + stats["padTriangles"], 3, 3)
     assert fins.dtype == np.float64
 
@@ -141,7 +141,7 @@ def test_dialog_values_go_through_the_engine(ctx):
     assert host.host_visible(ctx, "tineDensity", {"tines": False}) is False
     fins, stats = host.host_compute(ctx, lbracket_35(), {**host.host_options(ctx, {"gap": 0.3}),
                                                           "layerHeight": 0.2})
-    assert stats["braces"] == 4
+    assert stats["braces"] == 5
 
 
 def test_vendor_dir_under_a_pyinstaller_app(bundle_path):
@@ -177,7 +177,7 @@ print(json.dumps([stats["braces"], stats["tines"]]))
 """
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=120)
     assert out.returncode == 0, out.stderr
-    assert json.loads(out.stdout.strip().splitlines()[-1]) == [4, 20]
+    assert json.loads(out.stdout.strip().splitlines()[-1]) == [5, 28]
 
 
 def test_report_says_what_was_not_reached():

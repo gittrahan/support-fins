@@ -388,8 +388,9 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // small part, so the clamp is gone and the caller warns (sagRisk) when the
   // resulting spacing actually exceeds the cap. Denser still only adds rows.
   const rowSpan = Math.max(1, span);
-  // (free-edge rows only under a near-flat underside -- see PROP.edgeFlatDeg)
-  const flat = slope <= Math.tan((PROP.edgeFlatDeg * Math.PI) / 180);
+  // (free-edge rows only up to PROP.edgeFlatDeg -- a lower cutoff with Sway on)
+  const flatDeg = support?.sway ? PROP.edgeFlatDegSway : PROP.edgeFlatDeg;
+  const flat = slope <= Math.tan((flatDeg * Math.PI) / 180);
   const rows = rowOffsets(vLo, vHi, rowSpan, support && flat && {
     support, patchTris, ux, uy, vx, vy, uLo, uHi,
   });
@@ -433,7 +434,7 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
  * Matthew 2026-10-01: same count, the end ones flush; 2026-10-23: never a wider
  * gap than the pitch, so +1 row and no doubling (gaps stay near the pitch).
  * With no free edge, no part to probe, or a steep underside (`probe` null; see
- * PROP.edgeFlatDeg), the old layout exactly.
+ * PROP.edgeFlatDeg / edgeFlatDegSway), the old layout exactly.
  */
 function rowOffsets(vLo, vHi, rowSpan, probe) {
   const vExt = vHi - vLo, e = PROP.edgeInset;

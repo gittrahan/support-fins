@@ -277,8 +277,10 @@ def test_older_config_names_still_work():
 
 
 def test_full_coverage_from_the_config_adds_walls():
-    auto, _ = _fin_area({})
-    full, res = _fin_area({"mode": "full"})
+    # the staircase at X40: Auto leaves its treads' edges red (the lbracket's are held
+    # by Auto's flush end walls since #269, so Full had nothing left to add there)
+    auto, _ = _fin_area({}, model="staircase")
+    full, res = _fin_area({"mode": "full"}, model="staircase")
     assert full > auto * 1.2, f"Full {full:.0f} vs Auto {auto:.0f} mm2 of fin cross-section"
     assert "walls" in res.message
 

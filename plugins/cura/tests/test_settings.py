@@ -115,13 +115,13 @@ def test_saved_settings_reach_the_engine(host):
     soup = frames.part_soup(frames.cura_from_engine(engine_part).reshape(-1, 3))
     defaults = settings.engine_values(settings.load(SCHEMA, ""), 0.2)
     _, stats = mod.host_compute(ctx, soup, mod.host_options(ctx, defaults))
-    assert (stats["braces"], stats["tines"]) == (4, 20)      # the site's result, as PR 1
+    assert (stats["braces"], stats["tines"]) == (5, 28)      # the site's result, as PR 1
     # stored like Cura's preferences hand them back: "false" is off, not on
     stored = settings.load(SCHEMA, json.dumps({"tines": "false", "coverage": 0.5}))
     off = settings.engine_values(stored, 0.2)
     _, stats = mod.host_compute(ctx, soup, mod.host_options(ctx, off))
-    assert stats["tines"] == 0 and stats["braces"] + stats["props"] == 4   # plain walls, still 4
-    assert mod.host_report(stats) == "4 walls, 0 tines"
+    assert stats["tines"] == 0 and stats["braces"] + stats["props"] == 5   # plain walls, still 5
+    assert mod.host_report(stats) == "5 walls, 0 tines"
     with pytest.raises(ValueError) as bad:
         mod.host_options(ctx, {"coverage": 50})
     assert str(bad.value).startswith("coverage must be 0..1") and "\n" not in str(bad.value)
