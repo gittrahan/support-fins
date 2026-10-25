@@ -19,7 +19,7 @@ Both take `path` (an `.stl` or `.3mf`; absolute, or relative to where the server
 started -- which for Claude Desktop is `/`, so give absolute paths there; `~/` works), `object` for a 3MF with several objects, and `settings`: every setting the
 site has, named as the CLI's flags (`coverage`, `tine-density`, `pad-style`, `sway`, ...)
 in the site's units (percent sliders 0-100). The client sees the whole list, with
-defaults and ranges, in the tool schema. `fin_part` also takes `rot`: `[x, y, z]`, the
+defaults and ranges, in the tool schema (and in [docs/PLUGIN-CONFIG.md](../../docs/PLUGIN-CONFIG.md)). `fin_part` also takes `rot`: `[x, y, z]`, the
 "X · Y · Z" readout under the part on printfins.com.
 
 For Full coverage with separated fill walls, pass

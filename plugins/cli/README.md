@@ -5,7 +5,8 @@ any slicer. It's the answer for Bambu Studio, which has no plugin API: run the p
 through this, open the 3MFs in Bambu.
 
 Same engine as the site and every plugin (`plugins/shared/engine/computeFins`), and the
-same settings: the flags are generated from `plugins/shared/engine/options.json`.
+same settings: the flags are generated from `plugins/shared/engine/options.json`
+(every one, with its values and default: [docs/PLUGIN-CONFIG.md](../../docs/PLUGIN-CONFIG.md)).
 
 ```
 support-fins part.stl                          # -> part-fins.3mf next to it (part + fins)

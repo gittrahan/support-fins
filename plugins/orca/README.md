@@ -77,6 +77,9 @@ message (`unknown dialog option sparkle`), instead of printing default fins. On/
 settings take `true`/`false` (or `1`/`0`).
 Older configs' `tine_density` and `bed_pad: false` still work.
 
+Every key, its values and default, with ready-to-paste configs (Full coverage, ...):
+[docs/PLUGIN-CONFIG.md](../../docs/PLUGIN-CONFIG.md).
+
 ### What the tests pin (offline)
 
 * `plugins/shared/tests/entry.test.js` — the plugin entry places the same fins as the

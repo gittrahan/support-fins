@@ -209,7 +209,8 @@ web/         the browser app (live at printfins.com)
 plugins/     slicer/CAD integrations (PrusaSlicer, OrcaSlicer, Onshape, Autodesk Fusion), the
              command line, and an MCP server for AI clients
 prototype/   Python/trimesh proof of concept the engine was ported from
-docs/        FIN-SPEC.md — the verified fin geometry, with sources
+docs/        FIN-SPEC.md — the verified fin geometry, with sources; PLUGIN-CONFIG.md —
+             every plugin setting (Orca config keys, CLI flags)
 tests/       offline geometry regression suite
 ```
 

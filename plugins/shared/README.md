@@ -21,7 +21,9 @@ engine/options.json     the settings every plugin dialog is built from: key, typ
                         by tests/options.test.js; fins_entry.js takes its defaults from it.
                         A host builds its dialog from it and passes the values through
                         optionsFromDialog() (and optionVisible() for show/hide; from Python,
-                        host_options / host_visible), never by hand
+                        host_options / host_visible), never by hand. Its user-facing
+                        reference, docs/PLUGIN-CONFIG.md, is written by options_doc.js
+                        (tests/options_doc.test.js fails when it is stale)
 engine/report.js        the one-line result (walls, tines, overhangs not reached, floating
                         pieces) for JS hosts (the CLI); Python hosts' host_report says
                         the same words
