@@ -90,6 +90,8 @@ function fillTouches(auto, full, shared, pad = 0.3) {   // a hair under PROP.sid
 }
 
 Deno.test('fill: added walls keep sideClear off every other support, Auto\'s and each other (fused walls do not break away) -- a joined wall only off Auto\'s', () => {
+  // the staircase's fill walls share no flange: this pins them strict (wedge and portal
+  // below pin the shared flange)
   const { out, walls } = fillTouches(auto, full, false);
   assert(walls > 1, 'needs two fill walls to check them against each other');
   assert(!out.length, `fill wall ${out[0]?.[0]} within 0.3 mm of support ${out[0]?.[1]}`);
@@ -106,6 +108,7 @@ for (const name of ['wedge', 'portal']) {
     assert(fdm.walls > 1, `${name}: needs fill walls`);
     assert(!fdm.out.length, `${name}: fill wall ${fdm.out[0]?.[0]} within 0.3 mm of support ${fdm.out[0]?.[1]} above the flange`);
     const sep = fillTouches(au, fins.buildFins(t, a, r, { ...OPTS, mode: 'full', separateWalls: true }), false);
+    assert(sep.walls > 0, `${name} Separate walls: needs fill walls`);
     assert(!sep.out.length, `${name} Separate walls: fill wall ${sep.out[0]?.[0]} within 0.3 mm of support ${sep.out[0]?.[1]}`);
   });
 }
