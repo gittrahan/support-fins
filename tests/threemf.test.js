@@ -15,6 +15,7 @@ import { WEB, MODELS, assert, assertClose, block, readSTL, buildTopology, analyz
 
 const { writeThreeMF, writePlate3MF, readThreeMF, mergeColors } = await import(`${WEB}threemf.js`);
 const { zipStore, unzip } = await import(`${WEB}zip.js`);
+const { wholeCode, fillUnpainted } = await import(`${WEB}paintcode.js`);
 
 const REL = 'http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel';
 
@@ -511,7 +512,7 @@ Deno.test('3MF Bambu modifier, blocker and enforcer each keep their kind', async
 });
 
 /** A PrusaSlicer object: ONE mesh of three triangles, its volumes as triangle ranges. */
-async function prusaVolumes(volumes, triAttr = '') {
+async function prusaVolumes(volumes, triAttr = '', objMeta = '') {
   const verts = [[0, 0, 0], [1, 0, 0], [0, 1, 0], [5, 0, 0], [6, 0, 0], [5, 1, 0], [9, 0, 0], [10, 0, 0], [9, 1, 0]]
     .map((p) => `<vertex x="${p[0]}" y="${p[1]}" z="${p[2]}"/>`).join('');
   const tris = [0, 3, 6].map((v, i) => `<triangle v1="${v}" v2="${v + 1}" v3="${v + 2}"${i === 2 ? triAttr : ''}/>`).join('');
@@ -519,7 +520,7 @@ async function prusaVolumes(volumes, triAttr = '') {
     + `<resources><object id="1" type="model"><mesh><vertices>${verts}</vertices><triangles>${tris}</triangles></mesh></object>`
     + '</resources><build><item objectid="1"/></build></model>';
   const config = '<?xml version="1.0"?><config><object id="1" instances_count="1">'
-    + '<metadata type="object" key="name" value="bracket.stl"/>'
+    + '<metadata type="object" key="name" value="bracket.stl"/>' + objMeta
     + volumes.map(([first, last, meta]) => `<volume firstid="${first}" lastid="${last}">${meta}</volume>`).join('')
     + '</object></config>';
   return readThreeMF(await packParts([
@@ -1086,6 +1087,103 @@ Deno.test('3MF colours: merged objects keep their colours at the right offsets',
   assert(m.paint[1].v === 'A' && m.paint.filter(Boolean).length === 1, 'paint offset');
   assert(m.rgb[5] === '#123456' && m.rgb.filter(Boolean).length === 1, 'rgb offset');
   assert(mergeColors([b]) === null, 'no colours should merge to null');
+});
+
+// --- filaments as paint ------------------------------------------------------
+// A part coloured by FILAMENT (the slicer's object/part setting, not paint) goes
+// out painted with it: the export's one object has no config to carry it.
+
+Deno.test('paint codes: a whole triangle per filament, and a painted one keeps its strokes', () => {
+  assert([1, 2, 3, 4, 18].map(wholeCode).join() === '4,8,0C,1C,FC', `whole codes ${[1, 2, 3, 4, 18].map(wholeCode)}`);
+  assert(wholeCode(0) === null && wholeCode(19) === null, 'no code for state 0 or past the 4-bit range');
+  // split in two (bits 1,0 + special side 0,0): one child state 0, one filament 2
+  assert(fillUnpainted('801', 3) === '80C1', `filled ${fillUnpainted('801', 3)}`);
+  assert(fillUnpainted('8', 3) === '8' && fillUnpainted('1C', 2) === '1C', 'a code with no state 0 changed');
+  // a split with no children, or junk: left alone by the caller
+  assert(fillUnpainted('1', 2) === null && fillUnpainted('Z4', 2) === null && fillUnpainted('04', 2) === null,
+    'an unparseable code came back as a code');
+});
+
+/** A Bambu object of two cube parts (part 2 at x 5) and a second object, with `config`. */
+async function bambuFilaments(config, paint = '') {
+  const cube = (id, attr = '') => colouredCube((i) => i === 0 ? attr : '')
+    .match(/<object[\s\S]*<\/object>/)[0].replace('id="1"', `id="${id}"`);
+  const objs = `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}"><resources>`
+    + cube(1, paint) + cube(2) + cube(3) + '</resources></model>';
+  const root = `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}"><resources>`
+    + '<object id="10" type="model"><components><component p:path="/3D/Objects/o.model" objectid="1"/>'
+    + '<component p:path="/3D/Objects/o.model" objectid="2" transform="1 0 0 0 1 0 0 0 1 5 0 0"/></components></object>'
+    + '<object id="20" type="model"><components><component p:path="/3D/Objects/o.model" objectid="3"/></components></object>'
+    + '</resources><build><item objectid="10"/><item objectid="20"/></build></model>';
+  return readThreeMF(await packParts([
+    { name: '3D/3dmodel.model', data: root },
+    { name: '3D/Objects/o.model', data: objs },
+    { name: 'Metadata/model_settings.config', data: `<?xml version="1.0"?><config>${config}</config>` },
+  ]));
+}
+
+Deno.test('3MF filaments: a Bambu part and object on their own filaments go out painted with them', async () => {
+  const r = await bambuFilaments('<object id="10"><metadata key="extruder" value="1"/>'
+    + '<part id="1" subtype="normal_part"><metadata key="name" value="body"/></part>'
+    + '<part id="2" subtype="normal_part"><metadata key="extruder" value="2"/></part></object>'
+    + '<object id="20"><metadata key="extruder" value="3"/><part id="3" subtype="normal_part"/></object>');
+  const [two, solo] = r.objects;
+  const p = two.colors?.paint ?? [];
+  assert(p.slice(0, TRIS).every((x) => !x), 'the part on filament 1 got painted');
+  assert(p.slice(TRIS).filter((x) => x?.name === 'paint_color' && x.v === '8').length === TRIS, 'part 2 not on filament 2');
+  assert(solo.colors?.paint.filter((x) => x?.v === '0C').length === TRIS, 'the object on filament 3 lost it');
+  // and out through the export, on the same triangles
+  const { r: back } = await roundTrip(triples(two.positions), two.colors);
+  assert(back.objects[0].colors.paint.filter((x) => x?.v === '8').length === TRIS, 'filament 2 lost in the export');
+});
+
+Deno.test('3MF filaments: a painted triangle on filament 2 keeps its strokes, its own regions on 2', async () => {
+  const r = await bambuFilaments('<object id="10"><metadata key="extruder" value="2"/>'
+    + '<part id="1" subtype="normal_part"/><part id="2" subtype="normal_part"/></object>', ' paint_color="801"');
+  const p = r.objects[0].colors.paint;
+  // '801' is a state-0 half and a filament-2 half: both halves now 2
+  assert(p[0]?.v === '881', `painted triangle ${p[0]?.v}, want 881`);
+  assert(p.filter((x) => x?.v === '8').length === 2 * TRIS - 1, 'the unpainted triangles are not on filament 2');
+});
+
+Deno.test('3MF filaments: a modifier\'s filament paints nothing and stays its setting', async () => {
+  const o = (await bambuParts({ subtype: 'modifier_part' })).objects[0];
+  assert(!o.colors, 'a plain part read colours');
+  const r = await bambuFilaments('<object id="10"><part id="2" subtype="modifier_part">'
+    + '<metadata key="extruder" value="2"/></part></object>');
+  const m = r.objects[0];
+  assert(!m.colors && JSON.stringify(m.extras[0]?.settings) === '{"bambu":[["extruder","2"]]}',
+    `colours ${JSON.stringify(m.colors)}, settings ${JSON.stringify(m.extras[0]?.settings)}`);
+});
+
+Deno.test('3MF filaments: PrusaSlicer 2 object and volume filaments, as mmu_segmentation', async () => {
+  const r = await prusaVolumes([[0, 0, vtype('ModelPart')], [1, 1, vtype('ModelPart') + '<metadata type="volume" key="extruder" value="4"/>'],
+    [2, 2, vtype('ModelPart')]]);
+  const p = r.objects[0].colors?.paint ?? [];
+  assert(!p[0] && p[1]?.name === 'slic3rpe:mmu_segmentation' && p[1].v === '1C' && !p[2], `paint ${JSON.stringify(p)}`);
+  const { xml } = await roundTrip(triples(r.objects[0].positions), r.objects[0].colors);
+  assert(xml.includes('xmlns:slic3rpe') && xml.includes('slic3rpe:mmu_segmentation="1C"'), 'not written as Prusa paint');
+  // the object's own filament for the volumes that do not say (0 = the object's)
+  const o = await prusaVolumes([[0, 0, vtype('ModelPart')], [1, 2, vtype('ModelPart') + '<metadata type="volume" key="extruder" value="0"/>']],
+    '', '<metadata type="object" key="extruder" value="3"/>');
+  const q = o.objects[0].colors?.paint ?? [];
+  assert([0, 1, 2].every((i) => q[i]?.v === '0C'), `object filament: ${JSON.stringify(q.map((x) => x?.v))}`);
+});
+
+Deno.test('3MF filaments: PrusaSlicer 3 object_settings / volume_settings extruder', async () => {
+  const json = { objects: [{ id: 10, object_settings: { extruder: 2 }, volumes: [
+    { id: 1, type: 'ModelPart', volume_settings: {} }, { id: 2, type: 'ModelPart', volume_settings: { extruder: 5 } }] }] };
+  const cube = (id) => colouredCube(() => '').match(/<object[\s\S]*<\/object>/)[0].replace('id="1"', `id="${id}"`);
+  const root = `<?xml version="1.0"?><model unit="millimeter" xmlns="${CORE_NS}"><resources>${cube(1)}${cube(2)}`
+    + '<object id="10" type="model"><components><component objectid="1"/><component objectid="2"/></components></object>'
+    + '</resources><build><item objectid="10"/></build></model>';
+  const r = await readThreeMF(await packParts([
+    { name: '3D/3dmodel.model', data: root },
+    { name: 'Metadata/PrusaSlicer3_project.json', data: JSON.stringify(json) },
+  ]));
+  const p = r.objects[0].colors?.paint ?? [];
+  assert(p.slice(0, TRIS).every((x) => x?.v === '8') && p.slice(TRIS).every((x) => x?.v === '2C')
+    && p.every((x) => x.name === 'slic3rpe:mmu_segmentation'), `paint ${JSON.stringify(p.map((x) => x?.v))}`);
 });
 
 // --- integration: a 3MF part drives the real overhang engine ---------------

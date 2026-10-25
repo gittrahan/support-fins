@@ -31,6 +31,7 @@
  */
 
 import { zipStore, unzip } from './zip.js';
+import { filamentPainter } from './paintcode.js';
 
 const NS_CORE = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02';
 const REL_3DMODEL = 'http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel';
@@ -706,21 +707,41 @@ const stripExt = (s) => s.replace(/\.(stl|3mf|obj|step|stp)$/i, '');
 const PLACEMENT_KEY = /^(name|matrix|volume_type|modifier|source_\w+)$/;
 
 /**
+ * Each root object's filament (paintcode.js), from whichever slicer config says:
+ *   rootId -> { object: n, parts: partId -> n, ranges: [{ first, last, n }] }
+ * `parts` by component objectid (Bambu/Orca, PrusaSlicer 3), `ranges` by triangle
+ * of the root's own mesh (PrusaSlicer 2). 0 or absent is "the object's own".
+ */
+function filamentOf(filaments, id) {
+  if (!filaments.has(id)) filaments.set(id, { object: 0, parts: new Map(), ranges: [] });
+  return filaments.get(id);
+}
+const filamentNo = (v) => (/^\d+$/.test(String(v ?? '')) ? +v : 0);
+
+/**
  * Bambu/Orca's Metadata/model_settings.config: the human object names, keyed by
- * the ROOT object id (the same id the build item references), and each root
- * object's non-printing parts, keyed by the part id (= the component objectid).
+ * the ROOT object id (the same id the build item references), each root
+ * object's non-printing parts, keyed by the part id (= the component objectid),
+ * and the filament of each object and part, into `filaments` (filamentOf).
  * Best-effort: absent config or unknown id just falls back to a generic label /
  * a printing part at the call site.
  *   { names: id -> name, parts: rootId -> (partId -> { kind, name }) }
  */
-function parseBambuConfig(configXML) {
+function parseBambuConfig(configXML, filaments) {
   const names = new Map(), parts = new Map();
   if (!configXML) return { names, parts };
-  let curId = null, curPart = null;
+  let curId = null, curPart = null, curPartId = null;
   scanXML(configXML, (tag, a, selfClosing) => {
     const t = local(tag);
+    // a part's filament is also one of its settings (below): recorded, not taken
+    if (t === 'metadata' && curId && a.key === 'extruder') {
+      const n = filamentNo(a.value), f = filamentOf(filaments, curId);
+      if (curPartId) f.parts.set(curPartId, n);
+      else f.object = n;
+    }
     if (t === 'object') curId = a.id != null ? String(a.id) : null;
     else if (t === 'part' && curId) {
+      curPartId = selfClosing || a.id == null ? null : String(a.id);
       const kind = PART_KIND[a.subtype];
       curPart = kind ? { kind, name: '', settings: { bambu: [] } } : null;
       if (curPart) {
@@ -739,7 +760,7 @@ function parseBambuConfig(configXML) {
   }, (tag) => {
     const t = local(tag);
     if (t === 'object') curId = null;
-    else if (t === 'part') curPart = null;
+    else if (t === 'part') curPart = curPartId = null;
   });
   return { names, parts };
 }
@@ -750,12 +771,16 @@ function parseBambuConfig(configXML) {
  * volume one of its components. Merged into `parts` (parseBambuConfig's). The
  * name is not in the JSON; emitObject takes it from the volume's own object.
  */
-function addPrusa3Parts(json, parts) {
+function addPrusa3Parts(json, parts, filaments) {
   if (!json) return;
   let d;
   try { d = JSON.parse(json); } catch { return; }
   for (const o of Array.isArray(d?.objects) ? d.objects : []) {
+    if (o?.id == null) continue;
+    const f = filamentOf(filaments, String(o.id));
+    f.object = filamentNo(o.object_settings?.extruder);
     for (const v of Array.isArray(o?.volumes) ? o.volumes : []) {
+      if (v?.id != null) f.parts.set(String(v.id), filamentNo(v.volume_settings?.extruder));
       const kind = PART_KIND[v?.type];
       if (!kind || o.id == null || v.id == null) continue;
       const id = String(o.id);
@@ -776,7 +801,7 @@ function addPrusa3Parts(json, parts) {
  *   rootId -> [{ first, last, kind, name }]
  * Older files mark a modifier with key="modifier" value="1" and no volume_type.
  */
-function parsePrusaConfig(configXML) {
+function parsePrusaConfig(configXML, filaments) {
   const vols = new Map();
   if (!configXML) return vols;
   let curId = null, cur = null;
@@ -787,7 +812,15 @@ function parsePrusaConfig(configXML) {
       cur = { first: +a.firstid, last: +a.lastid, kind: null, name: '', legacy: null, settings: [] };
       if (!vols.has(curId)) vols.set(curId, []);
       vols.get(curId).push(cur);
+    } else if (t === 'metadata' && curId && !cur && a.key === 'extruder') {
+      filamentOf(filaments, curId).object = filamentNo(a.value);
     } else if (t === 'metadata' && cur) {
+      if (a.key === 'extruder') {
+        const n = filamentNo(a.value);
+        if (n && Number.isFinite(cur.first) && Number.isFinite(cur.last)) {
+          filamentOf(filaments, curId).ranges.push({ first: cur.first, last: cur.last, n });
+        }
+      }
       if (a.key === 'volume_type') cur.kind = PART_KIND[a.value] ?? null;
       else if (a.key === 'modifier' && a.value === '1') cur.legacy = 'modifier';
       else if (a.key === 'name' && a.value) cur.name = stripExt(a.value);
@@ -825,11 +858,15 @@ function parsePrusaConfig(configXML) {
  * depth (PrusaSlicer 2: a second instance is a wrapper object pointing at the
  * first one's mesh, and the config names only the mesh's object).
  * A part used twice is two extras, each its own shell, as the slicer has them.
+ *
+ * `fil` is the filament this subtree is on (filamentOf: the build item's object,
+ * then a component's part, then a PrusaSlicer 2 range of the mesh), and
+ * `roles.paint(p, n)` a triangle's paint for it (paintcode.js filamentPainter).
  */
 // a config's role, copied per use: each occurrence gets its own soup (and name)
 const named = (r) => r && { ...r };
 
-function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles = null, orient = false) {
+function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles = null, orient = false, fil = 0) {
   const part = getPart(path);
   const obj = part && part.objects.get(id);
   if (!obj) { stats.missing++; return; }        // dangling ref: a broken file
@@ -843,6 +880,7 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
 
   const { verts, tris } = obj;
   const ranges = role ? null : roles?.ranges?.(path, id);
+  const filRanges = roles?.filRanges?.(path, id);
   const mirrored = orient && m && (
     m[0] * (m[4] * m[8] - m[5] * m[7])
     - m[1] * (m[3] * m[8] - m[5] * m[6])
@@ -864,7 +902,9 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
     if (!r) partTris++;
     if (col) {
       const k = out.length / 9;
-      if (obj.paint?.[t / 3]) col.paint[k] = obj.paint[t / 3];
+      const n = filRanges?.find((v) => t / 3 >= v.first && t / 3 <= v.last)?.n || fil;
+      const p = roles?.paint ? roles.paint(obj.paint?.[t / 3], n) : obj.paint?.[t / 3];
+      if (p) col.paint[k] = p;
       if (obj.rgb?.[t / 3]) col.rgb[k] = obj.rgb[t / 3];
     }
     for (const o of mirrored ? [o0, o2, o1] : [o0, o1, o2]) {
@@ -883,7 +923,9 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
   for (const c of obj.components) {
     const childPath = c.path ? partName(c.path) : path;
     emitObject(getPart, childPath, c.objectid, compose(c.transform, m), sink, seen, stats,
-      named(roles?.parts?.get(c.objectid)) ?? role, roles && { ranges: roles.ranges }, orient);
+      named(roles?.parts?.get(c.objectid)) ?? role,
+      roles && { ranges: roles.ranges, filRanges: roles.filRanges, paint: roles.paint }, orient,
+      roles?.filament?.parts.get(c.objectid) || fil);
   }
   seen.delete(key);
 }
@@ -972,9 +1014,13 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
   const unit = root.unit;
   const scale = UNIT_MM[unit] ?? 1;
   const text = (name) => (parts.has(name) ? new TextDecoder().decode(parts.get(name)) : null);
-  const { names, parts: slicerParts } = parseBambuConfig(text('Metadata/model_settings.config'));
-  addPrusa3Parts(text('Metadata/PrusaSlicer3_project.json'), slicerParts);
-  const prusaVols = parsePrusaConfig(text('Metadata/Slic3r_PE_model.config'));
+  const filaments = new Map();
+  const bambu = text('Metadata/model_settings.config');
+  const { names, parts: slicerParts } = parseBambuConfig(bambu, filaments);
+  addPrusa3Parts(text('Metadata/PrusaSlicer3_project.json'), slicerParts, filaments);
+  const prusaVols = parsePrusaConfig(text('Metadata/Slic3r_PE_model.config'), filaments);
+  // a part's filament goes out as paint (paintcode.js), in the file's slicer's words
+  const paint = filaments.size ? filamentPainter(bambu ? 'paint_color' : 'slic3rpe:mmu_segmentation') : null;
 
   // Each <build><item> is one pickable object. No <build> is a valid-but-empty
   // plate; a few CAD exporters omit it, so fall back to the mesh/assembly objects
@@ -1003,9 +1049,13 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
       return extra.get(role);
     };
     const stats = { meshes: 0, skipped: 0, dropped: 0, missing: 0 };
+    const filament = filaments.get(item.objectid);
     const roles = { parts: slicerParts.get(item.objectid),
-      ranges: (path, id) => (path === rootName ? prusaVols.get(id) : null) };
-    emitObject(getPart, rootName, item.objectid, item.transform, sink, new Set(), stats, null, roles, outwardWinding);
+      ranges: (path, id) => (path === rootName ? prusaVols.get(id) : null),
+      filament, paint,
+      filRanges: (path, id) => (path === rootName ? filaments.get(id)?.ranges : null) };
+    emitObject(getPart, rootName, item.objectid, item.transform, sink, new Set(), stats, null, roles, outwardWinding,
+      filament?.object ?? 0);
     if (buildIndex !== null && (stats.missing || stats.dropped || stats.cycles)) {
       throw new Error('selected object has missing resources, cyclic components or invalid triangle references');
     }
