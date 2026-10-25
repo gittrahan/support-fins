@@ -13,7 +13,8 @@ tables at the bottom of this page are generated from it.
 | OrcaSlicer | the plugin config: a JSON object, see [Orca](#orcaslicer) |
 | Command line | flags, e.g. `--mode full --gap 0.3`; `support-fins --help` lists them all |
 | MCP server | the `settings` object, named as the CLI's flags without `--` (`"tine-density": 40`) |
-| Onshape, PrusaSlicer | their own dialogs. These two are ports, not the shared engine, so not every setting below exists there |
+| Onshape | its own dialog: a port, not the shared engine, so not every setting below exists there |
+| PrusaSlicer | hand-placed fins only (Add a Fin); for Auto or Full coverage use the site or the command line |
 
 ## Units: percent settings
 
