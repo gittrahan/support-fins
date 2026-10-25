@@ -12,7 +12,7 @@ tables at the bottom of this page are generated from it.
 | Cura, Fusion, FreeCAD, Blender, Rhino, SolidWorks | the plugin's dialog, built from the same list (no file to edit) |
 | OrcaSlicer | the plugin config: a JSON object, see [Orca](#orcaslicer) |
 | Command line | flags, e.g. `--mode full --gap 0.3`; `support-fins --help` lists them all |
-| MCP server | the `settings` object, named as the CLI's flags without `--` (`"tine-density": 40`) |
+| MCP server | the `settings` object, named as the CLI's flags without `--` (`"tine-density": 40`); on/off settings take `true`/`false` under their plain name (`"tines": false`, not `no-tines`) |
 | Onshape | its own dialog: a port, not the shared engine, so not every setting below exists there |
 | PrusaSlicer | hand-placed fins only (Add a Fin); for Auto or Full coverage use the site or the command line |
 
@@ -38,8 +38,8 @@ setting from the tables below by its **JSON key**:
 Layer height and nozzle always come from Orca's own settings, so `layerHeight` and
 `nozzle` are refused there. A key the engine doesn't know, or a value out of range,
 fails the slice with a message that names it (`unknown dialog option sway`), rather
-than printing default fins. Older configs' `tine_density` and `bed_pad: false` still
-work.
+than printing default fins. Older configs' `tine_density` (another name for
+`tineDensity`, still 0 to 1) and `bed_pad: false` (= `"padStyle": "off"`) still work.
 
 Full coverage, every part:
 
@@ -76,6 +76,8 @@ A few things that look right but aren't:
 | `"cutout": {"label": "Diamond", "value": "diamond"}` | `"cutout": "diamond"` (choices are the plain value) |
 | `"tineDensity": 5` | `"tineDensity": 0.05` (percent settings are / 100) |
 | `"mode": "Full coverage"` | `"mode": "full"` (the value, not the label) |
+| `"bed_pad": true` | leave it out, or `"padStyle": "auto"` (`bed_pad` is an old name, only its `false` does anything) |
+| `"uncappedDepth": true` | leave it out (not a setting; the slice fails on it) |
 
 ## All settings
 

@@ -47,7 +47,7 @@ export function optionsBlock() {
     out.push('');
     for (const o of opts) {
       const notes = [];
-      if (o.percent) notes.push(`A percent: the site and the CLI show ${o.min * 100}-${o.max * 100}, a JSON config holds that / 100.`);
+      if (o.percent) notes.push(`A percent: the site and the CLI show ${+(o.min * 100).toFixed(6)}-${+(o.max * 100).toFixed(6)}, a JSON config holds that / 100.`);
       if (o.showIf) notes.push(`Only used when ${o.showIf.map(when).join(' and ')}.`);
       if (o.hostSupplied === 'slicer') notes.push('Slicer plugins take this from the slicer\'s own settings; leave it out of their config.');
       out.push(`- **${o.label}** (${code(o.key)}): ${o.tooltip}${notes.length ? ' ' + notes.join(' ') : ''}`);
