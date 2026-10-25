@@ -61,6 +61,7 @@ import { DOWNHILL, downhillLines } from './prop/downhill.js';
 import { latticeStruts, strutPatches } from './prop/lattice.js';
 import { raceAgainst, rasterRest, rasterTracks, withRaster } from './prop/raster.js';
 import { tubeRivalry } from './prop/rival.js';
+import { bridgeRace } from './prop/bridgerace.js';
 import { TRACE, traceGroups } from './prop/trace.js';
 import { buildSquatBed } from './prop/squat.js';
 import { seat } from './prop/surface.js';
@@ -369,10 +370,14 @@ function buildPass(topo, result, rot, opts, raster) {
   // A small tube competes with its region's patches: see web/prop/rival.js.
   const rivalry = tubeRivalry({ out, props, skipped, served: servedRegions, tally },
                               topo, result, partTris);
+  // A flat patch turned across the slicer's bridge competes with its old-way
+  // walls: see web/prop/bridgerace.js.
+  const race = bridgeRace({ out, props, skipped, served: servedRegions, tally });
 
   for (const patch of patches) {
     const regionTris = patch.tris;
     const mark = rivalry.begin(patch);  // a small tube undoes to here
+    const raceStart = race.begin(patch); // a turned flat patch races from here
     let lines;
     if (patch.lines) {
       // A tube's lowest-line track(s), fitted and resampled by tubeLine.
@@ -396,6 +401,7 @@ function buildPass(topo, result, rot, opts, raster) {
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
       lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off }, rowSpan, patch.axis ?? null);
+      race.turned(patch, lines, patches, raceStart);
       // The user chose sub-cap spacing (wantSparse) AND this face actually landed a
       // multi-row gap wider than the cap. Flag it so the UI can warn (never blocks;
       // Matthew's call). Single-row faces (spacing 0) can't sag, so they don't warn.
@@ -629,6 +635,7 @@ function buildPass(topo, result, rot, opts, raster) {
     if (patch.smallTube) rivalry.tubeDone(patch, mark, patches);
   }
   rivalry.finish();
+  race.finish();
 
   // `served` counts REGIONS with at least one wall, because a region can now
   // yield several -- subtracting a prop count from a region count would say a

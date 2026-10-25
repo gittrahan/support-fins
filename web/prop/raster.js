@@ -59,7 +59,9 @@ export const gripRise = (z) => Math.max(GRIP_RISE, GRIP_RISE_REL * z);
  */
 export function rasterTracks(regionPts, regionTris, partTris, step, rowSpan, support) {
   const lines = [];
-  const tracks = patchTracks(regionPts, regionTris, step, support, rowSpan);
+  // never turned across the bridge: only buildPass races a turn against the old
+  // walls (prop/bridgerace.js), and this pass races its tracks against those
+  const tracks = patchTracks(regionPts, regionTris, step, support, rowSpan, null, false);
   lines.spacing = tracks.spacing;       // row pitch, for the sparse-coverage sag warning
   for (const t of tracks) {
     // floorLine's plate/part split, the same test buildPartAttached counts with

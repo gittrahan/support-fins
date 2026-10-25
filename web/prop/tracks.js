@@ -8,6 +8,7 @@
  */
 import { insidePart } from '../inside.js';
 import { faceAdjacency } from '../planes.js';
+import { flatRunAxis } from './bridge.js';
 import { PROP } from './config.js';
 import { contactLine, straightness } from './contact.js';
 import { surfaceZAt } from './surface.js';
@@ -319,7 +320,7 @@ function convexAbout(rn, regionTris, cx, cy, ux, uy) {
  * region's.
  */
 export function patchTracks(pts, patchTris, step = PROP.stationStep, support = null,
-                            span = PROP.maxUnsupportedSpan, axis = null) {
+                            span = PROP.maxUnsupportedSpan, axis = null, turn = true) {
   if (!pts.length) return [];
 
   // The 2x2 XY covariance of the patch, plus its cross-terms with Z. This used to
@@ -350,7 +351,7 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // 90deg down the long axis). The slope gradient, fitted from the same sums, is
   // robust and part-aligned -- so the walls run parallel to a real edge instead
   // of at an angle the part never suggested.
-  let ux, uy;
+  let ux, uy, turned = null;     // the old-rule axis, when the bridge turned this one
   if (axis) {
     [ux, uy] = axis;
   } else if (slope >= PROP.contourSlopeMin) {
@@ -360,61 +361,12 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
     // 15.7mm stub a level-contour run produced on the same messy region.
     ux = gx; uy = gy;
   } else {
-    // near-flat ledge: no slope to follow, so align to the longer world axis, the
-    // way a human draws a fin on a square face -- never a covariance diagonal.
-    let xLo = Infinity, xHi = -Infinity, yLo = Infinity, yHi = -Infinity;
-    for (const p of pts) {
-      if (p[0] < xLo) xLo = p[0]; if (p[0] > xHi) xHi = p[0];
-      if (p[1] < yLo) yLo = p[1]; if (p[1] > yHi) yHi = p[1];
-    }
-    let spanX = xHi - xLo, spanY = yHi - yLo;
-
-    // Run walls along the axis of the longer UNSUPPORTED span, not the longer
-    // face. A bridge ceiling is one flat square face whose ends rest on the two
-    // legs below it; the part that bridges is only the gap between them. Measured
-    // as the whole face the gap reads square, the tie picks the wrong axis, and
-    // the walls run ALONG the bridge (parallel to the layer lines they should be
-    // breaking up) instead of across it. So SCAN A GRID, mark every cell with
-    // solid part directly beneath as supported, and size each axis by its longest
-    // CONTIGUOUS free run (not the free bounding box, whose edges survive on the
-    // odd boundary cell insidePart reads as outside). With nothing below -- an
-    // ordinary bed overhang -- every cell is free and the runs equal the bbox, so
-    // this is the old longer-axis rule unchanged.
-    if (support && spanX > 0 && spanY > 0) {
-      const gstep = Math.max(1, step);
-      const nx = Math.min(80, Math.ceil(spanX / gstep));
-      const ny = Math.min(80, Math.ceil(spanY / gstep));
-      const grid = [];                                    // grid[i][j] = free?
-      for (let i = 0; i <= nx; i++) {
-        const x = xLo + (spanX * i) / nx;
-        const col = [];
-        for (let j = 0; j <= ny; j++) {
-          const y = yLo + (spanY * j) / ny;
-          const z = surfaceZAt(patchTris, x, y);
-          col.push(z !== null &&
-            !insidePart(support.topo, support.rot, support.offset, x, y, z - 0.1));
-        }
-        grid.push(col);
-      }
-      const dx = spanX / nx, dy = spanY / ny;
-      let runX = 0, runY = 0;
-      for (let j = 0; j <= ny; j++) {                     // longest free run along X
-        let run = 0;
-        for (let i = 0; i <= nx; i++) {
-          run = grid[i][j] ? run + 1 : 0;
-          if (run > runX) runX = run;
-        }
-      }
-      for (let i = 0; i <= nx; i++) {                     // longest free run along Y
-        let run = 0;
-        for (let j = 0; j <= ny; j++) {
-          run = grid[i][j] ? run + 1 : 0;
-          if (run > runY) runY = run;
-        }
-      }
-      if (runX > 0 && runY > 0) { spanX = runX * dx; spanY = runY * dy; }
-    }
-    if (spanX >= spanY) { ux = 1; uy = 0; } else { ux = 0; uy = 1; }
+    // near-flat ledge: no slope to follow, so cross the slicer's bridge lines
+    // (prop/bridge.js) -- axis-aligned, never a covariance diagonal.
+    // (`turn` false: the old pick, unraced -- the raster pass, see rasterTracks)
+    const a = flatRunAxis(pts, patchTris, step, support);
+    if (a.turned && !turn) [ux, uy] = a.old;
+    else { [ux, uy] = a; if (a.turned) turned = a.old; }
   }
   const un = Math.hypot(ux, uy); ux /= un; uy /= un;
   const vx = -uy, vy = ux;
@@ -426,7 +378,7 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
     if (u < uLo) uLo = u; if (u > uHi) uHi = u;
     if (t < vLo) vLo = t; if (t > vHi) vHi = t;
   }
-  if (uHi - uLo < 1e-6) return [];
+  if (uHi - uLo < 1e-6) return Object.assign([], { turned });
   const nSt = Math.max(2, Math.min(400, Math.ceil((uHi - uLo) / step)));
 
   const vExt = vHi - vLo;
@@ -462,6 +414,7 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // compares it to the anti-sag cap to decide whether to warn: only a face wide
   // enough to want >1 row can actually sag, and only when its spacing exceeds cap.
   kept.spacing = rows.spacing;
+  kept.turned = turned;          // walls turned across the bridge: raced (prop/bridgerace.js)
   return kept;
 }
 

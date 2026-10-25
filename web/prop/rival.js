@@ -23,9 +23,13 @@
 import { MIN_REGION_AREA } from '../overhangs.js';
 import { PROP } from './config.js';
 
-export function tubeRivalry(acc, topo, result, partTris) {
+/**
+ * Snapshot and undo of everything the patch loop accumulates (`acc`, see
+ * tubeRivalry), for a route that is built, judged, and maybe taken back out.
+ * Shared with the bridge race (prop/bridgerace.js).
+ */
+export function routeState(acc) {
   const { out, props, skipped, served, tally } = acc;
-
   const snapshot = () => ({ out: out.length, props: props.length, tines: tally.tines,
                             skipped: { ...skipped }, sagRisk: tally.sagRisk, served: new Set(served) });
   const restore = (m) => {
@@ -33,6 +37,12 @@ export function tubeRivalry(acc, topo, result, partTris) {
     Object.assign(skipped, m.skipped);
     served.clear(); for (const r of m.served) served.add(r);
   };
+  return { snapshot, restore };
+}
+
+export function tubeRivalry(acc, topo, result, partTris) {
+  const { out, props, skipped, served, tally } = acc;
+  const { snapshot, restore } = routeState(acc);
   // Undo the region's patches and put its tube's walls back instead, moved to
   // the end of `out` (so every triRange shifts by the same amount).
   const keepTube = (r) => {
