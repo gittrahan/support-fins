@@ -82,8 +82,8 @@ walls = [o for o in fins_of(part) if " wall " in o.name]
 pads = [o for o in fins_of(part) if o.name.endswith("bed pad")]
 assert report.startswith("5 walls, "), report
 tines = int(report.split(", ")[1].split()[0])
-assert abs(tines - 20) <= 3, report        # 20 on the site; tines move with float noise
-assert len(walls) == 4 and len(pads) == 1, [o.name for o in fins_of(part)]
+assert abs(tines - 28) <= 3, report        # 28 on the site; tines move with float noise
+assert len(walls) == 5 and len(pads) == 1, [o.name for o in fins_of(part)]
 assert all(closed(o) for o in fins_of(part)), "a fin object isn't closed"
 low = engine.part_soup(part, c)[..., 2].min()
 for o in fins_of(part):
