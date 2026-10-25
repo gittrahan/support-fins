@@ -464,6 +464,12 @@ The extra half-tip, `max(0, (tip − 0.6) / 2)`, is added to the reach: 0.15 at 
 that extra half-tip): at a fixed 0.6 a 2.0 nozzle's 3 mm tip and 2.5 mm tines hung 1.2 mm
 past the part's edge -- tabs out of the wall's side (cube at X30). The tip's face stays
 0.3 mm inside the edge at every nozzle; the wider wall body below it may reach past.
+That flush row stands on **every overhang** up to 45° from horizontal (`PROP.edgeFlatDeg`;
+it was 30°, and a cube at X35–X44 kept a 6.7 mm strip bare along each side edge, #269),
+one more row than the mid-strip layout, never doubled (#384). **With Sway on, 30°**
+(`PROP.edgeFlatDegSway`): the flush wall stands at the foot of the upright side a brace
+needs, ~5 mm of it, so the braces win there. A brace placed by hand with Sway off is still
+kept off the flush walls -- tick Sway to give the braces those columns.
 The plugins build at 0.4 for now. The comb's scan step follows the tine
 width, so a 0.2 comb can land a tine or two fewer. The nozzle is a printer setting:
 remembered across visits, left alone by a loaded session.

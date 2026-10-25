@@ -212,6 +212,15 @@ Deno.test('sway braces come back as their own block: fins | braces | pad', () =>
   assert((nOn + s.swayTriangles + s.padTriangles) * 9 === on.triangles.length, 'counts don\'t cover the soup');
 });
 
+Deno.test('Sway on keeps its braces on a tilted part (the flush end walls give way, PROP.edgeFlatDegSway)', () => {
+  // lbracket @Y35 at twice the size: a flush end wall at the foot of its upright side
+  // took the brace's column (1 -> 0) until Sway kept the old rows past 30deg
+  const big = PART.map((v) => v * 2);
+  const off = computeFins(big, OPTS).stats, on = computeFins(big, { ...OPTS, sway: { on: true } }).stats;
+  assert(on.swayBraces >= 1, JSON.stringify(on));
+  assert(on.finTriangles < off.finTriangles, `Sway on kept the flush rows: ${on.finTriangles} vs ${off.finTriangles} fin triangles`);
+});
+
 Deno.test('pad style Off is bedPad: false', () => {
   const off = computeFins(PART, { ...OPTS, padStyle: 'off' });
   assert(off.stats.padTriangles === 0, 'Off still built a pad');
