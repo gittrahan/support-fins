@@ -80,7 +80,7 @@ generate()
 report = part["sf_report"]
 walls = [o for o in fins_of(part) if " wall " in o.name]
 pads = [o for o in fins_of(part) if o.name.endswith("bed pad")]
-assert report.startswith("4 walls, "), report
+assert report.startswith("5 walls, "), report
 tines = int(report.split(", ")[1].split()[0])
 assert abs(tines - 20) <= 3, report        # 20 on the site; tines move with float noise
 assert len(walls) == 4 and len(pads) == 1, [o.name for o in fins_of(part)]
@@ -103,7 +103,7 @@ assert ui.out_of_date(part, scene) is None
 scene.support_fins.gap = 0.3
 assert ui.out_of_date(part, scene) == "the settings changed"
 generate()
-assert part["sf_report"].startswith("4 walls, ")
+assert part["sf_report"].startswith("5 walls, ")
 scene.support_fins.gap = 0.2
 generate()
 bm = bmesh.new()
