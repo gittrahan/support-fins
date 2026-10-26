@@ -10,13 +10,18 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import './pick.js';     // every Mesh raycast through a BVH (pointer picks on dense parts)
 import { el } from './dom.js';
 import { guardedCanvas } from './glguard.js';
+import { showGlFail, watchGl } from './glfail.js';
 
 THREE.Object3D.DEFAULT_UP.set(0, 0, 1);
 
 // ---------------------------------------------------------------- scene setup
 
 export const viewport = el('viewport');
-export const renderer = new THREE.WebGLRenderer({ antialias: true, canvas: guardedCanvas() });
+// No WebGL at all: say so before the throw stops the page loading (#387).
+export const renderer = (() => {
+  try { return new THREE.WebGLRenderer({ antialias: true, canvas: guardedCanvas() }); }
+  catch (e) { showGlFail('start'); throw e; }
+})();
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 // Label the canvas: a screen reader otherwise announces a bare "canvas". The 3D
 // itself isn't reachable non-visually, but the live stats panel carries the same
@@ -88,6 +93,8 @@ for (const k of ['add', 'remove']) {
   scene[k] = (...objects) => { requestRender(); return own(...objects); };
 }
 requestRender();   // startup
+// A lost context (driver reset) leaves the view black: show why, and redraw on restore.
+watchGl(renderer.domElement, () => requestRender());
 
 // ------------------------------------------------------------------ the plate
 
