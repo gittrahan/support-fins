@@ -56,6 +56,7 @@ const ghostMaterial = new THREE.MeshStandardMaterial({
   side: THREE.DoubleSide, clippingPlanes: clip,
 });
 let ghostMesh = null;
+let ghostQueued = null;   // the wall in progress's ghost, built at most once a frame (updatePreview)
 
 // endpoint dot, cursor dot, and the rubber-band line between them. Unit radius;
 // sizeMarkers() rescales them every frame to a fixed size ON SCREEN. They used to
@@ -144,6 +145,7 @@ export function printTriangles(topology, rot, { x: dx, y: dy, z: dz }) {
 /** Drop any wall-in-progress and hide every transient draw visual. */
 export function clearPreview() {
   drawStart = drawEnd = null;
+  ghostQueued = null;   // a frame already queued would rebuild the dropped wall's ghost
   drawDot.visible = drawDot2.visible = drawCursor.visible = drawBand.visible = false;
   dropGhost();
   showGhostMsg('');
@@ -156,6 +158,7 @@ export function undoDrawPoint() {
   if (!drawStart) return false;
   if (drawEnd) {
     drawEnd = null;
+    ghostQueued = null;   // nor a queued curve ghost bring its message back
     drawDot2.visible = false;
     showGhostMsg('');
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); ghostMesh = null; }
@@ -201,8 +204,10 @@ function showGhostMsg(msg) {
 // Ends snap to another drawn wall's end within this many CSS pixels, so curves chain
 // into a ring (two arcs; one closed loop could not be pulled off the part).
 const SNAP_PX = 10;
-/** `p` (world), or the drawn wall end it is within SNAP_PX of on screen. */
+/** A copy of `p` (world), or the drawn wall end it is within SNAP_PX of on screen. Curves
+ *  only: a straight wall lands where it is clicked, as it always has. */
 function snapEnd(p) {
+  if (drawShape !== 'curve') return p.clone();
   const tol = SNAP_PX * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)
     * camera.position.distanceTo(p) / Math.max(1, viewport.clientHeight);
   let best = null, bd = tol;
@@ -215,7 +220,7 @@ function snapEnd(p) {
       if (d < bd) { bd = d; best = q.clone(); }
     }
   }
-  return best ?? p;
+  return best ?? p.clone();   // a copy: callers turn it into the part's frame in place
 }
 
 function dropGhost() {
@@ -388,7 +393,6 @@ export function removeSelected() {
 
 /** Show the endpoint / cursor / band, and a live ghost of the wall in progress. A
  *  curve with both ends down bends through the cursor: its third click. */
-let ghostQueued = null;
 function updatePreview(hitPoint) {
   // a wall end snaps onto another wall's end; a curve's third click goes where it's put
   const p = drawEnd ? hitPoint : snapEnd(hitPoint);
@@ -750,6 +754,6 @@ export function drawClick(e) {
   } else if (drawEnd) {
     placeWall(part.localToWorld(drawEnd.clone()), hit.point.clone());
   } else {
-    placeWall(snapEnd(hit.point));
+    placeWall(hit.point.clone());
   }
 }

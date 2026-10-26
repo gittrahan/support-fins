@@ -49,6 +49,16 @@ Deno.test('drawarc: the clicked heights carry round the arc, a to the third clic
   assertClose(mid[2], 20, 0.6, 'the third click\'s height');
 });
 
+Deno.test('drawarc: a clockwise arc meets its third click at that click\'s height', () => {
+  // m above a left-to-right chord (y up): the arc runs clockwise (negative sweep), and the
+  // a -> m -> b height ramp must place m by going round that way
+  const a = [-10, 0, 10], b = [10, 0, 30], m = [0, 10, 20];
+  assert(arcThrough(a, b, m).sweep < 0, 'expected a clockwise arc');
+  const st = arcStations(a, b, m, 1, 3);
+  const near = st.reduce((q, p) => (Math.hypot(p[0], p[1] - 10) < Math.hypot(q[0], q[1] - 10) ? p : q));
+  assertClose(near[2], 20, 0.6, 'the third click\'s height on a clockwise arc');
+});
+
 Deno.test('drawarc: a curve tighter than the foot can follow is refused, with the radius', () => {
   const R = DRAW_MIN_RADIUS - 1;
   const r = drawnWall([-R, 0, Z], [R, 0, Z], slab().pos, 0, { through: [0, R, Z] });
