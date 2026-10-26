@@ -80,7 +80,7 @@ function snapshot() {
   return {
     who: liveSlot(),
     quat: [q.x, q.y, q.z, q.w],
-    walls: drawnWalls.map((w) => ({ kind: w.kind, face: w.face, capped: w.capped, a: w.a.clone(), b: w.b?.clone() })),
+    walls: drawnWalls.map((w) => ({ kind: w.kind, face: w.face, capped: w.capped, a: w.a.clone(), b: w.b?.clone(), m: w.m?.clone() })),
     load: loadDir ? loadDir.clone() : null,
     finMode, finsVisible, drawAugment,
     removedSigs: [...removedSigs],
@@ -173,7 +173,7 @@ export function applySettings({ form, finMode: mode, finsVisible: on }) {
 /** Apply a whole state, as undo does (ui/session.js builds one from a saved 3MF). */
 export function restoreState(s) {
   part.quaternion.set(s.quat[0], s.quat[1], s.quat[2], s.quat[3]);
-  setDrawnWalls(s.walls.map((w) => ({ kind: w.kind, face: w.face, capped: w.capped, a: w.a.clone(), b: w.b?.clone(),
+  setDrawnWalls(s.walls.map((w) => ({ kind: w.kind, face: w.face, capped: w.capped, a: w.a.clone(), b: w.b?.clone(), m: w.m?.clone(),
                                        ok: false, info: null })));
   replaceLoadDir(s.load ? s.load.clone() : null);
   restoreRemovals(s.removedSigs);

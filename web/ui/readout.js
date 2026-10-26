@@ -12,7 +12,7 @@ import { el } from './dom.js';
 const pinsOn = () => PROP.tineDir === 'vertical';
 const tineCount = (n) => (pinsOn() ? tn('{n} pin', '{n} pins', n) : tn('{n} tine', '{n} tines', n));
 import { removedIds } from './remove.js';
-import { drawnWalls, drawMsg, selectedWall, selectedNote, drawShown, drawMaterial } from './walls.js';
+import { drawnWalls, drawMsg, selectedWall, selectedNote, drawShown, drawMaterial, drawShapeNow } from './walls.js';
 import {
   finMode, finsVisible, materialDensity, syncSectionSums, autoLike,
 } from './settings.js';
@@ -226,8 +226,11 @@ function updateDrawReadout(built, ms) {
   const lead = [];
   const help = [];
   if (!drawnWalls.length && !drawMsg) {
-    lead.push(t('Click two points across an overhang (a line lands right where you '
-      + 'draw it, red faces included) to lay a breakaway wall under it'));
+    lead.push(drawShapeNow() === 'curve'
+      ? t('Click the two ends of a curve on the overhang, then a point it runs through, '
+        + 'to lay a curved breakaway wall under it')
+      : t('Click two points across an overhang (a line lands right where you '
+        + 'draw it, red faces included) to lay a breakaway wall under it'));
   }
   if (ok.length) {
     help.push(tines

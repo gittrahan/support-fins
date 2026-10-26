@@ -7,6 +7,7 @@ import { t } from './i18n.js';
  */
 import * as THREE from 'three';
 import { drawnWall } from '../draw.js';
+import { arcThrough, arcStations } from '../drawarc.js';
 import { planGrid } from '../fins/tall.js';
 import { swayAtFace, faceIsUpright } from '../sway.js';
 import { initBraceGhost, showBrace, moveTip, hideBrace, dropBrace, braceGrace } from './braceghost.js';
@@ -28,11 +29,19 @@ import { lastBuilt, swayOpts } from './finbuild.js';
 // straight. Endpoints are stored in the part's LOCAL frame so a wall tracks the
 // part through later rotations, the same way the auto fins are rebuilt each time
 // the orientation changes.
-export let drawnWalls = [];        // committed walls: { a: Vector3(local), b: Vector3(local), ok, info }
+export let drawnWalls = [];        // committed walls: { a, b, m?: Vector3(local), ok, info } -- m: a curve's third click
 export function setDrawnWalls(w) { drawnWalls = w; }
 export let drawnMesh = null;
 export let drawnTris = [];
 export let drawStart = null;       // Vector3 (local) -- first click of a wall in progress
+let drawEnd = null;                // Vector3 (local) -- a curve's second click (its other end)
+// Line or Curve (local issue 063): a curve is three clicks -- its ends, then a point it
+// runs through -- built round the circular arc through all three (drawarc.js).
+// Remembered per browser (optional).
+const SHAPE_KEY = 'support_fins_draw_shape';
+let drawShape = 'line';
+export const drawShapeNow = () => drawShape;
+try { if (localStorage.getItem(SHAPE_KEY) === 'curve') drawShape = 'curve'; } catch { /* storage off */ }
 export let drawMsg = '';           // last placement result, for the readout
 let printTris = null;       // whole part in print space, cached per orientation
 let printTrisDirty = true;
@@ -67,13 +76,17 @@ const drawDot = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), guideMat(0x5
 const CURSOR_OK = 0xcffbe4;   // braceghost.js eases it to amber on a refused brace spot
 const drawCursor = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14),
   new THREE.MeshBasicMaterial({ color: CURSOR_OK, depthTest: false, transparent: true, opacity: 0.6 }));
-const bandGeom = new THREE.BufferGeometry()
-  .setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+const drawDot2 = new THREE.Mesh(drawDot.geometry, drawDot.material);   // a curve's other end
+// The band is a straight line, or a curve's arc: a fixed buffer, drawn to its length.
+const BAND_MAX = 129;
+const bandGeom = new THREE.BufferGeometry();
+bandGeom.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(BAND_MAX * 3), 3));
+const BAND_OK = 0x6dffab, BAND_BAD = 0xff6b6b;   // red: the wall in progress can't build (too tight)
 const drawBand = new THREE.Line(bandGeom,
-  new THREE.LineBasicMaterial({ color: 0x6dffab, depthTest: false, transparent: true }));
+  new THREE.LineBasicMaterial({ color: BAND_OK, depthTest: false, transparent: true }));
 drawBand.frustumCulled = false;   // its endpoints move every frame; stale bounds would cull it
 initBraceGhost(drawCursor.material);
-for (const o of [drawDot, drawCursor, drawBand]) {
+for (const o of [drawDot, drawDot2, drawCursor, drawBand]) {
   o.visible = false;
   o.renderOrder = 11;             // above the hoverFace (renderOrder 1) and the part
   scene.add(o);
@@ -101,6 +114,7 @@ export function sizeMarkers() {
   const mmPerPx = (p) => 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)
     * camera.position.distanceTo(p) / Math.max(1, viewport.clientHeight);
   if (drawDot.visible) drawDot.scale.setScalar(DOT_PX * mmPerPx(drawDot.position));
+  if (drawDot2.visible) drawDot2.scale.setScalar(DOT_PX * mmPerPx(drawDot2.position));
   if (drawCursor.visible) drawCursor.scale.setScalar(CURSOR_PX * mmPerPx(drawCursor.position));
 }
 
@@ -129,9 +143,79 @@ export function printTriangles(topology, rot, { x: dx, y: dy, z: dz }) {
 
 /** Drop any wall-in-progress and hide every transient draw visual. */
 export function clearPreview() {
-  drawStart = null;
-  drawDot.visible = drawCursor.visible = drawBand.visible = false;
+  drawStart = drawEnd = null;
+  drawDot.visible = drawDot2.visible = drawCursor.visible = drawBand.visible = false;
   dropGhost();
+  showGhostMsg('');
+  syncBack();
+}
+
+/** Backspace: take back the last point of the wall in progress (a curve's end, or
+ *  its start -- which drops the wall). True when there was one. */
+export function undoDrawPoint() {
+  if (!drawStart) return false;
+  if (drawEnd) {
+    drawEnd = null;
+    drawDot2.visible = false;
+    showGhostMsg('');
+    if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); ghostMesh = null; }
+    part.updateMatrixWorld();
+    if (drawCursor.visible) updatePreview(drawCursor.position);
+    else drawBand.visible = false;
+    syncBack();
+  } else {
+    clearPreview();
+  }
+  updateReadout(lastBuilt);
+  return true;
+}
+
+/** The band's points: the straight line, or a curve's arc ending at the cursor. */
+function setBand(pts) {
+  const pos = bandGeom.attributes.position, n = Math.min(pts.length, BAND_MAX);
+  for (let i = 0; i < n; i++) pos.setXYZ(i, pts[i].x, pts[i].y, pts[i].z);
+  pos.needsUpdate = true;
+  bandGeom.setDrawRange(0, n);
+}
+
+/** World points round the arc a -> b through m (a straight line when in line). */
+function arcPoints(a, b, m) {
+  const c = arcThrough([a.x, a.y], [b.x, b.y], [m.x, m.y]);
+  if (!c) return [a, b];
+  const step = Math.max(0.25, Math.abs(c.sweep) * c.r / (BAND_MAX - 1));
+  return arcStations([a.x, a.y, a.z], [b.x, b.y, b.z], [m.x, m.y, m.z], step, 3)
+    .slice(0, BAND_MAX).map((p) => new THREE.Vector3(p[0], p[1], p[2]));
+}
+
+// A curve the ghost can't build says why in the readout, as soon as it can't
+// (a placed wall's refusal already does): changed only when the reason does.
+let ghostMsg = '';
+function showGhostMsg(msg) {
+  drawBand.material.color.setHex(msg ? BAND_BAD : BAND_OK);
+  if (msg === ghostMsg) return;
+  ghostMsg = msg;
+  drawMsg = msg ? t('can’t place this curve: {reason}', { reason: t(msg) }) : '';
+  updateReadout(lastBuilt);
+}
+
+// Ends snap to another drawn wall's end within this many CSS pixels, so curves chain
+// into a ring (two arcs; one closed loop could not be pulled off the part).
+const SNAP_PX = 10;
+/** `p` (world), or the drawn wall end it is within SNAP_PX of on screen. */
+function snapEnd(p) {
+  const tol = SNAP_PX * 2 * Math.tan(THREE.MathUtils.degToRad(camera.fov) / 2)
+    * camera.position.distanceTo(p) / Math.max(1, viewport.clientHeight);
+  let best = null, bd = tol;
+  const q = new THREE.Vector3();
+  for (const w of drawnWalls) {
+    if (w.kind === 'sway') continue;
+    for (const end of [w.a, w.b]) {
+      part.localToWorld(q.copy(end));
+      const d = q.distanceTo(p);
+      if (d < bd) { bd = d; best = q.clone(); }
+    }
+  }
+  return best ?? p;
 }
 
 function dropGhost() {
@@ -196,7 +280,8 @@ export function sweepDrawn({ topology, res, rot, tris, walls, toWorld, auto: bui
     gridded = out.length;
     return !ribGrid.hits(rib);
   };
-  const wa = new THREE.Vector3(), wb = new THREE.Vector3();
+  const wa = new THREE.Vector3(), wb = new THREE.Vector3(), wm = new THREE.Vector3();
+  const toArr = (v) => [v.x, v.y, v.z];
   // Everything a hand-placed brace has to keep clear of: Auto's braces and walls
   // (when Auto's supports are on screen), then each hand-placed brace as it is
   // re-stood, so a rotation that brings two together is reported rather than fused.
@@ -222,7 +307,8 @@ export function sweepDrawn({ topology, res, rot, tris, walls, toWorld, auto: bui
     }
     toWorld(w.a, wa);
     toWorld(w.b, wb);
-    const r = drawnWall([wa.x, wa.y, wa.z], [wb.x, wb.y, wb.z], tris, 0, drawOpts);
+    const r = drawnWall([wa.x, wa.y, wa.z], [wb.x, wb.y, wb.z], tris, 0,
+                        w.m ? { ...drawOpts, through: toArr(toWorld(w.m, wm)) } : drawOpts);
     w.ok = r.ok;
     w.info = r;
     if (r.ok) for (const t of r.tris) out.push(t);
@@ -300,24 +386,28 @@ export function removeSelected() {
   updateFit();
 }
 
-/** Show the endpoint / cursor / band, and a live ghost of the wall in progress. */
+/** Show the endpoint / cursor / band, and a live ghost of the wall in progress. A
+ *  curve with both ends down bends through the cursor: its third click. */
 let ghostQueued = null;
 function updatePreview(hitPoint) {
-  drawCursor.position.copy(hitPoint);
+  // a wall end snaps onto another wall's end; a curve's third click goes where it's put
+  const p = drawEnd ? hitPoint : snapEnd(hitPoint);
+  drawCursor.position.copy(p);
   drawCursor.visible = true;
   if (!drawStart) { drawBand.visible = false; return; }
   part.updateMatrixWorld();
   const aWorld = part.localToWorld(drawStart.clone());
+  const bWorld = drawEnd ? part.localToWorld(drawEnd.clone()) : null;
   drawDot.position.copy(aWorld);
   drawDot.visible = true;
-  bandGeom.setFromPoints([aWorld, hitPoint]);
-  bandGeom.attributes.position.needsUpdate = true;
+  if (bWorld) { drawDot2.position.copy(bWorld); drawDot2.visible = true; }
+  setBand(bWorld ? arcPoints(aWorld, bWorld, p) : [aWorld, p]);
   drawBand.visible = true;
 
   // Build the ghost wall at most once per frame: one wall over the whole part is
   // a few ms, fine occasionally but not at raw pointer-move rates.
   const already = !!ghostQueued;
-  ghostQueued = [aWorld.clone(), hitPoint.clone()];
+  ghostQueued = bWorld ? [aWorld, bWorld, p.clone()] : [aWorld, p.clone()];
   if (already) return;
   requestAnimationFrame(() => {
     const q = ghostQueued;
@@ -325,29 +415,37 @@ function updatePreview(hitPoint) {
     if (!q || !drawStart || !drawActive()) return;
     if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); ghostMesh = null; }
     const tris = partPrintTriangles();
-    const r = drawnWall([q[0].x, q[0].y, q[0].z], [q[1].x, q[1].y, q[1].z], tris, 0,
-                        { braceTall: el('tall-ribs').checked });   // the ghost shows its ribs
+    const [ga, gb, gm] = q;
+    const r = drawnWall([ga.x, ga.y, ga.z], [gb.x, gb.y, gb.z], tris, 0,
+                        { braceTall: el('tall-ribs').checked,   // the ghost shows its ribs
+                          ...(gm ? { through: [gm.x, gm.y, gm.z] } : {}) });
     if (r.ok) { ghostMesh = meshFrom(r.tris, ghostMaterial); ghostMesh?.layers.disable(MODEL); }
+    // a curve says at once why it can't bend that tight; a straight wall in progress
+    // keeps today's quiet ghost (its end is not chosen yet)
+    showGhostMsg(gm && !r.ok && /too tight/.test(r.reason) ? r.reason : '');
   });
 }
 
-/** Commit the wall from `drawStart` to the just-clicked point, if it can build. */
-function placeSecondPoint(hitPoint) {
+/** Commit the wall from `drawStart` to `bWorld` (through `mWorld` for a curve), if it can build. */
+function placeWall(bWorld, mWorld = null) {
   part.updateMatrixWorld();
   const aWorld = part.localToWorld(drawStart.clone());
-  const bWorld = hitPoint.clone();
   const tris = partPrintTriangles();
   const r = drawnWall([aWorld.x, aWorld.y, aWorld.z],
-                      [bWorld.x, bWorld.y, bWorld.z], tris, 0);
+                      [bWorld.x, bWorld.y, bWorld.z], tris, 0,
+                      mWorld ? { through: [mWorld.x, mWorld.y, mWorld.z] } : {});
   if (!r.ok) {
+    // a curve too tight keeps its ends: the next click tries a wider bend
+    if (mWorld && /too tight/.test(r.reason)) { showGhostMsg(r.reason); return; }
+    clearPreview();   // (clears a curve's live message first)
     drawMsg = t('couldn’t place that wall: {reason}', { reason: t(r.reason) });
-    clearPreview();
     updateReadout(lastBuilt);
     return;
   }
   drawMsg = '';
   histPush();
-  drawnWalls.push({ a: drawStart.clone(), b: part.worldToLocal(bWorld.clone()) });
+  drawnWalls.push({ a: drawStart.clone(), b: part.worldToLocal(bWorld.clone()),
+                    ...(mWorld ? { m: part.worldToLocal(mWorld.clone()) } : {}) });
   clearPreview();
   rebuildDrawn();
   updateReadout(lastBuilt);
@@ -498,9 +596,28 @@ function placeSway(hit) {
  *  "+ Add" is switched off), but the click hint only while a click places one. */
 export function syncDrawControls() {
   el('draw-controls').hidden = !drawShown();
-  el('draw-hint').hidden = !drawActive();
-  el('draw-hint').innerHTML = t('Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.');
+  el('draw-hint').hidden = el('draw-shape').hidden = !drawActive();
+  for (const b of el('draw-shape').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.shape === drawShape));
+  el('draw-hint').innerHTML = drawShape === 'curve'
+    ? t('Click the two ends of a curved wall on the red faces, then a point it runs through — out past the ends for a bigger arc. Ends snap to another wall’s end, so two curves close a ring. Backspace takes back a point; Esc or right-click cancels.')
+    : t('Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.');
+  syncBack();
 }
+
+/** "Back one point" shows while a wall is half drawn. */
+function syncBack() { el('draw-back').hidden = !drawStart; }
+
+for (const b of el('draw-shape').querySelectorAll('button')) {
+  b.addEventListener('click', () => {
+    if (drawShape === b.dataset.shape) return;
+    drawShape = b.dataset.shape;
+    try { localStorage.setItem(SHAPE_KEY, drawShape); } catch { /* storage off */ }
+    clearPreview();   // a wall half drawn as the other shape starts over
+    updateReadout(lastBuilt);
+    syncDrawControls();
+  });
+}
+el('draw-back').addEventListener('click', () => undoDrawPoint());
 
 // Clear acts on the hand-drawn breakaway walls -- the thing both Draw and the
 // Suggest "+ Add" augment now place. Undo is the sidebar's (and Ctrl-Z).
@@ -622,11 +739,17 @@ export function drawClick(e) {
   }
   if (!drawStart) {
     dropGhost();   // a brace still fading in its grace is not what this click starts
-    drawStart = part.worldToLocal(hit.point.clone());
+    drawStart = part.worldToLocal(snapEnd(hit.point));
     drawMsg = '';
     updatePreview(hit.point);
     updateReadout(lastBuilt);
+    syncBack();
+  } else if (drawShape === 'curve' && !drawEnd) {
+    drawEnd = part.worldToLocal(snapEnd(hit.point));
+    updatePreview(hit.point);
+  } else if (drawEnd) {
+    placeWall(part.localToWorld(drawEnd.clone()), hit.point.clone());
   } else {
-    placeSecondPoint(hit.point);
+    placeWall(snapEnd(hit.point));
   }
 }

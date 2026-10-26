@@ -37,7 +37,7 @@ import './ui/scale.js';
 import { updateReadout } from './ui/readout.js';
 import {
   drawnWalls, drawnTris, drawStart, selectedWall, drawActive, sizeMarkers, clearPreview,
-  selectWall, removeSelected, drawHover, drawClick, braceActive, braceHover, braceClick, dropBracePreview,
+  selectWall, removeSelected, drawHover, drawClick, braceActive, braceHover, braceClick, dropBracePreview, undoDrawPoint,
 } from './ui/walls.js';
 import { finTris, padTris, lastBuilt } from './ui/finbuild.js';
 import { initSettings } from './ui/settings.js';
@@ -61,6 +61,11 @@ addEventListener('keydown', (e) => {
   const textField = tag === 'TEXTAREA' || (tag === 'INPUT' && !['range', 'checkbox', 'radio'].includes(e.target.type));
   const histKey = (e.metaKey || e.ctrlKey) && ['z', 'y'].includes(e.key.toLowerCase());
   if (textField || ((tag === 'INPUT' || tag === 'SELECT') && !histKey)) return;
+  // a wall half drawn: Backspace takes back its last point (a curve's end, then its start)
+  if (e.key === 'Backspace' && drawActive() && undoDrawPoint()) {
+    e.preventDefault();
+    return;
+  }
   if (selectedWall && (e.key === 'Delete' || e.key === 'Backspace')) {
     e.preventDefault();
     removeSelected();
