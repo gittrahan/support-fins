@@ -95,3 +95,45 @@ Deno.test('free edge: a tilted cube (X35-X44) gets its end walls flush with both
       `X${deg}: end walls not flush with the side edges: ${xs.map((x) => x.toFixed(2))}`);
   }
 });
+
+// A reel, one solid of revolution: two 2.5 mm flanges (radius R, a full-round
+// edge) on a hub. The top flange's underside is level and ends in that round,
+// whose lower lip the flat patch stops short of -- the edge still ends in air.
+function reel(R = 40, hub = 10, H = 30, t = 2.5, seg = 96) {
+  const r = t / 2, prof = [[0, 0]];
+  const round = (zc, a0, a1) => {
+    for (let k = 0; k <= 8; k++) {
+      const a = a0 + ((a1 - a0) * k) / 8;
+      prof.push([R - r + r * Math.cos(a), zc + r * Math.sin(a)]);
+    }
+  };
+  round(r, -Math.PI / 2, Math.PI / 2);                 // bottom flange's edge
+  prof.push([hub, t], [hub, H - t]);
+  round(H - r, -Math.PI / 2, Math.PI / 2);             // top flange's edge
+  prof.push([0, H]);
+  const tris = [], P = (p, i) => {
+    const a = (2 * Math.PI * i) / seg;
+    return [p[0] * Math.cos(a), p[0] * Math.sin(a), p[1]];
+  };
+  for (let j = 0; j + 1 < prof.length; j++) {
+    for (let i = 0; i < seg; i++) {
+      const a = P(prof[j], i), b = P(prof[j], i + 1), c = P(prof[j + 1], i + 1), d = P(prof[j + 1], i);
+      if (prof[j][0] > 0) tris.push(...a, ...b, ...c);  // (no sliver at the axis)
+      if (prof[j + 1][0] > 0) tris.push(...a, ...c, ...d);
+    }
+  }
+  return new Float32Array(tris);
+}
+
+Deno.test('free edge: a level flange with a ROUNDED edge gets its end walls out at the rim (#269 cable reel)', () => {
+  // The probes along the whole patch missed the short chord at a round end, the
+  // round itself read as part, and the lower flange under the end row as being in
+  // its way: the end walls stayed half a pitch in (7 mm short of the reel's tips).
+  const R = 40;
+  const ws = wallBoxes(reel(R));
+  assert(ws.length >= 3, `${ws.length} walls`);
+  // across the rows: the walls' offset from the axis they run along
+  const across = ws.map((w) => (w.x1 - w.x0 > w.y1 - w.y0 ? (w.y0 + w.y1) / 2 : (w.x0 + w.x1) / 2)).sort((a, c) => a - c);
+  assert(R + across[0] < 4 && R - across.at(-1) < 4, `end walls not out at the rim: ${across.map((v) => v.toFixed(2))}`);
+  for (const w of ws) assert(Math.max(w.x1 - w.x0, w.y1 - w.y0) >= PROP.minSpan, 'an end wall too short to stand');
+});

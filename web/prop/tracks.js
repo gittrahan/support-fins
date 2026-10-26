@@ -391,8 +391,10 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
   // (free-edge rows only up to PROP.edgeFlatDeg -- a lower cutoff with Sway on)
   const flatDeg = support?.sway ? PROP.edgeFlatDegSway : PROP.edgeFlatDeg;
   const flat = slope <= Math.tan((flatDeg * Math.PI) / 180);
+  // (a LEVEL underside also gets its rounded ends, lips and floors read: see freeEdge)
+  const level = slope <= Math.tan((PROP.edgeLevelDeg * Math.PI) / 180);
   const rows = rowOffsets(vLo, vHi, rowSpan, support && flat && {
-    support, patchTris, ux, uy, vx, vy, uLo, uHi,
+    support, patchTris, ux, uy, vx, vy, uLo, uHi, level,
   });
 
   const tracks = [];
@@ -442,10 +444,10 @@ function rowOffsets(vLo, vHi, rowSpan, probe) {
   let rows = Array.from({ length: n }, (_, w) => vLo + (vExt * (w + 0.5)) / n);
   const near = 2 * e;                        // an old row this close already sits at the end
   if (probe && vExt > 2 * near) {
-    const lo = rows[0] - vLo > near && freeEdge(probe, vLo, -1);
-    const hi = vHi - rows[n - 1] > near && freeEdge(probe, vHi, +1);
+    const lo = rows[0] - vLo > near && freeEdge(probe, vLo, -1) && endRow(probe, vLo, -1, rows[0] - near);
+    const hi = vHi - rows[n - 1] > near && freeEdge(probe, vHi, +1) && endRow(probe, vHi, +1, rows[n - 1] + near);
     if (lo || hi) {
-      const a = lo ? vLo + e : rows[0], b = hi ? vHi - e : rows[n - 1];
+      const a = lo ? lo.v : rows[0], b = hi ? hi.v : rows[n - 1];
       // one row can't stand at an end without leaving the rest bare: it keeps its
       // place mid-strip and the free ends get their own (as #143)
       // Spread wider than the old pitch, and the gaps get another row instead:
@@ -561,10 +563,23 @@ function lowEdgeRows(rows, edges, near) {
  * flush row would fill (either face, down to the bed).
  */
 function freeEdge(probe, vEdge, dir) {
-  const { support, patchTris, ux, uy, vx, vy, uLo, uHi } = probe;
+  const whole = probeEdge(probe, vEdge, dir, probe.uLo, probe.uHi);
+  if (whole.found >= 2 || !probe.level) return whole.free;
+  // A ROUNDED end (a stadium flange's half-round, #269's cable reel): just inside
+  // the tip the underside spans only a short chord, so the probes spread along
+  // the whole patch nearly all miss it and the end counted as attached, leaving
+  // the last row half a pitch in (7 mm short of the reel's tip). Probe again
+  // along the stretch the underside really reaches there.
+  const span = edgeSpan(probe, vEdge - dir * 0.3);
+  return span ? probeEdge(probe, vEdge, dir, span[0], span[1]).free : whole.free;
+}
+
+/** freeEdge's five probes between u = `a` and `b`: `found` = how many met the underside. */
+function probeEdge(probe, vEdge, dir, a, b) {
+  const { support, patchTris, ux, uy, vx, vy } = probe;
   let air = 0, part = 0;
   for (const t of [0.1, 0.3, 0.5, 0.7, 0.9]) {
-    const u = uLo + (uHi - uLo) * t;
+    const u = a + (b - a) * t;
     const at = (v) => [ux * u + vx * v, uy * u + vy * v];
     const [ix, iy] = at(vEdge - dir * 0.3);
     const z = surfaceZAt(patchTris, ix, iy);
@@ -572,21 +587,66 @@ function freeEdge(probe, vEdge, dir) {
     // an edge down at the bed rests on it: no lip to curl, and a flush wall there
     // is lower than any wall worth building (a cube at X20's low edge)
     if (z < PROP.minHeightSquat) { part++; continue; }
+    const inPart = (x, y, dz) => insidePart(support.topo, support.rot, support.offset, x, y, z + dz);
     const [ox, oy] = at(vEdge + dir * 0.8);
-    const solid = [-2, -1, -0.3, 0.3, 1, 2].some((dz) => insidePart(support.topo, support.rot, support.offset, ox, oy, z + dz));
-    if (solid) { part++; continue; }
+    if ([-2, -1, -0.3, 0.3, 1, 2].some((dz) => inPart(ox, oy, dz))) {
+      // ...unless it is only a LIP: a rounded or chamfered edge curling up off the
+      // underside (nothing below it) and gone a few mm out. The reel's 2.5 mm
+      // flange ends in a full round that the flat patch stops short of, so every
+      // probe found part and the tip kept its 7 mm cantilever (#269).
+      const [fx, fy] = at(vEdge + dir * PROP.edgeLipMax);
+      const lip = probe.level && ![-2, -1, -0.3].some((dz) => inPart(ox, oy, dz))
+        && ![-2, -1, -0.3, 0.3, 1, 2].some((dz) => inPart(fx, fy, dz));
+      if (!lip) { part++; continue; }
+    }
     // the flush row's whole column must be clear too: just outside its outer
     // face, from the underside down to the bed (lbracket Y20: the side under the
     // edge leans out, and a flush wall stood in it lower down)
     // (both faces: a deck overhanging its leg by less than a wall stands the
     // flush row against the leg -- bridge, sparse: blocked and buried)
+    // A LEVEL floor both faces land on at the same height is the wall's foot, not
+    // in its way: the reel's walls stand on its lower flange.
+    const floor = [];
     for (const side of [+1, -1]) {
       const [cx, cy] = at(vEdge - dir * PROP.edgeInset + side * dir * (PROP.th / 2 + PROP.sideClear));
-      for (let zz = z - 0.5; zz > 0.3; zz -= 1) {
-        if (insidePart(support.topo, support.rot, support.offset, cx, cy, zz)) return false;
-      }
+      let zz = z - 0.5;
+      while (zz > 0.3 && !insidePart(support.topo, support.rot, support.offset, cx, cy, zz)) zz -= 1;
+      floor.push(zz);
     }
+    const onFloor = probe.level && floor[0] === floor[1] && floor[0] < z - PROP.minHeightSquat;
+    if ((floor[0] > 0.3 || floor[1] > 0.3) && !onFloor) return { found: Infinity, free: false };
     air++;
   }
-  return air >= 2 && air > part;
+  return { found: air + part, free: air >= 2 && air > part };
+}
+
+/**
+ * Where a free edge's end row goes: flush (PROP.edgeInset in), or on a ROUNDED
+ * edge, in just far enough for the row to be a wall -- at the very tip of a curve
+ * the underside's chord is too short, and the row was dropped, which spread the
+ * rest wider than before (a cylinder at X40, 3 -> 2 walls). Returns { v }, or null
+ * when no spot past `limit` (the old row, less a margin) is long enough.
+ */
+function endRow(probe, vEdge, dir, limit) {
+  const flush = vEdge - dir * PROP.edgeInset;
+  if (!probe.level) return { v: flush };
+  // (never more than most of the patch's own length: a short straight edge is flush)
+  const want = Math.min(2 * PROP.minSpan, 0.8 * (probe.uHi - probe.uLo));
+  const long = (v) => { const span = edgeSpan(probe, v); return span && span[1] - span[0] >= want; };
+  if (long(flush)) return { v: flush };
+  for (let v = flush - dir * 0.25; (limit - v) * dir < 0; v -= dir * 0.25) if (long(v)) return { v };
+  return null;
+}
+
+/** The u range the underside covers along the line v = `v` (sampled), or null. */
+function edgeSpan(probe, v) {
+  const { patchTris, ux, uy, vx, vy, uLo, uHi } = probe;
+  const n = 128;
+  let a = Infinity, b = -Infinity;
+  for (let k = 0; k <= n; k++) {
+    const u = uLo + ((uHi - uLo) * k) / n;
+    if (surfaceZAt(patchTris, ux * u + vx * v, uy * u + vy * v) === null) continue;
+    if (u < a) a = u; if (u > b) b = u;
+  }
+  return b > a ? [a, b] : null;
 }

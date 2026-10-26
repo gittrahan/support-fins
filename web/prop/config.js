@@ -177,6 +177,14 @@ export const PROP = {
   // every ledge. Between two rows the first layer is a bridge; past the last one
   // it is a cantilever. An ATTACHED edge (the part carries on) keeps its bridge.
   edgeInset: 0.6,   // grows with a nozzle's wider tip (nozzle.js)
+  // A free edge may end in a LIP the flat underside stops short of -- a rounded
+  // or chamfered rim curling up off it, nothing under it -- as long as the part
+  // is gone this far past the edge (the cable reel's 1.25 mm round, #269).
+  edgeLipMax: 3,
+  // ...and those reads (a rounded end, a lip, a level floor under the end row) only
+  // under a LEVEL underside, a flat flange: on a tilted round part (coin, cone,
+  // tube at X25-40) moving the ends out re-spread the rows and lost coverage.
+  edgeLevelDeg: 5,
   // ...on every overhang (up to 45deg from horizontal). It was only under a
   // near-flat underside (30deg): a steeper face steps out just layerH / tan(angle)
   // per layer down the slope, and flush walls then doubled a cube (3 -> 5). But
