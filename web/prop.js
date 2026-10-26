@@ -41,6 +41,7 @@
  *   mold.js       the floor under a wall on the part, and its bottom's shape
  *   attached.js   walls that stand on the part instead of the plate
  *   squat.js      brimmed squat walls for the near-bed band
+ *   judge.js      the 062 judge: held as a bridge or a short cantilever (races, scoreboard)
  *   rival.js      a small tube against the patch path: the region keeps the better
  *   raster.js     walls across a region's whole footprint, raced against the rest
  *   lattice.js    a net of struts cut back into struts (the raster slot's contender for a net)
