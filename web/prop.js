@@ -515,6 +515,7 @@ function buildPass(topo, result, rot, opts, raster) {
                      caps: c0 === null ? undefined : [c0, capAt()], grip: grip.z,
                      trimmed: line.length - pa.prop.stations,
                      id: nextId++, kind: 'prop',
+                     ...(line.rim ? { rimWall: true } : {}),
                      triRanges: [[tri0, out.length]] });
         continue;
       }
@@ -554,7 +555,8 @@ function buildPass(topo, result, rot, opts, raster) {
           if (out.length > t0) segs.push([t0, out.length]);
           props.push({ ...sq, area: patch.area, region: patch.region, tines: nT,
                        caps: c0 === null ? undefined : [c0, capAt()], grip: grip.z,
-                       id: nextId++, kind: 'prop', triRanges: segs });
+                       id: nextId++, kind: 'prop', triRanges: segs,
+                       ...(line.rim ? { rimWall: true } : {}) });
         }
       };
 
@@ -686,6 +688,7 @@ function buildPass(topo, result, rot, opts, raster) {
           triRanges: [[before, out.length]],
           ...(downhill ? { wallRange: [before, wallEnd] } : {}),   // the wall without its tines
           ...(patch.members ? { members: patch.members } : {}),     // a traced group's regions
+          ...(line.rim ? { rimWall: true } : {}),                   // a rim wall (prop/rim.js)
         });
         for (let k = run[0] + run2[0]; k < run[0] + run2[1]; k++) claimed[k] = true;
         placed = true;

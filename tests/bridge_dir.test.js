@@ -6,11 +6,13 @@ import { buildTopology, analyze, fins, block, assert, loadModel } from './_util.
 
 const I = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 const topoOf = (tris) => buildTopology({ getAttribute: (k) => (k === 'position' ? { array: tris } : null) });
-// each wall's run direction: 'x' or 'y', whichever its line spans further
+// each wall's run direction: 'x' or 'y', whichever its line spans further. A rim
+// wall (prop/rim.js, along a free outline) runs where the edge does: holding the
+// edge beats crossing the bridge there (Matthew 2026-10-26), so only rows count.
 const runs = (tris) => {
   const topo = topoOf(tris), res = analyze(topo, 45, I);
   const b = fins.buildFins(topo, res, I, { mode: 'auto', bedPad: true, tines: true, coverage: 0.5 });
-  return b.props.map((q) => {
+  return b.props.filter((q) => !q.rimWall).map((q) => {
     const xs = q.line.map((p) => p[0]), ys = q.line.map((p) => p[1]);
     return Math.max(...xs) - Math.min(...xs) >= Math.max(...ys) - Math.min(...ys) ? 'x' : 'y';
   });

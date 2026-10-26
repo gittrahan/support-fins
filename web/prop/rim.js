@@ -22,7 +22,7 @@
  * RIM.pieceGap apart) so each can come out: a closed ring between two flanges
  * can't be pulled out, an arc can (Matthew 2026-10-26: split pieces are fine).
  *
- * Tracks come back in patchTracks' shape -- [x, y, z] stations ~`step` apart, z
+ * Tracks come back in patchTracks' shape (each tagged `rim`) -- [x, y, z] stations ~`step` apart, z
  * the region's surface -- and buildProps builds them like any other track.
  */
 import { PROP } from './config.js';
@@ -58,7 +58,8 @@ export function rimTracks(topo, result, rot, faces, regionTris, step = PROP.stat
     const line = inset(resample(chain, step), regionTris);
     for (const run of runs(line)) tracks.push(...pieces(run, step));
   }
-  return tracks.filter((t) => t.length >= PROP.minStations);
+  // (tagged, so the wall built on it says rimWall: true)
+  return tracks.filter((t) => t.length >= PROP.minStations).map((t) => Object.assign(t, { rim: true }));
 }
 
 /**
