@@ -587,4 +587,6 @@ export default {
   "Build volume, overhang, calibration, plugins, language and links.": "打印体积、悬垂角度、校准、插件、语言和链接。",
   "Part": "零件",
   "Fin settings": "支撑鳍设置",
+  "Your browser can't draw the 3D view: WebGL didn't start. Turn on hardware acceleration in the browser settings or update the graphics driver, then reload.": "你的浏览器无法绘制 3D 视图：WebGL 未能启动。请在浏览器设置中开启硬件加速或更新显卡驱动，然后重新加载页面。",
+  "The 3D view stopped drawing: the browser lost its graphics context (often a graphics driver reset). The numbers and export still work. Reload the page; if it keeps happening, update the graphics driver.": "3D 视图已停止绘制：浏览器丢失了图形上下文（通常是显卡驱动重置所致）。数值和导出仍可正常使用。请重新加载页面；如果反复出现，请更新显卡驱动。",
 };

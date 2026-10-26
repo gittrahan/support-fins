@@ -494,4 +494,6 @@ export default {
   "Build volume, overhang, calibration, plugins, language and links.": "Bauraum, Überhang, Kalibrierung, Plugins, Sprache und Links.",
   "Part": "Bauteil",
   "Fin settings": "Finnen-Einstellungen",
+  "Your browser can't draw the 3D view: WebGL didn't start. Turn on hardware acceleration in the browser settings or update the graphics driver, then reload.": "Dein Browser kann die 3D-Ansicht nicht darstellen: WebGL ist nicht gestartet. Schalte die Hardwarebeschleunigung in den Browsereinstellungen ein oder aktualisiere den Grafiktreiber und lade die Seite dann neu.",
+  "The 3D view stopped drawing: the browser lost its graphics context (often a graphics driver reset). The numbers and export still work. Reload the page; if it keeps happening, update the graphics driver.": "Die 3D-Ansicht zeichnet nicht mehr: Der Browser hat seinen Grafikkontext verloren (oft durch einen Neustart des Grafiktreibers). Die Werte und der Export funktionieren weiterhin. Lade die Seite neu; wenn es wieder passiert, aktualisiere den Grafiktreiber.",
 };

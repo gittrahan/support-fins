@@ -478,4 +478,6 @@ export default {
   "Build volume, overhang, calibration, plugins, language and links.": "حجم الطباعة، والبروز، والمعايرة، والإضافات، واللغة، والروابط.",
   "Part": "القطعة",
   "Fin settings": "إعدادات الزعانف",
+  "Your browser can't draw the 3D view: WebGL didn't start. Turn on hardware acceleration in the browser settings or update the graphics driver, then reload.": "لا يستطيع متصفحك رسم العرض ثلاثي الأبعاد: لم يبدأ WebGL. فعّل تسريع العتاد في إعدادات المتصفح أو حدّث تعريف الرسوميات، ثم أعد تحميل الصفحة.",
+  "The 3D view stopped drawing: the browser lost its graphics context (often a graphics driver reset). The numbers and export still work. Reload the page; if it keeps happening, update the graphics driver.": "توقف العرض ثلاثي الأبعاد عن الرسم: فقد المتصفح سياق الرسوميات (غالبًا بسبب إعادة تشغيل تعريف الرسوميات). الأرقام والتصدير ما زالت تعمل. أعد تحميل الصفحة؛ وإذا تكرر ذلك، حدّث تعريف الرسوميات.",
 };
