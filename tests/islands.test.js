@@ -1,7 +1,7 @@
 // Island starts (web/islands.js, local issue 041 / GitHub #18 #257): a feature whose
 // first layer starts in midair while no face around its low point is red.
 
-import { block, buildTopology, analyze, rotX, assert, assertClose, loadModel, fins } from './_util.js';
+import { block, buildTopology, analyze, rotX, assert, assertClose, loadModel, fins, insideCount } from './_util.js';
 
 const { findIslands } = await import('../web/islands.js');
 const I3 = [1, 0, 0, 0, 1, 0, 0, 0, 1];
@@ -167,6 +167,9 @@ Deno.test('islands: Full walls an outside corner\'s tip on the part\'s edge (#25
   const full = buildFins(topo, res, I3, { mode: 'full', bedPad: true });
   assert(full.fill.islandsBare === 0, `Full leaves the tip bare (${full.fill.islands}/${full.fill.islandsBare})`);
   assert(heldBy(full, isl[0]), 'a wall top right under the tip');
+  const auto = buildFins(topo, res, I3, { mode: 'auto', bedPad: true, tines: false });
+  const n = insideCount(topo, I3, res.offset, buildFins(topo, res, I3, { mode: 'full', bedPad: true, tines: false }).triangles.slice(auto.triangles.length));
+  assert(n === 0, `${n} fill vertices inside the part`);
 });
 
 Deno.test('islands: the page\'s islands (opts.islands, no vertex ids in the worker) build the same walls', () => {

@@ -229,8 +229,8 @@ function candidateLines(pts, group, R, bridge, narrow = false) {
     for (const s of FILL.shifts) { const v = line(bestAt + s); if (v) out.push(v); }
   }
   // all by the red they'd hold (stable: on a tie a direction's own line stays ahead of
-  // its shifts; between directions, the better direction's lines come first)
-  // (each followed by its lines from an island start's end, lineAt's `ends`)
+  // its shifts; between directions, the better direction's lines come first), each
+  // followed by its lines from an island start's end (lineAt's `ends`)
   return out.sort((p, q) => q.weight - p.weight).concat(narrowOut.sort((p, q) => q.weight - p.weight))
     .flatMap((c) => [c, ...(c.ends ?? [])]);
 }
