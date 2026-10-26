@@ -111,7 +111,7 @@ function overhangFaces(topo, result, rot) {
         seat(pos, f * 9 + i * 3, rot, off, v);
         cx += v[0] / 3; cy += v[1] / 3; cz += v[2] / 3;
       }
-      faces.push([cx, cy, cz, topo.area[f], ri]);
+      faces.push([cx, cy, cz, topo.area[f], ri, f]);
     }
   });
   return faces;
@@ -209,17 +209,21 @@ export function withRaster(topo, result, rot, opts, normal, capFrom, rasterPass)
  * whatever they hold or weigh, and every region is tried, not only the ones `normal`
  * left bare (curved walls, prop/curved.js).
  * Downhill lines (prop/downhill.js) race through here as 'downhill'.
+ * The last argument, optional: `tried` (a Set) is the regions to rebuild and race
+ * instead of the ones `normal` left bare, and `ruler(faces, tops)` measures held
+ * area instead of heldBy (rim walls race on the 062 judge, prop/judge.js), and
+ * `price` the held area per mm3 a swap must buy when it adds plastic.
  * `equivalent`: also try fully held regions and prefer the second placement
  * when its held area is equal. Circular candidates use this to choose a local
  * frame even where world-axis rows already hold the circle. Unlike `lenient`,
  * this still enforces the grip rule and retains useful, clear baseline walls.
  */
 export function raceAgainst(topo, result, rot, opts, normal, capFrom, pass, tag, maxGrow = null, rel = RACE_REL,
-                            lenient = null, equivalent = false) {
+                            lenient = null, equivalent = false, { tried: only = null, ruler = heldBy, price = null } = {}) {
   const faces = overhangFaces(topo, result, rot);
-  const want = rasterWanted(faces, result, normal);
+  const want = only ?? rasterWanted(faces, result, normal);
   // Curved walls: a region the walls above already hold may still take a curve
-  const tried = lenient || equivalent ? new Set(result.regions.map((_, i) => i)) : want;
+  const tried = only ?? (lenient || equivalent ? new Set(result.regions.map((_, i) => i)) : want);
   if (!tried.size) return normal;
   const cap = globalThis.__TINECAP;
   const capNormal = cap ? cap.slice() : null;
@@ -228,7 +232,7 @@ export function raceAgainst(topo, result, rot, opts, normal, capFrom, pass, tag,
   if (opts.rasterVeto) raster.props = raster.props.filter((q) => !opts.rasterVeto(q, normal.props));
   const capRaster = globalThis.__TINECAP;
   globalThis.__TINECAP = cap;
-  const raced = raceRegions(faces, result, normal, raster, tag, maxGrow, rel, lenient, equivalent ? null : want, equivalent);
+  const raced = raceRegions(faces, result, normal, raster, tag, maxGrow, rel, lenient, equivalent ? null : want, equivalent, ruler, price);
   if (!raced[`${tag}Regions`]) return normal;
   if (cap) {
     cap.length = capFrom;
@@ -327,7 +331,7 @@ function keepers(qa, qb, near, force = false) {
  * forces curves: a group whose walls don't bend keeps its `a` walls.
  */
 function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = RACE_REL, lenient = null,
-                     wanted = null, equivalent = false) {
+                     wanted = null, equivalent = false, ruler = heldBy, price = null) {
   const A = byRegion(a.props), B = byRegion(b.props);
   const out = [], props = [], served = new Set();
   let tines = 0, volume = 0, swapped = 0, sagRisk = a.sagRisk;
@@ -358,15 +362,17 @@ function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = 
     let extra = null;
     if (qb.length) {
       const near = group?.length > 1 ? [...new Set(group.flatMap((m) => nearRegion(faces, m)))] : nearRegion(faces, ri);
-      const ha = qa.length ? heldBy(near, wallTops(qa)) : 0;
-      const hb = heldBy(near, wallTops(qb));
+      const ha = qa.length ? ruler(near, wallTops(qa)) : 0;
+      const hb = ruler(near, wallTops(qb));
       const vol = (qs) => qs.reduce((v, q) => v + (q.volume ?? 0), 0);
       if (lenient?.(qb)) {
         // forced (raceAgainst's `lenient`): the user asked for the curve; the normal
         // walls that hold what it misses, or grip lower, stand beside it (keepers)
         if (hb > 0) extra = keepers(qa, qb, near, true);
       } else if (!b.leaderOf && (!wanted || wanted.has(ri))) {   // a traced group only forces a curve
-        const tooHeavy = maxGrow !== null && qa.length && vol(qb) > maxGrow * vol(qa);
+        // (`price`: held area per mm3 the swap must buy when it adds plastic)
+        const tooHeavy = (maxGrow !== null && qa.length && vol(qb) > maxGrow * vol(qa))
+          || (price !== null && hb - ha < price * (vol(qb) - vol(qa)));
         if (!tooHeavy && (hb > ha + Math.max(RACE_ABS, rel * ha)
             || (equivalent && hb > 0 && hb >= ha - 1e-6))) extra = keepers(qa, qb, near);
       }

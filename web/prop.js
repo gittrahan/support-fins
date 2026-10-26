@@ -49,6 +49,7 @@
  *   curved.js     the Curved walls checkbox: when a bending downhill wall wins its race
  *   trace.js      the Curved walls' tracing surface: regions grown across the slivers, grouped
  *   arc.js        one wall along a level strip that curves in plan (a slot through a tube)
+ *   rim.js        a wall along a patch's free outline, the rows stopped short of it (062)
  *
  * Each module imports only modules above it in this list and never prop.js.
  */
@@ -59,6 +60,8 @@ import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified
 import { PROP } from './prop/config.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
 import { arcLine } from './prop/arc.js';
+import { clipToRim, rimTracks } from './prop/rim.js';
+import { JUDGE, judgeRuler } from './prop/judge.js';
 import { bends } from './prop/curved.js';
 import { circularRegions, circularTracks } from './prop/circular.js';
 import { DOWNHILL, downhillLines } from './prop/downhill.js';
@@ -142,9 +145,21 @@ export function buildProps(topo, result, rot, opts = {}) {
                  (regions) => buildPass(topo, result, rot, opts, regions));
   // Circular candidates use a local geometric frame. The race still checks the
   // surrounding faces and lowest grip; keep the original layout if they lose.
-  const base = opts.raster !== false && opts.circularFrames.size ? raceAgainst(topo, result, rot, opts, rasterBase, capFrom,
+  const circ = opts.raster !== false && opts.circularFrames.size ? raceAgainst(topo, result, rot, opts, rasterBase, capFrom,
     (regions) => buildPass(topo, result, rot, { ...opts, onlyRegions: regions, circularPass: true }, null),
     'circular', null, 0, null, true) : rasterBase;
+  // Rim walls (prop/rim.js, local issue 062): a region the patch path built also
+  // tries a wall along its free outline, the rows stopped short of it, and keeps it
+  // where the judge (prop/judge.js) says it holds more -- at JUDGE.price, held area
+  // per plastic added: the curved edges rows can't reach, not a sliver for a wall.
+  // (Regions an earlier race swapped -- raster, circular -- keep their walls.)
+  const swapped = new Set(circ.props.filter((q) => q.raster || q.circular).map((q) => q.region));
+  const base = opts.rimWalls === false || opts.raster === false ? circ : raceAgainst(topo, result, rot, opts, circ, capFrom,
+    (regions) => buildPass(topo, result, rot, { ...opts, onlyRegions: regions, rimRegions: regions }, null),
+    'rim', null, 0, null, false, {
+      tried: new Set(result.regions.map((_, i) => i).filter((i) => !swapped.has(i))),
+      ruler: judgeRuler(topo, result, rot), price: JUDGE.price,
+    });
   // Downhill walls (issue #25): walls that run down the overhang and follow it to
   // the plate, raced per region against what the passes above built -- a region
   // swaps only when they hold more. opts.downhill === true only: Auto turns it on
@@ -402,12 +417,16 @@ function buildPass(topo, result, rot, opts, raster) {
   // walls: see web/prop/bridgerace.js.
   const race = bridgeRace({ out, props, skipped, served: servedRegions, tally });
 
+  const rims = new Map();               // region -> its rim tracks (prop/rim.js)
   for (const patch of patches) {
     const regionTris = patch.tris;
     race.begin(patch);                   // first: settling a race cuts `out` back
     const mark = rivalry.begin(patch);  // a small tube undoes to here
     let lines;
     if (patch.lines) {
+      // (the rim pass rebuilds only patch-path regions: a tube's, an arc's, a
+      // raster's keep what they had)
+      if (opts.rimRegions) continue;
       // A tube's lowest-line track(s), fitted and resampled by tubeLine.
       lines = patch.lines;
     } else {
@@ -431,6 +450,19 @@ function buildPass(topo, result, rot, opts, raster) {
       lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off, sway: !!opts.sway?.on },
                           rowSpan, patch.axis ?? null);
       race.turned(patch, lines, patches);
+      // Rim walls (prop/rim.js): for the regions in `opts.rimRegions` only -- the race
+      // in buildProps decides -- a wall along the patch's free outline, the rows
+      // stopped short of it.
+      // The rim is the REGION's outline (a flat patch's edge can meet the same
+      // overhang carrying on as another patch, a rounded edge's lower half), traced
+      // once: its first patch takes the rim, every patch's rows stop short of it.
+      if (opts.rimRegions?.has(patch.region)) {
+        let rim = rims.get(patch.region);
+        const first = !rim;
+        if (first) rims.set(patch.region, (rim = rimTracks(topo, result, rot, result.regions[patch.region].faces, regionTris, step)));
+        if (!rim.length) continue;      // no free outline: the region keeps what it had
+        lines = Object.assign([...clipToRim(lines, rim), ...(first ? rim : [])], { spacing: lines.spacing, turned: lines.turned });
+      }
       // The user chose sub-cap spacing (wantSparse) AND this face actually landed a
       // multi-row gap wider than the cap. Flag it so the UI can warn (never blocks;
       // Matthew's call). Single-row faces (spacing 0) can't sag, so they don't warn.

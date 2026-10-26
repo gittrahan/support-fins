@@ -22,6 +22,7 @@
  * triangles, and one centroid swung its whole area.
  */
 import { PROP } from './config.js';
+import { insidePart } from '../inside.js';
 import { seat } from './surface.js';
 
 export const JUDGE = {
@@ -29,6 +30,11 @@ export const JUDGE = {
   bridgeDeg: 135,    // anchors this far apart, seen from the point, bridge it
   sectors: 16,       // direction bins for the nearest anchor each way
   sample: 1.0,       // mm2 per sample
+  // What plastic buys: a race (raster.js raceAgainst `price`) swaps to walls that
+  // weigh more only when they hold at least this much more overhang per mm3 added
+  // (0.01 = 10 mm2 per cm3, ~1.24 g of PLA). PROVISIONAL, Matthew's to set: the
+  // cable reel's rim buys 22 mm2/cm3, the lamp shade's 34; a wall for a sliver, ~0.
+  price: 0.01,
 };
 const cache = new WeakMap();
 
@@ -49,8 +55,7 @@ export function partAnchors(topo, result, rot) {
     const shared = sharedEdge(pos, o, n);
     if (!shared) continue;
     const [p, q] = shared.map(S);
-    const far = S(n * 9 + 3 * otherVertex(pos, n, shared));
-    if (far[2] < Math.min(p[2], q[2]) - 0.2) densify([p, q], 0.5, pts);
+    if (attached(topo, result, rot, o, n, shared, p, q)) densify([p, q], 0.5, pts);
   }
   if (!hit) cache.set(result, (hit = {}));
   hit.anchors = pts;
@@ -125,7 +130,9 @@ export function scorer(tops, partPts) {
 export function judgeRuler(topo, result, rot) {
   const partPts = partAnchors(topo, result, rot);
   return (faces, tops) => {
-    const held = scorer([tops], partPts);
+    // (tops come flattened, every wall's points in one list: each its own line, so
+    // none is joined to the next wall's)
+    const held = scorer(tops.map((p) => [p]), partPts);
     let sum = 0;
     for (const fc of faces) {
       for (const [x, y, z, w] of faceSamples(topo, result, rot, fc[5])) {
@@ -165,8 +172,29 @@ function gridOf(pts, cell) {
   };
 }
 
+/**
+ * Does the part go DOWN from overhang face `o`'s edge `p`-`q` (seated; `shared`
+ * its offsets, `n` the face across it)? By the face across it -- or, for a part
+ * built of unwelded bodies (a Tinkercad union: a deck laid on a post), by the part
+ * itself just outside the edge and under it.
+ */
+export function attached(topo, result, rot, o, n, shared, p, q) {
+  const { pos } = topo, off = result.offset;
+  const far = seat(pos, n * 9 + 3 * otherVertex(pos, n, shared), rot, off, [0, 0, 0]);
+  const z = Math.min(p[2], q[2]);
+  if (far[2] < z - 0.2) return true;
+  const c = [0, 1, 2].map((i) => seat(pos, o * 9 + i * 3, rot, off, [0, 0, 0]));
+  let nx = p[1] - q[1], ny = q[0] - p[0];
+  const len = Math.hypot(nx, ny);
+  if (len < 1e-9) return false;
+  const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2;
+  const cx = (c[0][0] + c[1][0] + c[2][0]) / 3, cy = (c[0][1] + c[1][1] + c[2][1]) / 3;
+  if (nx * (mx - cx) + ny * (my - cy) < 0) { nx = -nx; ny = -ny; }
+  return insidePart(topo, rot, off, mx + (nx / len) * 0.5, my + (ny / len) * 0.5, z - 0.5);
+}
+
 // the two vertex offsets (into pos) face `o` shares with face `n`, by position
-function sharedEdge(pos, o, n) {
+export function sharedEdge(pos, o, n) {
   const out = [];
   for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) {
     const a = o * 9 + i * 3, b = n * 9 + j * 3;
@@ -174,7 +202,8 @@ function sharedEdge(pos, o, n) {
   }
   return out.length === 2 ? out : null;
 }
-function otherVertex(pos, n, shared) {
+/** Which vertex (0-2) of face `n` is not on the `shared` edge. */
+export function otherVertex(pos, n, shared) {
   for (let j = 0; j < 3; j++) {
     const b = n * 9 + j * 3;
     if (!shared.some((a) => pos[a] === pos[b] && pos[a + 1] === pos[b + 1] && pos[a + 2] === pos[b + 2])) return j;
