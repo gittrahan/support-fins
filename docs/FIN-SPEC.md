@@ -418,6 +418,26 @@ here: it stands on the slot's sill).
 | race | against the region's split tracks, like a small tube (`prop/rival.js`): the one holding more overhang stays, and the arc keeps a **tie** | the straight tracks often hold the same by the 12 mm reach while standing under a third of the strip |
 | result | the four test slots (Ø24–50, 1.2–2.5 mm walls, 20–40 mm wide): one wall each, Auto and Full, 95–100% of the ceiling right over it, top 0.2 mm under, flanks ≥ 0.7 mm off; the 864-case sweep byte-identical | |
 
+## Rim walls (Auto and Full) — `web/prop/rim.js`, `web/prop/judge.js`
+
+Not printed yet. Local issue 062 / #269: rows cross a patch one way, so along an edge
+they don't run parallel to, each stops at the edge and the outline between two row ends
+hangs free -- it curls or droops (a cable reel's stadium flange: its curved flanks bare
+all round, yet 100% by the 6 mm held rule). A rim wall stands under that outline and the
+rows stop short of it. Holding the edge takes precedence over crossing the slicer's
+bridge there, so a rim may run along the bridge lines (Matthew).
+
+| feature | value | rationale |
+|---|---|---|
+| region | level: most of its area within **10°** of flat (`RIM.levelDeg`) | a sloped patch's rows already run out to its edges; a rim round a tilted face only rings it (tube X25: 8 walls for 4) |
+| free edge | the region meets part going UP, a sliver below `MIN_REGION_AREA`, or nothing; not a kept overhang face, not part going DOWN (by the face across the edge, or the part 0.5 mm out and 0.5 mm under it -- a deck laid on an unwelded post), not at the bed (< `minHeightSquat`) | the layer builds out from part that goes down |
+| line | stations **1 mm** apart (`stationStep`), **`edgeInset`** in from the edge | as a flush end row |
+| pieces | ≤ **40 mm** long (`RIM.pieceLen`), ≤ **90°** of turn (`RIM.pieceTurn`), **1.5 mm** apart (`RIM.pieceGap`) | a closed ring round a flange can't be pulled out; an arc can |
+| rows | every station within `th` + `sideClear` of the rim dropped (the row split into its runs) | rows bridge to the rim instead of fusing into it |
+| race | per region against what the earlier races built (raster and circular swaps keep theirs), scored by the judge: held = within a **2 mm** cantilever past a wall face (provisional, lip coupon) or bridged between anchors ≥ **135°** apart within `maxUnsupportedSpan` + a wall; must hold more AND at least **0.01 mm² per mm³** added (`JUDGE.price`, provisional) | the 6 mm held rule can't tell a bridge from a cantilever |
+| result | cable reel upright 97.3 → 100% held (+28 g, 33 → 49 walls); 864-case sweep: 851 byte-identical, +7 g overall | |
+| switch | `opts.rimWalls === false` or `opts.raster === false`: off | |
+
 ## Downhill walls (Auto and Full) — `web/prop/downhill.js`, `web/fins/downhill.js`
 
 Not printed yet. Issue #25: walls that run down an overhang and follow it to the plate,

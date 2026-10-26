@@ -305,6 +305,12 @@ ceiling in Auto and in Full, bending, every station inside the strip, ≥ 95% of
 right over it and nothing inside the part. The same slot tilted 30° slopes, so no region
 takes an arc (a slope is downhill.js's).
 
+**`rim.test.js`** — rim walls (`web/prop/rim.js`): a ledge off one edge, whose rows stop
+4 mm short of its free edge, gets a wall under that edge in pieces no longer than
+`RIM.pieceLen` and none along the attached edge; `rimWalls:false` and `raster:false`
+build none; a tilted face (tube X25) gets none and keeps its 4 walls; a deck laid on two
+unwelded posts reads as attached there and takes no rim.
+
 **`circular.test.js`** — local circular/annular measurements and conical-recess
 placement (`web/prop/circular.js`). `_circular.js` generates publishable closed
 fixtures independently of any supplied project. Checks translation, duplicate
