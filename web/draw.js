@@ -16,6 +16,7 @@
  * into a watertight wall, reusing prop/sweep.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
+import { arcStations, arcThrough, DRAW_MIN_RADIUS } from './drawarc.js';
 import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor, crestOn, crestPart } from './prop.js';
 
 /**
@@ -132,16 +133,20 @@ function acrossClear(line, tris, w, z) {
  * the top to a clean `gap` below the part exactly as the auto-placer does. `under`
  * limits the pick to down-facing surfaces (the fill pass; see below).
  */
-export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, under = false) {
+export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, under = false, through = null) {
   const dx = b[0] - a[0], dy = b[1] - a[1];
   const len = Math.hypot(dx, dy);
   if (len < 1e-6) return null;
-  const n = Math.max(PROP.minStations - 1, Math.ceil(len / step));
+  // `through`: a curved wall's third click -- the stations run round the arc from a
+  // to b through it (drawarc.js); in line with a and b it is the straight wall
+  const arc = through ? arcStations(a, b, through, step, PROP.minStations) : null;
+  const n = arc ? arc.length - 1 : Math.max(PROP.minStations - 1, Math.ceil(len / step));
   const line = [];
   for (let k = 0; k <= n; k++) {
     const t = k / n;
-    const x = a[0] + dx * t, y = a[1] + dy * t;
-    const hint = a[2] + (b[2] - a[2]) * t;   // the height the drawn line implies here
+    const x = arc ? arc[k][0] : a[0] + dx * t, y = arc ? arc[k][1] : a[1] + dy * t;
+    // the height the drawn line implies here
+    const hint = arc ? arc[k][2] : a[2] + (b[2] - a[2]) * t;
     let z = hint, best = Infinity;
     // `under`: only surfaces facing DOWN. A column through a leaning figure meets its
     // back (the underside, red) and its front; on a curved back the straight-line
@@ -182,10 +187,18 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, 
  */
 export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   const dx = b[0] - a[0], dy = b[1] - a[1];
-  const len = Math.hypot(dx, dy);
-  if (len < DRAW_MIN_LEN) {
-    return { ok: false, reason: `wall too short — ${len.toFixed(1)}mm, needs ${DRAW_MIN_LEN}mm` };
+  const chord = Math.hypot(dx, dy);
+  if (chord < DRAW_MIN_LEN) {
+    return { ok: false, reason: `wall too short — ${chord.toFixed(1)}mm, needs ${DRAW_MIN_LEN}mm` };
   }
+  // `opts.through`: a curved wall (drawarc.js), refused when it bends tighter than
+  // its foot can follow. In line with the ends it is the straight wall.
+  const bend = opts.through ? arcThrough(a, b, opts.through) : null;
+  if (bend && bend.r < DRAW_MIN_RADIUS) {
+    return { ok: false, reason: `curve too tight — ${bend.r.toFixed(1)}mm radius, needs ${DRAW_MIN_RADIUS}mm` };
+  }
+  const through = bend ? opts.through : null;
+  const len = bend ? Math.abs(bend.sweep) * bend.r : chord;
   const out = [];
   if (crestOn()) crestPart(tris, opts.layerHeight);   // the interface crest's 'flat' test reads the underside here
   // A drawn wall grips the part with the same tine comb the auto fins use, when
@@ -211,7 +224,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   // degrade to z=0 on their own. This is what stops the "marched past the part
   // straight to the plate" bug: on the over-the-part case sweep-to-plate SUCCEEDS
   // and silently builds the tall stilt, so the fix must PREFER the floor.
-  const topPA = drawnLine(a, b, tris, PROP.stationStep, PART_BAND, !!opts.under);
+  const topPA = drawnLine(a, b, tris, PROP.stationStep, PART_BAND, !!opts.under, through);
   // ...unless the line lies ON the part: drawn on an UPWARD face (the UI lets you
   // click one), it read the part's own underside as its floor and stood the wall
   // inside the part, floor to top (local issue 033: a sphere's top, 296-384
@@ -241,7 +254,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     }
   }
 
-  const line = drawnLine(a, b, tris, PROP.stationStep, Infinity, !!opts.under);
+  const line = drawnLine(a, b, tris, PROP.stationStep, Infinity, !!opts.under, through);
   if (!line || line.length < PROP.minStations) {
     return { ok: false, reason: 'no surface found along that line' };
   }
