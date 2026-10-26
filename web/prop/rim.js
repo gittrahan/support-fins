@@ -54,8 +54,14 @@ export function rimTracks(topo, result, rot, faces, regionTris, step = PROP.stat
   if (flat < all / 2) return [];
   const segs = freeEdges(topo, result, rot, new Set(faces));
   const tracks = [];
+  const gap = Math.max(1, Math.round(RIM.pieceGap / step));
   for (const chain of chains(segs)) {
-    const line = inset(resample(chain, step), regionTris);
+    let line = resample(chain, step);
+    // a closed outline (a round flange) leaves a gap at its seam too, or its last
+    // piece meets its first and the ring can't come out
+    const a = chain[0], b = chain.at(-1);
+    if (Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-6) line = line.slice(0, Math.max(0, line.length - gap));
+    line = inset(line, regionTris);
     for (const run of runs(line)) tracks.push(...pieces(run, step));
   }
   // (tagged, so the wall built on it says rimWall: true)
@@ -70,9 +76,18 @@ export function rimTracks(topo, result, rot, faces, regionTris, step = PROP.stat
 export function clipToRim(rows, rim) {
   if (!rim.length) return rows;
   const keep = PROP.th + PROP.sideClear;
-  const pts = rim.flat();
-  const near = (p) => pts.some((q) => Math.abs(q[0] - p[0]) < keep && Math.abs(q[1] - p[1]) < keep
-    && Math.hypot(q[0] - p[0], q[1] - p[1]) < keep);
+  const grid = new Map(), key = (i, j) => i * 100003 + j;   // rim stations by `keep` cells
+  for (const q of rim.flat()) {
+    const k = key(Math.floor(q[0] / keep), Math.floor(q[1] / keep));
+    (grid.get(k) ?? grid.set(k, []).get(k)).push(q);
+  }
+  const near = (p) => {
+    const i = Math.floor(p[0] / keep), j = Math.floor(p[1] / keep);
+    for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) {
+      for (const q of grid.get(key(i + di, j + dj)) ?? []) if (Math.hypot(q[0] - p[0], q[1] - p[1]) < keep) return true;
+    }
+    return false;
+  };
   const out = [];
   for (const row of rows) {
     let cur = [];

@@ -36,3 +36,23 @@ Deno.test('rim: a deck laid on two unwelded posts is attached there -- no rim, n
                                          ...block(-20, 20, -40, 40, 15, 17)]));
   assert(!build(topo, I).props.some((q) => q.rimWall), 'the deck took a rim: the posts read as free edges');
 });
+
+Deno.test('rim: a round flange on a hub -- its ring of rim pieces leaves a gap at every join, the seam too', () => {
+  // a 40 mm disc 2 mm thick, underside z 20, on a 10 mm hub: the whole outline is free
+  const n = 64, R = 20, t = [];
+  const ring = (z) => Array.from({ length: n }, (_, i) => [R * Math.cos(2 * Math.PI * i / n), R * Math.sin(2 * Math.PI * i / n), z]);
+  const lo = ring(20), hi = ring(22);
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    t.push(lo[i], hi[j], lo[j], lo[i], hi[i], hi[j], [0, 0, 20], lo[j], lo[i], [0, 0, 22], hi[i], hi[j]);
+  }
+  const topo = topoOf(new Float32Array([...t.flat(), ...block(-5, 5, -5, 5, 0, 20.5)]));
+  const rims = build(topo, I).props.filter((q) => q.rimWall);
+  assert(rims.length >= 3, `${rims.length} rim pieces round a free 126 mm outline`);
+  const ends = rims.flatMap((q) => [q.line[0], q.line.at(-1)]);
+  for (let a = 0; a < ends.length; a++) for (let b = a + 1; b < ends.length; b++) {
+    if ((a >> 1) === (b >> 1)) continue;          // a piece's own two ends
+    const d = Math.hypot(ends[a][0] - ends[b][0], ends[a][1] - ends[b][1]);
+    assert(d > 0.9 * RIM.pieceGap, `two rim pieces ${d.toFixed(2)} mm apart`);
+  }
+});

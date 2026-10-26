@@ -153,7 +153,7 @@ export function buildProps(topo, result, rot, opts = {}) {
   // where the judge (prop/judge.js) says it holds more -- at JUDGE.price, held area
   // per plastic added: the curved edges rows can't reach, not a sliver for a wall.
   // (Regions an earlier race swapped -- raster, circular -- keep their walls.)
-  const swapped = new Set(circ.props.filter((q) => q.raster || q.circular).map((q) => q.region));
+  const swapped = new Set(circ.props.filter((q) => q.circular).map((q) => q.region));
   const base = opts.rimWalls === false || opts.raster === false ? circ : raceAgainst(topo, result, rot, opts, circ, capFrom,
     (regions) => buildPass(topo, result, rot, { ...opts, onlyRegions: regions, rimRegions: regions }, null),
     'rim', null, 0, null, false, {
