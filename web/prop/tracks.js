@@ -435,6 +435,8 @@ export function patchTracks(pts, patchTris, step = PROP.stationStep, support = n
  * (lowledge 3 -> 5 walls, a cube at X20-30 3 -> 5, two walls ~6 mm apart);
  * Matthew 2026-10-01: same count, the end ones flush; 2026-10-23: never a wider
  * gap than the pitch, so +1 row and no doubling (gaps stay near the pitch).
+ * Under a LEVEL underside a rounded end's row steps in from flush until it is
+ * long enough to be a wall (endRow; #269's cable reel).
  * With no free edge, no part to probe, or a steep underside (`probe` null; see
  * PROP.edgeFlatDeg / edgeFlatDegSway), the old layout exactly.
  */
@@ -561,6 +563,10 @@ function lowEdgeRows(rows, edges, near) {
  * an upright the underside meets -- makes the edge attached. Free only when most
  * probes that found an underside found air, and nothing stands in the column the
  * flush row would fill (either face, down to the bed).
+ * Under a LEVEL underside (PROP.edgeLevelDeg) three more reads (#269's cable reel):
+ * an end the probes mostly missed is probed again along the chord the underside
+ * really reaches (a rounded end), a lip curling up off the edge and gone within
+ * PROP.edgeLipMax is air, and a level floor both faces land on is the wall's foot.
  */
 function freeEdge(probe, vEdge, dir) {
   const whole = probeEdge(probe, vEdge, dir, probe.uLo, probe.uHi);
@@ -621,24 +627,31 @@ function probeEdge(probe, vEdge, dir, a, b) {
 }
 
 /**
- * Where a free edge's end row goes: flush (PROP.edgeInset in), or on a ROUNDED
- * edge, in just far enough for the row to be a wall -- at the very tip of a curve
- * the underside's chord is too short, and the row was dropped, which spread the
- * rest wider than before (a cylinder at X40, 3 -> 2 walls). Returns { v }, or null
- * when no spot past `limit` (the old row, less a margin) is long enough.
+ * Where a free edge's end row goes: flush (PROP.edgeInset in), or under a LEVEL
+ * underside's ROUNDED end, stepped in from flush just far enough for the row to be
+ * a wall -- at the very tip of a curve the chord is too short, and a dropped end
+ * row spread the rest wider than before. Returns { v }, or null when nothing
+ * between flush and `limit` (the old row, less a margin) is long enough: the end
+ * then keeps the old layout.
  */
 function endRow(probe, vEdge, dir, limit) {
   const flush = vEdge - dir * PROP.edgeInset;
   if (!probe.level) return { v: flush };
-  // (never more than most of the patch's own length: a short straight edge is flush)
-  const want = Math.min(2 * PROP.minSpan, 0.8 * (probe.uHi - probe.uLo));
+  // (a run long enough to be a wall, never more than most of the patch's own
+  // length: a short straight edge is flush)
+  const want = Math.min(PROP.minSpan + 1, 0.8 * (probe.uHi - probe.uLo));
   const long = (v) => { const span = edgeSpan(probe, v); return span && span[1] - span[0] >= want; };
   if (long(flush)) return { v: flush };
   for (let v = flush - dir * 0.25; (limit - v) * dir < 0; v -= dir * 0.25) if (long(v)) return { v };
   return null;
 }
 
-/** The u range the underside covers along the line v = `v` (sampled), or null. */
+/**
+ * The u range the underside covers along the line v = `v` (sampled), first hit to
+ * last, or null. A slot along the edge is spanned, not split: the pieces either
+ * side still stand as walls when they are long enough (minSpanFor decides, and a
+ * wall on the part needs only PROP.minSpanPart -- the reel's slotted tip).
+ */
 function edgeSpan(probe, v) {
   const { patchTris, ux, uy, vx, vy, uLo, uHi } = probe;
   const n = 128;
