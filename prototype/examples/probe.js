@@ -18,6 +18,9 @@
  *     --mode auto|full                   the Placement mode built (default auto; full = Full
  *                                        coverage, Auto plus fins/fill.js)
  *
+ * `judge%` / `cant`: the 062 judge (judge.js) -- must-hold held as a bridge or within a
+ * short cantilever, and the bare cantilever area held% counts as held.
+ *
  * Columns: `must%` is the policy number (2026-10-05: every red face gets something):
  * held share of the MUST-hold overhang, i.e. all of it but tiny holes' ceilings
  * (`hole`, exempt) and the strip under the squat floor (`low`, reported apart); see
@@ -27,6 +30,7 @@
  * git-ignored prototype/examples/reports/ -- other people's files, never committed.
  */
 import { heldFaces } from './held.js';
+import { judge } from './judge.js';
 
 const webArg = Deno.args.includes('--web') ? Deno.args[Deno.args.indexOf('--web') + 1] : null;
 if (Deno.args.includes('--web') && (!webArg || webArg.startsWith('--'))) throw new Error('--web needs a path: --web <checkout>/web');
@@ -68,7 +72,7 @@ const R = PROP.maxUnsupportedSpan / 2;
 const pad = (s, n) => String(s).padEnd(n);
 const W = Math.max(18, ...files.map((f) => Math.min(40, f.length - 2)));
 console.log(pad('model', W) + pad('pose', 10) + pad('ovh mm2', 9) + pad('must%', 7) + pad('hole', 6) + pad('low', 6) + pad('low%', 6)
-  + pad('held%', 7) + pad('small%', 8) + pad('walls', 6)
+  + pad('held%', 7) + pad('judge%', 8) + pad('cant', 6) + pad('small%', 8) + pad('walls', 6)
   + pad('onPart', 7) + pad('stilt mm', 9) + pad('g', 6) + pad('s', 6) + 'skipped');
 for (const f of files) {
   const pos = readSTL(Deno.readFileSync(dir + f));
@@ -82,6 +86,7 @@ for (const f of files) {
     const b = buildFins(topo, res, rot, { mode: MODE, bedPad: true, tines: true, ...EXTRA });
     const secs = (performance.now() - t0) / 1000;
     const h = heldFaces(topo, res, rot, b, R);
+    const j = judge(topo, res, rot, b);
     const walls = b.props ?? [];
     const onPart = walls.filter((w) => w.partAttached).length;
     const stilt = walls.filter((w) => !w.partAttached).reduce((s, w) => s + (w.height ?? 0), 0);
@@ -91,11 +96,12 @@ for (const f of files) {
     const must = h.must ? (100 * h.mustHeld / h.must).toFixed(0) : '-';
     console.log(pad(f.replace(/\.stl$/i, '').slice(0, W), W) + pad(pose, 10) + pad(h.area.toFixed(0), 9)
       + pad(must, 7) + pad(h.hole.toFixed(0), 6) + pad(h.low.toFixed(0), 6) + pad(h.low ? (100 * h.lowHeld / h.low).toFixed(0) : '-', 6)
-      + pad(pct(h.held), 7) + pad(pct(h.small), 8) + pad(walls.length, 6) + pad(onPart, 7)
+      + pad(pct(h.held), 7) + pad(j.pct === null ? '-' : j.pct.toFixed(0), 8) + pad(j.cant.toFixed(0), 6) + pad(pct(h.small), 8) + pad(walls.length, 6) + pad(onPart, 7)
       + pad(stilt.toFixed(0), 9) + pad(g.toFixed(1), 6) + pad(secs.toFixed(1), 6) + sk
       + (b.fill ? ` fill:${b.fill.walls}w/${b.fill.tries}t${b.fill.capped ? ' CAPPED' : ''} bare ${b.fill.bareBefore.toFixed(0)}->${b.fill.unservedArea.toFixed(0)} ${JSON.stringify(b.fill.refused)}` : ''));
     rows.push({ model: f.replace(/\.stl$/i, ''), pose, area: h.area, held: h.held, must: h.must, mustHeld: h.mustHeld,
-      hole: h.hole, low: h.low, lowHeld: h.lowHeld, walls: walls.length, grams: g, secs });
+      hole: h.hole, low: h.low, lowHeld: h.lowHeld, walls: walls.length, grams: g, secs,
+      judge: j.pct, judgeHeld: j.held, judgeMust: j.must, cant: j.cant, near: j.near, bridged: j.bridged });
     if (dump) {
       // the seated part (every face, for context), the overhang faces' held/small
       // flags, and the support triangles -- what render_held.py draws
