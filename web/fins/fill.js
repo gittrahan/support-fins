@@ -230,7 +230,9 @@ function candidateLines(pts, group, R, bridge, narrow = false) {
   }
   // all by the red they'd hold (stable: on a tie a direction's own line stays ahead of
   // its shifts; between directions, the better direction's lines come first)
-  return out.sort((p, q) => q.weight - p.weight).concat(narrowOut.sort((p, q) => q.weight - p.weight));
+  // (each followed by its lines from an island start's end, lineAt's `ends`)
+  return out.sort((p, q) => q.weight - p.weight).concat(narrowOut.sort((p, q) => q.weight - p.weight))
+    .flatMap((c) => [c, ...(c.ends ?? [])]);
 }
 
 /** One candidate: the line along (ux, uy) at across-offset `off`, over the red within
@@ -247,7 +249,8 @@ function lineAt(pts, across, ux, uy, off, R, bridge, axis) {
   }
   if (!run) return null;
   let t0 = band[run.from][0], t1 = band[run.to][0];
-  if (t1 - t0 < DRAW_MIN_LEN + 0.5) { const m = (t0 + t1) / 2; t0 = m - (DRAW_MIN_LEN + 0.5) / 2; t1 = m + (DRAW_MIN_LEN + 0.5) / 2; }
+  const short = t1 - t0 < DRAW_MIN_LEN + 0.5, s0 = t0, s1 = t1;
+  if (short) { const m = (t0 + t1) / 2; t0 = m - (DRAW_MIN_LEN + 0.5) / 2; t1 = m + (DRAW_MIN_LEN + 0.5) / 2; }
   // z hint at each end: the red nearest that end
   const zAt = (t) => {
     let z = 0, bd = Infinity;
@@ -256,7 +259,14 @@ function lineAt(pts, across, ux, uy, off, R, bridge, axis) {
   };
   const at = (t) => [ux * t - uy * off, uy * t + ux * off, zAt(t)];
   const aims = band.slice(run.from, run.to + 1).map(([, i]) => i);
-  return { a: at(t0), b: at(t1), weight: run.w * (axis ? 1 : FILL.axisBias), aims };
+  const weight = run.w * (axis ? 1 : FILL.axisBias);
+  // an island start on a part's edge (an outside corner's tip): a line centred on it
+  // is half in air, too short to build; one from the start each way along the line
+  // keeps the side that runs up the part under it
+  const ends = short && aims.every((i) => pts[i].length > 4)
+    ? [[s0, s0 + DRAW_MIN_LEN + 0.5], [s1 - DRAW_MIN_LEN - 0.5, s1]].map(([u, v]) => ({ a: at(u), b: at(v), weight, aims }))
+    : null;
+  return { a: at(t0), b: at(t1), weight, aims, ends };
 }
 
 /**

@@ -144,6 +144,31 @@ Deno.test('islands: Full coverage walls a start in midair; Auto does not (Full o
   assert(!heldBy(auto, isl), 'Auto has nothing under it (islands are Full only)');
 });
 
+// #257's outside corner: a quarter pyramid hanging point-down, its tip 0.5 mm in from
+// under its top corner -- two sides drop near sheer to the tip, two climb away from it
+// at ~48deg -- so the tip is at the part's edge and a line centred on it is half in air
+function edgeCorner(x, y, z, side, rise) {
+  const T = [x - 0.5, y - 0.5, z], A = [x, y, z + rise], B = [x - side, y, z + rise], C = [x - side, y - side, z + rise], D = [x, y - side, z + rise];
+  const mid = [x - side / 2, y - side / 2, z + rise * 0.75], out = [];
+  for (const [p, q, r] of [[T, A, B], [T, B, C], [T, C, D], [T, D, A], [A, D, C], [A, C, B]]) {
+    const n = [0, 1, 2].map((k) => (q[(k + 1) % 3] - p[(k + 1) % 3]) * (r[(k + 2) % 3] - p[(k + 2) % 3])
+      - (q[(k + 2) % 3] - p[(k + 2) % 3]) * (r[(k + 1) % 3] - p[(k + 1) % 3]));
+    const away = n.reduce((t, v, k) => t + v * (p[k] - mid[k]), 0) > 0;
+    out.push(...p, ...(away ? q : r), ...(away ? r : q));
+  }
+  return new Float32Array(out);
+}
+
+Deno.test('islands: Full walls an outside corner\'s tip on the part\'s edge (#257), from the side that runs up the part', () => {
+  const topo = topoOf(pillar, edgeCorner(25, 5, 20, 9.5, 10));
+  const res = analyze(topo, 45, I3);
+  const isl = findIslands(topo, res, I3);
+  assert(isl.length === 1 && Math.abs(isl[0].z - 20) < 0.01, `the tip is the one island (${isl.length})`);
+  const full = buildFins(topo, res, I3, { mode: 'full', bedPad: true });
+  assert(full.fill.islandsBare === 0, `Full leaves the tip bare (${full.fill.islands}/${full.fill.islandsBare})`);
+  assert(heldBy(full, isl[0]), 'a wall top right under the tip');
+});
+
 Deno.test('islands: the page\'s islands (opts.islands, no vertex ids in the worker) build the same walls', () => {
   const topo = topoOf(pillar, cornerCube(15, 5, 20, 8));
   const res = analyze(topo, 45, I3);
