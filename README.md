@@ -56,6 +56,29 @@ Set **Nozzle** (0.2–2.0 mm) to your printer's nozzle and the support widths fo
 The contact tip and tines stay one line wide either way. See
 [the nozzle guide](docs/NOZZLE.md) for the sizes and what to check in the slicer.
 
+### Hand-placed supports in the background
+
+Draw walls and hand-placed Sway braces calculate in a background worker, including
+their hover previews and rebuilds after a pose or setting changes. A second Draw
+worker rebuilds parked models one at a time. Each queue keeps one active job and
+only the latest waiting job per operation; committed placements take priority over
+previews. Changing model, pose or settings discards obsolete results. Auto remains
+the default, with its existing Auto/pad worker and inline fallback.
+
+Export waits for committed hand placements to finish. If their worker fails, it
+retries once in a fresh worker, then shows **Retry** and blocks export until the
+hand placements have rebuilt. A refused placement gives its ordinary geometry
+reason and creates no undo entry. Retry after a worker error rebuilds saved supports;
+an uncommitted failed click must be placed again. Manual work has no inline fallback.
+
+This moves the geometry calculation off the UI thread, rather than promising a
+shorter total build time. Worker startup, data copies and drawing the resulting
+mesh still cost time and memory. Workers cache a model and its transformed triangles;
+there is no adaptive CPU pool or CPU-percentage target. Performance on physically
+low-end computers has not been measured. Geometry and clearance rules are unchanged,
+including the existing one-way clearance of tall drawn-wall ribs against earlier
+drawn walls and Auto supports; Auto does not rebuild around later hand placements.
+
 ### Rounded support feet
 
 **Rounded feet** optionally rounds the corners of FDM bed-standing wall,

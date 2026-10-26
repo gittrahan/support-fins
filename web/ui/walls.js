@@ -6,20 +6,19 @@ import { t } from './i18n.js';
  * dispatch calls drawHover / drawClick while drawActive().
  */
 import * as THREE from 'three';
-import { drawnWall } from '../draw.js';
-import { planGrid } from '../fins/tall.js';
-import { swayAtFace, faceIsUpright } from '../sway.js';
+import { geometryQueue, reportTask } from './drawstatus.js';
+import { faceIsUpright } from '../sway.js';
 import { initBraceGhost, showBrace, moveTip, hideBrace, dropBrace, braceGrace } from './braceghost.js';
 import { el } from './dom.js';
 import { viewport, renderer, scene, camera, meshFrom, ifaceMaterial, raycaster, pointer, clip, MODEL } from './scene.js';
 import { keptHit } from './section.js';
 import { removedIds } from './remove.js';
-import { histPush } from './history.js';
+import { histPush, settingsKey } from './history.js';
 import { updateReadout } from './readout.js';
 import { pickFace } from './pose.js';
 import { part, topology, rotM3, lastResult, updateFit } from './part.js';
 import { finsVisible, finMode, autoLike, drawAugment } from './settings.js';
-import { lastBuilt, swayOpts } from './finbuild.js';
+import { lastBuilt, swayOpts, finOpts } from './finbuild.js';
 
 // ---- draw mode: the user places breakaway walls by hand --------------------
 // A drawn wall IS the same kind of support the auto-placer emits, so it shares
@@ -29,13 +28,11 @@ import { lastBuilt, swayOpts } from './finbuild.js';
 // part through later rotations, the same way the auto fins are rebuilt each time
 // the orientation changes.
 export let drawnWalls = [];        // committed walls: { a: Vector3(local), b: Vector3(local), ok, info }
-export function setDrawnWalls(w) { drawnWalls = w; }
+export function setDrawnWalls(w) { drawnWalls = w; reportTask('place', false); }
 export let drawnMesh = null;
 export let drawnTris = [];
 export let drawStart = null;       // Vector3 (local) -- first click of a wall in progress
 export let drawMsg = '';           // last placement result, for the readout
-let printTris = null;       // whole part in print space, cached per orientation
-let printTrisDirty = true;
 
 export const drawMaterial = new THREE.MeshStandardMaterial({
   color: 0x59d98e, roughness: 0.7, metalness: 0.0, side: THREE.DoubleSide,
@@ -104,31 +101,9 @@ export function sizeMarkers() {
   if (drawCursor.visible) drawCursor.scale.setScalar(CURSOR_PX * mmPerPx(drawCursor.position));
 }
 
-/** The whole part in PRINT space (rotated + seated), rebuilt only when the
- *  orientation changes. This is the surface a drawn wall's contact line samples,
- *  the same transform export bakes in. */
-function partPrintTriangles() {
-  if (printTris && !printTrisDirty) return printTris;
-  printTris = printTriangles(topology, rotM3.elements, lastResult.offset);
-  printTrisDirty = false;
-  return printTris;
-}
-
-/** `topology` posed `rot` and seated at `offset` (analyze's), as one flat array. */
-export function printTriangles(topology, rot, { x: dx, y: dy, z: dz }) {
-  const { pos, nFaces } = topology;
-  const a = new Float64Array(nFaces * 9);
-  for (let i = 0; i < a.length; i += 3) {
-    const x = pos[i], y = pos[i + 1], z = pos[i + 2];
-    a[i]     = rot[0] * x + rot[3] * y + rot[6] * z + dx;
-    a[i + 1] = rot[1] * x + rot[4] * y + rot[7] * z + dy;
-    a[i + 2] = rot[2] * x + rot[5] * y + rot[8] * z + dz;
-  }
-  return a;
-}
-
 /** Drop any wall-in-progress and hide every transient draw visual. */
 export function clearPreview() {
+  previewGeneration++; geometryQueue.cancel('preview');
   drawStart = null;
   drawDot.visible = drawCursor.visible = drawBand.visible = false;
   dropGhost();
@@ -141,94 +116,133 @@ function dropGhost() {
 }
 
 /** Rebuild the committed drawn walls for the current orientation. */
-export function rebuildDrawn() {
-  if (drawnMesh) { scene.remove(drawnMesh); drawnMesh.geometry.dispose(); drawnMesh = null; }
-  drawnTris = [];
-  if (!drawShown() || !topology || !lastResult) { syncSelection(); return; }
-  part.updateMatrixWorld();
-  drawnTris = sweepDrawn({
-    topology, res: lastResult, rot: rotM3.elements, tris: partPrintTriangles(), walls: drawnWalls,
-    toWorld: (v, out) => part.localToWorld(out.copy(v)),
-    auto: finsVisible && autoLike() ? lastBuilt : null, gone: removedIds,
-  });
-  drawnMesh = meshFrom(drawnTris, drawMaterial, ifaceMaterial);
-  braceMemo.stamp = null;   // the braces a preview stands clear of have moved
-  if (braceShown) dropGhost();
-  syncSelection();
-}
-
-/**
- * Stand a model's hand-placed supports for its pose, under the settings on the
- * page: the live model's (rebuildDrawn) or a parked one's (ui/parkedbuild.js).
- * Sets each wall's ok / info / triangle range and returns the triangles. `ctx`:
- * { topology, res, rot, tris (the part in print space), walls, toWorld(local, out),
- * auto (Auto's build on screen, or null), gone (its removed fin ids) }.
- */
-export function sweepDrawn({ topology, res, rot, tris, walls, toWorld, auto: built, gone }) {
-  const out = [];
-  // Both Draw and the Suggest "+ Add" augment place the SAME thing now: hand-drawn
-  // under-overhang breakaway walls. Each wall is stored as two local endpoints and
-  // re-swept against the part's current pose, so a wall that no longer reaches the
-  // part (rotated away) is flagged by drawnWall rather than dropped silently.
-  // Drawn walls grip with the same tine comb the auto fins use when Tines is on.
-  const drawOpts = { tines: el('tines').checked,
-                     tineDensity: el('tine-density').valueAsNumber / 100,
-                     layerHeight: el('layer-height').valueAsNumber,
-                     plateOnly: el('plate-only').checked,
-                     braceTall: el('tall-ribs').checked,
-                     topo: topology, rot, offset: res.offset };
-  // A tall drawn wall's ribs keep sideClear off the walls drawn before it and off
-  // Auto's supports and pad when they're on screen (draw.js braceTall): a rib fused
-  // into a neighbour no longer breaks away by itself. (Walls drawn later don't check
-  // back -- drawn walls never check each other -- and Auto's ribs, built in the
-  // Worker, can't see drawn walls.)
-  const ribGrid = planGrid();
-  if (built) {
-    for (const rec of built.fins ?? []) {
-      if (gone.has(rec.id)) continue;
-      for (const [a, b] of rec.triRanges ?? []) ribGrid.add(built.triangles.slice(a, b), 'auto');
-    }
-    if (built.padTriangles?.length) ribGrid.add(built.padTriangles, 'auto');
-  }
-  let gridded = 0;
-  drawOpts.braceClear = (rib) => {
-    ribGrid.add(out.slice(gridded));   // walls drawn since the last rib
-    gridded = out.length;
-    return !ribGrid.hits(rib);
+let drawGeneration = 0, drawBusy = false, placing = false, previewGeneration = 0;
+export const manualPending = () => drawBusy || placing;
+export function manualOptions() {
+  return {
+    sway: swayOpts(),
+    tunables: finOpts().tunables,
+    draw: {
+      tines: el('tines').checked,
+      tineDensity: el('tine-density').valueAsNumber / 100,
+      layerHeight: el('layer-height').valueAsNumber,
+      plateOnly: el('plate-only').checked,
+      braceTall: el('tall-ribs').checked,
+    },
   };
-  const wa = new THREE.Vector3(), wb = new THREE.Vector3();
-  // Everything a hand-placed brace has to keep clear of: Auto's braces and walls
-  // (when Auto's supports are on screen), then each hand-placed brace as it is
-  // re-stood, so a rotation that brings two together is reported rather than fused.
-  const auto = autoSupports(built, gone);
-  const braces = [...auto.braces];
-  for (const w of walls) {
-    // Each support remembers which triangles of the merged mesh are its own, so a
-    // click on the mesh can be traced back to the support to select / remove.
-    w.triStart = out.length / 3;
-    if (w.kind === 'sway') {
-      // A hand-placed sway brace: re-stood on the same face at the same spot, so
-      // it follows the part when it turns (and says why if that face no longer
-      // stands upright, or now runs into an earlier brace). A capped one stops at
-      // its clicked point's height; the rest run up the whole face.
-      toWorld(w.a, wa);
-      const r = swayAtFace(topology, res, rot, w.face,
-                           [wa.x, wa.y, wa.z], { ...swayOpts(), full: !w.capped }, { braces, walls: auto.walls });
-      w.ok = r.ok;
-      w.info = r;
-      if (r.ok) { braces.push(r); for (const t of r.tris) out.push(t); }
-      w.triEnd = out.length / 3;
-      continue;
+}
+export function requestsFor(walls, toWorld) {
+  const a = new THREE.Vector3(), b = new THREE.Vector3();
+  return walls.map((w) => {
+    toWorld(w.a, a);
+    if (w.b) toWorld(w.b, b);
+    return {
+      kind: w.kind,
+      face: w.face,
+      capped: w.capped,
+      a: a.toArray(),
+      b: w.b ? b.toArray() : undefined,
+    };
+  });
+}
+export function applyDrawItems(walls, items) {
+  walls.forEach((w, i) => {
+    const item = items[i];
+    if (item) {
+      Object.assign(w, {
+        ok: item.ok,
+        info: item.info,
+        triStart: item.triStart,
+        triEnd: item.triEnd,
+      });
     }
-    toWorld(w.a, wa);
-    toWorld(w.b, wb);
-    const r = drawnWall([wa.x, wa.y, wa.z], [wb.x, wb.y, wb.z], tris, 0, drawOpts);
-    w.ok = r.ok;
-    w.info = r;
-    if (r.ok) for (const t of r.tris) out.push(t);
-    w.triEnd = out.length / 3;
+  });
+}
+export async function sweepDrawn(
+  { topology: topo, res, rot, walls, toWorld, auto: built, gone, queue = geometryQueue },
+) {
+  const options = manualOptions();
+  options.auto = built;
+  options.gone = [...(gone ?? [])];
+  const reply = await queue.run('build', topo, {
+    kind: 'build',
+    rot: [...rot],
+    result: res,
+    requests: requestsFor(walls, toWorld),
+    options,
+  });
+  return reply?.built ?? null;
+}
+export async function rebuildDrawn() {
+  const generation = ++drawGeneration, model = topology, mesh = part, records = drawnWalls;
+  if (geometryQueue.model && geometryQueue.model !== model) {
+    geometryQueue.dispose(); geometryQueue.model = null;
   }
-  return out;
+  geometryQueue.cancel('place');
+  previewGeneration++; geometryQueue.cancel('preview');
+  if (drawnMesh) {
+    scene.remove(drawnMesh);
+    drawnMesh.geometry.dispose();
+    drawnMesh = null;
+  }
+  drawnTris = [];
+  drawBusy = false;
+  reportTask('build', false);
+  braceMemo.stamp = null;
+  if (braceShown) dropGhost();
+  if (!drawShown() || !topology || !lastResult || !drawnWalls.length) {
+    geometryQueue.cancel('build');
+    if (!topology) {
+      geometryQueue.dispose();
+      geometryQueue.model = null;
+    }
+    syncSelection();
+    return;
+  }
+  part.updateMatrixWorld();
+  drawBusy = true;
+  reportTask('build', true);
+  let failure = null;
+  try {
+    const built = await sweepDrawn({
+      topology,
+      res: lastResult,
+      rot: rotM3.elements,
+      walls: records,
+      toWorld: (v, out) => mesh.localToWorld(out.copy(v)),
+      auto: finsVisible && autoLike() ? lastBuilt : null,
+      gone: removedIds,
+    });
+    if (
+      generation !== drawGeneration || topology !== model || part !== mesh || drawnWalls !== records
+    ) return;
+    if (!built) return;
+    applyDrawItems(records, built.items);
+    drawnTris = built.triangles;
+    drawMaterial.transparent = false;
+    drawMaterial.opacity = 1;
+    drawnMesh = meshFrom(drawnTris, drawMaterial, ifaceMaterial);
+    reportTask('build', false);
+    syncSelection();
+    updateReadout(lastBuilt);
+    updateFit();
+  } catch (error) {
+    if (generation !== drawGeneration) return;
+    console.error('Background manual support build failed', error);
+    failure = error;
+    reportTask('build', false, error);
+    for (const w of records) {
+      w.ok = false;
+      w.info = { reason: 'background support calculation failed — retry' };
+    }
+    syncSelection();
+    updateReadout(lastBuilt);
+  } finally {
+    if (generation === drawGeneration) {
+      drawBusy = false;
+      reportTask('build', false, failure);
+    }
+  }
 }
 
 // ---- selecting a hand-placed support, to remove it -------------------------
@@ -303,9 +317,13 @@ export function removeSelected() {
 /** Show the endpoint / cursor / band, and a live ghost of the wall in progress. */
 let ghostQueued = null;
 function updatePreview(hitPoint) {
+  previewGeneration++;
   drawCursor.position.copy(hitPoint);
   drawCursor.visible = true;
-  if (!drawStart) { drawBand.visible = false; return; }
+  if (!drawStart) {
+    drawBand.visible = false;
+    return;
+  }
   part.updateMatrixWorld();
   const aWorld = part.localToWorld(drawStart.clone());
   drawDot.position.copy(aWorld);
@@ -319,65 +337,106 @@ function updatePreview(hitPoint) {
   const already = !!ghostQueued;
   ghostQueued = [aWorld.clone(), hitPoint.clone()];
   if (already) return;
-  requestAnimationFrame(() => {
+  requestAnimationFrame(async () => {
     const q = ghostQueued;
     ghostQueued = null;
     if (!q || !drawStart || !drawActive()) return;
-    if (ghostMesh) { scene.remove(ghostMesh); ghostMesh.geometry.dispose(); ghostMesh = null; }
-    const tris = partPrintTriangles();
-    const r = drawnWall([q[0].x, q[0].y, q[0].z], [q[1].x, q[1].y, q[1].z], tris, 0,
-                        { braceTall: el('tall-ribs').checked });   // the ghost shows its ribs
-    if (r.ok) { ghostMesh = meshFrom(r.tris, ghostMaterial); ghostMesh?.layers.disable(MODEL); }
+    if (ghostMesh) {
+      scene.remove(ghostMesh);
+      ghostMesh.geometry.dispose();
+      ghostMesh = null;
+    }
+    try {
+      const model = topology,
+        start = drawStart,
+        stamp = settingsKey(),
+        options = manualOptions(),
+        revision = previewGeneration;
+      options.auto = finsVisible && autoLike() ? lastBuilt : null;
+      options.gone = [...removedIds];
+      const reply = await geometryQueue.run('preview', model, {
+        kind: 'build',
+        rot: [...rotM3.elements],
+        result: lastResult,
+        requests: [{ a: q[0].toArray(), b: q[1].toArray() }],
+        options,
+      });
+      if (
+        !reply || revision !== previewGeneration || topology !== model || drawStart !== start ||
+        settingsKey() !== stamp
+      ) return;
+      if (ghostMesh) {
+        scene.remove(ghostMesh);
+        ghostMesh.geometry.dispose();
+        ghostMesh = null;
+      }
+      if (reply.built.items[0]?.ok) {
+        ghostMesh = meshFrom(reply.built.triangles, ghostMaterial);
+        ghostMesh?.layers.disable(MODEL);
+      }
+    } catch (error) {
+      console.warn('Support preview unavailable', error);
+    }
   });
 }
 
 /** Commit the wall from `drawStart` to the just-clicked point, if it can build. */
-function placeSecondPoint(hitPoint) {
-  part.updateMatrixWorld();
-  const aWorld = part.localToWorld(drawStart.clone());
-  const bWorld = hitPoint.clone();
-  const tris = partPrintTriangles();
-  const r = drawnWall([aWorld.x, aWorld.y, aWorld.z],
-                      [bWorld.x, bWorld.y, bWorld.z], tris, 0);
-  if (!r.ok) {
-    drawMsg = t('couldn’t place that wall: {reason}', { reason: t(r.reason) });
-    clearPreview();
-    updateReadout(lastBuilt);
-    return;
-  }
-  drawMsg = '';
-  histPush();
-  drawnWalls.push({ a: drawStart.clone(), b: part.worldToLocal(bWorld.clone()) });
-  clearPreview();
-  rebuildDrawn();
-  updateReadout(lastBuilt);
-  updateFit();
-}
-
-/**
- * The supports Auto has ALREADY placed, as things a hand-placed brace must avoid.
- *
- * Auto builds in the Worker, so the page has no other way to know where its braces
- * and walls stand: without this, a brace you click can land on top of an Auto one
- * (or face it across a channel) and the two fuse into one piece that won't break
- * away. Empty unless Auto's supports are actually on screen, and fins the user has
- * removed are left out -- they aren't there to hit.
- */
-function autoSupports(built = finsVisible && autoLike() ? lastBuilt : null, removed = removedIds) {
-  if (!built) return { braces: [], walls: [] };
-  const outlines = built.sway?.braces ?? [];
-  const braces = [], walls = [];
-  let k = 0;   // sway records and their outlines are emitted in the same order
-  for (const rec of built.fins ?? []) {
-    const gone = removed.has(rec.id);
-    if (rec.kind === 'sway') {
-      const outline = outlines[k++];
-      if (outline && !gone) braces.push(outline);
-    } else if (!gone && Array.isArray(rec.line) && rec.line.length) {
-      walls.push(rec.line);
+async function placeSecondPoint(hitPoint) {
+  if (placing || !drawStart) return;
+  const start = drawStart,
+    model = topology,
+    mesh = part,
+    pose = rotM3.elements.join(),
+    stamp = settingsKey(),
+    analysis = lastResult,
+    records = drawnWalls;
+  mesh.updateMatrixWorld();
+  const aw = mesh.localToWorld(start.clone()), bw = hitPoint.clone();
+  placing = true;
+  reportTask('place', true);
+  let failure = null;
+  try {
+    const options = manualOptions();
+    options.auto = finsVisible && autoLike() ? lastBuilt : null;
+    options.gone = [...removedIds];
+    const reply = await geometryQueue.run('place', model, {
+      kind: 'build',
+      rot: [...rotM3.elements],
+      result: lastResult,
+      requests: [{ a: aw.toArray(), b: bw.toArray() }],
+      options,
+    });
+    if (
+      !reply || topology !== model || part !== mesh || drawStart !== start ||
+      drawnWalls !== records || rotM3.elements.join() !== pose || lastResult !== analysis || settingsKey() !== stamp
+    ) return;
+    const r = reply.built.items[0]?.info;
+    if (!r?.ok) {
+      drawMsg = t('couldn’t place that wall: {reason}', {
+        reason: t(r?.reason ?? 'no printable wall'),
+      });
+      clearPreview();
+      updateReadout(lastBuilt);
+      return;
     }
+    drawMsg = '';
+    histPush();
+    drawnWalls.push({ a: start.clone(), b: mesh.worldToLocal(bw.clone()) });
+    clearPreview();
+    rebuildDrawn();
+    updateReadout(lastBuilt);
+    updateFit();
+  } catch (error) {
+    if (topology === model && part === mesh && drawnWalls === records &&
+      rotM3.elements.join() === pose && lastResult === analysis && settingsKey() === stamp) {
+      console.error(error);
+      failure = error;
+      reportTask('place', false, error);
+    }
+  } finally {
+    placing = false;
+    reportTask('place', false, failure);
   }
-  return { braces, walls };
 }
 
 // ---- sway brace preview: hover an upright side to see what a click stands ----
@@ -386,8 +445,6 @@ function autoSupports(built = finsVisible && autoLike() ? lastBuilt : null, remo
 // whole face, the height a brace always had before the clicked-height cap. A spot
 // that can't take one turns the cursor amber and says why, before any click.
 // braceghost.js fades and eases what this shows, so moving about doesn't flash.
-const SNAP_TOP = 0.75;
-const STEP_Z = 1;   // capped tops in 1 mm steps, so a creeping cursor reuses its ghost
 const MEMO_MAX = 200;
 let braceMemo = { stamp: null, map: new Map() };
 let braceShown = null;   // the braceAt key the ghost and tip show now
@@ -396,41 +453,68 @@ let braceQueued = null;
 /**
  * The brace a click at print-space point `p` on face `faceIndex` stands, as
  * { r: swayAtFace's result, full, point, key }: `point` is the spot it stands at
- * (x, y to the mm, a capped top to STEP_Z), which placeSway stores. Memoised until
+ * (x, y to the mm, a capped top to 1 mm), which placeSway stores. Memoised until
  * the pose, the settings or the supports it stands clear of change.
  */
-function braceAt(faceIndex, p) {
-  const opts = swayOpts();
-  const stamp = [lastResult, lastBuilt, removedIds, drawnWalls, drawnWalls.length, finsVisible, autoLike(),
-                 rotM3.elements.join(), JSON.stringify(opts)];
-  if (!braceMemo.stamp || braceMemo.stamp.some((v, i) => v !== stamp[i])) braceMemo = { stamp, map: new Map() };
-  const memo = (key, f) => {
-    const m = braceMemo.map;
-    if (!m.has(key)) {
-      m.set(key, f());
-      if (m.size > MEMO_MAX) m.delete(m.keys().next().value);   // oldest first
-    }
-    return m.get(key);
-  };
-  const auto = autoSupports();
-  const avoid = { braces: [...auto.braces, ...drawnWalls.filter((w) => w.kind === 'sway' && w.ok).map((w) => w.info)],
-                  walls: auto.walls };
-  // x, y to the mm, slid back onto the face's plane: the stored point has to stay on
-  // the face, or a reopened session's nearestFace can pick the one beside it
+async function braceAt(faceIndex, p, channel = 'preview') {
+  const options = manualOptions();
+  options.auto = finsVisible && autoLike() ? lastBuilt : null;
+  options.gone = [...removedIds];
+  const stamp = [
+    topology,
+    lastResult,
+    lastBuilt,
+    drawnWalls,
+    drawnWalls.length,
+    removedIds,
+    rotM3.elements.join(),
+    JSON.stringify(options.tunables),
+    JSON.stringify(options.sway),
+  ];
+  if (!braceMemo.stamp || braceMemo.stamp.some((v, i) => v !== stamp[i])) {
+    braceMemo = { stamp, map: new Map() };
+  }
   const n = topology.nrm, r = rotM3.elements, f = faceIndex * 3;
-  const nx = r[0] * n[f] + r[3] * n[f + 1] + r[6] * n[f + 2], ny = r[1] * n[f] + r[4] * n[f + 1] + r[7] * n[f + 2];
-  const rx = Math.round(p[0]), ry = Math.round(p[1]), off = ((rx - p[0]) * nx + (ry - p[1]) * ny) / (nx * nx + ny * ny || 1);
-  const x = rx - off * nx, y = ry - off * ny, at = `${faceIndex}|${rx}|${ry}`;
-  const full = memo(at, () => swayAtFace(topology, lastResult, rotM3.elements, faceIndex, [x, y, p[2]],
-                                         { ...opts, full: true }, avoid));
-  if (!full.ok || p[2] >= SNAP_TOP * full.height) return { r: full, full: true, point: [x, y, p[2]], key: at };
-  const z = Math.max(STEP_Z, Math.round(p[2] / STEP_Z) * STEP_Z), key = `${at}|${z}`;
-  return { r: memo(key, () => swayAtFace(topology, lastResult, rotM3.elements, faceIndex, [x, y, z], opts, avoid)),
-           full: false, point: [x, y, z], key };
+  const nx = r[0] * n[f] + r[3] * n[f + 1] + r[6] * n[f + 2],
+    ny = r[1] * n[f] + r[4] * n[f + 1] + r[7] * n[f + 2];
+  const rx = Math.round(p[0]),
+    ry = Math.round(p[1]),
+    off = ((rx - p[0]) * nx + (ry - p[1]) * ny) / (nx * nx + ny * ny || 1);
+  const point = [rx - off * nx, ry - off * ny, p[2]],
+    key = channel + '|' + faceIndex + '|' + point.map((v) => Math.round(v * 1000) / 1000).join();
+  const map = braceMemo.map;
+  if (!map.has(key)) {
+    const avoid = {
+      braces: drawnWalls.filter((w) => w.kind === 'sway' && w.ok).map((w) => w.info),
+      walls: [],
+    };
+    const promise = geometryQueue.run(channel, topology, {
+      kind: 'brace',
+      face: faceIndex,
+      point,
+      rot: [...rotM3.elements],
+      result: lastResult,
+      options,
+      avoid,
+    }).then((reply) => {
+      if (!reply) {
+        map.delete(key);
+        return null;
+      }
+      return { ...reply.built, key };
+    }).catch((error) => {
+      map.delete(key);
+      throw error;
+    });
+    map.set(key, promise);
+    if (map.size > MEMO_MAX) map.delete(map.keys().next().value);
+  }
+  return map.get(key);
 }
 
 /** Hovering an upright side with Sway braces on: ghost + tip for the brace a click there stands. */
 function updateBracePreview(hit, ev) {
+  previewGeneration++;
   drawCursor.position.copy(hit.point);
   drawCursor.visible = true;
   drawBand.visible = drawDot.visible = false;
@@ -439,23 +523,41 @@ function updateBracePreview(hit, ev) {
   const already = !!braceQueued;
   braceQueued = { face: hit.faceIndex, p: [hit.point.x, hit.point.y, hit.point.z] };
   if (already) return;
-  requestAnimationFrame(() => {
+  requestAnimationFrame(async () => {
     const q = braceQueued;
     braceQueued = null;
     if (!q || drawStart || !(drawActive() || braceActive())) return;
-    const b = braceAt(q.face, q.p);
+    const revision = previewGeneration;
+    let b;
+    try {
+      b = await braceAt(q.face, q.p);
+    } catch (error) {
+      console.warn(error);
+      return;
+    }
+    if (!b || revision !== previewGeneration || drawStart || !(drawActive() || braceActive())) {
+      return;
+    }
     if (b.key === braceShown) return;
     braceShown = b.key;
     const mm = Math.round(b.r.height ?? 0);
-    showBrace(b.r.ok ? b.r.tris : null, b.r.height ?? 0,
-              !b.r.ok ? t(b.r.reason)
-              : b.full ? t('Brace · full height {mm} mm', { mm })
-              : t('Brace · {mm} mm · move up for full height', { mm }),
-              !b.r.ok);
+    showBrace(
+      b.r.ok ? b.r.tris : null,
+      b.r.height ?? 0,
+      !b.r.ok
+        ? t(b.r.reason)
+        : b.r.fitted
+        ? t('Fitted brace · {mm} mm · check plate space', { mm })
+        : b.full
+        ? t('Brace · full height {mm} mm', { mm })
+        : t('Brace · {mm} mm · move up for full height', { mm }),
+      !b.r.ok,
+    );
   });
 }
 
 renderer.domElement.addEventListener('pointerleave', () => {
+  previewGeneration++; geometryQueue.cancel('preview');
   braceQueued = null;
   if (!drawStart) { drawCursor.visible = false; braceShown = null; hideBrace(false); }
 });
@@ -463,6 +565,7 @@ renderer.domElement.addEventListener('pointerleave', () => {
 /** The pointer is on the part but off an upright side: the dot follows it, and the
  *  brace stays a moment (an edge or a small facet on the way) before it fades. */
 function slipOff(hit, keepCursor) {
+  previewGeneration++; geometryQueue.cancel('preview');
   braceQueued = null;
   // back on the part inside a grace begun off it: Draw's cursor stays after all
   if (!braceShown && keepCursor && braceGrace()) hideBrace(true, null);
@@ -474,24 +577,55 @@ function slipOff(hit, keepCursor) {
 }
 
 /** Stand a sway brace on the upright face the user clicked: the one its preview showed. */
-function placeSway(hit) {
+async function placeSway(hit) {
+  if (placing) return;
   braceQueued = null;
-  const { r, full, point } = braceAt(hit.faceIndex, [hit.point.x, hit.point.y, hit.point.z]);
-  dropGhost();
-  if (!r.ok) {
-    drawMsg = t('couldn’t place that brace: {reason}', { reason: t(r.reason) });
+  const model = topology,
+    mesh = part,
+    pose = rotM3.elements.join(),
+    stamp = settingsKey(),
+    analysis = lastResult,
+    records = drawnWalls;
+  placing = true;
+  reportTask('place', true);
+  let failure = null;
+  try {
+    const built = await braceAt(hit.faceIndex, hit.point.toArray(), 'place');
+    if (
+      !built || topology !== model || part !== mesh || drawnWalls !== records ||
+      rotM3.elements.join() !== pose || lastResult !== analysis || settingsKey() !== stamp
+    ) return;
+    const { r, full, point } = built;
+    dropGhost();
+    if (!r.ok) {
+      drawMsg = t('couldn’t place that brace: {reason}', { reason: t(r.reason) });
+      updateReadout(lastBuilt);
+      return;
+    }
+    drawMsg = '';
+    histPush();
+    mesh.updateMatrixWorld();
+    drawnWalls.push({
+      kind: 'sway',
+      face: hit.faceIndex,
+      ...(full ? {} : { capped: true }),
+      a: mesh.worldToLocal(new THREE.Vector3(...point)),
+    });
+    rebuildDrawn();
+    syncDrawControls();
     updateReadout(lastBuilt);
-    return;
+    updateFit();
+  } catch (error) {
+    if (topology === model && part === mesh && drawnWalls === records &&
+      rotM3.elements.join() === pose && lastResult === analysis && settingsKey() === stamp) {
+      console.error(error);
+      failure = error;
+      reportTask('place', false, error);
+    }
+  } finally {
+    placing = false;
+    reportTask('place', false, failure);
   }
-  drawMsg = '';
-  histPush();
-  part.updateMatrixWorld();
-  drawnWalls.push({ kind: 'sway', face: hit.faceIndex, ...(full ? {} : { capped: true }),
-                    a: part.worldToLocal(new THREE.Vector3(point[0], point[1], point[2])) });
-  rebuildDrawn();
-  syncDrawControls();   // Auto's first brace by hand brings up Clear / Remove selected
-  updateReadout(lastBuilt);
-  updateFit();
 }
 
 /** Show Clear whenever hand-drawn walls are shown (they stay in Suggest after
@@ -518,7 +652,7 @@ el('draw-remove').addEventListener('click', removeSelected);
 
 export function setDrawMsg(v) { drawMsg = v; }
 /** The part turned or changed: the cached print-space triangles are stale. */
-export function markPrintTrisDirty() { printTrisDirty = true; }
+export function markPrintTrisDirty() { braceMemo.stamp = null; }
 
 // ---- the draw pointer (app.js dispatches here while drawActive()) ----------
 
@@ -566,6 +700,7 @@ export function braceHover(ev) {
 /** The pointer left the part (a gap, the background) or is over the rotate rings
  *  without dragging: the same grace as slipOff, then the preview and its dot go. */
 export function braceAway() {
+  previewGeneration++; geometryQueue.cancel('preview');
   braceQueued = null;
   if (!braceShown && !braceGrace()) {
     // the crosshair too, even with the dot already gone (a build landing hides it)
@@ -580,6 +715,7 @@ export function braceAway() {
 /** Fade braceActive's ghost and tip and hide its cursor (an orbit or a ring drag
  *  has the pointer). */
 export function dropBracePreview() {
+  previewGeneration++; geometryQueue.cancel('preview');
   braceQueued = null;
   braceShown = null;
   hideBrace(false);
@@ -601,10 +737,12 @@ export function braceClick(e) {
 }
 
 /** With Sway braces on, a click on an UPRIGHT side (no wall half-drawn) stands a brace. */
-const swayHit = (hit) => !drawStart && el('sway').checked && faceIsUpright(topology, rotM3.elements, hit.faceIndex);
+const swayHit = (hit) => !drawStart && el('sway').checked &&
+  faceIsUpright(topology, rotM3.elements, hit.faceIndex);
 
 /** A click: select a placed support, stand a sway brace, or set / commit a wall end. */
 export function drawClick(e) {
+  if (placing) return;
   // A click on a support you placed selects it (for Delete / Remove selected),
   // unless a wall is half-drawn -- then the click is its second point.
   if (!drawStart) {
@@ -630,3 +768,9 @@ export function drawClick(e) {
     placeSecondPoint(hit.point);
   }
 }
+
+el('draw-retry').addEventListener('click', () => {
+  reportTask('place', false);
+  rebuildDrawn();
+  dispatchEvent(new Event('retry-draw'));
+});

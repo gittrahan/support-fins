@@ -24,7 +24,7 @@ import { part, clearPart, stashPart, unstashPart } from './part.js';
 import { takeState, takeHistory, setHistory, restoreState, applySettings, settingsKey, VIEWER_IDS } from './history.js';
 import { scaleState, setScaleState } from './scale.js';
 import { importState, setImportState } from './io.js';
-import { activeAdded, buildPending } from './finbuild.js';
+import { activeAdded, buildPending, drawError } from './finbuild.js';
 import { sectionState, restoreSection } from './section.js';
 import { suggestState, restoreSuggestions } from './suggest.js';
 import { currentVolume } from './volume.js';
@@ -68,7 +68,7 @@ export function park(plate) {
   const section = sectionState(), suggest = suggestState();
   // Left before its fins were built (they build in the worker): the parked copy
   // keeps the fins it had when it was last parked, if the pose is still that one.
-  const last = m.ghost, pending = buildPending();   // before stashPart: it drops the build
+  const last = m.ghost, pending = buildPending() || drawError();   // before stashPart: it drops the build
   m.ghost = null;
   // `added`: the supports it adds, in print space, as the export writes them
   let fins, added = [];

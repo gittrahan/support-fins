@@ -18,7 +18,7 @@ import { download } from '../stl.js';
 import { zipStore } from '../zip.js';
 import { checkOverlap } from './arrange.js';
 import { part, partName } from './part.js';
-import { buildPending, finMesh, padMesh } from './finbuild.js';
+import { buildPending, drawError, finMesh, padMesh } from './finbuild.js';
 import { drawnMesh } from './walls.js';
 import { plate3MF, plate3MFLive, plateGeometry, plateReady, whileWaiting } from './export.js';
 import { parkedSettled } from './parkedbuild.js';
@@ -286,9 +286,10 @@ const tick = (ms) => new Promise((r) => setTimeout(r, ms));
  * (ui/parkedbuild.js); a plate left before they were rebuilt is switched to and its
  * models made live in turn, then back to the plate being edited. */
 export async function exportAll() {
-  if (busy) return;
+  if (busy || drawError()) return;
   const at = plates[active];
   const settled = await whileWaiting(parkedSettled);
+  if (drawError()) return;
   if (settled === null) return;              // an export is already waiting
   // switched plates meanwhile: the one left is judged as any other
   if (plates[active] !== at) return exportAll();
@@ -308,8 +309,10 @@ export async function exportAll() {
           // the switch starts a support build (in the worker): export what it builds
           await tick(0);
           while (buildPending()) await tick(50);
+          if (drawError()) return false;
           const f = await plate3MFLive();
-          if (f) files[i] = { name: `plate-${i + 1}-${f[1]}`, blob: f[0] };
+          if (!f) return false;
+          files[i] = { name: `plate-${i + 1}-${f[1]}`, blob: f[0] };
         }
       } finally {
         go(back, true);
