@@ -1088,8 +1088,8 @@ body.no-part #viewport canvas { pointer-events: none; }
                        font-size: 12px; color: var(--dim); }
 .err-panel .err-copy { flex: none; border: 1px solid var(--btn-line); background: var(--btn-hi); }
 .noscript { position: fixed; inset: 40% 16px auto; z-index: 10; text-align: center; color: var(--text); }
-/* "The 3D view can't draw" (ui/glfail.js): under the plate tabs, above any panel. */
-.glfail { position: fixed; inset: calc(var(--topbar-h) + 48px) 16px auto; z-index: 30;
+/* "The 3D view can't draw" (ui/glfail.js): under the plate tabs (and the phone chip rows), above any panel. */
+.glfail { position: fixed; inset: calc(var(--topbar-h) + var(--chips-h, 0px) + 48px) 16px auto; z-index: 30;
   max-width: 34em; margin: 0 auto; padding: 12px 16px; text-align: center;
   color: var(--text); background: var(--panel); border: 1px solid var(--accent);
   border-radius: 8px; box-shadow: 0 6px 24px rgb(0 0 0 / 0.5); }
