@@ -12,11 +12,11 @@
  * stations are stepped round it, and each sits midway across the strip there
  * (its edges probed along the radius) -- so the line follows the strip even where its radius drifts.
  *
- * Only a strip: narrow (ARC.maxWidth across everywhere), level (its whole rise
+ * Only a strip: narrow (ARC.maxWidth across everywhere); level (its whole rise
  * within PROP.contourSlopeMin -- the slope below which there is nothing to read --
- * of maxWidth; a slope is downhill.js's), open (a
- * complete ring is circular.js's), and bending more than CURVED.minBend (a straight
- * strip is the patch path's, unchanged). Returns tracks in tubeLine's shape --
+ * of maxWidth: a slope is downhill.js's); open (a complete ring is circular.js's);
+ * and bending more than CURVED.minBend (a straight strip is the patch path's,
+ * unchanged). Returns tracks in tubeLine's shape --
  * [x, y, z] stations ~`step` apart, z the region's surface -- or null.
  */
 import { PROP } from './config.js';
@@ -78,10 +78,13 @@ export function arcLine(regionPts, regionTris, step = PROP.stationStep) {
   for (const [a, r] of polar) { a0 = Math.min(a0, a); a1 = Math.max(a1, a); rSum += r; }
   if ((TAU - (a1 - a0)) * 180 / Math.PI < ARC.minGap) return null;   // a ring
   const rMean = rSum / polar.length;
+  if (rMean < ARC.maxWidth + ARC.probe) return null;       // the probes would cross the centre
   // One station every `step` along the mean radius. At each, the strip's edges are
   // found by probing the region's surface out along the radius (ARC.probe apart):
   // the vertices alone are too sparse -- a long facet spans several stations, and a
   // station seeing only one edge's vertices sat 0.5 mm off the middle of a 1.6 mm strip.
+  // The probes span rMean +- maxWidth, so a strip whose radius drifts more than ~3 mm
+  // from its mean (a spiral) is clipped there -- a slot's radius doesn't drift.
   const n = Math.max(2, Math.ceil(((a1 - a0) * rMean) / step));
   const reach = ARC.maxWidth + ARC.probe;
   const line = [];

@@ -55,15 +55,18 @@ for (const s of SLOTS) {
   }
 }
 
-Deno.test('arc walls: the slot tilted 30 deg slopes, so no arc (a slope is downhill.js\'s)', () => {
-  const rot = rotX(30);
-  const { topo, result, off } = build(SLOTS[0].file, 'auto', rot);
-  const v = [0, 0, 0];
-  for (const r of result.regions) {
-    const tris = new Float64Array(r.faces.length * 9), pts = [];
-    r.faces.forEach((f, k) => {
-      for (let i = 0; i < 3; i++) { seat(topo.pos, f * 9 + i * 3, rot, off, v); tris.set(v, k * 9 + i * 3); pts.push([...v]); }
-    });
-    assert(arcLine(pts, tris) === null, 'an arc on a sloping region');
-  }
-});
+// 30 deg is near the level gate (the thin slot's ceiling rises ~1.0 mm against 0.9), 45 well past it
+for (const deg of [30, 45]) {
+  Deno.test(`arc walls: the slot tilted ${deg} deg slopes, so no arc (a slope is downhill.js's)`, () => {
+    const rot = rotX(deg);
+    const { topo, result, off } = build(SLOTS[0].file, 'auto', rot);
+    const v = [0, 0, 0];
+    for (const r of result.regions) {
+      const tris = new Float64Array(r.faces.length * 9), pts = [];
+      r.faces.forEach((f, k) => {
+        for (let i = 0; i < 3; i++) { seat(topo.pos, f * 9 + i * 3, rot, off, v); tris.set(v, k * 9 + i * 3); pts.push([...v]); }
+      });
+      assert(arcLine(pts, tris) === null, 'an arc on a sloping region');
+    }
+  });
+}
