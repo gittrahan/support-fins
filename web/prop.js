@@ -47,6 +47,7 @@
  *   downhill.js   walls that run down an overhang and follow it to the plate (#25)
  *   curved.js     the Curved walls checkbox: when a bending downhill wall wins its race
  *   trace.js      the Curved walls' tracing surface: regions grown across the slivers, grouped
+ *   arc.js        one wall along a level strip that curves in plan (a slot through a tube)
  *
  * Each module imports only modules above it in this list and never prop.js.
  */
@@ -56,6 +57,7 @@ import { buildPartAttached } from './prop/attached.js';
 import { bodyMask, insertFloorStations, longestRun, minSpanFor, stationCertified, stationIsClear, tallBody, tallSpan, welds, withLowTails } from './prop/clearance.js';
 import { PROP } from './prop/config.js';
 import { contourTop, lowerSag, settleTop, straightness } from './prop/contact.js';
+import { arcLine } from './prop/arc.js';
 import { bends } from './prop/curved.js';
 import { circularRegions, circularTracks } from './prop/circular.js';
 import { DOWNHILL, downhillLines } from './prop/downhill.js';
@@ -371,6 +373,15 @@ function buildPass(topo, result, rot, opts, raster) {
     if (tube && tube.length) {
       patches.push({ faces: rFaces, area: regionArea, region: ri,
                      tris: regionTris, lines: tube, smallTube: small ? split : null });
+      continue;
+    }
+    // A level strip that curves in plan (a slot through a tube's wall): one wall
+    // along it, raced against the split's straight tracks like a small tube -- and
+    // it keeps a tie, since it stands under the strip's whole length. See prop/arc.js.
+    const arc = arcLine(regionPts, regionTris, step);
+    if (arc) {
+      patches.push({ faces: rFaces, area: regionArea, region: ri,
+                     tris: regionTris, lines: arc, smallTube: split, arc: true });
       continue;
     }
 

@@ -399,6 +399,25 @@ This changes default geometry for accepted circular recesses. It does not
 redistribute already built supports or solve spacing across obstructed arcs.
 Related to GitHub #50; general organic and complex curved placement remains open.
 
+## Arc walls (Auto and Full) — `web/prop/arc.js`
+
+Not printed yet. One wall along a level overhang that curves in plan: a slot cut through
+a tube's wall, whose ceiling is a strip the wall's thickness wide bent round the tube's
+axis. Its faces point straight down, so it has no slope for downhill walls; the patch path
+read it as a plane and laid straight tracks, which only cut across a bending strip
+(Ø30 tube, 1.6 mm wall, 22 mm slot: no line at all; Ø50, 2.5 mm: pieces, 71% of the
+ceiling right over a wall in Full). The wall itself is the ordinary one (part-attached
+here: it stands on the slot's sill).
+
+| feature | value | rationale |
+|---|---|---|
+| strip | the region rises ≤ `contourSlopeMin` × `ARC.maxWidth` (**0.9 mm**) and is ≤ **6 mm** across at every station (`ARC.maxWidth`) | one wall then has each edge within 3 mm, half the 6 mm held rule; wider bands keep rows. The level test is the whole region's, not the line's: on a sloping chamfer an arc can run along a contour and read level (ssdMounts-Chamfer X60 lost 96 → 11%) |
+| open | at least **30°** of the circle left open (`ARC.minGap`) | complete rings are circular.js's (it takes gaps up to 30°) |
+| line | a least-squares circle through the region's points gives a centre; stations **1 mm** apart round it (`stationStep`), each midway between the strip's edges along the radius, probed **0.05 mm** apart (`ARC.probe`) | the vertices alone are too sparse: a station seeing one edge's vertices sat 0.5 mm off the middle of a 1.6 mm strip |
+| bend | > **10°** (`CURVED.minBend`, read by `lineBend`) | a straight strip stays the patch path's, unchanged |
+| race | against the region's split tracks, like a small tube (`prop/rival.js`): the one holding more overhang stays, and the arc keeps a **tie** | the straight tracks often hold the same by the 12 mm reach while standing under a third of the strip |
+| result | the four test slots (Ø24–50, 1.2–2.5 mm walls, 20–40 mm wide): one wall each, Auto and Full, 95–100% of the ceiling right over it, top 0.2 mm under, flanks ≥ 0.7 mm off; the 864-case sweep byte-identical | |
+
 ## Downhill walls (Auto and Full) — `web/prop/downhill.js`, `web/fins/downhill.js`
 
 Not printed yet. Issue #25: walls that run down an overhang and follow it to the plate,

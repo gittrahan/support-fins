@@ -299,6 +299,12 @@ opt-in-to-legacy reset and STL/component-3MF export on a synthetic metre-high po
 The browser toggle starts off; legacy geometry references are unchanged. Physical
 adhesion and tall-print stability still need comparison prints.
 
+**`arc.test.js`** — arc walls (`web/prop/arc.js`): a slot through a tube's wall
+(`fixtures/gen_slot.py`: Ø30 with a 1.6 mm wall, Ø50 with 2.5 mm) gets ONE wall along its
+ceiling in Auto and in Full, bending, every station inside the strip, ≥ 95% of the ceiling
+right over it and nothing inside the part. The same slot tilted 30° slopes, so no region
+takes an arc (a slope is downhill.js's).
+
 **`circular.test.js`** — local circular/annular measurements and conical-recess
 placement (`web/prop/circular.js`). `_circular.js` generates publishable closed
 fixtures independently of any supplied project. Checks translation, duplicate
