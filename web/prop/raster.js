@@ -214,13 +214,15 @@ export function withRaster(topo, result, rot, opts, normal, capFrom, rasterPass)
  * area instead of heldBy (rim walls race on the 062 judge, prop/judge.js), and
  * `price` the held area per mm3 a swap must buy when it adds plastic. `hold(qa, qb, ri)`:
  * true when the region's current walls would lose something the swap keeps (a wedge).
+ * `alone`: the swap replaces the region's walls and keeps none of them beside it (a layout
+ * of the same rows, not a second wall -- the flush end rows).
  * `equivalent`: also try fully held regions and prefer the second placement
  * when its held area is equal. Circular candidates use this to choose a local
  * frame even where world-axis rows already hold the circle. Unlike `lenient`,
  * this still enforces the grip rule and retains useful, clear baseline walls.
  */
 export function raceAgainst(topo, result, rot, opts, normal, capFrom, pass, tag, maxGrow = null, rel = RACE_REL,
-                            lenient = null, equivalent = false, { tried: only = null, ruler = heldBy, price = null, hold = null } = {}) {
+                            lenient = null, equivalent = false, { tried: only = null, ruler = heldBy, price = null, hold = null, alone = false } = {}) {
   const faces = overhangFaces(topo, result, rot);
   const want = only ?? rasterWanted(faces, result, normal);
   // Curved walls: a region the walls above already hold may still take a curve
@@ -233,7 +235,7 @@ export function raceAgainst(topo, result, rot, opts, normal, capFrom, pass, tag,
   if (opts.rasterVeto) raster.props = raster.props.filter((q) => !opts.rasterVeto(q, normal.props));
   const capRaster = globalThis.__TINECAP;
   globalThis.__TINECAP = cap;
-  const raced = raceRegions(faces, result, normal, raster, tag, maxGrow, rel, lenient, equivalent ? null : want, equivalent, ruler, price, hold);
+  const raced = raceRegions(faces, result, normal, raster, tag, maxGrow, rel, lenient, equivalent ? null : want, equivalent, ruler, price, hold, alone);
   if (!raced[`${tag}Regions`]) return normal;
   if (cap) {
     cap.length = capFrom;
@@ -293,14 +295,14 @@ function nearRegion(faces, ri) {
  * If the region's lowest grip still rises past gripRise, no swap -- unless `force`
  * (a curved swap, raceRegions's `lenient`): then the swap stands with what it kept.
  */
-function keepers(qa, qb, near, force = false) {
+function keepers(qa, qb, near, force = false, alone = false) {
   const kept = [...qb], extra = [];
   const bare = near.filter((f) => !heldBy([f], wallTops(kept)));
   const clear = (q) => kept.every((r) => planGap(q.line ?? [], r.line ?? []) >= halfFoot(q) + halfFoot(r) + 1);
   // lowest-gripping first, so a low wall claims its spot before a neighbour
   const order = [...qa].sort((x, y) => gripZ([x]) - gripZ([y]));
   for (const q of order) {
-    if (!q.line?.length || !clear(q)) continue;
+    if (alone || !q.line?.length || !clear(q)) continue;
     const addsArea = heldBy(bare, q.line) >= RACE_ABS;
     const addsGrip = gripZ([q]) < gripZ(kept) - GRIP_RISE;
     if (!addsArea && !addsGrip) continue;
@@ -332,7 +334,7 @@ function keepers(qa, qb, near, force = false) {
  * forces curves: a group whose walls don't bend keeps its `a` walls.
  */
 function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = RACE_REL, lenient = null,
-                     wanted = null, equivalent = false, ruler = heldBy, price = null, hold = null) {
+                     wanted = null, equivalent = false, ruler = heldBy, price = null, hold = null, alone = false) {
   const A = byRegion(a.props), B = byRegion(b.props);
   const out = [], props = [], served = new Set();
   let tines = 0, volume = 0, swapped = 0, sagRisk = a.sagRisk;
@@ -377,7 +379,7 @@ function raceRegions(faces, result, a, b, tag = 'raster', maxGrow = null, rel = 
         // (`hold`: the walls `a` would lose something the swap keeps -- a wedge --
         // so it swaps whatever the ruler says)
         if ((!tooHeavy && (hb > ha + Math.max(RACE_ABS, rel * ha)
-            || (equivalent && hb > 0 && hb >= ha - 1e-6))) || (hold && hb > 0 && hold(qa, qb, ri))) extra = keepers(qa, qb, near);
+            || (equivalent && hb > 0 && hb >= ha - 1e-6))) || (hold && hb > 0 && hold(qa, qb, ri))) extra = keepers(qa, qb, near, false, alone);
       }
     }
     if (!extra) { for (const q of qa) take(a, q); continue; }

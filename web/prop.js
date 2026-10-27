@@ -149,7 +149,7 @@ export function buildProps(topo, result, rot, opts = {}) {
       // (`equivalent` and no price: a tie on the judge keeps the flush layout, as before the
       // race -- only a layout the judge scores higher swaps away from it)
       'flush', null, 0, null, true, {
-        tried: new Set(rows.flushable), ruler: judgeRuler(topo, result, rot),
+        tried: new Set(rows.flushable), ruler: judgeRuler(topo, result, rot), alone: true,
         // rows that serve a patch the flush layout leaves to a wedge drop that wedge
         // (it grips from the bed): the flush layout stays (fins/wedges.js wedgeVeto)
         hold: opts.rasterVeto && ((qa, qb, ri) => {

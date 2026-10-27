@@ -18,9 +18,8 @@ Deno.test('end rows: a tie on the judge keeps the flush layout (tshape X60, spar
   // the mid-strip rows hold exactly what the flush ends do there; the cheaper layout must not win
   const race = build('tshape', 60, { coverage: 0 });
   assert(race.props.some((q) => q.flush), 'the flush layout won the tie');
-  // (the swap also keeps clear mid-strip walls beside it -- raster.js keepers -- so it is
-  // 5 walls here, not the 3 of endRows:false)
-  assert(race.props.length === 5, `${race.props.length} walls, pinned 5`);
+  // (the flush layout replaces the mid-strip rows: no row of the old layout stays beside it)
+  assert(race.props.length === 3, `${race.props.length} walls, pinned 3`);
 });
 
 Deno.test('end rows: a portal keeps the wedge the flush layout leaves it (the rows would serve its patch)', () => {
