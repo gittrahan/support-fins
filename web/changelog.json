@@ -5,7 +5,7 @@
     {
       "date": "2026-10-27",
       "check": "all",
-      "text": "First tagged release: Auto and Full coverage fins, curved and arc walls, a bed pad and sway braces, tines that release clean, and the same engine in the site, ten slicer and CAD plugins, a CLI and an MCP server.",
+      "text": "First tagged release: Auto and Full coverage fins, curved and arc walls, a bed pad and sway braces, tines that release clean, and the same engine in the site, nine slicer and CAD plugins, a CLI and an MCP server.",
       "summary": [
         {
           "check": "held",
