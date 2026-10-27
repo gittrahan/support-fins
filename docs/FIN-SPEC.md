@@ -534,9 +534,9 @@ past the part's edge -- tabs out of the wall's side (cube at X30). The tip's fac
 0.3 mm inside the edge at every nozzle; the wider wall body below it may reach past.
 The flush end row is a **candidate the judge races** (`web/prop/endrows.js`, local issue
 062): per region, the mid-strip rows against the same rows with each free end's row moved
-out flush -- one more row, never doubled (#384) -- and the flush layout stays only where
-the judge (`web/prop/judge.js`) says it holds more overhang per mm3 of added plastic
-(`JUDGE.price`). It replaced a slope cutoff (`PROP.edgeFlatDeg`, 45 deg; a cube at X35-X44
+out flush -- one more row, never doubled (#384) -- and the flush layout stays unless
+the judge (`web/prop/judge.js`) scores the mid-strip rows higher -- a tie keeps flush, no
+plastic price. It replaced a slope cutoff (`PROP.edgeFlatDeg`, 45 deg; a cube at X35-X44
 kept a 6.7 mm strip bare along each side edge, #269). **With Sway on, 30 deg**
 (`PROP.edgeFlatDegSway`): the candidate is not offered past it -- the flush wall stands at
 the foot of the upright side a brace needs, ~5 mm of it, so the braces win there. A brace

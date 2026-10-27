@@ -312,8 +312,8 @@ right over it and nothing inside the part. The same slot tilted 30° slopes, so 
 takes an arc (a slope is downhill.js's).
 
 **`end_rows.test.js`** — flush end rows as a judged candidate (`web/prop/endrows.js`): a tilted
-cube wins its four flush walls in the race; tshape at X60 (sparse) keeps its two mid-strip
-rows where the judge sees no gain, and `endRows:false` still builds the flush three; a portal
+cube wins its four flush walls in the race; tshape at X60 (sparse) keeps its three flush
+walls on a judge tie, as `endRows:false` builds them; a portal
 keeps its wedge (the race's `hold`) where the mid-strip rows would serve its patch.
 
 **`rim.test.js`** — rim walls (`web/prop/rim.js`): a ledge off one edge, whose rows stop

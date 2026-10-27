@@ -12,7 +12,7 @@
  * the end ones flush; 2026-10-23: never a wider gap than the pitch, so +1 row.
  *
  * This only LAYS the candidate. Whether it is worth its wall is the judge's call per
- * region (buildProps races it against the mid-strip rows at JUDGE.price, prop/judge.js);
+ * region (buildProps races it against the mid-strip rows, prop/judge.js; a tie keeps flush);
  * it replaced a slope cutoff (PROP.edgeFlatDeg, 45 deg) that guessed from the underside's
  * angle. The one cutoff left is Sway's (PROP.edgeFlatDegSway, see patchTracks): a
  * brace is the user's own ask and the judge doesn't see it.

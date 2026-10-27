@@ -146,8 +146,10 @@ export function buildProps(topo, result, rot, opts = {}) {
   const normal = !racing || !rows.flushable.length ? rows
     : raceAgainst(topo, result, rot, { ...opts, rasterVeto: undefined }, rows, capFrom,   // (the wedge veto guards raster walls, not these)
       (regions) => buildPass(topo, result, rot, { ...opts, onlyRegions: regions }, null),
-      'flush', null, 0, null, false, {
-        tried: new Set(rows.flushable), ruler: judgeRuler(topo, result, rot), price: JUDGE.price,
+      // (`equivalent` and no price: a tie on the judge keeps the flush layout, as before the
+      // race -- only a layout the judge scores higher swaps away from it)
+      'flush', null, 0, null, true, {
+        tried: new Set(rows.flushable), ruler: judgeRuler(topo, result, rot),
         // rows that serve a patch the flush layout leaves to a wedge drop that wedge
         // (it grips from the bed): the flush layout stays (fins/wedges.js wedgeVeto)
         hold: opts.rasterVeto && ((qa, qb, ri) => {
