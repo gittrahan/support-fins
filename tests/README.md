@@ -275,6 +275,14 @@ same `stepObjects()` the app's worker output goes through):
 - the imported part runs through `analyze` + `buildFins` and gets a fin.
 Fixtures (`tests/fixtures/*.step`) are made with FreeCAD.
 
+**`triindex.test.js`** -- Sway's lowestHit through the XY triangle grid (`web/triindex.js`,
+`web/swayhit.js`) against the full scan, `Object.is`-equal on 400 random rib boxes per scene
+over 8 scenes (hits and misses), with and without the rib's z bounds (the per-candidate box test).
+
+**`swaycrop.test.js`** -- Sway's cross ribs built from the cropped part (`web/swaycrop.js`)
+equal those built from the whole part, on random feet/leans/gauges over 5 scenes; a post click still
+gets both arms.
+
 **`sway.test.js`** -- sway braces (`web/sway.js`) on a 150 mm post (plain blocks,
 no stress models needed):
 - a tall part gets braces, watertight, and the **rib never fuses** into the part;
