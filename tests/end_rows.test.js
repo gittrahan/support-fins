@@ -17,9 +17,10 @@ Deno.test('end rows: a tilted cube wins its flush ends in the race -- 4 walls, t
 Deno.test('end rows: a tie on the judge keeps the flush layout (tshape X60, sparse)', () => {
   // the mid-strip rows hold exactly what the flush ends do there; the cheaper layout must not win
   const race = build('tshape', 60, { coverage: 0 });
-  const flush = build('tshape', 60, { coverage: 0, endRows: false });
-  assert(race.props.length === 3 && flush.props.length === 3,
-    `race ${race.props.length} walls, flush everywhere ${flush.props.length}; pinned 3 and 3`);
+  assert(race.props.some((q) => q.flush), 'the flush layout won the tie');
+  // (the swap also keeps clear mid-strip walls beside it -- raster.js keepers -- so it is
+  // 5 walls here, not the 3 of endRows:false)
+  assert(race.props.length === 5, `${race.props.length} walls, pinned 5`);
 });
 
 Deno.test('end rows: a portal keeps the wedge the flush layout leaves it (the rows would serve its patch)', () => {
