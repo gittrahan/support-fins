@@ -30,7 +30,7 @@ for (const [name, pose, rot, want] of PINS) {
   });
 }
 
-// Sway on keeps the old 30deg cutoff (PROP.edgeFlatDegSway): a flush end wall stands
+// Sway on withholds flush end rows past 30deg (PROP.edgeFlatDegSway): a flush end wall stands
 // where the braces go, and the braces win. The cube at X40 keeps main's 3 walls at the
 // thirds and both its braces; with Sway off it gets 4, flush to both side edges.
 Deno.test('layout: cube X40 with Sway on keeps 3 walls and both braces', () => {

@@ -311,6 +311,11 @@ ceiling in Auto and in Full, bending, every station inside the strip, ≥ 95% of
 right over it and nothing inside the part. The same slot tilted 30° slopes, so no region
 takes an arc (a slope is downhill.js's).
 
+**`end_rows.test.js`** — flush end rows as a judged candidate (`web/prop/endrows.js`): a tilted
+cube wins its four flush walls in the race; tshape at X60 (sparse) keeps its two mid-strip
+rows where the judge sees no gain, and `endRows:false` still builds the flush three; a portal
+keeps its wedge (the race's `hold`) where the mid-strip rows would serve its patch.
+
 **`rim.test.js`** — rim walls (`web/prop/rim.js`): a ledge off one edge, whose rows stop
 4 mm short of its free edge, gets a wall under that edge in pieces no longer than
 `RIM.pieceLen` and none along the attached edge; `rimWalls:false` and `raster:false`
