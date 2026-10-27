@@ -37,6 +37,7 @@
  *   ties.js       zigzag struts tying two neighbouring walls into one frame (the fill pass's)
  *   clearance.js  which stations can carry a wall (reach, certification, runs)
  *   tines.js      the grip comb along a wall's top
+ *   endrows.js    flush end rows at a patch's free edges (a candidate the judge races, 062)
  *   tracks.js     where Suggest puts walls: straight patches, tracks, tube line
  *   mold.js       the floor under a wall on the part, and its bottom's shape
  *   attached.js   walls that stand on the part instead of the plate

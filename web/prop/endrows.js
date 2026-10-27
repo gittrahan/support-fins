@@ -57,7 +57,7 @@ export function endRows(rows, vLo, vHi, probe) {
  * probes that found an underside found air, and nothing stands in the column the
  * flush row would fill (either face, down to the bed).
  */
-export function freeEdge(probe, vEdge, dir) {
+function freeEdge(probe, vEdge, dir) {
   const { support, patchTris, ux, uy, vx, vy, uLo, uHi } = probe;
   let air = 0, part = 0;
   for (const t of [0.1, 0.3, 0.5, 0.7, 0.9]) {

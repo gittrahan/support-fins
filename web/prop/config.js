@@ -180,10 +180,11 @@ export const PROP = {
   // (Flush end rows are a candidate layout the judge races per region, prop/endrows.js:
   // a cube at X35-X44 kept a 6.7 mm strip bare past each end wall (#269); since #384 a
   // flush end is one more row, never doubled.)
-  // The one slope cutoff left: with Sway on, flush end rows only up to 30deg: a sway brace keeps ~5 mm off any wall's foot, and a
-  // flush wall stands at the foot of the upright side it braces, so on a tilted box
-  // the braces had nowhere to go (box X40, portal, tshape: 2 -> 0). Sway is the
-  // user's own ask, so its braces win there (Matthew 2026-10-25).
+  // The one slope cutoff left: with Sway on, flush end rows only up to 30deg: a sway
+  // brace keeps ~5 mm off any wall's foot, and a flush wall stands at the foot of the
+  // upright side it braces, so on a tilted box the braces had nowhere to go (box X40,
+  // portal, tshape: 2 -> 0). Sway is the user's own ask, so its braces win there
+  // (Matthew 2026-10-25).
   edgeFlatDegSway: 30,
 
   // --- TINES (the grip comb) ---------------------------------------------
