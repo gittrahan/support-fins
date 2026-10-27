@@ -341,4 +341,5 @@ export function markFinsStale() {
   for (const m of [finMesh, padMesh, drawnMesh]) if (m) for (const mat of [m.material].flat()) mat.opacity = 0.25;
   finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = ifaceMaterial.transparent = true;
   el('s-fins').textContent = t('generating supports…');
+  el('report-row').hidden = true;     // nothing current to report (ui/report.js) until it lands
 }

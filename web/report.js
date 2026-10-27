@@ -134,10 +134,11 @@ export function reportUrl(rep, cov, { where, when, drawn = 0, removed = 0 }) {
     line('Site', `${where} (${when})`),
     line('Mode', mode),
     line('Overhangs', cov.overhangs),
-    line('Supports placed', cov.supports),
+    // Draw places no walls itself: the hand-drawn count below is its tally
+    rep.opts.mode === 'draw' ? null : line('Supports placed', cov.supports),
     drawn ? line('Walls drawn by hand', drawn) : null,
     removed ? line('Fins removed by hand', removed) : null,
-    cov.redArea !== undefined ? line('Still bare', `${cov.bareArea} of ${cov.redArea} mm² (${cov.barePct} %)`) : null,
+    cov.redArea !== undefined && rep.opts.mode !== 'draw' ? line('Still bare', `${cov.bareArea} of ${cov.redArea} mm² (${cov.barePct} %)`) : null,
     line('Full coverage could not reach', cov.fillBare !== undefined ? `${cov.fillBare} mm²` : undefined),
     line('Island starts left bare', cov.islandsBare),
     line('Too shallow for a fin', cov.unserved),

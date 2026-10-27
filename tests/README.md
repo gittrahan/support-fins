@@ -331,4 +331,6 @@ and the same coverage numbers -- dropping the tunables from the JSON fails it. A
 150 % replays at its scale; the wrong scale, another mesh or an unknown version is
 refused. The issue link fills the `coverage-report.yml` form's `summary` and `settings`
 fields, its JSON parses back whole, and a request too long for a link points at Copy
-settings instead.
+settings instead. Replay takes the mesh the page built on: a file the import changed
+(units, a 3MF's transforms or merged objects, STEP, negative-part cuts) must be brought to
+that mesh first, or the size / triangle-count check refuses it.
