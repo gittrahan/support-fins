@@ -10,6 +10,8 @@ name: plugins
 #                  `plugins-latest` pre-release (printfins.com's Plugins menu links here)
 #   GitHub Release: build + test, then attach plugin builds and publish the
 #                   versioned Docker image. Stable releases also move `latest`.
+#   called / dispatched with a `tag`: the same as a GitHub Release for that tag (release.yml
+#                   creates one per changelog entry and calls this for each).
 #
 # The Fusion add-in runs the engine in Fusion's own browser (a hidden palette), so
 # its zip has nothing native in it and serves Windows and macOS alike. It has been
@@ -33,7 +35,23 @@ on:
       - '.github/workflows/plugins.yml'
   release:
     types: [published]
+  # release.yml calls this for each release it creates: a release made with the
+  # workflow's GITHUB_TOKEN does not fire the `release` event above. Dispatching it by
+  # hand with a tag (run it on that tag's ref) rebuilds a release's assets and image.
+  workflow_call:
+    inputs:
+      tag:
+        description: 'Existing release tag to attach builds to and publish as a Docker image'
+        type: string
+        required: false
+        default: ''
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing release tag (run on that tag), or empty for an ordinary build'
+        type: string
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -329,7 +347,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release' || inputs.tag != ''
     needs: [orca, fusion, cura, prusa, blender, blender-smoke, freecad, cli, mcp, solidworks]
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -340,13 +358,13 @@ jobs:
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
-      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Validate release version and target
-        if: github.event_name == 'release'
+        if: env.RELEASE_TAG != ''
         run: |
           set -euo pipefail
           python3 - <<'PY'
@@ -394,14 +412,14 @@ jobs:
           path: dist
           merge-multiple: true
       - name: Move rolling plugin tag
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && env.RELEASE_TAG == ''
         env:
           TAG: plugins-latest
         run: |
           git tag -f "$TAG"
           git push -f origin "refs/tags/$TAG"
       - name: Update rolling plugin release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && env.RELEASE_TAG == ''
         env:
           TAG: plugins-latest
         run: |
@@ -426,16 +444,16 @@ jobs:
       - name: Generate plugin asset labels
         run: python3 plugins/shared/release_labels.py dist "$GITHUB_SHA" > labels.txt
       - name: Upload builds to rolling plugin release
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' && env.RELEASE_TAG == ''
         env:
           TAG: plugins-latest
         run: xargs -d '\n' gh release upload "$TAG" --clobber < labels.txt
       - name: Attach plugin builds to this GitHub Release
-        if: github.event_name == 'release'
+        if: env.RELEASE_TAG != ''
         run: xargs -d '\n' gh release upload "$RELEASE_TAG" --clobber < labels.txt
 
   docker-publish:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' || inputs.tag != ''
     needs: [publish]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -460,8 +478,8 @@ jobs:
           flavor: |
             latest=false
           tags: |
-            type=raw,value=${{ github.event.release.tag_name }}
-            type=raw,value=latest,enable=${{ github.event.release.prerelease == false }}
+            type=raw,value=${{ inputs.tag || github.event.release.tag_name }}
+            type=raw,value=latest,enable=${{ github.event.release.prerelease != true && !contains(inputs.tag, '-') }}
       - name: Build and publish Docker image
         uses: docker/build-push-action@v7
         with:
