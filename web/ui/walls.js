@@ -437,7 +437,10 @@ function placeWall(bWorld, mWorld = null) {
   const tris = partPrintTriangles();
   const r = drawnWall([aWorld.x, aWorld.y, aWorld.z],
                       [bWorld.x, bWorld.y, bWorld.z], tris, 0,
-                      mWorld ? { through: [mWorld.x, mWorld.y, mWorld.z] } : {});
+                      // (with the topology, so a wall the rebuild will refuse for its ends
+                      // against a side wall is refused here, not listed as failed)
+                      { topo: topology, rot: rotM3.elements, offset: lastResult.offset,
+                        ...(mWorld ? { through: [mWorld.x, mWorld.y, mWorld.z] } : {}) });
   if (!r.ok) {
     // a curve too tight keeps its ends: the next click tries a wider bend
     if (mWorld && /too tight/.test(r.reason)) { showGhostMsg(r.reason); return; }
