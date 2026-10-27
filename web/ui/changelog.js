@@ -25,11 +25,12 @@ export async function loadChangelog() {
     const li = document.createElement('li');
     const v = document.createElement('strong');
     v.textContent = `v${e.version}`;
-    li.append(v, ` ${e.date}  ${e.text}`);   // entries stay English
+    li.append(v, ` ${e.date} ${e.text}`);   // entries stay English
     return li;
   }));
   box.querySelector('.ver').textContent = `v${entries[0].version}`;
   box.hidden = false;
+  // top-bar label: it sits in .brand-text, so it sheds with it on narrow windows and phones
   const ver = document.getElementById('brand-ver');
   if (ver) { ver.textContent = `v${entries[0].version}`; ver.hidden = false; }
 }

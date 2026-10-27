@@ -3,7 +3,7 @@
 // so Node and Deno can load it too.
 export const CHECKS = ['held', 'stays', 'clean', 'easy', 'all'];
 
-/** [{...entry, version: '0.7.2', tag: 'v0.7.2'}] oldest first, or [] for anything malformed. */
+/** [{...entry, version: '1.0.2', tag: 'v1.0.2'}] oldest first, or [] for anything malformed. */
 export function withVersions(data) {
   if (!data || typeof data.base !== 'string' || !Array.isArray(data.entries)) return [];
   return data.entries.map((e, i) => ({ ...e, version: `${data.base}.${i}`, tag: `v${data.base}.${i}` }));

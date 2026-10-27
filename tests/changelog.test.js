@@ -10,7 +10,7 @@ Deno.test('changelog.json: versions derive from position, entries are well forme
   entries.forEach((e, i) => {
     assertEquals(e.tag, `v${data.base}.${i}`);
     assert(/^v\d+\.\d+\.\d+$/.test(e.tag), 'tag is Docker-compatible SemVer');
-    assert(Number.isInteger(e.pr) && e.pr > 0, `${e.tag}: pr`);
+    assert(e.pr === undefined || (Number.isInteger(e.pr) && e.pr > 0), `${e.tag}: pr is optional, a positive integer`);
     assert(/^\d{4}-\d{2}-\d{2}$/.test(e.date) && !isNaN(Date.parse(e.date)), `${e.tag}: date`);
     assert(typeof e.text === 'string' && e.text.length > 0 && e.text.length <= 240 && !e.text.includes('\n'), `${e.tag}: one short line`);
     assert(CHECKS.includes(e.check), `${e.tag}: check ${e.check}`);

@@ -159,7 +159,7 @@ This uses the latest stable release by default.
 To pin a release, add this to a `.env` file beside `docker-compose.yml`:
 
 ```env
-SUPPORT_FINS_VERSION=v0.1.0
+SUPPORT_FINS_VERSION=v1.0.0
 ```
 
 To build the checked-out source instead:
