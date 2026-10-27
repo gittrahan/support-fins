@@ -572,4 +572,5 @@ export default {
   "Copy failed": "Falha ao copiar",
   "Opens a GitHub issue filled in with this build’s settings and numbers (not your model: attach it there if you can)": "Abre uma issue no GitHub preenchida com as configurações e os números desta geração (não o seu modelo: anexe-o lá, se puder)",
   "Copy this build’s settings as JSON: with the model, they rebuild exactly these supports": "Copia as configurações desta geração em JSON: com o modelo, elas recriam exatamente estes suportes",
+  "too close to the part’s side wall — draw the line a little further from it": "perto demais da parede lateral da peça — desenhe a linha um pouco mais longe dela",
 };

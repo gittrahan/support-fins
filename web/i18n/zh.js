@@ -595,4 +595,5 @@ export default {
   "Copy failed": "复制失败",
   "Opens a GitHub issue filled in with this build’s settings and numbers (not your model: attach it there if you can)": "打开一个 GitHub issue，已填好本次生成的设置和数值（不含你的模型：如可以，请在那里附上）",
   "Copy this build’s settings as JSON: with the model, they rebuild exactly these supports": "以 JSON 复制本次生成的设置：配合模型，可以精确重建这些支撑",
+  "too close to the part’s side wall — draw the line a little further from it": "离零件侧壁太近 —— 请把线画得离它远一点",
 };
