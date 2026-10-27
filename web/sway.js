@@ -293,7 +293,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
       let sHi = Math.max(sOut(zA), sOut(zB));
       for (const z of heights) if (z > zA && z < zB) sHi = Math.max(sHi, sOut(z));
       hit = Math.min(hit, lowestHit(partTris, fr, uc - th / 2 - 0.3, uc + th / 2 + 0.3, outline,
-                                    Math.min(inner(zA), inner(zB)), sHi + 0.1));
+                                    Math.min(inner(zA), inner(zB)), sHi + 0.1, zA, zB));
     }
     if (hit === Infinity) break;
     H = hit - 1.0;
@@ -311,7 +311,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     (q) => (SWAY.footH + 0.2) - q[2],
     (q) => q[0] - (sIn(0) - 0.05),
     (q) => (sFootOut + 0.1) - q[0],
-  ], sIn(0) - 0.05, sFootOut + 0.1);
+  ], sIn(0) - 0.05, sFootOut + 0.1, -0.1, SWAY.footH + 0.2);
   if (footHit !== Infinity) {
     return { ok: false, reason: 'the part’s base spreads out under this face, so there is no room on the plate for the brace’s foot' };
   }

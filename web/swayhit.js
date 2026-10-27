@@ -25,6 +25,7 @@ export function clip(poly, f) {
   return out;
 }
 
+const EPS = 1e-6;
 const V = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
 
 /**
@@ -44,6 +45,9 @@ function triLow(tris, i, fr, uLo, uHi, outline) {
     if (v[k][1] > umax) umax = v[k][1];
   }
   if (umax < uLo || umin > uHi) return Infinity;
+  // A triangle wholly outside one outline edge clips to nothing; say so before allocating.
+  // (The edges are linear, so the margin only has to beat the rounding of the clips below.)
+  for (const f of outline) if (f(v[0]) < -EPS && f(v[1]) < -EPS && f(v[2]) < -EPS) return Infinity;
   let poly = v.map((q) => q.slice());
   poly = clip(poly, (q) => q[1] - uLo);
   poly = clip(poly, (q) => uHi - q[1]);
@@ -67,9 +71,16 @@ export function lowestHitBrute(tris, fr, uLo, uHi, outline) {
 /**
  * Same answer as lowestHitBrute, from the triangles near the box only. `sLo`..`sHi`
  * must bound the outline's s (distance out of the face) over the whole volume; the
- * box in the plane is that range by [uLo, uHi] across.
+ * box in the plane is that range by [uLo, uHi] across. `zLo`..`zHi`, when given, must
+ * bound the outline's z the same way.
+ *
+ * The grid hands over every triangle whose XY box meets the axis-aligned box around
+ * the rib's footprint, which for a rib turned off-axis is much bigger than the rib.
+ * Each candidate is first checked against the rib's own (s, u, z) box, cheaply and
+ * without allocating; one that misses it cannot be clipped to anything, so skipping
+ * it is exact (the bounds are padded by EPS so rounding never drops a touching one).
  */
-export function lowestHit(tris, fr, uLo, uHi, outline, sLo, sHi) {
+export function lowestHit(tris, fr, uLo, uHi, outline, sLo, sHi, zLo = -Infinity, zHi = Infinity) {
   // s = x*nh.x + y*nh.y and u = x*uDir.x + y*uDir.y; invert that 2x2 to put the box's corners in x, y.
   const a = fr.nh.x, b = fr.nh.y, c = fr.uDir.x, d = fr.uDir.y;
   const det = a * d - b * c;
@@ -83,9 +94,19 @@ export function lowestHit(tris, fr, uLo, uHi, outline, sLo, sHi) {
     }
   }
   const pad = 1e-6;   // rounding in the inverse; a wider net only costs a few more candidates
+  const sa = sLo - EPS, sb = sHi + EPS, ua = uLo - EPS, ub = uHi + EPS, za = zLo - EPS, zb = zHi + EPS;
+  const nx = fr.nh.x, ny = fr.nh.y, ux = fr.uDir.x, uy = fr.uDir.y;
   let best = Infinity;
   eachCandidate(triIndex(tris), xa - pad, xb + pad, ya - pad, yb + pad, (t) => {
-    const z = triLow(tris, t * 9, fr, uLo, uHi, outline);
+    const i = t * 9;
+    const x0 = tris[i], y0 = tris[i + 1], x1 = tris[i + 3], y1 = tris[i + 4], x2 = tris[i + 6], y2 = tris[i + 7];
+    const s0 = x0 * nx + y0 * ny, s1 = x1 * nx + y1 * ny, s2 = x2 * nx + y2 * ny;
+    if ((s0 < sa && s1 < sa && s2 < sa) || (s0 > sb && s1 > sb && s2 > sb)) return;
+    const u0 = x0 * ux + y0 * uy, u1 = x1 * ux + y1 * uy, u2 = x2 * ux + y2 * uy;
+    if ((u0 < ua && u1 < ua && u2 < ua) || (u0 > ub && u1 > ub && u2 > ub)) return;
+    const z0 = tris[i + 2], z1 = tris[i + 5], z2 = tris[i + 8];
+    if ((z0 < za && z1 < za && z2 < za) || (z0 > zb && z1 > zb && z2 > zb)) return;
+    const z = triLow(tris, i, fr, uLo, uHi, outline);
     if (z < best) best = z;
   });
   return best;
