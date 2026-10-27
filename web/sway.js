@@ -35,6 +35,7 @@ import { insidePart } from './inside.js';
 import { kissEnds } from './kiss.js';
 import { braceCrossRib } from './prop/brace.js';
 import { PROP } from './prop/config.js';
+import { clip, lowestHit } from './swayhit.js';
 import { loftExtrude, ribbon, roundedPolygon } from './solids.js';
 
 export const SWAY = {
@@ -144,21 +145,6 @@ function printTriangles(topo, rot, offset) {
   return a;
 }
 
-/** Sutherland-Hodgman: keep the part of `poly` where `f(v) >= 0`. */
-function clip(poly, f) {
-  const out = [];
-  for (let i = 0; i < poly.length; i++) {
-    const a = poly[i], b = poly[(i + 1) % poly.length];
-    const fa = f(a), fb = f(b);
-    if (fa >= 0) out.push(a);
-    if ((fa >= 0) !== (fb >= 0)) {
-      const t = fa / (fa - fb);
-      out.push(a.map((v, k) => v + (b[k] - v) * t));
-    }
-  }
-  return out;
-}
-
 /** Push a closed solid, flipping the winding outward if its signed volume is negative. */
 function pushSolid(local, out) {
   let V = 0;
@@ -195,40 +181,6 @@ function frameOf(p) {
   const toWorld = (s, uu, z) => [nh.x * s + p.u.x * uu, nh.y * s + p.u.y * uu, z];
   const sOf = (q) => q[0] * nh.x + q[1] * nh.y;
   return { nh, toWorld, sOf };
-}
-
-/**
- * The lowest z at which any part triangle crosses the volume the rib would
- * occupy, or Infinity. Exact per triangle: clip to the rib's slab across the
- * face, then against the rib's own (s, z) outline -- the same "does anything
- * cross the volume" question the old fins.js leaning fin asked of its walls, for
- * a tapered outline.
- */
-function lowestHit(tris, fr, uLo, uHi, outline) {
-  let best = Infinity;
-  const v = [[0, 0, 0], [0, 0, 0], [0, 0, 0]];
-  for (let i = 0; i < tris.length; i += 9) {
-    let umin = Infinity, umax = -Infinity;
-    for (let k = 0; k < 3; k++) {
-      const x = tris[i + k * 3], y = tris[i + k * 3 + 1], z = tris[i + k * 3 + 2];
-      v[k][0] = x * fr.nh.x + y * fr.nh.y;
-      v[k][1] = x * fr.uDir.x + y * fr.uDir.y;
-      v[k][2] = z;
-      if (v[k][1] < umin) umin = v[k][1];
-      if (v[k][1] > umax) umax = v[k][1];
-    }
-    if (umax < uLo || umin > uHi) continue;
-    let poly = v.map((q) => q.slice());
-    poly = clip(poly, (q) => q[1] - uLo);
-    poly = clip(poly, (q) => uHi - q[1]);
-    for (const f of outline) {
-      if (poly.length < 2) break;
-      poly = clip(poly, f);
-    }
-    if (poly.length < 2) continue;
-    for (const q of poly) if (q[2] < best) best = q[2];
-  }
-  return best;
 }
 
 /**
@@ -334,7 +286,14 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
         (q) => q[0] - (a + slope * (q[2] - lo) - 0.05),
         (q) => (sOut(q[2]) + 0.1) - q[0],
       ];
-      hit = Math.min(hit, lowestHit(partTris, fr, uc - th / 2 - 0.3, uc + th / 2 + 0.3, outline));
+      // s bounds of this band's outline: its inner edge is a straight line, its outer edge
+      // piecewise linear between the band heights, so the ends and knots are enough.
+      const zA = i === 0 ? -0.1 : lo, zB = i === heights.length - 2 ? H + 0.3 : hi;
+      const inner = (z) => a + slope * (z - lo) - 0.05;
+      let sHi = Math.max(sOut(zA), sOut(zB));
+      for (const z of heights) if (z > zA && z < zB) sHi = Math.max(sHi, sOut(z));
+      hit = Math.min(hit, lowestHit(partTris, fr, uc - th / 2 - 0.3, uc + th / 2 + 0.3, outline,
+                                    Math.min(inner(zA), inner(zB)), sHi + 0.1));
     }
     if (hit === Infinity) break;
     H = hit - 1.0;
@@ -352,7 +311,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     (q) => (SWAY.footH + 0.2) - q[2],
     (q) => q[0] - (sIn(0) - 0.05),
     (q) => (sFootOut + 0.1) - q[0],
-  ]);
+  ], sIn(0) - 0.05, sFootOut + 0.1);
   if (footHit !== Infinity) {
     return { ok: false, reason: 'the part’s base spreads out under this face, so there is no room on the plate for the brace’s foot' };
   }
