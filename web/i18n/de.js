@@ -496,4 +496,10 @@ export default {
   "Fin settings": "Finnen-Einstellungen",
   "Your browser can't draw the 3D view: WebGL didn't start. Turn on hardware acceleration in the browser settings or update the graphics driver, then reload.": "Dein Browser kann die 3D-Ansicht nicht darstellen: WebGL ist nicht gestartet. Schalte die Hardwarebeschleunigung in den Browsereinstellungen ein oder aktualisiere den Grafiktreiber und lade die Seite dann neu.",
   "The 3D view stopped drawing: the browser lost its graphics context (often a graphics driver reset). The numbers and export still work. Reload the page; if it keeps happening, update the graphics driver.": "Die 3D-Ansicht zeichnet nicht mehr: Der Browser hat seinen Grafikkontext verloren (oft durch einen Neustart des Grafiktreibers). Die Werte und der Export funktionieren weiterhin. Lade die Seite neu; wenn es wieder passiert, aktualisiere den Grafiktreiber.",
+  "Something didn’t get supported?": "Etwas wurde nicht gestützt?",
+  "Copy settings": "Einstellungen kopieren",
+  "Copied": "Kopiert",
+  "Copy failed": "Kopieren fehlgeschlagen",
+  "Opens a GitHub issue filled in with this build’s settings and numbers (not your model: attach it there if you can)": "Öffnet ein GitHub-Issue, ausgefüllt mit den Einstellungen und Werten dieses Aufbaus (nicht mit deinem Modell: hänge es dort an, wenn du kannst)",
+  "Copy this build’s settings as JSON: with the model, they rebuild exactly these supports": "Die Einstellungen dieses Aufbaus als JSON kopieren: Zusammen mit dem Modell erzeugen sie genau diese Stützen neu",
 };

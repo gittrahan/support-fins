@@ -589,4 +589,10 @@ export default {
   "Fin settings": "支撑鳍设置",
   "Your browser can't draw the 3D view: WebGL didn't start. Turn on hardware acceleration in the browser settings or update the graphics driver, then reload.": "你的浏览器无法绘制 3D 视图：WebGL 未能启动。请在浏览器设置中开启硬件加速或更新显卡驱动，然后重新加载页面。",
   "The 3D view stopped drawing: the browser lost its graphics context (often a graphics driver reset). The numbers and export still work. Reload the page; if it keeps happening, update the graphics driver.": "3D 视图已停止绘制：浏览器丢失了图形上下文（通常是显卡驱动重置所致）。数值和导出仍可正常使用。请重新加载页面；如果反复出现，请更新显卡驱动。",
+  "Something didn’t get supported?": "有地方没有被支撑？",
+  "Copy settings": "复制设置",
+  "Copied": "已复制",
+  "Copy failed": "复制失败",
+  "Opens a GitHub issue filled in with this build’s settings and numbers (not your model: attach it there if you can)": "打开一个 GitHub issue，已填好本次生成的设置和数值（不含你的模型：如可以，请在那里附上）",
+  "Copy this build’s settings as JSON: with the model, they rebuild exactly these supports": "以 JSON 复制本次生成的设置：配合模型，可以精确重建这些支撑",
 };

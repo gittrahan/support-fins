@@ -112,3 +112,17 @@ Deno.test('report: the issue link fills the form and its JSON parses back whole'
     assert(cut.href.length <= REPORT.maxUrl && cut.searchParams.get('settings').includes('Copy settings'), 'long link not cut');
   } finally { applyTunables(DEFAULTS); }
 });
+
+// the links and their tooltips are on the page in every language the site has
+Deno.test('report: the links are translated in every locale', async () => {
+  const keys = ['Something didn’t get supported?', 'Copy settings', 'Copied', 'Copy failed',
+    'Opens a GitHub issue filled in with this build’s settings and numbers (not your model: attach it there if you can)',
+    'Copy this build’s settings as JSON: with the model, they rebuild exactly these supports'];
+  const page = Deno.readTextFileSync(new URL('../web/index.html', import.meta.url))
+    + Deno.readTextFileSync(new URL('../web/ui/report.js', import.meta.url));
+  for (const k of keys) assert(page.includes(k), `the page no longer says "${k}": update this list`);
+  for (const lang of ['nl', 'de', 'pt', 'zh', 'ar']) {
+    const { default: dict } = await import(`../web/i18n/${lang}.js`);
+    for (const k of keys) assert(dict[k] && dict[k] !== k, `${lang}: untranslated "${k}"`);
+  }
+});

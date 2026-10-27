@@ -566,4 +566,10 @@ export default {
   "Fin settings": "Configurações das aletas",
   "Your browser can't draw the 3D view: WebGL didn't start. Turn on hardware acceleration in the browser settings or update the graphics driver, then reload.": "O seu navegador não consegue desenhar a vista 3D: o WebGL não iniciou. Ative a aceleração de hardware nas configurações do navegador ou atualize o driver gráfico e recarregue a página.",
   "The 3D view stopped drawing: the browser lost its graphics context (often a graphics driver reset). The numbers and export still work. Reload the page; if it keeps happening, update the graphics driver.": "A vista 3D parou de desenhar: o navegador perdeu o contexto gráfico (muitas vezes um reinício do driver gráfico). Os números e a exportação continuam a funcionar. Recarregue a página; se continuar a acontecer, atualize o driver gráfico.",
+  "Something didn’t get supported?": "Algo ficou sem suporte?",
+  "Copy settings": "Copiar configurações",
+  "Copied": "Copiado",
+  "Copy failed": "Falha ao copiar",
+  "Opens a GitHub issue filled in with this build’s settings and numbers (not your model: attach it there if you can)": "Abre uma issue no GitHub preenchida com as configurações e os números desta geração (não o seu modelo: anexe-o lá, se puder)",
+  "Copy this build’s settings as JSON: with the model, they rebuild exactly these supports": "Copia as configurações desta geração em JSON: com o modelo, elas recriam exatamente estes suportes",
 };

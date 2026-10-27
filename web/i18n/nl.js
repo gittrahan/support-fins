@@ -476,4 +476,10 @@ export default {
   "Fin settings": "Vininstellingen",
   "Your browser can't draw the 3D view: WebGL didn't start. Turn on hardware acceleration in the browser settings or update the graphics driver, then reload.": "Je browser kan de 3D-weergave niet tekenen: WebGL is niet gestart. Zet hardwareversnelling aan in de browserinstellingen of werk het grafische stuurprogramma bij, en laad de pagina daarna opnieuw.",
   "The 3D view stopped drawing: the browser lost its graphics context (often a graphics driver reset). The numbers and export still work. Reload the page; if it keeps happening, update the graphics driver.": "De 3D-weergave tekent niet meer: de browser is zijn grafische context kwijtgeraakt (vaak door een herstart van het grafische stuurprogramma). De getallen en het exporteren werken nog. Laad de pagina opnieuw; blijft het gebeuren, werk dan het grafische stuurprogramma bij.",
+  "Something didn’t get supported?": "Werd iets niet ondersteund?",
+  "Copy settings": "Instellingen kopiëren",
+  "Copied": "Gekopieerd",
+  "Copy failed": "Kopiëren mislukt",
+  "Opens a GitHub issue filled in with this build’s settings and numbers (not your model: attach it there if you can)": "Opent een GitHub-issue, ingevuld met de instellingen en getallen van deze opbouw (niet je model: voeg dat daar toe als je kunt)",
+  "Copy this build’s settings as JSON: with the model, they rebuild exactly these supports": "Kopieer de instellingen van deze opbouw als JSON: samen met het model maken ze precies deze steunen opnieuw",
 };
