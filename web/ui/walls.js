@@ -546,7 +546,8 @@ function updateBracePreview(hit, ev) {
 }
 
 const braceRest = onRest((q) => {
-  if (!q || drawStart || !(drawActive() || braceActive())) return;
+  // the model may have gone while the cursor rested (removed by key or drop)
+  if (!q || drawStart || !topology || !lastResult || !(drawActive() || braceActive())) return;
   const b = braceAt(q.face, q.p);
   if (b.key === braceShown) return;
   braceShown = b.key;
