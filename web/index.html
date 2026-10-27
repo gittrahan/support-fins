@@ -83,7 +83,7 @@
 <div id="spinner" aria-live="polite"><span class="ring"></span><span data-i18n="generating supports…">generating supports…</span></div>
 
 <header id="topbar">
-  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins</span></span>
+  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <small class="brand-ver" id="brand-ver" title="Version" data-i18n-title="Version" hidden></small></span></span>
   <!-- accept: the MIME types too, and octet-stream. Android's picker matches by MIME
        and knows none of these extensions, so it greyed every model out (#237); the
        format is read from the bytes (ui/io.js), not the name. -->
@@ -758,6 +758,12 @@
     </ol>
     <p class="small" data-i18n="Opening the 3MF, Bambu Studio and PrusaSlicer may note it has “no config” and load the geometry only — that’s expected. The file is pure geometry with no slicer profile baked in, so it opens the same in every slicer; your part comes in correctly oriented and sized. Just slice with supports off.">Opening the 3MF, Bambu Studio and PrusaSlicer may note it has “no config” and load the geometry only — that’s expected. The file is pure geometry with no slicer profile baked in, so it opens the same in every slicer; your part comes in correctly oriented and sized. Just slice with supports off.</p>
     <p class="small" data-i18n="Nothing is uploaded. The file is read inside this tab and never leaves your machine.">Nothing is uploaded. The file is read inside this tab and never leaves your machine.</p>
+    <!-- What's new: filled from changelog.json by ui/changelog.js; hidden until it loads. -->
+    <section id="whatsnew" class="whatsnew" hidden>
+      <h2><span data-i18n="What's new">What's new</span> <span class="ver"></span></h2>
+      <ul></ul>
+      <a href="https://github.com/gittrahan/support-fins/releases" target="_blank" rel="noopener" data-i18n="See all releases">See all releases</a>
+    </section>
     <p class="kofi-line"><span data-i18n="Free and open source. If it ever saves you a print,">Free and open source. If it ever saves you a print,</span> <a class="kofi" href="https://ko-fi.com/matthewtrahan" target="_blank" rel="noopener"><span data-i18n="buy me a coffee ☕">buy me a coffee ☕</span></a>.</p>
   </div>
   <!-- Once a part has been loaded, an empty plate (Remove model) and a drag show

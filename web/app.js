@@ -24,6 +24,7 @@ import {
 } from './ui/remove.js';
 import { undo, redo } from './ui/history.js';
 import { loadURL } from './ui/io.js';
+import { loadChangelog } from './ui/changelog.js';
 import { applyVolume } from './ui/volume.js';
 import { buildExportGeometry } from './ui/export.js';
 import './ui/plugins.js';
@@ -320,3 +321,4 @@ if (langBtn && langMenu) {
   });
 }
 updateDomTranslations();
+loadChangelog().then(updateDomTranslations);
