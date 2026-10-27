@@ -39,7 +39,7 @@ for (const [name, topo] of Object.entries(scenes)) {
         const c = braceCrossRib(out, part, o, d, 0, height, D0, lean, () => true, 0.5, th);
         return JSON.stringify({ c, out });
       };
-      const r = Math.max(1.5, D0) + 2 * 0.1 + 1 + th + 1 + 5;   // the radius sway.js uses is no larger than this
+      const r = Math.max(1.5, D0) + 2 * 0.1 + 1 + th + 1 + 5;   // a few mm wider than the radius sway.js passes, so this tests the crop, not that radius
       const want = run(tris);
       const got = run(cropForRib(tris, o, r, lean, 0, height + 0.1));
       assert(got === want, `${name} case ${n}: crop changed the cross rib`);

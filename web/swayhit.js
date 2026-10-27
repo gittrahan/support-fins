@@ -46,7 +46,9 @@ function triLow(tris, i, fr, uLo, uHi, outline) {
   }
   if (umax < uLo || umin > uHi) return Infinity;
   // A triangle wholly outside one outline edge clips to nothing; say so before allocating.
-  // (The edges are linear, so the margin only has to beat the rounding of the clips below.)
+  // (The edges are linear, so the margin only has to beat the rounding of the clips below --
+  // except sway.js's outer edge, which kinks at z = 0 where depthAt clamps; it only matters
+  // for part below the seated bed, ~0.025 mm at most.)
   for (const f of outline) if (f(v[0]) < -EPS && f(v[1]) < -EPS && f(v[2]) < -EPS) return Infinity;
   let poly = v.map((q) => q.slice());
   poly = clip(poly, (q) => q[1] - uLo);
