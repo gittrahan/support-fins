@@ -20,6 +20,7 @@ import { analysisTiming, topology, lastResult, rotM3 } from './part.js';
 import { islandsBuilt } from './islands.js';
 import { ifaceMaterial } from './scene.js';
 import { activeAdded, activeWalls, finMaterial, padMaterial } from './finbuild.js';
+import { syncReport } from './report.js';
 
 // The "fins won't hold most of this" warning (updateReadout): over half the red bare,
 // and at least this much of it, so a part with a few bare slivers isn't told to
@@ -166,6 +167,7 @@ export function updateReadout(built, ms) {
   islandsBuilt(finsVisible && finMode === 'full' && built
     ? (built.fill ? { bare: built.fill.islandsBare, capped: built.fill.islandsCapped } : { all: true }) : null);
   updateReceipt();
+  syncReport();
 }
 
 /**

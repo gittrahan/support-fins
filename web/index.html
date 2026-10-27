@@ -615,6 +615,14 @@
     <button type="button" class="r-info" id="r-info" aria-label="About this number"
        data-i18n-title title="Grams assume PLA and count only the fins + pad the tool adds, printed near-solid, cross-checked against the builder's fin volume. In test prints, breakaway fins used 20–45% less plastic and printed ~30% faster than slicer supports.">i</button>
   </div>
+  <!-- (ui/report.js, local issue 064) a bare overhang reported with the build that
+       left it bare: a GitHub issue filled in from it, and the same settings as JSON -->
+  <p class="report-row" id="report-row" hidden>
+    <button type="button" class="linkish" id="report-link" data-i18n="Something didn’t get supported?"
+       data-i18n-title title="Opens a GitHub issue filled in with this build’s settings and numbers (not your model: attach it there if you can)">Something didn’t get supported?</button>
+    <button type="button" class="linkish" id="report-copy" data-i18n="Copy settings"
+       data-i18n-title title="Copy this build’s settings as JSON: with the model, they rebuild exactly these supports">Copy settings</button>
+  </p>
 </aside>
 </div><!-- /right-rail -->
 

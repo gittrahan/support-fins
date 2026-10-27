@@ -488,6 +488,16 @@ body.no-part #viewport canvas { pointer-events: none; }
 }
 #receipt .r-info:hover { color: var(--text); border-color: var(--dim); }
 
+/* "Something didn't get supported?" (ui/report.js): quiet links under the receipt,
+   there when wanted, never louder than the result above them. */
+.report-row { margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px; }
+.report-row[hidden] { display: none; }
+.report-row .linkish {
+  padding: 0; border: 0; background: none; color: var(--dim);
+  font: inherit; text-decoration: underline; text-underline-offset: 2px; cursor: pointer;
+}
+.report-row .linkish:hover { color: var(--text); }
+
 /* The (i) on the Fins row: same opt-in-detail idea as the receipt's, for the
    how-it-works / how-to-fix text that reads as a wall when it's always on. */
 .note-info {

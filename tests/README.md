@@ -321,3 +321,14 @@ agreement, including a neighbouring exempt small bore in either region order.
 Ellipses and incomplete rings retain their existing path. Circle
 counts are derived from geometry; the tests compare instances rather than pin
 an observed count. Run `deno test -A tests/circular.test.js` during iteration.
+
+**`report.test.js`** — the "Something didn't get supported?" report (`web/report.js`,
+local issue 064): the settings JSON a user files rebuilds the same fins from their file.
+A page-like request (a pose, settings off their defaults; Full coverage with the island
+starts the page passes) goes through `JSON.stringify`/`parse` and the engine is reset to
+its defaults before `replayReport`, which must give the same support and pad triangles
+and the same coverage numbers -- dropping the tunables from the JSON fails it. A part at
+150 % replays at its scale; the wrong scale, another mesh or an unknown version is
+refused. The issue link fills the `coverage-report.yml` form's `summary` and `settings`
+fields, its JSON parses back whole, and a request too long for a link points at Copy
+settings instead.

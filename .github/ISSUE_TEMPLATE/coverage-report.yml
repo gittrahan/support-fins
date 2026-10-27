@@ -1,0 +1,33 @@
+name: Something didn't get supported
+description: Filed from the site's "Something didn't get supported?" link -- an overhang the supports left bare or held badly.
+title: "Not supported: "
+labels: ["coverage-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks -- every one of these becomes a test part, so the next build holds it.
+
+        **Please attach the model** (drag the STL or 3MF into a comment box below; in Draw mode the 3MF the site exports carries the walls you drew), and a **screenshot with the bare spot circled**. Only share files you're happy to make public.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What the site built
+      description: Filled in by the site.
+    validations:
+      required: false
+  - type: textarea
+    id: what
+    attributes:
+      label: Which overhang, and what went wrong?
+      placeholder: "e.g. the lip under the handle has no support; or it sagged / the support fell over / it wouldn't come off"
+    validations:
+      required: true
+  - type: textarea
+    id: settings
+    attributes:
+      label: Settings
+      description: Filled in by the site. With the model this rebuilds exactly what you saw -- please leave it as it is.
+      render: json
+    validations:
+      required: false

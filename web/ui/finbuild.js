@@ -89,6 +89,10 @@ let finBusy = false;         // a worker build is outstanding (used to supersede
 /** A worker build is outstanding: the fins on screen are the last settings', not
  *  the current ones -- Export waits, so a file never carries the wrong ones (#279). */
 export const buildPending = () => finBusy;
+/** The build on screen and the request + analysis it came from, for a coverage
+ *  report (ui/report.js) -- null while a newer one is pending or none is shown. */
+export const builtRequest = () => (currentBuild() && !finBusy && lastBuilt && lastOpts
+  ? { built: lastBuilt, opts: lastOpts, result: buildSource.result } : null);
 
 // Reveal the spinner only for builds that actually run long, so a sub-second
 // rebuild never flashes it. Cleared the moment the build lands (applyBuilt).
