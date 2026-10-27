@@ -1,0 +1,48 @@
+{
+  "base": "0.7",
+  "about": "What's new on the landing card and the source of every GitHub Release. Oldest first; append new entries at the END. An entry's version is its position: entry 0 is v<base>.0, entry 1 is v<base>.1, and so on, so never reorder or delete one. Add one entry in any PR that changes what a user sees, hears or downloads. summary (optional) is the longer release body: [{check, items[]}]. check is held, stays, clean or easy (all for a roll-up).",
+  "entries": [
+    {
+      "pr": 403,
+      "date": "2026-10-27",
+      "check": "all",
+      "text": "First tagged release: Auto and Full coverage fins, curved and arc walls, a bed pad and sway braces, tines that release clean, and the same engine in the site, ten slicer and CAD plugins, a CLI and an MCP server.",
+      "summary": [
+        {
+          "check": "held",
+          "items": [
+            "Auto: tined walls, wedges, a bed pad and sway braces under every overhang that needs them",
+            "Full coverage: every red overhang gets support, including figures (second pass, long walls along the part's length, ribs on thin and tall walls)",
+            "Curved, downhill and arc walls that follow an overhang to the plate; rim walls under a level overhang's free outline; flat overhangs get walls that cross the slicer's bridge lines",
+            "Draw mode: straight or curved walls, down to 2 mm, with squat walls where a full wall won't fit"
+          ]
+        },
+        {
+          "check": "stays",
+          "items": [
+            "A bed pad and optional rounded bed feet keep walls attached to the plate",
+            "Sway braces anchor a leaning part; walls are tied into a frame and braced when tall or thin",
+            "Plate only: every support on the build plate, none on the part"
+          ]
+        },
+        {
+          "check": "clean",
+          "items": [
+            "Tines kiss the part's surface instead of biting in, with Tine grip, spacing and Support gap settings",
+            "Supports export as their own 3MF object, with an interface-material object for a toolchanger",
+            "Resin: pins that snap at the surface and windowed feet a scraper can get under",
+            "Calibrate menu: printable coupons to tune the fins to your printer"
+          ]
+        },
+        {
+          "check": "easy",
+          "items": [
+            "Import STL, 3MF, STEP or OBJ; several models on one plate with Arrange; section view and a view cube",
+            "Plugins for Orca, Fusion, Cura, PrusaSlicer, Blender, FreeCAD, Rhino, SolidWorks and Onshape, plus a command line and an MCP server for AI clients",
+            "Nozzles from 0.2 to 2.0 mm, layers up to 0.6 mm, a phone-friendly layout, and German, Dutch, Portuguese, Chinese and Arabic"
+          ]
+        }
+      ]
+    }
+  ]
+}
