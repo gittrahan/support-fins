@@ -12,6 +12,7 @@ import { planGrid } from '../fins/tall.js';
 import { swayAtFace, faceIsUpright } from '../sway.js';
 import { initBraceGhost, showBrace, moveTip, hideBrace, dropBrace, braceGrace } from './braceghost.js';
 import { el } from './dom.js';
+import { onRest } from './rest.js';
 import { viewport, renderer, scene, camera, meshFrom, ifaceMaterial, raycaster, pointer, clip, MODEL } from './scene.js';
 import { keptHit } from './section.js';
 import { removedIds } from './remove.js';
@@ -496,7 +497,6 @@ const STEP_Z = 1;   // capped tops in 1 mm steps, so a creeping cursor reuses it
 const MEMO_MAX = 200;
 let braceMemo = { stamp: null, map: new Map() };
 let braceShown = null;   // the braceAt key the ghost and tip show now
-let braceQueued = null;
 
 /**
  * The brace a click at print-space point `p` on face `faceIndex` stands, as
@@ -540,35 +540,33 @@ function updateBracePreview(hit, ev) {
   drawCursor.visible = true;
   drawBand.visible = drawDot.visible = false;
   moveTip(ev.clientX + 16, ev.clientY + 16);
-  // at most one brace build per frame, as the wall ghost
-  const already = !!braceQueued;
-  braceQueued = { face: hit.faceIndex, p: [hit.point.x, hit.point.y, hit.point.z] };
-  if (already) return;
-  requestAnimationFrame(() => {
-    const q = braceQueued;
-    braceQueued = null;
-    if (!q || drawStart || !(drawActive() || braceActive())) return;
-    const b = braceAt(q.face, q.p);
-    if (b.key === braceShown) return;
-    braceShown = b.key;
-    const mm = Math.round(b.r.height ?? 0);
-    showBrace(b.r.ok ? b.r.tris : null, b.r.height ?? 0,
-              !b.r.ok ? t(b.r.reason)
-              : b.full ? t('Brace · full height {mm} mm', { mm })
-              : t('Brace · {mm} mm · move up for full height', { mm }),
-              !b.r.ok);
-  });
+  // the full brace is built once the cursor rests, not per move: a new spot is tens of ms
+  // on a big part, and the cursor dot above already follows every move (ui/rest.js)
+  braceRest.poke({ face: hit.faceIndex, p: [hit.point.x, hit.point.y, hit.point.z] });
 }
 
+const braceRest = onRest((q) => {
+  if (!q || drawStart || !(drawActive() || braceActive())) return;
+  const b = braceAt(q.face, q.p);
+  if (b.key === braceShown) return;
+  braceShown = b.key;
+  const mm = Math.round(b.r.height ?? 0);
+  showBrace(b.r.ok ? b.r.tris : null, b.r.height ?? 0,
+            !b.r.ok ? t(b.r.reason)
+            : b.full ? t('Brace · full height {mm} mm', { mm })
+            : t('Brace · {mm} mm · move up for full height', { mm }),
+            !b.r.ok);
+});
+
 renderer.domElement.addEventListener('pointerleave', () => {
-  braceQueued = null;
+  braceRest.cancel();
   if (!drawStart) { drawCursor.visible = false; braceShown = null; hideBrace(false); }
 });
 
 /** The pointer is on the part but off an upright side: the dot follows it, and the
  *  brace stays a moment (an edge or a small facet on the way) before it fades. */
 function slipOff(hit, keepCursor) {
-  braceQueued = null;
+  braceRest.cancel();
   // back on the part inside a grace begun off it: Draw's cursor stays after all
   if (!braceShown && keepCursor && braceGrace()) hideBrace(true, null);
   if (!braceShown) return false;
@@ -580,7 +578,7 @@ function slipOff(hit, keepCursor) {
 
 /** Stand a sway brace on the upright face the user clicked: the one its preview showed. */
 function placeSway(hit) {
-  braceQueued = null;
+  braceRest.cancel();
   const { r, full, point } = braceAt(hit.faceIndex, [hit.point.x, hit.point.y, hit.point.z]);
   dropGhost();
   if (!r.ok) {
@@ -661,7 +659,7 @@ export function drawHover(ev) {
     braceAway();   // off the part: a gap crossed on the way doesn't blink the brace
     renderer.domElement.style.cursor = '';
   } else {
-    braceQueued = null;
+    braceRest.cancel();
     drawCursor.visible = drawBand.visible = false;
     braceShown = null;
     hideBrace(false);
@@ -690,7 +688,7 @@ export function braceHover(ev) {
 /** The pointer left the part (a gap, the background) or is over the rotate rings
  *  without dragging: the same grace as slipOff, then the preview and its dot go. */
 export function braceAway() {
-  braceQueued = null;
+  braceRest.cancel();
   if (!braceShown && !braceGrace()) {
     // the crosshair too, even with the dot already gone (a build landing hides it)
     drawCursor.visible = false;
@@ -704,7 +702,7 @@ export function braceAway() {
 /** Fade braceActive's ghost and tip and hide its cursor (an orbit or a ring drag
  *  has the pointer). */
 export function dropBracePreview() {
-  braceQueued = null;
+  braceRest.cancel();
   braceShown = null;
   hideBrace(false);
   drawCursor.visible = false;

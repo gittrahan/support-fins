@@ -275,6 +275,9 @@ same `stepObjects()` the app's worker output goes through):
 - the imported part runs through `analyze` + `buildFins` and gets a fin.
 Fixtures (`tests/fixtures/*.step`) are made with FreeCAD.
 
+**`rest.test.js`** -- `web/ui/rest.js`, the "run once the cursor rests" helper behind the Sway brace
+ghost: a burst of moves runs once with the last target after the pause; cancel (click, leaving the part) drops it.
+
 **`sway.test.js`** -- sway braces (`web/sway.js`) on a 150 mm post (plain blocks,
 no stress models needed):
 - a tall part gets braces, watertight, and the **rib never fuses** into the part;
