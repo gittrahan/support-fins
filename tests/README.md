@@ -79,7 +79,8 @@ and the key edge cases (-0, half-micron rounding, NaN, huge coordinates, duplica
 **`part_wall_ends.test.js`** -- a wall standing on the part keeps its ends off the
 part's side walls (GH #119: in a recessed box the walls ran to the box's end wall and
 welded). A wall run under a lip to 0.1 mm short of the end wall: parity probing passes
-that station, the outline measurement (`welds`) trims it.
+that station, the outline measurement (`welds`) trims it. A DRAWN wall (Draw, and the
+Full fill pass) trims its ends the same way (`trimmedEnds`) when given the topology.
 
 **`small_holes.test.js`** -- automatic placement honours the existing tiny-hole
 coverage exemption: recognised circular bores stay clear in Auto and Full, while

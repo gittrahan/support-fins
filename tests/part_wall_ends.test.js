@@ -5,6 +5,7 @@
 import { WEB, buildTopology, assert } from './_util.js';
 
 const { buildPartAttached } = await import(`${WEB}prop/attached.js`);
+const { drawnWall } = await import(`${WEB}draw.js`);
 
 // the reporter's shape in section: a 50 mm deep box with a 4 mm floor, end walls
 // 4 mm thick, and a lip 10 mm deep off each end 16 mm over the floor (the lips are
@@ -50,4 +51,21 @@ Deno.test('part wall ends: a wall run up to the end wall stops short of it', () 
   assert(r.ok, `no wall under the lip: ${JSON.stringify(r)}`);
   const end = Math.max(...out.map((p) => p[1]));
   assert(end <= 21 - 0.205, `the wall's end is ${(21 - end).toFixed(3)} mm off the end wall -- it welds`);
+});
+
+Deno.test('part wall ends: a DRAWN wall run to the end wall stops short of it too', () => {
+  // Draw's part path (Draw mode, and the Full fill pass's walls) built from the line as
+  // given: drawn to y = 21 it ended flush on the end wall, and a line past it (y = 22)
+  // ended there as well. With the topology it trims its ends like Auto's.
+  const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: box } : null) });
+  const rot = [1, 0, 0, 0, 1, 0, 0, 0, 1], offset = { x: 0, y: 0, z: 0 };
+  for (const [y0, y1, sign] of [[12, 21, 1], [12, 22, 1], [-12, -21, -1]]) {
+    const r = drawnWall([0, y0, 20], [0, y1, 20], topo.pos, 0, { tines: false, topo, rot, offset });
+    assert(r.ok && r.partAttached, `no part wall for ${y0}..${y1}: ${JSON.stringify(r.reason)}`);
+    const end = Math.max(...r.tris.map((p) => sign * p[1]));
+    assert(end <= 21 - 0.205, `drawn ${y0}..${y1}: the wall's end is ${(21 - end).toFixed(3)} mm off the end wall -- it welds`);
+  }
+  // a line that already stops clear is left as drawn
+  const ok = drawnWall([0, 12, 20], [0, 20.5, 20], topo.pos, 0, { tines: false, topo, rot, offset });
+  assert(ok.ok && Math.max(...ok.tris.map((p) => p[1])) > 20.4, 'a clear drawn line was trimmed');
 });

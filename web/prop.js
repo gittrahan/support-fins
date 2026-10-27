@@ -88,7 +88,7 @@ export { stationIsClear, stationCertified, pathToPlateIsClear, longestRun,
   withLowTails, insertFloorStations, welds } from './prop/clearance.js';
 export { tineStepFor, emitTines } from './prop/tines.js';
 export { crestOn, crestKinds, crestPart, emitCrest, flatCrestRing, flatCut, splitInterface } from './prop/crest.js';
-export { PART_BAND } from './prop/attached.js';
+export { PART_BAND, trimmedEnds } from './prop/attached.js';
 export { floorLine, moldLine } from './prop/mold.js';
 export { sweepSquat, buildSquatBed } from './prop/squat.js';
 

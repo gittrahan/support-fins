@@ -17,7 +17,7 @@
  * line-settling passes verbatim.
  */
 import { arcStations, arcThrough, DRAW_MIN_RADIUS } from './drawarc.js';
-import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor, crestOn, crestPart } from './prop.js';
+import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor, crestOn, crestPart, trimmedEnds } from './prop.js';
 
 /**
  * A hand-drawn wall may be much shorter than an auto wall (PROP.minSpan, 7 mm): the user
@@ -224,13 +224,13 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   // degrade to z=0 on their own. This is what stops the "marched past the part
   // straight to the plate" bug: on the over-the-part case sweep-to-plate SUCCEEDS
   // and silently builds the tall stilt, so the fix must PREFER the floor.
-  const topPA = drawnLine(a, b, tris, PROP.stationStep, PART_BAND, !!opts.under, through);
+  let topPA = drawnLine(a, b, tris, PROP.stationStep, PART_BAND, !!opts.under, through);
   // ...unless the line lies ON the part: drawn on an UPWARD face (the UI lets you
   // click one), it read the part's own underside as its floor and stood the wall
   // inside the part, floor to top (local issue 033: a sphere's top, 296-384
   // vertices in). That line falls through to the plate wall below.
   if (topPA && topPA.length >= PROP.minStations && !onThePart(topPA, tris)) {
-    const floor = floorLine(topPA, tris);
+    let floor = floorLine(topPA, tris);
     let floorMax = 0;
     for (const p of floor) if (p[2] > floorMax) floorMax = p[2];
     // Plate only (#218): part under the overhang refuses the wall outright -- the
@@ -238,6 +238,18 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     if (opts.plateOnly && floorMax > PROP.gap + 0.5) {
       return { ok: false, reason: 'part of the model sits under this overhang, and '
         + 'Plate only is on — a support can’t stand on the part here' };
+    }
+    // A wall standing on the part keeps its ends off the part's side walls, as Auto's do
+    // (#119: a line drawn to a recessed box's end wall built flush against it and welded).
+    // Needs the topology; the live preview omits it and stays as drawn.
+    if (floorMax > PROP.gap + 0.5 && opts.topo) {
+      const keep = trimmedEnds(topPA, floor, opts.topo, opts.rot, opts.offset);
+      if (!keep) {
+        return { ok: false, reason: 'too close to the part’s side wall — draw the line '
+          + 'a little further from it' };
+      }
+      topPA = topPA.slice(keep[0], keep[1]);
+      floor = floor.slice(keep[0], keep[1]);
     }
     const mold = floorMax > PROP.gap + 0.5 ? moldLine(topPA, tris) : null;
     if (mold && sweepBetween(mold.top, mold.floor, out)) {

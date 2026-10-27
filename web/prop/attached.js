@@ -77,7 +77,7 @@ function enclosedColumn(top, floor, k, topo, rot, offset) {
  * so the wall's end cap was built flush against it and welded. So the outline is
  * also measured, the way stationCertified measures a plate wall's (`welds`).
  */
-function clearBetween(top, floor, k, topo, rot, offset) {
+export function clearBetween(top, floor, k, topo, rot, offset) {
   const p = top[k];
   const a = top[Math.max(0, k - 1)];
   const b = top[Math.min(top.length - 1, k + 1)];
@@ -100,6 +100,19 @@ function clearBetween(top, floor, k, topo, rot, offset) {
     }
   }
   return true;
+}
+
+/**
+ * A hand-drawn part wall's ends, trimmed the way Auto's are (#119 follow-up): stations
+ * are dropped from each end while clearBetween refuses them, so the cap is never built
+ * flush against a side wall. Only the ENDS -- a line the user drew past a flank in the
+ * middle stays as drawn. Returns [from, to) into `top`, or null when too little is left.
+ */
+export function trimmedEnds(top, floor, topo, rot, offset) {
+  let a = 0, b = top.length;
+  while (a < b && !clearBetween(top, floor, a, topo, rot, offset)) a++;
+  while (b > a && !clearBetween(top, floor, b - 1, topo, rot, offset)) b--;
+  return b - a >= PROP.minStations ? [a, b] : null;
 }
 
 /**
