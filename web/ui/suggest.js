@@ -79,7 +79,9 @@ function renderSuggestions() {
     row.className = 'btn suggest-row';
     const point = c.seating === 'point';
     // walls is null when Suggest ranked a huge part without fin builds: no count to show
-    const overs = c.walls === null ? '' : ` · ${c.walls === 0 ? t('no fins') : tn('{n} fin', '{n} fins', c.walls)}`;
+    // (a pose with no overhang at all still reads "no fins": regions comes from analysis)
+    const walls = c.walls ?? (c.regions === 0 ? 0 : null);
+    const overs = walls === null ? '' : ` · ${walls === 0 ? t('no fins') : tn('{n} fin', '{n} fins', walls)}`;
     // Rough holes = the small hole/slot/bore-top overhangs this pose leaves
     // unsupported (dropped slivers). Showing it is what makes a hole-friendly
     // pose legible: "Best · 12 rough" over "#3 · 561".
@@ -182,7 +184,8 @@ function rankPoses(topo, thr, onProgress) {
     const done = () => { if (cancelRanking === cancel) cancelRanking = null; };
     const finish = (v) => { done(); w?.terminate(); resolve(v); };
     // inline stays cancellable until it runs: it checks `cancelled` first
-    const fallBack = () => { w?.terminate(); w = null; resolve(inline().finally(done)); };
+    // the inline run reports no progress: drop a stale "Ranking… 40%" first
+    const fallBack = () => { w?.terminate(); w = null; onProgress?.(null); resolve(inline().finally(done)); };
     cancelRanking = cancel;
     if (!w) { fallBack(); return; }
     w.onmessage = (e) => {
@@ -215,7 +218,7 @@ el('suggest-orient').addEventListener('click', () => {
   // Walls the current pose stands inside a bore -- the baseline the "points the
   // bores up" verdict measures its win against.
   const curBore = (lastBuilt?.props ?? []).filter((q) => q.inBore).length;
-  const progress = (f) => { if (btn.disabled) btn.textContent = `${t('Ranking…')} ${Math.round(f * 100)}%`; };
+  const progress = (f) => { if (btn.disabled) btn.textContent = f === null ? t('Ranking…') : `${t('Ranking…')} ${Math.round(f * 100)}%`; };
   rankPoses(topo, threshold, progress).then((ranked) => {
     // cancelled (hideSuggestions), or a different part was loaded while it ranked
     if (!ranked || topo !== topology) return;

@@ -129,7 +129,7 @@ Deno.test('suggestOrientations: a huge part ranks without fin builds', async () 
       `fin-build fields should be null: ${JSON.stringify(c)}`);
     assert(c.seating === 'unknown' && Number.isFinite(c.score) && c.rot.length === 9, 'malformed candidate');
   }
-  assert(r.confidence !== 'none', 'cheap ranking claimed no printable pose');
+  assert(r.confidence === 'medium' || r.confidence === 'low', `cheap ranking claimed ${r.confidence} confidence`);
   // same flat-pose pick the full ranking makes on this part
   const full = suggestOrientations(tilted, { top: 1 });
   assert(JSON.stringify(r.candidates[0].rot) === JSON.stringify(full.candidates[0].rot), 'cheap pick differs from the full one');

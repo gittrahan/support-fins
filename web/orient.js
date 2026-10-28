@@ -235,7 +235,9 @@ export function suggestOrientations(topo, { top = 3, threshold = 45, onProgress,
 
 /** suggestOrientations' answer from pass 1 alone (a part over RANK_CHEAP_FACES):
  *  the same candidate fields, the fin-build ones null, and confidence from the
- *  pass-1 scores. No build means no 'point' seating check, so it is never 'none'. */
+ *  pass-1 scores, capped at 'medium' since no build checked them. No build means
+ *  no 'point' seating check either, so it is never 'none'; pass 1's small-bed
+ *  penalty is all that holds a pose balanced on a point down. */
 function rankCheap(scored, top) {
   const candidates = scored.slice(0, top).map((s) => ({
     rot: s.rot,
@@ -252,9 +254,9 @@ function rankCheap(scored, top) {
   let confidence = best ? 'high' : 'none';
   if (best && second) {
     const sep = (second.score - best.score) / Math.max(1, best.score);
-    confidence = sep > 0.25 ? 'high' : sep > 0.08 ? 'medium' : 'low';
+    confidence = sep > 0.08 ? 'medium' : 'low';
   }
-  return { candidates, confidence };
+  return { candidates, confidence: best && !second ? 'medium' : confidence };
 }
 
 // ---------------------------------------------------------------- load / strength
