@@ -126,15 +126,26 @@ function candidateDowns(topo, maxClusters = 12) {
 const DOWN = [0, 0, -1];
 
 /**
+ * Above this many faces Suggest ranks on pass 1 alone, with no fin build per
+ * finalist. Each build is ~40 s on a 2.3M-face mask in Deno and several minutes in
+ * a browser Worker short on memory, so the five finalists left "Ranking…" up for
+ * 15+ minutes. Those candidates carry walls/coverage/volume/bore = null and seating
+ * 'unknown' (no build measured them); the list then shows no fin count.
+ */
+export const RANK_CHEAP_FACES = 1_000_000;
+
+/**
  * Rank orientations for printability. Returns up to `top` candidates, best first,
  * each with the metrics the UI shows and a `confidence`. `onProgress(f)`, if given,
- * is called with the fraction done (0..1) after every pose it scores.
+ * is called with the fraction done (0..1) after every pose it scores. A part over
+ * `cheapAbove` faces is ranked without fin builds (RANK_CHEAP_FACES).
  */
-export function suggestOrientations(topo, { top = 3, threshold = 45, onProgress } = {}) {
+export function suggestOrientations(topo, { top = 3, threshold = 45, onProgress, cheapAbove = RANK_CHEAP_FACES } = {}) {
   const downs = candidateDowns(topo);
+  const cheapOnly = topo.nFaces > cheapAbove;
   // A finalist's fin build costs far more than an analyze() -- ~20x on a 2M-face
   // part -- so progress weighs it that much more.
-  const nFinal = Math.min(downs.length, Math.max(top + 2, 5));
+  const nFinal = cheapOnly ? 0 : Math.min(downs.length, Math.max(top + 2, 5));
   const total = downs.length + nFinal * 20;
   let done = 0;
   const tick = (w) => { done += w; onProgress?.(Math.min(1, done / total)); };
@@ -157,6 +168,8 @@ export function suggestOrientations(topo, { top = 3, threshold = 45, onProgress 
     tick(1);
     return { rot, a, cheap };
   }).sort((p, r) => p.cheap - r.cheap);
+
+  if (cheapOnly) return rankCheap(scored, top);
 
   // pass 2: full fin build on the finalists, to measure real finnable coverage
   const finalists = scored.slice(0, nFinal);
@@ -218,6 +231,30 @@ export function suggestOrientations(topo, { top = 3, threshold = 45, onProgress 
   }
 
   return { candidates: built.slice(0, top), confidence };
+}
+
+/** suggestOrientations' answer from pass 1 alone (a part over RANK_CHEAP_FACES):
+ *  the same candidate fields, the fin-build ones null, and confidence from the
+ *  pass-1 scores. No build means no 'point' seating check, so it is never 'none'. */
+function rankCheap(scored, top) {
+  const candidates = scored.slice(0, top).map((s) => ({
+    rot: s.rot,
+    overArea: s.a.overArea,
+    bedArea: s.a.bedArea,
+    height: s.a.size.z,
+    size: s.a.size,
+    regions: s.a.regions.length,
+    walls: null, coverage: null, volume: null, seating: 'unknown',
+    holes: s.a.rawRegionCount - s.a.regions.length, bore: null,
+    score: s.cheap,
+  }));
+  const [best, second] = candidates;
+  let confidence = best ? 'high' : 'none';
+  if (best && second) {
+    const sep = (second.score - best.score) / Math.max(1, best.score);
+    confidence = sep > 0.25 ? 'high' : sep > 0.08 ? 'medium' : 'low';
+  }
+  return { candidates, confidence };
 }
 
 // ---------------------------------------------------------------- load / strength

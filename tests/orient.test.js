@@ -114,3 +114,27 @@ Deno.test('suggestStrengthPose: an already in-plane load needs no turn (returns 
   // Either nothing beats the flat pose (null), or the best it finds is still in-plane.
   assert(pose === null || pose.cross < 0.5, 'must not turn a flat slab into a worse-aligned pose');
 });
+
+// A part over RANK_CHEAP_FACES (a 2.3M-face mask: 15+ minutes of fin builds in a
+// browser Worker) is ranked on pass 1 alone. Forced here with cheapAbove on a
+// small part: the ranking still lands the flat pose, the fin-build fields are null
+// (not 0 -- the list must not claim "no fins"), and progress still reaches 1.
+Deno.test('suggestOrientations: a huge part ranks without fin builds', async () => {
+  const { loadModel } = await import('./_util.js');
+  const tilted = tiltedBlockTopo(0, 60, 0, 40, 0, 12, 60);
+  const r = suggestOrientations(tilted, { top: 3, cheapAbove: 0 });
+  assert(r.candidates.length > 0, 'no candidates');
+  for (const c of r.candidates) {
+    assert(c.walls === null && c.coverage === null && c.volume === null && c.bore === null,
+      `fin-build fields should be null: ${JSON.stringify(c)}`);
+    assert(c.seating === 'unknown' && Number.isFinite(c.score) && c.rot.length === 9, 'malformed candidate');
+  }
+  assert(r.confidence !== 'none', 'cheap ranking claimed no printable pose');
+  // same flat-pose pick the full ranking makes on this part
+  const full = suggestOrientations(tilted, { top: 1 });
+  assert(JSON.stringify(r.candidates[0].rot) === JSON.stringify(full.candidates[0].rot), 'cheap pick differs from the full one');
+  // and a real part: progress climbs to 1 with no build steps
+  const seen = [];
+  suggestOrientations(loadModel('torus'), { cheapAbove: 0, onProgress: (f) => seen.push(f) });
+  assert(seen.length > 0 && Math.abs(seen.at(-1) - 1) < 1e-9, `progress ended at ${seen.at(-1)}`);
+});

@@ -61,7 +61,8 @@ function noSupportVerdict(c) {
     return { tier: 'free', badge: t('No support'),
       note: `${t('This way up it needs no fins, 0 g.')}${roughCaveat}${strengthCaveat}` };
   }
-  if ((c.bore ?? 0) === 0 && suggestCurBore > 0) {
+  // bore is null when Suggest ranked without fin builds (a huge part): unknown, no claim
+  if (c.bore === 0 && suggestCurBore > 0) {
     const grams = (c.volume ?? 0) * materialDensity / 1000;
     return { tier: 'holeclean', badge: t('Bores clean'),
       note: t("This way up the bores point up, so there's no support to pull out of a hole ({grams} g of fins, all on the outside).",
@@ -77,7 +78,8 @@ function renderSuggestions() {
     const row = document.createElement('button');
     row.className = 'btn suggest-row';
     const point = c.seating === 'point';
-    const overs = c.walls === 0 ? t('no fins') : tn('{n} fin', '{n} fins', c.walls);
+    // walls is null when Suggest ranked a huge part without fin builds: no count to show
+    const overs = c.walls === null ? '' : ` · ${c.walls === 0 ? t('no fins') : tn('{n} fin', '{n} fins', c.walls)}`;
     // Rough holes = the small hole/slot/bore-top overhangs this pose leaves
     // unsupported (dropped slivers). Showing it is what makes a hole-friendly
     // pose legible: "Best · 12 rough" over "#3 · 561".
@@ -96,7 +98,7 @@ function renderSuggestions() {
     const tail = point ? ` · ${t('can’t print (on a point)')}` : roughTxt;
     row.innerHTML =
       `<span class="sr-rank">${i === 0 ? t('Best') : `#${i + 1}`}</span>` +
-      `<span class="sr-line">${c.height.toFixed(0)} mm · ${overs}${tail}${badge}</span>`;
+      `<span class="sr-line">${c.height.toFixed(0)} mm${overs}${tail}${badge}</span>`;
     if (point) row.classList.add('bad');
     if (verdict?.tier === 'free') row.classList.add('free');
     row.addEventListener('click', () => {
