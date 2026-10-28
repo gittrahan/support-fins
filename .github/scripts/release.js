@@ -6,6 +6,8 @@
 //   deno run -A .github/scripts/release.js --notes v1.0.1       # that release's body
 //   deno run -A .github/scripts/release.js --prepare [1.1.0]    # stamp unreleased in place; prints the version, or nothing
 //   deno run -A .github/scripts/release.js --carry old.json      # the version an open release PR chose, if still ahead
+//   deno run -A .github/scripts/release.js --commit v1.0.1      # the commit on main that released it (the release PR's merge)
+//   deno run -A .github/scripts/release.js --newest             # the newest released tag, or nothing
 //
 // Existing tags come from `git tag --list 'v*'` (the workflow fetches tags first).
 import { isNewer, nextVersion, releases, stamp, unreleased } from '../../web/changelog.js';
@@ -50,9 +52,27 @@ export function carried(data, prData) {
   return v && isNewer(data, v) ? v : '';
 }
 
+async function git(...args) {
+  const { code, stdout } = await new Deno.Command('git', { args, stdout: 'piped', stderr: 'null' }).output();
+  return code ? null : new TextDecoder().decode(stdout);
+}
+
 async function gitTags() {
-  const { stdout } = await new Deno.Command('git', { args: ['tag', '--list', 'v*'], stdout: 'piped' }).output();
-  return new TextDecoder().decode(stdout).split('\n').filter(Boolean);
+  return (await git('tag', '--list', 'v*')).split('\n').filter(Boolean);
+}
+
+/** The first commit on main's first-parent line whose changelog holds `tag`: the release
+ *  PR's merge. Tagging and deploying it (not whatever push started the run) keeps a staging
+ *  commit merged after it off the live site. */
+async function releaseCommit(tag) {
+  const log = await git('log', '--first-parent', '--reverse', '--format=%H', 'HEAD', '--', 'web/changelog.json');
+  for (const sha of (log ?? '').split('\n').filter(Boolean)) {
+    const text = await git('show', `${sha}:web/changelog.json`);
+    let data = null;
+    try { data = JSON.parse(text); } catch { continue; }
+    if (releases(data).some((r) => r.tag === tag)) return sha;
+  }
+  return null;
 }
 
 if (import.meta.main) {
@@ -75,8 +95,14 @@ if (import.meta.main) {
     let prData = null;
     try { prData = JSON.parse(await Deno.readTextFile(arg)); } catch { /* no open release PR */ }
     console.log(carried(data, prData));
+  } else if (cmd === '--commit') {
+    const sha = await releaseCommit(arg);
+    if (!sha) { console.error(`no commit on this branch releases ${arg}`); Deno.exit(1); }
+    console.log(sha);
+  } else if (cmd === '--newest') {
+    console.log(releases(data)[0]?.tag ?? '');
   } else {
-    console.error('usage: release.js --pending | --notes vX.Y.Z | --prepare [X.Y.Z] | --carry FILE');
+    console.error('usage: release.js --pending | --notes vX.Y.Z | --prepare [X.Y.Z] | --carry FILE | --commit vX.Y.Z | --newest');
     Deno.exit(2);
   }
 }

@@ -64,10 +64,12 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
-      - name: Create each untagged release, oldest first, and move live
+      - name: Create each untagged release, oldest first
         id: create
         # `created` is written however the step ends, so the build job still builds the
-        # releases made before a failure.
+        # releases made before a failure. Each release is tagged at the commit that
+        # released it, not $GITHUB_SHA: when runs queue up, a later push's run can be
+        # the one that finds a release untagged.
         run: |
           set -euo pipefail
           created=()
@@ -77,18 +79,29 @@ jobs:
           echo "untagged releases: $tags"
           for tag in $(echo "$tags" | jq -r '.[]'); do
             if gh release view "$tag" >/dev/null 2>&1; then echo "$tag exists, skipping"; continue; fi
+            sha=$(deno run -A .github/scripts/release.js --commit "$tag")
             deno run -A .github/scripts/release.js --notes "$tag" > notes.md
-            gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file notes.md
+            gh release create "$tag" --target "$sha" --title "$tag" --notes-file notes.md
             created+=("$tag")
           done
-          if [ ${#created[@]} -gt 0 ]; then
-            # live only ever moves forward: a non-fast-forward push fails rather than
-            # rewinding the site. printfins.com deploys this branch.
-            git push origin "$GITHUB_SHA:refs/heads/live"
-          fi
+      - name: Move live to the newest release
+        # Checked on every run, not only when a release was just made, so a re-run
+        # finishes a deploy that failed after its release existed. live only moves
+        # forward: a non-fast-forward push fails rather than rewinding the site.
+        # printfins.com deploys this branch.
+        run: |
+          set -euo pipefail
+          tag=$(deno run -A .github/scripts/release.js --newest)
+          if [ -z "$tag" ] || ! gh release view "$tag" >/dev/null 2>&1; then echo "nothing released yet"; exit 0; fi
+          sha=$(deno run -A .github/scripts/release.js --commit "$tag")
+          if git fetch -q origin live 2>/dev/null && [ "$(git rev-parse FETCH_HEAD)" = "$sha" ]; then echo "live is at $tag"; exit 0; fi
+          git push origin "$sha:refs/heads/live"
+          echo "live moved to $tag ($sha)"
 
   build:
-    # One at a time, oldest first, so the newest release ends up as `latest`.
+    # One at a time, oldest first, so the newest release ends up as `latest`. Built from
+    # this run's commit: if one run makes two releases, the older one's assets come from
+    # the newer tree (rare -- each release PR merge makes one).
     needs: [publish]
     if: always() && needs.publish.outputs.created != '' && needs.publish.outputs.created != '[]'
     strategy:
@@ -126,13 +139,17 @@ jobs:
       - name: Build or update the release PR
         run: |
           set -euo pipefail
+          # a queued run for an older push would rebuild the PR from stale main
+          git fetch -q origin main
+          if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then echo "main has moved on; its own run updates the PR"; exit 0; fi
+          if [ -n "$ASKED" ] && ! [[ "$ASKED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "version must be X.Y.Z, got $ASKED"; exit 1; fi
           open=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
           version="$ASKED"
           if [ -z "$version" ] && [ -n "$open" ] && git fetch -q origin "$BRANCH"; then
             git show FETCH_HEAD:web/changelog.json > "$RUNNER_TEMP/pr.json" || true
             version=$(deno run -A .github/scripts/release.js --carry "$RUNNER_TEMP/pr.json")
           fi
-          version=$(deno run -A .github/scripts/release.js --prepare $version)
+          version=$(deno run -A .github/scripts/release.js --prepare ${version:+"$version"})
           if [ -z "$version" ]; then
             echo "nothing unreleased"
             if [ -n "$open" ]; then gh pr close "$open" --delete-branch --comment "Nothing left to release."; fi
