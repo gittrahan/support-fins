@@ -18,7 +18,9 @@ self.onmessage = (e) => {
   const { id, topology, threshold, tunables } = e.data;
   try {
     applyTunables(tunables);
-    self.postMessage({ id, ranked: suggestOrientations(topology, { top: 3, threshold }) });
+    // progress after every pose, shown on the Suggest button
+    const onProgress = (f) => self.postMessage({ id, progress: f });
+    self.postMessage({ id, ranked: suggestOrientations(topology, { top: 3, threshold, onProgress }) });
   } catch (err) {
     self.postMessage({ id, error: String((err && err.stack) || err) });
   }

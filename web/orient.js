@@ -127,10 +127,17 @@ const DOWN = [0, 0, -1];
 
 /**
  * Rank orientations for printability. Returns up to `top` candidates, best first,
- * each with the metrics the UI shows and a `confidence`.
+ * each with the metrics the UI shows and a `confidence`. `onProgress(f)`, if given,
+ * is called with the fraction done (0..1) after every pose it scores.
  */
-export function suggestOrientations(topo, { top = 3, threshold = 45 } = {}) {
+export function suggestOrientations(topo, { top = 3, threshold = 45, onProgress } = {}) {
   const downs = candidateDowns(topo);
+  // A finalist's fin build costs far more than an analyze() -- ~20x on a 2M-face
+  // part -- so progress weighs it that much more.
+  const nFinal = Math.min(downs.length, Math.max(top + 2, 5));
+  const total = downs.length + nFinal * 20;
+  let done = 0;
+  const tick = (w) => { done += w; onProgress?.(Math.min(1, done / total)); };
 
   // pass 1: cheap analyze() on every candidate
   const scored = downs.map((d) => {
@@ -147,13 +154,15 @@ export function suggestOrientations(topo, { top = 3, threshold = 45 } = {}) {
     // penalty. Lower is better.
     const cheap = a.overArea + Math.max(0, 200 - a.bedArea) * 0.25
       + a.size.z * 2 + holes * 2;
+    tick(1);
     return { rot, a, cheap };
   }).sort((p, r) => p.cheap - r.cheap);
 
   // pass 2: full fin build on the finalists, to measure real finnable coverage
-  const finalists = scored.slice(0, Math.max(top + 2, 5));
+  const finalists = scored.slice(0, nFinal);
   const built = finalists.map((s) => {
     const b = buildFins(topo, s.a, s.rot, { mode: 'prop', bedPad: true });
+    tick(20);
     // buildFins reports `unserved` = overhang regions that took NO wall; coverage
     // is DISPLAY only (how many fins the user will get), never a score driver --
     // rewarding coverage rewards ADDING supports, and printability wants fewer.

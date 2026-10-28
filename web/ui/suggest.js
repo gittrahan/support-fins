@@ -156,10 +156,12 @@ export function clearSuggestionMark() {
  * 15-35 s and froze the page doing it here. The Worker gets the same tunables an
  * Auto build sends, so it scores with the page's gap, pad and nozzle. If no Worker
  * can run (file://, a clone or worker failure) it ranks here, as it always did.
+ * The Worker reports progress after every pose (`onProgress(fraction)`), shown on
+ * the button so a long ranking reads as working, not stuck.
  */
 let rankId = 0;
 let cancelRanking = null;   // drops the ranking in flight; it then resolves to null
-function rankPoses(topo, thr) {
+function rankPoses(topo, thr, onProgress) {
   let cancelled = false;
   const inline = () => new Promise((resolve, reject) => {
     // let the button repaint before the solve blocks the thread
@@ -183,6 +185,7 @@ function rankPoses(topo, thr) {
     if (!w) { fallBack(); return; }
     w.onmessage = (e) => {
       if (e.data.id !== id) return;
+      if (e.data.progress !== undefined) { onProgress?.(e.data.progress); return; }
       if (e.data.error) { console.warn('suggest worker failed; ranking inline', e.data.error); fallBack(); return; }
       finish(e.data.ranked);
     };
@@ -210,7 +213,8 @@ el('suggest-orient').addEventListener('click', () => {
   // Walls the current pose stands inside a bore -- the baseline the "points the
   // bores up" verdict measures its win against.
   const curBore = (lastBuilt?.props ?? []).filter((q) => q.inBore).length;
-  rankPoses(topo, threshold).then((ranked) => {
+  const progress = (f) => { if (btn.disabled) btn.textContent = `${t('Ranking…')} ${Math.round(f * 100)}%`; };
+  rankPoses(topo, threshold, progress).then((ranked) => {
     // cancelled (hideSuggestions), or a different part was loaded while it ranked
     if (!ranked || topo !== topology) return;
     const { candidates, confidence } = ranked;
