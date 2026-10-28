@@ -11,7 +11,7 @@ name: plugins
 #   GitHub Release: build + test, then attach plugin builds and publish the
 #                   versioned Docker image. Stable releases also move `latest`.
 #   called / dispatched with a `tag`: the same as a GitHub Release for that tag (release.yml
-#                   creates one per changelog entry and calls this for each).
+#                   creates one when a release PR merges and calls this for it).
 #
 # The Fusion add-in runs the engine in Fusion's own browser (a hidden palette), so
 # its zip has nothing native in it and serves Windows and macOS alike. It has been
