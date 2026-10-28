@@ -13,10 +13,14 @@ function wellFormed(e, at) {
   }
 }
 
-Deno.test('changelog.json: entries are well formed, oldest first, and main holds no hand-written release', () => {
+Deno.test('changelog.json: entries are well formed, releases run oldest first with rising versions', () => {
   assert(Array.isArray(data.releases) && Array.isArray(data.unreleased));
-  // releases are stamped on the live branch when one is published; main never gains one
-  assertEquals(data.releases, [], 'releases are written by the release step, not by a PR');
+  data.releases.forEach((r, i) => {
+    assert(VERSION_RE.test(r.version), `release ${i}: version ${r.version}`);
+    assert(/^\d{4}-\d{2}-\d{2}$/.test(r.date), `v${r.version}: date`);
+    assert(Array.isArray(r.entries) && r.entries.length, `v${r.version}: entries`);
+    if (i) assert(isNewer({ releases: data.releases.slice(0, i) }, r.version), `v${r.version} comes after the release before it`);
+  });
   const all = [...data.releases.flatMap((r) => r.entries), ...data.unreleased];
   assert(all.length > 0);
   all.forEach((e, i) => wellFormed(e, `entry ${i}`));
@@ -34,7 +38,10 @@ Deno.test('changelog: stamp moves unreleased under the version, and versions onl
   assertEquals(releases(d2).map((r) => r.version), ['1.0.1', '1.0.0'], 'newest first');
   assert(isNewer(d2, '1.1.0') && isNewer(d2, '2.0.0') && isNewer(d2, '1.0.10'));
   assert(!isNewer(d2, '1.0.1') && !isNewer(d2, '1.0.0') && !isNewer(d2, '0.9.9') && !isNewer(d2, 'v1.0.2'));
-  assertThrows(() => stamp(d2, '1.0.1', '2026-10-30'));
+  assertThrows(() => stamp({ ...d2, unreleased: [{ date: 'd' }] }, '1.0.1', '2026-10-30'), Error, 'not above');
+  assertThrows(() => stamp(d2, '1.0.2', '2026-10-30'), Error, 'nothing unreleased');
+  assertThrows(() => stamp({ ...d2, unreleased: [{ date: 'd' }] }, '1.0.2', '10/30/2026'), Error, 'YYYY-MM-DD');
+  assert(!VERSION_RE.test('01.0.0'), 'no leading zeros: the tag must match the version');
   assert(VERSION_RE.test(nextVersion(d2)));
 });
 

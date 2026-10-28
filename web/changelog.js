@@ -1,9 +1,10 @@
 // The changelog's rules, shared by the landing card, the test and the release workflow:
-// a PR appends its entry to `unreleased`; publishing a release on GitHub stamps those
-// entries into `releases` under its version on the live branch only, so main never
-// carries a version no release made. Pure, no imports, so Node and Deno can load it too.
+// a PR appends its entry to `unreleased`; only the release step (`stamp`) writes `releases`,
+// moving every unreleased entry under the new version, so a version always names a real
+// release. `releases` runs oldest first. Pure, no imports, so Node and Deno can load it too.
 export const CHECKS = ['held', 'stays', 'clean', 'easy', 'all'];
-export const VERSION_RE = /^(\d+)\.(\d+)\.(\d+)$/;
+export const VERSION_RE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 const arr = (a) => (Array.isArray(a) ? a : []);
 
@@ -39,9 +40,12 @@ export function isNewer(data, v) {
   return false;
 }
 
-/** The release step: every unreleased entry moves under `version`. New data; throws on a bad version. */
+/** The release step: every unreleased entry moves under `version`. New data; throws on a bad version or date, or nothing to release. */
 export function stamp(data, version, date) {
+  if (!data || typeof data !== 'object') throw new Error('changelog data is missing');
   if (!isNewer(data, version)) throw new Error(`v${version} is not above the newest release`);
+  if (!DATE_RE.test(date) || isNaN(Date.parse(date))) throw new Error(`release date ${date} is not YYYY-MM-DD`);
+  if (!unreleased(data).length) throw new Error('nothing unreleased to release');
   return {
     ...data,
     releases: [...arr(data.releases), { version, date, entries: unreleased(data) }],

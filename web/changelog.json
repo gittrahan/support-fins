@@ -1,5 +1,5 @@
 {
-  "about": "What's new on the landing card and the source of every GitHub Release. A PR that changes what a user sees, hears or downloads appends one entry to the END of unreleased. Never write releases by hand: publishing a release on GitHub moves every unreleased entry under its version, on the live branch printfins.com deploys from, not on main. An entry: {pr (optional: the merged PR number), date, check, text (one line), summary (optional, the longer release body: [{check, items[]}])}. check is held, stays, clean or easy (all for a roll-up).",
+  "about": "What's new on the landing card and the source of every GitHub Release. A PR that changes what a user sees, hears or downloads appends one entry to the END of unreleased. Never write or edit releases by hand: only the release step (stamp in web/changelog.js) does, moving every unreleased entry under the new version; releases run oldest first. An entry: {pr (optional: the merged PR number), date, check, text (one line), summary (optional, the longer release body: [{check, items[]}])}. check is held, stays, clean or easy (all for a roll-up).",
   "releases": [],
   "unreleased": [
     {

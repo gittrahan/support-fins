@@ -3,7 +3,7 @@
  *
  * Reads web/changelog.json from this origin (nothing leaves the machine). Released entries
  * show under their version; entries merged since the last release show as "Coming next",
- * which only main (staging) has: a release empties them on the live branch.
+ * which the live site never has: printfins.com deploys only a released commit.
  * Missing, offline or malformed: the card just has no section.
  */
 import { releases, unreleased } from '../changelog.js';
