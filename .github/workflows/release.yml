@@ -1,0 +1,163 @@
+name: release
+
+# Releases ship by merging a release PR. main is staging; printfins.com deploys from the
+# `live` branch, which only a release moves.
+#
+#   push to main with unreleased changelog entries:
+#       (re)build the "Release vX.Y.Z" PR on branch release/next -- main plus one commit
+#       that moves web/changelog.json's `unreleased` entries under the version. Its body is
+#       the release notes; fix wording in the entries on main, not in the PR.
+#   push to main that adds a release (the release PR merged):
+#       tag it, create the GitHub Release, fast-forward `live` to it (printfins.com
+#       deploys), then build it through plugins.yml (plugin builds attached, versioned
+#       Docker image, `latest` moved).
+#   Run workflow (Actions > release) with a version, e.g. 1.1.0: rebuild the release PR
+#       under that version instead of the next patch; later rebuilds keep it.
+#
+# plugins.yml is called rather than left to its own `release` trigger: a release made with
+# GITHUB_TOKEN does not start other workflows. If a build fails after its release exists,
+# re-run it: Actions > plugins > Run workflow, on that tag, with the tag as input.
+# The release PR is opened by GITHUB_TOKEN too, so test.yml doesn't run on it; it only
+# changes web/changelog.json, and test.yml checks that file on the push its merge makes.
+# Needs Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests".
+
+on:
+  push:
+    branches: [main]
+    # The workflow and its script too, so the merge that adds this machinery acts at once.
+    paths:
+      - 'web/changelog.json'
+      - 'web/changelog.js'
+      - '.github/workflows/release.yml'
+      - '.github/scripts/release.js'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version for the release PR (X.Y.Z), or empty for the next patch'
+        type: string
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # a manual run from another ref would tag and deploy it
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    outputs:
+      created: ${{ steps.create.outputs.created }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Create each untagged release, oldest first, and move live
+        id: create
+        # `created` is written however the step ends, so the build job still builds the
+        # releases made before a failure.
+        run: |
+          set -euo pipefail
+          created=()
+          write_created() { echo "created=$(printf '%s\n' "${created[@]}" | jq -R 'select(length>0)' | jq -sc .)" >> "$GITHUB_OUTPUT"; }
+          trap write_created EXIT
+          tags=$(deno run -A .github/scripts/release.js --pending)
+          echo "untagged releases: $tags"
+          for tag in $(echo "$tags" | jq -r '.[]'); do
+            if gh release view "$tag" >/dev/null 2>&1; then echo "$tag exists, skipping"; continue; fi
+            deno run -A .github/scripts/release.js --notes "$tag" > notes.md
+            gh release create "$tag" --target "$GITHUB_SHA" --title "$tag" --notes-file notes.md
+            created+=("$tag")
+          done
+          if [ ${#created[@]} -gt 0 ]; then
+            # live only ever moves forward: a non-fast-forward push fails rather than
+            # rewinding the site. printfins.com deploys this branch.
+            git push origin "$GITHUB_SHA:refs/heads/live"
+          fi
+
+  build:
+    # One at a time, oldest first, so the newest release ends up as `latest`.
+    needs: [publish]
+    if: always() && needs.publish.outputs.created != '' && needs.publish.outputs.created != '[]'
+    strategy:
+      max-parallel: 1
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.publish.outputs.created) }}
+    uses: ./.github/workflows/plugins.yml
+    with:
+      tag: ${{ matrix.tag }}
+    permissions:
+      contents: write
+      packages: write
+
+  propose:
+    # after publish, so a merge that both releases and leaves nothing waiting closes the loop
+    needs: [publish]
+    if: always() && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      BRANCH: release/next
+      ASKED: ${{ inputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Build or update the release PR
+        run: |
+          set -euo pipefail
+          open=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          version="$ASKED"
+          if [ -z "$version" ] && [ -n "$open" ] && git fetch -q origin "$BRANCH"; then
+            git show FETCH_HEAD:web/changelog.json > "$RUNNER_TEMP/pr.json" || true
+            version=$(deno run -A .github/scripts/release.js --carry "$RUNNER_TEMP/pr.json")
+          fi
+          version=$(deno run -A .github/scripts/release.js --prepare $version)
+          if [ -z "$version" ]; then
+            echo "nothing unreleased"
+            if [ -n "$open" ]; then gh pr close "$open" --delete-branch --comment "Nothing left to release."; fi
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git switch -C "$BRANCH"
+          git commit -qam "release v$version"
+          git push -f origin "$BRANCH"
+          {
+            echo "Merging this ships **v$version**: printfins.com updates, the GitHub Release is created with the plugin builds attached, and the Docker image is published."
+            echo
+            echo "Rebuilt on every merge to main, so it always holds everything unreleased. To change a line, edit its entry on main. To pick another version (say 1.1.0), run Actions > release > Run workflow with it."
+            echo
+            echo '---'
+            echo
+            deno run -A .github/scripts/release.js --notes "v$version"
+            echo
+            echo '**Before merging**'
+            echo "- [ ] Staging (the main preview) looks right"
+            echo "- [ ] The notes above read right"
+          } > body.md
+          if [ -n "$open" ]; then
+            gh pr edit "$open" --title "Release v$version" --body-file body.md
+          else
+            gh pr create --base main --head "$BRANCH" --title "Release v$version" --body-file body.md
+          fi
