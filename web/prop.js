@@ -37,6 +37,7 @@
  *   ties.js       zigzag struts tying two neighbouring walls into one frame (the fill pass's)
  *   clearance.js  which stations can carry a wall (reach, certification, runs)
  *   tines.js      the grip comb along a wall's top
+ *   endrows.js    flush end rows at a patch's free edges (a candidate the judge races, 062)
  *   tracks.js     where Suggest puts walls: straight patches, tracks, tube line
  *   mold.js       the floor under a wall on the part, and its bottom's shape
  *   attached.js   walls that stand on the part instead of the plate
@@ -139,7 +140,24 @@ export function coverRowSpan(coverage) {
 export function buildProps(topo, result, rot, opts = {}) {
   opts = { ...opts, circularFrames: circularRegions(topo, result, rot) };
   const capFrom = globalThis.__TINECAP?.length ?? 0;    // tests' tine capture: see withRaster
-  const normal = buildPass(topo, result, rot, opts, null);
+  // Flush end rows (prop/endrows.js) are a candidate: this base lays the mid-strip rows
+  // and flags the regions whose free edges the candidate would move (`flushable`).
+  const racing = opts.raster !== false && opts.endRows !== false;
+  const rows = buildPass(topo, result, rot, racing ? { ...opts, rowsOnly: true } : opts, null);
+  const normal = !racing || !rows.flushable.length ? rows
+    : raceAgainst(topo, result, rot, { ...opts, rasterVeto: undefined }, rows, capFrom,   // (the wedge veto guards raster walls, not these)
+      (regions) => buildPass(topo, result, rot, { ...opts, onlyRegions: regions }, null),
+      // (`equivalent` and no price: a tie on the judge keeps the flush layout, as before the
+      // race -- only a layout the judge scores higher swaps away from it)
+      'flush', null, 0, null, true, {
+        tried: new Set(rows.flushable), ruler: judgeRuler(topo, result, rot), alone: true,
+        // rows that serve a patch the flush layout leaves to a wedge drop that wedge
+        // (it grips from the bed): the flush layout stays (fins/wedges.js wedgeVeto)
+        hold: opts.rasterVeto && ((qa, qb, ri) => {
+          const after = [...rows.props.filter((q) => q.region !== ri), ...qb];
+          return qa.some((q) => opts.rasterVeto(q, after));
+        }),
+      });
   const rasterBase = opts.raster === false ? normal
     : withRaster(topo, result, rot, opts, normal, capFrom,
                  (regions) => buildPass(topo, result, rot, opts, regions));
@@ -237,7 +255,7 @@ function buildPass(topo, result, rot, opts, raster) {
   // slivers, and regions whose growth meets trace (and race) as one
   const traced = downhill && opts.curvedWalls === true ? traceGroups(topo, result, rot, off, downhill) : null;
   // tines emitted; sagRisk: the user chose sub-cap spacing AND a real row landed wide
-  const tally = { tines: 0, sagRisk: false, sagRegions: new Set() };
+  const tally = { tines: 0, sagRisk: false, sagRegions: new Set(), flushable: new Set() };
 
   const out = [];
   const props = [];
@@ -447,9 +465,10 @@ function buildPass(topo, result, rot, opts, raster) {
         }
         pts.push([gx / 3, gy / 3, gz / 3]);
       }
-      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off, sway: !!opts.sway?.on },
+      lines = patchTracks(pts, patchTris, step, { topo, rot, offset: off, sway: !!opts.sway?.on, rowsOnly: opts.rowsOnly },
                           rowSpan, patch.axis ?? null);
       race.turned(patch, lines, patches);
+      if (lines.flushable) tally.flushable.add(patch.region);
       // Rim walls (prop/rim.js): for the regions in `opts.rimRegions` only -- the race
       // in buildProps decides -- a wall along the patch's free outline, the rows
       // stopped short of it.
@@ -706,7 +725,7 @@ function buildPass(topo, result, rot, opts, raster) {
   // part with one region and three walls had "-2 unserved".
   return { triangles: out, props, skipped, served: servedRegions.size,
            servedRegions: [...servedRegions],
-           tines: tally.tines, sagRisk: tally.sagRisk,
+           tines: tally.tines, sagRisk: tally.sagRisk, flushable: [...tally.flushable],
            ...(raster ? { sagRegions: tally.sagRegions } : {}),
            ...(traced ? { leaderOf: traced.leaderOf } : {}),
            volume: props.reduce((s, q) => s + q.volume, 0) };

@@ -1,6 +1,7 @@
 // Sway's lowestHit (web/swayhit.js) goes through an XY triangle grid (web/triindex.js)
 // instead of scanning every triangle. The grid may only skip triangles that cannot
 // touch the rib's box, so the answer must be bit-identical to the full scan:
+//   - (the same, with the rib's z bounds, where each candidate is first checked against the rib's (s, u, z) box)
 //   - on boxes of every orientation, size and height over several models, the indexed
 //     lowest z equals lowestHitBrute's (including Infinity for "nothing crosses");
 // tests/sway*.test.js cover sway.js's own calls through it.
@@ -33,7 +34,7 @@ function randomQuery(rand, lo, hi) {
     (q) => q[0] - (sIn(q[2]) - 0.05), (q) => (sOut(q[2]) + 0.1) - q[0],
   ];
   const sLo = Math.min(sIn(z0), sIn(z1)) - 0.05, sHi = Math.max(sOut(z0), sOut(z1)) + 0.1;
-  return { fr: { nh, uDir }, uLo: uc - th / 2 - 0.3, uHi: uc + th / 2 + 0.3, outline, sLo, sHi };
+  return { fr: { nh, uDir }, uLo: uc - th / 2 - 0.3, uHi: uc + th / 2 + 0.3, outline, sLo, sHi, zLo: z0, zHi: z1 };
 }
 
 function bounds(tris) {
@@ -63,6 +64,9 @@ for (const [name, topo] of Object.entries(scenes)) {
       const want = lowestHitBrute(tris, q.fr, q.uLo, q.uHi, q.outline);
       const got = lowestHit(tris, q.fr, q.uLo, q.uHi, q.outline, q.sLo, q.sHi);
       assert(Object.is(got, want), `${name} query ${n}: grid ${got} vs scan ${want}`);
+      // with the z bounds sway.js passes: the per-triangle box test must not drop a crossing
+      const gotZ = lowestHit(tris, q.fr, q.uLo, q.uHi, q.outline, q.sLo, q.sHi, q.zLo, q.zHi);
+      assert(Object.is(gotZ, want), `${name} query ${n}: grid+box ${gotZ} vs scan ${want}`);
       if (want === Infinity) misses++; else hits++;
     }
     assert(hits > 20 && misses > 20, `${name}: queries should include both hits (${hits}) and misses (${misses})`);

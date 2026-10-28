@@ -33,9 +33,10 @@
 import { findWallPatches, patchProbe, patchPoint, tAtZ, zAt, MAX_LEAN_DEG } from './planes.js';
 import { insidePart } from './inside.js';
 import { kissEnds } from './kiss.js';
-import { braceCrossRib } from './prop/brace.js';
+import { braceCrossRib, BRACE } from './prop/brace.js';
 import { PROP } from './prop/config.js';
 import { clip, lowestHit } from './swayhit.js';
+import { cropForRib } from './swaycrop.js';
 import { loftExtrude, ribbon, roundedPolygon } from './solids.js';
 
 export const SWAY = {
@@ -293,7 +294,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
       let sHi = Math.max(sOut(zA), sOut(zB));
       for (const z of heights) if (z > zA && z < zB) sHi = Math.max(sHi, sOut(z));
       hit = Math.min(hit, lowestHit(partTris, fr, uc - th / 2 - 0.3, uc + th / 2 + 0.3, outline,
-                                    Math.min(inner(zA), inner(zB)), sHi + 0.1));
+                                    Math.min(inner(zA), inner(zB)), sHi + 0.1, zA, zB));
     }
     if (hit === Infinity) break;
     H = hit - 1.0;
@@ -311,7 +312,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     (q) => (SWAY.footH + 0.2) - q[2],
     (q) => q[0] - (sIn(0) - 0.05),
     (q) => (sFootOut + 0.1) - q[0],
-  ], sIn(0) - 0.05, sFootOut + 0.1);
+  ], sIn(0) - 0.05, sFootOut + 0.1, -0.1, SWAY.footH + 0.2);
   if (footHit !== Infinity) {
     return { ok: false, reason: 'the part’s base spreads out under this face, so there is no room on the plate for the brace’s foot' };
   }
@@ -425,9 +426,12 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     // a rib leaning less than the edge would part from it toward the top.
     const crossOk = Math.abs(slope) <= 1 + 1e-6;
     const clearArm = (t) => (opts.crossClear ? opts.crossClear(t) : true);
+    // Only the part near the foot matters to the arms; the square covers the longest reach
+    // plus the clearances and the flange width (see swaycrop.js).
+    const near = crossOk ? cropForRib(partTris, o, Math.max(BRACE.minReach, D0) + 2 * PROP.sideClear + PROP.footMin + th + 1, lean, 0, H + PROP.sideClear) : partTris;
     for (const sgn of crossOk ? [1, -1] : []) {
       const d = [p.u.x * sgn, p.u.y * sgn], start = out.length;
-      const c = braceCrossRib(out, partTris, o, d, 0, H, D0, lean, clearArm, opts.crossRise, th);
+      const c = braceCrossRib(out, near, o, d, 0, H, D0, lean, clearArm, opts.crossRise, th);
       if (!c) continue;
       cross++;
       arms.push({ a: o, b: [o[0] + d[0] * c.reach, o[1] + d[1] * c.reach, 0], th: c.th,

@@ -277,6 +277,13 @@ Fixtures (`tests/fixtures/*.step`) are made with FreeCAD.
 
 **`rest.test.js`** -- `web/ui/rest.js`, the "run once the cursor rests" helper behind the Sway brace
 ghost: a burst of moves runs once with the last target after the pause; cancel (click, leaving the part) drops it.
+**`triindex.test.js`** -- Sway's lowestHit through the XY triangle grid (`web/triindex.js`,
+`web/swayhit.js`) against the full scan, `Object.is`-equal on 400 random rib boxes per scene
+over 8 scenes (hits and misses), with and without the rib's z bounds (the per-candidate box test).
+
+**`swaycrop.test.js`** -- Sway's cross ribs built from the cropped part (`web/swaycrop.js`)
+equal those built from the whole part, on random feet/leans/gauges over 5 scenes; a post click still
+gets both arms.
 
 **`sway.test.js`** -- sway braces (`web/sway.js`) on a 150 mm post (plain blocks,
 no stress models needed):
@@ -313,6 +320,11 @@ adhesion and tall-print stability still need comparison prints.
 ceiling in Auto and in Full, bending, every station inside the strip, ≥ 95% of the ceiling
 right over it and nothing inside the part. The same slot tilted 30° slopes, so no region
 takes an arc (a slope is downhill.js's).
+
+**`end_rows.test.js`** — flush end rows as a judged candidate (`web/prop/endrows.js`): a tilted
+cube wins its four flush walls in the race; tshape at X60 (sparse) keeps its three flush
+walls on a judge tie, as `endRows:false` builds them; a portal
+keeps its wedge (the race's `hold`) where the mid-strip rows would serve its patch.
 
 **`rim.test.js`** — rim walls (`web/prop/rim.js`): a ledge off one edge, whose rows stop
 4 mm short of its free edge, gets a wall under that edge in pieces no longer than
