@@ -185,6 +185,15 @@ Tests (Deno for the JS engine):
 deno test --allow-read tests/
 ```
 
+### Releases
+
+`main` is staging: every merge shows up at the `main` preview, not on printfins.com.
+A PR that changes what a user sees adds one line to `unreleased` in `web/changelog.json`.
+After each merge, Actions keeps a **Release vX.Y.Z** PR open holding everything unreleased;
+merging it tags the release, moves the `live` branch printfins.com deploys from, attaches
+the plugin builds and publishes the Docker image. Releases are on the
+[Releases page](https://github.com/gittrahan/support-fins/releases) and the site's landing card.
+
 ## The PrusaSlicer plugin (hand-placed)
 
 `plugins/prusa/` is a native PrusaSlicer 3.0 plugin, **Support Fins → Add a Fin**. The 3.0
