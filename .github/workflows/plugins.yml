@@ -354,7 +354,9 @@ jobs:
     permissions:
       contents: write
     concurrency:
-      group: plugins-publish
+      # Its own group per tag: one group holds a single pending run, so a shared one could
+      # cancel a queued release publish behind another (a release with no builds, no image).
+      group: plugins-publish-${{ inputs.tag || github.event.release.tag_name || 'rolling' }}
       cancel-in-progress: false
     env:
       GH_TOKEN: ${{ github.token }}
@@ -470,6 +472,16 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Is this the newest stable release?
+        id: newest
+        # `latest` must never move backwards: a re-dispatch for an older tag leaves it be.
+        env:
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
+        run: |
+          git fetch --tags --quiet
+          top=$(git tag --list 'v*' --sort=-v:refname | grep -v -- '-' | head -1)
+          if [ "$TAG" = "$top" ] && [ "$PRERELEASE" != "true" ]; then echo "latest=true" >> "$GITHUB_OUTPUT"; else echo "latest=false" >> "$GITHUB_OUTPUT"; fi
       - name: Prepare image tags and labels
         id: meta
         uses: docker/metadata-action@v6
@@ -479,7 +491,7 @@ jobs:
             latest=false
           tags: |
             type=raw,value=${{ inputs.tag || github.event.release.tag_name }}
-            type=raw,value=latest,enable=${{ github.event.release.prerelease != true && !contains(inputs.tag, '-') }}
+            type=raw,value=latest,enable=${{ steps.newest.outputs.latest == 'true' }}
       - name: Build and publish Docker image
         uses: docker/build-push-action@v7
         with:
