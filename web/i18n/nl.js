@@ -486,4 +486,5 @@ export default {
   "What's new": "Wat is er nieuw",
   "See all releases": "Alle releases bekijken",
   "Version": "Versie",
+  "Coming next": "Binnenkort",
 };

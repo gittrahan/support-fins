@@ -506,4 +506,5 @@ export default {
   "What's new": "Was ist neu",
   "See all releases": "Alle Versionen ansehen",
   "Version": "Version",
+  "Coming next": "Demnächst",
 };

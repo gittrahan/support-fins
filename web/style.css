@@ -1115,6 +1115,8 @@ body.no-part #viewport canvas { pointer-events: none; }
 #drop .whatsnew ul { margin: 0 0 6px; padding-left: 1.1em; }
 #drop .whatsnew li { margin-bottom: 3px; }
 #drop .whatsnew li strong { color: var(--text); font-weight: 600; }
+#drop .whatsnew .next-h { margin: 0 0 3px; color: var(--text); font-style: italic; }
+#drop .whatsnew ul.next { font-style: italic; }
 #drop .whatsnew a { color: var(--accent); }
 #drop .kofi-line { margin: 14px 0 0; color: var(--dim); font-size: 12px; }
 #drop .kofi-line .kofi {

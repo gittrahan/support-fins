@@ -599,4 +599,5 @@ export default {
   "What's new": "新功能",
   "See all releases": "查看所有版本",
   "Version": "版本",
+  "Coming next": "即将推出",
 };

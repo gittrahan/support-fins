@@ -490,4 +490,5 @@ export default {
   "What's new": "ما الجديد",
   "See all releases": "عرض كل الإصدارات",
   "Version": "الإصدار",
+  "Coming next": "قادم قريبًا",
 };

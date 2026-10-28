@@ -1,7 +1,7 @@
 import { assert } from 'jsr:@std/assert';
 
 // the landing card's chrome (entries stay English)
-const keys = ["What's new", 'See all releases', 'Version'];
+const keys = ["What's new", 'See all releases', 'Version', 'Coming next'];
 
 Deno.test("changelog chrome is translated in every locale and present in index.html", async () => {
   const html = await Deno.readTextFile(new URL('../web/index.html', import.meta.url));

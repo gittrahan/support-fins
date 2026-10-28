@@ -1,7 +1,7 @@
 {
-  "base": "1.0",
-  "about": "What's new on the landing card and the source of every GitHub Release. Oldest first; append new entries at the END. An entry's version is its position: entry 0 is v<base>.0, entry 1 is v<base>.1, and so on, so never reorder or delete one. pr (optional) is the merged PR number the release links to. Add one entry in any PR that changes what a user sees, hears or downloads. summary (optional) is the longer release body: [{check, items[]}]. check is held, stays, clean or easy (all for a roll-up).",
-  "entries": [
+  "about": "What's new on the landing card and the source of every GitHub Release. A PR that changes what a user sees, hears or downloads appends one entry to the END of unreleased. Never write releases by hand: publishing a release on GitHub moves every unreleased entry under its version, on the live branch printfins.com deploys from, not on main. An entry: {pr (optional: the merged PR number), date, check, text (one line), summary (optional, the longer release body: [{check, items[]}])}. check is held, stays, clean or easy (all for a roll-up).",
+  "releases": [],
+  "unreleased": [
     {
       "date": "2026-10-27",
       "check": "all",

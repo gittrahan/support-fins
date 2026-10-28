@@ -7,4 +7,4 @@
 - [ ] `tests/golden/` unchanged, **or** changed on purpose. Which scenes, and why:
 
 ## Changelog
-- [ ] Entry added to `web/changelog.json` (user-facing changes; it becomes the release), **or** not user-facing
+- [ ] Entry appended to `unreleased` in `web/changelog.json` (user-facing changes; the next release picks it up), **or** not user-facing

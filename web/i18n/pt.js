@@ -576,4 +576,5 @@ export default {
   "What's new": "Novidades",
   "See all releases": "Ver todas as versões",
   "Version": "Versão",
+  "Coming next": "Em breve",
 };
