@@ -357,7 +357,57 @@ messages are descriptive text; use status values and counts for automation.
 - `project-report.js` — selected-object outcomes, counts and terminal formatting.
 - `project-cache.js` — optional checksummed per-object checkpoints for project mode.
 - `project-analysis.js` — per-object mesh loading and strict negative-part subtraction for preserved projects.
+- `project-bake-input.js` — internal archive-to-conversion boundary. Resolves saved
+  filament/role assignments and fixed layer heights, checks compatibility, and
+  binds results to source/settings/runtime fingerprints. Rejects variable-layer
+  profiles, layer setting ranges, unsupported modifiers and shared build instances.
+  It loads one selected dependency tree and does not retain decoded source meshes
+  in its result. It writes no project or checkpoint.
+- `project-bake.js` — internal negative-part conversion, with Bambu paint-region
+  remapping in `project-paint.js` / `bambu-paint.js`. Export parts retain material
+  identities, support/seam annotations and source-face mappings. Paint subdivision
+  is separate from the unchanged geometry used for support analysis. New cut
+  surfaces inherit their owning part's existing material settings by default;
+  the result includes an object warning about possible sliced-material changes
+  and manual corrections. This service
+  is exercised through `tests/_bake-export.js`; the production CLI does not use it
+  yet, and negative parts still require print-by-layer.
 - `tests/cli.test.js` — `deno test -A plugins/cli/tests/`. Runs in memory: CLI fins equal
   `computeFins` on the posed part, and match the website's own path on lbracket@35.
 - The summary line is `plugins/shared/engine/report.js`, word for word with the Python
   hosts' `host_report`.
+
+The internal conversion regressions run with:
+
+```sh
+deno test -A plugins/cli/tests/paint.test.js plugins/cli/tests/project-bake.test.js plugins/cli/tests/project-bake-input.test.js
+```
+
+These procedural fixtures check actual painted areas across cuts and mirrored or
+rotated transforms, recursive and extended paint codes, distinct material slots,
+inheritance, disappearing components, invalid data, and export/reimport. Unknown
+triangle attributes (including fuzzy-skin painting) and interpolated per-corner
+core materials are rejected by conversion. No nearest-face or majority-color
+fallback is used. Input meshes are not repaired. Exact zero-area faces in the
+boolean's float32 export are omitted; when they represent a split edge, adjacent
+faces use the same existing, exactly collinear vertices. No surface is filled and
+no vertex is moved. The remaining indexed surface must pass closed-mesh validation;
+analysis positions are retained verbatim. Software tests do not establish physical
+print behavior.
+
+The default internal conversion preserves surviving exterior painting and part
+assignments, and leaves new cut surfaces unpainted so they inherit the owning
+part's existing material and wall/infill settings. It does not reconstruct the
+original sliced interior material regions or flatten an object to one filament.
+No opt-in flag is required. Callers must display the returned warning for every
+successfully converted object: sliced colors and material regions may differ,
+and the user should inspect the preview and manually correct painting or material
+assignments if needed. Bambu can extend retained painting onto new surfaces, so
+base-material inheritance is not a promise about the final sliced color.
+
+Geometry, surviving paint, material identities, settings and placement remain
+validation requirements. Incomplete subtraction, invalid geometry, unsupported
+attributes and ambiguous assignments still fail. Native material-region
+comparisons are diagnostic for this policy; they must not be presented as exact
+preservation passes. Production sequential export,
+warning presentation and resume integration remain a separate follow-up.

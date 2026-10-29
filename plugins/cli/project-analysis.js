@@ -79,9 +79,9 @@ function partPath(path) {
   return name;
 }
 
-/** Load one selected dependency tree. Returning only positions allows decoded
- * members, paint and cutters to be collected before fin generation/next object. */
-export async function projectPositions(zip, rootBytes, configBytes, plan) {
+/** Load only the selected dependency tree. Callers must release the returned
+ * model before processing another object; there is no project-wide mesh cache. */
+export async function projectModel(zip, rootBytes, configBytes, plan) {
   const members = new Map([[ROOT, rootBytes], [CONFIG, configBytes]]);
   const visiting = new Set(), visited = new Set();
   const load = async (name) => {
@@ -110,5 +110,12 @@ export async function projectPositions(zip, rootBytes, configBytes, plan) {
   const model = readThreeMFParts(members, { buildIndex: plan.number - 1, doublePrecision: true,
     outwardWinding: true, withComponents: plan.negativeCount > 0 }).objects[0];
   members.clear();
+  return model;
+}
+
+/** Analysis callers retain only positions, allowing decoded members, painting
+ * and cutters to be collected before fin generation or the next object. */
+export async function projectPositions(zip, rootBytes, configBytes, plan) {
+  const model = await projectModel(zip, rootBytes, configBytes, plan);
   return subtractProjectNegatives(model, plan.negativeCount);
 }
