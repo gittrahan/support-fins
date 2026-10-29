@@ -83,7 +83,7 @@
 <div id="spinner" aria-live="polite"><span class="ring"></span><span data-i18n="generating supports…">generating supports…</span></div>
 
 <header id="topbar">
-  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><!-- END version --></span></span>
+  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.0</small><!-- END version --></span></span>
   <!-- accept: the MIME types too, and octet-stream. Android's picker matches by MIME
        and knows none of these extensions, so it greyed every model out (#237); the
        format is read from the bytes (ui/io.js), not the name. -->
@@ -760,6 +760,24 @@
     <!-- What's new: written from changelog.json by web/changelog.js (static, so it paints
          with the card); released entries only, the list scrolls past a few lines. -->
     <!-- BEGIN whatsnew (web/changelog.js writes this block) -->
+    <section id="whatsnew" class="whatsnew">
+      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.0</span></h2>
+      <div class="list" tabindex="0">
+        <ul>
+          <li>Full coverage mode: every red overhang gets support, with a second pass for figures</li>
+          <li>Curved, downhill and arc walls that follow an overhang to the plate</li>
+          <li>Cleaner snap-off: tines touch the part's surface instead of biting in, and the 3MF exports supports as their own object</li>
+          <li>Plugins for Orca, Cura, Fusion, FreeCAD, Blender, SolidWorks, Rhino and PrusaSlicer, on the same engine as the site</li>
+          <li>Calibrate menu: test prints that tune the fins to your printer</li>
+          <li>Several models on one plate, with Move and Arrange</li>
+          <li>Any nozzle from 0.2 to 2.0 mm, layers up to 0.6 mm, and thicker walls</li>
+          <li>Resin: pins that snap at the surface and feet a scraper can get under</li>
+          <li>Interface material for toolchanger printers</li>
+          <li>Works on phones, and in German, Dutch, Portuguese, Chinese and Arabic</li>
+        </ul>
+      </div>
+      <a href="https://github.com/gittrahan/support-fins/releases" target="_blank" rel="noopener" data-i18n="See all releases">See all releases</a>
+    </section>
     <!-- END whatsnew -->
     <p class="kofi-line"><span data-i18n="Free and open source. If it ever saves you a print,">Free and open source. If it ever saves you a print,</span> <a class="kofi" href="https://ko-fi.com/matthewtrahan" target="_blank" rel="noopener"><span data-i18n="buy me a coffee ☕">buy me a coffee ☕</span></a>.</p>
   </div>

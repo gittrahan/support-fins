@@ -1,53 +1,109 @@
 {
   "about": "What's new on the landing card and the source of every GitHub Release. A PR that changes what a user sees, hears or downloads appends one entry to the END of unreleased. Never write or edit releases by hand: only the release step (stamp in web/changelog.js) does, moving every unreleased entry under the new version and rewriting the card in web/index.html; releases run oldest first. An entry: {pr (optional: the merged PR number), date, check, text (one line), highlights (optional: [{text, prs}], the lines the card lists in place of text)}. check is held, stays, clean or easy (all for a roll-up). The card shows released entries only, so unreleased ones never reach it.",
-  "releases": [],
-  "unreleased": [
+  "releases": [
     {
-      "date": "2026-10-27",
-      "check": "all",
-      "text": "First tagged release: the ten biggest changes since launch.",
-      "highlights": [
+      "version": "1.0.0",
+      "date": "2026-10-29",
+      "entries": [
         {
-          "text": "Full coverage mode: every red overhang gets support, with a second pass for figures",
-          "prs": [188, 189, 194]
-        },
-        {
-          "text": "Curved, downhill and arc walls that follow an overhang to the plate",
-          "prs": [249, 256, 317, 396]
-        },
-        {
-          "text": "Cleaner snap-off: tines touch the part's surface instead of biting in, and the 3MF exports supports as their own object",
-          "prs": [168, 199]
-        },
-        {
-          "text": "Plugins for Orca, Cura, Fusion, FreeCAD, Blender, SolidWorks, Rhino and PrusaSlicer, on the same engine as the site",
-          "prs": [64, 130, 83, 144, 153, 185, 322, 163]
-        },
-        {
-          "text": "Calibrate menu: test prints that tune the fins to your printer",
-          "prs": [162, 202]
-        },
-        {
-          "text": "Several models on one plate, with Move and Arrange",
-          "prs": [326, 328, 343, 346]
-        },
-        {
-          "text": "Any nozzle from 0.2 to 2.0 mm, layers up to 0.6 mm, and thicker walls",
-          "prs": [244, 245, 258, 261]
-        },
-        {
-          "text": "Resin: pins that snap at the surface and feet a scraper can get under",
-          "prs": [311, 361, 363, 370]
-        },
-        {
-          "text": "Interface material for toolchanger printers",
-          "prs": [205]
-        },
-        {
-          "text": "Works on phones, and in German, Dutch, Portuguese, Chinese and Arabic",
-          "prs": [107, 238, 262, 306, 310, 374, 375, 376]
+          "date": "2026-10-27",
+          "check": "all",
+          "text": "First tagged release: the ten biggest changes since launch.",
+          "highlights": [
+            {
+              "text": "Full coverage mode: every red overhang gets support, with a second pass for figures",
+              "prs": [
+                188,
+                189,
+                194
+              ]
+            },
+            {
+              "text": "Curved, downhill and arc walls that follow an overhang to the plate",
+              "prs": [
+                249,
+                256,
+                317,
+                396
+              ]
+            },
+            {
+              "text": "Cleaner snap-off: tines touch the part's surface instead of biting in, and the 3MF exports supports as their own object",
+              "prs": [
+                168,
+                199
+              ]
+            },
+            {
+              "text": "Plugins for Orca, Cura, Fusion, FreeCAD, Blender, SolidWorks, Rhino and PrusaSlicer, on the same engine as the site",
+              "prs": [
+                64,
+                130,
+                83,
+                144,
+                153,
+                185,
+                322,
+                163
+              ]
+            },
+            {
+              "text": "Calibrate menu: test prints that tune the fins to your printer",
+              "prs": [
+                162,
+                202
+              ]
+            },
+            {
+              "text": "Several models on one plate, with Move and Arrange",
+              "prs": [
+                326,
+                328,
+                343,
+                346
+              ]
+            },
+            {
+              "text": "Any nozzle from 0.2 to 2.0 mm, layers up to 0.6 mm, and thicker walls",
+              "prs": [
+                244,
+                245,
+                258,
+                261
+              ]
+            },
+            {
+              "text": "Resin: pins that snap at the surface and feet a scraper can get under",
+              "prs": [
+                311,
+                361,
+                363,
+                370
+              ]
+            },
+            {
+              "text": "Interface material for toolchanger printers",
+              "prs": [
+                205
+              ]
+            },
+            {
+              "text": "Works on phones, and in German, Dutch, Portuguese, Chinese and Arabic",
+              "prs": [
+                107,
+                238,
+                262,
+                306,
+                310,
+                374,
+                375,
+                376
+              ]
+            }
+          ]
         }
       ]
     }
-  ]
+  ],
+  "unreleased": []
 }
