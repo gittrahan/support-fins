@@ -25,6 +25,14 @@ function gapOf(gap) {
   return gap;
 }
 
+function clearance(value, fallback, max, name) {
+  value ??= fallback;
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > max) {
+    throw new Error(`${name} must be 0..${max}, got ${JSON.stringify(value)}`);
+  }
+  return value;
+}
+
 /**
  * The clearances buildFins / applyTunables take, exactly as the site's build request
  * sends them (ui/finbuild.js): PLA's pad numbers, as on the site, and the Support
@@ -36,11 +44,17 @@ export function clearances(opts) {
   // The PLA/PETG choice is gone (the site dropped it first): refuse it out loud
   // rather than quietly build a host's PETG request at PLA's gap.
   if (opts.material !== undefined) throw new Error('material is no longer an option: pass gap (0.3 for PETG)');
+  if (opts.bottomAnchors != null && typeof opts.bottomAnchors !== 'boolean') {
+    throw new Error('bottomAnchors must be true or false');
+  }
   const tunables = {
     // Both are module state: every build/drawn wall must reset the previous call.
     // Wall-line selection remains a browser feature; plugin walls use two lines.
     nozzle: nozzleSize(opts.nozzle), wallLines: 2,
     padH: MATERIAL.pla.padH, padGrab: MATERIAL.pla.padGrab, propGap: gapOf(opts.gap),
+    sideClearance: clearance(opts.sideClearance, 0.35, 1, 'sideClearance'),
+    bottomGap: clearance(opts.bottomGap, 0.2, 0.4, 'bottomGap'),
+    bottomAnchors: opts.bottomAnchors === true,
     // Off builds no pad, so which style it carries doesn't matter; Auto keeps it valid.
     padStyle: pick('padStyle', opts.padStyle, PAD_STYLES) === 'off' ? 'auto' : opts.padStyle,
     cutout: pick('cutout', opts.cutout, CUTOUT_PATTERNS),

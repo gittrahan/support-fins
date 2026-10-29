@@ -89,6 +89,22 @@ function cellOf(g, x, y) {
   return a * g.NY + b;
 }
 
+/** Candidate triangle offsets whose XY bounds meet a rectangle. Reuses the
+ * surface-query grid; callers still perform exact footprint/intersection tests. */
+export function surfaceCandidates(tris, x0, y0, x1, y1) {
+  if (!tris.length) return [];
+  const g = buildZGrid(tris);
+  if (x1 < g.minX || x0 > g.maxX || y1 < g.minY || y0 > g.maxY) return [];
+  const cx = (x) => Math.min(g.NX - 1, Math.max(0, Math.floor((x - g.minX) * g.sx)));
+  const cy = (y) => Math.min(g.NY - 1, Math.max(0, Math.floor((y - g.minY) * g.sy)));
+  const found = new Set();
+  for (let x = cx(x0); x <= cx(x1); x++) for (let y = cy(y0); y <= cy(y1); y++) {
+    const cell = x * g.NY + y;
+    for (let k = g.start[cell]; k < g.start[cell + 1]; k++) found.add(g.items[k]);
+  }
+  return [...found];
+}
+
 // Height of triangle `i` of `tris` at column (x, y), or null if the column misses it.
 function zOn(tris, i, x, y) {
   const ax = tris[i], ay = tris[i + 1], az = tris[i + 2];

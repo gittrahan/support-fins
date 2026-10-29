@@ -17,6 +17,7 @@
  * line-settling passes verbatim.
  */
 import { arcStations, arcThrough, DRAW_MIN_RADIUS } from './drawarc.js';
+import { AnchorContactError } from './prop/anchors.js';
 import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor, crestOn, crestPart, trimmedEnds } from './prop.js';
 
 /**
@@ -186,6 +187,14 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, 
  * silently doing nothing, the failure mode M5's scoreboard was built on.
  */
 export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
+  try { return buildDrawnWall(a, b, tris, zBed, opts); }
+  catch (e) {
+    if (e instanceof AnchorContactError) return { ok: false, reason: e.message };
+    throw e;
+  }
+}
+
+function buildDrawnWall(a, b, tris, zBed, opts) {
   const dx = b[0] - a[0], dy = b[1] - a[1];
   const chord = Math.hypot(dx, dy);
   if (chord < DRAW_MIN_LEN) {
@@ -252,7 +261,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
       floor = floor.slice(keep[0], keep[1]);
     }
     const mold = floorMax > PROP.gap + 0.5 ? moldLine(topPA, tris) : null;
-    if (mold && sweepBetween(mold.top, mold.floor, out)) {
+    if (mold && sweepBetween(mold.top, mold.floor, out, PROP.minHeight, tris)) {
       let height = 0;
       for (let i = 0; i < topPA.length; i++) {
         height = Math.max(height, (topPA[i][2] - PROP.gap) - floor[i][2]);
@@ -338,7 +347,7 @@ function squatWall(topPA, line, tris, zBed, plateOnly = false) {
     if (midClear && floor.some((p) => p[2] > PROP.gap + 0.5)) {
       const mold = moldLine(topPA, tris);
       const t = [];
-      if (mold && sweepBetween(mold.top, mold.floor, t, PROP.minHeightSquat)) {
+      if (mold && sweepBetween(mold.top, mold.floor, t, PROP.minHeightSquat, tris)) {
         let height = 0;
         for (let i = 0; i < topPA.length; i++) height = Math.max(height, topPA[i][2] - PROP.gap - floor[i][2]);
         return { tris: t, top: topPA, height, partAttached: true };
