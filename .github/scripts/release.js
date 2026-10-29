@@ -4,16 +4,16 @@
 //
 //   deno run -A .github/scripts/release.js --pending            # JSON array of released versions with no tag yet, oldest first
 //   deno run -A .github/scripts/release.js --notes v1.0.1       # that release's body
-//   deno run -A .github/scripts/release.js --prepare [1.1.0]    # stamp unreleased in place; prints the version, or nothing
+//   deno run -A .github/scripts/release.js --prepare [1.1.0]    # stamp unreleased in place and rewrite the card in web/index.html; prints the version, or nothing
 //   deno run -A .github/scripts/release.js --carry old.json      # the version an open release PR chose, if still ahead
 //   deno run -A .github/scripts/release.js --commit v1.0.1      # the commit on main that released it (the release PR's merge)
 //   deno run -A .github/scripts/release.js --newest             # the newest released tag, or nothing
 //
 // Existing tags come from `git tag --list 'v*'` (the workflow fetches tags first).
-import { isNewer, nextVersion, releases, stamp, unreleased } from '../../web/changelog.js';
+import { isNewer, nextVersion, releases, stamp, unreleased, withChangelog } from '../../web/changelog.js';
 
 const FILE = new URL('../../web/changelog.json', import.meta.url);
-const GROUPS = { held: 'Held', stays: 'Stays put', clean: 'Comes off clean', easy: 'Easy anywhere', all: 'Everything' };
+const INDEX = new URL('../../web/index.html', import.meta.url);
 
 /** Released tags with no git tag yet, oldest first. Throws when a tagged release follows an untagged one. */
 export function pendingTags(data, existingTags) {
@@ -29,12 +29,19 @@ export function pendingTags(data, existingTags) {
 // A zero-width joiner after each @ so a handle in an entry never notifies anyone.
 const defang = (s) => String(s).replace(/@/g, '@‍');
 
-/** The release body: one line per entry (linked to its PR), then any longer summaries by check. */
+/** The release body: one line per entry with its PR, an entry's highlights in place of its
+ *  line (each with its PRs; GitHub links a bare #123), then where the builds are. */
 export function notesFor(release, repo = 'gittrahan/support-fins') {
-  const out = release.entries.map((e) => `- ${defang(e.text)}${e.pr ? ` (https://github.com/${repo}/pull/${e.pr})` : ''}`);
-  const groups = {};
-  for (const e of release.entries) for (const g of e.summary ?? []) (groups[g.check] ??= []).push(...g.items);
-  for (const [check, items] of Object.entries(groups)) out.push('', `**${GROUPS[check]}**`, ...items.map((i) => `- ${defang(i)}`));
+  const refs = (prs) => (prs?.length ? ` (${prs.map((n) => `#${n}`).join(', ')})` : '');
+  const out = [];
+  for (const e of release.entries) {
+    if (e.highlights?.length) {
+      out.push(defang(e.text), '', ...e.highlights.map((h) => `- ${defang(h.text)}${refs(h.prs)}`), '');
+    } else {
+      out.push(`- ${defang(e.text)}${refs(e.pr ? [e.pr] : [])}`);
+    }
+  }
+  while (out.at(-1) === '') out.pop();
   out.push('', `Plugin builds are attached below. Docker: \`ghcr.io/${repo}:${release.tag}\`.`);
   return out.join('\n');
 }
@@ -89,6 +96,8 @@ if (import.meta.main) {
     const out = prepare(data, arg, new Date().toISOString().slice(0, 10));
     if (out) {
       await Deno.writeTextFile(FILE, JSON.stringify(out.data, null, 2) + '\n');
+      // the landing card and top-bar version are static HTML written from the changelog
+      await Deno.writeTextFile(INDEX, withChangelog(await Deno.readTextFile(INDEX), out.data));
       console.log(out.version);
     }
   } else if (cmd === '--carry') {

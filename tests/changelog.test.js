@@ -77,6 +77,8 @@ Deno.test('changelog: the card lists released entries only, newest release first
 });
 
 Deno.test('changelog: the first release lists the ten highlights since launch', () => {
-  const card = cardHTML(stamp(data, nextVersion(data), '2026-10-28'));
+  // before v1.0.0 ships, render it stamped; after, the card is what it is
+  const released = releases(data).length ? data : stamp(data, nextVersion(data), '2026-10-28');
+  const card = cardHTML({ ...released, releases: released.releases.slice(0, 1) });
   assertEquals([...card.matchAll(/<li>/g)].length, 10);
 });

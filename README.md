@@ -191,8 +191,10 @@ deno test --allow-read tests/
 A PR that changes what a user sees adds one line to `unreleased` in `web/changelog.json`.
 After each merge, Actions keeps a **Release vX.Y.Z** PR open holding everything unreleased;
 merging it tags the release, moves the `live` branch printfins.com deploys from, attaches
-the plugin builds and publishes the Docker image. Releases are on the
-[Releases page](https://github.com/gittrahan/support-fins/releases) and the site's landing card.
+the plugin builds and publishes the Docker image. The release PR also writes the landing
+card's What's new list into `web/index.html`, so the site shows the release with the page.
+Releases are on the [Releases page](https://github.com/gittrahan/support-fins/releases)
+and the site's landing card.
 
 ## The PrusaSlicer plugin (hand-placed)
 
