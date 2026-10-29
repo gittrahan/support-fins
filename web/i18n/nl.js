@@ -1,4 +1,12 @@
 export default {
+  "Side clearance": "Zijdelingse speling",
+  "Bottom gap": "Onderste speling",
+  "Line anchors": "Lijncontacten",
+  "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.": "Speling naast de brede zijden van een steunwand. De smalle uiteinden worden automatisch ingekort. Bij nul kan de wand aan het model vastsmelten. Standaard 0,35 mm.",
+  "Gap between an FDM support and the model below it. Does not lift feet off the build plate. Zero welds the contact; larger gaps can weaken support. Default 0.2 mm.": "Speling tussen een FDM-steun en het model eronder. Tilt voeten niet van het printbed. Nul versmelt het contact; grotere afstanden kunnen de steun verzwakken. Standaard 0,2 mm.",
+  "Add short line contacts below FDM supports standing on the model. Requires a positive bottom gap; walls without a verified floor contact are omitted. Contacts may leave marks. Slice and print-test before use.": "Voeg korte lijncontacten toe onder FDM-steunen op het model. Vereist een positieve onderste speling; wanden zonder gecontroleerd vloercontact worden weggelaten. Contacten kunnen sporen achterlaten. Controleer in de slicer en maak een proefprint.",
+  "Line anchors need the model geometry to validate floor contact.": "Lijncontacten hebben de modelgeometrie nodig om het vloercontact te controleren.",
+  "No safe line anchors fit this floor. Turn off Line anchors or change the support placement.": "Op deze ondergrond passen geen veilige lijncontacten. Schakel Lijncontacten uit of verplaats de steun.",
   "recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer": "Herkende plafonds van kleine gaten blijven zonder ondersteuning om de openingen vrij te houden; controleer het overbruggen in de slicer",
   "{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.": {"one":"{n} plafond van een klein gat blijft zonder ondersteuning voor overbrugging — controleer het slicervoorbeeld en de printinstellingen.","other":"{n} plafonds van kleine gaten blijven zonder ondersteuning voor overbrugging — controleer het slicervoorbeeld en de printinstellingen."},
   "none needed: small holes left for bridging": {"one":"geen nodig: klein gat wordt overbrugd","other":"geen nodig: kleine gaten worden overbrugd"},

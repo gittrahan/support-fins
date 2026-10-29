@@ -153,6 +153,23 @@ Deno.test('project: Separate walls reaches selected geometry and preserves the o
   assert(supports[0] !== supports[2], 'separation not forwarded in project mode');
 });
 
+Deno.test('project: bottom settings reach selected supports without editing source or unselected parts', async () => {
+  const positions = new Float32Array([...block(-20, 20, -5, 5, 0, 5), ...block(-20, 20, -5, 5, 15, 17)]);
+  const source = await fixture({positions, upright: true}), original = new ProjectZip(source), meshes = [];
+  for (const flags of [[], ['--bottom-gap', '0.4'], ['--bottom-anchors'], ['--no-bottom-anchors']]) {
+    const r = await cli(source, ['--object', '1', ...flags]);
+    assert(r.code === 0, r.err.join('\n'));
+    const zip = new ProjectZip(r.fs.get('part-fins-project.3mf'));
+    meshes.push((await zip.text(SUPPORTS)).replace(/p:UUID="[^"]*"/g, 'p:UUID="same"'));
+    for (const name of ['3D/Objects/a.model', '3D/Objects/b.model', SETTINGS]) {
+      equal(await zip.read(name), await original.read(name), `${name} changed`);
+    }
+    assert(r.result.objects.length === 1 && r.result.objects[0].number === 1, 'selection changed');
+  }
+  assert(meshes[0] !== meshes[1] && meshes[0] !== meshes[2], 'settings did not reach preserved-project generation');
+  assert(meshes[0] === meshes[3], 'explicit false differs from the default');
+});
+
 Deno.test('project nozzle: saved diameter equals an explicit run, is reported and never edits printer settings', async () => {
   const source = await fixture({ nozzle: ['0.80', 0.8], steep: true });
   const automatic = await cli(source), explicit = await cli(source, ['--nozzle', '0.8']);

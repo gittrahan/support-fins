@@ -60,7 +60,7 @@ export function stationIsClear(line, k, topo, rot, offset) {
     const z = (top * i) / nProbes - 0.05;
     if (z <= 0) continue;
     const half = profileHalf(z, top);   // flange, wall, or tip taper at this z
-    for (const m of [0.12, 0.24, PROP.sideClear]) {
+    for (const m of [Math.min(0.12, PROP.sideClear), Math.min(0.24, PROP.sideClear), PROP.sideClear]) {
       const w = half + m;
       if (insidePart(topo, rot, offset, p[0] + sx * w, p[1] + sy * w, z)) return false;
       if (insidePart(topo, rot, offset, p[0] - sx * w, p[1] - sy * w, z)) return false;

@@ -77,8 +77,11 @@ Deno.test('changelog: the card lists released entries only, newest release first
 });
 
 Deno.test('changelog: the first release lists the ten highlights since launch', () => {
-  // before v1.0.0 ships, render it stamped; after, the card is what it is
-  const released = releases(data).length ? data : stamp(data, nextVersion(data), '2026-10-28');
-  const card = cardHTML({ ...released, releases: released.releases.slice(0, 1) });
+  // Later PRs append their own entries before the first release is stamped.
+  // Keep checking the launch roll-up, independently of those additions.
+  const launch = [...data.releases.flatMap(r => r.entries), ...data.unreleased]
+    .find(e => e.text === 'First tagged release: the ten biggest changes since launch.');
+  assert(launch, 'launch roll-up missing');
+  const card = cardHTML(stamp({releases: [], unreleased: [launch]}, '1.0.0', '2026-10-28'));
   assertEquals([...card.matchAll(/<li>/g)].length, 10);
 });

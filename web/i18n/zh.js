@@ -8,6 +8,14 @@
 // 中文没有复数变化，复数一律只写 other（Intl.PluralRules("zh") 恒返回 other）。
 
 export default {
+  "Side clearance": "侧向间隙",
+  "Bottom gap": "底部间隙",
+  "Line anchors": "线状接点",
+  "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.": "支撑壁宽面旁的间隙。窄端会自动修剪。设为零可能使支撑壁与模型熔合。默认 0.35 毫米。",
+  "Gap between an FDM support and the model below it. Does not lift feet off the build plate. Zero welds the contact; larger gaps can weaken support. Default 0.2 mm.": "FDM 支撑与下方模型之间的间隙。不会将底脚抬离打印平台。零间隙会使接触处熔合；较大间隙可能削弱支撑。默认 0.2 毫米。",
+  "Add short line contacts below FDM supports standing on the model. Requires a positive bottom gap; walls without a verified floor contact are omitted. Contacts may leave marks. Slice and print-test before use.": "在模型上的 FDM 支撑下方添加短线状接点。需要正值的底部间隙；无法验证底部接触的支撑壁将被省略。接点可能留下痕迹。请在切片软件中检查并进行试打印。",
+  "Line anchors need the model geometry to validate floor contact.": "线状接点需要模型几何数据来验证底部接触。",
+  "No safe line anchors fit this floor. Turn off Line anchors or change the support placement.": "此底面无法容纳安全的线状接点。请关闭线状接点或调整支撑位置。",
   "recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer": "识别出的小孔顶部不添加支撑，以保持孔口畅通；请在切片软件中检查桥接",
   "{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.": {"other":"{n} 个小孔顶部不添加支撑，留作桥接 — 请检查切片预览和打印设置。"},
   "none needed: small holes left for bridging": {"other":"无需支撑：小孔留作桥接"},

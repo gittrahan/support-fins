@@ -466,6 +466,16 @@
     <summary><span class="sec-title" data-i18n="More settings">More settings</span><span class="sec-sum more-count" id="more-count"></span></summary>
     <div class="group">
       <h5 data-i18n="Hold the part">Hold the part</h5>
+      <label data-i18n-title class="fld row" id="side-clearance-fld" title="Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.">
+        <span><span data-i18n="Side clearance">Side clearance</span> <span class="mut">mm</span></span><input id="side-clearance" type="number" min="0" max="1" step="0.05" value="0.35">
+      </label>
+      <label data-i18n-title class="fld row" id="bottom-gap-fld" title="Gap between an FDM support and the model below it. Does not lift feet off the build plate. Zero welds the contact; larger gaps can weaken support. Default 0.2 mm.">
+        <span><span data-i18n="Bottom gap">Bottom gap</span> <span class="mut">mm</span></span><input id="bottom-gap" type="number" min="0" max="0.4" step="0.05" value="0.2">
+      </label>
+      <label data-i18n-title class="fld row" id="bottom-anchors-fld" title="Add short line contacts below FDM supports standing on the model. Requires a positive bottom gap; walls without a verified floor contact are omitted. Contacts may leave marks. Slice and print-test before use.">
+        <span data-i18n="Line anchors">Line anchors</span><input type="checkbox" id="bottom-anchors">
+      </label>
+
       <label data-tip-pic="rounded-feet" data-i18n-title class="fld row" id="rounded-feet-fld" title="Round FDM support foot corners inside the existing clearance envelope. Off keeps the original feet. Rounding reduces plate contact area; check the first layers in your slicer and print-test before using it for tall parts.">
         <span data-i18n="Rounded feet">Rounded feet</span><input type="checkbox" id="rounded-feet">
       </label>
