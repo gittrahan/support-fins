@@ -12,6 +12,7 @@ import { PROP } from './config.js';
 import { endRows } from './endrows.js';
 import { contactLine, straightness } from './contact.js';
 import { surfaceZAt } from './surface.js';
+import { curvedTubeLine } from './tubecurve.js';
 
 /**
  * Split one overhang region into locally-straight sub-patches.
@@ -200,7 +201,11 @@ export function tubeLine(topo, faces, rot, pts, regionTris, step = PROP.stationS
     if (u > uHi) uHi = u;
   }
   if (uHi - uLo < 1e-6) return null;
-  if (small && !convexAbout(rn, regionTris, cx, cy, ux, uy)) return null;  // a pocket
+  if (small && !convexAbout(rn, regionTris, cx, cy, ux, uy)) {
+    // A gently bending tube's lowest line may leave the fitted axis. Test its
+    // actual cross-section minima before treating it as a concave pocket.
+    return curvedTubeLine(rn, regionTris, cx, cy, ux, uy, uLo, uHi, step);
+  }
   const nSt = Math.max(2, Math.min(400, Math.ceil((uHi - uLo) / step)));
 
   const lines = [];

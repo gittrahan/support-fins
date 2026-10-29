@@ -105,5 +105,11 @@
       ]
     }
   ],
-  "unreleased": []
+  "unreleased": [
+    {
+      "date": "2026-10-29",
+      "check": "held",
+      "text": "Support gently bent small tubes using their actual curved underside."
+    }
+  ]
 }

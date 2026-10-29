@@ -399,6 +399,21 @@ This changes default geometry for accepted circular recesses. It does not
 redistribute already built supports or solve spacing across obstructed arcs.
 Related to GitHub #50; general organic and complex curved placement remains open.
 
+## Gently bent small tubes — `web/prop/tubecurve.js`
+
+For #50, a small tube rejected by the straight-axis convexity test can try its
+actual lowest line. Vertical cross-sections of the source triangles locate one
+connected minimum each; the existing convexity and two-sided-area thresholds
+are then evaluated about the local line. The candidate competes with the same
+split-patch route and still passes ordinary placement and clearance checks.
+
+Missing or ambiguous minima, abrupt jumps between branches, and lines beyond
+the existing `maxWander` limit are refused. Concave pockets do not become tubes.
+This changes default placement for accepted gently bent undersides, without
+changing circular-recess rules or promising support for arbitrary organic
+surfaces. The procedural regression and public Lissajous example establish
+software behavior; physical printing remains unvalidated.
+
 ## Arc walls (Auto and Full) — `web/prop/arc.js`
 
 Not printed yet. One wall along a level overhang that curves in plan: a slot cut through
