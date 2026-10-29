@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertThrows } from 'jsr:@std/assert';
-import { CHECKS, VERSION_RE, isNewer, nextVersion, releases, stamp, unreleased } from '../web/changelog.js';
+import { CHECKS, VERSION_RE, cardHTML, isNewer, nextVersion, releases, stamp, unreleased, versionHTML, withChangelog } from '../web/changelog.js';
 
 const data = JSON.parse(await Deno.readTextFile(new URL('../web/changelog.json', import.meta.url)));
 
@@ -8,8 +8,9 @@ function wellFormed(e, at) {
   assert(/^\d{4}-\d{2}-\d{2}$/.test(e.date) && !isNaN(Date.parse(e.date)), `${at}: date`);
   assert(typeof e.text === 'string' && e.text.length > 0 && e.text.length <= 240 && !e.text.includes('\n'), `${at}: one short line`);
   assert(CHECKS.includes(e.check), `${at}: check ${e.check}`);
-  for (const g of e.summary ?? []) {
-    assert(CHECKS.includes(g.check) && Array.isArray(g.items) && g.items.length, `${at}: summary group`);
+  for (const h of e.highlights ?? []) {
+    assert(typeof h.text === 'string' && h.text.length > 0 && h.text.length <= 160 && !h.text.includes('\n'), `${at}: a highlight is one short line`);
+    assert(h.prs === undefined || (Array.isArray(h.prs) && h.prs.every((n) => Number.isInteger(n) && n > 0)), `${at}: highlight prs`);
   }
 }
 
@@ -49,4 +50,33 @@ Deno.test('changelog: malformed data gives nothing', () => {
   assertEquals(releases(null), []);
   assertEquals(unreleased({ unreleased: 3 }), []);
   assertEquals(releases({ releases: [{ version: 'x' }] }), []);
+});
+
+Deno.test('changelog: index.html carries the card and version written from changelog.json (deno run -A web/changelog.js)', async () => {
+  const html = await Deno.readTextFile(new URL('../web/index.html', import.meta.url));
+  assertEquals(withChangelog(html, data), html, 'stale: run deno run -A web/changelog.js');
+});
+
+Deno.test('changelog: the card lists released entries only, newest release first, highlights in place of text', () => {
+  const d0 = { releases: [], unreleased: [{ date: '2026-10-27', check: 'all', text: 'big', highlights: [{ text: 'one' }, { text: 'two <b>' }] }] };
+  assertEquals(cardHTML(d0), '', 'nothing released: no section');
+  assertEquals(versionHTML(d0), '');
+  const d1 = stamp(d0, '1.0.0', '2026-10-28');
+  const d2 = stamp({ ...d1, unreleased: [{ date: '2026-11-01', check: 'held', text: 'later' }, { date: '2026-11-02', check: 'held', text: 'last' }] }, '1.0.1', '2026-11-03');
+  const card = cardHTML(d2);
+  const items = [...card.matchAll(/<li>(.*?)<\/li>/g)].map((m) => m[1]);
+  assertEquals(items, ['last', 'later', 'one', 'two &lt;b&gt;'], 'newest first, escaped, the roll-up text left out');
+  assert(card.includes('<span class="ver">v1.0.1</span>') && card.includes('<p class="rel">v1.0.0 <span>2026-10-28</span></p>'));
+  assert(!card.includes('<p class="rel">v1.0.1'), 'the newest release is named in the heading, not again above its list');
+  assert(versionHTML(d2).includes('>v1.0.1</small>'));
+  const html = '<a><!-- BEGIN version (web/changelog.js writes this block) --><!-- END version --></a>\n  <!-- BEGIN whatsnew (web/changelog.js writes this block) -->\n  <!-- END whatsnew -->';
+  const once = withChangelog(html, d2);
+  assertEquals(withChangelog(once, d2), once, 'rewriting is idempotent');
+  assertEquals(withChangelog(once, d0), withChangelog(html, d0), 'and goes back to empty');
+  assertThrows(() => withChangelog('<p></p>', d2), Error, 'markers');
+});
+
+Deno.test('changelog: the first release lists the ten highlights since launch', () => {
+  const card = cardHTML(stamp(data, nextVersion(data), '2026-10-28'));
+  assertEquals([...card.matchAll(/<li>/g)].length, 10);
 });

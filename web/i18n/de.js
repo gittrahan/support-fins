@@ -204,7 +204,6 @@ export default {
   "Red marks every surface that needs support.": "Rot markiert alle Flächen, die Stützen erfordern.",
   "Export.": "Exportieren.",
   "Fins come baked in — no slicer supports needed.": "Stützen sind integriert – keine Slicer-Stützen nötig.",
-  "Opening the 3MF, Bambu Studio and PrusaSlicer may note it has “no config” and load the geometry only — that’s expected. The file is pure geometry with no slicer profile baked in, so it opens the same in every slicer; your part comes in correctly oriented and sized. Just slice with supports off.": "Beim Öffnen der 3MF-Datei weisen Bambu Studio oder PrusaSlicer evtl. darauf hin, dass keine Konfiguration enthalten ist – das ist normal. Die Datei enthält reine Geometrie und öffnet in jedem Slicer korrekt ausgerichtet und skaliert. Einfach mit deaktivierten Stützen slicen.",
   "Nothing is uploaded. The file is read inside this tab and never leaves your machine.": "Es wird nichts hochgeladen. Die Datei wird lokal in diesem Tab verarbeitet und verlässt Ihren Rechner nicht.",
   "Free and open source. If it ever saves you a print,": "Kostenlos und quelloffen. Wenn es Ihnen einen Fehldruck erspart hat,",
   "buy me a coffee ☕": "spendieren Sie einen Kaffee ☕",
@@ -506,5 +505,4 @@ export default {
   "What's new": "Was ist neu",
   "See all releases": "Alle Versionen ansehen",
   "Version": "Version",
-  "Coming next": "Demnächst",
 };

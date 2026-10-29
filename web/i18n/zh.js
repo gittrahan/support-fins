@@ -215,7 +215,6 @@ export default {
   "Red marks every surface that needs support.": "红色标出每个需要支撑的面。",
   "Export.": "导出。",
   "Fins come baked in — no slicer supports needed.": "鳍片已内置 —— 无需切片软件支撑。",
-  "Opening the 3MF, Bambu Studio and PrusaSlicer may note it has “no config” and load the geometry only — that’s expected. The file is pure geometry with no slicer profile baked in, so it opens the same in every slicer; your part comes in correctly oriented and sized. Just slice with supports off.": "打开 3MF 时，Bambu Studio 和 PrusaSlicer 可能提示「无配置」并只加载几何——这是正常的。该文件是纯几何，不含切片配置，因此在每个切片软件中打开时朝向和尺寸都正确。切片时关闭支撑即可。",
   "Nothing is uploaded. The file is read inside this tab and never leaves your machine.": "不会上传任何内容。文件仅在本标签页内读取，绝不离开你的电脑。",
   "Free and open source. If it ever saves you a print,": "免费且开源。如果它帮你避免了一次废件，",
   "buy me a coffee ☕": "请我喝杯咖啡 ☕",
@@ -599,5 +598,4 @@ export default {
   "What's new": "新功能",
   "See all releases": "查看所有版本",
   "Version": "版本",
-  "Coming next": "即将推出",
 };

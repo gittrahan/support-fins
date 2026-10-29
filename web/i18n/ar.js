@@ -195,7 +195,6 @@ export default {
   "Red marks every surface that needs support.": "يحدد اللون الأحمر كل سطح يحتاج إلى دعم.",
   "Export.": "صدّرها.",
   "Fins come baked in — no slicer supports needed.": "الزعانف مدمجة في الملف — لا حاجة إلى دعامات برنامج التقطيع.",
-  "Opening the 3MF, Bambu Studio and PrusaSlicer may note it has “no config” and load the geometry only — that’s expected. The file is pure geometry with no slicer profile baked in, so it opens the same in every slicer; your part comes in correctly oriented and sized. Just slice with supports off.": "عند فتح ملف 3MF، قد يشير Bambu Studio وPrusaSlicer إلى أنه «no config» ويحمّلان الهندسة فقط — وهذا متوقع. الملف يحتوي على بيانات هندسية فقط، من دون ملف تعريف لبرنامج التقطيع مضمّن فيه، لذا يُفتح بالطريقة نفسها في كل برنامج تقطيع؛ وتصل قطعتك بالوضعية والمقاس الصحيحين. قم بالتقطيع مع إيقاف الدعامات فقط.",
   "Nothing is uploaded. The file is read inside this tab and never leaves your machine.": "لا يُرفع أي شيء. يُقرأ الملف داخل علامة التبويب هذه ولا يغادر جهازك أبداً.",
   "Free and open source. If it ever saves you a print,": "مجاني ومفتوح المصدر. إذا أنقذ لك يوماً طباعة،",
   "buy me a coffee ☕": "اشترِ لي فنجان قهوة ☕",
@@ -490,5 +489,4 @@ export default {
   "What's new": "ما الجديد",
   "See all releases": "عرض كل الإصدارات",
   "Version": "الإصدار",
-  "Coming next": "قادم قريبًا",
 };
