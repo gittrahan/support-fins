@@ -498,7 +498,7 @@ class FusionSide(unittest.TestCase):
         self.assertLess(abs((lo[0] + lo[3]) / 2 - (hi[0] + hi[3]) / 2), 1.0)
         # the user's body is untouched, and the only body a new run would pick
         self.assertEqual(body.coords, [c / 10.0 for c in part])
-        self.assertIs(fb.only_body(design), body)
+        self.assertEqual(fb.part_bodies(design), [body])
 
     def test_second_run_numbers_on_and_is_counted(self):
         design, _ = mesh_design(posed(read_stl('lbracket'), 35))
@@ -600,6 +600,22 @@ class FusionSide(unittest.TestCase):
             res = fins_command._compute(dialog(plane, picked))
             self.assertFalse(any('floats' in l for l in res['plain']), res['plain'])
             self.assertLess(lowest_fin(res), 13.0 - 1.0)
+            # an empty Part says it took every visible body
+            self.assertEqual(any(l.startswith('Part: every visible body') for l in res['plain']),
+                             not picked)
+
+        # a body as the bed stands the whole part on its lowest body, not under the handle
+        fins_command._session.clear()
+        res = fins_command._compute(dialog(handle, [handle, cup]))
+        self.assertFalse(any('below the bed' in l or 'floats' in l for l in res['plain']), res['plain'])
+
+        # hiding a body changes what an empty Part means: no stale result
+        fins_command._session.clear()
+        before = fins_command._compute(dialog(plane))
+        cup.isVisible = False
+        after = fins_command._compute(dialog(plane))
+        self.assertIsNot(before, after)
+        self.assertTrue(any('floats 13.0 mm' in l for l in after['plain']))
 
     def test_small_hole_exclusions_are_reported_with_or_without_other_fins(self):
         design, _ = mesh_design(posed(read_stl('lbracket'), 35))

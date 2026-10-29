@@ -364,8 +364,11 @@ def _compute(inputs):
     s = _settings(inputs)
     bed = inputs.itemById('bed')
     body = inputs.itemById('body')
-    key = (_token(bed.selection(0).entity) if bed.selectionCount else None,
-           tuple(_token(body.selection(i).entity) for i in range(body.selectionCount)),
+    picked = tuple(_token(body.selection(i).entity) for i in range(body.selectionCount))
+    if not picked:                      # Part may be every visible body: showing one changes it
+        design = adsk.fusion.Design.cast(_app.activeProduct)
+        picked = ('visible',) + tuple(_token(b) for b in fb.part_bodies(design)) if design else ()
+    key = (_token(bed.selection(0).entity) if bed.selectionCount else None, picked,
            tuple(sorted((k, str(v)) for k, v in s.items())))
     if _session.get('key') == key:
         return _session['result']
@@ -465,9 +468,11 @@ def _prepare(inputs, s):
     # Several bodies are one part (a cup and its handle modelled apart, #408): the
     # engine gets them as one soup, so the fins run to the bed under all of them.
     bodies = [body_in.selection(i).entity for i in range(body_in.selectionCount)]
+    every = False
     if not bodies:
         own = fb.body_of(bed)
         bodies = [own] if own else fb.part_bodies(design)
+        every = not own and len(bodies) > 1
     if not bodies:
         return _result(['Pick the part to support.'])
     if any(fb.is_support(b) for b in bodies):
@@ -482,6 +487,9 @@ def _prepare(inputs, s):
         return _result(['Couldn’t mesh %s.' % _named(bodies)])
 
     lines = [frame.note] if frame.note else []
+    if every:                           # say which bodies Part took, so a stray one shows
+        lines.append('Part: every visible body, %s. Pick bodies under Part to fin fewer.'
+                     % _named(bodies))
     bottom = min(soup[2::3])
     if bottom < -0.05:
         return _result(['%s reaches %.1f mm below the bed. Pick the face it sits on, or a '

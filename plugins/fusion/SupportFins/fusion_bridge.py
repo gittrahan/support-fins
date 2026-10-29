@@ -58,12 +58,6 @@ def default_bed(design, app):
     return root.xZConstructionPlane if axis == 'Y' else root.xYConstructionPlane
 
 
-def only_body(design):
-    """The design's one visible part body, or None when it has none or several."""
-    found = part_bodies(design)
-    return found[0] if len(found) == 1 else None
-
-
 def part_bodies(design):
     """Every visible part body (solid or mesh, outside Supports). Bodies in
     sub-components come back as assembly-context proxies."""
@@ -109,7 +103,11 @@ class PrintFrame:
         note = None
         if bed_body:
             n, axis = _model_up(app or adsk.core.Application.get())
-            origin = bed_body.boundingBox.minPoint     # lowest along an axis-aligned up
+            # lowest along an axis-aligned up, of the bed body and every part body:
+            # a part in several bodies stands on whichever reaches lowest
+            origin = adsk.core.Point3D.create(*(
+                min(getattr(b.boundingBox.minPoint, a) for b in [bed_body, *bodies])
+                for a in 'xyz'))
             note = ('Bed: under the lowest point of “%s”, with +%s up (Fusion’s up axis). '
                     'Pick a face or plane instead to stand it another way.' % (bed_body.name, axis))
         elif face:
