@@ -49,12 +49,14 @@ def test_defaults_read_back_as_the_sites_defaults():
 
 def test_units_on_the_way_to_the_engine():
     set_to = {"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 35.0,
+              "sideClearance": 0.5, "bottomGap": 0.1, "bottomAnchors": True,
               "layerHeight": 0.16, "padStyle": "sure", "sway_on": True, "sway_gripFrom": 12.0,
               "sway_tineSpacing": 8.0, "sway_reach": 20.0, "cutout": "lattice", "coverage": 100.0,
               "plateOnly": True, "tineDir": "vertical", "pinDepth": 0.5,
               "mode": "full", "longWalls": False, "nozzle": "0.8", "separateWalls": "on"}
     values = schema.dialog_values(SCHEMA, lambda n: set_to[n])
     assert values == pytest.approx({"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 0.35,
+                                    "sideClearance": 0.5, "bottomGap": 0.1, "bottomAnchors": True,
                                     "layerHeight": 0.16, "padStyle": "sure", "sway.on": True,
                                     "sway.gripFrom": 12.0, "sway.tineSpacing": 8.0, "sway.reach": 0.2,
                                     "cutout": "lattice", "coverage": 1.0, "plateOnly": True,
