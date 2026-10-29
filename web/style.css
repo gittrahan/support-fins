@@ -1116,9 +1116,10 @@ body.no-part #viewport canvas { pointer-events: none; }
 #drop .whatsnew .list {
   max-height: 7.5em; overflow-y: auto; overscroll-behavior: contain; margin: 0 0 6px;
   /* macOS hides the scrollbar: the last line fades so the list reads as more below */
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5em), transparent);
   mask-image: linear-gradient(to bottom, #000 calc(100% - 1.5em), transparent);
 }
-#drop .whatsnew .list.end { mask-image: none; }
+#drop .whatsnew .list.end { -webkit-mask-image: none; mask-image: none; }
 #drop .whatsnew ul { margin: 0 0 4px; padding-left: 1.1em; }
 #drop .whatsnew li { margin-bottom: 2px; }
 #drop .whatsnew .rel { margin: 6px 0 2px; color: var(--text); font-weight: 600; }
