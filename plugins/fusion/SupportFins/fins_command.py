@@ -158,11 +158,12 @@ class _CreatedHandler(adsk.core.CommandCreatedEventHandler):
             bed.setSelectionLimits(1, 1)
 
             body = inputs.addSelectionInput('body', 'Part',
-                                            'The body to support (defaults to the bed face’s body, '
-                                            'or the design’s only body)')
+                                            'The bodies to support, together: pick every body the '
+                                            'part is made of (defaults to the bed face’s body, or '
+                                            'every visible body on a plane)')
             body.addSelectionFilter('SolidBodies')
             body.addSelectionFilter('MeshBodies')
-            body.setSelectionLimits(0, 1)
+            body.setSelectionLimits(0, 0)
 
             grp = inputs.addGroupCommandInput('settings', 'Settings')
             grp.isExpanded = True
@@ -364,7 +365,7 @@ def _compute(inputs):
     bed = inputs.itemById('bed')
     body = inputs.itemById('body')
     key = (_token(bed.selection(0).entity) if bed.selectionCount else None,
-           _token(body.selection(0).entity) if body.selectionCount else None,
+           tuple(_token(body.selection(i).entity) for i in range(body.selectionCount)),
            tuple(sorted((k, str(v)) for k, v in s.items())))
     if _session.get('key') == key:
         return _session['result']
@@ -426,13 +427,25 @@ def _result(lines, groups=(), frame=None, meta=None, pending=False):
             'groups': list(groups), 'frame': frame, 'meta': meta or {}, 'pending': pending}
 
 
-def _soup(body, frame, frame_key):
-    """The part meshed in print space, cached per body and bed for the dialog."""
+def _soup(bodies, frame, frame_key):
+    """The part meshed in print space, every body in one soup (the engine sees the
+    whole model, as the site does), each cached per body and bed for the dialog."""
     cache = _session.setdefault('soups', {})
-    k = (_token(body), frame_key)
-    if k not in cache:
-        cache[k] = fb.body_soup(body, frame)
-    return cache[k]
+    soup = []
+    for body in bodies:
+        k = (_token(body), frame_key)
+        if k not in cache:
+            cache[k] = fb.body_soup(body, frame)
+        soup += cache[k]
+    return soup
+
+
+def _named(bodies):
+    """“Body1”, or “Body1” and “Body2”, or “Body1” + 2 more, for the readout."""
+    names = ['“%s”' % b.name for b in bodies]
+    if len(names) <= 2:
+        return ' and '.join(names)
+    return '%s + %d more' % (names[0], len(names) - 1)
 
 
 def _prepare(inputs, s):
@@ -449,37 +462,44 @@ def _prepare(inputs, s):
                         'or the part itself.'])
     bed = bed_in.selection(0).entity
     body_in = inputs.itemById('body')
-    body = body_in.selection(0).entity if body_in.selectionCount else None
-    if body is None:
-        body = fb.body_of(bed) or fb.only_body(design)
-    if body is None:
+    # Several bodies are one part (a cup and its handle modelled apart, #408): the
+    # engine gets them as one soup, so the fins run to the bed under all of them.
+    bodies = [body_in.selection(i).entity for i in range(body_in.selectionCount)]
+    if not bodies:
+        own = fb.body_of(bed)
+        bodies = [own] if own else fb.part_bodies(design)
+    if not bodies:
         return _result(['Pick the part to support.'])
-    if fb.is_support(body):
+    if any(fb.is_support(b) for b in bodies):
         return _result(['That body is a support this add-in made. Pick the part itself.'])
 
     try:
-        frame = fb.PrintFrame.from_bed(bed, body, _app)
-        soup = _soup(body, frame, _token(bed))
+        frame = fb.PrintFrame.from_bed(bed, bodies, _app)
+        soup = _soup(bodies, frame, _token(bed))
     except fb.BridgeError as e:
         return _result([str(e)])
     if not soup:
-        return _result(['Couldn’t mesh “%s”.' % body.name])
+        return _result(['Couldn’t mesh %s.' % _named(bodies)])
 
     lines = [frame.note] if frame.note else []
     bottom = min(soup[2::3])
     if bottom < -0.05:
-        return _result(['“%s” reaches %.1f mm below the bed. Pick the face it sits on, or a '
-                        'plane under it.' % (body.name, -bottom)])
+        return _result(['%s reaches %.1f mm below the bed. Pick the face it sits on, or a '
+                        'plane under it.' % (_named(bodies), -bottom)])
     if bottom > 0.5:
-        lines.append('Note: “%s” floats %.1f mm above the bed; the fins start at its lowest '
-                     'point, not at the bed.' % (body.name, bottom))
+        picked = {_token(b) for b in bodies}
+        others = [b for b in fb.part_bodies(design) if _token(b) not in picked]
+        lines.append('Note: %s floats %.1f mm above the bed; the fins start at its lowest '
+                     'point, not at the bed.%s' % (
+                         _named(bodies), bottom,
+                         ' If it rests on another body, add that body to Part too.' if others else ''))
 
-    return {'body': body, 'frame': frame, 'soup': soup, 'pre': lines, 's': s}
+    return {'bodies': bodies, 'frame': frame, 'soup': soup, 'pre': lines, 's': s}
 
 
 def _finish(ctx, fins, stats):
     """The engine's fins -> the readout and the bodies to add."""
-    body, frame, s = ctx['body'], ctx['frame'], ctx['s']
+    bodies, frame, s = ctx['bodies'], ctx['frame'], ctx['s']
     lines = list(ctx['pre'])
     holes = stats.get('smallHoleRegions', 0)
     if holes:
@@ -524,7 +544,7 @@ def _finish(ctx, fins, stats):
     lines.append('%d overhang region%s, %d triangles.' % (
         stats.get('overhangRegions', 0), '' if stats.get('overhangRegions') == 1 else 's',
         sum(g.triangle_count for g in groups)))
-    pieces = _loose_pieces(body)
+    pieces = max(_loose_pieces(b) for b in bodies)
     if pieces > 1 or stats.get('floating'):
         # A piece not joined to the rest (a hole wider than the wall it cuts, a
         # stray body) stands on its supports alone: almost always a modelling

@@ -440,7 +440,7 @@ def dialog(bed, body=None, **over):
     label = next(l for l, k in fins_command.STYLES if k == s['fin_style'])
     return fake_adsk.Inputs(
         bed=fake_adsk.SelInput([bed] if bed else []),
-        body=fake_adsk.SelInput([body] if body else []),
+        body=fake_adsk.SelInput(body if isinstance(body, list) else [body] if body else []),
         style=fake_adsk.Drop(label),
         layer=fake_adsk.Val(s['layer_height'] / 10.0),
         tines=fake_adsk.Val(s['fin_tines']),
@@ -569,6 +569,37 @@ class FusionSide(unittest.TestCase):
         design, _ = mesh_design(posed(read_stl('lbracket'), 35, (0, 0, 4)))
         res = fins_command._compute(dialog(design.rootComponent.xYConstructionPlane))
         self.assertTrue(any('floats 4.0 mm' in l for l in res['plain']))
+
+    def test_a_part_in_two_bodies_gets_fins_down_to_the_bed(self):
+        # #408: a scoop modelled as a cup and a handle, two bodies. Picking only the
+        # handle stops its fins at the handle's lowest point; picking both, or
+        # leaving Part empty on a plane, fits them as one part, so the fins reach the bed.
+        bracket = posed(read_stl('lbracket'), 35, (0, 0, 13))
+        design, handle = mesh_design(bracket)
+        x0, y0, _, _, y1, z1 = bbox(bracket)
+        # the cup stands beside the handle, overlapping its edge by 2 mm, as tall as it
+        post = tall_post(z1, 30.0, y1 - y0)
+        dx, dy = x0 + 2.0 - 15.0, (y0 + y1) / 2
+        cup_mm = [c + (dx if i % 3 == 0 else dy if i % 3 == 1 else 0.0) for i, c in enumerate(post)]
+        cup = fake_adsk.MeshBody([c / 10.0 for c in cup_mm], None, 'cup', design.rootComponent)
+        design.rootComponent.meshBodies.append(cup)
+        plane = design.rootComponent.xYConstructionPlane
+
+        def lowest_fin(res):
+            fins = [g for g in res['groups'] if g.kind == 'fin']
+            self.assertTrue(fins)
+            return min(g.bbox()[2] for g in fins)
+
+        res = fins_command._compute(dialog(plane, handle))
+        note = next(l for l in res['plain'] if 'floats 13.0 mm' in l)
+        self.assertIn('add that body to Part too', note)
+        self.assertAlmostEqual(lowest_fin(res), 13.0, places=3)
+
+        for picked in ([handle, cup], []):
+            fins_command._session.clear()
+            res = fins_command._compute(dialog(plane, picked))
+            self.assertFalse(any('floats' in l for l in res['plain']), res['plain'])
+            self.assertLess(lowest_fin(res), 13.0 - 1.0)
 
     def test_small_hole_exclusions_are_reported_with_or_without_other_fins(self):
         design, _ = mesh_design(posed(read_stl('lbracket'), 35))

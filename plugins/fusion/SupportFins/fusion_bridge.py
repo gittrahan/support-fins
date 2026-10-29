@@ -59,8 +59,14 @@ def default_bed(design, app):
 
 
 def only_body(design):
-    """The design's one visible part body (solid or mesh, outside Supports), or
-    None. Bodies in sub-components come back as assembly-context proxies."""
+    """The design's one visible part body, or None when it has none or several."""
+    found = part_bodies(design)
+    return found[0] if len(found) == 1 else None
+
+
+def part_bodies(design):
+    """Every visible part body (solid or mesh, outside Supports). Bodies in
+    sub-components come back as assembly-context proxies."""
     root = design.rootComponent
     found = [b for coll in (root.bRepBodies, root.meshBodies) for b in coll
              if b.isVisible and not is_support(b)]
@@ -76,7 +82,7 @@ def only_body(design):
                 continue
             if p is not None and p.isVisible and not is_support(p):
                 found.append(p)
-    return found[0] if len(found) == 1 else None
+    return found
 
 
 class PrintFrame:
@@ -90,11 +96,13 @@ class PrintFrame:
         self.z = (z.x, z.y, z.z)
 
     @classmethod
-    def from_bed(cls, bed, body, app=None):
+    def from_bed(cls, bed, bodies, app=None):
         """The bed is a planar face or a construction plane. Up is whichever side
         of it the part is on, so a face of the part's own bottom works as well as
         a plane under it. A picked BODY means "it stands as modelled": the bed is
-        under its lowest point, square to Fusion's up axis."""
+        under its lowest point, square to Fusion's up axis. `bodies` is the part:
+        one body or a list of them."""
+        bodies = bodies if isinstance(bodies, (list, tuple)) else [bodies]
         face = adsk.fusion.BRepFace.cast(bed)
         plane_ent = adsk.fusion.ConstructionPlane.cast(bed)
         bed_body = None if face else body_of(bed)
@@ -119,10 +127,9 @@ class PrintFrame:
 
         n = n.copy()
         n.normalize()
-        bb = body.boundingBox
-        mid = adsk.core.Point3D.create((bb.minPoint.x + bb.maxPoint.x) / 2,
-                                       (bb.minPoint.y + bb.maxPoint.y) / 2,
-                                       (bb.minPoint.z + bb.maxPoint.z) / 2)
+        lo = [min(getattr(b.boundingBox.minPoint, a) for b in bodies) for a in 'xyz']
+        hi = [max(getattr(b.boundingBox.maxPoint, a) for b in bodies) for a in 'xyz']
+        mid = adsk.core.Point3D.create(*((l + h) / 2 for l, h in zip(lo, hi)))
         if origin.vectorTo(mid).dotProduct(n) < 0:
             n.scaleBy(-1)
 

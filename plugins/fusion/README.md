@@ -56,8 +56,10 @@ then **+** next to *My Add-Ins*.
    its lowest point, with Fusion's up axis as up). With a face or plane, "up" is whichever side
    the part is on. Pose the part the way it will print: the fins are fitted to that pose, just
    as the website fits them to the rotation you pick there.
-2. **Part**: defaults to the bed face's body, or to the design's only visible body. Solid bodies
-   are meshed at 0.05 mm; mesh bodies (imported STLs) are used as they are.
+2. **Part**: one body or several. Pick every body the part is made of (a cup and its handle
+   modelled as two bodies, say): they are fitted as one, so the fins run to the bed under all of
+   them. Left empty, it is the bed face's body, or with a plane as the bed every visible body.
+   Solid bodies are meshed at 0.05 mm; mesh bodies (imported STLs) are used as they are.
 3. **Settings** (remembered between sessions, website defaults to start):
    - Fin style: *Auto* (props for the overhangs, plus bracing fins if the part would topple),
      *Props only*, or *Stabilize*
