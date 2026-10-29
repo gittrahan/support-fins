@@ -11,13 +11,14 @@ name: release
 #       Then tag it, create the GitHub Release, fast-forward `live` to it (printfins.com
 #       deploys), and build it through plugins.yml (plugin builds attached, versioned
 #       Docker image, `latest` moved).
-#   Nothing unreleased: a re-run finishes a release that failed after its commit (tag,
-#       live, builds); when there is nothing to finish either, the run fails.
+#   Nothing unreleased: running it again finishes a release that failed after its commit
+#       (tag, live, builds); when there is nothing to finish either, the run fails. Use Run
+#       workflow, not "Re-run jobs": a re-run checks out the commit before the release.
 #
 # The release commit is pushed with GITHUB_TOKEN, so test.yml doesn't run on it; the suite
 # runs here before the push instead. main has no required checks or protection, so the push
 # lands (if it ever gets protected, push with an app or personal token allowed to bypass
-# it). A push that lost a race with a merge fails rather than overwriting main: re-run.
+# it). A push that lost a race with a merge fails rather than overwriting main: run it again.
 # plugins.yml is called rather than left to its own `release` trigger: a release made with
 # GITHUB_TOKEN does not start other workflows. If a build fails after its release exists,
 # re-run it: Actions > plugins > Run workflow, on that tag, with the tag as input.
@@ -66,10 +67,13 @@ jobs:
           version=$(deno run -A .github/scripts/release.js --prepare ${ASKED:+"$ASKED"})
           if [ -z "$version" ]; then
             # nothing to stamp: carry on only to finish an earlier release
+            if [ -n "$ASKED" ]; then echo "nothing unreleased, so version $ASKED is ignored"; fi
             newest=$(deno run -A .github/scripts/release.js --newest)
             pending=$(deno run -A .github/scripts/release.js --pending)
             live=$(git rev-parse -q --verify origin/live || true)
-            if [ "$pending" = "[]" ] && { [ -z "$newest" ] || [ "$live" = "$(deno run -A .github/scripts/release.js --commit "$newest")" ]; }; then
+            sha=''
+            if [ -n "$newest" ]; then sha=$(deno run -A .github/scripts/release.js --commit "$newest"); fi
+            if [ "$pending" = "[]" ] && { [ -z "$newest" ] || [ "$live" = "$sha" ]; }; then
               echo "::error::nothing to release: web/changelog.json has no unreleased entries and $newest is live"; exit 1
             fi
             echo "nothing unreleased; finishing $newest"; exit 0
@@ -101,7 +105,7 @@ jobs:
             created+=("$tag")
           done
       - name: Move live to the newest release
-        # Checked on every run, not only when a release was just made, so a re-run
+        # Checked on every run, not only when a release was just made, so running it again
         # finishes a deploy that failed after its release existed. live only moves
         # forward: a non-fast-forward push fails rather than rewinding the site.
         # printfins.com deploys this branch.
