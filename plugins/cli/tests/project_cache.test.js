@@ -45,6 +45,9 @@ Deno.test('cache: invalidate changed source, selection, settings or engine; reta
     [{ selection: { objects: [1], explicit: true } }, 'build-a'],
     [{ selection: { objects: [1, 2], explicit: true } }, 'build-a'],
     [{ settings: { dialog: { gap: 0.2 } } }, 'build-a'],
+    [{ settings: { dialog: { gap: 0.1, sideClearance: 0.5 } } }, 'build-a'],
+    [{ settings: { dialog: { gap: 0.1, bottomGap: 0.3 } } }, 'build-a'],
+    [{ settings: { dialog: { gap: 0.1, bottomAnchors: true } } }, 'build-a'],
     [{}, 'build-b'],
   ]) {
     const warnings = [], other = await open(request(dir, changes, warnings), build);
