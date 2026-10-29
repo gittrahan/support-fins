@@ -17,8 +17,11 @@ name: release
 # plugins.yml is called rather than left to its own `release` trigger: a release made with
 # GITHUB_TOKEN does not start other workflows. If a build fails after its release exists,
 # re-run it: Actions > plugins > Run workflow, on that tag, with the tag as input.
-# The release PR is opened by GITHUB_TOKEN too, so test.yml doesn't run on it; it only
-# changes web/changelog.json, and test.yml checks that file on the push its merge makes.
+# The release PR is opened by GITHUB_TOKEN too, so test.yml doesn't run on it. It only
+# changes web/changelog.json and the What's new card + top-bar version that web/changelog.js
+# writes from it into web/index.html; test.yml checks both on the push its merge makes. main
+# has no required checks, so it merges as is (if checks are ever required, open the PR with
+# an app or personal token instead, or close and reopen it to start them).
 # Needs Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests".
 
 on:
@@ -161,7 +164,7 @@ jobs:
           git commit -qam "release v$version"
           git push -f origin "$BRANCH"
           {
-            echo "Merging this ships **v$version**: printfins.com updates, the GitHub Release is created with the plugin builds attached, and the Docker image is published."
+            echo "Merging this ships **v$version**: the \`live\` branch moves (printfins.com once Cloudflare deploys \`live\`), the landing card's What's new shows it, the GitHub Release is created with the plugin builds attached, and the Docker image is published."
             echo
             echo "Rebuilt on every merge to main, so it always holds everything unreleased. To change a line, edit its entry on main. To pick another version (say 1.1.0), run Actions > release > Run workflow with it."
             echo
