@@ -190,13 +190,13 @@ deno test --allow-read tests/
 `main` is staging: once Cloudflare deploys the `live` branch, every merge shows up at the
 `main` preview, not on printfins.com.
 A PR that changes what a user sees adds one line to `unreleased` in `web/changelog.json`.
-After each merge, Actions keeps a **Release vX.Y.Z** PR open holding everything unreleased;
-merging it tags the release, moves the `live` branch printfins.com deploys from, attaches
-the plugin builds and publishes the Docker image. The release PR also writes the landing
-card's What's new list into `web/index.html`, so the site shows the release with the page.
-Releases are on the [Releases page](https://github.com/gittrahan/support-fins/releases)
-and the site's landing card. The release PR is opened by Actions, which needs
-Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests".
+To ship, run Actions > release > Run workflow (version empty for the next patch, or say
+`1.1.0`). It stamps everything unreleased under that version, writes the landing card's
+What's new list into `web/index.html`, runs the tests and pushes that as one release
+commit to `main`; then it tags it, moves the `live` branch printfins.com deploys from,
+attaches the plugin builds and publishes the Docker image. Fix an entry's wording on `main`
+before you run it. Releases are on the
+[Releases page](https://github.com/gittrahan/support-fins/releases) and the site's landing card.
 
 ## The PrusaSlicer plugin (hand-placed)
 

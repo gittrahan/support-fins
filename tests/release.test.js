@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertStringIncludes, assertThrows } from 'jsr:@std/assert';
-import { carried, notesFor, pendingTags, prepare } from '../.github/scripts/release.js';
+import { notesFor, pendingTags, prepare } from '../.github/scripts/release.js';
 import { releases, withChangelog } from '../web/changelog.js';
 
 const entry = (text, extra = {}) => ({ date: '2026-10-28', check: 'held', text, ...extra });
@@ -12,7 +12,7 @@ Deno.test('release: prepare stamps every unreleased entry under the next patch, 
   assertEquals(releases(p.data)[0].entries.map((e) => e.text), ['first', 'second']);
   assertEquals(prepare({ ...p.data, unreleased: [entry('third')] }, '', '2026-10-29').version, '1.0.1');
   assertEquals(prepare({ ...p.data, unreleased: [entry('third')] }, '1.1.0', '2026-10-29').version, '1.1.0');
-  assertEquals(prepare(p.data, '', '2026-10-29'), null, 'nothing waiting: no release PR');
+  assertEquals(prepare(p.data, '', '2026-10-29'), null, 'nothing waiting: nothing to release');
   assertThrows(() => prepare({ ...p.data, unreleased: [entry('x')] }, '1.0.0', '2026-10-29'));
 });
 
@@ -24,13 +24,6 @@ Deno.test('release: pending tags are the released versions git has no tag for, o
   assertEquals(pendingTags(d, ['v1.0.0', 'v1.0.1', 'v0.9.0']), []);
   assertThrows(() => pendingTags(d, ['v1.0.1']), Error, 'earlier release has no tag');
   assertEquals(pendingTags(main0, []), [], 'unreleased entries are never tagged');
-});
-
-Deno.test('release: a rebuilt release PR keeps a hand-picked version while it is still ahead', () => {
-  const picked = prepare(main0, '1.1.0', '2026-10-28').data;
-  assertEquals(carried(main0, picked), '1.1.0');
-  assertEquals(carried(main0, null), '');
-  assertEquals(carried(picked, picked), '', 'once released, it is no longer ahead');
 });
 
 Deno.test('release: notes list each entry with its PR, highlights in place of the line, and never @mention', () => {

@@ -1,42 +1,32 @@
 name: release
 
-# Releases ship by merging a release PR. main is staging; printfins.com deploys from the
-# `live` branch, which only a release moves.
+# Releases ship from a button: Actions > release > Run workflow. main is staging;
+# printfins.com deploys from the `live` branch, which only a release moves.
 #
-#   push to main with unreleased changelog entries:
-#       (re)build the "Release vX.Y.Z" PR on branch release/next -- main plus one commit
-#       that moves web/changelog.json's `unreleased` entries under the version. Its body is
-#       the release notes; fix wording in the entries on main, not in the PR.
-#   push to main that adds a release (the release PR merged):
-#       tag it, create the GitHub Release, fast-forward `live` to it (printfins.com
-#       deploys), then build it through plugins.yml (plugin builds attached, versioned
+#   Run workflow (version empty for the next patch, or e.g. 1.1.0):
+#       stamp web/changelog.json's `unreleased` entries under the version and rewrite the
+#       What's new card + top-bar version in web/index.html, run the test suite on that
+#       tree, then push it to main as one "release vX.Y.Z" commit. Fix an entry's wording
+#       on main before pressing the button.
+#       Then tag it, create the GitHub Release, fast-forward `live` to it (printfins.com
+#       deploys), and build it through plugins.yml (plugin builds attached, versioned
 #       Docker image, `latest` moved).
-#   Run workflow (Actions > release) with a version, e.g. 1.1.0: rebuild the release PR
-#       under that version instead of the next patch; later rebuilds keep it.
+#   Nothing unreleased: a re-run finishes a release that failed after its commit (tag,
+#       live, builds); when there is nothing to finish either, the run fails.
 #
+# The release commit is pushed with GITHUB_TOKEN, so test.yml doesn't run on it; the suite
+# runs here before the push instead. main has no required checks or protection, so the push
+# lands (if it ever gets protected, push with an app or personal token allowed to bypass
+# it). A push that lost a race with a merge fails rather than overwriting main: re-run.
 # plugins.yml is called rather than left to its own `release` trigger: a release made with
 # GITHUB_TOKEN does not start other workflows. If a build fails after its release exists,
 # re-run it: Actions > plugins > Run workflow, on that tag, with the tag as input.
-# The release PR is opened by GITHUB_TOKEN too, so test.yml doesn't run on it. It only
-# changes web/changelog.json and the What's new card + top-bar version that web/changelog.js
-# writes from it into web/index.html; test.yml checks both on the push its merge makes. main
-# has no required checks, so it merges as is (if checks are ever required, open the PR with
-# an app or personal token instead, or close and reopen it to start them).
-# Needs Settings > Actions > General > "Allow GitHub Actions to create and approve pull requests".
 
 on:
-  push:
-    branches: [main]
-    # The workflow and its script too, so the merge that adds this machinery acts at once.
-    paths:
-      - 'web/changelog.json'
-      - 'web/changelog.js'
-      - '.github/workflows/release.yml'
-      - '.github/scripts/release.js'
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version for the release PR (X.Y.Z), or empty for the next patch'
+        description: 'Version to release (X.Y.Z), or empty for the next patch'
         type: string
         required: false
         default: ''
@@ -50,7 +40,7 @@ concurrency:
 
 jobs:
   publish:
-    # a manual run from another ref would tag and deploy it
+    # a run from another ref would release it
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -67,6 +57,29 @@ jobs:
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.x
+      - name: Stamp, test and push the release commit
+        env:
+          ASKED: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -n "$ASKED" ] && ! [[ "$ASKED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "version must be X.Y.Z, got $ASKED"; exit 1; fi
+          version=$(deno run -A .github/scripts/release.js --prepare ${ASKED:+"$ASKED"})
+          if [ -z "$version" ]; then
+            # nothing to stamp: carry on only to finish an earlier release
+            newest=$(deno run -A .github/scripts/release.js --newest)
+            pending=$(deno run -A .github/scripts/release.js --pending)
+            live=$(git rev-parse -q --verify origin/live || true)
+            if [ "$pending" = "[]" ] && { [ -z "$newest" ] || [ "$live" = "$(deno run -A .github/scripts/release.js --commit "$newest")" ]; }; then
+              echo "::error::nothing to release: web/changelog.json has no unreleased entries and $newest is live"; exit 1
+            fi
+            echo "nothing unreleased; finishing $newest"; exit 0
+          fi
+          deno test -A
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -qm "release v$version" -- web/changelog.json web/index.html
+          git push origin HEAD:main
+          echo "released v$version as $(git rev-parse HEAD)"
       - name: Create each untagged release, oldest first
         id: create
         # `created` is written however the step ends, so the build job still builds the
@@ -104,7 +117,7 @@ jobs:
   build:
     # One at a time, oldest first, so the newest release ends up as `latest`. Built from
     # this run's commit: if one run makes two releases, the older one's assets come from
-    # the newer tree (rare -- each release PR merge makes one).
+    # the newer tree (rare -- each run stamps one).
     needs: [publish]
     if: always() && needs.publish.outputs.created != '' && needs.publish.outputs.created != '[]'
     strategy:
@@ -119,65 +132,3 @@ jobs:
       contents: write
       packages: write
 
-  propose:
-    # after publish, so a merge that both releases and leaves nothing waiting closes the loop
-    needs: [publish]
-    if: always() && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    permissions:
-      contents: write
-      pull-requests: write
-    env:
-      GH_TOKEN: ${{ github.token }}
-      BRANCH: release/next
-      ASKED: ${{ inputs.version }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: denoland/setup-deno@v2
-        with:
-          deno-version: v2.x
-      - name: Build or update the release PR
-        run: |
-          set -euo pipefail
-          # a queued run for an older push would rebuild the PR from stale main
-          git fetch -q origin main
-          if [ "$(git rev-parse origin/main)" != "$GITHUB_SHA" ]; then echo "main has moved on; its own run updates the PR"; exit 0; fi
-          if [ -n "$ASKED" ] && ! [[ "$ASKED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "version must be X.Y.Z, got $ASKED"; exit 1; fi
-          open=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
-          version="$ASKED"
-          if [ -z "$version" ] && [ -n "$open" ] && git fetch -q origin "$BRANCH"; then
-            git show FETCH_HEAD:web/changelog.json > "$RUNNER_TEMP/pr.json" || true
-            version=$(deno run -A .github/scripts/release.js --carry "$RUNNER_TEMP/pr.json")
-          fi
-          version=$(deno run -A .github/scripts/release.js --prepare ${version:+"$version"})
-          if [ -z "$version" ]; then
-            echo "nothing unreleased"
-            if [ -n "$open" ]; then gh pr close "$open" --delete-branch --comment "Nothing left to release."; fi
-            exit 0
-          fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git switch -C "$BRANCH"
-          git commit -qam "release v$version"
-          git push -f origin "$BRANCH"
-          {
-            echo "Merging this ships **v$version**: the \`live\` branch moves (printfins.com once Cloudflare deploys \`live\`), the landing card's What's new shows it, the GitHub Release is created with the plugin builds attached, and the Docker image is published."
-            echo
-            echo "Rebuilt on every merge to main, so it always holds everything unreleased. To change a line, edit its entry on main. To pick another version (say 1.1.0), run Actions > release > Run workflow with it."
-            echo
-            echo '---'
-            echo
-            deno run -A .github/scripts/release.js --notes "v$version"
-            echo
-            echo '**Before merging**'
-            echo "- [ ] Staging (the main preview) looks right"
-            echo "- [ ] The notes above read right"
-          } > body.md
-          if [ -n "$open" ]; then
-            gh pr edit "$open" --title "Release v$version" --body-file body.md
-          else
-            gh pr create --base main --head "$BRANCH" --title "Release v$version" --body-file body.md
-          fi

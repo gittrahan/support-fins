@@ -1,16 +1,16 @@
 // The release step, run by release.yml with Deno (the repo's CI already has it); tested in
 // tests/release.test.js. web/changelog.json is the source: PRs append to `unreleased`, the
-// release PR moves them under a version (`stamp`), and merging it makes the GitHub Release.
+// release run moves them under a version (`stamp`), commits that to main and makes the
+// GitHub Release from it.
 //
 //   deno run -A .github/scripts/release.js --pending            # JSON array of released versions with no tag yet, oldest first
 //   deno run -A .github/scripts/release.js --notes v1.0.1       # that release's body
 //   deno run -A .github/scripts/release.js --prepare [1.1.0]    # stamp unreleased in place and rewrite the card in web/index.html; prints the version, or nothing
-//   deno run -A .github/scripts/release.js --carry old.json      # the version an open release PR chose, if still ahead
-//   deno run -A .github/scripts/release.js --commit v1.0.1      # the commit on main that released it (the release PR's merge)
+//   deno run -A .github/scripts/release.js --commit v1.0.1      # the commit on main that released it (the release commit)
 //   deno run -A .github/scripts/release.js --newest             # the newest released tag, or nothing
 //
 // Existing tags come from `git tag --list 'v*'` (the workflow fetches tags first).
-import { isNewer, nextVersion, releases, stamp, unreleased, withChangelog } from '../../web/changelog.js';
+import { nextVersion, releases, stamp, unreleased, withChangelog } from '../../web/changelog.js';
 
 const FILE = new URL('../../web/changelog.json', import.meta.url);
 const INDEX = new URL('../../web/index.html', import.meta.url);
@@ -46,17 +46,11 @@ export function notesFor(release, repo = 'gittrahan/support-fins') {
   return out.join('\n');
 }
 
-/** The release PR's change: unreleased stamped under `version` (default: one patch up). Null when nothing waits. */
+/** The release commit's change: unreleased stamped under `version` (default: one patch up). Null when nothing waits. */
 export function prepare(data, version, date) {
   if (!unreleased(data).length) return null;
   const v = version || nextVersion(data);
   return { version: v, data: stamp(data, v, date) };
-}
-
-/** The version an open release PR was given (say a hand-picked 1.1.0), so rebuilding the PR keeps it. */
-export function carried(data, prData) {
-  const v = releases(prData)[0]?.version;
-  return v && isNewer(data, v) ? v : '';
 }
 
 async function git(...args) {
@@ -69,7 +63,7 @@ async function gitTags() {
 }
 
 /** The first commit on main's first-parent line whose changelog holds `tag`: the release
- *  PR's merge. Tagging and deploying it (not whatever push started the run) keeps a staging
+ *  commit. Tagging and deploying it (not whatever push started the run) keeps a staging
  *  commit merged after it off the live site. */
 async function releaseCommit(tag) {
   const log = await git('log', '--first-parent', '--reverse', '--format=%H', 'HEAD', '--', 'web/changelog.json');
@@ -100,10 +94,6 @@ if (import.meta.main) {
       await Deno.writeTextFile(INDEX, withChangelog(await Deno.readTextFile(INDEX), out.data));
       console.log(out.version);
     }
-  } else if (cmd === '--carry') {
-    let prData = null;
-    try { prData = JSON.parse(await Deno.readTextFile(arg)); } catch { /* no open release PR */ }
-    console.log(carried(data, prData));
   } else if (cmd === '--commit') {
     const sha = await releaseCommit(arg);
     if (!sha) { console.error(`no commit on this branch releases ${arg}`); Deno.exit(1); }
@@ -111,7 +101,7 @@ if (import.meta.main) {
   } else if (cmd === '--newest') {
     console.log(releases(data)[0]?.tag ?? '');
   } else {
-    console.error('usage: release.js --pending | --notes vX.Y.Z | --prepare [X.Y.Z] | --carry FILE | --commit vX.Y.Z | --newest');
+    console.error('usage: release.js --pending | --notes vX.Y.Z | --prepare [X.Y.Z] | --commit vX.Y.Z | --newest');
     Deno.exit(2);
   }
 }
