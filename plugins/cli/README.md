@@ -395,6 +395,13 @@ no vertex is moved. The remaining indexed surface must pass closed-mesh validati
 analysis positions are retained verbatim. Software tests do not establish physical
 print behavior.
 
+Converted bodies and cutters must be closed manifold meshes. Open boundaries or
+non-manifold topology that prevent complete subtraction are rejected, without
+returning a partial conversion. Repair these source meshes externally, check that
+their painting and material assignments survived, and save a new 3MF before
+retrying. Automatic repair of painted source meshes is outside this service's
+scope; the material warning below does not permit invalid geometry.
+
 The default internal conversion preserves surviving exterior painting and part
 assignments, and leaves new cut surfaces unpainted so they inherit the owning
 part's existing material and wall/infill settings. It does not reconstruct the
