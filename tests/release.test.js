@@ -50,6 +50,10 @@ Deno.test('release: the stamped changelog writes the landing card, and the shipp
   const card = withChangelog(html, p.data);
   assertStringIncludes(card, `<span class="ver">v${p.version}</span>`);
   assertStringIncludes(card, `>v${p.version}</small>`);
-  const notes = notesFor(releases(p.data)[0]);
+  // A later feature prepares v1.0.1 (or newer); the ten highlights belong to
+  // the shipped launch release, not to every subsequent release's notes.
+  const launch = releases(p.data).find(r => r.version === '1.0.0');
+  assert(launch, 'launch release missing');
+  const notes = notesFor(launch);
   assertEquals(notes.split('\n').filter((l) => l.startsWith('- ')).length >= 10, true);
 });
