@@ -66,7 +66,7 @@ import { JUDGE, judgeRuler } from './prop/judge.js';
 import { bends } from './prop/curved.js';
 import { circularRegions, circularTracks } from './prop/circular.js';
 import { DOWNHILL, downhillLines } from './prop/downhill.js';
-import { latticeStruts, strutPatches } from './prop/lattice.js';
+import { latticeStruts, strutPatches, loneStrut } from './prop/lattice.js';
 import { raceAgainst, rasterRest, rasterTracks, withRaster } from './prop/raster.js';
 import { tubeRivalry } from './prop/rival.js';
 import { bridgeRace } from './prop/bridgerace.js';
@@ -344,6 +344,14 @@ function buildPass(topo, result, rot, opts, raster) {
         gx += v[0]; gy += v[1]; gz += v[2];
       }
       regionPts.push([gx / 3, gy / 3, gz / 3]);
+    }
+
+    if (opts.strutWalls) {
+      if (loneStrut(regionPts)) {
+        const seated = (f) => [0, 1, 2].map((i) => seat(pos, f * 9 + i * 3, rot, off, [0, 0, 0]));
+        patches.push(...strutPatches(topo, rot, [rFaces], seated, step, ri, regionTris));
+      }
+      continue;
     }
 
     if (opts.circularPass) {

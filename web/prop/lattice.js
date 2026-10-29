@@ -237,3 +237,20 @@ function longAxis(pts) {
   const n = Math.hypot(ux, uy);
   return [ux / n, uy / n];
 }
+
+/** A single narrow strut can be disconnected from the net by the overhang
+ * threshold. Use the same length direction as a net strut, only for an elongated
+ * footprint no wider than the net classifier allows. Holes are still split by
+ * patchTracks and the normal clearance/height checks still decide every wall. */
+export function loneStrut(pts) {
+  if (!pts.length) return false;
+  const [ux, uy] = longAxis(pts);
+  let u0 = Infinity, u1 = -Infinity, v0 = Infinity, v1 = -Infinity;
+  for (const p of pts) {
+    const u = p[0] * ux + p[1] * uy, v = -p[0] * uy + p[1] * ux;
+    u0 = Math.min(u0, u); u1 = Math.max(u1, u);
+    v0 = Math.min(v0, v); v1 = Math.max(v1, v);
+  }
+  return v1 - v0 > 1e-6 && v1 - v0 <= 2 * NET_HALF
+    && u1 - u0 >= Math.max(PROP.minSpanPart, 2 * (v1 - v0));
+}

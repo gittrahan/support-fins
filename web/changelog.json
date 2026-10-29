@@ -116,5 +116,11 @@
       ]
     }
   ],
-  "unreleased": []
+  "unreleased": [
+    {
+      "date": "2026-10-29",
+      "check": "held",
+      "text": "Try longitudinal walls for isolated narrow struts left unsupported by the normal placement."
+    }
+  ]
 }

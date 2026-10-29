@@ -310,6 +310,21 @@ over 7 layers. The printed numbers above still stand.
 | auto placement | up to 4 faces with bearings ≥ 60° apart, a rib per ~100 mm of face width, at the face's **tallest** columns | holds both axes; a rib at a gable's low end braces the half that wasn't moving |
 | manual | Draw mode: one click on an upright side; click a placed support to select it, Delete / "Remove selected" to take it out | |
 
+## Isolated narrow struts — `web/prop/lattice.js`, `web/fins/shortwalls.js`
+
+After the existing last-resort pass, retained overhang regions still untouched by
+walls or wedges can try the longitudinal route used for joined lattice struts.
+The footprint must be at least twice as long as it is wide, no wider than 7 mm
+(the lattice classifier's existing `2 * NET_HALF`), and long enough for the
+existing part-wall minimum. This addresses #121's isolated cross-sloped struts:
+down-slope tracks can run across their narrow width and be discarded.
+
+Existing supports stay in place. The 12 mm² region threshold, small-hole
+exemptions, short-wall aspect limits, part clearance and conservative exclusion
+around existing supports remain in force. This changes default placement only
+where a qualifying bare strut gains a safe wall; it does not guarantee support
+for every headset overhang. Physical printing remains unvalidated.
+
 ## Wall ribs (Full coverage) — `web/prop/brace.js`
 
 Sway's optional cross ribs use the **actual Sway body thickness**, including its
