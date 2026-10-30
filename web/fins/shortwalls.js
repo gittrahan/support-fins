@@ -19,6 +19,7 @@
  */
 import { buildShortWalls, PROP } from '../prop.js';
 import { bareAfterWedges } from './wedges.js';
+import { loneStrutRegions } from '../prop/lattice.js';
 
 /** [minX, minY, minZ, maxX, maxY, maxZ] over tris[from..to), one vertex per entry. */
 function boxOf(tris, from, to) {
@@ -68,9 +69,10 @@ export function lastResortWalls(topo, result, rot, opts, servedRegions, wedgeTri
     }
   };
   append(built);
-  const remaining = new Set(bare.filter(ri => !served.has(ri)));
-  if (remaining.size && opts.loneStruts !== false) {
-    append(buildShortWalls(topo, result, rot, { ...opts, strutWalls: true }, remaining));
+  // loneStruts: false is a test-only switch for comparing the old placement.
+  if (opts.loneStruts !== false) {
+    const remaining = loneStrutRegions(topo, result, rot, bare.filter(ri => !served.has(ri)));
+    if (remaining.size) append(buildShortWalls(topo, result, rot, { ...opts, strutWalls: true }, remaining));
   }
   return { triangles, props, served: [...served], tines };
 }

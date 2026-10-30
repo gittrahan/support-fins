@@ -33,6 +33,7 @@
  */
 import { PROP } from './config.js';
 import { splitRegion, tubeLine } from './tracks.js';
+import { seat } from './surface.js';
 
 const CELL = 0.5;            // mm, plan raster
 // A strut's underside is at most NET_HALF from its edge (99th percentile of the
@@ -253,4 +254,25 @@ export function loneStrut(pts) {
   }
   return v1 - v0 > 1e-6 && v1 - v0 <= 2 * NET_HALF
     && u1 - u0 >= Math.max(PROP.minSpanPart, 2 * (v1 - v0));
+}
+
+/** Qualify only the still-bare regions before a placement pass seats the whole
+ * part. Keep buildPass's vertices AND centroids, in the same order and print
+ * frame: changing that sampling changes the principal axis near the limits. */
+export function loneStrutRegions(topo, result, rot, regions) {
+  const qualified = new Set();
+  for (const ri of regions) {
+    const pts = [];
+    for (const f of result.regions[ri].faces) {
+      let x = 0, y = 0, z = 0;
+      for (let i = 0; i < 3; i++) {
+        const p = seat(topo.pos, f * 9 + i * 3, rot, result.offset, [0, 0, 0]);
+        pts.push(p);
+        x += p[0]; y += p[1]; z += p[2];
+      }
+      pts.push([x / 3, y / 3, z / 3]);
+    }
+    if (loneStrut(pts)) qualified.add(ri);
+  }
+  return qualified;
 }

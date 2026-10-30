@@ -655,8 +655,9 @@ function buildPass(topo, result, rot, opts, raster) {
         }
 
         // 0.25 reach: the tightest threshold below is 0.205, and every extra
-        // tenth of reach widens the broad phase for nothing
-        const hit = solidClearance(topo, rot, off, out.slice(before), 0.25);
+        // tenth of reach widens the broad phase for nothing. Isolated struts
+        // also use tighter triangle bounds: long tilted walls have huge boxes.
+        const hit = solidClearance(topo, rot, off, out.slice(before), 0.25, opts.strutWalls === true);
         // Same acceptance as stationCertified: an approach from above is the
         // breakaway interface, anything else is a flank. Interpenetration
         // measures 0 and fails the flank test, which is what retires the old

@@ -3,7 +3,8 @@
 import { buildTopology, analyze, fins, assert, isClosed, isOriented } from './_util.js';
 import { solidClearance } from '../web/inside.js';
 import { welds } from '../web/prop/clearance.js';
-import { loneStrut } from '../web/prop/lattice.js';
+import { loneStrut, loneStrutRegions } from '../web/prop/lattice.js';
+import { buildShortWalls } from '../web/prop.js';
 import { lastResortWalls } from '../web/fins/shortwalls.js';
 
 const I = [1,0,0,0,1,0,0,0,1];
@@ -63,4 +64,40 @@ Deno.test('lone strut: an existing support still prevents a conflicting last-res
   assert(first.props.length > 0);
   const blocked = lastResortWalls(topo,res,I,options,[],[],first.triangles);
   assert(blocked.triangles.length === 0 && blocked.props.length === 0, 'duplicated an existing wall');
+});
+
+Deno.test('lone strut: no qualifying region avoids a second whole-part traversal', () => {
+  const run = (extra) => {
+    const topo = topoOf(strut({height:24,width:3.8,length:3.8})), res = analyze(topo,45,I);
+    const nFaces = topo.nFaces;
+    let reads = 0;
+    Object.defineProperty(topo, 'nFaces', {get() { reads++; return nFaces; }});
+    const built = lastResortWalls(topo,res,I,{...options,...extra},[],[],[]);
+    return {built,reads};
+  };
+  const before = run({loneStruts:false}), after = run({});
+  assert(before.reads > 0 && before.built.props.length === 0, 'fixture must exercise unsuccessful normal placement');
+  assert(JSON.stringify(after.built) === JSON.stringify(before.built), 'non-strut region changed output');
+  assert(after.reads === before.reads, `unnecessary whole-part traversal: ${after.reads} vs ${before.reads}`);
+});
+
+Deno.test('lone strut: preflight preserves mixed-region placement after rotations and mirroring', () => {
+  for (const angle of [0,37,90]) for (const mirror of [false,true]) {
+    const narrow = strut({angle,mirror});
+    const wide = strut({width:20,length:20,angle,mirror});
+    const pos = Float32Array.from([...narrow,...Array.from(wide,(v,i)=>i%3===0?v+80:v)]);
+    const topo = topoOf(pos), res = analyze(topo,45,I);
+    const all = new Set(res.regions.map((_,i)=>i));
+    const selected = loneStrutRegions(topo,res,I,all);
+    assert(selected.size > 0 && selected.size < all.size, 'fixture needs qualifying and non-qualifying regions');
+    const extra = {...options,strutWalls:true};
+    const before = buildShortWalls(topo,res,I,extra,all);
+    const after = buildShortWalls(topo,res,I,extra,selected);
+    assert(JSON.stringify(after) === JSON.stringify(before), `preflight changed mixed geometry at ${angle}, mirror=${mirror}`);
+    assert(loneStrutRegions(topo,res,I,new Set()).size === 0, 'empty selection classified unrelated regions');
+    for (const ri of all) {
+      const one = loneStrutRegions(topo,res,I,new Set([ri]));
+      assert(one.size === Number(selected.has(ri)) && (!one.size || one.has(ri)), 'selection leaked across regions');
+    }
+  }
 });

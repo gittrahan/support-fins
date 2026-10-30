@@ -258,8 +258,10 @@ const dist2 = (p, q) => {
  * triangle. Returns { d, cosUp, x, y, z }: the distance, the print-space
  * vertical share of the approach (0.7 cone, same as the checker), and the
  * closest point on the SOLID, so the caller can find the station that owns it.
+ * `tightBounds` adds conservative triangle projection bounds before the exact
+ * query. It only prunes pairs farther than rMax; hits and tie order stay intact.
  */
-export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
+export function solidClearance(topo, rot, offset, verts, rMax = 0.45, tightBounds = false) {
   const { pos } = topo;
   const grid = buildGrid(topo);
   const clampA = (v) => Math.min(grid.NY - 1, Math.max(0, v));
@@ -326,6 +328,24 @@ export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
   for (let t = 0; t < mv.length; t += 3) {
     gen++;
     const A = [mv[t], mv[t + 1], mv[t + 2]];
+    // Optional tighter broad phase for long isolated-strut walls: their boxes
+    // in mesh space can cover much of a tilted part. Projection onto ANY axis
+    // bounds distance, so separating by more than rMax cannot hide a hit.
+    // These four axes describe the triangle's plane and its three edge sides.
+    const axes = tightBounds ? [] : null;
+    const triSize = tightBounds ? Math.max(...A.flat().map(Math.abs)) : 0;
+    if (tightBounds) {
+      const sub = (a, b) => a.map((v, k) => v - b[k]);
+      const cross = (a, b) => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+      const ab = sub(A[1], A[0]), ac = sub(A[2], A[0]), normal = cross(ab, ac);
+      for (const n of [normal, cross(normal, ab), cross(normal, sub(A[2], A[1])), cross(normal, ac)]) {
+        const reach = rMax * Math.hypot(...n);
+        if (!(reach > 0) || !Number.isFinite(reach)) continue;
+        const p = [0, n.reduce((s,v,k)=>s+v*ab[k],0), n.reduce((s,v,k)=>s+v*ac[k],0)];
+        axes.push({n, lo:Math.min(...p)-reach, hi:Math.max(...p)+reach,
+          errorScale:32*Number.EPSILON*n.reduce((s,v)=>s+Math.abs(v),0)});
+      }
+    }
     let xLo = Infinity, xHi = -Infinity;
     let yLo = Infinity, yHi = -Infinity, zLo = Infinity, zHi = -Infinity;
     for (const q of A) {
@@ -375,6 +395,23 @@ export function solidClearance(topo, rot, offset, verts, rMax = 0.45) {
           if (bz1 < zLo - rMax) continue;
 
           const B = triVerts(pos, f);
+          if (axes?.length) {
+            const size = Math.max(triSize, Math.abs(B[0][0]), Math.abs(B[0][1]), Math.abs(B[0][2]),
+              Math.abs(B[1][0]), Math.abs(B[1][1]), Math.abs(B[1][2]),
+              Math.abs(B[2][0]), Math.abs(B[2][1]), Math.abs(B[2][2]));
+            let separated = false;
+            for (const {n,lo,hi,errorScale} of axes) {
+              let low = Infinity, high = -Infinity;
+              for (const p of B) {
+                const d = n[0]*(p[0]-A[0][0])+n[1]*(p[1]-A[0][1])+n[2]*(p[2]-A[0][2]);
+                low = Math.min(low,d); high = Math.max(high,d);
+              }
+              // Outward rounding guard for translated coordinates and dot products.
+              const error = size*errorScale;
+              if (low > hi+error || high < lo-error) { separated = true; break; }
+            }
+            if (separated) continue;
+          }
 
           // INTERSECTION FIRST. Every distance primitive below is only valid
           // for triangles that do not cross: an edge piercing the other
