@@ -27,9 +27,9 @@ No fin geometry lives in the add-on.
 - Export the part and its fins together (select both, File ▸ Export, .stl or .3mf).
   The fins are a mesh, and FreeCAD's STEP and IGES export leave meshes out without a
   warning, so a STEP gets the part alone. The fins' **Export** property and a Report-view
-  warning (once a session, on Add Support Fins) say so. Need STEP anyway: Part ▸ Create
-  shape from mesh, then Part ▸ Convert to solid (slow on a big fin mesh). A one-click
-  conversion comes later (local issue 016).
+  warning (once a session, on Add Support Fins) say so. Converting the mesh to solids
+  doesn't really help: the fins are thousands of separate pieces (one cable reel: 3,383
+  solids of triangle faces, an 87 MB STEP) and the slicer meshes them again anyway.
 
 ## Install (for now, until the Addon Manager listing)
 
