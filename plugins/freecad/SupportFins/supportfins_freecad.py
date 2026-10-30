@@ -149,7 +149,8 @@ class SupportFins:
             "What the engine placed, and what it couldn't reach")
         obj.setEditorMode("Report", 1)            # read-only
         add("App::PropertyString", "Export", props.GROUP,
-            "How to get the fins out of FreeCAD", EXPORT_HINT)
+            "How to get the fins out of FreeCAD")
+        obj.Export = EXPORT_HINT                  # this add-on's wording, not the saved file's
         obj.setEditorMode("Export", 1)            # read-only
         add("App::PropertyLinkListHidden", "Containers", props.GROUP,
             "The groups the part sits in: moving one moves the part, so the fins follow")
