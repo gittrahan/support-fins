@@ -25,8 +25,11 @@ No fin geometry lives in the add-on.
   snappy: the fins keep their last result, the Report says they're out of date, and
   **Update Support Fins** recomputes them (the selected ones, or all).
 - Export the part and its fins together (select both, File ▸ Export, .stl or .3mf).
-
-Output is a mesh. Converting to a solid for STEP export comes later (local issue 016).
+  The fins are a mesh, and FreeCAD's STEP and IGES export leave meshes out without a
+  warning, so a STEP gets the part alone. The fins' **Export** property and a Report-view
+  warning (once a session, on Add Support Fins) say so. Need STEP anyway: Part ▸ Create
+  shape from mesh, then Part ▸ Convert to solid (slow on a big fin mesh). A one-click
+  conversion comes later (local issue 016).
 
 ## Install (for now, until the Addon Manager listing)
 
@@ -65,9 +68,9 @@ python3 plugins/freecad/build.py && \
 cat plugins/freecad/build/smoke.json                              # last line: PASS / FAIL
 ```
 
-`smoke.py` runs the real FreeCAD headless (35 checks: fins under the part on its lowest
+`smoke.py` runs the real FreeCAD headless (37 checks: fins under the part on its lowest
 point; following a length change, a tilt, a PartDesign feature and a moved App::Part;
 Auto update off/Update; STEP parity with the site, asked live from `site_step.js` via deno;
 Mesh, placed App::Part and App::Link sources; fins dropped into a placed group; settings
 reaching the engine, hidden when ignored, clamped to its range; errors in the Report;
-export of part + fins; save and reopen).
+export of part + fins, and STEP leaving the fins out; save and reopen).

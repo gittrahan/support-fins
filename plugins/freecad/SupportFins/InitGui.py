@@ -11,7 +11,8 @@ class _AddFins:
         return {"Pixmap": os.path.join(sf.HERE, "Resources", "icons", "SupportFins.svg"),
                 "MenuText": "Add Support Fins",
                 "ToolTip": "Breakaway support fins for the selected part, from printfins.com's "
-                           "engine. They recompute when the part changes."}
+                           "engine. They recompute when the part changes. They're a mesh: "
+                           "export them with the part as .stl or .3mf (STEP leaves them out)."}
 
     def _sources(self):
         import supportfins_freecad as sf
@@ -34,6 +35,7 @@ class _AddFins:
             doc.recompute()
         finally:
             doc.commitTransaction()
+        sf.warn_export()
         Gui.Selection.clearSelection()
         for m in made:
             Gui.Selection.addSelection(m)

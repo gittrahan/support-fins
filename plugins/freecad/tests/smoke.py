@@ -10,7 +10,8 @@ last line of that file says PASS or FAIL. Checks:
   - STEP parity: tests/fixtures/bracket.step at X35 gives the site's result exactly
     (site_step.js asks the site's own STEP path; needs deno on the PATH);
   - Mesh and App::Part (placed) sources; settings reach the engine and hide what it ignores;
-  - File > Export writes part + fins together (.stl, .3mf);
+  - File > Export writes part + fins together (.stl, .3mf); STEP drops the fins (a mesh),
+    which the read-only Export property says;
   - a saved file reopens with working fins; no Source is an error, not a crash.
 """
 import json
@@ -235,6 +236,18 @@ try:
         back = Mesh.Mesh(tmp)
         check(f"export part + fins as .{ext}", back.CountFacets > fins.Mesh.CountFacets,
               (back.CountFacets, fins.Mesh.CountFacets))
+    # STEP leaves the fins out (#269): the hint the Export property gives must stay true
+    import Import
+    import Part
+    tmp = os.path.join(tempfile.mkdtemp(), "both.step")
+    Import.export([box, fins], tmp)
+    back = Part.read(tmp)
+    check("STEP export drops the fins mesh (part alone)",
+          len(back.Solids) == 1 and abs(back.Volume - box.Shape.Volume) < 1e-3 * box.Shape.Volume,
+          (len(back.Solids), back.Volume, box.Shape.Volume))
+    check("Export property says how to get the fins out",
+          fins.Export == sf.EXPORT_HINT and fins.getEditorMode("Export") == ["ReadOnly"],
+          (fins.Export, fins.getEditorMode("Export")))
 
     # save and reopen
     path = os.path.join(tempfile.mkdtemp(), "smoke.FCStd")

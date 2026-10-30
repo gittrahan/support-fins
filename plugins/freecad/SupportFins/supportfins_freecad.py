@@ -29,6 +29,9 @@ SETTING_NAMES = {s["name"] for s in SPECS}
 LINEAR_DEFLECTION, ANGULAR_DEFLECTION = 0.01, 0.1
 FIN_COLOR = (0.15, 0.45, 0.95)
 OUT_OF_DATE = "Out of date (Auto update is off): run Update Support Fins. Last result: "
+# the fins are a mesh, and FreeCAD's STEP/IGES export drops meshes without a word (#269)
+EXPORT_HINT = ("A mesh: select the part and these fins, then File > Export as .stl or .3mf. "
+               "STEP and IGES leave meshes out.")
 
 _ctx = None
 
@@ -145,6 +148,9 @@ class SupportFins:
         add("App::PropertyString", "Report", props.GROUP,
             "What the engine placed, and what it couldn't reach")
         obj.setEditorMode("Report", 1)            # read-only
+        add("App::PropertyString", "Export", props.GROUP,
+            "How to get the fins out of FreeCAD", EXPORT_HINT)
+        obj.setEditorMode("Export", 1)            # read-only
         add("App::PropertyLinkListHidden", "Containers", props.GROUP,
             "The groups the part sits in: moving one moves the part, so the fins follow")
         self._adding = True
@@ -257,6 +263,17 @@ def make(src, doc=None):
         # the bed pad is a thin skirt seen almost edge-on: one-sided lighting draws it black
         obj.ViewObject.Lighting = "Two side"
     return obj
+
+
+_warned_export = False
+
+
+def warn_export():
+    """Once a session: say in the Report view how the fins export."""
+    global _warned_export
+    if not _warned_export:
+        _warned_export = True
+        App.Console.PrintWarning(f"Support Fins: {EXPORT_HINT}\n")
 
 
 def update(objs):
