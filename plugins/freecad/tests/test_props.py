@@ -47,6 +47,9 @@ def test_every_option_is_one_property():
 
 @pytest.mark.parametrize("key,name,kind", [
     ("gap", "SupportGap", "App::PropertyFloatConstraint"),
+    ("sideClearance", "SideClearance", "App::PropertyFloatConstraint"),
+    ("bottomGap", "BottomGap", "App::PropertyFloatConstraint"),
+    ("bottomAnchors", "LineAnchors", "App::PropertyBool"),
     ("threshold", "Overhang", "App::PropertyFloatConstraint"),
     ("tines", "Tines", "App::PropertyBool"),
     ("separateWalls", "SeparateWalls", "App::PropertyEnumeration"),
@@ -77,6 +80,7 @@ def test_defaults_read_back_as_the_sites_defaults():
 
 def test_units_on_the_way_to_the_engine():
     set_to = {"SupportGap": 0.3, "Overhang": 50.0, "Tines": False, "TineGrip": 35,
+              "SideClearance": 0.5, "BottomGap": 0.1, "LineAnchors": True,
               "LayerHeight": Quantity(0.16), "BedPad": "Sure hold", "SwayBraces": True,
               "BraceGripFrom": 12.0, "BraceTineSpacing": 8.0, "BraceDepth": 20,
               "Cutouts": "Lattice", "WideFaceCoverage": 100, "PlateOnly": True,
@@ -84,6 +88,7 @@ def test_units_on_the_way_to_the_engine():
               "PlacementMode": "Full coverage — every overhang", "LongWalls": False, "Nozzle": "0.8", "SeparateWalls": "On"}
     values = props.dialog_values(SCHEMA, lambda n: set_to[n])
     assert values == {"gap": 0.3, "threshold": 50.0, "tines": False, "tineDensity": 0.35,
+                      "sideClearance": 0.5, "bottomGap": 0.1, "bottomAnchors": True,
                       "layerHeight": 0.16, "padStyle": "sure", "sway.on": True, "sway.gripFrom": 12.0,
                       "sway.tineSpacing": 8.0, "sway.reach": 0.2, "cutout": "lattice", "coverage": 1.0,
                       "plateOnly": True, "tineDir": "vertical", "pinDepth": 0.5,
@@ -159,6 +164,8 @@ def test_restored_document_gains_separate_walls_without_resetting_settings(tmp_p
     assert obj.SeparateWalls == "Auto (on for resin)"  # resin pins then separate, as on the site
     assert obj.SupportGap == 0.3 and obj.Direction == "Vertical (resin)"
     assert obj.PlacementMode == "Full coverage — every overhang"
+    assert obj.SideClearance[0] == 0.35 and obj.BottomGap[0] == 0.2
+    assert obj.LineAnchors is False
     obj.SeparateWalls = "Off"
     proxy.onDocumentRestored(obj)
     assert obj.SeparateWalls == "Off"

@@ -6,7 +6,7 @@
 //   deno test --allow-read plugins/shared/tests/
 import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible } from '../engine/fins_entry.js';
 import { DEFAULT_THRESHOLD } from '../../../web/overhangs.js';
-import { readSTL, MODELS, rotX, rotY, assert } from '../../../tests/_util.js';
+import { readSTL, MODELS, rotX, rotY, assert, block } from '../../../tests/_util.js';
 import { CUTOUT_PATTERNS } from '../../../web/cutout.js';
 import { SWAY } from '../../../web/sway.js';
 import { FIN } from '../../../web/fins/config.js';
@@ -144,6 +144,13 @@ Deno.test('the entry\'s defaults are the schema\'s; sway\'s are sway.js\'s', () 
 
 Deno.test('optionVisible hides exactly what the site hides (web/ui/settings.js)', () => {
   const shown = (key, values) => optionVisible(key, values);
+  for (const tines of [true, false]) {
+    assert(shown('sideClearance', { tineDir: 'vertical', tines }), 'side clearance remains active in resin');
+    for (const key of ['bottomGap', 'bottomAnchors']) {
+      assert(shown(key, { tineDir: 'horizontal', tines }), `${key}: hidden for FDM`);
+      assert(!shown(key, { tineDir: 'vertical', tines }), `${key}: shown for resin`);
+    }
+  }
   assert(shown('tineDensity', {}) && !shown('tineDensity', { tines: false }), 'tine grip follows Tines');
   // layer height: tines on, or a pad that is one layer tall (Light, or Auto's Light)
   assert(shown('layerHeight', { tines: false, padStyle: 'auto' }), 'layer height with the Auto pad');
@@ -236,6 +243,8 @@ function changesFins(part, o, base, build) {
 
 Deno.test('every option reaches the geometry (no dead dialog control)', () => {
   const lbracket = posed();
+  const pocket = new Float32Array([...block(-20, 20, -5, 5, 0, 5), ...block(-20, 20, -5, 5, 15, 17),
+    ...block(-20, 20, -5, -1.1, 5, 15), ...block(-20, 20, 1.1, 5, 5, 15)]);
   const bar = Float64Array.from(readSTL(Deno.readFileSync(`${MODELS}bar.stl`)));  // upright: braced
   try {
     const plain = computeFins(lbracket, {}).triangles;
@@ -256,6 +265,8 @@ Deno.test('every option reaches the geometry (no dead dialog control)', () => {
           : o.key === 'separateWalls'   // the sphere has joined fill walls and bases
             ? changesFins(sphere, o, computeFins(sphere, { mode: 'full' }).triangles,
                 (v) => computeFins(sphere, { mode: 'full', separateWalls: v }))
+          : ['sideClearance', 'bottomGap', 'bottomAnchors'].includes(o.key)
+            ? changesFins(pocket, o, computeFins(pocket, {}).triangles, (v) => computeFins(pocket, { [o.key]: v }))
           : o.key === 'plateOnly'
             ? changesFins(portal, o, computeFins(portal, {}).triangles, (v) => computeFins(portal, { plateOnly: v }))
           : changesFins(lbracket, o, plain, (v) => computeFins(lbracket, { [o.key]: v }));

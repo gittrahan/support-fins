@@ -1,4 +1,12 @@
 export default {
+  "Side clearance": "Seitlicher Abstand",
+  "Bottom gap": "Unterer Abstand",
+  "Line anchors": "Linienkontakte",
+  "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.": "Abstand neben den breiten Seiten einer Stützwand. Die schmalen Enden werden automatisch gekürzt. Bei null kann die Wand mit dem Bauteil verschmelzen. Standard: 0,35 mm.",
+  "Gap between an FDM support and the model below it. Does not lift feet off the build plate. Zero welds the contact; larger gaps can weaken support. Default 0.2 mm.": "Abstand zwischen einer FDM-Stütze und dem darunterliegenden Modell. Hebt Füße nicht vom Druckbett ab. Null verschweißt den Kontakt; größere Abstände können die Stütze schwächen. Standard: 0,2 mm.",
+  "Add short line contacts below FDM supports standing on the model. Requires a positive bottom gap; walls without a verified floor contact are omitted. Contacts may leave marks. Slice and print-test before use.": "Kurze Linienkontakte unter FDM-Stützen auf dem Modell hinzufügen. Erfordert einen positiven unteren Abstand; Wände ohne überprüften Bodenkontakt werden weggelassen. Kontakte können Spuren hinterlassen. Im Slicer prüfen und einen Probedruck machen.",
+  "Line anchors need the model geometry to validate floor contact.": "Linienkontakte benötigen die Modellgeometrie zur Prüfung des Bodenkontakts.",
+  "No safe line anchors fit this floor. Turn off Line anchors or change the support placement.": "Auf diese Fläche passen keine sicheren Linienkontakte. Linienkontakte ausschalten oder die Stützen anders platzieren.",
   "recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer": "Erkannte Decken kleiner Löcher bleiben ungestützt, damit die Öffnungen frei bleiben; Brückenbildung im Slicer prüfen",
   "{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.": {"one":"{n} Decke eines kleinen Lochs bleibt zum Überbrücken ungestützt — Slicer-Vorschau und Druckeinstellungen prüfen.","other":"{n} Decken kleiner Löcher bleiben zum Überbrücken ungestützt — Slicer-Vorschau und Druckeinstellungen prüfen."},
   "none needed: small holes left for bridging": {"one":"keine nötig: kleines Loch wird überbrückt","other":"keine nötig: kleine Löcher werden überbrückt"},

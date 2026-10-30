@@ -117,7 +117,8 @@ const formOf = (form) => (form && typeof form === 'object'
   // a session saved before Wall lines was built at 2, not at what the page has now,
   // and before Long walls, tall-wall ribs and Curved walls without them (the nozzle and the viewer's
   // settings stay as this browser has them, even from a file saved before they were left out)
-    ? { 'rounded-feet': false, 'wall-lines': '2', 'long-walls': false, 'tall-ribs': false, 'curved-walls': false, 'separate-walls': false,
+    ? { 'side-clearance': '0.35', 'bottom-gap': '0.2', 'bottom-anchors': false,
+      'rounded-feet': false, 'wall-lines': '2', 'long-walls': false, 'tall-ribs': false, 'curved-walls': false, 'separate-walls': false,
       'sway-cross-height': '50', 'tall-ribs-height': '10', ...Object.fromEntries(Object.entries(form)
     .filter(([id, v]) => !VIEWER_IDS.has(id) && settable(id, v))) }
   : {});

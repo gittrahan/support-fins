@@ -8,6 +8,20 @@ Same engine as the site and every plugin (`plugins/shared/engine/computeFins`), 
 same settings: the flags are generated from `plugins/shared/engine/options.json`
 (every one, with its values and default: [docs/PLUGIN-CONFIG.md](../../docs/PLUGIN-CONFIG.md)).
 
+Part-supported FDM walls have independent clearances: `--gap` controls their top,
+`--side-clearance 0.35` the wide sides, and `--bottom-gap 0.2` the bottom (millimetres).
+These defaults preserve existing output. Bottom gap does not lift plate feet;
+resin keeps its welded bottom. `--bottom-anchors` adds optional short line contacts
+to the model below; `--no-bottom-anchors` keeps the default gap-only foot.
+Anchors need a positive bottom gap and enough verified floor for a nozzle-scaled
+line contact. Walls without a safe contact are omitted and remain unsupported.
+Contacts may mark the model: check coverage and the first support layers in your
+slicer and print-test before use. There is no new material preset selection.
+
+```
+support-fins shelf.3mf --preserve-project --bottom-gap 0.2 --bottom-anchors
+```
+
 ```
 support-fins part.stl                          # -> part-fins.3mf next to it (part + fins)
 support-fins part.stl --rot 0,35,0             # pose it first: the site's X · Y · Z readout

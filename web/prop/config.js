@@ -19,6 +19,7 @@ export const PROP = {
   // the first layer only sags onto it (prototype/calibration/foot/, 2026-09-30:
   // gap 0.2 and 0.3 printed clean, teeth were no better and one pitch failed).
   footGap: 0.2,
+  bottomAnchors: false, // opt-in short line contacts; never used for resin or plate feet
   tip: 0.6,         // width of the contact tip
   baseH: 0.6,       // height of the flat base flange. The foot used to be a CONE
                     // that ramped up over `chamfer` mm, which reads in a slicer as
