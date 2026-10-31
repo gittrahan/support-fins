@@ -71,7 +71,7 @@ function bentArm(lean0, lean1, n = 60) {
     let best = null;
     const P = topo.pos;
     for (let f = 0; f < topo.nFaces; f++) {
-      if (!(topo.nrm[f * 3] > 0.3) || !sway.faceIsUpright(topo, ID, f)) continue;
+      if (!(topo.nrm[f * 3] > 0.3) || !sway.faceTakesAnchor(topo, ID, f)) continue;
       const c = [0, 1, 2].map((k) => (P[f * 9 + k] + P[f * 9 + 3 + k] + P[f * 9 + 6 + k]) / 3);
       const pt = [c[0] + res.offset.x, 0 + res.offset.y, c[2] + res.offset.z];
       const d = Math.abs(pt[2] - z);

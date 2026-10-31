@@ -872,12 +872,19 @@ function columnAt(entry, topo, rot, offset, faceIndex, point) {
   return entry.columns.get(key);
 }
 
-/** Is this face (by index) upright enough, in this pose, to take a sway brace? */
-export function faceIsUpright(topo, rot, faceIndex) {
+const faceNz = (topo, rot, faceIndex) => {
   const i = faceIndex * 3;
-  const x = topo.nrm[i], y = topo.nrm[i + 1], z = topo.nrm[i + 2];
-  const nz = rot[2] * x + rot[5] * y + rot[8] * z;
-  return takesBrace(nz);
+  return rot[2] * topo.nrm[i] + rot[5] * topo.nrm[i + 1] + rot[8] * topo.nrm[i + 2];
+};
+/** Is this face (by index) upright enough, in this pose, to take a sway brace --
+ *  leaning no more than maxLeanDeg either way? Sway braces stand on sides. */
+export function faceIsUpright(topo, rot, faceIndex) {
+  return Math.abs(faceNz(topo, rot, faceIndex)) <= leanCut();
+}
+/** ...or an ANCHOR FIN (GH #351): any face a hand-placed brace stands against,
+ *  the upright sides and a back that faces up, leaning up to maxBackLeanDeg. */
+export function faceTakesAnchor(topo, rot, faceIndex) {
+  return takesBrace(faceNz(topo, rot, faceIndex));
 }
 
 /**
