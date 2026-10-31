@@ -14,11 +14,11 @@ for (const name of names) {
   const pos = readSTL(Deno.readFileSync(new URL(`./${name}.stl`, import.meta.url)));
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   const res = analyze(topo, 45, ID);
-  // the back: faces facing +X that Draw hands a brace (faceIsUpright), away from the
+  // the back: faces facing +X that Draw hands a brace (faceTakesAnchor), away from the
   // side edges and the foot, spread out by height
   const P = topo.pos, cands = [];
   for (let f = 0; f < topo.nFaces; f++) {
-    if (!(topo.nrm[f * 3] > 0.5) || !sway.faceIsUpright(topo, ID, f)) continue;
+    if (!(topo.nrm[f * 3] > 0.5) || !sway.faceTakesAnchor(topo, ID, f)) continue;
     const c = [0, 1, 2].map((k) => (P[f * 9 + k] + P[f * 9 + 3 + k] + P[f * 9 + 6 + k]) / 3);
     const pt = [c[0] + res.offset.x, c[1] + res.offset.y, c[2] + res.offset.z];
     if (Math.abs(pt[1]) > 15 || pt[2] < 25) continue;
