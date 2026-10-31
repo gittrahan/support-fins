@@ -1,11 +1,15 @@
-// Bambu project augmentation. Original meshes are only read for analysis: their
-// bytes, painting and resource references never pass through a geometry writer.
+// Bambu project augmentation. Original ZIP mesh members remain untouched. For
+// sequential negative-bearing objects, derived painted bodies replace active
+// references so cutters cannot remove the fins attached to the same object.
 import { computeFins, optionsFromDialog } from '../shared/engine/fins_entry.js';
 import { meshXML } from '../../web/threemf.js';
 import { ProjectZip } from './project-zip.js';
 import { ProjectReport, formatProjectReport } from './project-report.js';
 import { projectNozzle } from './project-nozzle.js';
 import { negativeComponents, projectPositions } from './project-analysis.js';
+import { bakeProjectObject } from './project-bake-input.js';
+import { sequentialEdits } from './project-sequential.js';
+import { runtimeIdentity } from './project-cache.js';
 import { xmlTree, child, children, metadata, meta, escapeXML as esc, insert, editXML } from './project-xml.js';
 
 const ROOT = '3D/3dmodel.model', CONFIG = 'Metadata/model_settings.config';
@@ -241,9 +245,6 @@ async function processProject(input, args, io, report) {
       // can override the project's print sequence.
       const sequence = metadata(membership.get(`${o.id}:${o.instance}`).node).print_sequence ?? settings.print_sequence;
       const byObject = /object/i.test(String(sequence ?? ''));
-      if (negativeCount && byObject) {
-        throw new Error('negative parts require print-by-layer; print-by-object is not supported for them yet');
-      }
       const result = report.object(o);
       Object.assign(result, nozzle);
       if (nozzle.nozzleSource === 'override') result.warnings.push('nozzle override applies to fin generation only; saved printer settings are unchanged');
@@ -253,7 +254,8 @@ async function processProject(input, args, io, report) {
       if (args.disableNativeSupports && children(o.config, 'metadata').filter((m) => m.attrs.key === 'enable_support').length > 1) {
         throw new Error('duplicate enable_support setting');
       }
-      return { ...o, transform, height, slot, ...nozzle, options, native, byObject, negativeCount };
+      return { ...o, transform, height, slot, ...nozzle, options, native, byObject, negativeCount,
+        bake: byObject && negativeCount > 0 };
     } catch (e) { return skipOrThrow(o, e); }
   }).filter(Boolean);
   if (!plans.length && !args.check) throw new Error('none of the selected objects can take fins in project mode (see the warnings above)');
@@ -266,7 +268,9 @@ async function processProject(input, args, io, report) {
     settings: { dialog: args.dialog, finExtruder: args.finExtruder, disableNativeSupports: args.disableNativeSupports },
     cacheDir: args.cacheDir, warn }) : null;
   const rootEdits = [], configEdits = [], supportObjects = [], results = [];
-  const newResources = [], newItems = [], plateInstances = new Map();
+  const newResources = [], newItems = [], plateInstances = new Map(), derived = new Map(), conversions = [];
+  let buildIdentity;
+  const identityForBake = () => buildIdentity ??= runtimeIdentity();
   let nextIdentify = 1 + Math.max(0, ...plates.flatMap((p) => children(p, 'model_instance'))
     .map((i) => +metadata(i).identify_id).filter(Number.isFinite));
   let nextID = Math.max(0, ...[...objects.keys(), ...children(config, 'object')
@@ -274,6 +278,10 @@ async function processProject(input, args, io, report) {
       if (!/^[1-9]\d*$/.test(id) || !Number.isSafeInteger(+id)) throw new Error('invalid resource ID');
       return +id;
     })) + 1;
+  const allocate = () => {
+    if (!Number.isSafeInteger(nextID)) throw new Error('project resource IDs are exhausted');
+    return String(nextID++);
+  };
   let prefix = Object.entries(root.attrs).find(([k, v]) => k.startsWith('xmlns:') && v === PROD)?.[0].slice(6);
   if (!prefix) {
     if (root.attrs['xmlns:p']) throw new Error('unsupported production namespace');
@@ -286,23 +294,43 @@ async function processProject(input, args, io, report) {
   for (const p of plans) {
     if (!args.check) warn(`object ${p.number}/${items.length}, plate ${p.plate}: ${p.name}; layer ${p.height} mm, filament ${p.slot}, nozzle ${p.nozzle} mm (${p.nozzleSource})`);
     let generated = await cache?.load(p.number);
+    if (generated && (p.bake && generated.triangles.length && !generated.baked || !p.bake && generated.baked)) {
+      warn(`object ${p.number}: incomplete conversion checkpoint; recomputing`);
+      generated = null;
+    }
     const reused = !!generated;
     try {
       if (!generated) {
-        const positions = await projectPositions(zip, rootBytes, configBytes, p);
+        let positions, baked;
+        if (p.bake) {
+          const conversion = await bakeProjectObject(zip.bytes, { buildIndex: p.number - 1, identity: identityForBake });
+          ({ analysisPositions: positions, ...baked } = conversion);
+        } else positions = await projectPositions(zip, rootBytes, configBytes, p);
         if (args.check) {
+          if (baked) {
+            // Validate the same replacement serialization and manifest mappings,
+            // without generating fins, publishing output or opening checkpoints.
+            const edits = sequentialEdits(baked, p, { rootXML, allocate, exists: (n) => zip.entries.has(n), prefix,
+              disableNativeSupports: args.disableNativeSupports });
+            editXML(rootXML, edits.root); editXML(configXML, [...edits.config, insert(p.config, edits.partsXML)]);
+            report.object(p).warnings.push(...baked.warnings,
+              'Compatibility only: cuts are baked only if fins are generated; printer clearance and sequential order still need slicer validation.');
+          }
           Object.assign(report.object(p), { status: 'compatible', layerHeight: p.height, filament: p.slot });
           continue;
         }
         generated = computeFins(positions, p.options);
+        if (baked && generated.triangles.length) generated.baked = baked;
       }
       const { triangles, offset, stats } = generated;
       // Gather this object's edits and commit them only once nothing can throw, so a
       // skipped object leaves the project exactly as it was.
-      const appended = [], own = { root: [], config: [], supports: [], resources: [], items: [], instances: [] };
+      const appended = [], own = { root: [], config: [], supports: [], resources: [], items: [], instances: [], members: new Map() };
+      let replacedParts = new Set();
+      let conversionMapping = null;
       let supportID = null;
       if (triangles.length) {
-        const id = String(nextID++), name = `${p.name} supports`;
+        const id = allocate(), name = `${p.name} supports`;
         const mesh = supportMesh(triangles, offset, p.transform);
         own.supports.push(`<object id="${id}" type="model" name="${esc(name)}" p:UUID="${crypto.randomUUID()}">${mesh}</object>`);
         const component = `<component objectid="${id}" ${prefix}:path="/${SUPPORTS}" ${prefix}:UUID="${crypto.randomUUID()}" transform="${identity.join(' ')}"/>`;
@@ -310,12 +338,21 @@ async function processProject(input, args, io, report) {
           + `${meta('matrix', '1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1')}</part>`;
         if (p.byObject) {
           warn(`object ${p.number} (${p.name}) prints by object: its fins are a part of it, so their tines weld to it`);
-          own.root.push(insert(child(p.object, 'components'), component));
+          if (generated.baked) {
+            const edits = sequentialEdits(generated.baked, p, { rootXML, allocate,
+              exists: (n) => zip.entries.has(n) || derived.has(n), prefix, support: component,
+              disableNativeSupports: args.disableNativeSupports });
+            own.root.push(...edits.root); own.config.push(...edits.config);
+            own.members = edits.members; replacedParts = edits.replacedParts;
+            conversionMapping = { number: p.number, fingerprint: generated.baked.fingerprint,
+              materialPolicy: generated.baked.materialPolicy, parts: edits.mappings, removed: generated.baked.removed };
+            appended.push(edits.partsXML);
+          } else own.root.push(insert(child(p.object, 'components'), component));
           appended.push(part);
         } else {
           // Their own object, as the site's 3MF does: its own perimeters, so a tine only
           // touches the part. Same build transform and plate, so it opens in register.
-          supportID = String(nextID++);
+          supportID = allocate();
           own.resources.push(`<object id="${supportID}" ${prefix}:UUID="${crypto.randomUUID()}" type="model">`
             + `<components>${component}</components></object>`);
           own.items.push(`<item objectid="${supportID}" ${prefix}:UUID="${crypto.randomUUID()}"`
@@ -329,12 +366,18 @@ async function processProject(input, args, io, report) {
       if (args.disableNativeSupports) {
         setMetadata(p.config, 'enable_support', '0', own.config, appended);
         for (const part of children(p.config, 'part')) {
+          if (replacedParts.has(part)) continue;
           const set = children(part, 'metadata').filter((m) => m.attrs.key === 'enable_support');
           for (const m of set) own.config.push([m.start, m.end, meta('enable_support', '0')]);
         }
       }
       if (appended.length) own.config.push(insert(p.config, appended.join('')));
+      // Detect overlapping edits while this object can still be skipped without
+      // affecting earlier completed objects or publishing a partial conversion.
+      editXML(rootXML, [...own.root]); editXML(configXML, [...own.config]);
       rootEdits.push(...own.root); configEdits.push(...own.config); supportObjects.push(...own.supports);
+      for (const [name, xml] of own.members) derived.set(name, xml);
+      if (conversionMapping) conversions.push(conversionMapping);
       newResources.push(...own.resources); newItems.push(...own.items);
       if (own.instances.length) {
         const plate = membership.get(`${p.id}:${p.instance}`).node;
@@ -344,6 +387,12 @@ async function processProject(input, args, io, report) {
         nozzle: p.nozzle, nozzleSource: p.nozzleSource,
         layerHeight: p.height, filament: p.slot, triangles: triangles.length / 9, stats });
       report.object(p).status = triangles.length ? 'processed' : 'no_supports';
+      if (generated.baked) {
+        const warnings = [...generated.baked.warnings,
+          'The output contains baked cuts; its cutters are no longer independently editable. Keep the original project for future changes.'];
+        report.object(p).warnings.push(...warnings);
+        for (const message of warnings) warn(`object ${p.number} (${p.name}): ${message}`);
+      }
     } catch (e) { skipOrThrow(p, e); continue; }
     // A cache write failure must abort even in the default skip-on-object-error
     // mode. Save only after all of this object's edits have succeeded.
@@ -361,7 +410,7 @@ async function processProject(input, args, io, report) {
     rootEdits.push(insert(resources, newResources.join('')), insert(build, newItems.join('')));
   }
   for (const [plate, instances] of plateInstances) configEdits.push(insert(plate, instances.join('')));
-  const changes = new Map();
+  const changes = new Map(derived);
   // Slicing caches cannot describe the augmented model. Keep custom_gcode_per_layer.xml:
   // it contains user-authored pauses/filament changes, not the generated toolpath.
   const stale = new Set([...zip.entries.keys()].filter((n) =>
@@ -377,7 +426,8 @@ async function processProject(input, args, io, report) {
   for (const name of stale) changes.set(name, null);
   changes.set(ROOT, editXML(rootXML, rootEdits));
   changes.set(CONFIG, editXML(configXML, configEdits));
-  changes.set(MARKER, JSON.stringify({ version: 1, objects: results, needsReslice: true }));
+  changes.set(MARKER, JSON.stringify({ version: 1, objects: results, needsReslice: true,
+    ...(conversions.length ? { bakedObjects: conversions } : {}) }));
   if (supportObjects.length) {
     changes.set(SUPPORTS, `<?xml version="1.0" encoding="UTF-8"?><model unit="millimeter" xmlns="${CORE}" xmlns:p="${PROD}"><resources>${supportObjects.join('')}</resources></model>`);
     const name = '3D/_rels/3dmodel.model.rels';
@@ -385,7 +435,14 @@ async function processProject(input, args, io, report) {
       : '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
     const node = xmlTree(text), used = new Set(children(node, 'Relationship').map((r) => r.attrs.Id));
     let id = 'support-fins'; while (used.has(id)) id += '-1';
-    changes.set(name, editXML(text, [insert(node, `<Relationship Id="${id}" Type="${REL}" Target="/${SUPPORTS}"/>`)]));
+    const relationships = [`<Relationship Id="${id}" Type="${REL}" Target="/${SUPPORTS}"/>`];
+    used.add(id);
+    for (const target of derived.keys()) {
+      let name = 'support-fins-converted'; while (used.has(name)) name += '-1';
+      used.add(name);
+      relationships.push(`<Relationship Id="${name}" Type="${REL}" Target="/${target}"/>`);
+    }
+    changes.set(name, editXML(text, [insert(node, relationships.join(''))]));
   }
   const typesText = await zip.text('[Content_Types].xml'), types = xmlTree(typesText), typeEdits = [];
   if (!children(types, 'Default').some((n) => n.attrs.Extension === 'json')) {

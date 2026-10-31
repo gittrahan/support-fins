@@ -1,5 +1,5 @@
-// Internal end-to-end conversion harness, not a CLI command. Production export
-// continues using its existing path until sequential integration is enabled.
+// Body-only conversion harness, independent of the production sequential path
+// (project-sequential.js), for testing baking before fins are attached.
 import { bakedPartXML } from '../project-bake-xml.js';
 import { child, children, editXML, escapeXML, insert, xmlTree } from '../project-xml.js';
 const ROOT = '3D/3dmodel.model', CONFIG = 'Metadata/model_settings.config';

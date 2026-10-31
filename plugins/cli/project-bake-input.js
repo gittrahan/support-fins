@@ -1,5 +1,5 @@
 // Internal archive-to-conversion boundary. No project, checkpoint or CLI output
-// is written here; sequential export remains a separate integration.
+// is written here; the sequential exporter validates and publishes the result.
 import { createHash } from 'node:crypto';
 import { ProjectZip } from './project-zip.js';
 import { projectModel, negativeComponents } from './project-analysis.js';

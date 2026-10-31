@@ -1,5 +1,5 @@
-// Internal conversion service. Production project export does not call this
-// until sequential output and its complete resume records are implemented.
+// Object-scoped conversion for sequential project export. The caller keeps its
+// painted export parts separate from the existing support-analysis geometry.
 import { cutNegatives } from '../../web/cut.js';
 import { subtractProjectNegatives } from './project-analysis.js';
 import { remapProjectPaint } from './project-paint.js';
