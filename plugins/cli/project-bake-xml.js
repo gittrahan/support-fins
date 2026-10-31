@@ -1,5 +1,5 @@
-// Internal export primitive, exercised by the conversion harness. It does not
-// enable a CLI path or edit a project's root/components/settings.
+// Internal export primitive shared by sequential export and the conversion
+// harness. The caller owns the project's root/components/settings edits.
 import { validateVertexIDs } from './project-bake-mesh.js';
 const CORE = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02';
 const identity = [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0];

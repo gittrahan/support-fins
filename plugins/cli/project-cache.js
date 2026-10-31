@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 
 const MAGIC = Buffer.from('SFINSC01');
+const BAKED_MAGIC = Buffer.from('SFINSC02');
 const digest = (data) => createHash('sha256').update(data).digest();
 const stable = (v) => Array.isArray(v) ? v.map(stable) : v && typeof v === 'object'
   ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, stable(v[k])])) : v;
@@ -32,30 +33,94 @@ export async function runtimeIdentity() {
   return hash.digest('hex');
 }
 
-function encode(key, number, { triangles, offset, stats }) {
-  const metadata = Buffer.from(JSON.stringify({ key, number, offset, stats }));
-  const body = Buffer.alloc(4 + metadata.length + triangles.length * 4);
+function encode(key, number, { triangles, offset, stats, baked }) {
+  // Fins keep their existing float32 representation. Converted bodies require
+  // float64 and explicit vertex identity: JSON/float32 coordinate round trips
+  // can collapse paint boundaries or join otherwise distinct shells.
+  const arrays = [{ values: triangles, width: 4, kind: 'float' }];
+  let conversion;
+  if (baked) {
+    if ('analysisPositions' in baked) throw new Error('checkpoint must not retain analysis meshes');
+    conversion = { ...baked, version: 1, parts: baked.parts.map(({ positions, vertexIDs, sourceFaces, ...part }) => {
+      arrays.push({ values: positions, width: 8, kind: 'float' });
+      if (vertexIDs !== undefined) arrays.push({ values: vertexIDs, width: 4, kind: 'uint' });
+      if (sourceFaces !== undefined) arrays.push({ values: sourceFaces, width: 4, kind: 'int' });
+      return { ...part, coordinates: positions.length, vertices: vertexIDs?.length ?? null, faces: sourceFaces?.length ?? null };
+    }) };
+  }
+  const metadata = Buffer.from(JSON.stringify({ key, number, offset, stats,
+    ...(baked ? { triangleCoordinates: triangles.length, baked: conversion } : {}) }));
+  const body = Buffer.alloc(4 + metadata.length + arrays.reduce((n, a) => n + a.values.length * a.width, 0));
   body.writeUInt32LE(metadata.length); metadata.copy(body, 4);
-  for (let i = 0; i < triangles.length; i++) body.writeFloatLE(triangles[i], 4 + metadata.length + i * 4);
-  return Buffer.concat([MAGIC, digest(body), body]);
+  let cursor = 4 + metadata.length;
+  for (const { values, width, kind } of arrays) for (const value of values) {
+    if (!Number.isFinite(value) || kind === 'uint' && (!Number.isSafeInteger(value) || value < 0 || value > 0xffffffff) ||
+        kind === 'int' && (!Number.isSafeInteger(value) || value < -1 || value > 0x7fffffff)) {
+      throw new Error('invalid checkpoint geometry');
+    }
+    if (kind === 'uint') body.writeUInt32LE(value, cursor);
+    else if (kind === 'int') body.writeInt32LE(value, cursor);
+    else if (width === 8) body.writeDoubleLE(value, cursor);
+    else body.writeFloatLE(value, cursor);
+    cursor += width;
+  }
+  return Buffer.concat([baked ? BAKED_MAGIC : MAGIC, digest(body), body]);
 }
 
 function decode(bytes, key, number) {
-  if (bytes.length < 44 || !bytes.subarray(0, 8).equals(MAGIC)) throw new Error('invalid checkpoint header');
+  const converted = bytes.subarray(0, 8).equals(BAKED_MAGIC);
+  if (bytes.length < 44 || !converted && !bytes.subarray(0, 8).equals(MAGIC)) throw new Error('invalid checkpoint header');
   const body = bytes.subarray(40);
   if (!digest(body).equals(bytes.subarray(8, 40))) throw new Error('checkpoint checksum mismatch');
   const end = 4 + body.readUInt32LE();
-  if (end > body.length || (body.length - end) % 36) throw new Error('incomplete triangle data');
+  if (end > body.length || !converted && (body.length - end) % 36) throw new Error('incomplete triangle data');
   const meta = JSON.parse(body.subarray(4, end).toString('utf8'));
   if (meta.key !== key || meta.number !== number || !meta.offset
       || !['x', 'y', 'z'].every((k) => Number.isFinite(meta.offset[k]))
       || !meta.stats || typeof meta.stats !== 'object' || Array.isArray(meta.stats)) throw new Error('invalid checkpoint metadata');
-  const triangles = new Float32Array((body.length - end) / 4);
-  for (let i = 0; i < triangles.length; i++) {
-    triangles[i] = body.readFloatLE(end + i * 4);
-    if (!Number.isFinite(triangles[i])) throw new Error('invalid checkpoint coordinate');
+  let cursor = end;
+  const array = (length, width, kind = 'float') => {
+    if (!Number.isSafeInteger(length) || length < 0 || length > Math.floor((body.length - cursor) / width)) {
+      throw new Error('incomplete checkpoint geometry');
+    }
+    const values = kind === 'uint' ? new Uint32Array(length) : kind === 'int' ? new Int32Array(length)
+      : width === 8 ? new Float64Array(length) : new Float32Array(length);
+    for (let i = 0; i < length; i++, cursor += width) {
+      values[i] = kind === 'uint' ? body.readUInt32LE(cursor) : kind === 'int' ? body.readInt32LE(cursor)
+        : width === 8 ? body.readDoubleLE(cursor) : body.readFloatLE(cursor);
+      if (!Number.isFinite(values[i])) throw new Error('invalid checkpoint coordinate');
+      if (kind === 'int' && values[i] < -1) throw new Error('invalid checkpoint source face');
+    }
+    return values;
+  };
+  const triangles = array(converted ? meta.triangleCoordinates : (body.length - end) / 4, 4);
+  if (triangles.length % 9) throw new Error('incomplete triangle data');
+  const result = { triangles, offset: meta.offset, stats: meta.stats };
+  if (converted) {
+    const baked = meta.baked;
+    if (!triangles.length || baked?.version !== 1 || !Array.isArray(baked.parts) || !baked.parts.length ||
+        !Array.isArray(baked.removed) || !Array.isArray(baked.warnings) || !baked.warnings.length ||
+        baked.warnings.some((w) => typeof w !== 'string') || !baked.compatibility ||
+        !/^[a-f0-9]{64}$/.test(baked.fingerprint) || 'analysisPositions' in baked) {
+      throw new Error('invalid baked checkpoint metadata');
+    }
+    const { version: _, ...conversion } = baked;
+    conversion.parts = baked.parts.map(({ coordinates, vertices, faces, ...part }) => {
+      if (!coordinates || coordinates % 9 || !Array.isArray(part.triangleAttributes) ||
+          part.triangleAttributes.length !== coordinates / 9 || !Array.isArray(part.source?.route) ||
+          !Array.isArray(part.properties) || !part.objectAttributes || !part.modelAttributes) {
+        throw new Error('invalid baked checkpoint part');
+      }
+      const positions = array(coordinates, 8);
+      if (vertices !== null && vertices !== coordinates / 3) throw new Error('invalid baked vertex identities');
+      if (faces !== null && faces !== coordinates / 9) throw new Error('invalid baked source faces');
+      return { ...part, positions, ...(vertices === null ? {} : { vertexIDs: array(vertices, 4, 'uint') }),
+        ...(faces === null ? {} : { sourceFaces: array(faces, 4, 'int') }) };
+    });
+    result.baked = conversion;
   }
-  return { triangles, offset: meta.offset, stats: meta.stats };
+  if (cursor !== body.length) throw new Error('unexpected checkpoint geometry');
+  return result;
 }
 
 async function directory(dir) {
@@ -70,7 +135,7 @@ export async function openProjectCache({ input, bytes, selection, settings, cach
   const root = path.resolve(cacheDir ?? `${input}.fins-cache`);
   const build = await buildIdentity();
   const runtime = globalThis.Deno?.version ?? globalThis.process?.versions;
-  const key = digest(JSON.stringify(stable({ format: 1, source: digest(bytes).toString('hex'),
+  const key = digest(JSON.stringify(stable({ format: 2, source: digest(bytes).toString('hex'),
     selection, settings, build, runtime }))).toString('hex');
   await directory(root);
   const dir = path.join(root, `support-fins-${key}`);

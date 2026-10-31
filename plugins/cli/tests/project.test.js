@@ -4,6 +4,8 @@ import { ProjectZip } from '../project-zip.js';
 import { checkProjectOutput, writeProject } from '../project-io.js';
 import { openProjectCache } from '../project-cache.js';
 import { subtractProjectNegatives } from '../project-analysis.js';
+import { bakeProjectObject } from '../project-bake-input.js';
+import { bakeFixture } from './_bake-fixture.js';
 import { xmlTree, children, child, metadata, editXML, insert } from '../project-xml.js';
 import { readThreeMF, readThreeMFParts, meshXML } from '../../../web/threemf.js';
 import { zipStore } from '../../../web/zip.js';
@@ -81,6 +83,7 @@ async function fixture({ duplicate = false, negative = false, variable = null, l
       + plate(1, instance(10, 1) + (together ? second : '')) + plate(2, together ? '' : second)
       + emptyPlates.map((id) => `<plate><metadata key="plater_id" value="${id}"/></plate>`).join('') + '<assemble/></config>' },
     { name: SETTINGS, data: JSON.stringify({ layer_height: layer, initial_layer_print_height: '0.3', nozzle_diameter: nozzle,
+      wall_filament: '0', sparse_infill_filament: '0', solid_infill_filament: '0',
       filament_colour: ['#FFFFFF', '#123456'], filament_type: ['PETG', 'PETG'], enable_support: '1', print_sequence: sequence }) },
     { name: '3D/Objects/a.model', data: model('4') },
     { name: '3D/Objects/b.model', data: model('8') },
@@ -994,9 +997,12 @@ Deno.test('project negatives: plate sequence overrides project sequence in both 
   for (const sequence of [{ sequence: 'by layer', plateSequence: 'by object' }, { sequence: 'by object' }]) {
     const source = await fixture({ cutters: [cavity()], ...sequence });
     const check = await cli(source, ['--check']), batch = await cli(source), explicit = await cli(source, ['--object', '1']);
-    assert(check.code === 1 && check.result.objectResults[0].reason.includes('print-by-layer'), 'check accepted by-object negative');
-    assert(batch.code === 0 && batch.result.objectResults[0].status === 'skipped', 'batch did not skip');
-    assert(explicit.code === 1 && explicit.fs.size === 1, 'explicit unsupported selection published output');
+    assert(check.code === 0 && check.result.objectResults[0].status === 'compatible' && check.fs.size === 1, check.err.join('\n'));
+    assert(batch.code === 0 && batch.result.objectResults[0].status === 'processed', batch.err.join('\n'));
+    assert(explicit.code === 0 && explicit.result.objectResults.length === 1, explicit.err.join('\n'));
+    const saved = new ProjectZip(explicit.fs.get(explicit.result.output));
+    assert(!nodeText(await saved.text(CONFIG), '10').includes('negative_part'), 'sequential cutters remain active');
+    equal(await saved.read(SETTINGS), await new ProjectZip(source).read(SETTINGS), 'sequence rewritten');
   }
 });
 
@@ -1118,4 +1124,208 @@ Deno.test('project negatives resume: source and generation settings invalidate s
     const r = await call(['--resume', ...(change === 'settings' ? ['--mode', 'full'] : [])]);
     assert(r.code === 0 && !r.hits.length && r.saved.join() === '1,2', `${change}: reused stale subtraction`);
   }, { cutters: [cavity()], upright: true });
+});
+
+
+for (const mode of ['auto', 'full']) for (const mirror of [false, true]) {
+  Deno.test(`project sequential: ${mode}, mirror ${mirror} preserves painted bodies, pose, plates and unselected objects`, async () => {
+    const source = await fixture({ upright: true, mirror, sequence: 'by object', cutters: [cavity()] });
+    const r = await cli(source, ['--object', '1', '--mode', mode, '--disable-native-supports']);
+    assert(r.code === 0 && r.result.objects[0].triangles > 0, r.err.join('\n'));
+    const original = new ProjectZip(source), saved = new ProjectZip(r.fs.get(r.result.output));
+    const root = xmlTree(await saved.text(ROOT)), cfg = xmlTree(await saved.text(CONFIG));
+    const oldRoot = xmlTree(await original.text(ROOT));
+    assert(JSON.stringify(child(root, 'build').attrs) === JSON.stringify(child(oldRoot, 'build').attrs));
+    equal(bytes((await saved.text(ROOT)).slice(child(root,'build').start,child(root,'build').end)),
+      bytes((await original.text(ROOT)).slice(child(oldRoot,'build').start,child(oldRoot,'build').end)), 'build order/pose changed');
+    const own = children(cfg, 'object').find(o => o.attrs.id === '10');
+    assert(children(own, 'part').length === 2 && children(own, 'part').every(p => p.attrs.subtype === 'normal_part'), 'cutters active or body/fin missing');
+    assert(metadata(own).enable_support === '0' && children(own, 'part').every(p => metadata(p).enable_support !== '1'), 'native supports not disabled');
+    assert(r.result.objects[0].supportObject === null && children(child(root,'build'),'item').length === 2, 'new sequential object added');
+    for (const name of [ROOT, CONFIG]) assert(nodeText(await original.text(name),'20',name===ROOT) === nodeText(await saved.text(name),'20',name===ROOT), 'unselected object changed');
+    for (const name of ['3D/Objects/a.model','3D/Objects/b.model','3D/Objects/cutter0.model',SETTINGS,'Auxiliaries/私有.bin']) {
+      const a=original.entries.get(name), b=saved.entries.get(name);
+      equal(original.bytes.subarray(a.offset,a.end),saved.bytes.subarray(b.offset,b.end),`original member changed: ${name}`);
+    }
+    const baked = await bakeProjectObject(source);
+    const expected = computeFins(baked.analysisPositions, optionsFromDialog({mode, layerHeight:0.16, nozzle:0.4}));
+    assert(r.result.objects[0].triangles === expected.triangles.length/9, 'generation did not use the original analysis mesh');
+    const members = new Map(await Promise.all([...saved.entries.keys()].map(async n=>[n,await saved.read(n)])));
+    const model = readThreeMFParts(members,{buildIndex:0,doublePrecision:true,outwardWinding:true,withComponents:true}).objects[0];
+    assert(model.extras.length===0 && model.components.length===2, 'active cuts remain');
+    const body=model.components[0], fin=model.components[1];
+    equal(body.positions,baked.parts[0].positions,'baked body moved');
+    const paints = Array.from({length:body.source.indices.length/3},(_,i)=>body.source.triangleAttributes[i]??{});
+    assert(JSON.stringify(paints)===JSON.stringify(baked.parts[0].triangleAttributes),'surviving paint changed');
+    const offset=[expected.offset.x,expected.offset.y,expected.offset.z];
+    for(let j=0;j<fin.positions.length;j++) assertClose(fin.positions[j],expected.triangles[j]-offset[j%3],4e-5,`fin ${j}`);
+    const warnings=r.result.objectResults[0].warnings.join(' ');
+    assert(warnings.includes('may differ') && warnings.includes('manually correct') && warnings.includes('no longer independently editable') && warnings.includes('weld'),warnings);
+    const mapping=JSON.parse(await saved.text('Metadata/support_fins_project.json')).bakedObjects[0];
+    assert(mapping.number===1 && mapping.parts.length===1 && mapping.parts[0].source.route.join()==='0','source mapping lost');
+    assert(saved.entries.has(mapping.parts[0].path) && mapping.materialPolicy==='base-material-on-cuts','conversion manifest incomplete');
+  });
+}
+
+for (const mode of ['auto','full']) Deno.test(`project sequential: ${mode} zero-fin small holes keep editable source`, async()=>{
+  const source=await fixture({upright:true,sequence:'by object',cutters:[{positions:cylinder(5)}]});
+  const r=await cli(source,['--object','1','--mode',mode]);
+  assert(r.code===0 && r.result.objectResults[0].status==='no_supports',r.err.join('\n'));
+  const a=new ProjectZip(source), b=new ProjectZip(r.fs.get(r.result.output));
+  assert(![...b.entries.keys()].some(n=>n.includes('/converted-')),'zero-fin object baked');
+  for(const name of [ROOT,CONFIG]) assert(nodeText(await a.text(name),'10',name===ROOT)===nodeText(await b.text(name),'10',name===ROOT),'zero-fin source changed');
+  assert(!r.result.objectResults[0].warnings.some(w=>w.includes('were baked')),'zero-fin conversion claimed');
+});
+
+Deno.test('project sequential: check validates conversion/serialization but listings do not load invalid paint',async()=>{
+  const source=await fixture({sequence:'by object',cutters:[cavity()]});
+  const zip=new ProjectZip(source);
+  const bad=new Uint8Array(await (await zip.patch(new Map([['3D/Objects/a.model',(await zip.text('3D/Objects/a.model')).replace('paint_color="4"','paint_color="broken"')]]))).arrayBuffer());
+  for(const flag of ['--list-objects','--list-plates']) assert((await cli(bad,[flag])).code===0,'listing tried conversion');
+  const checked=await cli(bad,['--check']);
+  assert(checked.code===1 && checked.fs.size===1 && checked.result.objectResults[0].status==='incompatible',checked.out.join('\n'));
+  const batch=await cli(bad), explicit=await cli(bad,['--object','1']);
+  assert(batch.code===0 && batch.result.objectResults[0].status==='skipped','bad conversion was not skipped');
+  assert(explicit.code===1 && explicit.fs.size===1,'explicit failure published output');
+  const out=new ProjectZip(batch.fs.get(batch.result.output));
+  assert(nodeText(await out.text(ROOT),'10',true)===nodeText(await zip.text(ROOT),'10',true),'failed object partially replaced');
+});
+
+Deno.test('project sequential resume: complete painted conversions survive interruption and final-write failure',()=>diskProject(async({dir,call})=>{
+  const stop=await call(['--resume'],c=>({...c,load:n=>{if(n===2)throw new Error('stop');return c.load(n);}}));
+  assert(stop.code===1 && stop.saved.join()==='1','converted object not checkpointed');
+  // Prevent subtraction/remapping from succeeding if resume accidentally calls it.
+  setManifoldWasm(new Uint8Array([0]));
+  try {
+    const fail=await call(['--resume'],c=>c,()=>{throw new Error('final write failed');});
+    assert(fail.code===1 && fail.hits.join()==='1' && fail.saved.join()==='2','conversion was recomputed or not retained');
+    const done=await call(['--resume','-o',`${dir}/resumed.3mf`]);
+    assert(done.code===0 && done.hits.join()==='1,2' && !done.saved.length,done.err.join('\n'));
+    assert(done.result.objectResults[0].warnings.some(w=>w.includes('may differ')),'resume lost material warning');
+  } finally { setManifoldWasm(null); }
+  const fresh=await call(['-o',`${dir}/fresh.3mf`]); assert(fresh.code===0,fresh.err.join('\n'));
+  const a=new ProjectZip(await Deno.readFile(`${dir}/resumed.3mf`)),b=new ProjectZip(await Deno.readFile(`${dir}/fresh.3mf`));
+  assert([...a.entries.keys()].join() === [...b.entries.keys()].join(),'resumed members differ');
+  for(const name of a.entries.keys()) {
+    if([ROOT,SUPPORTS].includes(name)) assert(normalizedXML(await a.text(name))===normalizedXML(await b.text(name)),`resumed XML differs ${name}`);
+    else equal(await a.read(name),await b.read(name),`resumed content differs ${name}`);
+  }
+},{sequence:'by object',cutters:[cavity()]}));
+
+Deno.test('project sequential resume: failed painting conversion never becomes a completed checkpoint',()=>diskProject(async({input,source,call})=>{
+  const zip=new ProjectZip(source),name='3D/Objects/a.model';
+  await Deno.writeFile(input,new Uint8Array(await (await zip.patch(new Map([[name,
+    (await zip.text(name)).replace('paint_color="4"','paint_color="broken"')]]))).arrayBuffer()));
+  const failed=await call(['--resume'],c=>c,()=>{throw new Error('final write failed');});
+  assert(failed.code===1 && failed.saved.join()==='2','failed conversion cached');
+  const resumed=await call(['--resume']);
+  assert(resumed.code===0 && resumed.hits.join()==='2' && !resumed.saved.length &&
+    resumed.result.objectResults[0].status==='skipped','failed conversion was reused');
+},{sequence:'by object',cutters:[cavity()]}));
+
+
+async function paintedProject(options={}, edit=()=>{}) {
+  const {members}=bakeFixture({transform:'1 0 0 0 0.7071067811865476 0.7071067811865476 0 -0.7071067811865476 0.7071067811865476 60 60 0',
+    material:true,second:true,cutters:[block(2,8,-1,8,2,8)],...options});
+  members.set(SETTINGS,bytes(JSON.stringify({print_sequence:'by object',nozzle_diameter:['0.4'],filament_colour:['#FFFFFF','#FFFFFF'],
+    layer_height:'0.2',initial_layer_print_height:'0.24',wall_filament:'0',sparse_infill_filament:'2',solid_infill_filament:'0'})));
+  members.set(CONFIG,bytes(new TextDecoder().decode(members.get(CONFIG)).replace('</config>',
+    '<plate><metadata key="plater_id" value="1"/><metadata key="print_sequence" value="by object"/>'+
+    '<model_instance><metadata key="object_id" value="100"/><metadata key="instance_id" value="0"/><metadata key="identify_id" value="100"/></model_instance></plate></config>')));
+  members.set('[Content_Types].xml',bytes('<Types><Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/></Types>'));
+  edit(members);
+  return new Uint8Array(await zipStore([...members].map(([name,data])=>({name,data}))).arrayBuffer());
+}
+Deno.test('project sequential: multipart equal-color slots, recursive annotations and material roles survive',async()=>{
+  const source=await paintedProject(),r=await cli(source,['--mode','full']);
+  assert(r.code===0 && r.result.objectResults[0].status==='processed',r.err.join('\n'));
+  const saved=new ProjectZip(r.fs.get(r.result.output)), cfg=xmlTree(await saved.text(CONFIG));
+  const own=child(cfg,'object'),parts=children(own,'part');
+  assert(parts.length===3,'part boundaries flattened');
+  assert(metadata(parts[0]).extruder==='2' && metadata(parts[1]).extruder==='1','equal-color slots conflated');
+  assert(metadata(parts[0]).wall_filament==='1','part wall assignment lost');
+  equal(await saved.read(SETTINGS),await new ProjectZip(source).read(SETTINGS),'project material roles changed');
+  const expected=await bakeProjectObject(source);
+  const members=new Map(await Promise.all([...saved.entries.keys()].map(async n=>[n,await saved.read(n)])));
+  const decoded=readThreeMFParts(members,{buildIndex:0,doublePrecision:true,outwardWinding:true,withComponents:true}).objects[0];
+  for(let i=0;i<2;i++) {
+    const component=decoded.components[i],part=expected.parts[i];
+    assert(component.source.attributes.pid===part.objectAttributes.pid,'base material reference lost');
+    assert(JSON.stringify(component.source.properties)===JSON.stringify(part.properties),'material resources changed');
+    const attributes=Array.from({length:component.source.indices.length/3},(_,i)=>component.source.triangleAttributes[i]??{});
+    assert(JSON.stringify(attributes)===JSON.stringify(part.triangleAttributes),'colour/seam/support regions changed');
+  }
+  assert(expected.parts[0].triangleAttributes.some(a=>a.paint_color) && expected.parts[0].triangleAttributes.some(a=>a.paint_seam),'paint fixture ineffective');
+});
+Deno.test('project sequential: fully removed parts disappear while surviving materials remain independent',async()=>{
+  const source=await paintedProject({cutters:[block(2,8,-1,8,2,8),block(19,26,-1,6,-1,6)]});
+  const r=await cli(source,['--mode','full']);assert(r.code===0 && r.result.objects[0].triangles>0,r.err.join('\n'));
+  const saved=new ProjectZip(r.fs.get(r.result.output));
+  const parts=children(child(xmlTree(await saved.text(CONFIG)),'object'),'part');
+  assert(parts.length===2 && metadata(parts[0]).extruder==='2','removed part retained or surviving assignment changed');
+  assert(!parts.some(p=>p.attrs.subtype==='negative_part'),'active cutter retained');
+});
+Deno.test('project sequential: repeated component occurrences receive independent derived resources',async()=>{
+  const source=await paintedProject({second:false},m=>{
+    const original=new TextDecoder().decode(m.get(ROOT));
+    m.set(ROOT,bytes(original.replace('</components>','<component objectid="1" p:path="/3D/Objects/body.model" transform="1 0 0 0 1 0 0 0 1 25 0 0"/></components>')));
+  });
+  const r=await cli(source,['--mode','full']);assert(r.code===0 && r.result.objects[0].triangles>0,r.err.join('\n'));
+  const saved=new ProjectZip(r.fs.get(r.result.output)),root=xmlTree(await saved.text(ROOT));
+  const components=children(child(child(child(root,'resources'),'object'),'components'),'component');
+  assert(components.length===3 && new Set(components.map(c=>c.attrs.objectid)).size===3,'occurrences or fins merged');
+  assert(components.slice(0,2).every(c=>c.attrs['p:path'].includes('/converted-')),'original body left active');
+});
+for(const [label,edit] of [
+ ['variable profile',m=>m.set('Metadata/layer_heights_profile.txt',bytes('object_id=1|0;0.2;5;0.1'))],
+ ['modifier',m=>m.set(CONFIG,bytes(new TextDecoder().decode(m.get(CONFIG)).replace('normal_part','modifier_part')))],
+ ['missing roles',m=>{const x=JSON.parse(new TextDecoder().decode(m.get(SETTINGS)));delete x.sparse_infill_filament;m.set(SETTINGS,bytes(JSON.stringify(x)));}],
+]) Deno.test(`project sequential: ${label} fails even with a fin layer override`,async()=>{
+ const source=await paintedProject({},edit);
+ for(const flags of [[],['--object','1'],['--check']]) {
+  const r=await cli(source,[...flags,'--layer-height','0.2']);
+  assert(r.code===1 && r.fs.size===1,'incompatible conversion published output');
+ }
+});
+
+for (const zero of [false, true]) Deno.test(`project sequential: stale assembly/cut editing metadata, zero fins ${zero}`, async () => {
+  const source = new ProjectZip(await fixture({ upright: true, sequence: 'by object',
+    cutters: [zero ? { positions: cylinder(5) } : cavity()] }));
+  const rootText = await source.text(ROOT), root = xmlTree(rootText), build = child(root, 'build');
+  const [first, second] = children(build, 'item').map(n => rootText.slice(n.start, n.end));
+  // An unselected shared instance changes build ordinals but not Bambu's
+  // first-occurrence object ordinal used by cut_information.xml.
+  const assembly = '<assemble><assemble_item object_id="10" instance_id="0" transform="1 0 0 0 1 0 0 0 1 30 0 0"/>' +
+    '<assemble_item object_id="10" volume_id="0" transform="1 0 0 0 1 0 0 0 1 2 3 4"/>' +
+    '<assemble_item object_id="10" volume_id="1" transform="1 0 0 0 1 0 0 0 1 9 8 7"/>' +
+    '<assemble_item object_id="20" volume_id="0" transform="1 0 0 0 1 0 0 0 1 6 5 4"/></assemble>';
+  const cuts = '<objects><object id="1"><cut_id id="4" check_sum="1" connectors_cnt="0"/></object>' +
+    '<object id="2"><cut_id id="7" check_sum="1" connectors_cnt="1"/><connectors>' +
+    '<connector volume_id="0" type="1" r_tolerance="0.1" h_tolerance="0.1"/></connectors></object></objects>';
+  const input = new Uint8Array(await (await source.patch(new Map([
+    [ROOT, editXML(rootText, [[build.open, build.close, second + second + first]])],
+    [CONFIG, (await source.text(CONFIG)).replace('<assemble/>', assembly)],
+    ['Metadata/cut_information.xml', cuts],
+  ]))).arrayBuffer());
+  const checked = await cli(input, ['--object', '3', '--check']);
+  assert(checked.code === 0 && checked.fs.size === 1, checked.err.join('\n'));
+  const r = await cli(input, ['--object', '3']); assert(r.code === 0, r.err.join('\n'));
+  const out = new ProjectZip(r.fs.get(r.result.output));
+  const config = xmlTree(await out.text(CONFIG)), original = xmlTree(assembly);
+  const entries = children(child(config, 'assemble'), 'assemble_item');
+  assert(entries.some(n => n.attrs.object_id === '10' && n.attrs.instance_id === '0'), 'object assembly placement removed');
+  assert(JSON.stringify(entries.find(n => n.attrs.object_id === '20').attrs) === JSON.stringify(original.children.at(-1).attrs), 'unselected assembly transform changed');
+  assert(entries.filter(n => n.attrs.object_id === '10' && 'volume_id' in n.attrs).length === (zero ? 2 : 0), 'stale volume transforms retained or editable object altered');
+  const cutXML = await out.text('Metadata/cut_information.xml'), cutRecords = children(xmlTree(cutXML), 'object');
+  assert(cutRecords.map(n => n.attrs.id).join() === (zero ? '1,2' : '1'), 'wrong cut-editing object removed');
+  if (zero) assert(cutXML === cuts, 'zero-fin cut metadata changed');
+});
+
+Deno.test('project sequential: malformed cut-editing manifest fails without output; listings stay lightweight', async () => {
+  const source = new ProjectZip(await fixture({ sequence: 'by object', cutters: [cavity()] }));
+  const input = new Uint8Array(await (await source.patch(new Map([['Metadata/cut_information.xml', '<broken>']]))).arrayBuffer());
+  assert((await cli(input, ['--list-objects'])).code === 0);
+  for (const flags of [['--check'], ['--object', '1']]) {
+    const r = await cli(input, flags); assert(r.code === 1 && r.fs.size === 1, 'invalid editing manifest published');
+  }
 });

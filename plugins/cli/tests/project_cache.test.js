@@ -134,3 +134,51 @@ Deno.test('cache: source build identity detects uncommitted engine/schema change
   assert(before !== engine && engine !== schema, 'unstamped source edits reused a build identity');
   assert(schema === await runtimeIdentity(), 'identity unstable for unchanged files');
 }));
+
+
+const converted = () => ({
+  ...data,
+  baked: { fingerprint:'a'.repeat(64), sourceSHA256:'b'.repeat(64), settingsSHA256:'c'.repeat(64), runtime:'d'.repeat(64),
+    materialPolicy:'base-material-on-cuts', warnings:['Sliced material regions may differ.'],
+    compatibility:{buildIndex:0,objectId:'10',negativeOccurrences:1,materials:[{filament:2,roles:{wall_filament:1}}]},
+    removed:[{path:'3D/removed.model',objectId:2,route:[1]}],
+    parts:[{ positions:Float64Array.of(1/3,0,0,1/3+2**-40,0,0,1/3,1,0),
+      vertexIDs:Uint32Array.of(7,8,9),sourceFaces:Int32Array.of(-1),positionOrigin:[37,51,0],
+      source:{path:'3D/body.model',objectId:1,partId:1,route:[0,1]}, objectAttributes:{id:'1'},modelAttributes:{},
+      properties:[],triangleAttributes:[{paint_color:'8',paint_seam:'4',paint_supports:'8'}],
+      settings:{attributes:{id:'1',subtype:'normal_part'},metadata:[['extruder','2'],['wall_filament','1']]},collapsedFaces:0}]
+  }
+});
+Deno.test('cache: complete baked bodies retain float64 boundaries, painting, identities, settings and warnings',()=>temporary(async(dir)=>{
+  const r=request(dir),c=await open(r),value=converted(); await c.save(1,value); await c.save(2,data);
+  const resumed=await open(r),got=await resumed.load(1),plain=await resumed.load(2);
+  assert(got.baked.parts[0].positions instanceof Float64Array && got.baked.parts[0].vertexIDs instanceof Uint32Array
+    && got.baked.parts[0].sourceFaces instanceof Int32Array,'geometry types lost');
+  assert(got.baked.parts[0].positions[0]!==got.baked.parts[0].positions[3],'paint boundary collapsed to float32');
+  const stable=v=>ArrayBuffer.isView(v)?{type:v.constructor.name,data:Array.from(v)}:Array.isArray(v)?v.map(stable)
+    :v&&typeof v==='object'?Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+  assert(JSON.stringify(stable(got))===JSON.stringify(stable(value)),'conversion checkpoint changed');
+  assert(same(plain,data) && !plain.baked,'unaffected record acquired conversion');
+  await resumed.finish();
+}));
+Deno.test('cache: incomplete baked records never become completed checkpoints',()=>temporary(async(dir)=>{
+  const r=request(dir),c=await open(r);
+  for(const mutate of [v=>v.baked.parts[0].positions[0]=NaN,v=>v.baked.parts[0].vertexIDs=Uint32Array.of(0),
+    v=>v.baked.parts[0].sourceFaces=Int32Array.of(-2),v=>v.baked.parts[0].triangleAttributes=[],
+    v=>v.baked.warnings=[],v=>v.baked.analysisPositions=new Float64Array(9),v=>v.triangles=new Float32Array()]) {
+    const value=converted(); mutate(value); let error;
+    try {await c.save(1,value);}catch(e){error=e;}
+    assert(error?.message.includes('cannot save checkpoint'),'invalid baked record saved');
+    assert(await (await open(r)).load(1)===null,'failed conversion checkpoint reused');
+  }
+}));
+Deno.test('cache: checksum and version reject damaged baked geometry before reuse',()=>temporary(async(dir)=>{
+  for(const version of [false,true]) {
+    const warnings=[],r=request(dir,{settings:{version}},warnings),c=await open(r); await c.save(1,converted());
+    const root=`${r.input}.fins-cache`,record=(await records(root)).find(n=>n.endsWith('.cache'));
+    const file=path.join(root,record),bytes=await fs.readFile(file); bytes[version?7:bytes.length-1]^=1; await fs.writeFile(file,bytes);
+    assert(await (await open(r)).load(1)===null,'damaged conversion reused');
+    assert(warnings.some(w=>w.includes(version?'header':'checksum')),'invalid checkpoint not explained');
+    await c.finish();
+  }
+}));
