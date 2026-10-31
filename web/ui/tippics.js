@@ -62,6 +62,13 @@ export const TIP_PICS = {
     + '<path class="tp-sup" d="M112 118 L160 118 L114 16 L112 16 Z"/><rect class="tp-sup" x="110" y="115" width="56" height="3"/>'
     + tines(() => 112, () => 110, 112, 22, 9)),
 
+  // Anchor fins (GH #351): the same rib on the up-facing back of a part leaning
+  // over, so nothing has to stand under the leaning side.
+  anchor: svg(BED
+    + '<path class="tp-part" d="M120 118 L150 118 L90 15 L60 15 Z"/>'
+    + '<path class="tp-sup" d="M153 118 L196 118 L97 15 L93 15 Z"/><rect class="tp-sup" x="150" y="115" width="50" height="3"/>'
+    + tines((y) => 93 + (y - 15) * 60 / 103, (y) => 90 + (y - 15) * 60 / 103, 108, 22, 9)),
+
   // Brace grip from: no tines below the height set; they start there and run up.
   'sway-from': svg(BED
     + '<rect class="tp-part" x="40" y="14" width="30" height="104"/>'

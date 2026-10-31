@@ -521,6 +521,12 @@
       <label data-i18n-title class="check" data-tip-pic="sway" title="Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows. Hover an upright side to preview one, and click to add it.">
         <input type="checkbox" id="sway"><span data-i18n="Sway braces">Sway braces</span>
       </label>
+      <!-- Anchor fins (GH #351): the sway rib placed by hand only -- on an upright side
+           or the up-facing back of a leaning part, curved or flat. Adds nothing to
+           Auto's build; shares the brace settings below. -->
+      <label data-i18n-title class="check" data-tip-pic="anchor" title="Hold a leaning part from its back, the side that faces up, instead of standing a wall under it. Hover the back to preview an anchor and click to add it. Takes a back leaning up to 45°, curved or flat. Uses the brace settings below.">
+        <input type="checkbox" id="anchor"><span data-i18n="Anchor fins">Anchor fins</span>
+      </label>
       <label data-i18n-title class="fld row" id="sway-from-fld" data-tip-pic="sway-from" title="Height the brace tines start at. 0 = grip the whole height; raise it to tie on only above where the part starts to move.">
         <span><span data-i18n="Brace grip from">Brace grip from</span> <span class="mut" data-i18n="mm up">mm up</span></span>
         <input type="number" id="sway-from" min="0" max="2000" step="5" value="0">

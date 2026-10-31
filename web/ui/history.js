@@ -42,7 +42,7 @@ let redoStack = [];
 // same events a hand edit would. Not the build volume: that is the printer, saved
 // across visits, not an edit to this part.
 const FORM_IDS = ['nozzle', 'thr', 'tines', 'tine-density', 'tine-dir', 'pin-depth', 'layer-height', 'gap',
-  'bed-pad', 'pad-h', 'pad-gap', 'pad-grip', 'pad-margin', 'sway', 'sway-from',
+  'bed-pad', 'pad-h', 'pad-gap', 'pad-grip', 'pad-margin', 'sway', 'anchor', 'sway-from',
   'sway-spacing', 'sway-depth', 'sway-cross-height', 'full-brace-depth', 'rounded-feet', 'wall-lines', 'cutout', 'iface', 'coverage', 'plate-only', 'long-walls', 'separate-walls', 'tall-ribs', 'tall-ribs-height', 'curved-walls', 'highlight-small', 'show-islands', 'show-layers',
   'show-rings', 'nav-preset'];
 const readForm = () => Object.fromEntries(FORM_IDS.map((id) => {
@@ -80,7 +80,7 @@ function snapshot() {
   return {
     who: liveSlot(),
     quat: [q.x, q.y, q.z, q.w],
-    walls: drawnWalls.map((w) => ({ kind: w.kind, face: w.face, n: w.n, capped: w.capped, a: w.a.clone(), b: w.b?.clone(), m: w.m?.clone() })),
+    walls: drawnWalls.map((w) => ({ kind: w.kind, face: w.face, n: w.n, capped: w.capped, anchor: w.anchor, a: w.a.clone(), b: w.b?.clone(), m: w.m?.clone() })),
     load: loadDir ? loadDir.clone() : null,
     finMode, finsVisible, drawAugment,
     removedSigs: [...removedSigs],
@@ -173,7 +173,7 @@ export function applySettings({ form, finMode: mode, finsVisible: on }) {
 /** Apply a whole state, as undo does (ui/session.js builds one from a saved 3MF). */
 export function restoreState(s) {
   part.quaternion.set(s.quat[0], s.quat[1], s.quat[2], s.quat[3]);
-  setDrawnWalls(s.walls.map((w) => ({ kind: w.kind, face: w.face, n: w.n, capped: w.capped, a: w.a.clone(), b: w.b?.clone(), m: w.m?.clone(),
+  setDrawnWalls(s.walls.map((w) => ({ kind: w.kind, face: w.face, n: w.n, capped: w.capped, anchor: w.anchor, a: w.a.clone(), b: w.b?.clone(), m: w.m?.clone(),
                                        ok: false, info: null })));
   replaceLoadDir(s.load ? s.load.clone() : null);
   restoreRemovals(s.removedSigs);
