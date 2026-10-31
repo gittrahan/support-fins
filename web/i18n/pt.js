@@ -598,7 +598,7 @@ export default {
   // Anchor fins (GH #351)
   "Anchor fins": "Âncoras",
   "Hold a leaning part from its back, the side that faces up, instead of standing a wall under it. Hover the back to preview an anchor and click to add it. Takes a back leaning up to 45°, curved or flat. Uses the brace settings below.": "Segura uma peça inclinada pelas costas, o lado virado para cima, em vez de pôr uma parede embaixo dela. Passe o mouse sobre as costas para ver uma âncora e clique para adicioná-la. Aceita costas inclinadas até 45°, curvas ou planas. Usa as configurações de escora abaixo.",
-  "Anchor fins: hover a back that faces up, leaning up to 45°, to preview one, and click to stand it.": "Âncoras: passe o mouse sobre umas costas viradas para cima, inclinadas até 45°, para ver uma, e clique para colocá-la.",
+  "Anchor fins: hover a back that faces up, leaning up to 45°, to preview one, and click to stand it.": "Âncoras: passe o mouse sobre as costas viradas para cima, inclinadas até 45°, para ver uma, e clique para colocá-la.",
   "Anchor · full height {mm} mm": "Âncora · altura total {mm} mm",
   "Anchor · {mm} mm · move up for full height": "Âncora · {mm} mm · suba para altura total",
   "couldn’t place that anchor: {reason}": "não deu para colocar essa âncora: {reason}",
