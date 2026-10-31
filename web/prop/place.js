@@ -20,6 +20,10 @@ import { emitTines } from './tines.js';
  * shared state: the part (topo, rot, off, partTris), the user's settings, and the
  * outputs and counters every line adds to. A raster line's leftover pieces are
  * appended to `lines` (rasterRest), so the caller loops by index.
+ *
+ * A wall's `grip` is its lowest tine bottom (emitTines fills grip.z), which the
+ * raster race must not raise (prop/raster.js gripZ). Infinity: no tines. Read
+ * from the tines, not the triangles: a wall step under a tine sits lower.
  */
 export function placeLine(lines, li, patch, pass) {
   const { topo, rot, off, opts, out, props, skipped, served, tally, partTris,

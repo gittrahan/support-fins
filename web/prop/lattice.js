@@ -257,8 +257,9 @@ export function loneStrut(pts) {
 }
 
 /** Qualify only the still-bare regions before a placement pass seats the whole
- * part. Keep regionPatches' vertices AND centroids (prop/regions.js), in the same order and print
- * frame: changing that sampling changes the principal axis near the limits. */
+ * part. Keep regionPatches' (prop/regions.js) vertices AND centroids, in the
+ * same order and print frame: changing that sampling changes the principal axis
+ * near the limits. */
 export function loneStrutRegions(topo, result, rot, regions) {
   const qualified = new Set();
   for (const ri of regions) {

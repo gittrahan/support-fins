@@ -293,9 +293,6 @@ function buildPass(topo, result, rot, opts, raster) {
   const tineHeight = opts.layerHeight ?? PROP.tineH;
   // where the tests' tine capture stands (see buildProps); null when off
   const capAt = () => globalThis.__TINECAP?.length ?? null;
-  // A wall's `grip` is its lowest tine bottom (emitTines fills grip.z), which the
-  // raster race must not raise (prop/raster.js gripZ). Infinity: no tines. Read
-  // from the tines, not the triangles: a wall step under a tine sits lower.
 
   const pass = { topo, rot, off, opts, step, rowSpan, wantSparse, raster, downhill, traced,
                  partTris, plateOnly, short, withTines, tineStepEff, tineHeight, capAt,
