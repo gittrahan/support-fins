@@ -1,5 +1,5 @@
 // Draw's shapes (web/ui/drawshape.js, used by ui/walls.js): each one's clicks in order,
-// and switching Line -> Curve -> Gusset and back leaves every shape working -- nothing
+// and switching Line -> Curve -> Gusset -> Stabilizer and back leaves every shape working -- nothing
 // half drawn as one shape is finished by a click in another.
 
 import { assert } from './_util.js';
@@ -25,7 +25,7 @@ function session() {
   };
 }
 
-const CLICKS = { line: ['start', 'place'], curve: ['start', 'end', 'place'], gusset: ['side', 'reach'] };
+const CLICKS = { line: ['start', 'place'], curve: ['start', 'end', 'place'], gusset: ['side', 'reach'], stabilizer: ['stand'] };
 
 Deno.test('draw shapes: each shape takes its own clicks', () => {
   for (const shape of DRAW_SHAPES) {

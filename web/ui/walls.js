@@ -24,7 +24,7 @@ import { updateReadout } from './readout.js';
 import { pickFace } from './pose.js';
 import { part, topology, rotM3, lastResult, updateFit } from './part.js';
 import { finsVisible, finMode, autoLike, drawAugment } from './settings.js';
-import { lastBuilt, swayOpts } from './finbuild.js';
+import { lastBuilt, swayOpts, stabOpts } from './finbuild.js';
 
 // ---- draw mode: the user places breakaway walls by hand --------------------
 // A drawn wall IS the same kind of support the auto-placer emits, so it shares
@@ -43,7 +43,8 @@ let drawEnd = null;                // Vector3 (local) -- a curve's second click 
 // Line or Curve (local issue 063): a curve is three clicks -- its ends, then a point it
 // runs through -- built round the circular arc through all three (drawarc.js).
 // Gusset (gusset.js) is two clicks too: a side of the part, then the overhang it holds.
-// Remembered per browser (optional).
+// Stabilizer (sway.js SWAY.stab) is one, previewed like a sway brace: a side of the
+// part, where its top goes. Remembered per browser (optional).
 const SHAPE_KEY = 'support_fins_draw_shape';
 let drawShape = 'line';
 export const drawShapeNow = () => drawShape;
@@ -317,14 +318,15 @@ export function sweepDrawn({ topology, res, rot, tris, walls, toWorld, auto: bui
     // Each support remembers which triangles of the merged mesh are its own, so a
     // click on the mesh can be traced back to the support to select / remove.
     w.triStart = out.length / 3;
-    if (w.kind === 'sway') {
+    if (w.kind === 'sway' || w.kind === 'stabilizer') {
       // A hand-placed sway brace: re-stood on the same face at the same spot, so
       // it follows the part when it turns (and says why if that face no longer
       // stands upright, or now runs into an earlier brace). A capped one stops at
-      // its clicked point's height; the rest run up the whole face.
+      // its clicked point's height; the rest run up the whole face. A stabilizer
+      // always stops at its clicked height.
       toWorld(w.a, wa);
-      const r = swayAtFace(topology, res, rot, w.face,
-                           [wa.x, wa.y, wa.z], { ...swayOpts(), full: !w.capped }, { braces, walls: auto.walls });
+      const opts = w.kind === 'stabilizer' ? stabOpts() : { ...swayOpts(), full: !w.capped };
+      const r = swayAtFace(topology, res, rot, w.face, [wa.x, wa.y, wa.z], opts, { braces, walls: auto.walls });
       w.ok = r.ok;
       w.info = r;
       if (r.ok) { braces.push(r); for (const t of r.tris) out.push(t); }
@@ -401,6 +403,8 @@ export function selectedNote() {
   const i = selectedWall.info ?? {};
   const what = selectedWall.kind === 'sway'
     ? t('sway brace {mm}mm tall', { mm: Math.round(i.height ?? 0) })
+    : selectedWall.kind === 'stabilizer'
+    ? t('stabilizer {mm}mm tall, {d}mm out', { mm: Math.round(i.height ?? 0), d: Math.round(i.depth ?? 0) })
     : selectedWall.kind === 'gusset'
       ? t('gusset {mm}mm out from the side', { mm: Math.round(i.reach ?? 0) })
       : t('wall {mm}mm long', { mm: Math.round(i.length ?? 0) });
@@ -600,7 +604,8 @@ let braceShown = null;   // the braceAt key the ghost and tip show now
  * the pose, the settings or the supports it stands clear of change.
  */
 function braceAt(faceIndex, p) {
-  const opts = swayOpts();
+  const stab = stabShape();
+  const opts = stab ? stabOpts() : swayOpts();
   const stamp = [lastResult, lastBuilt, removedIds, drawnWalls, drawnWalls.length, finsVisible, autoLike(),
                  rotM3.elements.join(), JSON.stringify(opts)];
   if (!braceMemo.stamp || braceMemo.stamp.some((v, i) => v !== stamp[i])) braceMemo = { stamp, map: new Map() };
@@ -613,17 +618,21 @@ function braceAt(faceIndex, p) {
     return m.get(key);
   };
   const auto = autoSupports();
-  const avoid = { braces: [...auto.braces, ...drawnWalls.filter((w) => w.kind === 'sway' && w.ok).map((w) => w.info)],
+  const avoid = { braces: [...auto.braces, ...drawnWalls.filter((w) => (w.kind === 'sway' || w.kind === 'stabilizer') && w.ok)
+                    .map((w) => w.info)],
                   walls: auto.walls };
   // x, y to the mm, slid back onto the face's plane: the stored point has to stay on
   // the face, or a reopened session's nearestFace can pick the one beside it
   const n = topology.nrm, r = rotM3.elements, f = faceIndex * 3;
   const nx = r[0] * n[f] + r[3] * n[f + 1] + r[6] * n[f + 2], ny = r[1] * n[f] + r[4] * n[f + 1] + r[7] * n[f + 2];
   const rx = Math.round(p[0]), ry = Math.round(p[1]), off = ((rx - p[0]) * nx + (ry - p[1]) * ny) / (nx * nx + ny * ny || 1);
-  const x = rx - off * nx, y = ry - off * ny, at = `${faceIndex}|${rx}|${ry}`;
-  const full = memo(at, () => swayAtFace(topology, lastResult, rotM3.elements, faceIndex, [x, y, p[2]],
-                                         { ...opts, full: true }, avoid));
-  if (!full.ok || p[2] >= SNAP_TOP * full.height) return { r: full, full: true, point: [x, y, p[2]], key: at };
+  const x = rx - off * nx, y = ry - off * ny, at = `${stab ? 's' : 'b'}|${faceIndex}|${rx}|${ry}`;
+  // a stabilizer always stops where the cursor is: it holds the base, never the whole side
+  if (!stab) {
+    const full = memo(at, () => swayAtFace(topology, lastResult, rotM3.elements, faceIndex, [x, y, p[2]],
+                                           { ...opts, full: true }, avoid));
+    if (!full.ok || p[2] >= SNAP_TOP * full.height) return { r: full, full: true, point: [x, y, p[2]], key: at };
+  }
   const z = Math.max(STEP_Z, Math.round(p[2] / STEP_Z) * STEP_Z), key = `${at}|${z}`;
   return { r: memo(key, () => swayAtFace(topology, lastResult, rotM3.elements, faceIndex, [x, y, z], opts, avoid)),
            full: false, point: [x, y, z], key };
@@ -649,6 +658,7 @@ const braceRest = onRest((q) => {
   const mm = Math.round(b.r.height ?? 0);
   showBrace(b.r.ok ? b.r.tris : null, b.r.height ?? 0,
             !b.r.ok ? t(b.r.reason)
+            : b.r.stabilizer ? t('Stabilizer · {mm} mm tall · {d} mm out', { mm, d: Math.round(b.r.depth) })
             : b.full ? t('Brace · full height {mm} mm', { mm })
             : t('Brace · {mm} mm · move up for full height', { mm }),
             !b.r.ok);
@@ -672,21 +682,24 @@ function slipOff(hit, keepCursor) {
   return true;
 }
 
-/** Stand a sway brace on the upright face the user clicked: the one its preview showed. */
+/** Stand a sway brace (or a stabilizer) on the upright face the user clicked: the one its preview showed. */
 function placeSway(hit) {
   braceRest.cancel();
   const { r, full, point } = braceAt(hit.faceIndex, [hit.point.x, hit.point.y, hit.point.z]);
   dropGhost();
   if (!r.ok) {
-    drawMsg = t('couldn’t place that brace: {reason}', { reason: t(r.reason) });
+    drawMsg = r.stabilizer || stabShape()
+      ? t('couldn’t place that stabilizer: {reason}', { reason: t(r.reason) })
+      : t('couldn’t place that brace: {reason}', { reason: t(r.reason) });
     updateReadout(lastBuilt);
     return;
   }
   drawMsg = '';
   histPush();
   part.updateMatrixWorld();
-  drawnWalls.push({ kind: 'sway', face: hit.faceIndex, ...(full ? {} : { capped: true }),
-                    a: part.worldToLocal(new THREE.Vector3(point[0], point[1], point[2])) });
+  const a = part.worldToLocal(new THREE.Vector3(point[0], point[1], point[2]));
+  drawnWalls.push(r.stabilizer ? { kind: 'stabilizer', face: hit.faceIndex, a }
+                  : { kind: 'sway', face: hit.faceIndex, ...(full ? {} : { capped: true }), a });
   rebuildDrawn();
   syncDrawControls();   // Auto's first brace by hand brings up Clear / Remove selected
   updateReadout(lastBuilt);
@@ -699,7 +712,15 @@ export function syncDrawControls() {
   el('draw-controls').hidden = !drawShown();
   el('draw-hint').hidden = el('draw-shape').hidden = !drawActive();
   for (const b of el('draw-shape').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.shape === drawShape));
-  el('draw-hint').innerHTML = drawShape === 'gusset'
+  // The brace settings shape stabilizers too: shown while Sway braces is on, or while a
+  // stabilizer can be stood or one stands. The tine two follow Tines as well.
+  const brace = el('sway').checked || (drawActive() && drawShape === 'stabilizer')
+    || drawnWalls.some((w) => w.kind === 'stabilizer');
+  el('sway-from-fld').hidden = el('sway-spacing-fld').hidden = !brace || !el('tines').checked;
+  el('sway-depth-fld').hidden = el('full-brace-depth-fld').hidden = !brace;
+  el('draw-hint').innerHTML = drawShape === 'stabilizer'
+    ? t('Hover an upright side of the part, near its base, to preview a stabilizer: a fin standing on the plate that keeps the part from tipping over. Its top follows the cursor; Brace depth sets how far it reaches out (100% = as far as it is tall), Brace grip from and Brace tine spacing its tines. Click to stand it.')
+    : drawShape === 'gusset'
     ? t('Click a side of the part under an overhang, then the point on the overhang the gusset should reach out to. It runs square off the side, its underside climbing at {angle}° so nothing under it touches the plate. Backspace takes back the side; Esc or right-click cancels.', { angle: GUSSET.angle })
     : drawShape === 'curve'
     ? t('Click the two ends of a curved wall on the red faces, then a point it runs through — out past the ends for a bigger arc. Ends snap to another wall’s end, so two curves close a ring. Backspace takes back a point; Esc or right-click cancels.')
@@ -731,6 +752,7 @@ el('draw-clear').addEventListener('click', () => {
   drawMsg = '';
   clearPreview();
   rebuildDrawn();
+  syncDrawControls();   // the last stabilizer gone hides the brace fields again
   updateReadout(lastBuilt);
   updateFit();
 });
@@ -820,8 +842,13 @@ export function braceClick(e) {
   return true;
 }
 
-/** With Sway braces on, a click on an UPRIGHT side (no wall half-drawn) stands a brace. */
-const swayHit = (hit) => !drawStart && el('sway').checked && !(drawActive() && drawShape === 'gusset')
+/** Draw's Stabilizer shape is picked: an upright side takes a stabilizer, Sway on or off. */
+const stabShape = () => drawActive() && drawShape === 'stabilizer';
+
+/** With Sway braces on, a click on an UPRIGHT side (no wall half-drawn) stands a brace
+ *  (a stabilizer, with that shape picked). */
+const swayHit = (hit) => !drawStart
+  && (stabShape() || (el('sway').checked && !(drawActive() && drawShape === 'gusset')))
   && faceIsUpright(topology, rotM3.elements, hit.faceIndex);
 
 /** A click: select a placed support, stand a sway brace, or set / commit a wall end. */
@@ -842,6 +869,13 @@ export function drawClick(e) {
     return;
   }
   const step = clickStep(drawShape, { start: drawStart, end: drawEnd, side: drawFace });
+  if (step === 'stand') {
+    // an upright side was handled above: this click missed one
+    drawMsg = t('couldn’t place that stabilizer: {reason}',
+                { reason: t('click an upright side of the part, near its base') });
+    updateReadout(lastBuilt);
+    return;
+  }
   if (step === 'reach') { placeGusset(hit.point.clone()); return; }
   if (step === 'side') {
     if (!gussetDir(topology, rotM3.elements, hit.faceIndex)) {

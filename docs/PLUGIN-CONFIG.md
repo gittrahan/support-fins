@@ -134,12 +134,12 @@ A few things that look right but aren't:
 | Sway braces | `sway.on` | `true` / `false` | `false` | `--sway` |
 | Brace grip from | `sway.gripFrom` | 0 to 2000 | `0` | `--sway-grip-from` |
 | Brace tine spacing | `sway.tineSpacing` | 2 to 30 | `6` | `--sway-tine-spacing` |
-| Brace depth | `sway.reach` | 0.05 to 0.5 | `0.15` | `--sway-reach` |
+| Brace depth | `sway.reach` | 0.05 to 2 | `0.15` | `--sway-reach` |
 
 - **Sway braces** (`sway.on`): Stand tapered buttress ribs against the upright sides of a tall part, tied on with tines all the way up, so it doesn't drift or wobble as it grows.
 - **Brace grip from** (`sway.gripFrom`): Height the brace tines start at. 0 = grip the whole height; raise it to tie on only above where the part starts to move. Only used when Sway braces is on and Tines is on.
 - **Brace tine spacing** (`sway.tineSpacing`): Vertical distance between brace tines. Smaller = held tighter, more marks on the side. Default 6mm. Only used when Sway braces is on and Tines is on.
-- **Brace depth** (`sway.reach`): How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%. A percent: the site and the CLI show 5-50, a JSON config holds that / 100. Only used when Sway braces is on.
+- **Brace depth** (`sway.reach`): How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%. A percent: the site and the CLI show 5-200, a JSON config holds that / 100. Only used when Sway braces is on.
 
 ### Walls
 

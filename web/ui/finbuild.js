@@ -169,6 +169,12 @@ export function swayOpts() {
            crossAbove: el('tall-ribs').checked ? BRACE.tallH : Infinity };
 }
 
+/** A stabilizer's settings (Draw > Stabilizer, sway.js SWAY.stab): a sway brace's, Brace
+ *  depth, grip and tine spacing included, without the cross ribs. */
+export function stabOpts() {
+  return { ...swayOpts(), crossAbove: Infinity, stabilizer: true };
+}
+
 function makeFinWorker() {
   const w = new Worker(new URL('../finworker.js', import.meta.url), { type: 'module' });
   w.onmessage = (e) => {

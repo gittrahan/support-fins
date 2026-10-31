@@ -121,6 +121,11 @@
       "date": "2026-10-29",
       "check": "held",
       "text": "Try longitudinal walls for isolated narrow struts left unsupported by the normal placement."
+    },
+    {
+      "date": "2026-10-31",
+      "check": "held",
+      "text": "Draw > Stabilizer: a fin on the plate against the base of a side, following its slant, to keep a part from tipping over (shaped by the Sway brace settings; Brace depth now goes to 200%)."
     }
   ]
 }

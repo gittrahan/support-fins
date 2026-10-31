@@ -120,8 +120,8 @@ def from_dialog(schema, key, shown):
 
 
 def friendly_error(schema, message):
-    """The engine's refusal ("sway.reach must be 0.05..0.5 (a percent control's value /
-    100), got 0.9") in the dialog's own words and units: "Brace depth must be 5 to 50"."""
+    """The engine's refusal ("sway.reach must be 0.05..2 (a percent control's value /
+    100), got 2.5") in the dialog's own words and units: "Brace depth must be 5 to 200"."""
     for o in schema["options"]:
         if message.startswith(o["key"] + " "):
             if o["type"] == "number":

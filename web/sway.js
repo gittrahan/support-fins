@@ -104,6 +104,22 @@ export const SWAY = {
   // Their own records carry a centreline, not a footprint, so this is the widest
   // foot either builds (PROP/PERP footHalf 3.0 + half a 1.2mm wall) rounded up.
   wallHalf: 3.6,
+
+  // STABILIZERS (Draw > Stabilizer): the same rib, short, standing at the BOTTOM of a
+  // side so a part on a small footprint can't tip over as it grows -- a buttress rather
+  // than a brace. The brace's own settings shape it ("Brace depth", "Full brace depth",
+  // "Brace grip from", "Brace tine spacing"): at a Brace depth of 100% it stands out as
+  // far as it is tall, a 45-degree triangle.
+  stab: {
+    minH: 5,            // mm; lower than a brace -- a tipping part only needs its base held
+    topDepth: 2,        // mm of flat top (a point is a retraction, as for a brace)
+    // mm at the bed at the least: just past its top. A brace's 8mm would swallow every
+    // "Brace depth" under ~40% on a 20mm stabilizer, and the field would seem dead.
+    minDepth: 3,
+    baseMax: 2,         // mm: the side has to come down to the plate where it stands
+    minTines: 2,        // a short one may only have room for two
+  },
+  maxReach: 2,          // "Brace depth" up to 200% of the height: a stabilizer's ~27 degrees
 };
 
 const leanCut = () => Math.sin((SWAY.maxLeanDeg * Math.PI) / 180);
@@ -123,13 +139,14 @@ function settings(opts = {}) {
     tineContactOffset: Math.max(-0.2, Math.min(0.2, num(opts.tineContactOffset, -0.01))),
     gripFrom: Math.max(0, num(opts.gripFrom, 0)),
     spacing: Math.max(1, num(opts.tineSpacing, SWAY.tineSpacing)),
-    reach: Math.max(0.05, Math.min(0.5, num(opts.reach, SWAY.reach))),
+    reach: Math.max(0.05, Math.min(SWAY.maxReach, num(opts.reach, SWAY.reach))),
     uncappedDepth: opts.uncappedDepth === true,
     roundFeet: opts.roundFeet === true && PROP.tineDir !== 'vertical',
     // Auto refuses a brace that would stand a long way up before its first tine;
     // a brace placed BY HAND is built anyway and reports the stilt instead. The
     // tool suggests, the person decides -- the same split as the rest of the app.
     allowStilt: opts.allowStilt === true,
+    stab: opts.stabilizer === true,
   };
 }
 
@@ -186,12 +203,16 @@ function frameOf(p) {
 
 /**
  * Build one sway brace against patch `p`, centred across the face at `uc`.
+ * `opts.stabilizer: true` builds a stabilizer instead (SWAY.stab): the same rib, gap,
+ * foot, depth and tines, but standing at the bottom of the side, with no cross ribs.
  * Returns { ok: true, tris, tines, height, depth, th, foot } or { ok: false, reason }.
  */
 export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   const S = settings(opts);
+  const stab = S.stab;
   if (!takesBrace(p.n.z)) {
-    return { ok: false, reason: 'that face leans too far to stand a brace against — pick an upright side' };
+    return { ok: false, reason: stab ? 'that face leans too far to stand a stabilizer against — pick an upright side'
+      : 'that face leans too far to stand a brace against — pick an upright side' };
   }
   const fr = { ...frameOf(p), uDir: { x: p.u.x, y: p.u.y } };
 
@@ -204,14 +225,24 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     }
   }
   if (fz1 === -Infinity) return { ok: false, reason: 'there is no face under that spot to brace' };
+  // A stabilizer holds the part where it meets the plate: a side that starts higher
+  // up has nothing under it to buttress (that is a gusset's job, or a brace's).
+  if (stab && fz0 > SWAY.stab.baseMax) {
+    return { ok: false, reason: 'that side doesn’t come down to the plate there — a stabilizer stands at the base of the part' };
+  }
 
+  const minH = stab ? SWAY.stab.minH : SWAY.minRibH;
   let H = fz1 - SWAY.topClear;
-  if (H < SWAY.minRibH) {
-    return { ok: false, reason: `that face only reaches ${fz1.toFixed(0)}mm up — too short to need a brace` };
+  if (H < minH) {
+    return { ok: false, reason: stab ? 'that side is too short there for a stabilizer'
+      : `that face only reaches ${fz1.toFixed(0)}mm up — too short to need a brace` };
   }
   if (Number.isFinite(opts.maxHeight)) {
     H = Math.min(H, opts.maxHeight);
-    if (H < SWAY.minRibH) return { ok: false, reason: 'that’s too low for a brace — move up the side' };
+    if (H < minH) {
+      return { ok: false, reason: stab ? 'that’s too low for a stabilizer — move up the side'
+        : 'that’s too low for a brace — move up the side' };
+    }
   }
   const thFor = (h) => Math.min(SWAY.thMax, SWAY.thMin + SWAY.thPerMm * h);
   let th = thFor(H);
@@ -241,6 +272,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
 
   // The outline in (s, z). The inner edge follows the (possibly leaning) face
   // plane at the gap; the outer edge tapers from `D0` at the bed to topDepth.
+  const topDepth = stab ? SWAY.stab.topDepth : SWAY.topDepth;
   let wIn = 0, sIn0 = 0, sInSlope = 0, D0 = 0;
   let insets = [], heights = [0, H];
   const shape = () => {
@@ -250,7 +282,8 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     const a = fr.sOf(patchPoint(p, wIn, uc, tAtZ(p, wIn, 0)));
     const b = fr.sOf(patchPoint(p, wIn, uc, tAtZ(p, wIn, 1)));
     sIn0 = a; sInSlope = b - a;
-    D0 = Math.max(SWAY.minDepth, S.uncappedDepth ? S.reach * H : Math.min(SWAY.maxDepth, S.reach * H));
+    D0 = Math.max(stab ? SWAY.stab.minDepth : SWAY.minDepth,
+                  S.uncappedDepth ? S.reach * H : Math.min(SWAY.maxDepth, S.reach * H));
     insets = [];
     heights = [0, H];
     if (Number.isFinite(opts.maxHeight)) {
@@ -269,7 +302,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     const i = Math.min(insets.length - 2, Math.floor(t));
     return base + insets[i] + (insets[i + 1] - insets[i]) * (t - i);
   };
-  const depthAt = (z) => D0 + (SWAY.topDepth - D0) * Math.min(1, Math.max(0, z / H));
+  const depthAt = (z) => D0 + (topDepth - D0) * Math.min(1, Math.max(0, z / H));
   const sOut = (z) => sIn0 + sInSlope * z + depthAt(z);
 
   // Shrink the rib until nothing on the part crosses it: a feature sticking out
@@ -298,10 +331,11 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     }
     if (hit === Infinity) break;
     H = hit - 1.0;
-    if (H < SWAY.minRibH) break;
+    if (H < minH) break;
   }
   if (hit !== Infinity) {
-    return { ok: false, reason: 'the part sticks out over that spot, so a brace standing on the plate can’t reach up the face' };
+    return { ok: false, reason: stab ? 'the part sticks out over that spot, so a stabilizer standing on the plate can’t reach up the side'
+      : 'the part sticks out over that spot, so a brace standing on the plate can’t reach up the face' };
   }
 
   // The foot has its own, wider footprint on the plate.
@@ -314,7 +348,8 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     (q) => (sFootOut + 0.1) - q[0],
   ], sIn(0) - 0.05, sFootOut + 0.1, -0.1, SWAY.footH + 0.2);
   if (footHit !== Infinity) {
-    return { ok: false, reason: 'the part’s base spreads out under this face, so there is no room on the plate for the brace’s foot' };
+    return { ok: false, reason: stab ? 'the part’s base spreads out under this side, so there is no room on the plate for the stabilizer’s foot'
+      : 'the part’s base spreads out under this face, so there is no room on the plate for the brace’s foot' };
   }
 
   const out = [];
@@ -337,7 +372,17 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   if (S.tines) {
     const zStart = Math.max(fz0 + 0.5, S.gripFrom, SWAY.footH + 0.5);
     const zEnd = Math.min(fz1, H) - 0.5;
-    for (let z = zStart; z <= zEnd + 1e-6; z += S.spacing) {
+    // "Brace grip from" at or over a stabilizer's top leaves it nothing to grip with:
+    // say so, rather than blame the side (a brace setting raised for tall braces)
+    if (stab && S.gripFrom > 0 && zStart >= zEnd) {
+      return { ok: false, reason: 'Brace grip from is above this stabilizer’s top — lower it, or click higher up the side' };
+    }
+    // A short stabilizer squeezes its spacing so its minimum tines fit: at the 6mm
+    // default an 8mm one would otherwise get one tine and be refused.
+    const spacing = stab && zEnd > zStart
+      ? Math.max(2 * S.layerH, Math.min(S.spacing, (zEnd - zStart) / (SWAY.stab.minTines - 1)))
+      : S.spacing;
+    for (let z = zStart; z <= zEnd + 1e-6; z += spacing) {
       const bot = Math.round(z / S.layerH) * S.layerH;
       const top = bot + S.layerH;
       if (top > H) break;
@@ -377,9 +422,11 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     }
     // A tall rib tied on at a handful of points still lets the part wave about
     // between them, so the grip has to cover a real share of the height too.
-    const wanted = Math.max(SWAY.minTines, Math.floor(SWAY.minGripShare * (zEnd - zStart) / S.spacing));
+    const wanted = Math.max(stab ? SWAY.stab.minTines : SWAY.minTines,
+                            Math.floor(SWAY.minGripShare * (zEnd - zStart) / spacing));
     if (tines < wanted) {
-      return { ok: false, reason: 'too little of this face lines up with the brace for its tines to grip — try a flatter part of the side' };
+      return { ok: false, reason: stab ? 'too little of this side lines up with the stabilizer for its tines to grip — try a flatter part of the side'
+        : 'too little of this face lines up with the brace for its tines to grip — try a flatter part of the side' };
     }
     // Everything below the lowest tine is a lone wall holding nothing, and held by
     // nothing. Past this much of it the brace is its own liability, so refuse rather
@@ -415,7 +462,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   // the brace's whole depth, and taper out to the plate.
   let cross = 0;
   const arms = [];
-  if (Number.isFinite(opts.crossAbove) && H > opts.crossAbove) {
+  if (!stab && Number.isFinite(opts.crossAbove) && H > opts.crossAbove) {
     const inset = th / 2 + 0.1;
     const o = fr.toWorld(sOut(0) - inset, uc, 0);
     const slope = sInSlope + (SWAY.topDepth - D0) / H;
@@ -441,7 +488,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   // `stilt`: how far it stands holding nothing before its first tine. Auto keeps this
   // small by refusing; a hand-placed brace reports it so the readout can say so.
   return { ok: true, tris: out, tines, height: H, depth: D0, th, stilt, foot, halfW: footHalfW, levels,
-           cross, arms, ...(insets.length ? { profiled: true } : {}) };
+           cross, arms, ...(insets.length ? { profiled: true } : {}), ...(stab ? { stabilizer: true } : {}) };
 }
 
 /** Closest distance between two 2D segments. */
@@ -760,7 +807,10 @@ export function swayAtFace(topo, result, rot, faceIndex, point, opts = {}, avoid
   opts = { allowStilt: true, ...opts, maxHeight: opts.full ? cap : Math.min(point[2], cap) };
   const { byFace, partTris } = patchesFor(topo, rot, result.offset);
   const p = byFace.get(faceIndex);
-  if (!p) return { ok: false, reason: 'that face is too small or curved to stand a brace against' };
+  if (!p) {
+    return { ok: false, reason: opts.stabilizer ? 'that side is too small or curved to stand a stabilizer against'
+      : 'that face is too small or curved to stand a brace against' };
+  }
   const u = point[0] * p.u.x + point[1] * p.u.y;
   const { braces, walls } = avoidance(avoid);
   let last = null, hitBrace = false, hitWall = false;
@@ -774,8 +824,10 @@ export function swayAtFace(topo, result, rot, faceIndex, point, opts = {}, avoid
     last ??= r;   // the clicked spot's own reason, not the last nudge's
   }
   if (hitBrace) {
-    return { ok: false, reason: 'it would run into another brace (on the facing wall, or right beside it) '
-      + '— click a spot staggered from it' };
+    return { ok: false, reason: opts.stabilizer
+      ? 'it would run into another brace or stabilizer — click a spot clear of it'
+      : 'it would run into another brace (on the facing wall, or right beside it) '
+        + '— click a spot staggered from it' };
   }
   if (hitWall) {
     return { ok: false, reason: 'a support already stands there, and the two would fuse into one piece '

@@ -99,7 +99,7 @@ def test_the_engine_takes_what_the_dialog_sends(engine):
     tops = {s["key"]: s["max"] for s in SPECS if s["kind"] == "number" and s["max"] < 1e6}
     tops["sway.on"] = True
     opts = host.host_options(ctx, core.dialog_values(SCHEMA, tops))
-    assert opts["coverage"] == 1.0 and opts["sway"]["reach"] == 0.5     # 100 % and 50 % arrive / 100
+    assert opts["coverage"] == 1.0 and opts["sway"]["reach"] == 2.0     # 100 % and 200 % arrive / 100
     assert opts["gap"] == 0.4
 
 

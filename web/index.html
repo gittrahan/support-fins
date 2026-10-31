@@ -442,6 +442,7 @@
       <button type="button" class="btn sm" data-shape="line" aria-pressed="true" data-i18n="Line">Line</button>
       <button type="button" class="btn sm" data-shape="curve" aria-pressed="false" data-i18n="Curve">Curve</button>
       <button type="button" class="btn sm" data-shape="gusset" aria-pressed="false" data-i18n="Gusset" data-i18n-title title="A fin off a side of the part, up under an overhang: click the side, then the overhang">Gusset</button>
+      <button type="button" class="btn sm" data-shape="stabilizer" aria-pressed="false" data-i18n="Stabilizer" data-i18n-title title="A triangular fin on the plate against the base of a side, so the part can’t tip over: click the side where its top should be">Stabilizer</button>
     </div>
     <p class="draw-hint" id="draw-hint" data-i18n-html="Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.">Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.</p>
     <div class="draw-btns">
@@ -531,7 +532,7 @@
       </label>
       <label data-i18n-title class="fld row" id="sway-depth-fld" data-tip-pic="sway-depth" title="How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%.">
         <span><span data-i18n="Brace depth">Brace depth</span> <span class="mut" data-i18n="% of height">% of height</span></span>
-        <input type="number" id="sway-depth" min="5" max="50" step="1" value="15">
+        <input type="number" id="sway-depth" min="5" max="200" step="1" value="15">
       </label>
       <label data-tip-pic="full-brace-depth" data-i18n-title class="fld row" id="full-brace-depth-fld" title="Use the selected Brace depth percentage beyond the usual 60 mm limit. Larger braces need more plate space and material; collisions can shorten or refuse them. Off keeps the 60 mm limit.">
         <span data-i18n="Full brace depth">Full brace depth</span><input type="checkbox" id="full-brace-depth">

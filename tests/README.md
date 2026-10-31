@@ -302,6 +302,19 @@ no stress models needed):
   refuses a roof; `buildFins` without the option is unchanged;
 - a brace straight across a channel from another is **refused**, a staggered one is not.
 
+**`stabilizer.test.js`** -- stabilizers (Draw > Stabilizer, `web/sway.js` `SWAY.stab`) on
+an upside-down L, upright and leaning 10° each way:
+- it stands **on the plate** at the base of the side, watertight, to the clicked height,
+  with no cross ribs;
+- the brace settings shape it: **Brace depth** (100 % = as deep as tall, a step under 40 %
+  still shows, its own 3 mm floor), the 60 mm cap and **Full brace depth**, **Brace grip
+  from** and **Brace tine spacing**;
+- the rib **never fuses** into the part and keeps the gap up a **slanted side** (it follows
+  the slant); tines are one layer, on the grid, in solid;
+- a side that doesn't reach the plate, a click under 5 mm, a roof, and one stood on top of
+  another are **refused**. `stabilizer_i18n.test.js` keeps its strings translated, and
+  `session.test.js` rebuilds a saved one after a 3MF round trip.
+
 **`plate_only.test.js`** -- Plate only (#218), every support on the build plate:
 - a drawn line with part under it is **refused, naming the setting**; over open plate
   the wall is byte-identical;
