@@ -121,6 +121,12 @@
       "date": "2026-10-29",
       "check": "held",
       "text": "Try longitudinal walls for isolated narrow struts left unsupported by the normal placement."
+    },
+    {
+      "pr": 425,
+      "date": "2026-10-31",
+      "check": "held",
+      "text": "A brace placed by hand now follows a side that curves up its height, convex or concave, instead of only standing on flat spots."
     }
   ]
 }
