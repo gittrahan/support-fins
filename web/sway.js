@@ -207,10 +207,21 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   // Where the surface is at height z: on a curved strip it sits well behind the
   // plane, and the plane's own t for z is off by the lean times that depth, so
   // step to the surface a few times. A flat patch (1.2 mm at most) needs none.
+  // Every probe is at u = uc, so a strip (which on a dense scan holds 100k+ faces)
+  // only needs the triangles that span uc: patchProbe scans its list end to end.
+  let line = p;
+  if (opts.profile) {
+    const keep = [];
+    for (let i = 0; i < p.tris.length; i += 9) {
+      const a = p.tris[i], b = p.tris[i + 3], c = p.tris[i + 6];
+      if (Math.min(a, b, c) <= uc + 1e-6 && Math.max(a, b, c) >= uc - 1e-6) for (let k = 0; k < 9; k++) keep.push(p.tris[i + k]);
+    }
+    line = { ...p, tris: Float64Array.from(keep) };
+  }
   const probeAt = (z) => {
-    let dev = patchProbe(p, uc, tAtZ(p, 0, z));
+    let dev = patchProbe(line, uc, tAtZ(p, 0, z));
     for (let k = 0; dev !== null && k < (opts.profile ? 4 : 1); k++) {
-      const next = patchProbe(p, uc, tAtZ(p, dev, z));
+      const next = patchProbe(line, uc, tAtZ(p, dev, z));
       if (next === null) break;
       dev = next;
     }
@@ -289,6 +300,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   // The outline in (s, z). The inner edge follows the (possibly leaning) face
   // plane at the gap; the outer edge tapers from `D0` at the bed to topDepth.
   let wIn = 0, sIn0 = 0, sInSlope = 0, D0 = 0;
+  let oBase = 0, oSlope = 0;   // a hand-placed brace's outer edge (shape, below)
   let insets = [], heights = [0, H], rawInsets = [];
   let slab = null;   // the part in the brace's slab (swaycolumn.js), gathered on first use
   const shape = () => {
@@ -334,6 +346,16 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
           const floor = insets[i - 1] - dz - sInSlope * dz;   // sIn may fall at most dz
           if (insets[i] < floor) insets[i] = floor;
         }
+        // The outer edge, straight (the cross ribs shear along it) from the inner
+        // edge's own foot + D0 to its own top + topDepth -- not off the supporting
+        // plane, which on a recessed strip made the brace 8-18 mm deeper than set --
+        // then moved out just enough to keep topDepth clear of the inner edge all the
+        // way up, and leaning out no more than 45 degrees.
+        const at = (i) => sIn0 + sInSlope * heights[i] + insets[i];
+        const last = heights.length - 1;
+        oSlope = Math.min(1, (at(last) + SWAY.topDepth - at(0) - D0) / H);
+        oBase = at(0) + D0;
+        for (let i = 0; i <= last; i++) oBase = Math.max(oBase, at(i) + SWAY.topDepth - oSlope * heights[i]);
       }
     }
   };
@@ -345,7 +367,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     return base + insets[i] + (insets[i + 1] - insets[i]) * (t - i);
   };
   const depthAt = (z) => D0 + (SWAY.topDepth - D0) * Math.min(1, Math.max(0, z / H));
-  const sOut = (z) => sIn0 + sInSlope * z + depthAt(z);
+  const sOut = (z) => (opts.profile ? oBase + oSlope * z : sIn0 + sInSlope * z + depthAt(z));
 
   // Shrink the rib until nothing on the part crosses it: a feature sticking out
   // above the face (a ledge, a shoulder) caps it below that feature.
@@ -367,7 +389,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     return -1;
   };
   let hit = Infinity, steep = -1;
-  for (let iter = 0; iter < 12; iter++) {
+  for (let iter = 0; iter < (opts.profile ? 12 : 6); iter++) {   // a profiled brace may also step down past a rollover
     shape();
     steep = steepAt();
     if (steep >= 0) {
@@ -517,7 +539,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   if (Number.isFinite(opts.crossAbove) && H > opts.crossAbove) {
     const inset = th / 2 + 0.1;
     const o = fr.toWorld(sOut(0) - inset, uc, 0);
-    const slope = sInSlope + (SWAY.topDepth - D0) / H;
+    const slope = opts.profile ? oSlope : sInSlope + (SWAY.topDepth - D0) / H;
     const lean = [fr.nh.x * slope, fr.nh.y * slope];
     // ...sheared to follow the outer edge, which leans by the face's lean AND the
     // taper: a thin plate past 45 degrees sags. An anchor on a steep back (#351) or a

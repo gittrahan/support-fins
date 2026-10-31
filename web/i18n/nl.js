@@ -504,5 +504,5 @@ export default {
   "What's new": "Wat is er nieuw",
   "See all releases": "Alle releases bekijken",
   "Version": "Versie",
-  "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "het vlak buigt daar al vlak bij het bed voorbij 45° over, dus een verstevigingsrib kan het niet omhoog volgen — kies een steiler deel van de zijkant",
+  "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "het vlak buigt daar al vlak bij het bed voorbij 45° over, dus een schoor kan het niet omhoog volgen — kies een steiler deel van de zijkant",
 };

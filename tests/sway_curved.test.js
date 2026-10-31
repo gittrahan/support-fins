@@ -155,3 +155,28 @@ Deno.test('sway curved: the brace stays out of the part, never overhangs past 45
     }
   }
 });
+
+Deno.test('sway curved: the brace is as deep as set, plus only the bow of a curved back', () => {
+  // The outer edge runs from the inner edge's own foot, not off the strip's
+  // supporting plane: that made a hand-placed brace 8-18 mm deeper than set (and its
+  // foot longer). A straight back gets exactly the set depth; a curved one only what
+  // a straight outer edge needs to clear the bow of the inner edge.
+  const extra = (r) => Math.max(...r.levels.map((L) =>
+    Math.hypot(L.b[0] - L.a[0], L.b[1] - L.a[1]) - (r.depth + (4 - r.depth) * L.z / r.height)));
+  const straight = bentArm(40, 40), cs = straight.at(60);
+  const flat = sway.swayAtFace(straight.topo, straight.res, ID, cs.f, cs.pt, { tines: false, layerHeight: LAYER, full: true });
+  assert(flat.ok, flat.reason);
+  assert(extra(flat) < 0.5, `a straight 40 deg back: ${extra(flat).toFixed(1)}mm deeper than set`);
+  for (const [lean0, lean1] of [CONVEX, CONCAVE]) {
+    const { topo, res, at } = bentArm(lean0, lean1), c = at(60);
+    const r = sway.swayAtFace(topo, res, ID, c.f, c.pt, { tines: false, layerHeight: LAYER, full: true });
+    // how far the inner edge bows off its own foot-to-top chord, either way: a straight
+    // outer edge is that much deeper where the edge recedes behind the chord (concave)
+    // or is pushed out to clear it where it bulges (convex)
+    const L = r.levels, a0 = L[0], a1 = L[L.length - 1];
+    const s = (p) => p[0];   // the back faces +X
+    const off = L.map((l) => s(l.a) - (s(a0.a) + (s(a1.a) - s(a0.a)) * (l.z - a0.z) / (a1.z - a0.z)));
+    const bow = Math.max(...off) - Math.min(...off);
+    assert(extra(r) <= bow + 1, `${lean0}->${lean1}: ${extra(r).toFixed(1)}mm deeper than set, the inner edge bows ${bow.toFixed(1)}`);
+  }
+});
