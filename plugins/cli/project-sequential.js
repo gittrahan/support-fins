@@ -9,7 +9,7 @@ const identity = '1 0 0 0 1 0 0 0 1 0 0 0';
 const raw = (s) => String(s).replace(/"/g, '&quot;').replace(/</g, '&lt;');
 const attrs = (a) => Object.entries(a).map(([k, v]) => ` ${k}="${raw(v)}"`).join('');
 
-export function sequentialEdits(baked, plan, { rootXML, allocate, exists, prefix, support = '', disableNativeSupports = false }) {
+export function sequentialEdits(baked, plan, { rootXML, configRoot, allocate, exists, prefix, support = '', disableNativeSupports = false }) {
   if (baked.compatibility?.buildIndex !== plan.number - 1 || baked.compatibility?.objectId !== plan.id ||
       !baked.parts?.length || !Array.isArray(baked.removed)) {
     throw new Error('baked conversion does not match the selected object');
@@ -55,6 +55,17 @@ export function sequentialEdits(baked, plan, { rootXML, allocate, exists, prefix
     .map((p) => [p.start, p.end, '']);
   for (const m of children(plan.config, 'metadata')) {
     if ('face_count' in m.attrs || m.attrs.key === 'face_count') config.push([m.start, m.end, '']);
+  }
+  // These indices and transforms describe the original volume meshes. Baking
+  // changes both their coordinate frames and indices, so they must not restore
+  // an old part/cutter transform onto a replacement body or the new fins.
+  // Instance-level assembly placement and every unselected object stay intact.
+  for (const assembly of children(configRoot, 'assemble')) {
+    for (const item of children(assembly, 'assemble_item')) {
+      if (item.attrs.object_id === plan.id && Object.hasOwn(item.attrs, 'volume_id')) {
+        config.push([item.start, item.end, '']);
+      }
+    }
   }
   return {
     root: [[components.open, components.close, refs.join('') + support]], config, members, mappings,

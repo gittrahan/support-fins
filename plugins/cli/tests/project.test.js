@@ -1287,3 +1287,45 @@ for(const [label,edit] of [
   assert(r.code===1 && r.fs.size===1,'incompatible conversion published output');
  }
 });
+
+for (const zero of [false, true]) Deno.test(`project sequential: stale assembly/cut editing metadata, zero fins ${zero}`, async () => {
+  const source = new ProjectZip(await fixture({ upright: true, sequence: 'by object',
+    cutters: [zero ? { positions: cylinder(5) } : cavity()] }));
+  const rootText = await source.text(ROOT), root = xmlTree(rootText), build = child(root, 'build');
+  const [first, second] = children(build, 'item').map(n => rootText.slice(n.start, n.end));
+  // An unselected shared instance changes build ordinals but not Bambu's
+  // first-occurrence object ordinal used by cut_information.xml.
+  const assembly = '<assemble><assemble_item object_id="10" instance_id="0" transform="1 0 0 0 1 0 0 0 1 30 0 0"/>' +
+    '<assemble_item object_id="10" volume_id="0" transform="1 0 0 0 1 0 0 0 1 2 3 4"/>' +
+    '<assemble_item object_id="10" volume_id="1" transform="1 0 0 0 1 0 0 0 1 9 8 7"/>' +
+    '<assemble_item object_id="20" volume_id="0" transform="1 0 0 0 1 0 0 0 1 6 5 4"/></assemble>';
+  const cuts = '<objects><object id="1"><cut_id id="4" check_sum="1" connectors_cnt="0"/></object>' +
+    '<object id="2"><cut_id id="7" check_sum="1" connectors_cnt="1"/><connectors>' +
+    '<connector volume_id="0" type="1" r_tolerance="0.1" h_tolerance="0.1"/></connectors></object></objects>';
+  const input = new Uint8Array(await (await source.patch(new Map([
+    [ROOT, editXML(rootText, [[build.open, build.close, second + second + first]])],
+    [CONFIG, (await source.text(CONFIG)).replace('<assemble/>', assembly)],
+    ['Metadata/cut_information.xml', cuts],
+  ]))).arrayBuffer());
+  const checked = await cli(input, ['--object', '3', '--check']);
+  assert(checked.code === 0 && checked.fs.size === 1, checked.err.join('\n'));
+  const r = await cli(input, ['--object', '3']); assert(r.code === 0, r.err.join('\n'));
+  const out = new ProjectZip(r.fs.get(r.result.output));
+  const config = xmlTree(await out.text(CONFIG)), original = xmlTree(assembly);
+  const entries = children(child(config, 'assemble'), 'assemble_item');
+  assert(entries.some(n => n.attrs.object_id === '10' && n.attrs.instance_id === '0'), 'object assembly placement removed');
+  assert(JSON.stringify(entries.find(n => n.attrs.object_id === '20').attrs) === JSON.stringify(original.children.at(-1).attrs), 'unselected assembly transform changed');
+  assert(entries.filter(n => n.attrs.object_id === '10' && 'volume_id' in n.attrs).length === (zero ? 2 : 0), 'stale volume transforms retained or editable object altered');
+  const cutXML = await out.text('Metadata/cut_information.xml'), cutRecords = children(xmlTree(cutXML), 'object');
+  assert(cutRecords.map(n => n.attrs.id).join() === (zero ? '1,2' : '1'), 'wrong cut-editing object removed');
+  if (zero) assert(cutXML === cuts, 'zero-fin cut metadata changed');
+});
+
+Deno.test('project sequential: malformed cut-editing manifest fails without output; listings stay lightweight', async () => {
+  const source = new ProjectZip(await fixture({ sequence: 'by object', cutters: [cavity()] }));
+  const input = new Uint8Array(await (await source.patch(new Map([['Metadata/cut_information.xml', '<broken>']]))).arrayBuffer());
+  assert((await cli(input, ['--list-objects'])).code === 0);
+  for (const flags of [['--check'], ['--object', '1']]) {
+    const r = await cli(input, flags); assert(r.code === 1 && r.fs.size === 1, 'invalid editing manifest published');
+  }
+});
