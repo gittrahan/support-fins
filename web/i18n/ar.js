@@ -509,4 +509,13 @@ export default {
   "See all releases": "عرض كل الإصدارات",
   "Version": "الإصدار",
   "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "ينحني السطح هناك بأكثر من 45° قرب سطح الطباعة، فلا تستطيع دعامة منع التمايل أن تتبعه إلى الأعلى — اختر جزءًا أشد انحدارًا من الجانب",
+  // Anchor fins (GH #351)
+  "Anchor fins": "دعامات الإرساء",
+  "Hold a leaning part from its back, the side that faces up, instead of standing a wall under it. Hover the back to preview an anchor and click to add it. Takes a back leaning up to 45°, curved or flat. Uses the brace settings below.": "تُمسك قطعة مائلة من ظهرها، الجانب المتجه إلى الأعلى، بدلًا من إقامة جدار تحتها. مرّر المؤشر فوق الظهر لمعاينة دعامة إرساء وانقر لإضافتها. تقبل ظهرًا مائلًا حتى 45°، منحنيًا أو مستويًا. تستخدم إعدادات الدعامات أدناه.",
+  "Anchor fins: hover a back that faces up, leaning up to 45°, to preview one, and click to stand it.": "دعامات الإرساء: مرّر المؤشر فوق ظهر متجه إلى الأعلى ومائل حتى 45° لمعاينة واحدة، وانقر لوضعها.",
+  "Anchor · full height {mm} mm": "إرساء · الارتفاع الكامل {mm} مم",
+  "Anchor · {mm} mm · move up for full height": "إرساء · {mm} مم · تحرّك لأعلى للارتفاع الكامل",
+  "couldn’t place that anchor: {reason}": "تعذّر وضع دعامة الإرساء هذه: {reason}",
+  "anchor fin {mm}mm tall": "دعامة إرساء بارتفاع {mm} مم",
+  "{n} anchor fins": {"one": "{n} دعامة إرساء", "other": "{n} دعامات إرساء"},
 };

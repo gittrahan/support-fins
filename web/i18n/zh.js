@@ -618,4 +618,13 @@ export default {
   "See all releases": "查看所有版本",
   "Version": "版本",
   "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "那里的面在靠近热床处就弯过了 45°，防晃撑没法顺着它往上 —— 请选侧面更陡的部分",
+  // Anchor fins (GH #351)
+  "Anchor fins": "锚撑",
+  "Hold a leaning part from its back, the side that faces up, instead of standing a wall under it. Hover the back to preview an anchor and click to add it. Takes a back leaning up to 45°, curved or flat. Uses the brace settings below.": "从倾斜零件朝上的背面把它撑住，而不是在它下面立一道墙。把鼠标移到背面上可预览锚撑，单击即可添加。背面倾斜最多 45°，弧面或平面都可以。使用下方的防晃撑设置。",
+  "Anchor fins: hover a back that faces up, leaning up to 45°, to preview one, and click to stand it.": "锚撑：把鼠标移到朝上、倾斜最多 45° 的背面上可预览，单击即可放置。",
+  "Anchor · full height {mm} mm": "锚撑 · 全高 {mm} mm",
+  "Anchor · {mm} mm · move up for full height": "锚撑 · {mm} mm · 上移可得全高",
+  "couldn’t place that anchor: {reason}": "无法放置这道锚撑：{reason}",
+  "anchor fin {mm}mm tall": "锚撑高 {mm} mm",
+  "{n} anchor fins": {"other": "{n} 道锚撑"},
 };

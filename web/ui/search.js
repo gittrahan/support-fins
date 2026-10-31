@@ -28,14 +28,16 @@ const rows = () => [...pane.querySelectorAll(ROWS)].filter((r) => !r.closest('.o
   && !r.parentElement.closest(ROWS));      // a field's own inner label isn't a row of its own
 // The row that reveals a hidden one, by the hidden row's selector; null when no
 // switch here would (Remove selected waits on a wall being picked).
+// Sway braces or Anchor fins: either shows the brace settings (settings.js syncSway)
+const braceOn = () => el('sway').checked || el('anchor').checked;
 const GATES = [
   ['#tinegrip-fld, #layerh-fld', () => el('tines').closest('label')],
   ['[data-pad-custom]', () => el('bed-pad').closest('label')],
   // the brace tine fields also hide with Tines off (settings.js syncSway)
-  ['#sway-from-fld, #sway-spacing-fld', () => el(el('sway').checked ? 'tines' : 'sway').closest('label')],
+  ['#sway-from-fld, #sway-spacing-fld', () => el(braceOn() ? 'tines' : 'sway').closest('label')],
   ['#sway-depth-fld, #full-brace-depth-fld', () => el('sway').closest('label')],
   ['#tall-ribs-height-fld', () => el('tall-ribs').closest('label')],
-  ['#sway-cross-height-fld', () => el(el('sway').checked ? 'tall-ribs' : 'sway').closest('label')],
+  ['#sway-cross-height-fld', () => el(braceOn() ? 'tall-ribs' : 'sway').closest('label')],
   ['#coverage-fld, #augment-toggle, #remove-fins-toggle', () => el('fin-mode-fld')],
   ['#restore-fins', () => el('remove-fins-toggle')],   // shows once a fin is removed
   ['#draw-clear', () => (el('fin-mode').value === 'draw' ? null : el('fin-mode-fld'))],

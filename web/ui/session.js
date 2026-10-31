@@ -59,7 +59,7 @@ export function sessionOf(partTris, model = liveModel()) {
     part: { size: size.map(round) },
     finMode: model.finMode, finsVisible: model.finsVisible,
     form: model.form,
-    walls: model.walls.map((d) => d.kind === 'sway' ? { kind: 'sway', a: at(d.a), ...(d.capped ? { capped: true } : {}) }
+    walls: model.walls.map((d) => d.kind === 'sway' ? { kind: 'sway', a: at(d.a), ...(d.capped ? { capped: true } : {}), ...(d.anchor ? { anchor: true } : {}) }
                                     : d.kind === 'gusset' ? { kind: 'gusset', a: at(d.a), b: at(d.b), n: dir(d.n) }
                                     : { a: at(d.a), b: at(d.b), ...(d.m ? { m: at(d.m) } : {}) }),
     removed: [...model.removed],
@@ -118,7 +118,7 @@ const formOf = (form) => (form && typeof form === 'object'
   // and before Long walls, tall-wall ribs and Curved walls without them (the nozzle and the viewer's
   // settings stay as this browser has them, even from a file saved before they were left out)
     ? { 'rounded-feet': false, 'wall-lines': '2', 'long-walls': false, 'tall-ribs': false, 'curved-walls': false, 'separate-walls': false,
-      'sway-cross-height': '50', 'tall-ribs-height': '10', ...Object.fromEntries(Object.entries(form)
+      'sway-cross-height': '50', 'tall-ribs-height': '10', anchor: false, ...Object.fromEntries(Object.entries(form)
     .filter(([id, v]) => !VIEWER_IDS.has(id) && settable(id, v))) }
   : {});
 
@@ -142,7 +142,8 @@ export function restoreSession(s, beside = false) {
     if (w.kind === 'sway') {
       const a = vec(w.a);
       // a brace saved before the clicked-height cap ran up the whole face: it still does
-      walls.push({ kind: 'sway', face: nearestFace(a), a, capped: w.capped === true, ok: false, info: null });
+      walls.push({ kind: 'sway', face: nearestFace(a), a, capped: w.capped === true, ...(w.anchor === true ? { anchor: true } : {}),
+                   ok: false, info: null });
     } else if (w.kind === 'gusset') {
       // its side by the saved normal: nearestFace(a) can pick the arm's underside, as
       // near a point on the side's top edge (the part comes back unturned, so print

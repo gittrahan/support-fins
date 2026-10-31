@@ -505,4 +505,13 @@ export default {
   "See all releases": "Alle releases bekijken",
   "Version": "Versie",
   "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "het vlak buigt daar al vlak bij het bed voorbij 45° over, dus een schoor kan het niet omhoog volgen — kies een steiler deel van de zijkant",
+	// Anchor fins (GH #351)
+	"Anchor fins": "Ankerribben",
+	"Hold a leaning part from its back, the side that faces up, instead of standing a wall under it. Hover the back to preview an anchor and click to add it. Takes a back leaning up to 45°, curved or flat. Uses the brace settings below.": "Houd een schuin staand onderdeel vast aan de achterkant, de kant die omhoog wijst, in plaats van er een wand onder te zetten. Beweeg over de achterkant om een anker vooraf te zien, en klik om hem te plaatsen. Werkt op een achterkant die tot 45° helt, gebogen of vlak. Gebruikt de schoorinstellingen hieronder.",
+	"Anchor fins: hover a back that faces up, leaning up to 45°, to preview one, and click to stand it.": "Ankerribben: beweeg over een achterkant die omhoog wijst en tot 45° helt om er een vooraf te zien, en klik om hem te plaatsen.",
+	"Anchor · full height {mm} mm": "Anker · volle hoogte {mm} mm",
+	"Anchor · {mm} mm · move up for full height": "Anker · {mm} mm · hoger voor volle hoogte",
+	"couldn’t place that anchor: {reason}": "kon dat anker niet plaatsen: {reason}",
+	"anchor fin {mm}mm tall": "ankerrib van {mm} mm hoog",
+	"{n} anchor fins": {"one": "{n} ankerrib", "other": "{n} ankerribben"},
 };

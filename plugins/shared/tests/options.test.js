@@ -57,6 +57,7 @@ const SITE_EXCLUDED = {
   'wall-lines': 'the plugins scale by nozzle diameter but retain 2-line walls (web/nozzle.js)',
   'curved-walls': 'site first, off by default: the plugins build without it until the print test (web/prop/curved.js)',
   'rounded-feet': 'browser FDM opt-in; plugin defaults keep their feet',
+  'anchor': 'Anchor fins are placed by hand with a click on the part, which the plugins have no viewport for (web/ui/walls.js)',
 };
 
 Deno.test('options.json is well formed', () => {
