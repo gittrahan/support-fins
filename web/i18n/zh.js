@@ -617,4 +617,5 @@ export default {
   "What's new": "新功能",
   "See all releases": "查看所有版本",
   "Version": "版本",
+  "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "那里的面在靠近热床处就弯过了 45°，防晃撑没法顺着它往上 —— 请选侧面更陡的部分",
 };

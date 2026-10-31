@@ -524,4 +524,5 @@ export default {
   "What's new": "Was ist neu",
   "See all releases": "Alle Versionen ansehen",
   "Version": "Version",
+  "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "die Fläche kippt dort schon nahe am Druckbett über 45°, sodass eine Stützrippe ihr nicht nach oben folgen kann — wähle einen steileren Teil der Seite",
 };

@@ -508,4 +508,5 @@ export default {
   "What's new": "ما الجديد",
   "See all releases": "عرض كل الإصدارات",
   "Version": "الإصدار",
+  "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "ينحني السطح هناك بأكثر من 45° قرب سطح الطباعة، فلا تستطيع دعامة منع التمايل أن تتبعه إلى الأعلى — اختر جزءًا أشد انحدارًا من الجانب",
 };
