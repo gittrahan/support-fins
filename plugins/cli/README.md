@@ -89,7 +89,8 @@ For an AI client (Claude Code, Claude Desktop), the same tool is an MCP server:
 
 Use `--preserve-project` on a Bambu Studio/MakerWorld project (or one saved by a
 Bambu-based slicer with the same layout: OrcaSlicer, QIDI Studio) to keep its original
-painted meshes, filament/printer/process settings, object positions and plates:
+painting, filament/printer/process settings, object positions and plates. Sequential
+objects with negative parts use baked replacement bodies as described below:
 
 ```sh
 support-fins project.3mf --preserve-project
@@ -177,7 +178,7 @@ The project-wide setting and unselected objects are retained.
 and referenced plate previews are discarded because they describe the old
 geometry. User-authored layer-change commands are retained. Original mesh files
 and other unchanged members retain their compressed ZIP bytes; only the necessary
-manifests/settings and new support resources are written.
+manifests/settings, new support resources and any baked replacement bodies are written.
 
 This mode preserves the existing pose, so it cannot be combined with `--rot` or
 `--fins-only`. The input is protected against path aliases, symbolic links and
@@ -202,10 +203,37 @@ Subtraction must succeed completely. Missing/empty cutters, open bodies, unappli
 cutters, or cutters removing the whole body make that object incompatible; no fins
 are generated from an uncut or partially cut fallback. Batch and plate-only runs
 leave such objects unchanged and can write a partial result for the others;
-explicit `--object` selections fail without publishing output. Negative-bearing
-objects that print **by object** remain unsupported because their cutters would
-also cut fins added as parts of the same object. Ordinary objects without negatives
-keep their existing print-by-object behavior.
+explicit `--object` selections fail without publishing output.
+
+For **print by object**, the CLI bakes the cuts into replacement normal parts and
+attaches fins to that same build object. This keeps the saved build order, plate,
+placement and applicable object/part settings; it does not create another object
+that would print after the body. Active cutter references are removed only on
+processed objects that receive fins. Objects needing no fins retain their editable
+bodies and cutters. Keep the original project: baked cutters are no longer
+independently editable in the output. Ordinary objects without negatives keep
+their existing sequential behavior.
+
+Surviving colour, seam and support painting and distinct filament-slot assignments
+are retained. **New cut surfaces inherit their owning part's material settings by
+default.** Sliced colours and interior material regions may differ from the original;
+every baked object warns that the sliced preview needs inspection and may require
+manual repainting or material correction. Fins attached as parts also retain the
+existing warning that their tines weld to the body.
+
+Sequential baking requires closed source meshes, fixed layer settings and normal
+and negative parts. Variable-layer profiles, layer setting ranges, unsupported
+modifiers or triangle attributes and ambiguous material assignments are rejected;
+`--layer-height` does not bypass these conversion limits. Automatic source-mesh
+repair is not performed. Bambu Studio/MakerWorld is the initial conversion target.
+Re-slice with collision checks enabled: conversion does not certify printer-head
+clearance or that the saved layout is safe for sequential printing.
+
+For these objects, `--check` performs full conversion and replacement-mesh
+serialization as well as analysis. It can therefore take longer than a listing
+or a support-only compatibility check. It generates no fins, output project or
+checkpoints. Its compatible result does not certify sliced material regions,
+removability, collision clearance or sequential print order.
 
 Shared build instances, inline-only assemblies, ZIP64 archives and other slicer project formats
 are refused with an explanation (in the every-object default, a model with one is skipped). Direct output from this mode is refused as
@@ -222,8 +250,12 @@ support-fins project.3mf --preserve-project --resume --cache-dir /path/to/cache 
 ```
 
 `--resume` saves each successfully processed object's fin geometry, including objects
-that need no fins. Restarting reuses completed objects; the interrupted object starts
-over. The source project is untouched, and output is written only after processing.
+that need no fins. For baked sequential objects, a versioned, checksummed record
+also saves complete replacement meshes at double precision, painting, material
+settings, source mappings and warnings. Reuse bypasses subtraction, paint remapping
+and fin generation; failed conversions are never checkpointed. Restarting reuses
+completed objects; the interrupted object starts over. The source project is
+untouched, and output is written only after processing.
 Default-mode skipped objects are still reported and left unchanged; they are never
 marked complete in the cache. Explicitly selected objects still must all succeed.
 
@@ -369,9 +401,9 @@ messages are descriptive text; use status values and counts for automation.
   is separate from the unchanged geometry used for support analysis. New cut
   surfaces inherit their owning part's existing material settings by default;
   the result includes an object warning about possible sliced-material changes
-  and manual corrections. This service
-  is exercised through `tests/_bake-export.js`; the production CLI does not use it
-  yet, and negative parts still require print-by-layer.
+  and manual corrections. `project-sequential.js` plans the production replacement
+  resources and manifest edits. `tests/_bake-export.js` also exercises body-only
+  export independently of fin generation.
 - `tests/cli.test.js` — `deno test -A plugins/cli/tests/`. Runs in memory: CLI fins equal
   `computeFins` on the posed part, and match the website's own path on lbracket@35.
 - The summary line is `plugins/shared/engine/report.js`, word for word with the Python
@@ -416,5 +448,5 @@ Geometry, surviving paint, material identities, settings and placement remain
 validation requirements. Incomplete subtraction, invalid geometry, unsupported
 attributes and ambiguous assignments still fail. Native material-region
 comparisons are diagnostic for this policy; they must not be presented as exact
-preservation passes. Production sequential export,
-warning presentation and resume integration remain a separate follow-up.
+preservation passes. Sequential project generation presents these warnings on
+both fresh and resumed conversions.

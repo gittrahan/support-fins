@@ -123,6 +123,11 @@
       "text": "Try longitudinal walls for isolated narrow struts left unsupported by the normal placement."
     },
     {
+      "date": "2026-10-30",
+      "check": "stays",
+      "text": "CLI preserved projects can bake negative parts for print-by-object, retaining exterior painting and part settings, with complete resume checkpoints and warnings to verify sliced materials and clearance."
+    },
+    {
       "pr": 425,
       "date": "2026-10-31",
       "check": "held",
