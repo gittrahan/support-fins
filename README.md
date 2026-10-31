@@ -98,7 +98,11 @@ breakaway gap and snaps off; only the tines touch the part.
   both axes are held, with each rib placed where its face reaches highest.
 - **Draw**: one click on an upright side stands a brace there. Click a support you placed
   to select it (amber), then press **Delete** or **Remove selected**; Undo brings it back.
-- Three settings appear while it's on: **Brace grip from** (height the tines start;
+- **Anchor fins** (its own switch, just below) holds a part that leans over from its
+  **back**, the side that faces up, instead of standing a wall under the side you see.
+  Hover the back to preview one and click to stand it. It takes a back leaning up to
+  45°, curved or flat, places nothing by itself, and uses the same brace settings.
+- Three settings appear while either is on: **Brace grip from** (height the tines start;
   0 = the whole height), **Brace tine spacing** (default 6 mm) and **Brace depth**
   (% of height at the bed; default 15%).
 - Braces keep at least 1 mm of air between them. One that would run into another,
