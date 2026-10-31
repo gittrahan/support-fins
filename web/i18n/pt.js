@@ -594,4 +594,5 @@ export default {
   "What's new": "Novidades",
   "See all releases": "Ver todas as versões",
   "Version": "Versão",
+  "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "a face se curva além de 45° perto da mesa nesse ponto, então uma escora não consegue acompanhá-la para cima — escolha uma parte mais íngreme da lateral",
 };

@@ -302,6 +302,13 @@ no stress models needed):
   refuses a roof; `buildFins` without the option is unchanged;
 - a brace straight across a channel from another is **refused**, a staggered one is not.
 
+**`sway_curved.test.js`** -- hand-placed braces on a back that **curves up its height**
+(GH #351), on bent arms built in the test (convex 20→60°, concave 45→5°): every spot up the back
+takes a brace, full height or capped; the concave one runs to its top, the convex one stops
+near where its back passes 45°; the rib stays out of the part, never overhangs past 45°, and
+its tines stay short. All three fail on the flat-patch faces they replaced.
+**`sway_curved_i18n.test.js`** -- the rollover refusal is in `web/sway.js` and every locale.
+
 **`plate_only.test.js`** -- Plate only (#218), every support on the build plate:
 - a drawn line with part under it is **refused, naming the setting**; over open plate
   the wall is byte-identical;

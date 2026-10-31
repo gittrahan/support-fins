@@ -232,7 +232,7 @@ function worldVertex(pos, o, rot, offset, out) {
  * (n, u, t) is orthonormal and right-handed, which is what let the old leaning-fin
  * extruder emit consistent outward winding without a per-solid orientation check.
  */
-function fitPatch(topo, g, rn, rot, offset, stats = null) {
+export function fitPatch(topo, g, rn, rot, offset, stats = null, flatTol = FLAT_TOL_IN) {
   const { pos, area } = topo;
 
   // area-weighted mean normal: a patch's big faces describe its plane, and a fan
@@ -309,7 +309,7 @@ function fitPatch(topo, g, rn, rot, offset, stats = null) {
     if (stats) stats[why] = (stats[why] ?? 0) + 1;
     return null;
   };
-  if (devIn < -FLAT_TOL_IN) return fail('notFlat');
+  if (devIn < -flatTol) return fail('notFlat');
   if (t1 - t0 < MIN_PATCH_H) return fail('tooShort');
   if (u1 - u0 < MIN_PATCH_W) return fail('tooNarrow');
 
