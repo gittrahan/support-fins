@@ -214,6 +214,10 @@ bodies and cutters. Keep the original project: baked cutters are no longer
 independently editable in the output. Ordinary objects without negatives keep
 their existing sequential behavior.
 
+Baking also clears stale per-part assembly-restore transforms and cut-editing
+records for converted objects. The current build pose and object-level assembly
+placement are retained; use the original project to restore or edit original parts.
+
 Surviving colour, seam and support painting and distinct filament-slot assignments
 are retained. **New cut surfaces inherit their owning part's material settings by
 default.** Sliced colours and interior material regions may differ from the original;

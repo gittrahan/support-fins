@@ -14,6 +14,7 @@ import { xmlTree, child, children, metadata, meta, escapeXML as esc, insert, edi
 
 const ROOT = '3D/3dmodel.model', CONFIG = 'Metadata/model_settings.config';
 const SETTINGS = 'Metadata/project_settings.config', MARKER = 'Metadata/support_fins_project.json';
+const CUTS = 'Metadata/cut_information.xml';
 const SUPPORTS = '3D/SupportFins/supports.model';
 const CORE = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02';
 const PROD = 'http://schemas.microsoft.com/3dmanufacturing/production/2015/06';
@@ -268,6 +269,11 @@ async function processProject(input, args, io, report) {
     settings: { dialog: args.dialog, finExtruder: args.finExtruder, disableNativeSupports: args.disableNativeSupports },
     cacheDir: args.cacheDir, warn }) : null;
   const rootEdits = [], configEdits = [], supportObjects = [], results = [];
+  // Bambu's cut-editing records use first-occurrence object ordinals, not
+  // resource IDs or build-item numbers (unselected shared instances can exist).
+  const cutOrder = new Map([...new Set(items.map((o) => o.id))].map((id, i) => [id, String(i + 1)]));
+  const cutXML = plans.some((p) => p.bake) && zip.entries.has(CUTS) ? await zip.text(CUTS) : null;
+  const cutRecords = cutXML === null ? [] : children(xmlTree(cutXML), 'object'), cutEdits = [];
   const newResources = [], newItems = [], plateInstances = new Map(), derived = new Map(), conversions = [];
   let buildIdentity;
   const identityForBake = () => buildIdentity ??= runtimeIdentity();
@@ -310,7 +316,7 @@ async function processProject(input, args, io, report) {
           if (baked) {
             // Validate the same replacement serialization and manifest mappings,
             // without generating fins, publishing output or opening checkpoints.
-            const edits = sequentialEdits(baked, p, { rootXML, allocate, exists: (n) => zip.entries.has(n), prefix,
+            const edits = sequentialEdits(baked, p, { rootXML, configRoot: config, allocate, exists: (n) => zip.entries.has(n), prefix,
               disableNativeSupports: args.disableNativeSupports });
             editXML(rootXML, edits.root); editXML(configXML, [...edits.config, insert(p.config, edits.partsXML)]);
             report.object(p).warnings.push(...baked.warnings,
@@ -339,7 +345,7 @@ async function processProject(input, args, io, report) {
         if (p.byObject) {
           warn(`object ${p.number} (${p.name}) prints by object: its fins are a part of it, so their tines weld to it`);
           if (generated.baked) {
-            const edits = sequentialEdits(generated.baked, p, { rootXML, allocate,
+            const edits = sequentialEdits(generated.baked, p, { rootXML, configRoot: config, allocate,
               exists: (n) => zip.entries.has(n) || derived.has(n), prefix, support: component,
               disableNativeSupports: args.disableNativeSupports });
             own.root.push(...edits.root); own.config.push(...edits.config);
@@ -377,7 +383,14 @@ async function processProject(input, args, io, report) {
       editXML(rootXML, [...own.root]); editXML(configXML, [...own.config]);
       rootEdits.push(...own.root); configEdits.push(...own.config); supportObjects.push(...own.supports);
       for (const [name, xml] of own.members) derived.set(name, xml);
-      if (conversionMapping) conversions.push(conversionMapping);
+      if (conversionMapping) {
+        conversions.push(conversionMapping);
+        // Connector volume indices and editable cut identities no longer refer
+        // to the baked bodies. Do not let a stale index designate a fin instead.
+        for (const node of cutRecords.filter((n) => n.attrs.id === cutOrder.get(p.id))) {
+          cutEdits.push([node.start, node.end, '']);
+        }
+      }
       newResources.push(...own.resources); newItems.push(...own.items);
       if (own.instances.length) {
         const plate = membership.get(`${p.id}:${p.instance}`).node;
@@ -411,6 +424,7 @@ async function processProject(input, args, io, report) {
   }
   for (const [plate, instances] of plateInstances) configEdits.push(insert(plate, instances.join('')));
   const changes = new Map(derived);
+  if (cutEdits.length) changes.set(CUTS, editXML(cutXML, cutEdits));
   // Slicing caches cannot describe the augmented model. Keep custom_gcode_per_layer.xml:
   // it contains user-authored pauses/filament changes, not the generated toolpath.
   const stale = new Set([...zip.entries.keys()].filter((n) =>
