@@ -212,17 +212,20 @@ function updateDrawReadout(built, ms) {
   const ok = drawnWalls.filter((w) => w.ok);
   const bad = drawnWalls.length - ok.length;
   const tines = ok.reduce((a, w) => a + (w.info?.tines ?? 0), 0);
-  const braces = ok.filter((w) => w.kind === 'sway').length;
+  const braces = ok.filter((w) => w.kind === 'sway' && !w.anchor).length;
+  const anchors = ok.filter((w) => w.kind === 'sway' && w.anchor).length;
   const gussets = ok.filter((w) => w.kind === 'gusset').length;
-  const walls = ok.length - braces - gussets;
+  const walls = ok.length - braces - anchors - gussets;
   // a gusset's side tines are built with Tines off too: counted on their own
   const sideTines = ok.reduce((a, w) => a + (w.info?.sideTines ?? 0), 0);
   const ribs = ok.reduce((a, w) => a + (w.kind === 'sway' ? 0 : w.info?.braces ?? 0), 0);
-  const crosses = ok.reduce((a, w) => a + (w.kind === 'sway' ? w.info?.cross ?? 0 : 0), 0);
+  // cross ribs counted with what they brace: sway braces' with the braces, anchors' with the anchors
+  const crossesOf = (anchor) => ok.reduce((a, w) => a + (w.kind === 'sway' && !w.anchor === !anchor ? w.info?.cross ?? 0 : 0), 0);
+  const ribsTxt = (n) => (n ? ` · ${tn('{n} brace rib', '{n} brace ribs', n)}` : '');
   const parts = [];
   if (walls) parts.push(tn('{n} drawn wall', '{n} drawn walls', walls) + (ribs ? ` · ${tn('{n} wall rib', '{n} wall ribs', ribs)}` : ''));
-  if (braces) parts.push(tn('{n} sway brace', '{n} sway braces', braces)
-    + (crosses ? ` · ${tn('{n} brace rib', '{n} brace ribs', crosses)}` : ''));
+  if (braces) parts.push(tn('{n} sway brace', '{n} sway braces', braces) + ribsTxt(crossesOf(false)));
+  if (anchors) parts.push(tn('{n} anchor fin', '{n} anchor fins', anchors) + ribsTxt(crossesOf(true)));
   if (gussets) parts.push(tn('{n} gusset', '{n} gussets', gussets)
     + (sideTines ? ` · ${tn('{n} side tine', '{n} side tines', sideTines)}` : ''));
   box.textContent = ok.length

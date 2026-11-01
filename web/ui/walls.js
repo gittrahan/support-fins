@@ -12,7 +12,7 @@ import { arcThrough, arcStations } from '../drawarc.js';
 import { planGrid } from '../fins/tall.js';
 import { boxGrid } from '../fins/fill.js';
 import { clickStep, shapeOr } from './drawshape.js';
-import { swayAtFace, faceIsUpright } from '../sway.js';
+import { swayAtFace, faceIsUpright, faceTakesAnchor } from '../sway.js';
 import { initBraceGhost, showBrace, moveTip, hideBrace, dropBrace, braceGrace } from './braceghost.js';
 import { el } from './dom.js';
 import { onRest } from './rest.js';
@@ -102,11 +102,18 @@ for (const o of [drawDot, drawDot2, drawCursor, drawBand]) {
 // Pointer is in wall-placement mode (draw mode, or Suggest with the add toggle on).
 // Gates the draw interaction, the gizmo, and face-lay.
 export const drawActive = () => finsVisible && (finMode === 'draw' || drawAugment);
-// Auto / Full with Sway braces on: the pointer stands braces on upright sides
-// (hover previews, a click stands one) without "+ Add walls by hand". Every other
-// click still just orbits -- the ghost shows before the click, and Ctrl-Z takes
-// a brace back, so a stray click is never a silent change.
-export const braceActive = () => finsVisible && autoLike() && !drawAugment && el('sway').checked;
+// Auto / Full with Sway braces or Anchor fins on: the pointer stands braces on upright
+// sides, or anchors on a back that faces up (hover previews, a click stands one)
+// without "+ Add walls by hand". Every other click still just orbits -- the ghost
+// shows before the click, and Ctrl-Z takes a brace back, so a stray click is never a
+// silent change.
+export const braceActive = () => finsVisible && autoLike() && !drawAugment && braceTool();
+// Either tool stands the same rib (sway.js): Sway braces on upright sides (and
+// Auto's own braces), Anchor fins (GH #351) by hand only, on any side a rib stands
+// against -- upright, or a back leaning up to 45 degrees, curved or not.
+const braceTool = () => el('sway').checked || el('anchor').checked;
+// Which a spot stands: a sway brace on an upright side with Sway braces on, else an anchor.
+const anchorAt = (faceIndex) => !(el('sway').checked && faceIsUpright(topology, rotM3.elements, faceIndex));
 // Hand-drawn walls contribute to the display and the export. In Draw mode that's
 // always; in Suggest it's whenever the user has drawn any (they persist after the
 // add toggle is switched off, so you can orbit and export without losing them).
@@ -400,7 +407,7 @@ function pickSupport(ev) {
 export function selectedNote() {
   const i = selectedWall.info ?? {};
   const what = selectedWall.kind === 'sway'
-    ? t('sway brace {mm}mm tall', { mm: Math.round(i.height ?? 0) })
+    ? t(selectedWall.anchor ? 'anchor fin {mm}mm tall' : 'sway brace {mm}mm tall', { mm: Math.round(i.height ?? 0) })
     : selectedWall.kind === 'gusset'
       ? t('gusset {mm}mm out from the side', { mm: Math.round(i.reach ?? 0) })
       : t('wall {mm}mm long', { mm: Math.round(i.length ?? 0) });
@@ -646,11 +653,11 @@ const braceRest = onRest((q) => {
   const b = braceAt(q.face, q.p);
   if (b.key === braceShown) return;
   braceShown = b.key;
-  const mm = Math.round(b.r.height ?? 0);
+  const mm = Math.round(b.r.height ?? 0), anchor = anchorAt(q.face);
   showBrace(b.r.ok ? b.r.tris : null, b.r.height ?? 0,
             !b.r.ok ? t(b.r.reason)
-            : b.full ? t('Brace · full height {mm} mm', { mm })
-            : t('Brace · {mm} mm · move up for full height', { mm }),
+            : b.full ? t(anchor ? 'Anchor · full height {mm} mm' : 'Brace · full height {mm} mm', { mm })
+            : t(anchor ? 'Anchor · {mm} mm · move up for full height' : 'Brace · {mm} mm · move up for full height', { mm }),
             !b.r.ok);
 });
 
@@ -672,20 +679,21 @@ function slipOff(hit, keepCursor) {
   return true;
 }
 
-/** Stand a sway brace on the upright face the user clicked: the one its preview showed. */
+/** Stand a sway brace (or an anchor fin) on the face the user clicked: the one its preview showed. */
 function placeSway(hit) {
   braceRest.cancel();
   const { r, full, point } = braceAt(hit.faceIndex, [hit.point.x, hit.point.y, hit.point.z]);
+  const anchor = anchorAt(hit.faceIndex);
   dropGhost();
   if (!r.ok) {
-    drawMsg = t('couldn’t place that brace: {reason}', { reason: t(r.reason) });
+    drawMsg = t(anchor ? 'couldn’t place that anchor: {reason}' : 'couldn’t place that brace: {reason}', { reason: t(r.reason) });
     updateReadout(lastBuilt);
     return;
   }
   drawMsg = '';
   histPush();
   part.updateMatrixWorld();
-  drawnWalls.push({ kind: 'sway', face: hit.faceIndex, ...(full ? {} : { capped: true }),
+  drawnWalls.push({ kind: 'sway', face: hit.faceIndex, ...(full ? {} : { capped: true }), ...(anchor ? { anchor: true } : {}),
                     a: part.worldToLocal(new THREE.Vector3(point[0], point[1], point[2])) });
   rebuildDrawn();
   syncDrawControls();   // Auto's first brace by hand brings up Clear / Remove selected
@@ -703,7 +711,8 @@ export function syncDrawControls() {
     ? t('Click a side of the part under an overhang, then the point on the overhang the gusset should reach out to. It runs square off the side, its underside climbing at {angle}° so nothing under it touches the plate. Backspace takes back the side; Esc or right-click cancels.', { angle: GUSSET.angle })
     : drawShape === 'curve'
     ? t('Click the two ends of a curved wall on the red faces, then a point it runs through — out past the ends for a bigger arc. Ends snap to another wall’s end, so two curves close a ring. Backspace takes back a point; Esc or right-click cancels.')
-    : t('Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.');
+    : t('Click two points across an overhang — straight onto the red faces — to lay a breakaway wall along that line. Hover an upright side to preview a sway brace: its top follows the cursor, and near the top of the side it runs full height. Click to stand it. Esc or right-click cancels.')
+      + (el('anchor').checked ? ' ' + t('Anchor fins: hover a back that faces up, leaning up to 45°, to preview one, and click to stand it.') : '');
   syncBack();
 }
 
@@ -820,9 +829,10 @@ export function braceClick(e) {
   return true;
 }
 
-/** With Sway braces on, a click on an UPRIGHT side (no wall half-drawn) stands a brace. */
-const swayHit = (hit) => !drawStart && el('sway').checked && !(drawActive() && drawShape === 'gusset')
-  && faceIsUpright(topology, rotM3.elements, hit.faceIndex);
+/** With Sway braces on, a click on an UPRIGHT side (no wall half-drawn) stands a brace;
+ *  with Anchor fins on, a click on an upright side or an up-facing back stands an anchor. */
+const swayHit = (hit) => !drawStart && braceTool() && !(drawActive() && drawShape === 'gusset')
+  && (el('anchor').checked ? faceTakesAnchor : faceIsUpright)(topology, rotM3.elements, hit.faceIndex);
 
 /** A click: select a placed support, stand a sway brace, or set / commit a wall end. */
 export function drawClick(e) {

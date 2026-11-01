@@ -595,4 +595,13 @@ export default {
   "See all releases": "Ver todas as versões",
   "Version": "Versão",
   "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "a face se curva além de 45° perto da mesa nesse ponto, então uma escora não consegue acompanhá-la para cima — escolha uma parte mais íngreme da lateral",
+  // Anchor fins (GH #351)
+  "Anchor fins": "Âncoras",
+  "Hold a leaning part from its back, the side that faces up, instead of standing a wall under it. Hover the back to preview an anchor and click to add it. Takes a back leaning up to 45°, curved or flat. Uses the brace settings below.": "Segura uma peça inclinada pelas costas, o lado virado para cima, em vez de pôr uma parede embaixo dela. Passe o mouse sobre as costas para ver uma âncora e clique para adicioná-la. Aceita costas inclinadas até 45°, curvas ou planas. Usa as configurações de escora abaixo.",
+  "Anchor fins: hover a back that faces up, leaning up to 45°, to preview one, and click to stand it.": "Âncoras: passe o mouse sobre as costas viradas para cima, inclinadas até 45°, para ver uma, e clique para colocá-la.",
+  "Anchor · full height {mm} mm": "Âncora · altura total {mm} mm",
+  "Anchor · {mm} mm · move up for full height": "Âncora · {mm} mm · suba para altura total",
+  "couldn’t place that anchor: {reason}": "não deu para colocar essa âncora: {reason}",
+  "anchor fin {mm}mm tall": "âncora de {mm} mm de altura",
+  "{n} anchor fins": {"one": "{n} âncora", "other": "{n} âncoras"},
 };

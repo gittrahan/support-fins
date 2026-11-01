@@ -594,4 +594,13 @@ export default {
   "See all releases": "Alle Versionen ansehen",
   "Version": "Version",
   "the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side": "die Fläche kippt dort schon nahe am Druckbett über 45°, sodass eine Stützrippe ihr nicht nach oben folgen kann — wähle einen steileren Teil der Seite",
+  // Anchor fins (GH #351)
+  "Anchor fins": "Ankerrippen",
+  "Hold a leaning part from its back, the side that faces up, instead of standing a wall under it. Hover the back to preview an anchor and click to add it. Takes a back leaning up to 45°, curved or flat. Uses the brace settings below.": "Hält ein schräg stehendes Teil von seiner Rückseite, der nach oben weisenden Seite, statt eine Wand darunter zu stellen. Fahren Sie über die Rückseite, um einen Anker vorab zu sehen, und klicken Sie, um ihn zu setzen. Nimmt eine Rückseite mit bis zu 45° Neigung, gewölbt oder flach. Verwendet die Stützrippen-Einstellungen unten.",
+  "Anchor fins: hover a back that faces up, leaning up to 45°, to preview one, and click to stand it.": "Ankerrippen: Fahren Sie über eine nach oben weisende Rückseite mit bis zu 45° Neigung, um eine vorab zu sehen, und klicken Sie, um sie zu setzen.",
+  "Anchor · full height {mm} mm": "Anker · volle Höhe {mm} mm",
+  "Anchor · {mm} mm · move up for full height": "Anker · {mm} mm · höher für volle Höhe",
+  "couldn’t place that anchor: {reason}": "Anker konnte nicht gesetzt werden: {reason}",
+  "anchor fin {mm}mm tall": "Ankerrippe {mm} mm hoch",
+  "{n} anchor fins": {"one": "{n} Ankerrippe", "other": "{n} Ankerrippen"},
 };

@@ -212,7 +212,8 @@ el('coverage').addEventListener('input', () => debouncedRefresh());
 // tine settings additionally follow the global Tines toggle -- with tines off there
 // is no comb to space.
 function syncSway() {
-  const on = el('sway').checked;
+  // Anchor fins (GH #351) are the same rib placed by hand, so they share the settings
+  const on = el('sway').checked || el('anchor').checked;
   el('sway-from-fld').hidden = !on || !el('tines').checked;
   el('sway-spacing-fld').hidden = !on || !el('tines').checked;
   el('sway-depth-fld').hidden = !on;
@@ -225,6 +226,9 @@ el('sway').addEventListener('change', () => {
   syncSway();
   refreshFins();
 });
+// Anchor fins add nothing to Auto's build: the switch only lets a click stand one
+// (ui/walls.js), and the ones already standing stay
+el('anchor').addEventListener('change', syncSway);
 el('tines').addEventListener('change', syncSway);
 el('full-brace-depth').addEventListener('change', () => refreshFins());
 for (const id of ['sway-from', 'sway-spacing', 'sway-depth', 'sway-cross-height']) {

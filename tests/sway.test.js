@@ -332,8 +332,10 @@ function leaningArm(deg) {
 
 Deno.test('sway: Draw anchors a leaning arm from its up-facing back (GH #351), not its underside', () => {
   const { topo, res, back, under, at } = leaningArm(40);
-  assert(sway.faceIsUpright(topo, ID, back), 'a back leaning 40 degrees and facing up should take a brace');
-  assert(!sway.faceIsUpright(topo, ID, under), 'an underside leaning 40 degrees is an overhang, not a side');
+  assert(sway.faceTakesAnchor(topo, ID, back), 'a back leaning 40 degrees and facing up should take an anchor');
+  assert(!sway.faceTakesAnchor(topo, ID, under), 'an underside leaning 40 degrees is an overhang, not a side');
+  // ...and it is an Anchor fin's, not a sway brace's: Sway braces keep to upright sides
+  assert(!sway.faceIsUpright(topo, ID, back), 'a back leaning 40 degrees is not an upright side');
   const opts = { tines: true, layerHeight: LAYER, full: true };
   const r = sway.swayAtFace(topo, res, ID, back, at(back), opts);
   assert(r.ok, `anchor brace failed: ${r.reason}`);
