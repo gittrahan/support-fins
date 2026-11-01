@@ -131,6 +131,9 @@ export function updateDomTranslations() {
       if (tr && tr !== key) {
         node.textContent = tr;
         if (node.tagName === 'OPTION') node.label = tr;
+      } else {
+        node.textContent = node.dataset.origText;
+        if (node.tagName === 'OPTION') node.label = node.dataset.origText;
       }
     }
   });
@@ -144,6 +147,7 @@ export function updateDomTranslations() {
     } else {
       const tr = t(key);
       if (tr && tr !== key) node.innerHTML = tr;
+      else node.innerHTML = node.dataset.origHtml;
     }
   });
 
@@ -157,6 +161,7 @@ export function updateDomTranslations() {
     } else {
       const tr = t(key);
       if (tr && tr !== key) node.setAttribute('title', tr);
+      else node.setAttribute('title', node.dataset.origTitle);
     }
   });
 

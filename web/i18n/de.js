@@ -1,4 +1,12 @@
 export default {
+  "the part’s base spreads out under this face, so there is no room on the plate for the brace’s foot": "Die Basis des Bauteils breitet sich unter dieser Fläche aus, sodass auf der Platte kein Platz für den Stützfuß ist",
+  "a support already stands there, and the two would fuse into one piece ": "Dort steht bereits eine Stütze, beide würden zu einem Teil verschmelzen",
+  "there is no face under that spot to brace": "Unter dieser Stelle gibt es keine Fläche zum Abstützen",
+  "the part sticks out over that spot, so a brace standing on the plate can’t reach up the face": "Das Bauteil ragt über diese Stelle hinaus, sodass eine auf der Platte stehende Stütze die Fläche nicht erreichen kann",
+  "that face leans too far to stand a brace against — pick an upright side": "Diese Fläche neigt sich zu stark für eine Stütze – wähle eine aufrechte Seite",
+  "it would run into another brace (on the facing wall, or right beside it) ": "Sie würde mit einer anderen Stütze kollidieren (an der gegenüberliegenden Wand oder direkt daneben)",
+  "too little of this face lines up with the brace for its tines to grip — try a flatter part of the side": "Zu wenig dieser Fläche fluchtet mit der Stütze, damit die Haltezacken greifen können – versuche einen flacheren Bereich der Seite",
+  "that face is too small or curved to stand a brace against": "Diese Fläche ist zu klein oder zu stark gekrümmt für eine Stützrippe",
   "this part meets the plate on a small foot ({mm} of first-layer edge), too little for a Light pad to grip, so Auto made it Sure hold, touching the part to hold it": "Dieses Bauteil berührt die Druckplatte mit einem kleinen Fuß ({mm} Kantenlänge in der ersten Schicht) – zu wenig Auflage für einen leichten Stützfuß. „Automatisch“ hat daher „Sicherer Halt“ gewählt, der das Bauteil zur Stabilisierung berührt.",
   "{n} midair start": {
     "one": "{n} Stelle in der Luft",
