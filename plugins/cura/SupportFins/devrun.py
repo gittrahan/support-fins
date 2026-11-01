@@ -152,8 +152,8 @@ class _Run:
     def dialog_edits(self):
         self.ext.setValue("tines", False)
         log(step="dialog: tines off", visible=list(self.ext.visible))
-        self.ext.setValue("sway.reach", "70")        # a percent field typed out of range
-        log(step="dialog: brace depth 70", saved=self.ext.save(), error=self.ext.error)
+        self.ext.setValue("sway.reach", "250")       # a percent field typed out of range
+        log(step="dialog: brace depth 250", saved=self.ext.save(), error=self.ext.error)
         self.ext.setValue("sway.reach", "15")
         self.ext.setValue("sway.tineSpacing", "7,5")   # a decimal comma
         from . import settings

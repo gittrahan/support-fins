@@ -77,7 +77,7 @@ def test_save_errors_speak_the_dialogs_language(host):
         with pytest.raises(ValueError) as e:
             mod.host_options(ctx, values)
         return settings.friendly_error(SCHEMA, str(e.value))
-    assert refusal({"sway.reach": 0.9}) == "Brace depth must be a number from 5 to 50%"
+    assert refusal({"sway.reach": 2.5}) == "Brace depth must be a number from 5 to 200%"
     assert refusal({"sway.tineSpacing": 40}) == "Brace tine spacing must be a number from 2 to 30 mm"
     assert refusal({"sway.gripFrom": "1x"}) == "Brace grip from must be a number from 0 to 2000"
 

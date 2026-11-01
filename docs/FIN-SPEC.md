@@ -395,6 +395,29 @@ Draw > Gusset, a click on the side, then a click on the overhang.
 | other supports | kept `PROP.sideClear` off Auto's fins on screen and every hand-placed support stood before it (`boxGrid`, in 3D) | two supports that touch fuse into one piece that won't break away; 3D, so the bed pad under a gusset is no clash |
 | refused | not an upright face (≤ 30° lean); the side doesn't reach ≥ 80 % of the inner edge, or isn't there at its first layer; the body would cut into or weld to the part; another support within `sideClear` | says why, before the click, in the ghost |
 
+## Stabilizers (Draw only) — `web/sway.js` (`SWAY.stab`)
+
+Not printed yet. A part standing on a small footprint (the upright of an upside-down L,
+10 × 10 mm under a 40 mm part) can tip over as it grows: the nozzle drags it and its
+weight moves out over the edge. Nothing overhangs at its base, so nothing supports it
+there. A stabilizer is a buttress at the bottom of a side: a sway brace's rib, short and
+wide-based, a right triangle in elevation with its upright edge against the side and its
+outer edge sloping down to the plate. Placed by hand only: Draw > Stabilizer, hover a
+side near its base (its top follows the cursor), click to stand it.
+
+| feature | value | rationale |
+|---|---|---|
+| rib | `buildSwayRib` with `opts.stabilizer`: edge-on to the side, inner edge at the gap following the face (and its lean) band by band | a sway brace's stiff direction and contour following; a 10° side gives a 10° inner edge |
+| height | where the cursor is on the side, at least **5 mm** (`stab.minH`) | the user picks how much of the base to hold |
+| depth at the bed | "Brace depth" × height (5–**200 %**), at least **3 mm** (`stab.minDepth`, a brace's 8 mm would swallow every step under ~40 %), at most 60 mm unless "Full brace depth" | one set of settings for both; **100 %** stands it out as far as it is tall (45°) |
+| top | **2 mm** flat (`stab.topDepth`) | a point is a retraction, as for a brace |
+| base | the side must reach within **2 mm** of the plate where it stands (`stab.baseMax`) | it buttresses the base; a side that starts higher is a gusset's or a brace's |
+| foot, gap, thickness | a sway brace's (`footH`, `footHalf`, `footPad`, `thMin`–`thMax`, the material gap) | unchanged from the printed brace |
+| tines | a sway brace's: from "Brace grip from" up, "Brace tine spacing" apart, squeezed closer when that fits fewer than **2** (`stab.minTines`); refused, naming the setting, when "Brace grip from" is above its top | at the 6 mm default an 8 mm one would get one tine; grip from is a brace setting raised for tall braces |
+| cross ribs | none | it is already wide at the plate |
+| other supports | kept off Auto's braces and walls and every hand-placed brace or stabilizer, as a sway brace is | two supports that touch fuse into one piece |
+| refused | a face leaning past a brace's limit; a side that doesn't come down to the plate; a click under 5 mm; the part over it lower than 5 mm (higher, it is shortened under the feature, as a brace is); no plate for its foot; too few tines grip | says why, before the click, in the ghost |
+
 ## Joined walls and ties (Full coverage) — `web/fins/fill.js`, `web/prop/ties.js`
 
 Not printed yet. A figure's fill walls stood apart, each on its own ("all the fins become
@@ -542,7 +565,7 @@ CAD work (a tolerance-absorbing feature for mating holes). Don't collide the ter
 The browser's **Full brace depth** defaults off. Without `uncappedDepth: true`,
 the bed depth stays `max(minDepth, min(maxDepth, reach * H))`, where `maxDepth`
 remains 60 mm. Opt-in uses `max(minDepth, reach * H)` instead; `reach` retains
-its 5–50% bounds and `H` is the actual collision-limited brace height. The depth
+its 5–200% bounds and `H` is the actual collision-limited brace height. The depth
 is recomputed whenever a model collision lowers the rib. Top depth, thickness,
 foot padding, tine geometry and minimum grip are unchanged.
 

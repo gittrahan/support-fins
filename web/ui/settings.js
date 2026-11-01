@@ -207,17 +207,12 @@ el('tine-density').addEventListener('input', () => debouncedRefresh());
 el('layer-height').addEventListener('input', () => debouncedRefresh());
 el('coverage').addEventListener('input', () => debouncedRefresh());
 
-// Sway braces: the switch sits in its section header (like Tines), and its three
-// settings only show while it is on, so an unused feature costs one line. The two
-// tine settings additionally follow the global Tines toggle -- with tines off there
-// is no comb to space.
+// Sway braces: the switch sits in its section header (like Tines), and its settings
+// only show while it is on, so an unused feature costs one line. The grip, spacing and
+// depth fields shape Draw's stabilizers too, so syncDrawControls shows those (ui/walls.js);
+// the cross ribs are the braces' alone.
 function syncSway() {
-  const on = el('sway').checked;
-  el('sway-from-fld').hidden = !on || !el('tines').checked;
-  el('sway-spacing-fld').hidden = !on || !el('tines').checked;
-  el('sway-depth-fld').hidden = !on;
-  el('full-brace-depth-fld').hidden = !on;
-  el('sway-cross-height-fld').hidden = !on || !el('tall-ribs').checked;
+  el('sway-cross-height-fld').hidden = !el('sway').checked || !el('tall-ribs').checked;
   syncDrawControls();
   syncSectionSums();
 }

@@ -31,8 +31,10 @@ const rows = () => [...pane.querySelectorAll(ROWS)].filter((r) => !r.closest('.o
 const GATES = [
   ['#tinegrip-fld, #layerh-fld', () => el('tines').closest('label')],
   ['[data-pad-custom]', () => el('bed-pad').closest('label')],
-  // the brace tine fields also hide with Tines off (settings.js syncSway)
-  ['#sway-from-fld, #sway-spacing-fld', () => el(el('sway').checked ? 'tines' : 'sway').closest('label')],
+  // the brace fields show with Sway braces on or Draw's Stabilizer in play (Brace depth
+  // shown says which); the tine two also hide with Tines off (ui/walls.js syncDrawControls)
+  ['#sway-from-fld, #sway-spacing-fld',
+    () => el(el('sway').checked || !el('sway-depth-fld').hidden ? 'tines' : 'sway').closest('label')],
   ['#sway-depth-fld, #full-brace-depth-fld', () => el('sway').closest('label')],
   ['#tall-ribs-height-fld', () => el('tall-ribs').closest('label')],
   ['#sway-cross-height-fld', () => el(el('sway').checked ? 'tall-ribs' : 'sway').closest('label')],

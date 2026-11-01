@@ -132,6 +132,11 @@
       "date": "2026-10-31",
       "check": "held",
       "text": "A brace placed by hand now follows a side that curves up its height, convex or concave, instead of only standing on flat spots."
+    },
+    {
+      "date": "2026-10-31",
+      "check": "held",
+      "text": "Draw > Stabilizer: a fin on the plate against the base of a side, following its slant, to keep a part from tipping over (shaped by the Sway brace settings; Brace depth now goes to 200%)."
     }
   ]
 }

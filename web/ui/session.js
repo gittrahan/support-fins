@@ -60,6 +60,7 @@ export function sessionOf(partTris, model = liveModel()) {
     finMode: model.finMode, finsVisible: model.finsVisible,
     form: model.form,
     walls: model.walls.map((d) => d.kind === 'sway' ? { kind: 'sway', a: at(d.a), ...(d.capped ? { capped: true } : {}) }
+                                    : d.kind === 'stabilizer' ? { kind: 'stabilizer', a: at(d.a) }
                                     : d.kind === 'gusset' ? { kind: 'gusset', a: at(d.a), b: at(d.b), n: dir(d.n) }
                                     : { a: at(d.a), b: at(d.b), ...(d.m ? { m: at(d.m) } : {}) }),
     removed: [...model.removed],
@@ -107,7 +108,7 @@ function readable(s) {
   if (s.finsVisible !== undefined && typeof s.finsVisible !== 'boolean') return false;
   if (s.removed !== undefined && !(Array.isArray(s.removed) && s.removed.every((x) => typeof x === 'string'))) return false;
   return Array.isArray(s.walls ?? []) && (s.walls ?? []).every((w) =>
-    w && point(w.a) && (w.kind === 'sway' || (w.kind === 'gusset' && point(w.b) && point(w.n)) || (w.kind === undefined && point(w.b) && (w.m === undefined || point(w.m)))));
+    w && point(w.a) && (w.kind === 'sway' || w.kind === 'stabilizer' || (w.kind === 'gusset' && point(w.b) && point(w.n)) || (w.kind === undefined && point(w.b) && (w.m === undefined || point(w.m)))));
 }
 
 /** The saved settings each field can take. One it can't -- a number field left
@@ -143,6 +144,9 @@ export function restoreSession(s, beside = false) {
       const a = vec(w.a);
       // a brace saved before the clicked-height cap ran up the whole face: it still does
       walls.push({ kind: 'sway', face: nearestFace(a), a, capped: w.capped === true, ok: false, info: null });
+    } else if (w.kind === 'stabilizer') {
+      const a = vec(w.a);
+      walls.push({ kind: 'stabilizer', face: nearestFace(a), a, ok: false, info: null });
     } else if (w.kind === 'gusset') {
       // its side by the saved normal: nearestFace(a) can pick the arm's underside, as
       // near a point on the side's top edge (the part comes back unturned, so print

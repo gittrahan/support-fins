@@ -101,7 +101,7 @@ def test_the_engine_takes_what_the_panel_sends(engine):
     tops["sway_on"] = True
     tops["separateWalls"] = "on"
     opts = host.host_options(ctx, schema.dialog_values(SCHEMA, lambda n: tops[n]))
-    assert opts["coverage"] == 1.0 and opts["sway"]["reach"] == 0.5     # 100 % and 50 % arrive / 100
+    assert opts["coverage"] == 1.0 and opts["sway"]["reach"] == 2.0     # 100 % and 200 % arrive / 100
     assert opts["gap"] == 0.4
     assert opts["separateWalls"] == "on"
 

@@ -33,7 +33,8 @@ async function roundTrip(session) {
 
 Deno.test('session: written beside the model and read back as it was', async () => {
   const s = { v: 1, part: { size: [80, 20, 39] }, finMode: 'draw', finsVisible: true, form: { gap: '0.25' },
-              walls: [{ a: [1, 2, 3], b: [4, 5, 6] }, { a: [1, 2, 3], b: [4, 5, 6], m: [3, 9, 4] }, { kind: 'sway', a: [7, 8, 9] }] };
+              walls: [{ a: [1, 2, 3], b: [4, 5, 6] }, { a: [1, 2, 3], b: [4, 5, 6], m: [3, 9, 4] }, { kind: 'sway', a: [7, 8, 9] },
+                      { kind: 'stabilizer', a: [7, 8, 2] }] };
   const r = await roundTrip(s);
   assert(JSON.stringify(r.session) === JSON.stringify(s), `session changed: ${JSON.stringify(r.session)}`);
   // still a plain two-object 3MF to anyone else
@@ -129,4 +130,47 @@ Deno.test('session: a gusset stored in the part frame, with its side normal, reb
     for (let k = 0; k < 3; k++) worst = Math.max(worst, Math.abs(after.tris[i][k] - d[k] - before.tris[i][k]));
   }
   assert(worst < 1e-3, `rebuilt gusset off by ${worst.toFixed(5)} mm`);
+});
+
+Deno.test('session: a stabilizer stored in the part frame rebuilds the same stabilizer', async () => {
+  const { swayAtFace } = await import(`${WEB}sway.js`);
+  // the gusset test's upside-down L; the stabilizer on the upright's outer (-x) side,
+  // its top 15 mm up. The page finds its face again from the point (nearestFace).
+  const L2 = new Float32Array([...block(0, 5, 0, 20, 0, 30), ...block(0, 25, 0, 20, 30, 35)]);
+  const SA = [0, 10, 15];
+  const OPTS = { tines: true, layerHeight: 0.2, reach: 1, stabilizer: true };
+  const { centre, size } = box(L2);
+  const saved = { kind: 'stabilizer', a: SA.map((v, k) => v - centre[k]) };
+  const blob = writeThreeMF(triples(L2), FINS, 'stabilizer', { separate: true, session: { v: 1, part: { size }, walls: [saved] } });
+  const r = await readThreeMF(new Uint8Array(await blob.arrayBuffer()));
+  const s = r.session.walls[0];
+  assert(JSON.stringify(s) === JSON.stringify(saved), `stored stabilizer changed: ${JSON.stringify(s)}`);
+
+  const topoOf = (pos) => buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
+  const outerSide = (topo) => { for (let f = 0; f < topo.nFaces; f++) if (topo.nrm[f * 3] < -0.9) return f; return -1; };
+  const topo0 = topoOf(L2), off0 = analyze(topo0, 45, IDENTITY).offset;
+  const before = swayAtFace(topo0, { offset: off0 }, IDENTITY, outerSide(topo0), SA.map((v, k) => v + [off0.x, off0.y, off0.z][k]), OPTS);
+
+  // reload as the site does (see the wall test above): centre on the box, seat, rebuild
+  const obj = r.objects.filter((o) => !/ supports$/.test(o.name));
+  const pos = obj[0].positions, c = box(pos).centre;
+  const local = new Float32Array(pos.length);
+  for (let i = 0; i < pos.length; i++) local[i] = pos[i] - c[i % 3];
+  const topo = topoOf(local);
+  const off = analyze(topo, 45, IDENTITY).offset;
+  const o = [off.x, off.y, off.z];
+  const after = swayAtFace(topo, { offset: off }, IDENTITY, outerSide(topo), s.a.map((v, k) => v + o[k]), OPTS);
+
+  assert(before.ok && after.ok, `stabilizers: ${before.reason ?? 'ok'} / ${after.reason ?? 'ok'}`);
+  assert(after.stabilizer && Math.abs(after.height - before.height) < 1e-6 && Math.abs(after.depth - before.depth) < 1e-6,
+         `rebuilt ${after.height}mm x ${after.depth}mm, was ${before.height}mm x ${before.depth}mm`);
+  assert(before.tris.length === after.tris.length && before.tines === after.tines,
+         `${before.tris.length} vs ${after.tris.length} vertices, ${before.tines} vs ${after.tines} tines`);
+  // the same stabilizer, moved with the part
+  const d = [0, 1, 2].map((k) => after.tris[0][k] - before.tris[0][k]);
+  let worst = 0;
+  for (let i = 0; i < before.tris.length; i++) {
+    for (let k = 0; k < 3; k++) worst = Math.max(worst, Math.abs(after.tris[i][k] - d[k] - before.tris[i][k]));
+  }
+  assert(worst < 1e-3, `rebuilt stabilizer off by ${worst.toFixed(5)} mm`);
 });

@@ -214,7 +214,8 @@ function updateDrawReadout(built, ms) {
   const tines = ok.reduce((a, w) => a + (w.info?.tines ?? 0), 0);
   const braces = ok.filter((w) => w.kind === 'sway').length;
   const gussets = ok.filter((w) => w.kind === 'gusset').length;
-  const walls = ok.length - braces - gussets;
+  const stabs = ok.filter((w) => w.kind === 'stabilizer').length;
+  const walls = ok.length - braces - gussets - stabs;
   // a gusset's side tines are built with Tines off too: counted on their own
   const sideTines = ok.reduce((a, w) => a + (w.info?.sideTines ?? 0), 0);
   const ribs = ok.reduce((a, w) => a + (w.kind === 'sway' ? 0 : w.info?.braces ?? 0), 0);
@@ -225,6 +226,7 @@ function updateDrawReadout(built, ms) {
     + (crosses ? ` · ${tn('{n} brace rib', '{n} brace ribs', crosses)}` : ''));
   if (gussets) parts.push(tn('{n} gusset', '{n} gussets', gussets)
     + (sideTines ? ` · ${tn('{n} side tine', '{n} side tines', sideTines)}` : ''));
+  if (stabs) parts.push(tn('{n} stabilizer', '{n} stabilizers', stabs));
   box.textContent = ok.length
     ? parts.join(' + ') + (tines ? ` · ${tineCount(tines)}` : '')
     : t('none yet');
@@ -233,7 +235,10 @@ function updateDrawReadout(built, ms) {
   const lead = [];
   const help = [];
   if (!drawnWalls.length && !drawMsg) {
-    lead.push(drawShapeNow() === 'gusset'
+    lead.push(drawShapeNow() === 'stabilizer'
+      ? t('Click an upright side of the part near its base, where the top of the fin should be, '
+        + 'to stand a stabilizer that keeps it from tipping over')
+      : drawShapeNow() === 'gusset'
       ? t('Click a side of the part under an overhang, then the overhang itself, '
         + 'to stand a gusset off the side')
       : drawShapeNow() === 'curve'
@@ -260,6 +265,17 @@ function updateDrawReadout(built, ms) {
                  '{n} braces stand up to {mm}mm before gripping the part — that much of it prints as a '
                  + 'lone wall. Fine if it prints; rotate so that side reaches the plate if it wobbles.',
                  stilted.length, { mm: Math.round(tallest) }));
+  }
+  // ...and a stabilizer, much shorter, whose side isn't there at its base (an undercut):
+  // it stands on the plate holding nothing up to its first tine
+  const stabStilted = ok.filter((w) => w.kind === 'stabilizer' && (w.info?.stilt ?? 0) > 5);
+  if (stabStilted.length) {
+    const tallest = Math.max(...stabStilted.map((w) => w.info.stilt));
+    help.push(tn('{n} stabilizer stands up to {mm}mm before gripping the part — the side isn’t there lower down. '
+                 + 'Check its first layers in the slicer.',
+                 '{n} stabilizers stand up to {mm}mm before gripping the part — the side isn’t there lower down. '
+                 + 'Check their first layers in the slicer.',
+                 stabStilted.length, { mm: Math.round(tallest) }));
   }
   if (bad) {
     const one = drawnWalls.find((w) => !w.ok);

@@ -159,6 +159,29 @@ default settings. The angle, gap and tine spacing are the starting values, not t
 from prints yet. The numbers and reasoning are in `docs/FIN-SPEC.md` ("Gussets"), the
 code is `web/gusset.js`, and `tests/gusset.test.js` pins its behaviour.
 
+### Stabilizers: keep a part from tipping over
+
+A part standing on a small footprint, like the upright of an upside-down L, can tip
+over partway through the print: nothing overhangs at its base, so nothing holds it there.
+A **stabilizer** is a triangular fin standing on the plate against the bottom of an
+upright side, its outer edge sloping down to the plate, so the part can't fall that way.
+
+**Using it:** in **Draw**, pick **Stabilizer** (next to Line, Curve and Gusset). Hover an
+upright side near its base: the preview's top follows the cursor. Click to stand it.
+The Sway brace settings shape it too, and show while Stabilizer is picked, with Sway
+braces on or off: **Brace depth** sets how far it reaches out at the plate (**100%** = as
+far as it is tall, a 45° triangle; up to 200%; the default 15% makes a narrow one),
+**Full brace depth** lifts the 60 mm limit, and **Brace grip from** and **Brace tine
+spacing** place its tines. It follows the side's slant, so a side leaning 10° gets a fin
+leaning 10°. Gap, foot and thickness are a sway brace's. Select one and press **Delete**
+to take it out; Undo brings it back, and 3MF sessions keep it.
+
+A stabilizer is refused, with the reason, where the side doesn't come down to the plate,
+below 5 mm, where the part sticks out over it, or where it would touch another support.
+
+**Status: not printed yet.** The code is `web/sway.js` (`SWAY.stab`), the numbers are in
+`docs/FIN-SPEC.md` ("Stabilizers"), and `tests/stabilizer.test.js` pins its behaviour.
+
 ### The "no config, geometry only" notice
 
 Opening the 3MF, **Bambu Studio** ("invalid config, load geometry data only") and

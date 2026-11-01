@@ -192,7 +192,7 @@ class _CreatedHandler(adsk.core.CommandCreatedEventHandler):
                              adsk.core.ValueInput.createByString('%g mm' % s['sway_grip_from']))
             sg.addValueInput('sway_spacing', 'Brace tine spacing', 'mm',
                              adsk.core.ValueInput.createByString('%g mm' % s['sway_tine_spacing']))
-            sg.addIntegerSliderCommandInput('sway_depth', 'Brace depth %', 5, 50, False
+            sg.addIntegerSliderCommandInput('sway_depth', 'Brace depth %', 5, 200, False
                                             ).valueOne = int(s['sway_depth'])
 
             ro = inputs.addTextBoxCommandInput('readout', '', 'Pick the print bed.'
@@ -260,7 +260,7 @@ def engine_options(s):
         'sway': ({'on': True,
                   'gripFrom': max(0.0, float(s['sway_grip_from'])),
                   'tineSpacing': max(1.0, float(s['sway_tine_spacing'])),
-                  'reach': max(5, min(50, s['sway_depth'])) / 100.0}
+                  'reach': max(5, min(200, s['sway_depth'])) / 100.0}
                  if s['sway_braces'] else None),
     }
 
