@@ -102,6 +102,10 @@ breakaway gap and snaps off; only the tines touch the part.
   **back**, the side that faces up, instead of standing a wall under the side you see.
   Hover the back to preview one and click to stand it. It takes a back leaning up to
   45°, curved or flat, places nothing by itself, and uses the same brace settings.
+  An anchor can also be short, down to 5 mm: click low on an upright side for a
+  doorstop at its foot, so a tall part on a small base can't tip over. With Anchor fins
+  on, **Brace depth** goes up to 200% (100% stands out as far as the anchor is tall);
+  sway braces stop at 50%.
 - Three settings appear while either is on: **Brace grip from** (height the tines start;
   0 = the whole height), **Brace tine spacing** (default 6 mm) and **Brace depth**
   (% of height at the bed; default 15%).
