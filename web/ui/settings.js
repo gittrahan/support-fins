@@ -231,7 +231,8 @@ el('sway').addEventListener('change', () => {
   refreshFins();
 });
 // Anchor fins add nothing to Auto's build: the switch only lets a click stand one
-// (ui/walls.js), and the ones already standing stay
+// (ui/walls.js). The ones already standing stay, though turning it off takes a Brace
+// depth over 50% back to 50%, and they rebuild at that
 el('anchor').addEventListener('change', () => {
   syncSway();
   // ...and turning it off brings a deeper setting back to 50%, so the field never
