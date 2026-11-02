@@ -6,7 +6,9 @@ import { assert } from 'jsr:@std/assert';
 
 const KEYS = {
   'web/index.html': ['Anchor fins',
-    'Hold a leaning part from its back, the side that faces up, instead of standing a wall under it. Hover the back to preview an anchor and click to add it. Takes a back leaning up to 45°, curved or flat. Uses the brace settings below.'],
+    'Hold a leaning part from its back, the side that faces up, instead of standing a wall under it. Hover the back to preview an anchor and click to add it. Takes a back leaning up to 45°, curved or flat. Uses the brace settings below.',
+    'How far the brace reaches out at the bed, as a share of its height. Deeper = stiffer, more plastic. Default 15%. Sway braces stop at 50%; anchor fins go up to 200%.'],
+  'web/sway.js': ['Brace grip from is above this anchor’s top — lower it, or click higher up'],
   'web/ui/walls.js': ['Anchor fins: hover a back that faces up, leaning up to 45°, to preview one, and click to stand it.',
     'Anchor · full height {mm} mm', 'Anchor · {mm} mm · move up for full height',
     'couldn’t place that anchor: {reason}', 'anchor fin {mm}mm tall'],
@@ -26,7 +28,9 @@ Deno.test('anchor fins i18n: every new string is in the source and every locale'
       const forms = typeof v === 'string' ? [v] : v && typeof v === 'object' ? Object.values(v) : [];
       assert(forms.length && forms.every((f) => typeof f === 'string' && f.length), `${lang} is missing "${k}"`);
       for (const f of forms) assert(holes(f) === holes(k), `${lang} "${k}" lost a placeholder: ${f}`);
-      if (k.includes('45°')) assert(forms.every((f) => f.includes('45°')), `${lang} dropped the angle in "${k}"`);
+      for (const n of ['45°', '50%', '200%']) {
+        if (k.includes(n)) assert(forms.every((f) => f.replace(/\s/g, '').includes(n)), `${lang} dropped ${n} in "${k}"`);
+      }
     }
   }
 });

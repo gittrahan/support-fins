@@ -331,7 +331,8 @@ export function sweepDrawn({ topology, res, rot, tris, walls, toWorld, auto: bui
       // its clicked point's height; the rest run up the whole face.
       toWorld(w.a, wa);
       const r = swayAtFace(topology, res, rot, w.face,
-                           [wa.x, wa.y, wa.z], { ...swayOpts(), full: !w.capped }, { braces, walls: auto.walls });
+                           [wa.x, wa.y, wa.z], { ...swayOpts(), full: !w.capped, ...(w.anchor ? { anchor: true } : {}) },
+                           { braces, walls: auto.walls });
       w.ok = r.ok;
       w.info = r;
       if (r.ok) { braces.push(r); for (const t of r.tris) out.push(t); }
@@ -607,9 +608,10 @@ let braceShown = null;   // the braceAt key the ghost and tip show now
  * the pose, the settings or the supports it stands clear of change.
  */
 function braceAt(faceIndex, p) {
-  const opts = swayOpts();
+  // an anchor may stand shorter and deeper than a brace (sway.js SWAY.anchor)
+  const anchor = anchorAt(faceIndex), opts = { ...swayOpts(), ...(anchor ? { anchor: true } : {}) };
   const stamp = [lastResult, lastBuilt, removedIds, drawnWalls, drawnWalls.length, finsVisible, autoLike(),
-                 rotM3.elements.join(), JSON.stringify(opts)];
+                 rotM3.elements.join(), JSON.stringify(swayOpts())];
   if (!braceMemo.stamp || braceMemo.stamp.some((v, i) => v !== stamp[i])) braceMemo = { stamp, map: new Map() };
   const memo = (key, f) => {
     const m = braceMemo.map;
@@ -627,7 +629,7 @@ function braceAt(faceIndex, p) {
   const n = topology.nrm, r = rotM3.elements, f = faceIndex * 3;
   const nx = r[0] * n[f] + r[3] * n[f + 1] + r[6] * n[f + 2], ny = r[1] * n[f] + r[4] * n[f + 1] + r[7] * n[f + 2];
   const rx = Math.round(p[0]), ry = Math.round(p[1]), off = ((rx - p[0]) * nx + (ry - p[1]) * ny) / (nx * nx + ny * ny || 1);
-  const x = rx - off * nx, y = ry - off * ny, at = `${faceIndex}|${rx}|${ry}`;
+  const x = rx - off * nx, y = ry - off * ny, at = `${faceIndex}|${rx}|${ry}${anchor ? '|a' : ''}`;
   const full = memo(at, () => swayAtFace(topology, lastResult, rotM3.elements, faceIndex, [x, y, p[2]],
                                          { ...opts, full: true }, avoid));
   if (!full.ok || p[2] >= SNAP_TOP * full.height) return { r: full, full: true, point: [x, y, p[2]], key: at };

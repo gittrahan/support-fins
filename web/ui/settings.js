@@ -219,6 +219,10 @@ function syncSway() {
   el('sway-depth-fld').hidden = !on;
   el('full-brace-depth-fld').hidden = !on;
   el('sway-cross-height-fld').hidden = !on || !el('tall-ribs').checked;
+  // An anchor may stand out further than it is tall (a short doorstop at a side's
+  // foot, #426); a sway brace stops at 50% (sway.js), so the field offers past 50%
+  // only while Anchor fins is on
+  el('sway-depth').max = el('anchor').checked ? '200' : '50';
   syncDrawControls();
   syncSectionSums();
 }
@@ -228,7 +232,13 @@ el('sway').addEventListener('change', () => {
 });
 // Anchor fins add nothing to Auto's build: the switch only lets a click stand one
 // (ui/walls.js), and the ones already standing stay
-el('anchor').addEventListener('change', syncSway);
+el('anchor').addEventListener('change', () => {
+  syncSway();
+  // ...and turning it off brings a deeper setting back to 50%, so the field never
+  // shows a depth no brace builds (the anchors already standing rebuild at 50%)
+  const depth = el('sway-depth');
+  if (!el('anchor').checked && depth.valueAsNumber > 50) { depth.value = '50'; debouncedRefresh(); }
+});
 el('tines').addEventListener('change', syncSway);
 el('full-brace-depth').addEventListener('change', () => refreshFins());
 for (const id of ['sway-from', 'sway-spacing', 'sway-depth', 'sway-cross-height']) {
