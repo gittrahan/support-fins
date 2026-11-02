@@ -137,6 +137,11 @@
       "date": "2026-10-31",
       "check": "held",
       "text": "Anchor fins: a tool of its own for holding a leaning part from its up-facing back, curved or flat, without turning on Auto's sway braces. Sway braces go back to upright sides; a leaning back now takes an anchor."
+    },
+    {
+      "date": "2026-11-02",
+      "check": "stays",
+      "text": "Anchor fins can be short, down to 5 mm: click low on a side for a doorstop that keeps a tall part on a small base from tipping, with Brace depth up to 200%. From BorisKozo's Stabilizer (#426)."
     }
   ]
 }
