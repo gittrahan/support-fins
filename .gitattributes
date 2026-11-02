@@ -1,0 +1,13 @@
+# Check text out with LF everywhere. Several tests compare files byte for byte against
+# what a generator writes (web/index.html from web/changelog.js, docs/PLUGIN-CONFIG.md
+# from plugins/shared/options_doc.js), and core.autocrlf=true on Windows turned them CRLF.
+* text=auto eol=lf
+
+# cmd.exe wants CRLF
+*.bat text eol=crlf
+
+# vendored unmodified, byte for byte as upstream ships it
+web/vendor/** -text
+
+# a PDF is binary however its bytes look: text=auto would rewrite its CR LF pairs
+*.pdf binary
