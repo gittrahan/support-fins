@@ -111,6 +111,16 @@ export const SWAY = {
   // Their own records carry a centreline, not a footprint, so this is the widest
   // foot either builds (PROP/PERP footHalf 3.0 + half a 1.2mm wall) rounded up.
   wallHalf: 3.6,
+
+  // ANCHOR FINS (GH #351), placed by hand only, may also be SHORT: a doorstop at the
+  // foot of a side, so a part on a small footprint can't tip over as it grows (after
+  // BorisKozo's Stabilizer, #426). A brace's 20 mm floor would refuse exactly that fin.
+  anchor: {
+    minH: 5,            // mm; a tipping part only needs its base held
+    // Its depth at the bed keeps a brace's floor (minDepth, 8 mm), but no more than the
+    // anchor is tall: under 8 mm the floor is a 45-degree triangle, not a slab
+    maxReach: 2,        // "Brace depth" up to 200% of the height (a brace stops at 50%)
+  },
 };
 
 const leanCut = () => Math.sin((SWAY.maxLeanDeg * Math.PI) / 180);
@@ -130,7 +140,9 @@ function settings(opts = {}) {
     tineContactOffset: Math.max(-0.2, Math.min(0.2, num(opts.tineContactOffset, -0.01))),
     gripFrom: Math.max(0, num(opts.gripFrom, 0)),
     spacing: Math.max(1, num(opts.tineSpacing, SWAY.tineSpacing)),
-    reach: Math.max(0.05, Math.min(0.5, num(opts.reach, SWAY.reach))),
+    // an anchor may stand out further than it is tall; a brace stops at half
+    reach: Math.max(0.05, Math.min(opts.anchor === true ? SWAY.anchor.maxReach : 0.5, num(opts.reach, SWAY.reach))),
+    anchor: opts.anchor === true,
     uncappedDepth: opts.uncappedDepth === true,
     roundFeet: opts.roundFeet === true && PROP.tineDir !== 'vertical',
     // Auto refuses a brace that would stand a long way up before its first tine;
@@ -238,13 +250,14 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   }
   if (fz1 === -Infinity) return { ok: false, reason: 'there is no face under that spot to brace' };
 
+  const minH = S.anchor ? SWAY.anchor.minH : SWAY.minRibH;
   let H = fz1 - SWAY.topClear;
-  if (H < SWAY.minRibH) {
+  if (H < minH) {
     return { ok: false, reason: `that face only reaches ${fz1.toFixed(0)}mm up — too short to need a brace` };
   }
   if (Number.isFinite(opts.maxHeight)) {
     H = Math.min(H, opts.maxHeight);
-    if (H < SWAY.minRibH) return { ok: false, reason: 'that’s too low for a brace — move up the side' };
+    if (H < minH) return { ok: false, reason: 'that’s too low for a brace — move up the side' };
   }
   const thFor = (h) => Math.min(SWAY.thMax, SWAY.thMin + SWAY.thPerMm * h);
   let th = thFor(H);
@@ -329,7 +342,8 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     const a = fr.sOf(patchPoint(p, wIn, uc, tAtZ(p, wIn, 0)));
     const b = fr.sOf(patchPoint(p, wIn, uc, tAtZ(p, wIn, 1)));
     sIn0 = a; sInSlope = b - a;
-    D0 = Math.max(SWAY.minDepth, S.uncappedDepth ? S.reach * H : Math.min(SWAY.maxDepth, S.reach * H));
+    D0 = Math.max(S.anchor ? Math.min(SWAY.minDepth, H) : SWAY.minDepth,
+                  S.uncappedDepth ? S.reach * H : Math.min(SWAY.maxDepth, S.reach * H));
     if (banded) {
       const n = bands.length;
       // Both ends of each segment stay outside that entire band's surface.
@@ -394,7 +408,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     steep = steepAt();
     if (steep >= 0) {
       H = heights[steep];
-      if (H < SWAY.minRibH) break;
+      if (H < minH) break;
       continue;
     }
     hit = Infinity;
@@ -418,7 +432,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     }
     if (hit === Infinity) break;
     H = hit - 1.0;
-    if (H < SWAY.minRibH) break;
+    if (H < minH) break;
   }
   if (steep >= 0) {
     return { ok: false, reason: 'the face curves over past 45° near the plate there, so a brace can’t follow it up — try a steeper part of the side' };
@@ -460,7 +474,18 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
   if (S.tines) {
     const zStart = Math.max(fz0 + 0.5, S.gripFrom, SWAY.footH + 0.5);
     const zEnd = Math.min(fz1, H) - 0.5;
-    for (let z = zStart; z <= zEnd + 1e-6; z += S.spacing) {
+    // "Brace grip from" at or over a short anchor's top leaves it nothing to grip
+    // with: say so, rather than blame the face (#426)
+    if (S.anchor && S.gripFrom > 0 && zStart >= zEnd) {
+      return { ok: false, reason: 'Brace grip from is above this anchor’s top — lower it, or click higher up' };
+    }
+    // A short anchor squeezes its spacing so its minimum tines still fit: at the 6 mm
+    // default a 10 mm one would get two and be refused. A taller one (or any brace)
+    // keeps the spacing it was given.
+    const spacing = S.anchor && zEnd > zStart
+      ? Math.max(2 * S.layerH, Math.min(S.spacing, (zEnd - zStart) / (SWAY.minTines - 1)))
+      : S.spacing;
+    for (let z = zStart; z <= zEnd + 1e-6; z += spacing) {
       const bot = Math.round(z / S.layerH) * S.layerH;
       const top = bot + S.layerH;
       if (top > H) break;
@@ -498,7 +523,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     }
     // A tall rib tied on at a handful of points still lets the part wave about
     // between them, so the grip has to cover a real share of the height too.
-    const wanted = Math.max(SWAY.minTines, Math.floor(SWAY.minGripShare * (zEnd - zStart) / S.spacing));
+    const wanted = Math.max(SWAY.minTines, Math.floor(SWAY.minGripShare * (zEnd - zStart) / spacing));
     if (tines < wanted) {
       return { ok: false, reason: 'too little of this face lines up with the brace for its tines to grip — try a flatter part of the side' };
     }
