@@ -476,7 +476,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
     const zEnd = Math.min(fz1, H) - 0.5;
     // "Brace grip from" at or over a short anchor's top leaves it nothing to grip
     // with: say so, rather than blame the face (#426)
-    if (S.anchor && S.gripFrom > 0 && zStart >= zEnd) {
+    if (S.anchor && S.gripFrom > 0 && S.gripFrom >= zEnd) {
       return { ok: false, reason: 'Brace grip from is above this anchor’s top — lower it, or click higher up' };
     }
     // A short anchor squeezes its spacing so its minimum tines still fit: at the 6 mm
