@@ -256,7 +256,8 @@ jobs:
   rhino:
     # The Rhino 8 plugin's settings mapping, mesh weld and staged project (rhinocode,
     # which compiles the .yak, needs Rhino: built locally; rhino_smoke.py runs in Rhino).
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest moved to 26.04, which has no Python 3.9 build for setup-python.
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
