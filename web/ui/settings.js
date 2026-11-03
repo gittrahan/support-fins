@@ -245,6 +245,13 @@ el('full-brace-depth').addEventListener('change', () => refreshFins());
 for (const id of ['sway-from', 'sway-spacing', 'sway-depth', 'sway-cross-height']) {
   el(id).addEventListener('input', () => debouncedRefresh());
 }
+// a typed depth past the field's range snaps into it on commit: the engine caps
+// braces at 50% and anchors at 200%, so 250 would show a depth nothing builds
+el('sway-depth').addEventListener('change', () => {
+  const input = el('sway-depth'), v = input.valueAsNumber;
+  input.value = String(Number.isFinite(v) ? Math.max(+input.min, Math.min(+input.max, v)) : 15);
+  debouncedRefresh();
+});
 el('sway-cross-height').addEventListener('change', () => {
   const input = el('sway-cross-height'), v = input.valueAsNumber;
   input.value = String(Number.isFinite(v) ? Math.max(+input.min, Math.min(+input.max, v)) : 50);
