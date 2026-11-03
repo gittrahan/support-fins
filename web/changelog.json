@@ -114,34 +114,39 @@
           "text": "Support gently bent small tubes using their actual curved underside."
         }
       ]
+    },
+    {
+      "version": "1.0.2",
+      "date": "2026-11-03",
+      "entries": [
+        {
+          "date": "2026-10-29",
+          "check": "held",
+          "text": "Try longitudinal walls for isolated narrow struts left unsupported by the normal placement."
+        },
+        {
+          "date": "2026-10-30",
+          "check": "stays",
+          "text": "CLI preserved projects can bake negative parts for print-by-object, retaining exterior painting and part settings, with complete resume checkpoints and warnings to verify sliced materials and clearance."
+        },
+        {
+          "pr": 425,
+          "date": "2026-10-31",
+          "check": "held",
+          "text": "A brace placed by hand now follows a side that curves up its height, convex or concave, instead of only standing on flat spots."
+        },
+        {
+          "date": "2026-10-31",
+          "check": "held",
+          "text": "Anchor fins: a tool of its own for holding a leaning part from its up-facing back, curved or flat, without turning on Auto's sway braces. Sway braces go back to upright sides; a leaning back now takes an anchor."
+        },
+        {
+          "date": "2026-11-02",
+          "check": "stays",
+          "text": "Anchor fins can be short, down to 5 mm: click low on a side for a doorstop that keeps a tall part on a small base from tipping, with Brace depth up to 200%. From BorisKozo's Stabilizer (#426)."
+        }
+      ]
     }
   ],
-  "unreleased": [
-    {
-      "date": "2026-10-29",
-      "check": "held",
-      "text": "Try longitudinal walls for isolated narrow struts left unsupported by the normal placement."
-    },
-    {
-      "date": "2026-10-30",
-      "check": "stays",
-      "text": "CLI preserved projects can bake negative parts for print-by-object, retaining exterior painting and part settings, with complete resume checkpoints and warnings to verify sliced materials and clearance."
-    },
-    {
-      "pr": 425,
-      "date": "2026-10-31",
-      "check": "held",
-      "text": "A brace placed by hand now follows a side that curves up its height, convex or concave, instead of only standing on flat spots."
-    },
-    {
-      "date": "2026-10-31",
-      "check": "held",
-      "text": "Anchor fins: a tool of its own for holding a leaning part from its up-facing back, curved or flat, without turning on Auto's sway braces. Sway braces go back to upright sides; a leaning back now takes an anchor."
-    },
-    {
-      "date": "2026-11-02",
-      "check": "stays",
-      "text": "Anchor fins can be short, down to 5 mm: click low on a side for a doorstop that keeps a tall part on a small base from tipping, with Brace depth up to 200%. From BorisKozo's Stabilizer (#426)."
-    }
-  ]
+  "unreleased": []
 }

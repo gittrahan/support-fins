@@ -83,7 +83,7 @@
 <div id="spinner" aria-live="polite"><span class="ring"></span><span data-i18n="generating supports…">generating supports…</span></div>
 
 <header id="topbar">
-  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.1</small><!-- END version --></span></span>
+  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.2</small><!-- END version --></span></span>
   <!-- accept: the MIME types too, and octet-stream. Android's picker matches by MIME
        and knows none of these extensions, so it greyed every model out (#237); the
        format is read from the bytes (ui/io.js), not the name. -->
@@ -768,8 +768,16 @@
          with the card); released entries only, the list scrolls past a few lines. -->
     <!-- BEGIN whatsnew (web/changelog.js writes this block) -->
     <section id="whatsnew" class="whatsnew">
-      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.1</span></h2>
+      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.2</span></h2>
       <div class="list" tabindex="0">
+        <ul>
+          <li>Anchor fins can be short, down to 5 mm: click low on a side for a doorstop that keeps a tall part on a small base from tipping, with Brace depth up to 200%. From BorisKozo's Stabilizer (#426).</li>
+          <li>Anchor fins: a tool of its own for holding a leaning part from its up-facing back, curved or flat, without turning on Auto's sway braces. Sway braces go back to upright sides; a leaning back now takes an anchor.</li>
+          <li>A brace placed by hand now follows a side that curves up its height, convex or concave, instead of only standing on flat spots.</li>
+          <li>CLI preserved projects can bake negative parts for print-by-object, retaining exterior painting and part settings, with complete resume checkpoints and warnings to verify sliced materials and clearance.</li>
+          <li>Try longitudinal walls for isolated narrow struts left unsupported by the normal placement.</li>
+        </ul>
+        <p class="rel">v1.0.1 <span>2026-10-30</span></p>
         <ul>
           <li>Support gently bent small tubes using their actual curved underside.</li>
         </ul>
