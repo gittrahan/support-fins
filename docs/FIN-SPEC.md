@@ -397,6 +397,10 @@ Draw > Gusset, a click on the side, then a click on the overhang.
 | other supports | kept `PROP.sideClear` off Auto's fins on screen and every hand-placed support stood before it (`boxGrid`, in 3D) | two supports that touch fuse into one piece that won't break away; 3D, so the bed pad under a gusset is no clash |
 | refused | not an upright face (≤ 30° lean); the side doesn't reach ≥ 80 % of the inner edge, or isn't there at its first layer; the body would cut into or weld to the part; another support within `sideClear` | says why, before the click, in the ghost |
 
+## Wall bodies inside the part (Full coverage, Draw) — `web/prop/bodycut.js`, `web/fins/stepsplit.js`
+
+Station checks see only the stations, so at a step in the underside a wall's slanted edge can run through the part between two of them (1.7 mm deep on a tilted front panel). Every wall Draw or Full coverage places is measured once built: a body point `CUT_DEPTH` = 0.2 mm or more inside the part (exact pierce test, then samples every 0.4 mm on the wall's faces) is a cut. Full coverage rebuilds the line either side, stopping 2 stations short of the cut and parting up to 3 times; Draw refuses and asks for two lines. Contact under 0.2 mm isn't treated as a cut: on a knuckle at X30, 553 of 558 lines that crossed or nearly touched the part were under it, and refusing those cost 11% more bare overhang. The row search skips the measurement, since it throws most builds away; the walls it keeps are measured. Auto is unchanged.
+
 ## Joined walls and ties (Full coverage) — `web/fins/fill.js`, `web/prop/ties.js`
 
 Not printed yet. A figure's fill walls stood apart, each on its own ("all the fins become

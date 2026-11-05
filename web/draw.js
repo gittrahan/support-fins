@@ -16,6 +16,7 @@
  * into a watertight wall, reusing prop/sweep.js's proven `sweep` and its three
  * line-settling passes verbatim.
  */
+import { bodyCut } from './prop/bodycut.js';
 import { arcStations, arcThrough, DRAW_MIN_RADIUS } from './drawarc.js';
 import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor, crestOn, crestPart, trimmedEnds } from './prop.js';
 
@@ -215,6 +216,15 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   const withBraces = (line, floorZ) => opts.brace || opts.braceTall
     ? braceWall(line, floorZ, tris, zBed, out, opts.braceClear, { slim: !!opts.brace, tall: !!opts.braceTall })
     : 0;
+  // A built body that runs inside the part (prop/bodycut.js) is refused, saying where and
+  // over which stations, so a caller that may build two walls can part it there
+  // (fins/stepsplit.js). Needs the topology; the live preview omits it and stays as drawn,
+  // and `unmeasured` skips it for a search whose results are built again before they're kept.
+  const cutRefusal = (built, stations) => {
+    const cutAt = opts.topo && !opts.unmeasured && bodyCut(opts.topo, opts.rot, opts.offset, built);
+    return cutAt ? { ok: false, cutAt, top: stations, reason: 'the wall would cut into the part '
+      + 'where its surface steps — draw two lines, one each side of the step' } : null;
+  };
   // PART-ATTACHED first: if solid part sits below the overhang, the support
   // stands on THAT, not the plate. Probe with a BANDED top contour so the
   // overhang isn't settled down onto the very floor we're looking for; floorLine
@@ -252,7 +262,10 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
       floor = floor.slice(keep[0], keep[1]);
     }
     const mold = floorMax > PROP.gap + 0.5 ? moldLine(topPA, tris) : null;
+    const before = out.length;
     if (mold && sweepBetween(mold.top, mold.floor, out)) {
+      const cut = cutRefusal(out.slice(before), topPA);
+      if (cut) return cut;
       let height = 0;
       for (let i = 0; i < topPA.length; i++) {
         height = Math.max(height, (topPA[i][2] - PROP.gap) - floor[i][2]);
@@ -293,6 +306,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
   // was out of reach (too thin a gap to seat a wall), not that we ignore it.
   // The clicked endpoints' heights are exactly "what the user pointed at", so a
   // high clickTop with a failed sweep is the unreachable case, not a low line.
+  const plateAt = out.length;
   if (!sweep(line, zBed, out)) {
     // Neither full-height wall fits. Before refusing, the two SQUAT walls a user
     // drawing by hand can still want (local issue 011) -- tried only now, so every
@@ -300,6 +314,8 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     //   - on the part, with as little as minHeightSquat headroom (a hand just over a thigh);
     //   - on the plate, its low stations a brimmed squat stem, the tall ones the full wall.
     const squat = squatWall(topPA, line, tris, zBed, !!opts.plateOnly);
+    const squatCut = squat && cutRefusal(squat.tris, squat.top);
+    if (squatCut) return squatCut;
     if (squat) {
       out.push(...squat.tris);
       const tines = withTines(squat.top, squat.partAttached ? undefined : PROP.squatBrimH);
@@ -313,6 +329,8 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     }
     return { ok: false, reason: 'nothing to hold up there — the line sits at the plate' };
   }
+  const cut = cutRefusal(out.slice(plateAt), line);
+  if (cut) return cut;
   let height = 0;
   for (const p of line) height = Math.max(height, p[2] - PROP.gap - zBed);
   const braces = withBraces(line, () => zBed);

@@ -20,6 +20,7 @@
  * reach (scattered patches: an android zombie's 90% fell to 76% on rows alone).
  */
 import { drawnWall } from '../draw.js';
+import { wallsAcrossCuts } from './stepsplit.js';
 import { reachOf } from './coverage.js';
 
 export const ROWS = {
@@ -70,7 +71,9 @@ export function rowWalls({ pts, heading, R, tris, drawOpts, fits, keep, minGain,
     }
   }
   rows.sort((a, b) => b.w - a.w || a.v - b.v || a.h - b.h);
-  const search = { ...drawOpts, tines: false };
+  // (no tines and no measuring the body: this is up to 900 builds, nearly all thrown away.
+  // The walls that go in are measured below, and parted if they cut the part)
+  const search = { ...drawOpts, tines: false, unmeasured: true };
   let builds = 0;
   const pieces = [];
   for (const row of rows.slice(0, ROWS.maxRows)) {
@@ -121,13 +124,15 @@ export function rowWalls({ pts, heading, R, tris, drawOpts, fits, keep, minGain,
     best.done = true;
     if (!fits(best.r)) continue;
     // the wall that goes in carries its tines (the search built them off)
-    const r = drawOpts.tines ? drawnWall(best.a, best.b, tris, 0, drawOpts) : best.r;
-    builds++;
-    if (!r.ok || !fits(r)) continue;
-    keep(r);
-    walls++;
-    const reach = reachOf(r.top, R);
-    pts.forEach((p, i) => { if (!held[i] && reach(p[0], p[1], p[2])) held[i] = 1; });
+    const built = wallsAcrossCuts(best.a, best.b, tris, drawOpts);
+    builds += built.tries;
+    for (const r of built.walls) {
+      if (!room() || !fits(r)) continue;
+      keep(r);
+      walls++;
+      const reach = reachOf(r.top, R);
+      pts.forEach((p, i) => { if (!held[i] && reach(p[0], p[1], p[2])) held[i] = 1; });
+    }
   }
   return { walls, builds };
 }
