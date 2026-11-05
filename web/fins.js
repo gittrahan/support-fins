@@ -248,7 +248,7 @@ function withFill(topo, result, rot, opts, auto) {
     fill: { walls: f.stats.walls, rows: f.stats.rows ?? 0, rowsLost: f.stats.rowsLost ?? 0, rowBuilds: f.stats.rowBuilds ?? 0, joined: f.stats.joined ?? 0, ribs: f.stats.ribs, ties: f.stats.ties, tries: f.stats.tries, checks: f.stats.checks, capped: f.stats.capped, refused: f.stats.refused,
             bareBefore: f.stats.startArea, unservedArea: f.unserved.area, unservedPts: f.unserved.pts,
             islands: islands.length, islandsBare: f.unserved.islands ?? 0, islandPts: f.unserved.islandPts ?? [],
-            islandsCapped: !!f.stats.islandsCapped },
+            islandsCapped: !!f.stats.islandsCapped, ...(f.stats.stopped ? { stopped: true } : {}) },
   };
 }
 
@@ -402,7 +402,10 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // on a point-seated part with the pad off, which gets no walls at all (above).
     // (`lastResort: false` is the tests' Auto baseline switch; it doesn't turn the fill off)
     const noWalls = base.seating?.kind === 'point' && !base.pad;
-    if (mode === 'full' && !noWalls) return withFill(topo, result, rot, { ...opts, tines: withTines, coverage }, auto);
+    if (mode === 'full' && !noWalls) {
+      opts.progress?.auto(auto.triangles);      // a live build (fins/progress.js): Auto's walls are in
+      return withFill(topo, result, rot, { ...opts, tines: withTines, coverage }, auto);
+    }
     // Curved walls in Auto (prop/curved.js): a forced curve can leave overhang the
     // straight walls held, so the fill pass runs under the regions a curve won --
     // there only, rows off. Its numbers are its own (`curvedFill`): the readout's Full

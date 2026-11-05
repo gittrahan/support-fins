@@ -711,8 +711,12 @@ function fillOnce(topo, result, rot, opts, built) {
   const dead = new Set();          // points no line could serve
   const bare = (p) => !dead.has(p) && !held(p);
   let past = 0;                    // the island pass's budget past the caps (FILL.islandWalls)
-  const full = () => stats.walls >= FILL.maxWalls + past || stats.tries >= FILL.maxTries + 3 * past
-    || stats.checks >= FILL.maxChecks + 50 * past;
+  // Stop on a live build (fins/progress.js stopOpts): the walls shown, no more
+  const stopAt = opts.fillStopAt ?? Infinity;
+  const full = () => stats.walls >= stopAt || stats.walls >= FILL.maxWalls + past
+    || stats.tries >= FILL.maxTries + 3 * past || stats.checks >= FILL.maxChecks + 50 * past;
+  // the live reporter (fins/progress.js), on a Full build in the Worker: reads nothing back
+  const reporter = opts.progress?.fillRun() ?? null;
   const CAP = 'cap';               // wallFor stopped on a cap: give up on nothing
   // a built wall goes in: its triangles, its tops into the reach set, its record
   const keep = (r, joined = false) => {
@@ -727,6 +731,7 @@ function fillOnce(topo, result, rot, opts, built) {
     floors.push(r.floors ?? null);
     tines += r.tines ?? 0;
     stats.walls++;
+    reporter?.wall(r.tris);
   };
 
   // One wall for group `g` of `live`: the first candidate (bridged lines first, then
@@ -744,6 +749,7 @@ function fillOnce(topo, result, rot, opts, built) {
         if (full()) return CAP;
         aims ??= c0.aims;
         stats.checks++;
+        reporter?.tick(stats);
         let quick = underStretch(c0, tris, redAt, others, strict, local);
         let c = quick && settledStretch(quick, tris, redAt, others, strict, local);
         // ...and relaxed (stationClear): standing on the part where there is part under
@@ -878,7 +884,8 @@ function fillOnce(topo, result, rot, opts, built) {
       if (r !== true) for (const i of r) dead.add(live[i]);
     }
   }
-  stats.capped = full() && pts.some((p) => !held(p) && !dead.has(p));
+  stats.stopped = stats.walls >= stopAt || undefined;
+  stats.capped = !stats.stopped && full() && pts.some((p) => !held(p) && !dead.has(p));
   // the red's bare as it stands now, before the island walls (which hold some too):
   // what fillCoverage's rows-or-not pick reads, so that pick stays main's
   const leftRed = red.filter((p) => !held(p));
@@ -896,7 +903,7 @@ function fillOnce(topo, result, rot, opts, built) {
       }
     }
     // stopped on its budget with a start still untried: the card says so
-    stats.islandsCapped = full() && isl.some((p) => !held(p) && !dead.has(p));
+    stats.islandsCapped = !stats.stopped && full() && isl.some((p) => !held(p) && !dead.has(p));
   }
   stats.ribs = braceFill(props, floors, triangles, tris, built.triangles ?? [], shared);
   props.forEach((q, k) => { for (const [a, b] of q.triRanges.slice(1)) others.add(triangles.slice(a, b), { fill: true, k }); });

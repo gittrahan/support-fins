@@ -13,11 +13,16 @@
 // part and its result is shared with draw/orient/export, so duplicating it here
 // would only add a place for the two to drift.
 import { buildFins } from './fins.js';
+import { liveProgress } from './fins/progress.js';
 
 self.onmessage = (e) => {
   const { id, topology, result, rot, opts } = e.data;
   try {
-    const built = buildFins(topology, result, rot, opts);
+    // A live Full build (ui/livebuild.js): its walls and bar posted as they go
+    // (fins/progress.js), the triangles transferred, not copied
+    const progress = opts.live ? liveProgress(opts, (m) => self.postMessage({ id, progress: m }, m.tris ? [m.tris.buffer] : []))
+      : undefined;
+    const built = buildFins(topology, result, rot, progress ? { ...opts, progress } : opts);
     self.postMessage({ id, built });
   } catch (err) {
     // Report rather than die silently -- the main thread falls back to an inline
