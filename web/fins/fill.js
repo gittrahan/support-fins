@@ -464,6 +464,7 @@ function boxesOf(a, b, c, fn, depth = 0) {
  *  them all, ~0.3 s a wall on a 250k-face bust), so "does this new wall touch one" is cheap. */
 export function boxGrid() {
   const C = 3, CZ = 3, grid = new Map();
+  let stamp = 0;           // hits(): marks a stored box already gathered for this triangle
   // 13 bits a cell index (+-12 m at 3 mm); a collision past that only adds candidates
   const key = (i, j, k) => ((i + 4096) * 8192 + (j + 4096)) * 8192 + (k + 4096);
   const cellsOf = (b, pad, fn) => {
@@ -499,21 +500,39 @@ export function boxGrid() {
     // `shared`: two pieces that both start in the flange band, either one wholly
     // within it (top at or under FLANGE_TOP), are the second pass's joined base, not
     // a hit -- a base on the part, above the band, never is
+    //
+    // Per new triangle, the stored boxes near it are gathered ONCE: those within `pad`
+    // of the whole triangle's box (each once, however many cells it sits in). A piece
+    // of the triangle lies inside that box, so no box left out could touch a piece:
+    // the answer is the same as testing every piece against every cell it reaches,
+    // which on a Full build re-read the same crowded cells ~36 times per triangle
+    // (Long walls rows: ~90% of the check's comparisons on the #50 Lissajous, profiled). A triangle
+    // with nothing near is not split at all.
     hits(tris, pad, shared = false, skip = null) {
-      let hit = false;
+      // `near` is refilled per triangle below, before `test` reads it
+      let hit = false, near = [];
       const test = (b) => {
         if (hit) return;
-        cellsOf(b, pad, (k) => {
-          if (hit) return;
-          for (const o of grid.get(k) || []) {
-            if (skip && skip(o.tag)) continue;
-            if (b[0] - pad <= o[3] && o[0] <= b[3] + pad && b[1] - pad <= o[4] && o[1] <= b[4] + pad &&
-                b[2] - pad <= o[5] && o[2] <= b[5] + pad && !(shared && Math.max(b[2], o[2]) <= FLANGE_TOP && Math.min(b[5], o[5]) <= FLANGE_TOP)) { hit = true; return; }
-          }
-        });
+        for (const o of near) {
+          if (b[0] - pad <= o[3] && o[0] <= b[3] + pad && b[1] - pad <= o[4] && o[1] <= b[4] + pad &&
+              b[2] - pad <= o[5] && o[2] <= b[5] + pad && !(shared && Math.max(b[2], o[2]) <= FLANGE_TOP && Math.min(b[5], o[5]) <= FLANGE_TOP)) { hit = true; return; }
+        }
       };
       // the new wall's triangles split the same way as the stored ones
-      for (let i = 0; i + 2 < tris.length && !hit; i += 3) boxesOf(tris[i], tris[i + 1], tris[i + 2], test);
+      for (let i = 0; i + 2 < tris.length && !hit; i += 3) {
+        const t = triBox(tris, i), seen = ++stamp;
+        near = [];
+        cellsOf(t, pad, (k) => {
+          for (const o of grid.get(k) || []) {
+            if (o.seen === seen) continue;
+            o.seen = seen;
+            if (skip && skip(o.tag)) continue;
+            if (t[0] - pad <= o[3] && o[0] <= t[3] + pad && t[1] - pad <= o[4] && o[1] <= t[4] + pad &&
+                t[2] - pad <= o[5] && o[2] <= t[5] + pad) near.push(o);
+          }
+        });
+        if (near.length) boxesOf(tris[i], tris[i + 1], tris[i + 2], test);
+      }
       return hit;
     },
   };
