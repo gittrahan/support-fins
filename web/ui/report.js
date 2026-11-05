@@ -8,7 +8,7 @@ import { t } from './i18n.js';
 import { el } from './dom.js';
 import { part, rotM3, threshold } from './part.js';
 import { builtRequest } from './finbuild.js';
-import { scaleState } from './scale.js';
+import { reportScale } from './scale.js';
 import { drawnWalls } from './walls.js';
 import { removedIds } from './remove.js';
 import { reportSettings, reportCoverage, reportUrl } from '../report.js';
@@ -19,7 +19,7 @@ function current() {
   if (!part || !b) return null;
   const bb = part.geometry.boundingBox;
   const rep = reportSettings({
-    threshold, rot: rotM3.elements, opts: b.opts, scale: scaleState().scale,
+    threshold, rot: rotM3.elements, opts: b.opts, scale: reportScale(),
     size: [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z],
     faces: part.geometry.getAttribute('position').count / 3,
   });

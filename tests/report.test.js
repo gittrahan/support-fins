@@ -126,3 +126,17 @@ Deno.test('report: the links are translated in every locale', async () => {
     for (const k of keys) assert(dict[k] && dict[k] !== k, `${lang}: untranslated "${k}"`);
   }
 });
+
+Deno.test('report: a part stretched per axis (#440) files its matrix and replays it', () => {
+  try {
+    const stretch = [1.5, 0, 0, 0, 1, 0, 0, 0, 0.8];           // web/scale.js: row-major, part frame
+    const page = pageBuild('auto', stretch);
+    applyTunables(DEFAULTS);
+    const filed = JSON.parse(JSON.stringify(page.rep));
+    assert(Array.isArray(filed.scale) && filed.scale.length === 9, 'the matrix is filed');
+    const back = replayReport(raw, filed);
+    assert(!back.why, back.why);
+    assert(sameTris(back.built.triangles, page.built.triangles), 'stretched fins differ');
+    assert(replayReport(raw, { ...filed, scale: 1.5 }).why?.includes('the part is'), 'a uniform 150 % is not this part');
+  } finally { applyTunables(DEFAULTS); }
+});

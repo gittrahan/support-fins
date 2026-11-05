@@ -451,6 +451,7 @@ function report(filename, size) {
 
   lastSize = size;
   updateFit();
+  document.dispatchEvent(new Event('partsizechange'));   // Scale's mm fields (ui/scale.js)
 
   // Empty string hides it: `.note:empty { display: none }`, same as the sibling notes.
   el('s-import-note').textContent = importNote;
