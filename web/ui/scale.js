@@ -20,6 +20,7 @@ import { el } from './dom.js';
 import { addBadge } from './toolbar.js';
 import { part, partName, setPart } from './part.js';
 import { forgetSessionNote } from './io.js';
+import { gizmo } from './pose.js';
 import {
   IDENTITY, scaleAbout, stretchOnPlate, uniformOf, sizeOnPlate, fieldValue, stretchFor,
 } from '../scale.js';
@@ -56,8 +57,8 @@ function boxes() {
 }
 
 const show = (v) => String(+v.toFixed(2));
-// a part that loads under 10 mm (one written in metres) keeps its digits
-const showMm = (v) => String(+v.toFixed(v < 10 ? 4 : 2));
+// a part that loads under 10 mm (one written in metres) keeps 4 digits
+const showMm = (v) => String(v < 10 ? +v.toPrecision(4) : +v.toFixed(2));
 const pctOf = (cur, at100) => (at100 > 0 ? show(cur / at100 * 100) : '');
 
 function render() {
@@ -151,4 +152,6 @@ el('scale-reset').addEventListener('click', () => setScale(IDENTITY));
 // opening the popover fills its fields, and a new pose changes what the plate's
 // X/Y/Z measure (part.js sends this with each new Size row)
 el('scale-badge').addEventListener('click', () => render());
-document.addEventListener('partsizechange', () => { if (!pop.hidden) render(); });
+// -- but not each frame of a ring drag (two walks of the part per frame); the
+// release shades once more and fills them then (ui/pose.js)
+document.addEventListener('partsizechange', () => { if (!pop.hidden && !gizmo.dragging) render(); });
