@@ -33,9 +33,13 @@ const LOWTINE_REL = 0.05;                     // ...or 5% of its height (web/pro
 // are a layout trade, not a loss -- tube X25 sparse gives up a wedge's tines for
 // real walls and covers 51% -> 76%. They are listed under info as a trade.
 const COV_PTS = 2, COV_HELD = 0.5;
+// Full coverage cases (sweep.js --full) also report bare area and walls inside the
+// part. More deep walls, or the deepest going over 0.1 mm deeper, always blocks. Bare area blocks past 50 mm2 and 5%: small
+// shifts are normal when one wall moves.
+const BARE_MM2 = 50, BARE_FRAC = 0.05, DEEP_MM = 0.1;
 
-const blocking = { error: [], unserved: [], cov: [], wallLen: [], tines: [], lowTine: [], vanished: [] };
-const info = { mesh: [], traded: [], covUp: [], walls: [], squat: [], tinesUp: [], lenUp: [], lowTineDown: [], lowTopDown: [], grams: [] };
+const blocking = { error: [], unserved: [], cov: [], wallLen: [], tines: [], lowTine: [], deep: [], bare: [], vanished: [] };
+const info = { mesh: [], traded: [], covUp: [], walls: [], squat: [], tinesUp: [], lenUp: [], lowTineDown: [], lowTopDown: [], grams: [], deepDown: [], bareDown: [] };
 const changed = [];
 let identical = 0;
 let hashed = 0, sameMesh = 0;
@@ -65,6 +69,12 @@ for (const k of Object.keys(B)) {
   if (b.lowTine != null && (h.lowTine == null || h.lowTine > b.lowTine + Math.max(LOWTINE_MM, LOWTINE_REL * b.lowTine))) {
     blocking.lowTine.push([k, `${b.lowTine} -> ${h.lowTine ?? 'none'} mm`]);
   }
+  if (b.deep != null && h.deep != null) {
+    if (h.deep > b.deep || h.deepMax > b.deepMax + DEEP_MM) blocking.deep.push([k, `${b.deep} -> ${h.deep} walls inside the part, deepest ${b.deepMax} -> ${h.deepMax} mm`]);
+    if (h.deep < b.deep) info.deepDown.push([k, `${b.deep} -> ${h.deep}`]);
+    if (h.bare - b.bare > Math.max(BARE_MM2, BARE_FRAC * b.bare)) blocking.bare.push([k, `${b.bare} -> ${h.bare} mm2 bare`]);
+    if (b.bare - h.bare > Math.max(BARE_MM2, BARE_FRAC * b.bare)) info.bareDown.push([k, `${b.bare} -> ${h.bare} mm2`]);
+  }
   if (h.walls !== b.walls) info.walls.push([k, `${b.walls} -> ${h.walls}`]);
   if (h.squat !== b.squat) info.squat.push([k, `${b.squat} -> ${h.squat}`]);
   if (h.tines > b.tines) info.tinesUp.push([k, `${b.tines} -> ${h.tines}`]);
@@ -84,7 +94,13 @@ const both = Object.keys(B).filter((k) => B[k].cov != null && H[k]?.cov != null)
 const mean = (D) => (both.length ? (both.reduce((s, k) => s + D[k].cov, 0) / both.length).toFixed(1) : 'n/a');
 console.log(`mean overhang coverage ${mean(B)}% -> ${mean(H)}%  (${both.length} cases with overhangs)`);
 
+if (both.some((k) => B[k].deep != null)) {
+  console.log(`full coverage  bare ${sum(B, 'bare')} -> ${sum(H, 'bare')} mm2   walls inside the part ${sum(B, 'deep')} -> ${sum(H, 'deep')}`);
+}
+
 const LABEL = {
+  deep: 'walls INSIDE the part rose', bare: 'bare area ROSE',
+  deepDown: 'walls inside the part fell', bareDown: 'bare area fell',
   mesh: 'mesh changed, metrics identical',
   error: 'NEW CRASH', unserved: 'overhang region went UNSERVED', cov: `overhang coverage LOST (>${COV_PTS} pts)`,
   traded: 'tines/wall lost, coverage held (trade)', covUp: `overhang coverage gained (>${COV_PTS} pts)`,
@@ -103,7 +119,7 @@ for (const [cat, rows] of Object.entries(blocking)) {
 console.log('\ninfo:');
 for (const [cat, rows] of Object.entries(info)) {
   console.log(`    ${LABEL[cat]}: ${rows.length}`);
-  if (cat === 'mesh' || (cat === 'traded' && Deno.args.includes('--trades'))) for (const [k, d] of rows) console.log(`      ${k.padEnd(40)} ${d}`);
+  if (cat === 'mesh' || cat === 'deepDown' || cat === 'bareDown' || (cat === 'traded' && Deno.args.includes('--trades'))) for (const [k, d] of rows) console.log(`      ${k.padEnd(40)} ${d}`);
 }
 
 if (changedOut) Deno.writeTextFileSync(changedOut, JSON.stringify(changed));
