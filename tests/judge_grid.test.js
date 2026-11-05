@@ -110,3 +110,12 @@ Deno.test('the judge sees an anchor exactly on a band or reach edge, and ignores
     assert(g === w, `tops ${JSON.stringify(tops)} part ${JSON.stringify(partPts)} at (${x}, ${y}, ${z}): judged ${g}, the scan ${w}`);
   }
 });
+
+// The one place the buckets part from the scan, on purpose: a point with no height can't go in
+// a height band, so it is dropped, where the scan's dz tests let NaN through. Nothing builds one.
+Deno.test('an anchor with no height is dropped, the one difference from a scan', () => {
+  const noHeight = [[0, 0, NaN]], x = 0.3, y = 0, z = 10;
+  const none = scorer([], [])(x, y, z);
+  assert(scorer([], noHeight)(x, y, z) === none, 'the scorer used an anchor with no height');
+  assert(scan([], noHeight)(x, y, z) !== none, 'the scan ignored it too, so this test proves nothing');
+});
