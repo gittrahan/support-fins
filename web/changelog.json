@@ -166,5 +166,11 @@
       ]
     }
   ],
-  "unreleased": []
+  "unreleased": [
+    {
+      "date": "2026-11-05",
+      "check": "easy",
+      "text": "Auto builds about a quarter faster on some tilted parts, with the same supports."
+    }
+  ]
 }
