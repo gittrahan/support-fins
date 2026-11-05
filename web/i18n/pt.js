@@ -616,4 +616,5 @@ export default {
   "Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "A cobertura total foi interrompida antes do fim, com {area} mm² de saliência ainda sem suporte — altere qualquer configuração para gerá-la por completo",
   "Stop building and turn fins off.": "Pare de gerar e desligue as aletas.",
   "the wall would cut into the part where its surface steps — draw two lines, one each side of the step": "a parede cortaria a peça onde a superfície tem um degrau — desenhe duas linhas, uma de cada lado do degrau",
+  "Too big for the build volume — the bigger the part, the longer fins take (minutes on a part metres across).": "Grande demais para o volume de impressão — quanto maior a peça, mais as aletas demoram (minutos numa peça de vários metros).",
 };
