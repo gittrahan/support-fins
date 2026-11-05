@@ -24,6 +24,7 @@
 import { PROP } from './config.js';
 import { insidePart } from '../inside.js';
 import { seat } from './surface.js';
+import { anchorGrid } from './judgegrid.js';
 
 export const JUDGE = {
   cantilever: 2.0,   // mm past a wall's face (provisional, see above)
@@ -94,17 +95,26 @@ export function scorer(tops, partPts) {
   const bridgeMax = SPAN + PROP.th, cantMax = JUDGE.cantilever + PROP.th / 2;
   const dense = [];
   for (const line of tops) densify(line, 0.5, dense);
-  const walls = gridOf(dense, bridgeMax), part = gridOf(partPts, bridgeMax);
+  // (the part's anchors are the same for every scorer of a pose: bucketed once)
+  const walls = gridOf(dense, bridgeMax);
+  let part = partGrids.get(partPts);
+  if (!part) partGrids.set(partPts, (part = gridOf(partPts, bridgeMax)));
   const N = JUDGE.sectors, apart = Math.ceil((JUDGE.bridgeDeg / 360) * N);
   const best = new Float64Array(N);
+  // the band of heights an anchor may have (dz = z - p[2] in -0.05..1.5), and a
+  // square no anchor within bridgeMax can fall outside -- both with slack, so the
+  // tests below decide, as they did over the plain 3 x 3 cells (judgegrid.js)
+  const pad = bridgeMax + 1e-6, zPad = 1e-6;
   return (x, y, z) => {
     best.fill(Infinity);
-    const look = (grid) => grid.each(x, y, (p) => {
-      const dz = z - p[2];
+    const look = (grid) => grid.each(x, y, z - 1.5 - zPad, z + 0.05 + zPad, (qx, qy, qz) => {
+      const dz = z - qz;
       if (dz < -0.05 || dz > 1.5) return;
-      const d = Math.hypot(p[0] - x, p[1] - y);
+      const ex = qx - x, ey = qy - y;
+      if (ex > pad || ex < -pad || ey > pad || ey < -pad) return;
+      const d = Math.hypot(ex, ey);
       if (d > bridgeMax) return;
-      const s = Math.floor(((Math.atan2(p[1] - y, p[0] - x) + Math.PI) / (2 * Math.PI)) * N) % N;
+      const s = Math.floor(((Math.atan2(ey, ex) + Math.PI) / (2 * Math.PI)) * N) % N;
       if (d < best[s]) best[s] = d;
     });
     look(walls);
@@ -158,19 +168,11 @@ function densify(line, step, into) {
   }
 }
 
-function gridOf(pts, cell) {
-  const grid = new Map(), key = (i, j) => i * 100003 + j;
-  for (const p of pts) {
-    const k = key(Math.floor(p[0] / cell), Math.floor(p[1] / cell));
-    let a = grid.get(k); if (!a) grid.set(k, (a = [])); a.push(p);
-  }
-  return {
-    each(x, y, fn) {
-      const gi = Math.floor(x / cell), gj = Math.floor(y / cell);
-      for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) for (const p of grid.get(key(gi + di, gj + dj)) || []) fn(p);
-    },
-  };
-}
+// Anchors by plan cell and by height band: a scorer's window of heights is 1.55 mm,
+// so a band that wide meets at most two per sample.
+const Z_BAND = 1.55;
+const gridOf = (pts, cell) => anchorGrid(pts, cell, Z_BAND);
+const partGrids = new WeakMap();
 
 /**
  * Does the part go DOWN from overhang face `o`'s edge `p`-`q` (seated; `shared`
