@@ -436,9 +436,11 @@ export function syncSectionSums() {
 el('fin-opts').addEventListener('input', syncSectionSums);
 el('fin-opts').addEventListener('change', syncSectionSums);
 
-el('fins-toggle').addEventListener('click', () => {
+/** Fins on or off: the Fins button, and Cancel on a build (off). Off drops any
+ *  build in flight -- refreshFins ends its Worker and unlocks a live one. */
+function setFinsOn(on) {
   histPush();
-  finsVisible = !finsVisible;
+  finsVisible = on;
   if (!finsVisible) drawAugment = false;
   if (removeMode) cancelRemove();
   syncFinsToggleUI();
@@ -449,7 +451,15 @@ el('fins-toggle').addEventListener('click', () => {
   syncRemoveUI();
   setGizmo();
   refreshFins();
-});
+}
+
+el('fins-toggle').addEventListener('click', () => setFinsOn(!finsVisible));
+// Cancel, on the spinner (Auto, Draw) and on a live Full build's bar -- which locks
+// the Fins button, and whose Stop still finishes a build that, on a huge part, can
+// run on for minutes
+for (const id of ['spinner-cancel', 'live-cancel']) {
+  el(id).addEventListener('click', () => { if (finsVisible) setFinsOn(false); });
+}
 
 el('augment-toggle').addEventListener('click', () => {
   if (removeMode) cancelRemove();

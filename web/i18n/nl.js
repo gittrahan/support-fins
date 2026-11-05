@@ -524,4 +524,6 @@ export default {
 	"Stop": "Stop",
 	"Keep the walls shown and finish now": "De getoonde wanden houden en nu afronden",
 	"Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "Volledig is vroegtijdig gestopt, met nog {area} mm² overhang zonder steun — wijzig een willekeurige instelling om het volledig te bouwen",
+	"Stop building and turn fins off.": "Stop met bouwen en zet de vinnen uit.",
+	"Cancel": "Annuleren",
 };

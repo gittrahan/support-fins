@@ -61,6 +61,10 @@ body.no-part #viewport canvas { pointer-events: none; }
   visibility: visible;
   transition: opacity 0.5s ease, visibility 0s;               /* show immediately, fade in */
 }
+/* Cancel: the one thing in it to click, and only under a fin build (ui/finbuild.js
+   .build) -- not reading a STEP, cutting negatives or an export's wait */
+#spinner .btn { display: none; pointer-events: auto; margin-left: 4px; }
+#spinner.build .btn { display: inline-block; }
 @media (prefers-reduced-motion: reduce) {
   #spinner, #spinner.show { transition: none; }
 }

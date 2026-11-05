@@ -614,4 +614,5 @@ export default {
   "Stop": "Parar",
   "Keep the walls shown and finish now": "Manter as paredes mostradas e concluir agora",
   "Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "A cobertura total foi interrompida antes do fim, com {area} mm² de saliência ainda sem suporte — altere qualquer configuração para gerá-la por completo",
+  "Stop building and turn fins off.": "Pare de gerar e desligue as aletas.",
 };
