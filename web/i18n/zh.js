@@ -635,4 +635,5 @@ export default {
   "Stop": "停止",
   "Keep the walls shown and finish now": "保留已显示的支撑墙并立即完成",
   "Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "全覆盖已提前停止，仍有 {area} mm² 悬垂未支撑——更改任意设置即可完整生成",
+  "Stop building and turn fins off.": "停止生成并关闭支撑鳍。",
 };

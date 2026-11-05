@@ -526,4 +526,6 @@ export default {
   "Stop": "إيقاف",
   "Keep the walls shown and finish now": "الإبقاء على الجدران المعروضة والإنهاء الآن",
   "Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "توقّفت التغطية الكاملة مبكرًا، ولا يزال {area} مم² من البروز بلا دعم — غيّر أي إعداد لإنشائها بالكامل",
+  "Stop building and turn fins off.": "أوقف الإنشاء وأطفئ الزعانف.",
+  "Cancel": "إلغاء",
 };

@@ -59,6 +59,7 @@ export default {
   "Take back the last point of the wall you're drawing": "Den letzten Punkt der aktuell gezeichneten Wand zurücknehmen",
   "Place extra breakaway walls by hand, on top of the auto-placed ones.": "Zusätzliche Bruchwände manuell platzieren, zusätzlich zu den automatisch gesetzten.",
   "Click the two ends of a curved wall on the red faces, then a point it runs through — out past the ends for a bigger arc. Ends snap to another wall’s end, so two curves close a ring. Backspace takes back a point; Esc or right-click cancels.": "Die beiden Enden einer gebogenen Wand auf den roten Flächen anklicken, dann einen Punkt, durch den sie verläuft – weiter außen für einen größeren Bogen. Enden rasten am Ende einer anderen Wand ein, sodass zwei Kurven einen Ring schließen. Rückschritttaste nimmt einen Punkt zurück; Esc oder Rechtsklick bricht ab.",
+  "Stop building and turn fins off.": "Bauen abbrechen und Finnen ausschalten.",
   "generating supports…": "Stützen werden generiert…",
   "tessellated at 0.01 mm": "Tesselliert mit 0.01 mm",
   "reading STEP…": "STEP-Datei wird gelesen…",

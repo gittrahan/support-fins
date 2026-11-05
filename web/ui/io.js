@@ -299,9 +299,9 @@ async function parseModel(buffer) {
 async function cutChosen(chosen) {
   const tally = { objects: chosen, cut: 0, uncut: 0, why: null };
   if (!chosen.some((o) => o.extras?.some((e) => e.kind === 'negative'))) return tally;
-  const spinner = el('spinner');
-  const label = spinner.lastChild.textContent;
-  spinner.lastChild.textContent = t('cutting negative parts…');
+  const spinner = el('spinner'), labelEl = el('spinner-label');
+  const label = labelEl.textContent;
+  labelEl.textContent = t('cutting negative parts…');
   spinner.classList.add('show');
   await new Promise((r) => requestAnimationFrame(() => setTimeout(r)));   // let it paint first
   try {
@@ -313,7 +313,7 @@ async function cutChosen(chosen) {
     }
   } finally {
     spinner.classList.remove('show');
-    spinner.lastChild.textContent = label;
+    labelEl.textContent = label;
   }
   return tally;
 }
@@ -323,16 +323,16 @@ async function cutChosen(chosen) {
  * a ~7.6 MB download), then through the same picker as a multi-object 3MF.
  */
 async function parseStep(buffer) {
-  const spinner = el('spinner');
-  const label = spinner.lastChild.textContent;
-  spinner.lastChild.textContent = t('reading STEP…');
+  const spinner = el('spinner'), labelEl = el('spinner-label');
+  const label = labelEl.textContent;
+  labelEl.textContent = t('reading STEP…');
   spinner.classList.add('show');
   let objects;
   try {
     ({ objects } = await readStep(new Uint8Array(buffer)));
   } finally {
     spinner.classList.remove('show');
-    spinner.lastChild.textContent = label;
+    labelEl.textContent = label;
   }
 
   let chosen = objects;

@@ -104,12 +104,12 @@ function armSpinner() {
   // .show class) then eases it on rather than snapping. The spinner is always in
   // the layout, so toggling the class transitions reliably every time -- the
   // earlier display:none/hidden toggle skipped the fade unpredictably.
-  finSpinnerTimer = setTimeout(() => el('spinner').classList.add('show'), 300);
+  finSpinnerTimer = setTimeout(() => el('spinner').classList.add('show', 'build'), 300);
 }
 function clearSpinner() {
   clearTimeout(finSpinnerTimer);
   finSpinnerTimer = null;
-  el('spinner').classList.remove('show');
+  el('spinner').classList.remove('show', 'build');
 }
 
 /** The build request for the settings on the page; `isl`, the Full coverage island
