@@ -150,6 +150,7 @@
   ],
   "unreleased": [
     {
+      "pr": 437,
       "date": "2026-11-04",
       "check": "easy",
       "text": "Full coverage builds up to twice as fast on big or busy parts, with the same supports."
