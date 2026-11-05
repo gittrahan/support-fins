@@ -164,18 +164,23 @@
           "text": "Full coverage builds live: walls appear as they're placed, a progress bar shows how far along it is, and Stop keeps what's shown."
         }
       ]
-    }
-  ],
-  "unreleased": [
-    {
-      "date": "2026-11-05",
-      "check": "easy",
-      "text": "Auto builds about a quarter faster on some tilted parts, with the same supports."
     },
     {
+      "version": "1.0.4",
       "date": "2026-11-05",
-      "check": "clean",
-      "text": "Full coverage no longer builds a wall through the part where its underside steps: the wall becomes two, one each side of the step, so it still breaks away cleanly. Draw mode asks for two lines there."
+      "entries": [
+        {
+          "date": "2026-11-05",
+          "check": "easy",
+          "text": "Auto builds about a quarter faster on some tilted parts, with the same supports."
+        },
+        {
+          "date": "2026-11-05",
+          "check": "clean",
+          "text": "Full coverage no longer builds a wall through the part where its underside steps: the wall becomes two, one each side of the step, so it still breaks away cleanly. Draw mode asks for two lines there."
+        }
+      ]
     }
-  ]
+  ],
+  "unreleased": []
 }
