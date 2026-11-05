@@ -103,6 +103,8 @@ Deno.test('the judge sees an anchor exactly on a band or reach edge, and ignores
     [at(2, 0, 10), [[NaN, 0, 10], [0, Infinity, 10], [0, 0, NaN], [-2, 0, 10]], 0, 0, 10.5],
     [[[[1e9, 0, 10]]], [], 1e9 + 1, 0, 10],             // far out in plan: cell keys wrap
     [[[[0, 0, 1e6]]], [], 0.5, 0, 1e6 + 0.1],           // far up: height keys wrap
+    [at(2, 0, 10), [], 0, 0, NaN],                      // a sample without a height: the scan's tests let it through
+    [at(2, 0, 10), [], NaN, 0, 10],                     // ...without a plan position: nothing near
   ]) {
     const g = scorer(tops, partPts)(x, y, z), w = scan(tops, partPts)(x, y, z);
     assert(g === w, `tops ${JSON.stringify(tops)} part ${JSON.stringify(partPts)} at (${x}, ${y}, ${z}): judged ${g}, the scan ${w}`);
