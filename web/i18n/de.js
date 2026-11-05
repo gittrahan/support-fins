@@ -623,4 +623,5 @@ export default {
   "Stop": "Stopp",
   "Keep the walls shown and finish now": "Die gezeigten Wände behalten und jetzt fertigstellen",
   "Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "Volle Abdeckung wurde vorzeitig gestoppt, {area} mm² Überhang sind noch ungestützt – ändere eine beliebige Einstellung, um sie vollständig zu erstellen",
+  "the wall would cut into the part where its surface steps — draw two lines, one each side of the step": "die Wand würde dort in das Teil schneiden, wo seine Fläche eine Stufe hat — zeichne zwei Linien, eine auf jeder Seite der Stufe",
 };

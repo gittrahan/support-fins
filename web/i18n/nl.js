@@ -526,4 +526,5 @@ export default {
 	"Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "Volledig is vroegtijdig gestopt, met nog {area} mm² overhang zonder steun — wijzig een willekeurige instelling om het volledig te bouwen",
 	"Stop building and turn fins off.": "Stop met bouwen en zet de vinnen uit.",
 	"Cancel": "Annuleren",
+	"the wall would cut into the part where its surface steps — draw two lines, one each side of the step": "de wand zou in het onderdeel snijden waar het oppervlak een trede heeft — teken twee lijnen, één aan elke kant van de trede",
 };

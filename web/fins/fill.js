@@ -56,12 +56,13 @@
  * on every machine. Red no wall can reach is returned (`unserved`), never hidden:
  * quality first, surface the dropped overhang.
  */
-import { drawnLine, drawnWall, DRAW_MIN_LEN } from '../draw.js';
+import { drawnLine, DRAW_MIN_LEN } from '../draw.js';
 import { BRACE, braceWall, footFor, PART_BAND, PROP, surfaceHitsAt, TIE, tieWalls } from '../prop.js';
 import { classify, reachOf, PLATE_Z, MUST, touchesSmallHole } from './coverage.js';
 import { seatedPartTris } from './seating.js';
 import { headingField } from './field.js';
 import { rowWalls } from './rows.js';
+import { wallsAcrossCuts } from './stepsplit.js';
 
 export const FILL = {
   sample: 1.0,       // mm: leftover red is merged into points this far apart
@@ -778,28 +779,38 @@ function fillOnce(topo, result, rot, opts, built) {
         // a group whose lines keep passing the checks but won't build (part under it,
         // no headroom) stops here: each drawnWall is ~0.2 s on a 250k-face part
         if (builds++ >= FILL.groupTries) return aims;
-        stats.tries++;
-        const r = drawnWall(c.a, c.b, tris, 0, drawOpts);
-        // Candidates aimed at neighbouring MUST faces may cross an exempt roof.
-        // An intentional exclusion is neither a failed build nor unserved red.
-        if (r.ok && touchesSmallHole(result, r.top)) continue;
-        const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0]
-          : others.hits(r.tris, PROP.sideClear, local && shared, joined ? isFill : null) ? 'touches a support' : null;
-        if (why) {
-          stats.refused[why] = (stats.refused[why] ?? 0) + 1;
-          // (the relaxation that let it through: on the part, on the plate, or joined)
-          if (joined && why === 'touches a support') joinOk = false;
-          else if (relaxed && why === 'touches a support') { if (r.partAttached) partOk = false; else flangeOk = false; }
-          continue;
+        // (more than one when a body would run inside the part: fins/stepsplit.js)
+        const built = wallsAcrossCuts(c.a, c.b, tris, drawOpts);
+        stats.tries += built.tries;
+        builds += built.tries - 1;     // a parted line's extra builds use this group's budget too
+        if (built.parted) stats.parted = (stats.parted ?? 0) + built.parted;
+        const results = built.walls.length ? built.walls : [built.refused];
+        let kept = false;
+        for (const r of results) {
+          if (kept && full()) break;
+          // Candidates aimed at neighbouring MUST faces may cross an exempt roof.
+          // An intentional exclusion is neither a failed build nor unserved red.
+          if (r.ok && touchesSmallHole(result, r.top)) continue;
+          const why = !r.ok ? r.reason.split(' — ')[0].split(' -- ')[0]
+            : others.hits(r.tris, PROP.sideClear, local && shared, joined ? isFill : null) ? 'touches a support' : null;
+          if (why) {
+            stats.refused[why] = (stats.refused[why] ?? 0) + 1;
+            // (the relaxation that let it through: on the part, on the plate, or joined)
+            if (joined && why === 'touches a support') joinOk = false;
+            else if (relaxed && why === 'touches a support') { if (r.partAttached) partOk = false; else flangeOk = false; }
+            continue;
+          }
+          const reach = reachOf(r.top, R), reachIsland = reachOf(r.top, FILL.islandReach);
+          let gain = 0;
+          for (const i of g) {
+            const p = live[i];
+            if ((p.length > 4 ? reachIsland : reach)(p[0], p[1], p[2])) gain += p[3];
+          }
+          if (gain < FILL.minGain) { stats.refused['holds no new red'] = (stats.refused['holds no new red'] ?? 0) + 1; continue; }
+          keep(r, joined);
+          kept = true;
         }
-        const reach = reachOf(r.top, R), reachIsland = reachOf(r.top, FILL.islandReach);
-        let gain = 0;
-        for (const i of g) {
-          const p = live[i];
-          if ((p.length > 4 ? reachIsland : reach)(p[0], p[1], p[2])) gain += p[3];
-        }
-        if (gain < FILL.minGain) { stats.refused['holds no new red'] = (stats.refused['holds no new red'] ?? 0) + 1; continue; }
-        keep(r, joined);
+        if (!kept) continue;
         return true;
       }
       return null;
