@@ -47,6 +47,9 @@ export function anchorGrid(pts, cell, zCell) {
     each(x, y, z0, z1, fn) {
       const gi = Math.floor(x / cell), gj = Math.floor(y / cell);
       const k0 = Math.floor(z0 / zCell), k1 = Math.floor(z1 / zCell);
+      // a window without a height (a NaN sample) picks no band: every point, as the
+      // plan-only cells handed them (the scorer's tests pass a NaN height through)
+      if (!(k0 <= k1)) { for (let t = 0; t < m; t++) fn(qx[t], qy[t], qz[t]); return; }
       for (let di = -1; di <= 1; di++) {
         for (let dj = -1; dj <= 1; dj++) {
           for (let k = k0; k <= k1; k++) {
