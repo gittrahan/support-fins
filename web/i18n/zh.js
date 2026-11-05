@@ -628,4 +628,11 @@ export default {
   "couldn’t place that anchor: {reason}": "无法放置这道锚撑：{reason}",
   "anchor fin {mm}mm tall": "锚撑高 {mm} mm",
   "{n} anchor fins": {"other": "{n} 道锚撑"},
+  "Placing walls…": "正在放置支撑墙…",
+  "Full coverage · walls added: {n}": "全覆盖 · 已添加支撑墙：{n}",
+  "Comparing layouts…": "正在比较布局…",
+  "Stopping: keeping the walls shown…": "正在停止：保留已显示的支撑墙…",
+  "Stop": "停止",
+  "Keep the walls shown and finish now": "保留已显示的支撑墙并立即完成",
+  "Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "全覆盖已提前停止，仍有 {area} mm² 悬垂未支撑——更改任意设置即可完整生成",
 };

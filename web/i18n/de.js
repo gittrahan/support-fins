@@ -612,4 +612,11 @@ export default {
   "couldn’t place that anchor: {reason}": "Anker konnte nicht gesetzt werden: {reason}",
   "anchor fin {mm}mm tall": "Ankerrippe {mm} mm hoch",
   "{n} anchor fins": {"one": "{n} Ankerrippe", "other": "{n} Ankerrippen"},
+  "Placing walls…": "Wände werden platziert…",
+  "Full coverage · walls added: {n}": "Volle Abdeckung · Wände hinzugefügt: {n}",
+  "Comparing layouts…": "Anordnungen werden verglichen…",
+  "Stopping: keeping the walls shown…": "Wird gestoppt: die gezeigten Wände bleiben…",
+  "Stop": "Stopp",
+  "Keep the walls shown and finish now": "Die gezeigten Wände behalten und jetzt fertigstellen",
+  "Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "Volle Abdeckung wurde vorzeitig gestoppt, {area} mm² Überhang sind noch ungestützt – ändere eine beliebige Einstellung, um sie vollständig zu erstellen",
 };
