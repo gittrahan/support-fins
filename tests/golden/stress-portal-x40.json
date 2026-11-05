@@ -18,7 +18,7 @@
       "kind": "prop",
       "height": 21.655,
       "length": 25.081,
-      "tines": 0,
+      "tines": 5,
       "from": [
         19.4,
         -2.416,
@@ -34,7 +34,7 @@
       "kind": "prop",
       "height": 21.655,
       "length": 25.081,
-      "tines": 0,
+      "tines": 5,
       "from": [
         -19.4,
         -2.416,
@@ -50,7 +50,7 @@
       "kind": "wedge",
       "height": 42.065,
       "length": 19.284,
-      "tines": 0,
+      "tines": 4,
       "from": [
         0,
         19.6,
