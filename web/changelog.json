@@ -154,6 +154,11 @@
       "date": "2026-11-04",
       "check": "easy",
       "text": "Full coverage builds up to twice as fast on big or busy parts, with the same supports."
+    },
+    {
+      "date": "2026-11-04",
+      "check": "easy",
+      "text": "Full coverage builds live: walls appear as they're placed, a progress bar shows how far along it is, and Stop keeps what's shown."
     }
   ]
 }
