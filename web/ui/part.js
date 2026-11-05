@@ -200,6 +200,7 @@ export function stashPart() {
   hideLayerView();
   showToolbar(false);
   el('stats').hidden = true;
+  el('s-big-note').textContent = '';      // the next part's report says it again
   el('status').hidden = true;
   el('drop').classList.remove('hidden');
   // the whole bare plate in view, not the spot the part sat on
