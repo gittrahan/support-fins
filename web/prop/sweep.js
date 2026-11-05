@@ -11,6 +11,7 @@ import { ribbon, roundedFlange } from '../solids.js';
 import { PROP } from './config.js';
 import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
 import { windowedFlange } from './resinfoot.js';
+import { bottomAnchors } from './anchors.js';
 
 /**
  * Foot half-width for a wall of height `h`.
@@ -154,7 +155,7 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
  * `minH` is the least headroom a station needs (Draw mode passes minHeightSquat
  * for a squat wall the user asked for by hand; Auto keeps minHeight).
  */
-export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
+export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, partTris) {
   const welded = PROP.footGap <= 0;
   // only the PART gets the gap: a station whose floor is open plate all across
   // (floorLine's 0, the highest surface under the wall's width) stands on it --
@@ -190,6 +191,7 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     const bN = side(3), bP = side(4);
     const bHi = Math.max(bN, bP);
     const h = top - bHi;
+    if (h <= 0.1) return false;
     // tapers meet in the middle if short; lifted, the top taper stops 0.1 above
     // the bottom's high side -- ending ON it collapsed a section edge into
     // zero-area slivers (ssdMounts X30Y60: short part walls, 4 per wall)
@@ -218,9 +220,11 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
     st.push({ p, sx, sy, top: zTop, ztip: zTopTip, holeTop: top - taper, tipHalf: wTop, sh, bot: bHi, botTip: zBotTip, taperBot: welded, botN: bN, botP: bP });
   }
 
+  const anchors = bottomAnchors(st, partTris);
   const from = out.length;
   if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
   if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
+  out.push(...anchors);
   return true;
 }
 

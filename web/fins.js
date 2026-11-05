@@ -99,6 +99,7 @@ export function applyTunables(t = {}) {
   if (['auto', 'light', 'sure', 'custom'].includes(t.padStyle)) PAD.style = t.padStyle;
   if (t.padCustom) for (const k of Object.keys(PAD.custom)) set(PAD.custom, k, t.padCustom[k]);
   set(PROP, 'gap', t.propGap);
+  if (Number.isFinite(t.sideClearance)) PROP.sideClear = Math.max(0, Math.min(1, t.sideClearance));
   if (Number.isFinite(t.tineContactOffset)) PROP.tineContactOffset = Math.max(-0.2, Math.min(0.2, t.tineContactOffset));
   if (Number.isFinite(t.tallRibsHeight) && t.tallRibsHeight > 0) {
     BRACE.tallH = Math.min(2000, Math.max(1, t.tallRibsHeight));
@@ -120,6 +121,10 @@ export function applyTunables(t = {}) {
   if (['horizontal', 'vertical'].includes(t.tineDir)) {
     PROP.tineDir = t.tineDir;
     PROP.footGap = t.tineDir === 'vertical' ? 0 : FOOT_GAP;
+  }
+  if (Number.isFinite(t.bottomGap) && PROP.tineDir !== 'vertical') PROP.footGap = Math.max(0, Math.min(0.4, t.bottomGap));
+  if (t.bottomAnchors !== undefined || t.tineDir !== undefined) {
+    PROP.bottomAnchors = t.bottomAnchors === true && PROP.tineDir !== 'vertical';
   }
   if (Number.isFinite(t.pinDepth)) PROP.pinDepth = Math.max(0.05, Math.min(PROP.pinDepthMax, t.pinDepth));
   // And the nozzle and wall lines, which scale the support widths (nozzle.js).
