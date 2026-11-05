@@ -467,7 +467,10 @@ function updateFinReadout(built, ms) {
       help.push(t('Auto already reaches every overhang here, so Full coverage added nothing.'));
     }
     const bare = Math.round(fl.unservedArea);
-    if (fl.capped) {
+    if (fl.stopped) {
+      // Stop on a live build (ui/livebuild.js): the walls shown, not the best layout
+      lead.push(t('Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full', { area: bare }));
+    } else if (fl.capped) {
       lead.push(t('Full coverage stopped at its wall limit with {area} mm² of overhang still bare — rotate the part, or add a wall by hand', { area: bare }));
     } else if (bare >= 1 && !mostlyBare) {   // (else the figure warning below says it)
       lead.push(t('{area} mm² of overhang no wall can reach this way up — tilt the part, or add a wall by hand', { area: bare }));

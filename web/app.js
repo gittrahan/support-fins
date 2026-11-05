@@ -1,3 +1,5 @@
+// First: its key guard must run before every other keydown listener (ui/lock.js)
+import { uiLocked } from './ui/lock.js';
 import { setLanguage, updateDomTranslations } from "./ui/i18n.js";
 /**
  * Support Fins: the page's entry point. Every feature lives in web/ui/ (one
@@ -153,6 +155,8 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   // a drag or a pinch is navigation, not a pick; with Move on, nothing is picked (a
   // click on a parked model still edits it: ui/plates.js)
   if (!isTap(e) || moveActive()) return;
+  // a live Full build locks every pick that would change it (ui/lock.js): the view only
+  if (uiLocked()) return;
   // a click on the section plane's handle is the handle's, not a pick
   if (pressOnPlane) return;
 

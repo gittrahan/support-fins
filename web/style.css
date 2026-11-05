@@ -72,6 +72,46 @@ body.no-part #viewport canvas { pointer-events: none; }
   animation: spin 0.7s linear infinite;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* A live Full coverage build (ui/livebuild.js): under the plates row, out of the
+   part's way; the regions it locks (ui/lock.js) dim while it shows. */
+#live-build {
+  position: fixed;
+  top: calc(var(--topbar-h) + 44px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(420px, calc(100vw - 28px));
+  padding: 8px 10px 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--dim);
+  font-size: 12px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4);
+}
+#live-build[hidden] { display: none; }
+#live-label { flex: none; min-width: 11em; white-space: nowrap; }
+#live-bar-wrap { flex: 1; height: 6px; border-radius: 3px; background: var(--btn-line); overflow: hidden; }
+#live-bar { width: 0; height: 100%; background: var(--accent); transition: width 0.25s ease; }
+/* no message for a while (ui/livebuild.js kick): a light sweeps the bar -- working, not stuck */
+#live-bar-wrap { position: relative; }
+#live-bar-wrap.busy::after {
+  content: '';
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: live-sweep 1.3s linear infinite;
+}
+@keyframes live-sweep { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (prefers-reduced-motion: reduce) {
+  #live-bar { transition: none; }
+  #live-bar-wrap.busy::after { animation: none; left: 35%; }
+}
+body.live-shown [inert] { opacity: 0.45; transition: opacity 0.2s ease; }
 @media (prefers-reduced-motion: reduce) { #spinner .ring { animation-duration: 2.4s; } }
 
 /* ---------- top bar ---------- */
