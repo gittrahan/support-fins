@@ -3,7 +3,10 @@
  * it placed, so two builds of the engine can be diffed case by case (compare.js).
  *
  *   deno run -A prototype/sweep/sweep.js --web <web dir> --out <json>
- *        [--export <dir> --only <keys.json>]
+ *        [--export <dir> --only <keys.json>] [--full]
+ *
+ * --full sweeps Full coverage on a chosen set of parts (full-set.js) instead of
+ * Auto on everything, and adds each case's bare area and walls inside the part.
  *
  * WHY THIS EXISTS. Every support-fin fix so far was checked on the part in the
  * complaint -- and on 2026-09-22 a fix that looked perfect on the 35deg cube was
@@ -24,6 +27,8 @@ const args = Object.fromEntries(
 const WEB = args.web.replace(/\/$/, '');
 const { buildTopology, analyze } = await import(`${WEB}/overhangs.js`);
 const { buildFins } = await import(`${WEB}/fins.js`);
+const FULL = Deno.args.includes('--full');
+const { findIslands } = FULL ? await import(`${WEB}/islands.js`) : {};
 
 // Models always come from THIS checkout (they are untracked, so a base worktree
 // has none) -- only the engine under test changes between runs.
@@ -56,6 +61,15 @@ function meshHash(...lists) {
     h = Math.imul(h ^ 0xff, 0x01000193);          // list boundary: [a][b] != [a, b]
   }
   return (h >>> 0).toString(16).padStart(8, '0');
+}
+
+function meshVolume(tris) {                    // signed, mm3; tris: flat list of [x,y,z] vertices
+  let v = 0;
+  for (let i = 0; i + 2 < tris.length; i += 3) {
+    const [a, b, c] = [tris[i], tris[i + 1], tris[i + 2]];
+    v += a[0] * (b[1] * c[2] - b[2] * c[1]) - a[1] * (b[0] * c[2] - b[2] * c[0]) + a[2] * (b[0] * c[1] - b[1] * c[0]);
+  }
+  return v / 6;
 }
 
 function writeSTL(tris) {                     // tris: flat list of [x,y,z] vertices
@@ -96,10 +110,20 @@ const POSES = {
   flat: [1, 0, 0, 0, 1, 0, 0, 0, 1], x25: rotX(25), x45: rotX(45), x60: rotX(60), y35: rotY(35), y45: rotY(45),
   x45y30: mul(rotY(30), rotX(45)), x60z30: mul(rotZ(30), rotX(60)), x30y60: mul(rotY(60), rotX(30)),
 };
+const FULL_ONLY_POSES = { x30: rotX(30) };
 const COVERAGES = [0, 0.5, 1];               // sparse, default, dense
+const { fullSetModels, fullVariants, FULL_POSES, FULL_OPTS } = FULL ? await import('./full-set.js') : {};
+const { deepWalls } = FULL ? await import('./deep.js') : {};
+const poses = FULL ? FULL_POSES.map((p) => [p, POSES[p] ?? FULL_ONLY_POSES[p]]) : Object.entries(POSES);
+const variants = FULL ? fullVariants
+  : () => COVERAGES.map((coverage) => [`cov${coverage}`, { mode: 'auto', bedPad: true, tines: true, coverage }]);
 
 const models = [['cube35', tiltedCube()]];
-for (const d of MODEL_DIRS) {
+if (FULL) {
+  const { found, missing } = fullSetModels(ROOT);
+  if (missing.length) console.error(`full set: not found, skipped: ${missing.join(', ')}`);
+  for (const [name, path] of found) models.push([name, readSTL(Deno.readFileSync(path))]);
+} else for (const d of MODEL_DIRS) {
   for (const e of [...Deno.readDirSync(d)].sort((a, b) => a.name.localeCompare(b.name))) {
     if (e.name.endsWith('.stl')) models.push([e.name.slice(0, -4), readSTL(Deno.readFileSync(`${d}/${e.name}`))]);
   }
@@ -170,15 +194,15 @@ const r2 = (v) => Math.round(v * 100) / 100;
 const out = {};
 for (const [name, pos] of models) {
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
-  for (const [pn, rot] of Object.entries(POSES)) {
-    for (const cov of COVERAGES) {
-      const key = `${name}|${pn}|cov${cov}`;
+  for (const [pn, rot] of poses) {
+    for (const [label, opts] of variants(pn)) {
+      const key = `${name}|${pn}|${label}`;
       if (only && !only.has(key)) continue;
       try {
         globalThis.__TINECAP = [];
         const t0 = performance.now();
         const res = analyze(topo, 45, rot);
-        const b = buildFins(topo, res, rot, { mode: 'auto', bedPad: true, tines: true, coverage: cov });
+        const b = buildFins(topo, res, rot, FULL ? { ...FULL_OPTS, ...opts, islands: findIslands(topo, res, rot) } : opts);
         const ms = performance.now() - t0;
         const caps = globalThis.__TINECAP;
         const walls = (b.props || []).filter((p) => p.line && p.line.length && !p.squat);
@@ -204,6 +228,15 @@ for (const [name, pos] of models) {
           cov: coverage(part, b.triangles),
           hash: meshHash(b.triangles, b.padTriangles || []),
         };
+        if (FULL) {
+          const deep = deepWalls(pos, rot, res.offset, b.fins, b.triangles);
+          // b.volume leaves the fill walls out, so read the plastic off the mesh, as
+          // the page's readout does
+          out[key].grams = r2(Math.abs(meshVolume(b.triangles) + meshVolume(b.padTriangles || [])) * 1.24 / 1000);
+          out[key].bare = Math.round(b.bare?.area ?? 0);
+          out[key].deep = deep.walls;
+          out[key].deepMax = deep.max;
+        }
         if (args.export) {
           // check_stl.py naming: <case>.stl (part+added), -part, -fins, -pad
           const base = `${args.export}/${key.replaceAll('|', '__')}`;

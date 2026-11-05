@@ -32,11 +32,34 @@ nothing (moving code between modules) must show 837/837. A case whose metrics
 match but whose mesh moved is listed under info and still gets the check_stl
 pass.
 
+## Full coverage: `FULL=1`
+
+The main sweep runs Auto only, so 864/864 identical says nothing about Full.
+
+```sh
+FULL=1 prototype/sweep/vs-base.sh          # about 8 min, 2 workers
+```
+
+This sweeps Full coverage, as the page sends it at its defaults, on a chosen set
+(`full-set.js`, plus an optional git-ignored `full-set-extra.txt`): stock shapes and
+parts that have shown Full coverage faults or set its limits, upright and at X30, and at X30 with Curved walls too. The real parts
+are git-ignored: a linked worktree finds them in the main checkout, and a part that
+isn't found is skipped and named. It never runs check_stl.
+
+**Also blocks:** a wall inside the part that wasn't before, or the deepest going over
+0.1 mm deeper (`deep.js`, a vertex past 0.2 mm by its own ray and distance checks,
+sharing no code with the engine) · bare
+area up by more than 50 mm2 and 5%. `deep.js` looks at the whole wall, so it also
+counts a tine or rib that web/prop/bodycut.js, which measures the wall's body only,
+doesn't look at. Bare area and depth falling are listed under info. Plastic here
+comes from the mesh, because `built.volume` leaves fill walls out.
+
 Why it exists: on 2026-09-22 a fix that looked perfect on the 35° cube was
 found (by an ad-hoc version of this) to cost tines on most parts and drop
 walls on others — nothing the one-part check or the unit tests could see.
 
-Files: `sweep.js` (run one engine, optionally export STLs) · `compare.js`
+Files: `sweep.js` (run one engine, optionally export STLs) · `full-set.js` and
+`deep.js` (the Full set and its depth check) · `compare.js`
 (diff two runs) · `check_diff.py` (check_stl on both exports) · `vs-base.sh`
 (all of it against a git ref, in a throwaway worktree).
 

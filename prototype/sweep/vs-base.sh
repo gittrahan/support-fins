@@ -5,6 +5,7 @@
 #
 #   prototype/sweep/vs-base.sh [base-ref]        # e.g. origin/main, a sha
 #   NOCHECK=1 prototype/sweep/vs-base.sh         # skip the (slower) check_stl pass
+#   FULL=1 prototype/sweep/vs-base.sh            # Full coverage on a chosen set of parts (never runs check_stl)
 set -uo pipefail
 BASE="${1:-origin/main}"
 HERE="$(cd "$(dirname "$0")" && pwd)"
@@ -18,15 +19,16 @@ git -C "$ROOT" worktree add -q --detach "$WORK/base" "$BASE" || exit 2
 echo "base $(git -C "$WORK/base" log --oneline -1)"
 echo "head $(git -C "$ROOT" log --oneline -1)$(git -C "$ROOT" diff --quiet -- web || echo ' + uncommitted web/ changes')"
 
-deno run -A "$HERE/sweep.js" --web "$WORK/base/web" --out "$WORK/base.json" &
-deno run -A "$HERE/sweep.js" --web "$ROOT/web" --out "$WORK/head.json" &
+SET=(); [ -n "${FULL:-}" ] && SET=(--full)
+deno run -A "$HERE/sweep.js" --web "$WORK/base/web" --out "$WORK/base.json" ${SET[@]+"${SET[@]}"} &
+deno run -A "$HERE/sweep.js" --web "$ROOT/web" --out "$WORK/head.json" ${SET[@]+"${SET[@]}"} &
 wait
 
 echo
 deno run -A "$HERE/compare.js" "$WORK/base.json" "$WORK/head.json" --changed "$WORK/changed.json"
 status=$?
 
-if [ -z "${NOCHECK:-}" ]; then
+if [ -z "${NOCHECK:-}${FULL:-}" ]; then
   echo
   deno run -A "$HERE/sweep.js" --web "$WORK/base/web" --out "$WORK/b2.json" --export "$WORK/exp-base" --only "$WORK/changed.json" >/dev/null &
   deno run -A "$HERE/sweep.js" --web "$ROOT/web" --out "$WORK/h2.json" --export "$WORK/exp-head" --only "$WORK/changed.json" >/dev/null &
