@@ -527,4 +527,5 @@ export default {
 	"Stop building and turn fins off.": "Stop met bouwen en zet de vinnen uit.",
 	"Cancel": "Annuleren",
 	"the wall would cut into the part where its surface steps — draw two lines, one each side of the step": "de wand zou in het onderdeel snijden waar het oppervlak een trede heeft — teken twee lijnen, één aan elke kant van de trede",
+	"Too big for the build volume — the bigger the part, the longer fins take (minutes on a part metres across).": "Te groot voor het bouwvolume — hoe groter het onderdeel, hoe langer de vinnen duren (minuten bij een onderdeel van meters).",
 };

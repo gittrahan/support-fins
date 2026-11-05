@@ -494,6 +494,7 @@ body.live-shown [inert] { opacity: 0.45; transition: opacity 0.2s ease; }
 }
 .note:empty { display: none; }
 .note.good { color: #6fcf8b; }   /* the "you don't need me" all-clear */
+.note.warn { color: #ffb454; }   /* the Volume row's amber: too big for the build volume */
 
 /* The receipt: the "what did this get me" payoff. The exact grams are the
    headline; the saving is the reason to bother. Set apart from the plain stats

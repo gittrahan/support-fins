@@ -639,4 +639,5 @@ export default {
   "Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "全覆盖已提前停止，仍有 {area} mm² 悬垂未支撑——更改任意设置即可完整生成",
   "Stop building and turn fins off.": "停止生成并关闭支撑鳍。",
   "the wall would cut into the part where its surface steps — draw two lines, one each side of the step": "墙体会在表面台阶处切入零件 —— 请画两条线，台阶两侧各一条",
+  "Too big for the build volume — the bigger the part, the longer fins take (minutes on a part metres across).": "超出打印体积——零件越大，生成支撑鳍越慢（几米大的零件需要几分钟）。",
 };

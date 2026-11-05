@@ -531,4 +531,5 @@ export default {
   "Stop building and turn fins off.": "أوقف الإنشاء وأطفئ الزعانف.",
   "Cancel": "إلغاء",
   "the wall would cut into the part where its surface steps — draw two lines, one each side of the step": "سيقطع الجدار القطعة عند الدرجة في سطحها — ارسم خطين، واحدًا على كل جانب من الدرجة",
+  "Too big for the build volume — the bigger the part, the longer fins take (minutes on a part metres across).": "أكبر من حجم الطباعة — كلما كبرت القطعة طال إنشاء الزعانف (دقائق لقطعة بطول أمتار).",
 };

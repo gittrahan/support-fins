@@ -624,4 +624,5 @@ export default {
   "Keep the walls shown and finish now": "Die gezeigten Wände behalten und jetzt fertigstellen",
   "Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "Volle Abdeckung wurde vorzeitig gestoppt, {area} mm² Überhang sind noch ungestützt – ändere eine beliebige Einstellung, um sie vollständig zu erstellen",
   "the wall would cut into the part where its surface steps — draw two lines, one each side of the step": "die Wand würde dort in das Teil schneiden, wo seine Fläche eine Stufe hat — zeichne zwei Linien, eine auf jeder Seite der Stufe",
+  "Too big for the build volume — the bigger the part, the longer fins take (minutes on a part metres across).": "Zu groß für den Bauraum — je größer das Teil, desto länger dauern die Finnen (Minuten bei einem Teil von mehreren Metern).",
 };
