@@ -884,7 +884,9 @@ function fillOnce(topo, result, rot, opts, built) {
       if (r !== true) for (const i of r) dead.add(live[i]);
     }
   }
-  stats.stopped = stats.walls >= stopAt || undefined;
+  // stopped: the Stop cut off red a wall might still have reached (the run was not done)
+  stats.stopped = (stats.walls >= stopAt && (pts.some((p) => !held(p) && !dead.has(p))
+    || isl.some((p) => !held(p) && !dead.has(p)))) || undefined;
   stats.capped = !stats.stopped && full() && pts.some((p) => !held(p) && !dead.has(p));
   // the red's bare as it stands now, before the island walls (which hold some too):
   // what fillCoverage's rows-or-not pick reads, so that pick stays main's
@@ -903,6 +905,8 @@ function fillOnce(topo, result, rot, opts, built) {
       }
     }
     // stopped on its budget with a start still untried: the card says so
+    // (a Stop during this pass, with a start still untried, is a stop, not the budget)
+    if (stats.walls >= stopAt && isl.some((p) => !held(p) && !dead.has(p))) stats.stopped = true;
     stats.islandsCapped = !stats.stopped && full() && isl.some((p) => !held(p) && !dead.has(p));
   }
   stats.ribs = braceFill(props, floors, triangles, tris, built.triangles ?? [], shared);

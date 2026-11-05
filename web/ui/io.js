@@ -16,6 +16,7 @@ import { partObjectOf, restoreSession } from './session.js';
 import { freePlate, currentPlate, returnTo, dropEmptyPlate, isBusy } from './plates.js';
 import { addSlot, dropAdded, joinPlate, othersHistory } from './models.js';
 import { setHistory } from './history.js';
+import { uiLocked } from './lock.js';
 
 export let importNote = '';
 export let lastImportMeta = null;
@@ -507,5 +508,6 @@ addEventListener('drop', (e) => {
   dragDepth = 0;
   drop.classList.remove('armed');
   if (part) drop.classList.add('hidden');
+  if (uiLocked()) return;      // a live Full build (ui/lock.js): the part stays until it lands
   loadFiles([...e.dataTransfer.files]);
 });

@@ -182,7 +182,7 @@ function makeFinWorker() {
     if (!currentBuild()) { finBusy = false; clearSpinner(); liveEnd(); return; }
     finBusy = false;
     if (e.data.error) {                            // worker failed -- build inline so support still appears
-      applyBuilt(buildFins(topology, lastResult, rotM3.elements, lastOpts));
+      inline(lastOpts);
       return;
     }
     applyBuilt(e.data.built);
@@ -242,13 +242,19 @@ function stopLive() {
   if (finWorker) { finWorker.terminate(); finWorker = undefined; }
   lastOpts = opts;
   const worker = getFinWorker();
-  if (!worker) { finBusy = false; applyBuilt(buildFins(topology, lastResult, rotM3.elements, opts)); return; }
+  if (!worker) { finBusy = false; inline(opts); return; }
   try {
     worker.postMessage({ id: finGen, topology: workerTopology(topology), result: lastResult, rot: rotM3.elements, opts });
   } catch {
     finBusy = false;
-    applyBuilt(buildFins(topology, lastResult, rotM3.elements, opts));
+    inline(opts);
   }
+}
+
+/** Build on the page and show it: the fallback when the Worker can't. A throw still
+ *  ends a live build (ui/livebuild.js), or the page would stay locked. */
+function inline(opts) {
+  try { applyBuilt(buildFins(topology, lastResult, rotM3.elements, opts)); } finally { liveEnd(); }
 }
 
 export function refreshFins() {
