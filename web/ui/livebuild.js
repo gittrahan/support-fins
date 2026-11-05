@@ -20,10 +20,10 @@ const material = new THREE.MeshStandardMaterial({
 });
 
 let active = false;
-let chunks = [];          // Float32Arrays of xyz, Auto's first, then each fill wall
-let mesh = null;
+// One mesh per message (Auto's walls, then each fill wall): a wall is drawn once, when
+// it arrives -- never the whole set again
+let meshes = [];
 let walls = 0;            // fill walls shown
-let redraw = 0;           // a pending requestAnimationFrame
 let onStop = null;
 let reveal = 0;           // the bar shows only on a build past REVEAL_MS (no flash on a quick one)
 const REVEAL_MS = 300;
@@ -52,22 +52,23 @@ function setBar(frac, label) {
   el('live-label').textContent = label;
 }
 
-function draw() {
-  redraw = 0;
-  if (!active) return;
-  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh = null; }
-  const n = chunks.reduce((s, c) => s + c.length, 0);
-  if (!n) return;
-  const arr = new Float32Array(n);
-  let at = 0;
-  for (const c of chunks) { arr.set(c, at); at += c.length; }
+/** Show one message's walls (xyz Float32Array) as their own mesh. */
+function add(tris) {
+  if (!tris.length) return;
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.BufferAttribute(arr, 3));
+  g.setAttribute('position', new THREE.BufferAttribute(tris, 3));
   g.computeVertexNormals();
-  mesh = new THREE.Mesh(g, material);
-  mesh.layers.enable(MODEL);
-  scene.add(mesh);
+  const m = new THREE.Mesh(g, material);
+  m.layers.enable(MODEL);
+  scene.add(m);
+  meshes.push(m);
   requestRender();
+}
+
+function clearMeshes() {
+  for (const m of meshes) { scene.remove(m); m.geometry.dispose(); }
+  if (meshes.length) requestRender();
+  meshes = [];
 }
 
 /** A live build is in flight. */
@@ -84,7 +85,6 @@ export function liveStart(stop) {
   liveEnd();
   active = true;
   onStop = stop;
-  chunks = [];
   walls = 0;
   setBar(0, LABEL.auto());
   kick();
@@ -102,15 +102,15 @@ export function liveMessage(m, hideStale) {
   kick();
   if (m.type === 'auto') {
     hideStale();
-    chunks = [m.tris];
+    clearMeshes();
+    add(m.tris);
   } else if (m.type === 'wall') {
-    chunks.push(m.tris);
+    add(m.tris);
     walls++;
   } else if (m.type === 'tick') {
     setBar(m.frac, LABEL[m.phase]());
     return;
   }
-  if (!redraw) redraw = requestAnimationFrame(draw);
   el('live-label').textContent = LABEL.fill();
 }
 
@@ -125,10 +125,7 @@ export function liveStopping() {
 /** The build landed or was dropped: the walls go (the build's own mesh replaces
  *  them), the bar hides, the page unlocks. */
 export function liveEnd() {
-  if (redraw) cancelAnimationFrame(redraw);
-  redraw = 0;
-  if (mesh) { scene.remove(mesh); mesh.geometry.dispose(); mesh = null; requestRender(); }
-  chunks = [];
+  clearMeshes();
   if (!active) return;
   active = false;
   onStop = null;

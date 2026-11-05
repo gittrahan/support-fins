@@ -26,6 +26,7 @@ import { sectionPick } from './section.js';
 import { slot, liveXY, park, unpark, disposeSlot, select, takeLive, putBack } from './models.js';
 import { drawRow, pitch, plateAt, glide, frameAll } from './plateview.js';
 import { watchTaps } from './tap.js';
+import { uiLocked } from './lock.js';
 
 // One entry per plate: its model slots (models.js) and which of them is live -- or,
 // on a plate not being edited, which comes back live when it is -- and, kept when
@@ -337,7 +338,8 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   downAt = e.button === 0 ? [e.clientX, e.clientY] : null;
 });
 renderer.domElement.addEventListener('pointerup', (e) => {
-  if (!downAt || busy || (plates.length < 2 && plates[0].models.length < 2)) return;
+  // (a live Full build locks the plates: ui/lock.js)
+  if (!downAt || busy || uiLocked() || (plates.length < 2 && plates[0].models.length < 2)) return;
   downAt = null;
   if (!isTap(e)) return;
   const hit = plateAt(e, plates.length, active, [part, finMesh, padMesh, drawnMesh, ...sectionPick()]);
