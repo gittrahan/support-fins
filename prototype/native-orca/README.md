@@ -65,7 +65,8 @@ it does not download or build Orca.
 ## Build the pinned macOS Intel reference
 
 Requirements: existing Xcode, CMake, Ninja, Python 3.9+, GNU make (`gmake`), GNU m4
-(`gm4`), and the native dependency build's existing autoconf/automake tools.
+(`gm4`), `pkg-config`, and the native dependency build's existing
+autoconf/automake tools.
 Nothing is installed globally. The build fails rather than bypassing confinement.
 The recipe applies only the recorded compatibility patch; compiler optimization
 settings remain unchanged. Optional
@@ -84,7 +85,12 @@ required `fff_print_tests` binary, using the pinned source's macOS script and
 original and patched file hashes, and absence of other tracked changes before
 and after building. Local build-tool wrappers serialize dependency recipes
 and cap nested compilation at two workers, including the upstream unbounded
-`make -j` command. Do not increase concurrency on a busy host.
+`make -j` command. A local discovery toolchain excludes MacPorts/Homebrew
+library prefixes; `pkg-config` searches only the local dependency installation.
+This avoids the pinned script’s colon-separated CMake ignore-list bug, which
+otherwise mixes unprefixed system PNG headers with its prefixed PNG library.
+The existing compiler, SDK and explicitly selected build tools remain available.
+Do not increase concurrency on a busy host.
 
 `confined.py` directs caches and temporary files into the workspace and applies
 a macOS filesystem-write sandbox. Downloads are allowed only during the build;

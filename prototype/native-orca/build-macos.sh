@@ -12,7 +12,8 @@ import sys
 root=Path(sys.argv[1]).resolve(strict=True)
 for child in ('logs','evidence','build-tools','orca-source','tmp','cache',
               'build-tools/make','build-tools/ninja','build-tools/git',
-              'build-tools/gcc','build-tools/g++','evidence/build-inputs.txt',
+              'build-tools/gcc','build-tools/g++','build-tools/dependency-isolation.cmake',
+              'build-tools/pkg-config','evidence/build-inputs.txt',
               'evidence/native-executable.sha256','evidence/runtime.json'):
     if not (root/child).resolve().is_relative_to(root):
         raise SystemExit('workspace child escapes through symlink: '+child)
@@ -47,6 +48,7 @@ native_ninja="$(command -v ninja)"
 native_git="$(command -v git)"
 native_make="$(command -v gmake)"
 native_m4="$(command -v gm4)"
+native_pkg_config="$(command -v pkg-config)"
 mkdir -p "$workspace/build-tools"
 # FFmpeg defaults to gcc and does not honor CC. On macOS that name normally
 # selects Apple's xcrun shim, whose cache is outside the workspace.
@@ -88,8 +90,23 @@ export M4="$native_m4"
 export SDKROOT="$sdk" CC="$toolchain/clang" CXX="$toolchain/clang++"
 export AR="$toolchain/ar" RANLIB="$toolchain/ranlib" xcrun_nocache=1
 export ORCA_TESTS_BUILD_ONLY=1
+# The pinned macOS script passes colon-separated ignored prefixes to CMake,
+# which requires semicolons. Its ExternalProject forwarding also splits lists.
+# A toolchain file reaches each dependency without changing the pinned source.
+# Keep discovery of libraries/config packages inside the local prefix or SDK.
+cat > "$workspace/build-tools/dependency-isolation.cmake" <<'TOOLCHAIN'
+set(CMAKE_SYSTEM_IGNORE_PREFIX_PATH "/opt/local;/usr/local;/opt/homebrew")
+TOOLCHAIN
+cat > "$workspace/build-tools/pkg-config" <<WRAPPER
+#!/bin/bash
+exec "$native_pkg_config" "\$@"
+WRAPPER
+chmod +x "$workspace/build-tools/pkg-config"
+export PKG_CONFIG_PATH=
+export PKG_CONFIG_LIBDIR="$workspace/orca-source/deps/build/x86_64/OrcaSlicer_dep/usr/local/lib/pkgconfig"
 args=(-DCMAKE_C_COMPILER="$CC" -DCMAKE_CXX_COMPILER="$CXX" -DCMAKE_AR="$AR"
       -DCMAKE_RANLIB="$RANLIB" -DCMAKE_OSX_SYSROOT="$sdk"
+      -DCMAKE_TOOLCHAIN_FILE="$workspace/build-tools/dependency-isolation.cmake"
       -DCMAKE_MAKE_PROGRAM="$workspace/build-tools/ninja" -DGIT_EXECUTABLE="$workspace/build-tools/git")
 {
   git rev-parse HEAD
