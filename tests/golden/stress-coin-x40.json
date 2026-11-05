@@ -18,7 +18,7 @@
       "kind": "prop",
       "height": 37.953,
       "length": 29.653,
-      "tines": 0,
+      "tines": 6,
       "from": [
         34.286,
         -12.898,
@@ -34,7 +34,7 @@
       "kind": "prop",
       "height": 46.247,
       "length": 49.422,
-      "tines": 0,
+      "tines": 10,
       "from": [
         22.857,
         -22.783,
@@ -50,7 +50,7 @@
       "kind": "prop",
       "height": 49.564,
       "length": 57.33,
-      "tines": 0,
+      "tines": 12,
       "from": [
         11.429,
         -26.737,
@@ -66,7 +66,7 @@
       "kind": "prop",
       "height": 51.223,
       "length": 60.306,
-      "tines": 0,
+      "tines": 12,
       "from": [
         0,
         -27.736,
@@ -82,7 +82,7 @@
       "kind": "prop",
       "height": 49.564,
       "length": 57.33,
-      "tines": 0,
+      "tines": 12,
       "from": [
         -11.429,
         -26.737,
@@ -98,7 +98,7 @@
       "kind": "prop",
       "height": 46.247,
       "length": 49.422,
-      "tines": 0,
+      "tines": 10,
       "from": [
         -22.857,
         -22.783,
@@ -114,7 +114,7 @@
       "kind": "prop",
       "height": 37.953,
       "length": 29.653,
-      "tines": 0,
+      "tines": 6,
       "from": [
         -34.286,
         -12.898,

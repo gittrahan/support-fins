@@ -334,7 +334,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
       for (const v of w.triangles) wedgeTris.push(v);
       for (const wd of w.wedges) {
         wedgeRecs.push({ triRange: [wd.triRange[0] + off, wd.triRange[1] + off],
-                         line: wd.line, height: wd.height, span: wd.span });
+                         line: wd.line, height: wd.height, span: wd.span, tines: wd.tines ?? 0 });
       }
       wedgeTines += w.tines; wedgedPatches++;
     }
@@ -359,13 +359,14 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     const fins = base.props.map((q, i) => ({
       ...(base.fins[i] ?? {}),                     // existing stats (height/length/tines/...)
       id: q.id ?? i, kind: 'prop',
+      tines: q.tines ?? 0,                         // the prop's own count; base.fins[i] carries 0 (#037)
       triRanges: q.triRanges ?? [],
       line: q.line, span: q.span, height: q.height,
     }));
     let wid = fins.length;
     for (const wd of wedgeRecs) {
       fins.push({
-        height: wd.height, length: wd.span, tines: 0, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
+        height: wd.height, length: wd.span, tines: wd.tines ?? 0, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
         id: wid++, kind: 'wedge',
         triRanges: [[wd.triRange[0] + baseLen, wd.triRange[1] + baseLen]],
         line: wd.line, span: wd.span,

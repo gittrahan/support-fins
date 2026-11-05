@@ -18,7 +18,7 @@
       "kind": "prop",
       "height": 11.412,
       "length": 12.861,
-      "tines": 0,
+      "tines": 4,
       "from": [
         2.64,
         -4.702,
@@ -34,7 +34,7 @@
       "kind": "prop",
       "height": 15.559,
       "length": 17.803,
-      "tines": 0,
+      "tines": 4,
       "from": [
         -8.04,
         -4.702,
@@ -50,7 +50,7 @@
       "kind": "prop",
       "height": 20.535,
       "length": 23.734,
-      "tines": 0,
+      "tines": 5,
       "from": [
         -18.72,
         -4.702,
@@ -66,7 +66,7 @@
       "kind": "prop",
       "height": 24.682,
       "length": 28.676,
-      "tines": 0,
+      "tines": 6,
       "from": [
         -29.4,
         -4.702,
