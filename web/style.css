@@ -766,6 +766,7 @@ body.live-shown [inert] { opacity: 0.45; transition: opacity 0.2s ease; }
   font-size: 12px;
   appearance: textfield;          /* Scale: a step would be a whole reload */
 }
+.vb-pop .scale-axis .lbl { min-width: 1.2em; }
 .vb-pop input[type=number]::-webkit-inner-spin-button,
 .vb-pop input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 .vb-pop .readout #rot-delta { color: var(--accent); margin-left: 8px; }

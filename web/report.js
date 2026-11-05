@@ -28,7 +28,8 @@ const r6 = (v) => Math.round(v * 1e6) / 1e6;
 
 /**
  * The settings JSON for a build: `rot` the 3x3 pose (column-major, rotM3.elements),
- * `opts` the request buildFins got, `scale` the part's scale (1 = as loaded),
+ * `opts` the request buildFins got, `scale` the part's scale (1 = as loaded; a
+ * row-major 3x3 in the part's frame when it isn't uniform, web/scale.js),
  * `size` its box in mm and `faces` its triangle count -- the replay checks both, so
  * a report against the wrong file says so rather than building something else.
  * The Full coverage island starts are left out: buildFins finds them itself when
@@ -48,7 +49,7 @@ export function reportSettings({ threshold, rot, opts, scale = 1, size, faces })
 
 /**
  * The part as the page builds on it, from the file's triangles (`pos`, flat xyz):
- * centred on its box (ui/part.js setPart), and at `scale`, scaled about that centre
+ * centred on its box (ui/part.js setPart), and at `scale` (a factor or a 3x3), scaled about that centre
  * and centred again (ui/scale.js). Float32, as the page's geometry is.
  */
 export function reportPart(pos, scale = 1) {
@@ -145,7 +146,8 @@ export function reportUrl(rep, cov, { where, when, drawn = 0, removed = 0 }) {
     line('Small holes left for bridging', cov.smallHoles),
     line('Loose pieces', cov.floating),
     line('Part as loaded', `${rep.part.size.map((v) => v.toFixed(1)).join(' x ')} mm, ${rep.part.faces} triangles`
-      + (rep.scale !== 1 ? `, at ${+(rep.scale * 100).toFixed(2)} %` : '')),
+      + (Array.isArray(rep.scale) ? ', stretched per axis'
+        : rep.scale !== 1 ? `, at ${+(rep.scale * 100).toFixed(2)} %` : '')),
   ].filter(Boolean).join('\n');
   const q = (fields) => `${REPORT.repo}/issues/new?${new URLSearchParams({
     template: REPORT.template, title: `Not supported: ${mode}`, ...fields })}`;
