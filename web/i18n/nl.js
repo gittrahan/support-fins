@@ -515,4 +515,11 @@ export default {
 	"couldn’t place that anchor: {reason}": "kon dat anker niet plaatsen: {reason}",
 	"anchor fin {mm}mm tall": "ankerrib van {mm} mm hoog",
 	"{n} anchor fins": {"one": "{n} ankerrib", "other": "{n} ankerribben"},
+	"Placing walls…": "Wanden plaatsen…",
+	"Full coverage · walls added: {n}": "Volledig · wanden toegevoegd: {n}",
+	"Comparing layouts…": "Indelingen vergelijken…",
+	"Stopping: keeping the walls shown…": "Stoppen: de getoonde wanden blijven…",
+	"Stop": "Stop",
+	"Keep the walls shown and finish now": "De getoonde wanden houden en nu afronden",
+	"Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "Volledig is vroegtijdig gestopt, met nog {area} mm² overhang zonder steun — wijzig een willekeurige instelling om het volledig te bouwen",
 };

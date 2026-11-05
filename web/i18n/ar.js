@@ -519,4 +519,11 @@ export default {
   "couldn’t place that anchor: {reason}": "تعذّر وضع دعامة الإرساء هذه: {reason}",
   "anchor fin {mm}mm tall": "دعامة إرساء بارتفاع {mm} مم",
   "{n} anchor fins": {"one": "{n} دعامة إرساء", "other": "{n} دعامات إرساء"},
+  "Placing walls…": "جارٍ وضع الجدران…",
+  "Full coverage · walls added: {n}": "تغطية كاملة · الجدران المضافة: {n}",
+  "Comparing layouts…": "جارٍ مقارنة التوزيعات…",
+  "Stopping: keeping the walls shown…": "جارٍ الإيقاف: الإبقاء على الجدران المعروضة…",
+  "Stop": "إيقاف",
+  "Keep the walls shown and finish now": "الإبقاء على الجدران المعروضة والإنهاء الآن",
+  "Full coverage was stopped early, with {area} mm² of overhang still bare — change any setting to build it in full": "توقّفت التغطية الكاملة مبكرًا، ولا يزال {area} مم² من البروز بلا دعم — غيّر أي إعداد لإنشائها بالكامل",
 };
