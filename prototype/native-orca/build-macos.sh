@@ -37,8 +37,7 @@ if [[ ! -d orca-source ]]; then
   run clone git clone --depth 1 --branch fin-support-v0.1.0 https://github.com/lewis252310/OrcaSlicer.git orca-source
 fi
 cd orca-source
-[[ "$(git rev-parse HEAD)" == "$revision" ]] || { echo 'Wrong native source revision' >&2; exit 1; }
-[[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo 'Native source has tracked changes' >&2; exit 1; }
+run native-source deno run --allow-read --allow-run=git "$recipe_dir/reference.js" --apply "$workspace/orca-source"
 xcode="$(xcode-select -p)"
 toolchain="$xcode/Toolchains/XcodeDefault.xctoolchain/usr/bin"
 sdk="$xcode/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk"
@@ -108,7 +107,7 @@ export SLICER_CMAKE_GENERATOR="Ninja Multi-Config" SLICER_BUILD_TARGET=OrcaSlice
 run native-slicer ./build_release_macos.sh -s -a x86_64 -j 2 -c Release -T -- \
   "${args[@]}" -DCMAKE_PREFIX_PATH="$workspace/orca-source/deps/build/x86_64/OrcaSlicer_dep/usr/local"
 run native-fin-tests-build cmake --build build/x86_64 --config Release --target fff_print_tests --parallel 2
-[[ -z "$(git status --porcelain --untracked-files=no)" ]] || { echo 'Build changed tracked native source; inspect before accepting runtime' >&2; exit 1; }
+run native-source-check deno run --allow-read --allow-run=git "$recipe_dir/reference.js" "$workspace/orca-source"
 shasum -a 256 build/x86_64/OrcaSlicer/OrcaSlicer.app/Contents/MacOS/OrcaSlicer \
   > "$workspace/evidence/native-executable.sha256"
 python3 -B - "$workspace" "$revision" <<'PYTHON'
@@ -117,7 +116,8 @@ from pathlib import Path
 w=Path(sys.argv[1])
 exe=w/'orca-source/build/x86_64/OrcaSlicer/OrcaSlicer.app/Contents/MacOS/OrcaSlicer'
 (w/'evidence/runtime.json').write_text(json.dumps({
-    'revision':sys.argv[2], 'sha256':hashlib.sha256(exe.read_bytes()).hexdigest(),
+    'format':2, 'revision':sys.argv[2], 'sha256':hashlib.sha256(exe.read_bytes()).hexdigest(),
     'executable':str(exe.relative_to(w)), 'architecture':'x86_64',
-    'sourceChanges':False, 'testExecution':'not-run'}, indent=2)+'\n')
+    'sourceReference':json.loads((w/'logs/native-source-check.log').read_text()),
+    'testExecution':'not-run'}, indent=2)+'\n')
 PYTHON

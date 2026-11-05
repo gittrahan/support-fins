@@ -8,7 +8,17 @@ nor changes application defaults.
 
 The reference is `lewis252310/OrcaSlicer` commit
 `d4da6e4d0efd6dc490e02147741a756a2ed98143` (`fin-support-v0.1.0`).
-Do not substitute an installed stable Orca release or a newer branch head.
+The macOS reference includes exactly one recorded compilation-only patch,
+`patches/clang-fin-vector.patch` (SHA-256
+`4adda02650d5f5f1f3c1da95546f706f9a0639ac9ac5ef60e5de06c2b0babad6`).
+Apple Clang 21 with pinned Eigen 5.0.1 rejects the conditional expression in
+`FinSupport.cpp:3971`: its two branches have different Eigen storage-option types.
+The patch uses explicit assignments with the same condition and calculations.
+Reports identify the reference as the pinned source **plus this patch**; they do
+not describe it as an unmodified preview binary. Full native validation remains
+required after applying it.
+
+Do not substitute an installed stable Orca release, another patch or a newer branch head.
 
 ## Cases and interpretation
 
@@ -45,7 +55,7 @@ From the Support Fins checkout, choose an ignored directory under its `tmp/`:
 
 ```sh
 deno run --allow-write prototype/native-orca/pack.js --out tmp/native-orca-inputs
-deno test -A tests/native_orca.test.js
+deno test -A tests/native_orca.test.js tests/native_orca_reference.test.js
 ```
 
 The manifest records geometry, transforms, painted faces, inputs and SHA-256
@@ -57,7 +67,8 @@ it does not download or build Orca.
 Requirements: existing Xcode, CMake, Ninja, Python 3.9+, GNU make (`gmake`), GNU m4
 (`gm4`), and the native dependency build's existing autoconf/automake tools.
 Nothing is installed globally. The build fails rather than bypassing confinement.
-Native source and compiler optimization settings remain unchanged. Optional
+The recipe applies only the recorded compatibility patch; compiler optimization
+settings remain unchanged. Optional
 CMake package-registry writes outside the workspace are denied by the sandbox.
 All paths below must resolve inside your repository's ignored `tmp/` directory.
 The application bundle stays there; do not copy it into `/Applications`.
@@ -69,8 +80,9 @@ prototype/native-orca/build-macos.sh "$workspace"
 
 The recipe builds dependencies, the x86_64 Release application and only the
 required `fff_print_tests` binary, using the pinned source's macOS script and
-`ORCA_TESTS_BUILD_ONLY=1`. It leaves
-native source unchanged. Local build-tool wrappers serialize dependency recipes
+`ORCA_TESTS_BUILD_ONLY=1`. It verifies the exact base revision, patch checksum,
+original and patched file hashes, and absence of other tracked changes before
+and after building. Local build-tool wrappers serialize dependency recipes
 and cap nested compilation at two workers, including the upstream unbounded
 `make -j` command. Do not increase concurrency on a busy host.
 
@@ -102,8 +114,9 @@ Each native process receives one mandatory offline OS sandbox. Do not wrap the
 launcher in another `sandbox-exec`: macOS can reject nested profiles. This does
 not disable or bypass the native sandbox. Generated caches remain in the
 workspace. The runner refuses existing output directories, symlink escapes,
-wrong source revisions, tracked changes in native source, and an executable
-whose checksum differs from `evidence/runtime.json`, the build receipt.
+wrong source revisions, unrecorded or staged native source changes, and an executable
+whose checksum or source identity differs from `evidence/runtime.json`, the build
+receipt. An old receipt for the unpatched source is rejected.
 
 The native preset resolver loads the pinned H2C 0.4 mm machine, Bambu PETG Basic
 filament and 0.20 mm Standard process. Overrides select Painted Shape, enable Fin
@@ -175,7 +188,7 @@ license; the separate Orca source and bundled profiles retain their own notices.
 
 ## Required checks
 
-- Tier 1: `deno test -A tests/native_orca.test.js`, Python syntax and shell syntax.
+- Tier 1: `deno test -A tests/native_orca.test.js tests/native_orca_reference.test.js`, Python syntax and shell syntax.
 - Tier 2: relevant native Fin tests; all 13 cases, repeated slices and preview
   save/reload checks. Failures and unavailable checks must remain visible.
 - Tier 3: root `deno test -A` and `git diff --check`.

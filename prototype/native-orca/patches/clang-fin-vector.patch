@@ -1,0 +1,15 @@
+--- a/src/libslic3r/Support/FinSupport.cpp
++++ b/src/libslic3r/Support/FinSupport.cpp
+@@ -3968,8 +3968,10 @@
+                         }
+                     }
+                 }
+-                macro_normals[seed] = normal_sum.squaredNorm() > EPSILON * EPSILON ?
+-                    normal_sum.normalized() : geometry[seed].normal;
++                if (normal_sum.squaredNorm() > EPSILON * EPSILON)
++                    macro_normals[seed] = normal_sum.normalized();
++                else
++                    macro_normals[seed] = geometry[seed].normal;
+             }
+         } else {
+             for (size_t face_id = 0; face_id < geometry.size(); ++face_id)

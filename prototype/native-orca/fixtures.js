@@ -2,11 +2,7 @@
  * Curved columns follow the bent-arm idea in tests/sway_curved.test.js
  * (Support Fins contributors, MIT), rebuilt as indexed closed shells.
  */
-export const REFERENCE = Object.freeze({
-  repository: "https://github.com/lewis252310/OrcaSlicer",
-  revision: "d4da6e4d0efd6dc490e02147741a756a2ed98143",
-  tag: "fin-support-v0.1.0",
-});
+export { REFERENCE } from "./reference.js";
 export const PROFILE_NAMES = Object.freeze({
   machine: "Bambu Lab H2C 0.4 nozzle",
   process: "0.20mm Standard @BBL H2C",

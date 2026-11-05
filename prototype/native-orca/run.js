@@ -3,6 +3,7 @@ import { basename, dirname, isAbsolute, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generatePack, sha256 } from "./pack.js";
 import { OVERRIDES, PROFILE_NAMES, REFERENCE } from "./fixtures.js";
+import { verifyNativeSource } from "./reference.js";
 
 export function contained(root, path) {
   const r = relative(resolve(root), resolve(path));
@@ -66,6 +67,18 @@ export function canonicalJSON(value) {
     }}`;
   }
   return JSON.stringify(value);
+}
+export function verifyBuildReceipt(receipt, runtime) {
+  if (
+    receipt.format !== 2 || receipt.revision !== runtime.revision ||
+    receipt.sha256 !== runtime.sha256 ||
+    canonicalJSON(receipt.sourceReference) !==
+      canonicalJSON(runtime.sourceReference)
+  ) {
+    throw new Error(
+      "native executable does not match the pinned build receipt",
+    );
+  }
 }
 export function verifySettings(config) {
   for (const [k, v] of Object.entries(OVERRIDES)) {
@@ -164,6 +177,7 @@ export function reportMarkdown(report) {
     return links.join(" · ");
   };
   return `# Native Orca fin test pack\n\nReference: [${REFERENCE.revision}](${REFERENCE.repository}/tree/${REFERENCE.revision})\n\n` +
+    `Compilation-only patch SHA-256: ${REFERENCE.compatibilityPatch.sha256}. This is the pinned source plus that patch.\n\n` +
     `Executable SHA-256: ${
       report.runtime?.sha256 || "not available"
     }. Full metrics and hashes: [report.json](report.json).\n\n` +
@@ -176,22 +190,6 @@ export function reportMarkdown(report) {
       } |`
     ).join("\n") +
     "\n\nInspect contacts against actual wall extrusions, bed connectivity, body clearance, merged feet and printable-area clipping. Painted Shape may contact unpainted walls and merge intersecting fins. Underside supports are outside its contract.\n";
-}
-async function output(command, args, cwd) {
-  const r = await new Deno.Command(command, {
-    args,
-    cwd,
-    stdout: "piped",
-    stderr: "piped",
-  }).output();
-  if (!r.success) {
-    throw new Error(
-      `${basename(command)} failed: ${
-        new TextDecoder().decode(r.stderr).trim()
-      }`,
-    );
-  }
-  return new TextDecoder().decode(r.stdout).trim();
 }
 export async function run({ workspace, source, orca, out }) {
   workspace = await Deno.realPath(workspace);
@@ -225,34 +223,18 @@ export async function run({ workspace, source, orca, out }) {
     if (Deno.build.os !== "darwin") {
       throw new Error("macOS confinement required; no unconfined fallback");
     }
-    const revision = await output("git", ["rev-parse", "HEAD"], source);
-    if (revision !== REFERENCE.revision) {
-      throw new Error("wrong native source revision");
-    }
-    if (
-      await output(
-        "git",
-        ["status", "--porcelain", "--untracked-files=no"],
-        source,
-      )
-    ) throw new Error("native source has tracked changes");
+    const sourceReference = await verifyNativeSource(source);
+    const revision = sourceReference.revision;
     report.runtime = {
       revision,
+      sourceReference,
       executable: basename(orca),
       sha256: await sha256(await Deno.readFile(orca)),
     };
     const receipt = JSON.parse(
       await Deno.readTextFile(`${workspace}/evidence/runtime.json`),
     );
-    if (
-      receipt.revision !== revision ||
-      receipt.sha256 !== report.runtime.sha256 ||
-      receipt.sourceChanges !== false
-    ) {
-      throw new Error(
-        "native executable does not match the pinned build receipt",
-      );
-    }
+    verifyBuildReceipt(receipt, report.runtime);
     report.testPack = {};
     for (
       const name of [
@@ -261,6 +243,8 @@ export async function run({ workspace, source, orca, out }) {
         "run.js",
         "confined.py",
         "build-macos.sh",
+        "reference.js",
+        REFERENCE.compatibilityPatch.file,
       ]
     ) {
       report.testPack[name] = await sha256(
