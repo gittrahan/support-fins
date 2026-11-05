@@ -146,20 +146,25 @@
           "text": "Anchor fins can be short, down to 5 mm: click low on a side for a doorstop that keeps a tall part on a small base from tipping, with Brace depth up to 200%. From BorisKozo's Stabilizer (#426)."
         }
       ]
-    }
-  ],
-  "unreleased": [
-    {
-      "pr": 437,
-      "date": "2026-11-04",
-      "check": "easy",
-      "text": "Full coverage builds up to twice as fast on big or busy parts, with the same supports."
     },
     {
-      "pr": 438,
-      "date": "2026-11-04",
-      "check": "easy",
-      "text": "Full coverage builds live: walls appear as they're placed, a progress bar shows how far along it is, and Stop keeps what's shown."
+      "version": "1.0.3",
+      "date": "2026-11-05",
+      "entries": [
+        {
+          "pr": 437,
+          "date": "2026-11-04",
+          "check": "easy",
+          "text": "Full coverage builds up to twice as fast on big or busy parts, with the same supports."
+        },
+        {
+          "pr": 438,
+          "date": "2026-11-04",
+          "check": "easy",
+          "text": "Full coverage builds live: walls appear as they're placed, a progress bar shows how far along it is, and Stop keeps what's shown."
+        }
+      ]
     }
-  ]
+  ],
+  "unreleased": []
 }
