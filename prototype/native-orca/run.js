@@ -142,7 +142,9 @@ export function gcodeSummary(text) {
     if (cmd === "M82") absolute = true;
     if (cmd === "M83") absolute = false;
     const param = (k) => {
-      const m = code.match(new RegExp(`(?:^|\\s)${k}(-?\\d+(?:\\.\\d+)?)`));
+      const m = code.match(
+        new RegExp(`(?:^|\\s)${k}([+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+))`),
+      );
       return m ? Number(m[1]) : null;
     };
     if (cmd === "G92" && param("E") !== null) e = param("E");
@@ -160,6 +162,17 @@ export function gcodeSummary(text) {
   }
   return { supportMoves, modelMoves, supportZ: [...zs].sort((a, b) => a - b) };
 }
+export async function repeatSlices(slice) {
+  const runs = [], failures = [];
+  for (let repeat = 1; repeat <= 2; repeat++) {
+    try {
+      runs.push({ repeat, ...await slice(repeat) });
+    } catch (e) {
+      failures.push({ repeat, detail: e.message, metrics: e.metrics ?? null });
+    }
+  }
+  return { runs, failures };
+}
 export function reportMarkdown(report) {
   const evidence = (c) => {
     const links = [`[input](inputs/${c.id}.painted.3mf)`];
@@ -169,15 +182,20 @@ export function reportMarkdown(report) {
     }
     for (const [i, run] of (c.runs || []).entries()) {
       links.push(
-        `[slice ${i + 1}](${c.id}/slice-${i + 1}/${
+        `[slice ${run.repeat || i + 1}](${c.id}/slice-${run.repeat || i + 1}/${
           encodeURIComponent(run.file)
         })`,
+      );
+    }
+    for (const failure of c.failures || []) {
+      links.push(
+        `[failed slice ${failure.repeat}](${c.id}/slice-${failure.repeat}/slice-${failure.repeat}.log)`,
       );
     }
     return links.join(" · ");
   };
   return `# Native Orca fin test pack\n\nReference: [${REFERENCE.revision}](${REFERENCE.repository}/tree/${REFERENCE.revision})\n\n` +
-    `Compilation-only patch SHA-256: ${REFERENCE.compatibilityPatch.sha256}. This is the pinned source plus that patch.\n\n` +
+    `Application compatibility patch SHA-256: ${REFERENCE.compatibilityPatch.sha256}. Test-only compatibility patch SHA-256: ${REFERENCE.testCompatibilityPatch.sha256}. The application contains only the first patch.\n\n` +
     `Executable SHA-256: ${
       report.runtime?.sha256 || "not available"
     }. Full metrics and hashes: [report.json](report.json).\n\n` +
@@ -203,7 +221,7 @@ export async function run({ workspace, source, orca, out }) {
     if (!(e instanceof Deno.errors.NotFound)) throw e;
   }
   await Deno.mkdir(out, { recursive: true });
-  const pack = await generatePack(`${out}/inputs`);
+  let pack = await generatePack(`${out}/inputs`);
   const report = {
     format: 1,
     reference: REFERENCE,
@@ -245,6 +263,7 @@ export async function run({ workspace, source, orca, out }) {
         "build-macos.sh",
         "reference.js",
         REFERENCE.compatibilityPatch.file,
+        REFERENCE.testCompatibilityPatch.file,
       ]
     ) {
       report.testPack[name] = await sha256(
@@ -253,25 +272,25 @@ export async function run({ workspace, source, orca, out }) {
     }
     const settingsDir = `${out}/settings`;
     await Deno.mkdir(settingsDir);
-    const processFile = `${settingsDir}/process.json`;
     await Deno.writeTextFile(
-      processFile,
-      JSON.stringify(
-        {
-          type: "process",
-          name: "Native fin test pack",
-          from: "User",
-          inherits: PROFILE_NAMES.process,
-          ...OVERRIDES,
-        },
-        null,
-        2,
-      ),
+      `${settingsDir}/overrides.json`,
+      JSON.stringify(OVERRIDES, null, 2) + "\n",
     );
+    const overrides = Object.entries(OVERRIDES).flatMap(([key, value]) =>
+      key === "enable_support"
+        ? ["--enable-support"]
+        : [`--${key.replaceAll("_", "-")}`, value]
+    );
+    report.nativeOverrides = overrides;
     const profiles = `${source}/resources/profiles/BBL`;
     const machine = await checkedPath(
       workspace,
       `${profiles}/machine/${PROFILE_NAMES.machine}.json`,
+      { existing: true },
+    );
+    const processFile = await checkedPath(
+      workspace,
+      `${profiles}/process/${PROFILE_NAMES.process}.json`,
       { existing: true },
     );
     const filament = await checkedPath(
@@ -300,6 +319,10 @@ export async function run({ workspace, source, orca, out }) {
           orca,
           "--datadir",
           `${out}/data`,
+          "--arrange",
+          "0",
+          "--orient",
+          "0",
           ...args,
         ],
         stdout: "piped",
@@ -308,18 +331,37 @@ export async function run({ workspace, source, orca, out }) {
       const wrapperLog = `${dir}/${stage}.wrapper.log`;
       await Deno.writeTextFile(wrapperLog, new TextDecoder().decode(r.stderr));
       if (!r.success) {
-        let status = "launch failed";
+        let measurement = null;
         try {
-          status = JSON.parse(await Deno.readTextFile(metrics)).status;
+          measurement = JSON.parse(await Deno.readTextFile(metrics));
         } catch {}
-        throw new Error(
-          `${stage}: ${status}; see ${basename(log)} and ${
-            basename(wrapperLog)
-          }`,
+        const error = new Error(
+          `${stage}: ${measurement?.status || "launch failed"}; see ${
+            basename(log)
+          } and ${basename(wrapperLog)}`,
         );
+        error.metrics = measurement;
+        throw error;
       }
       return { metrics: JSON.parse(await Deno.readTextFile(metrics)), log };
     };
+    // A settings-free 3MF inherits the native 200 mm bed. Loading H2C then
+    // migrates its placement. Resolve the exact saved settings first so both
+    // input and exported projects use the same bed, without arranging objects.
+    report.profileResolution = await native(settingsDir, "resolve", [
+      "--load-settings",
+      `${machine};${processFile}`,
+      "--load-filaments",
+      filament,
+      ...overrides,
+      "--export-settings",
+      `${settingsDir}/resolved.json`,
+    ]);
+    const initialSettings = JSON.parse(
+      await Deno.readTextFile(`${settingsDir}/resolved.json`),
+    );
+    verifySettings(initialSettings);
+    pack = await generatePack(`${out}/inputs`, { settings: initialSettings });
     for (let i = 0; i < pack.cases.length; i++) {
       const c = pack.cases[i], entry = report.cases[i], dir = `${out}/${c.id}`;
       await Deno.mkdir(dir);
@@ -329,10 +371,6 @@ export async function run({ workspace, source, orca, out }) {
           project = `${dir}/native.3mf`,
           settings = `${dir}/resolved.json`;
         entry.preparation = await native(dir, stage, [
-          "--load-settings",
-          `${machine};${processFile}`,
-          "--load-filaments",
-          filament,
           "--export-settings",
           settings,
           "--export-3mf",
@@ -387,38 +425,47 @@ export async function run({ workspace, source, orca, out }) {
             "resolved settings changed on reload; inspect JSON files",
           );
         }
-        entry.runs = [];
-        for (let repeat = 1; repeat <= 2; repeat++) {
-          stage = `slice-${repeat}`;
-          const round = `${dir}/${stage}`;
-          await Deno.mkdir(round);
-          const result = await native(round, stage, [
-            "--slice",
-            "0",
-            "--outputdir",
-            round,
-            "--export-3mf",
-            `${round}/sliced.3mf`,
-            project,
-          ]);
-          const files = [];
-          for await (const file of Deno.readDir(round)) {
-            if (file.isFile && file.name.endsWith(".gcode")) {
-              files.push(file.name);
+        Object.assign(
+          entry,
+          await repeatSlices(async (repeat) => {
+            stage = `slice-${repeat}`;
+            const round = `${dir}/${stage}`;
+            await Deno.mkdir(round);
+            const result = await native(round, stage, [
+              "--slice",
+              "0",
+              "--outputdir",
+              round,
+              "--export-3mf",
+              // With --outputdir, this native preview prefixes the export name
+              // even when it is absolute. Keep it relative to the confined cwd.
+              "sliced.3mf",
+              project,
+            ]);
+            const files = [];
+            for await (const file of Deno.readDir(round)) {
+              if (file.isFile && file.name.endsWith(".gcode")) {
+                files.push(file.name);
+              }
             }
-          }
-          files.sort();
-          if (files.length !== 1) {
-            throw new Error(`expected one G-code file, found ${files.length}`);
-          }
-          const text = await Deno.readTextFile(`${round}/${files[0]}`);
-          entry.runs.push({
-            ...result.metrics,
-            file: files[0],
-            sha256: await sha256(text),
-            normalizedSha256: await sha256(normalizedGcode(text)),
-            ...gcodeSummary(text),
-          });
+            files.sort();
+            if (files.length !== 1) {
+              throw new Error(
+                `expected one G-code file, found ${files.length}`,
+              );
+            }
+            const text = await Deno.readTextFile(`${round}/${files[0]}`);
+            return {
+              ...result.metrics,
+              file: files[0],
+              sha256: await sha256(text),
+              normalizedSha256: await sha256(normalizedGcode(text)),
+              ...gcodeSummary(text),
+            };
+          }),
+        );
+        if (entry.failures.length) {
+          throw new Error(entry.failures.map((f) => f.detail).join("; "));
         }
         if (entry.runs[0].normalizedSha256 !== entry.runs[1].normalizedSha256) {
           throw new Error(

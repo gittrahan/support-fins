@@ -1,11 +1,13 @@
 import {
   CASES,
   fixture,
+  obstacleReproduction,
   validateMesh,
 } from "../prototype/native-orca/fixtures.js";
 import {
   allFixtures,
   archive,
+  generatePack,
   modelXML,
   sha256,
 } from "../prototype/native-orca/pack.js";
@@ -106,12 +108,67 @@ Deno.test("native Orca: transformed equivalent changes placement only", () => {
   assert(modelXML(a) !== modelXML(b));
 });
 
+Deno.test("native Orca: leaning geometry keeps a symmetric native float bounding box", () => {
+  const o = fixture("leaning").objects[0];
+  const xs = o.vertices.map((v) => Math.fround(v[0]));
+  assert(Math.min(...xs) === -Math.max(...xs));
+  const base = o.vertices.find((v) => v[2] === 0);
+  const top = o.vertices.find((v) => v[2] === 60);
+  assert(Math.abs((top[0] - base[0]) / 60 - Math.tan(Math.PI / 6)) < 1e-14);
+});
+
+Deno.test("native Orca: reduced obstacle case has two disjoint closed bodies and one paint island", () => {
+  const painted = obstacleReproduction(),
+    control = obstacleReproduction({ unpainted: true });
+  assert(painted.objects.reduce((n, o) => n + o.faces.length, 0) === 96);
+  assert(painted.objects[0].painted.length === 2);
+  assert(painted.objects[1].painted.length === 0);
+  assert(control.objects.every((o) => o.painted.length === 0));
+  for (const o of painted.objects) validateMesh(o);
+  const [body, obstacle] = painted.objects.map(validateMesh);
+  assert(obstacle.bounds[0][0] - body.bounds[0][1] === 3);
+  assert(
+    JSON.stringify(painted.objects.map((o) => o.vertices)) ===
+      JSON.stringify(control.objects.map((o) => o.vertices)),
+  );
+});
+
+Deno.test("native Orca: resolved settings are embedded exactly and fingerprinted in generated inputs", async () => {
+  const temp = await Deno.makeTempDir({ prefix: "native-orca-settings-" });
+  try {
+    const settings = {
+      printable_area: ["0x0", "330x0", "330x320", "0x320"],
+      filament_settings_id: ["explicit control"],
+      ...OVERRIDES,
+    };
+    const manifest = await generatePack(temp, { settings });
+    assert(
+      manifest.resolvedSettingsSha256 ===
+        await sha256(JSON.stringify(settings, null, 2)),
+    );
+    for (const c of manifest.cases) {
+      for (const input of Object.values(c.inputs)) {
+        const bytes = await Deno.readFile(`${temp}/${input.file}`);
+        assert(await sha256(bytes) === input.sha256);
+        const zip = new ProjectZip(bytes);
+        assert(
+          await zip.text("Metadata/project_settings.config") ===
+            JSON.stringify(settings, null, 2),
+        );
+      }
+    }
+  } finally {
+    await Deno.remove(temp, { recursive: true });
+  }
+});
+
 import {
   checkedPath,
   contained,
   gcodeSummary,
   inspectJSON,
   normalizedGcode,
+  repeatSlices,
   reportMarkdown,
   run,
   verifySettings,
@@ -169,6 +226,10 @@ Deno.test("native Orca: settings cannot silently fall back to a wrong style, mac
   ) settings[k] = "1";
   verifySettings(settings);
   rejects(
+    () => verifySettings({ ...settings, curr_bed_type: "Cool Plate" }),
+    /mismatch/,
+  );
+  rejects(
     () => verifySettings({ ...settings, fin_support_style: "simulated" }),
     /mismatch/,
   );
@@ -196,6 +257,44 @@ Deno.test("native Orca: G-code comparison retains extrusion, settings and coordi
   assert(s.supportMoves === 2);
   assert(s.modelMoves === 1);
   assert(s.supportZ.join(",") === "0.2,8.2");
+});
+
+Deno.test("native Orca: compact decimal extrusion and arc coordinates are counted", () => {
+  const text =
+    "M83\n; FEATURE: Support\nG1 Z.2\nG3 X162.888 Y151.462 I-3.342 J.39 E.05789\nG1 X155.56 Y152.39 E.17153\nG1 X155.937 E-.11621\nG1 E.4\n; FEATURE: Outer wall\nG1 X155 E+.025\n";
+  const summary = gcodeSummary(text);
+  assert(summary.supportMoves === 2);
+  assert(summary.modelMoves === 1);
+  assert(summary.supportZ.join(",") === "0.2");
+});
+
+Deno.test("native Orca: native failure is retained while both repeats execute serially", async () => {
+  let active = false;
+  const seen = [];
+  const result = await repeatSlices(async (repeat) => {
+    assert(!active, "native repeats overlap");
+    active = true;
+    await Promise.resolve();
+    seen.push(repeat);
+    active = false;
+    if (repeat === 1) {
+      const error = new Error("native slicing conflict");
+      error.metrics = { status: "failed", exitCode: 155 };
+      throw error;
+    }
+    return { status: "completed", file: "plate_1.gcode" };
+  });
+  assert(seen.join(",") === "1,2");
+  assert(result.runs.length === 1 && result.runs[0].repeat === 2);
+  assert(
+    result.failures.length === 1 && result.failures[0].metrics.exitCode === 155,
+  );
+  const report = reportMarkdown({
+    status: "incomplete",
+    cases: [{ id: "opposing", status: "failed", ...result }],
+  });
+  assert(report.includes("opposing/slice-2/plate_1.gcode"));
+  assert(report.includes("opposing/slice-1/slice-1.log"));
 });
 Deno.test("native Orca: resolved paths reject traversal and symlink escapes", async () => {
   const temp = await Deno.makeTempDir({ prefix: "native-orca-path-" });

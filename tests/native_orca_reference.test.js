@@ -114,6 +114,39 @@ Deno.test("native Orca: only the exact recorded source patch is accepted or appl
         }),
       /wrong native source revision/,
     );
+    const secondPatch =
+      "--- a/other.cpp\n+++ b/other.cpp\n@@ -1 +1 @@\n-untouched\n+test correction\n";
+    const secondPath = `${temp}/test.patch`;
+    await Deno.writeTextFile(secondPath, secondPatch);
+    const both = {
+      ...reference,
+      testCompatibilityPatch: {
+        file: pathToFileURL(secondPath).href,
+        sha256: await sha256(secondPatch),
+        sourceFile: "other.cpp",
+        originalSha256: await sha256("untouched\n"),
+        patchedSha256: await sha256("test correction\n"),
+      },
+    };
+    await rejects(
+      () => verifyNativeSource(source, { reference: both }),
+      /does not match/,
+    );
+    const checked = await verifyNativeSource(source, {
+      reference: both,
+      apply: true,
+    });
+    assert(
+      checked.testCompatibilityPatch.sha256 ===
+        both.testCompatibilityPatch.sha256,
+    );
+    await verifyNativeSource(source, { reference: both, apply: true });
+    await Deno.writeTextFile(`${source}/other.cpp`, "unrecorded test change\n");
+    await rejects(
+      () => verifyNativeSource(source, { reference: both }),
+      /does not match/,
+    );
+    await Deno.writeTextFile(`${source}/other.cpp`, "untouched\n");
     if (Deno.build.os !== "windows") {
       await Deno.chmod(`${source}/normal.cpp`, 0o755);
       await rejects(
@@ -138,6 +171,7 @@ Deno.test("native Orca: runtime receipts bind executable and compatibility-patch
   const sourceReference = {
     revision: REFERENCE.revision,
     compatibilityPatch: REFERENCE.compatibilityPatch,
+    testCompatibilityPatch: REFERENCE.testCompatibilityPatch,
   };
   const runtime = {
     revision: REFERENCE.revision,
@@ -158,6 +192,10 @@ Deno.test("native Orca: runtime receipts bind executable and compatibility-patch
       {
         ...receipt,
         sourceReference: { ...sourceReference, compatibilityPatch: {} },
+      },
+      {
+        ...receipt,
+        sourceReference: { ...sourceReference, testCompatibilityPatch: {} },
       },
       { ...receipt, revision: "other-revision" },
     ]

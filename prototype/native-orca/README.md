@@ -6,6 +6,9 @@ using the native implementation in
 This is developer validation tooling. It neither invokes Support Fins generation
 nor changes application defaults.
 
+See [RESULTS.md](RESULTS.md) for the recorded native findings and outstanding
+GUI acceptance checks. A successful runner exit alone is not full validation.
+
 The reference is `lewis252310/OrcaSlicer` commit
 `d4da6e4d0efd6dc490e02147741a756a2ed98143` (`fin-support-v0.1.0`).
 The macOS reference includes exactly one recorded compilation-only patch,
@@ -18,7 +21,14 @@ Reports identify the reference as the pinned source **plus this patch**; they do
 not describe it as an unmodified preview binary. Full native validation remains
 required after applying it.
 
-Do not substitute an installed stable Orca release, another patch or a newer branch head.
+The native test harness additionally needs `patches/fin-tests-api.patch`
+(SHA-256 `14ce0affbe37d96129702f3edb5138a1142f40e3a81c70a71a92969757414a9e`):
+one Eigen coordinate expression is evaluated explicitly and four configuration
+setters use the existing strict deserialization API. Test fixtures and assertions
+are unchanged. This second patch affects only `fff_print_tests`, not the application.
+Both patches are recorded and checked separately.
+
+Do not substitute an installed stable Orca release, unrecorded patches or a newer branch head.
 
 ## Cases and interpretation
 
@@ -27,7 +37,7 @@ Do not substitute an installed stable Orca release, another patch or a newer bra
 | flat | 10 × 20 × 60 mm column; 3 mm wide +X strip at Z 40–56 | Positive control: side contacts and plate attachment |
 | convex | Column with X displacement `40 Z/60 − 20 (Z/60)²` | Contacts and clearance along outward curve |
 | concave | Column with X displacement `20 (Z/60)²` | Inward curve and recessed-side clearance |
-| leaning | Column sheared by `tan(30°) Z` | Bed reachability below a leaning side |
+| leaning | Column sheared by `tan(30°) (Z − 30)` | Bed reachability below a leaning side |
 | crease | 1.5 × 20 × 60 mm wall; adjacent 1.5 mm strips around its corner | Connected 3 mm paint strip crossing the 90° crease |
 | opposing | Column painted on ±X; unpainted 4 × 20 × 30 mm obstacle centred at X 10 | Nearby model clearance, competing feet and fin assembly |
 
@@ -39,8 +49,9 @@ changing its mesh or paint-face identities. There are **13 projects** in total.
 Paint uses whole-triangle support-enforcer state `4`, not colour painting.
 Fixtures are indexed and consistently wound; invalid inputs are rejected, never
 repaired. `*.model.3mf` omits paint; `*.painted.3mf` carries paint and placement.
-Neither initial file claims to contain fully resolved printer settings. The
-native runner produces `native.3mf` with resolved settings.
+The standalone generator does not claim resolved printer settings. The native
+runner resolves the pinned settings first and embeds them in its input archives,
+then produces `native.3mf` through Orca's exporter.
 
 The native Painted Shape contract permits later contacts on unpainted walls and
 merged intersecting fins. It does not provide underside support, top interfaces
@@ -68,7 +79,7 @@ Requirements: existing Xcode, CMake, Ninja, Python 3.9+, GNU make (`gmake`), GNU
 (`gm4`), `pkg-config`, and the native dependency build's existing
 autoconf/automake tools.
 Nothing is installed globally. The build fails rather than bypassing confinement.
-The recipe applies only the recorded compatibility patch; compiler optimization
+The recipe applies only the two recorded compatibility patches; compiler optimization
 settings remain unchanged. Optional
 CMake package-registry writes outside the workspace are denied by the sandbox.
 All paths below must resolve inside your repository's ignored `tmp/` directory.
@@ -82,7 +93,7 @@ prototype/native-orca/build-macos.sh "$workspace"
 The recipe builds dependencies, the x86_64 Release application and only the
 required `fff_print_tests` binary, using the pinned source's macOS script and
 `ORCA_TESTS_BUILD_ONLY=1`. It verifies the exact base revision, patch checksum,
-original and patched file hashes, and absence of other tracked changes before
+original and patched application/test file hashes, and absence of other tracked changes before
 and after building. Local build-tool wrappers serialize dependency recipes
 and cap nested compilation at two workers, including the upstream unbounded
 `make -j` command. A local discovery toolchain excludes MacPorts/Homebrew
@@ -127,12 +138,22 @@ receipt. An old receipt for the unpatched source is rejected.
 The native preset resolver loads the pinned H2C 0.4 mm machine, Bambu PETG Basic
 filament and 0.20 mm Standard process. Overrides select Painted Shape, enable Fin
 supports, disable rafts, use print-by-layer and set both first/subsequent layer
-heights to 0.20 mm. Other native defaults remain unchanged. Only one filament
-slot is loaded. Each case saves the complete resolved settings and their hash.
+heights to 0.20 mm. Engineering Plate is explicitly selected: the native Cool
+Plate default rejects PETG. The pinned PETG profile supplies 70°C for both first
+and subsequent layers. Other native defaults remain unchanged. Only one filament
+slot is loaded. Overrides are passed as native CLI settings, alongside the pinned
+system process file; an inherited user preset in an arbitrary output directory
+is not resolvable by this preview. Each case saves the complete resolved settings
+and their hash. No installed user profile or pre-existing data directory is needed.
+The resolved settings are embedded before loading any fixture: otherwise Orca
+assumes a 200 mm bed and translates the model when loading H2C. All commands
+explicitly disable automatic arrangement and orientation. Placement differences
+are still failures, not normalized away.
 
 For each case, the runner:
 
-1. Exports a native project using the pinned profiles and the saved side paint.
+1. Resolves the pinned profiles, generates inputs containing those settings and
+   exports a native project with the saved side paint.
 2. Compares native `--inspect-mesh` and `--inspect-paint` results before/after save;
    only the source filename is excluded from these comparisons.
 3. Reopens the project and verifies settings persistence.
@@ -159,7 +180,7 @@ pack_dir="$PWD/prototype/native-orca"
   python3 -B "$pack_dir/confined.py" --workspace "$workspace" \
     --log "$workspace/logs/fin-tests.log" \
     --metrics "$workspace/logs/fin-tests.metrics.json" --timeout 1800 -- \
-    "$workspace/orca-source/build/x86_64/tests/fff_print/Release/fff_print_tests" \
+    "$workspace/orca-source/build/x86_64/tests/fff_print/Release/fff_print_tests.app/Contents/MacOS/fff_print_tests" \
     --input-file "$pack_dir/fin-tests.txt" --rng-seed 434
 )
 ```
@@ -191,6 +212,8 @@ Publish only procedural projects, reviewed evidence and text summaries. Keep
 build trees, binaries, caches, user settings and private models out of commits
 and attachments. The fixture generators are covered by this repository's MIT
 license; the separate Orca source and bundled profiles retain their own notices.
+The compatibility patches contain OrcaSlicer source excerpts and retain its
+AGPL-3.0 licensing; see [patches/NOTICE.md](patches/NOTICE.md).
 
 ## Required checks
 

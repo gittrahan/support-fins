@@ -15,6 +15,16 @@ export const REFERENCE = Object.freeze({
     patchedSha256:
       "63e3ba2d16a95c6ae411a90a5e8ca298b7a70b50610b7559ae1becad911e6df0",
   }),
+  testCompatibilityPatch: Object.freeze({
+    "file": "patches/fin-tests-api.patch",
+    "sha256":
+      "14ce0affbe37d96129702f3edb5138a1142f40e3a81c70a71a92969757414a9e",
+    "sourceFile": "tests/fff_print/test_support_material.cpp",
+    "originalSha256":
+      "db6bf5975b026e0dc3a5e0ba5aced0000545dde389ec8d058fa347a530b51e18",
+    "patchedSha256":
+      "baf4fec574282b841cbfb905f339f0d8a8fa8195774f1b90091229568bf9ffff",
+  }),
 });
 
 export async function sha256(data) {
@@ -56,25 +66,11 @@ export async function verifyNativeSource(
   if ((await git("diff", "--cached", "--name-only", "-z")).length) {
     throw new Error("native source has staged changes");
   }
-  const patch = reference.compatibilityPatch;
-  const patchPath = fileURLToPath(new URL(patch.file, import.meta.url));
-  if (await sha256(await Deno.readFile(patchPath)) !== patch.sha256) {
-    throw new Error("compatibility patch checksum mismatch");
-  }
-  if (
-    await sha256(await git("show", `HEAD:${patch.sourceFile}`)) !==
-      patch.originalSha256
-  ) {
-    throw new Error("unexpected original native source contents");
-  }
-  const path = resolve(source, patch.sourceFile), info = await Deno.lstat(path);
-  if (
-    !info.isFile || info.isSymlink || await Deno.realPath(path) !== path ||
-    !path.startsWith(source + (Deno.build.os === "windows" ? "\\" : "/")) ||
-    info.mode !== null && (info.mode & 0o111)
-  ) {
-    throw new Error("unexpected native source path or file mode");
-  }
+  const patches = [
+    reference.compatibilityPatch,
+    reference.testCompatibilityPatch,
+  ].filter(Boolean);
+  const allowed = new Set(patches.map((p) => p.sourceFile));
   const changes = text(
     await git(
       "diff",
@@ -86,21 +82,60 @@ export async function verifyNativeSource(
     ),
   )
     .split("\0").filter(Boolean);
-  if (changes.some((p) => p !== patch.sourceFile)) {
+  if (changes.some((p) => !allowed.has(p))) {
     throw new Error("unexpected native source changes");
   }
-  let hash = await sha256(await Deno.readFile(path));
-  if (hash === patch.originalSha256 && apply && changes.length === 0) {
-    await git("apply", "--check", patchPath);
+  const pending = [];
+  // Validate every input before applying anything. No unrelated or partial patch
+  // is accepted, including in the test harness.
+  for (const patch of patches) {
+    const patchPath = fileURLToPath(new URL(patch.file, import.meta.url));
+    if (await sha256(await Deno.readFile(patchPath)) !== patch.sha256) {
+      throw new Error("compatibility patch checksum mismatch");
+    }
+    if (
+      await sha256(await git("show", `HEAD:${patch.sourceFile}`)) !==
+        patch.originalSha256
+    ) {
+      throw new Error("unexpected original native source contents");
+    }
+    const path = resolve(source, patch.sourceFile),
+      info = await Deno.lstat(path);
+    if (
+      !info.isFile || info.isSymlink || await Deno.realPath(path) !== path ||
+      !path.startsWith(source + (Deno.build.os === "windows" ? "\\" : "/")) ||
+      info.mode !== null && (info.mode & 0o111)
+    ) {
+      throw new Error("unexpected native source path or file mode");
+    }
+    const hash = await sha256(await Deno.readFile(path));
+    if (
+      hash !== patch.patchedSha256 && !(apply && hash === patch.originalSha256)
+    ) {
+      throw new Error(
+        "native source does not match the recorded compatibility patch",
+      );
+    }
+    if (hash !== patch.patchedSha256) {
+      await git("apply", "--check", patchPath);
+      pending.push({ patch, patchPath, path });
+    }
+  }
+  for (const { patch, patchPath, path } of pending) {
     await git("apply", patchPath);
-    hash = await sha256(await Deno.readFile(path));
+    if (await sha256(await Deno.readFile(path)) !== patch.patchedSha256) {
+      throw new Error(
+        "native source does not match the recorded compatibility patch",
+      );
+    }
   }
-  if (hash !== patch.patchedSha256) {
-    throw new Error(
-      "native source does not match the recorded compatibility patch",
-    );
-  }
-  return { revision, compatibilityPatch: patch };
+  return {
+    revision,
+    compatibilityPatch: reference.compatibilityPatch,
+    ...(reference.testCompatibilityPatch
+      ? { testCompatibilityPatch: reference.testCompatibilityPatch }
+      : {}),
+  };
 }
 
 if (import.meta.main) {

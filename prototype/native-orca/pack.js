@@ -97,20 +97,26 @@ export function allFixtures() {
     fixture("convex", { transformed: true }),
   ];
 }
-export async function generatePack(out) {
+export async function generatePack(out, { settings = null } = {}) {
   await Deno.mkdir(out, { recursive: true });
   const manifest = {
     format: 1,
     reference: REFERENCE,
     profiles: PROFILE_NAMES,
     overrides: OVERRIDES,
-    status: "generated; native runtime and resolved settings not yet validated",
+    status: settings
+      ? "generated with native-resolved settings; slicing not yet validated"
+      : "generated; native runtime and resolved settings not yet validated",
+    resolvedSettingsSha256: settings
+      ? await sha256(JSON.stringify(settings, null, 2))
+      : null,
     cases: [],
   };
   for (const f of allFixtures()) {
     const inputs = {};
     for (const [kind, paint] of [["model", false], ["painted", true]]) {
-      const name = `${f.id}.${kind}.3mf`, bytes = await archive(f, { paint });
+      const name = `${f.id}.${kind}.3mf`,
+        bytes = await archive(f, { paint, settings });
       await Deno.writeFile(`${out}/${name}`, bytes);
       inputs[kind] = { file: name, sha256: await sha256(bytes) };
     }

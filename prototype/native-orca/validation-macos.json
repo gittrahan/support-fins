@@ -1,0 +1,576 @@
+{
+  "format": 2,
+  "revision": "d4da6e4d0efd6dc490e02147741a756a2ed98143",
+  "sha256": "f5981de4118175c165dc6148c3aae2b2336c96bbb4621e8a7d36c8579ad9f44d",
+  "architecture": "x86_64",
+  "sourceReference": {
+    "revision": "d4da6e4d0efd6dc490e02147741a756a2ed98143",
+    "compatibilityPatch": {
+      "file": "patches/clang-fin-vector.patch",
+      "sha256": "4adda02650d5f5f1f3c1da95546f706f9a0639ac9ac5ef60e5de06c2b0babad6",
+      "sourceFile": "src/libslic3r/Support/FinSupport.cpp",
+      "originalSha256": "ebfbbe8a993e3b64d333e8857f01d240c1f9f0acdf2f979a590b4fb6b55040e3",
+      "patchedSha256": "63e3ba2d16a95c6ae411a90a5e8ca298b7a70b50610b7559ae1becad911e6df0"
+    },
+    "testCompatibilityPatch": {
+      "file": "patches/fin-tests-api.patch",
+      "sha256": "14ce0affbe37d96129702f3edb5138a1142f40e3a81c70a71a92969757414a9e",
+      "sourceFile": "tests/fff_print/test_support_material.cpp",
+      "originalSha256": "db6bf5975b026e0dc3a5e0ba5aced0000545dde389ec8d058fa347a530b51e18",
+      "patchedSha256": "baf4fec574282b841cbfb905f339f0d8a8fa8195774f1b90091229568bf9ffff"
+    }
+  },
+  "testExecutable": {
+    "file": "orca-source/build/x86_64/tests/fff_print/Release/fff_print_tests.app/Contents/MacOS/fff_print_tests",
+    "sha256": "986c76f19210eac595665f971a847fc259152445c090d78009e80a47ef6e9fd6"
+  },
+  "compiler": "Apple clang 21.0.0 (clang-2100.1.1.101), x86_64-apple-darwin25.6.0",
+  "buildTools": {
+    "cmake": "4.4.4",
+    "ninja": "1.13.2",
+    "gmake": "4.4.1",
+    "m4": "1.4.21",
+    "workers": 2,
+    "ORCA_TESTS_BUILD_ONLY": "1"
+  },
+  "nativeSourceSubmodules": [],
+  "dependencyPins": {
+    "Eigen": {
+      "version": "5.0.1",
+      "archiveSHA256": "0dbb1f9e3aaad66f352c03227d8c983f6f0b49e0b07e71a7300f4abcc01aee12"
+    },
+    "Boost": {
+      "version": "1.84.0",
+      "archiveSHA256": "4d27e9efed0f6f152dc28db6430b9d3dfb40c0345da7342eaa5a987dde57bd95"
+    },
+    "wxWidgets": {
+      "revision": "5b7e8c0cde6b975d63613188d2ac6c1ab8769fbc",
+      "initializedSubmodules": {
+        "catch": "3a4a6a657d295d003e16bcdba45c2832e24b9dec",
+        "libwebp": "e83df81cc965a47c1ca7cc968d1ed99717c55ab7",
+        "pcre": "4f76619e6f20de93f77b5ef6213bf54e0399d166"
+      }
+    }
+  },
+  "nativeBuildScriptSHA256": "f843923635f8f9386e3047a2679d42258c080b7525576c959bbac7c09e9def29",
+  "recipe": "build-macos.sh",
+  "validationDate": "2026-11-05",
+  "nativeTests": {
+    "selected": 67,
+    "passed": 32,
+    "failed": 35,
+    "assertions": 80767,
+    "failedAssertions": 76
+  },
+  "cases": [
+    {
+      "id": "flat",
+      "projectSHA256": "82077693c128e2ced1e6f7486d322c7981c07f316c27c84d06ea0a83f808cf36",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "sliced-review-pending",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.392988666018937,
+          "peakResidentBytes": 193777664,
+          "file": "plate_1.gcode",
+          "sha256": "71c30ee87641e13749f16319db0c7b3620f69edb027e50743dc879556e439ee1",
+          "normalizedSha256": "bfa32417cc8cb82a355b6b69a81a751681b862bfcb965359c946282f6ba1138c",
+          "supportMoves": 1075,
+          "modelMoves": 7728,
+          "supportLayers": 242,
+          "supportZRange": [
+            0.2,
+            48.4
+          ]
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.8982118340209126,
+          "peakResidentBytes": 193748992,
+          "file": "plate_1.gcode",
+          "sha256": "f900b3c6952c1882e758969e1e58d6f7e84f3529036ccdc4d1cc871b5458dc5e",
+          "normalizedSha256": "bfa32417cc8cb82a355b6b69a81a751681b862bfcb965359c946282f6ba1138c",
+          "supportMoves": 1075,
+          "modelMoves": 7728,
+          "supportLayers": 242,
+          "supportZRange": [
+            0.2,
+            48.4
+          ]
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "convex",
+      "projectSHA256": "f4fe0f3c63638b59db4a535264d6e6f61c6a2758e04bbfdff0bfb2552f653473",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "sliced-review-pending",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 1.9358304259949364,
+          "peakResidentBytes": 192823296,
+          "file": "plate_1.gcode",
+          "sha256": "a0869e8e1b6678c5f33f6f14bf7ca2c622d34ad1bd59c1725bb17c7818d2a51a",
+          "normalizedSha256": "0c9938fd0af10f3d39fa9f0a83e19d5f67297d61677fec724bd61792904d167a",
+          "supportMoves": 1057,
+          "modelMoves": 8573,
+          "supportLayers": 242,
+          "supportZRange": [
+            0.2,
+            48.4
+          ]
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.1802115630125627,
+          "peakResidentBytes": 193060864,
+          "file": "plate_1.gcode",
+          "sha256": "a0e7831ff7b65691c374267af70546c0fb014e94604200fa8b3908a607eaa902",
+          "normalizedSha256": "0c9938fd0af10f3d39fa9f0a83e19d5f67297d61677fec724bd61792904d167a",
+          "supportMoves": 1057,
+          "modelMoves": 8573,
+          "supportLayers": 242,
+          "supportZRange": [
+            0.2,
+            48.4
+          ]
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "concave",
+      "projectSHA256": "e0beea7604e1600121b23329b18aa912ced719bd8d171d3be1c9febf087c51b1",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "sliced-review-pending",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 3.0798366280505434,
+          "peakResidentBytes": 194326528,
+          "file": "plate_1.gcode",
+          "sha256": "d113f4dccad42ad12c125dac0848a07eb1865327e643587b37d1bf1479bcae5a",
+          "normalizedSha256": "7131d398c38ae6827c6b96d838522222aeca5cf060525582d2e9f88f20bf82d2",
+          "supportMoves": 1063,
+          "modelMoves": 8560,
+          "supportLayers": 243,
+          "supportZRange": [
+            0.2,
+            48.6
+          ]
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.2030682250042446,
+          "peakResidentBytes": 194240512,
+          "file": "plate_1.gcode",
+          "sha256": "84ca8f9fec5cf6fb5e40df20a8c136203dd4ae0ad80444700b5ccaf360ba0508",
+          "normalizedSha256": "7131d398c38ae6827c6b96d838522222aeca5cf060525582d2e9f88f20bf82d2",
+          "supportMoves": 1063,
+          "modelMoves": 8560,
+          "supportLayers": 243,
+          "supportZRange": [
+            0.2,
+            48.6
+          ]
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "leaning",
+      "projectSHA256": "cb4fdfcda870c668dfa4b79db75ab75b95f4d0843aa8190f4e8915cb33596016",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "sliced-review-pending",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 1.843201354960911,
+          "peakResidentBytes": 193003520,
+          "file": "plate_1.gcode",
+          "sha256": "363eb974f7a107e111db3e490d7d24a3f23db8663b2a3ea510657425079d53f2",
+          "normalizedSha256": "ebc482b039ff8caebbcf57ae67a81f32a90cd3cdecfd84f5f3b176739345ffed",
+          "supportMoves": 1051,
+          "modelMoves": 8984,
+          "supportLayers": 242,
+          "supportZRange": [
+            0.2,
+            48.4
+          ]
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 1.8547245819936506,
+          "peakResidentBytes": 193851392,
+          "file": "plate_1.gcode",
+          "sha256": "d214a814d13f67da0d898bd2c09891d797c5ca8e4f51ae9bd0e6f901687ea33b",
+          "normalizedSha256": "ebc482b039ff8caebbcf57ae67a81f32a90cd3cdecfd84f5f3b176739345ffed",
+          "supportMoves": 1051,
+          "modelMoves": 8984,
+          "supportLayers": 242,
+          "supportZRange": [
+            0.2,
+            48.4
+          ]
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "crease",
+      "projectSHA256": "7bc1b54a9a0f218d3758c45b5cdc7272a66af4e82e8ffebc2b76368ecc53d91b",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "sliced-review-pending",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 1.9366934439749457,
+          "peakResidentBytes": 192708608,
+          "file": "plate_1.gcode",
+          "sha256": "2d6bc29a9ffaa26c4cdb3eb7601f10c74392493ce00be465aa598a1d25456f19",
+          "normalizedSha256": "b4ddb53a59e7c86ee9d23665eed90dae67b0a8ac9bcd0a207b8e2073d9ad8046",
+          "supportMoves": 1095,
+          "modelMoves": 3929,
+          "supportLayers": 240,
+          "supportZRange": [
+            0.2,
+            48
+          ]
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 3.2644646930275485,
+          "peakResidentBytes": 193212416,
+          "file": "plate_1.gcode",
+          "sha256": "0a7a4213f13ae7d8041782ddab7cff15fd3cc3e98822bfbe40e895bb9cf77eca",
+          "normalizedSha256": "b4ddb53a59e7c86ee9d23665eed90dae67b0a8ac9bcd0a207b8e2073d9ad8046",
+          "supportMoves": 1095,
+          "modelMoves": 3929,
+          "supportLayers": 240,
+          "supportZRange": [
+            0.2,
+            48
+          ]
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "opposing",
+      "projectSHA256": "eca405c25dc1d49f1b020ab4c845a38d29942d542f8125a8f0d867d2c4d959f0",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "failed",
+      "runs": [],
+      "failures": [
+        {
+          "repeat": 1,
+          "detail": "slice-1: failed; see slice-1.log and slice-1.wrapper.log",
+          "metrics": {
+            "status": "failed",
+            "exitCode": 155,
+            "elapsedSeconds": 1.6147548080189154,
+            "peakResidentBytes": 181571584
+          }
+        },
+        {
+          "repeat": 2,
+          "detail": "slice-2: failed; see slice-2.log and slice-2.wrapper.log",
+          "metrics": {
+            "status": "failed",
+            "exitCode": 155,
+            "elapsedSeconds": 1.6691695830086246,
+            "peakResidentBytes": 181370880
+          }
+        }
+      ]
+    },
+    {
+      "id": "flat-unpainted",
+      "projectSHA256": "4dd6dbdd053d89e3eb0f8eafe8d44085bc22719b5316c730f88c7923cbf5fedf",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "unpainted-control-passed",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 1.6285474100150168,
+          "peakResidentBytes": 189784064,
+          "file": "plate_1.gcode",
+          "sha256": "7771c166a3b18096fe5b6f4b4dd820e049ed95e55e910d2b29c853ea387746fa",
+          "normalizedSha256": "85d763a1f7d8fd6ac6b64e90c1fdb770dfe2bd62f2a63d318abff89e787cc783",
+          "supportMoves": 0,
+          "modelMoves": 7642,
+          "supportLayers": 0,
+          "supportZRange": null
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 1.6534816279890947,
+          "peakResidentBytes": 188342272,
+          "file": "plate_1.gcode",
+          "sha256": "5df2a36cd706db45aa8198bccee21fdfe9eab9749bf2026876a444a482c4da73",
+          "normalizedSha256": "85d763a1f7d8fd6ac6b64e90c1fdb770dfe2bd62f2a63d318abff89e787cc783",
+          "supportMoves": 0,
+          "modelMoves": 7642,
+          "supportLayers": 0,
+          "supportZRange": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "convex-unpainted",
+      "projectSHA256": "331d987d6446334aac5f6dbe247244dc96ff9d7642076563a9df9ac6fe4a4bbd",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "unpainted-control-passed",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 1.8885356760001741,
+          "peakResidentBytes": 190386176,
+          "file": "plate_1.gcode",
+          "sha256": "a12192ec26ff6f9d13b01968012a828a3b722f34d8285e316bab0f9e49569467",
+          "normalizedSha256": "7d6f4140fe6aa43bde7849bf5d940c63ee6d877a358f7f9e420d8ad79005b4cf",
+          "supportMoves": 0,
+          "modelMoves": 8493,
+          "supportLayers": 0,
+          "supportZRange": null
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.3453153850277886,
+          "peakResidentBytes": 189272064,
+          "file": "plate_1.gcode",
+          "sha256": "d5110cd1252bfab35298174ac246c03005d4841cf88e3d0485150421ca5f6eea",
+          "normalizedSha256": "7d6f4140fe6aa43bde7849bf5d940c63ee6d877a358f7f9e420d8ad79005b4cf",
+          "supportMoves": 0,
+          "modelMoves": 8493,
+          "supportLayers": 0,
+          "supportZRange": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "concave-unpainted",
+      "projectSHA256": "c3d23410ff0bfc08be531d694a31f9eb4d72ed55efa67c5cc468d6544cb1f2c6",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "unpainted-control-passed",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 1.897013978974428,
+          "peakResidentBytes": 187891712,
+          "file": "plate_1.gcode",
+          "sha256": "c4bbcda4fda00fbe81e35d5edf6c23bdd2b15caa00c987f386ca870a747104cd",
+          "normalizedSha256": "6752f377c6f3d0011a1dbb0a9d71c9a5d1a8e74bde1572138b0aed80238c0160",
+          "supportMoves": 0,
+          "modelMoves": 8481,
+          "supportLayers": 0,
+          "supportZRange": null
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.1878500420134515,
+          "peakResidentBytes": 190726144,
+          "file": "plate_1.gcode",
+          "sha256": "02c868f6898a79569018529e527b24ad8119b0a9143f31e6336050b4cfa801d5",
+          "normalizedSha256": "6752f377c6f3d0011a1dbb0a9d71c9a5d1a8e74bde1572138b0aed80238c0160",
+          "supportMoves": 0,
+          "modelMoves": 8481,
+          "supportLayers": 0,
+          "supportZRange": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "leaning-unpainted",
+      "projectSHA256": "836e7b409fecf33f1a4ce0cfb9c19eed4702c9d2e66ae5a5d17a341d2e997aca",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "unpainted-control-passed",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.130097634973936,
+          "peakResidentBytes": 188784640,
+          "file": "plate_1.gcode",
+          "sha256": "fa29884f3dec3ae7247cbaee1e0b8018f3e8d0b95e5a93a41c529650816d6493",
+          "normalizedSha256": "c03a1ad0d31933f28ae0f0e9f02211d957247be03fc835e3399385316268d6a6",
+          "supportMoves": 0,
+          "modelMoves": 8902,
+          "supportLayers": 0,
+          "supportZRange": null
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.0967272049747407,
+          "peakResidentBytes": 189927424,
+          "file": "plate_1.gcode",
+          "sha256": "c2e2af9ab766670f05c7b882087cc1431e4ac7583e237322ffb97a2c12be6ed9",
+          "normalizedSha256": "c03a1ad0d31933f28ae0f0e9f02211d957247be03fc835e3399385316268d6a6",
+          "supportMoves": 0,
+          "modelMoves": 8902,
+          "supportLayers": 0,
+          "supportZRange": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "crease-unpainted",
+      "projectSHA256": "fd62febe6a565d0b8d8a5774c61f376ee9a19ad81c7ad1fd279e1051a95bebae",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "unpainted-control-passed",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.499146699963603,
+          "peakResidentBytes": 182235136,
+          "file": "plate_1.gcode",
+          "sha256": "f870974c59f140397fb96443df84d4b119eb45cc58d8f3b7d9977e0b852bdf1a",
+          "normalizedSha256": "cd9503611bbe66b2f438c78d9aa03aac61ae0f84f50220826b7303d87f465275",
+          "supportMoves": 0,
+          "modelMoves": 3929,
+          "supportLayers": 0,
+          "supportZRange": null
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 3.092790408991277,
+          "peakResidentBytes": 181039104,
+          "file": "plate_1.gcode",
+          "sha256": "9659b17965472ded145861f01d11ee94e0aa1298405b8832a88e2f86de609c11",
+          "normalizedSha256": "cd9503611bbe66b2f438c78d9aa03aac61ae0f84f50220826b7303d87f465275",
+          "supportMoves": 0,
+          "modelMoves": 3929,
+          "supportLayers": 0,
+          "supportZRange": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "opposing-unpainted",
+      "projectSHA256": "55304a40557e2ad146aa00d8e831ab6a88f17d273710bfa09e56fd3c3048b9c8",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "unpainted-control-passed",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.2318535260274075,
+          "peakResidentBytes": 202076160,
+          "file": "plate_1.gcode",
+          "sha256": "7898026b63bdb806b155d35ae7edf051de69e536f348c3233b5af8d40fb1456d",
+          "normalizedSha256": "6991a26d84fcfd12bff792a45a341fd3e12f0063721ae52eb96edaac8c051508",
+          "supportMoves": 0,
+          "modelMoves": 11932,
+          "supportLayers": 0,
+          "supportZRange": null
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.2857266729697585,
+          "peakResidentBytes": 200663040,
+          "file": "plate_1.gcode",
+          "sha256": "d8090d0aadf249c6376153c0e41744c6a242234d84984157b5b4f1b59c4662de",
+          "normalizedSha256": "6991a26d84fcfd12bff792a45a341fd3e12f0063721ae52eb96edaac8c051508",
+          "supportMoves": 0,
+          "modelMoves": 11932,
+          "supportLayers": 0,
+          "supportZRange": null
+        }
+      ],
+      "failures": []
+    },
+    {
+      "id": "convex-rotated",
+      "projectSHA256": "205e10563dae44b581b0388f7782fe3c56c85b84cf8ffd8630842171e8b3faa6",
+      "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
+      "status": "sliced-review-pending",
+      "runs": [
+        {
+          "repeat": 1,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.7296825330122374,
+          "peakResidentBytes": 193990656,
+          "file": "plate_1.gcode",
+          "sha256": "9964f38073339120d42edf932a26c1f626f66c98d69ad02973fc7992a4aee91d",
+          "normalizedSha256": "9770813abfc7f390cb431a47b305c3ffdd8556a10369cada4cdfedf41e137755",
+          "supportMoves": 1177,
+          "modelMoves": 8573,
+          "supportLayers": 242,
+          "supportZRange": [
+            0.2,
+            48.4
+          ]
+        },
+        {
+          "repeat": 2,
+          "status": "completed",
+          "exitCode": 0,
+          "elapsedSeconds": 2.7277855569845997,
+          "peakResidentBytes": 193507328,
+          "file": "plate_1.gcode",
+          "sha256": "5037a4a20d903f577430778a691084601dcbbc69bb7d70de4945122598450281",
+          "normalizedSha256": "9770813abfc7f390cb431a47b305c3ffdd8556a10369cada4cdfedf41e137755",
+          "supportMoves": 1177,
+          "modelMoves": 8573,
+          "supportLayers": 242,
+          "supportZRange": [
+            0.2,
+            48.4
+          ]
+        }
+      ],
+      "failures": []
+    }
+  ]
+}

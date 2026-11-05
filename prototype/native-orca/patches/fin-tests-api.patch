@@ -1,0 +1,34 @@
+--- a/tests/fff_print/test_support_material.cpp
++++ b/tests/fff_print/test_support_material.cpp
+@@ -250,7 +250,7 @@
+                 const BoundingBox bounds = get_extents(ring);
+                 Vec2d longest_edge = Vec2d::Zero();
+                 for (size_t i = 1; i < ring.size(); ++i) {
+-                    const Vec2d edge = unscale(ring[i] - ring[i - 1]);
++                    const Vec2d edge = unscale(Vec2crd(ring[i] - ring[i - 1]));
+                     if (edge.squaredNorm() > longest_edge.squaredNorm())
+                         longest_edge = edge;
+                 }
+@@ -426,9 +426,9 @@
+ 
+     DynamicPrintConfig config = DynamicPrintConfig::full_print_config();
+     REQUIRE(config.opt_enum<FinSupportStyle>("fin_support_style") == fssSimulated);
+-    config.set_deserialize("fin_support_style", "simple");
++    config.set_deserialize_strict("fin_support_style", "simple");
+     REQUIRE(config.opt_enum<FinSupportStyle>("fin_support_style") == fssSimple);
+-    config.set_deserialize("fin_support_style", "painted_shape");
++    config.set_deserialize_strict("fin_support_style", "painted_shape");
+     REQUIRE(config.opt_enum<FinSupportStyle>("fin_support_style") == fssPaintedShape);
+ }
+ 
+@@ -1437,8 +1437,8 @@
+     REQUIRE_THAT(result.contact_width, Catch::Matchers::WithinAbs(0.4, 0.001));
+     REQUIRE_THAT(result.body_thickness, Catch::Matchers::WithinAbs(1.2, 0.02));
+     // Old project values without a percent suffix remain absolute millimeters.
+-    config.set_deserialize("fin_support_contact_width", "0.2");
+-    config.set_deserialize("fin_support_thickness", "1.4");
++    config.set_deserialize_strict("fin_support_contact_width", "0.2");
++    config.set_deserialize_strict("fin_support_thickness", "1.4");
+     contact = config.option<ConfigOptionFloatOrPercent>("fin_support_contact_width");
+     thickness = config.option<ConfigOptionFloatOrPercent>("fin_support_thickness");
+     REQUIRE_FALSE(contact->percent);

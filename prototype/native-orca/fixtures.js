@@ -16,6 +16,7 @@ export const OVERRIDES = Object.freeze({
   layer_height: "0.2",
   initial_layer_print_height: "0.2",
   raft_layers: "0",
+  curr_bed_type: "Engineering Plate",
 });
 export const CASES = Object.freeze([
   {
@@ -52,13 +53,21 @@ const RING = [[-5, -10], [5, -10], [5, -1.5], [5, 1.5], [5, 10], [-5, 10], [
 ], [-5, -1.5]];
 function column(
   id,
-  { shift = () => 0, height = 60, width = 1, x = 0, paint = () => false } = {},
+  {
+    shift = () => 0,
+    height = 60,
+    width = 1,
+    x = 0,
+    paint = () => false,
+    zLevels = null,
+  } = {},
 ) {
   const vertices = [], faces = [], painted = [];
-  const n = RING.length, levels = height / 2;
+  zLevels ??= Array.from({ length: height / 2 + 1 }, (_, k) => 2 * k);
+  const n = RING.length, levels = zLevels.length - 1;
   for (let k = 0; k <= levels; k++) {
     for (const [u, v] of RING) {
-      vertices.push([x + width * u + shift(2 * k), v, 2 * k]);
+      vertices.push([x + width * u + shift(zLevels[k]), v, zLevels[k]]);
     }
   }
   const add = (a, b, c, yes = false) => {
@@ -72,14 +81,14 @@ function column(
         b = k * n + j,
         c = (k + 1) * n + j,
         d = (k + 1) * n + i;
-      const yes = paint(i, 2 * k + 1);
+      const yes = paint(i, (zLevels[k] + zLevels[k + 1]) / 2);
       add(a, b, c, yes);
       add(a, c, d, yes);
     }
   }
   for (const [k, top] of [[0, false], [levels, true]]) {
     const center = vertices.length;
-    vertices.push([x + shift(k * 2), 0, k * 2]);
+    vertices.push([x + shift(zLevels[k]), 0, zLevels[k]]);
     for (let i = 0; i < n; i++) {
       const a = k * n + i, b = k * n + (i + 1) % n;
       if (top) add(center, a, b);
@@ -94,6 +103,23 @@ function column(
     transform: [1, 0, 0, 0, 1, 0, 0, 0, 1, 150, 150, 0],
   };
 }
+
+/** Reduced obstacle collision: one painted island, two closed bodies, 96 faces. */
+export function obstacleReproduction({ unpainted = false } = {}) {
+  return {
+    id: unpainted ? "obstacle-minimal-unpainted" : "obstacle-minimal",
+    description:
+      "One +X painted island and one unpainted obstacle, 3 mm apart.",
+    expectation: "No toolpath collision with the unpainted obstacle.",
+    objects: [
+      column("painted-body", {
+        zLevels: [0, 40, 56, 60],
+        paint: (side, z) => !unpainted && side === 2 && z >= 40 && z < 56,
+      }),
+      column("obstacle", { height: 30, width: 0.4, x: 10, zLevels: [0, 30] }),
+    ],
+  };
+}
 export function fixture(id, { unpainted = false, transformed = false } = {}) {
   const spec = CASES.find((c) => c.id === id);
   if (!spec) throw new Error(`unknown case: ${id}`);
@@ -102,7 +128,9 @@ export function fixture(id, { unpainted = false, transformed = false } = {}) {
   // On the painted +X side, a convex surface bulges outward from its chord.
   if (id === "convex") opt.shift = (z) => 40 * (z / 60) - 20 * (z / 60) ** 2;
   if (id === "concave") opt.shift = (z) => 20 * (z / 60) ** 2;
-  if (id === "leaning") opt.shift = (z) => Math.tan(Math.PI / 6) * z;
+  // Centre this shear at mid-height. A symmetric local bounding box avoids
+  // introducing a non-exact instance translation during native mesh centring.
+  if (id === "leaning") opt.shift = (z) => Math.tan(Math.PI / 6) * (z - 30);
   if (id === "crease") {
     // Adjacent side strips share the (5,10,z) crease. Alter the ring locally
     // below rather than painting the whole long face.
