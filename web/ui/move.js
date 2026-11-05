@@ -29,6 +29,7 @@ import { planeBusy } from './section.js';
 import { cancelLay, layActive } from './pose.js';
 import { cancelRemove, removeActive } from './remove.js';
 import { checkOverlap, clashAt } from './arrange.js';
+import { onLockChange } from './lock.js';
 import { dragStep } from './footprint.js';
 
 let moving = false;
@@ -48,6 +49,8 @@ export function setMove(v) {
 }
 
 const syncBadge = addBadge('move-badge', { isOn: () => moving, setOn: setMove });
+// a live Full build (ui/lock.js) ends a move: the part stays put while it builds
+onLockChange((locked) => { if (locked) setMove(false); });
 
 const bed = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
 const hit = new THREE.Vector3();

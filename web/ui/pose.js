@@ -19,6 +19,7 @@ import { refreshFins } from './finbuild.js';
 import { finsVisible } from './settings.js';
 import { part, topology, shade } from './part.js';
 import { moveActive, setMove } from './move.js';
+import { uiLocked, onLockChange } from './lock.js';
 
 // The user rotates. Always. Auto-orientation may suggest, never apply -- the
 // spike's strength-optimal pose for one hub was 155mm tall balanced on a needle:
@@ -186,7 +187,7 @@ el('show-rings').addEventListener('change', (e) => {
  *  its place while that is up: two sets of handles on one part is a misclick. */
 export function setGizmo() {
   const on = showRings && !!part && !drawActive() && !layActive() && !removeActive()
-    && !planeHandleShown() && !moveActive();
+    && !planeHandleShown() && !moveActive() && !uiLocked();
   gizmo.enabled = on;
   // A disabled gizmo stops tracking hover, so a ring hovered last would stay
   // "under the pointer" and app.js would swallow the next pick for it.
@@ -216,6 +217,9 @@ export function cancelLay() {
   setGizmo();
   syncLayUI();
 }
+
+// A live Full build (ui/lock.js): the rings and an armed lay go; the rings come back after.
+onLockChange((locked) => { if (locked && layPlacing) cancelLay(); setGizmo(); });
 
 function syncLayUI() {
   el('lay-face').textContent = layPlacing ? t('Click a face to lay it flat — Esc cancels')

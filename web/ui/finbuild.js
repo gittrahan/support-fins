@@ -22,6 +22,8 @@ import {
 import { finsVisible, finMode, autoLike } from './settings.js';
 import { topology, rotM3, lastResult, updateFit, setSmallHoleHighlight } from './part.js';
 import { scheduleParked } from './parkedbuild.js';
+import { liveStart, liveMessage, liveEnd, liveStopping, liveWalls } from './livebuild.js';
+import { stopOpts } from '../fins/progress.js';
 
 export let finMesh = null;
 export let padMesh = null;
@@ -173,9 +175,11 @@ function makeFinWorker() {
   const w = new Worker(new URL('../finworker.js', import.meta.url), { type: 'module' });
   w.onmessage = (e) => {
     if (w !== finWorker || !finBusy || e.data.id !== finGen) return;
+    // a live Full build's walls and bar (ui/livebuild.js), on the way
+    if (e.data.progress) { if (currentBuild()) liveMessage(e.data.progress, hideStale); return; }
     // A drag re-analyses on every frame but requests new fins only on release.
     // An old reply during the drag must not land on the newer analysis.
-    if (!currentBuild()) { finBusy = false; clearSpinner(); return; }
+    if (!currentBuild()) { finBusy = false; clearSpinner(); liveEnd(); return; }
     finBusy = false;
     if (e.data.error) {                            // worker failed -- build inline so support still appears
       applyBuilt(buildFins(topology, lastResult, rotM3.elements, lastOpts));
@@ -192,7 +196,7 @@ function makeFinWorker() {
     e.preventDefault();
     if (w !== finWorker) return;
     const dropped = finBusy && currentBuild();
-    finWorker = null; finBusy = false; clearSpinner();
+    finWorker = null; finBusy = false; clearSpinner(); liveEnd();
     if (dropped) refreshFins();
   };
   return w;
@@ -215,6 +219,36 @@ function supersedeBuild() {
   buildSource = null;
   if (finBusy && finWorker) { finWorker.terminate(); finWorker = undefined; }
   finBusy = false;
+  liveEnd();
+}
+
+/** The last build's fins, greyed under a live build, go once its new walls are in. */
+function hideStale() {
+  for (const m of [finMesh, padMesh]) if (m) m.visible = false;
+  requestRender();
+}
+
+/**
+ * Stop on a live Full build (ui/livebuild.js): the Worker can't be told mid-build,
+ * so it ends, and the layout shown is built alone, up to the walls shown
+ * (fins/progress.js stopOpts) -- the same walls, a complete build. It lands as any
+ * build does, and its readout says it stopped.
+ */
+function stopLive() {
+  if (!finBusy || !currentBuild()) return;
+  const opts = stopOpts(lastOpts, liveWalls());
+  liveStopping();
+  finGen++;
+  if (finWorker) { finWorker.terminate(); finWorker = undefined; }
+  lastOpts = opts;
+  const worker = getFinWorker();
+  if (!worker) { finBusy = false; applyBuilt(buildFins(topology, lastResult, rotM3.elements, opts)); return; }
+  try {
+    worker.postMessage({ id: finGen, topology: workerTopology(topology), result: lastResult, rot: rotM3.elements, opts });
+  } catch {
+    finBusy = false;
+    applyBuilt(buildFins(topology, lastResult, rotM3.elements, opts));
+  }
 }
 
 export function refreshFins() {
@@ -253,7 +287,11 @@ export function refreshFins() {
   // the spinner joins it only if the build runs past the arm delay.
   finBusy = true;
   markFinsStale();
-  armSpinner();
+  // Full coverage builds live (ui/livebuild.js): walls as they go in, a bar, Stop; the
+  // page locks meanwhile. The others keep the spinner.
+  const live = finMode === 'full';
+  if (live) liveStart(stopLive);
+  else armSpinner();
 
   // inside.js caches its spatial grid on topology._insideGrid, and that grid holds
   // a CLOSURE (`cell`) which structured-clone cannot copy. The grid only exists
@@ -264,10 +302,12 @@ export function refreshFins() {
   // anyway, build inline so the UI can never get stuck waiting on a reply.
   const topoMsg = workerTopology(topology);
   try {
-    worker.postMessage({ id: finGen, topology: topoMsg, result: lastResult, rot: rotM3.elements, opts: lastOpts });
+    worker.postMessage({ id: finGen, topology: topoMsg, result: lastResult, rot: rotM3.elements,
+                         opts: live ? { ...lastOpts, live: true } : lastOpts });
   } catch (err) {
     console.warn('support worker postMessage failed; building inline', err);
     finBusy = false;
+    liveEnd();
     for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
     finMesh = padMesh = null;
     finTris = padTris = [];
@@ -295,6 +335,7 @@ function applyBuilt(built) {
   requestRender();      // a worker build lands outside any input event
   finBusy = false;
   clearSpinner();
+  liveEnd();
   for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
   finMesh = padMesh = null;
   clearFinHover();

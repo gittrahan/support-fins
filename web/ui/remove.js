@@ -19,6 +19,7 @@ import { updateReadout } from './readout.js';
 import { histPush } from './history.js';
 import { assignKeys, matchRemoved } from './finkeys.js';
 import { setMove } from './move.js';
+import { onLockChange } from './lock.js';
 
 // Auto fins are a flat triangle soup in ONE mesh, but each fin record now carries
 // its triangle segment(s) (built.fins[i].triRanges, vertex-indexed into
@@ -136,6 +137,9 @@ export function cancelRemove() {
   setGizmo();
   syncRemoveUI();
 }
+
+// a live Full build (ui/lock.js) disarms Remove: the fins it would drop are being replaced
+onLockChange((locked) => { if (locked && removeMode) cancelRemove(); });
 
 /** Drop the red hover overlay. */
 export function clearFinHover() {

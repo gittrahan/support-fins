@@ -81,6 +81,13 @@
      worker, hidden the moment it lands, so a quick rebuild never flashes it.
      Purely informational; pointer-events:none lets clicks pass to the canvas. -->
 <div id="spinner" aria-live="polite"><span class="ring"></span><span data-i18n="generating supports…">generating supports…</span></div>
+<!-- A live Full coverage build (ui/livebuild.js): how far along, and Stop -- which keeps
+     the walls shown. Shown only past a short delay, so a quick build never flashes it. -->
+<div id="live-build" hidden>
+  <span id="live-label" aria-live="polite"></span>
+  <div id="live-bar-wrap" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-labelledby="live-label"><div id="live-bar"></div></div>
+  <button type="button" class="btn sm" id="live-stop" data-i18n-title title="Keep the walls shown and finish now" data-i18n="Stop">Stop</button>
+</div>
 
 <header id="topbar">
   <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.2</small><!-- END version --></span></span>
