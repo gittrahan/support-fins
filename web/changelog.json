@@ -180,13 +180,18 @@
           "text": "Full coverage no longer builds a wall through the part where its underside steps: the wall becomes two, one each side of the step, so it still breaks away cleanly. Draw mode asks for two lines there."
         }
       ]
+    },
+    {
+      "version": "1.0.5",
+      "date": "2026-11-06",
+      "entries": [
+        {
+          "date": "2026-11-05",
+          "check": "easy",
+          "text": "The Rotate buttons turn 45° a click instead of 90°, so leaning a part back is one click and 90° is two."
+        }
+      ]
     }
   ],
-  "unreleased": [
-    {
-      "date": "2026-11-05",
-      "check": "easy",
-      "text": "The Rotate buttons turn 45° a click instead of 90°, so leaning a part back is one click and 90° is two."
-    }
-  ]
+  "unreleased": []
 }
