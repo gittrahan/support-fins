@@ -98,7 +98,7 @@ export default {
   "Suggest": "Vorschlag",
   "Strength": "Festigkeit",
   "View": "Ansicht",
-  "Turn the part: 90° steps, Reset, Lay a face flat and the rotate rings.": "Das Bauteil drehen: 90°-Schritte, Zurücksetzen, Fläche flach legen und die Drehringe.",
+  "Turn the part: 45° steps, Reset, Lay a face flat and the rotate rings.": "Das Bauteil drehen: 45°-Schritte, Zurücksetzen, Fläche flach legen und die Drehringe.",
   "Rank the ways this part could sit on the bed.": "Die möglichen Lagen dieses Bauteils auf dem Druckbett bewerten.",
   "Strength arrow: which way is the part loaded in use?": "Festigkeitspfeil: in welche Richtung wird das Bauteil im Einsatz belastet?",
   "Camera views, the mouse preset and the print layers around the part.": "Kameraansichten, die Maus-Belegung und die Druckschichten um das Bauteil.",
@@ -138,7 +138,7 @@ export default {
   "Default": "Standard",
   "Mouse": "Maus",
   "Show rotate rings": "Drehringe anzeigen",
-  "The rotate rings around the part. Off hides them; Rotate 90°, Reset and Lay a face flat still turn the part.": "Die Drehringe um das Bauteil. Aus blendet sie aus; 90° drehen, Zurücksetzen und Fläche flach auflegen drehen das Bauteil weiterhin.",
+  "The rotate rings around the part. Off hides them; Rotate 45°, Reset and Lay a face flat still turn the part.": "Die Drehringe um das Bauteil. Aus blendet sie aus; 45° drehen, Zurücksetzen und Fläche flach auflegen drehen das Bauteil weiterhin.",
   "times and filament from {profile}; yours will differ": "Druckzeit und Materialverbrauch geschätzt mit {profile}; tatsächliche Werte hängen von Ihrem Drucker ab.",
   "Download": "Herunterladen",
 
@@ -348,7 +348,7 @@ export default {
   "{n} rough hole": { one: "{n} Restüberhang", other: "{n} Restüberhänge" },
 
   // Left Rail: Orient & Suggest
-  "Rotate 90°": "Drehen 90°",
+  "Rotate 45°": "Drehen 45°",
   "Reset": "Zurücksetzen",
   "Undo": "Rückgängig",
   "Redo": "Wiederholen",

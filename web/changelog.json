@@ -182,5 +182,11 @@
       ]
     }
   ],
-  "unreleased": []
+  "unreleased": [
+    {
+      "date": "2026-11-05",
+      "check": "easy",
+      "text": "The Rotate buttons turn 45° a click instead of 90°, so leaning a part back is one click and 90° is two."
+    }
+  ]
 }
