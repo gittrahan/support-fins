@@ -148,7 +148,7 @@ export function hideSuggestions() {
   note.className = 'hint';
 }
 
-/** A manual turn (ring drag, 90° button, lay flat) moves the part off the pose the
+/** A manual turn (ring drag, 45° button, lay flat) moves the part off the pose the
  *  highlighted row stands for, so drop the highlight. The ranking doesn't depend
  *  on the pose, so the list stays and any row can still be clicked. */
 export function clearSuggestionMark() {
