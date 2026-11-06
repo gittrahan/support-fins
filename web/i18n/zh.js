@@ -28,7 +28,7 @@ export default {
   "Suggest": "推荐",
   "Strength": "强度",
   "View": "视图",
-  "Turn the part: 90° steps, Reset, Lay a face flat and the rotate rings.": "转动零件：90° 步进、重置、放平一个面以及旋转环。",
+  "Turn the part: 45° steps, Reset, Lay a face flat and the rotate rings.": "转动零件：45° 步进、重置、放平一个面以及旋转环。",
   "Rank the ways this part could sit on the bed.": "对这个零件在热床上各种可能的摆放姿势进行排序。",
   "Strength arrow: which way is the part loaded in use?": "受力箭头：零件在使用中承受哪个方向的力？",
   "Camera views, the mouse preset and the print layers around the part.": "相机视图、鼠标预设，以及零件周围的打印层。",
@@ -66,7 +66,7 @@ export default {
   "Default": "默认",
   "Mouse": "鼠标",
   "Show rotate rings": "显示旋转环",
-  "The rotate rings around the part. Off hides them; Rotate 90°, Reset and Lay a face flat still turn the part.": "零件周围的旋转环。关闭即隐藏；「旋转 90°」「重置」和「放平面」仍然可以转动零件。",
+  "The rotate rings around the part. Off hides them; Rotate 45°, Reset and Lay a face flat still turn the part.": "零件周围的旋转环。关闭即隐藏；「旋转 45°」「重置」和「放平面」仍然可以转动零件。",
   "times and filament from {profile}; yours will differ": "打印时间与耗材用量按 {profile} 估算，你的实际数值会有所不同。",
   "Download": "下载",
   "No build for {name}": "没有适用于 {name} 的构建版本",
@@ -280,7 +280,7 @@ export default {
   "{n} rough hole": { other: "{n} 个粗糙孔" },
 
   // Left Rail: Orient & Suggest
-  "Rotate 90°": "旋转 90°",
+  "Rotate 45°": "旋转 45°",
   "Reset": "重置",
   "Undo": "撤销",
   "Redo": "重做",

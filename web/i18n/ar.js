@@ -20,7 +20,7 @@ export default {
   "Suggest": "اقتراح",
   "Strength": "القوة",
   "View": "العرض",
-  "Turn the part: 90° steps, Reset, Lay a face flat and the rotate rings.": "تدوير القطعة: خطوات 90°، وإعادة الضبط، ووضع وجه مسطحًا، وحلقات التدوير.",
+  "Turn the part: 45° steps, Reset, Lay a face flat and the rotate rings.": "تدوير القطعة: خطوات 45°، وإعادة الضبط، ووضع وجه مسطحًا، وحلقات التدوير.",
   "Rank the ways this part could sit on the bed.": "ترتيب الأوضاع التي يمكن أن تستقر بها هذه القطعة على السرير.",
   "Strength arrow: which way is the part loaded in use?": "سهم القوة: في أي اتجاه تُحمَّل القطعة أثناء الاستخدام؟",
   "Camera views, the mouse preset and the print layers around the part.": "مناظر الكاميرا، وإعداد الفأرة المسبق وطبقات الطباعة حول القطعة.",
@@ -48,7 +48,7 @@ export default {
   "Default": "افتراضي",
   "Mouse": "الفأرة",
   "Show rotate rings": "إظهار حلقات التدوير",
-  "The rotate rings around the part. Off hides them; Rotate 90°, Reset and Lay a face flat still turn the part.": "حلقات التدوير المحيطة بالقطعة. عند إيقاف الخيار تُخفى الحلقات، لكن تظل أوامر «تدوير 90°» و«إعادة تعيين» و«وضع أحد الأوجه على سطح الطباعة» قادرة على تدوير القطعة.",
+  "The rotate rings around the part. Off hides them; Rotate 45°, Reset and Lay a face flat still turn the part.": "حلقات التدوير المحيطة بالقطعة. عند إيقاف الخيار تُخفى الحلقات، لكن تظل أوامر «تدوير 45°» و«إعادة تعيين» و«وضع أحد الأوجه على سطح الطباعة» قادرة على تدوير القطعة.",
   "times and filament from {profile}; yours will differ": "وقت الطباعة وكمية الخيط بحسب {profile}؛ وقد تختلف القيم لديك",
   "Download": "تنزيل",
 "The filament you'll print in. PETG fuses to supports much harder than PLA, so PETG loosens the gaps, shrinks the tine bite, and gives the bed pad a gap instead of a bite. PLA keeps the tighter grip.": "خيط الطباعة الذي ستستخدمه. يلتصق PETG بالدعامات بقوة أكبر بكثير من PLA؛ لذلك تُزاد الفجوات معه ويقلّ تداخل أسنان التثبيت، كما تُترك فجوة بين قاعدة التثبيت والقطعة بدلاً من تداخلهما. أما PLA فيتيح تثبيتاً أشد.",
@@ -256,7 +256,7 @@ export default {
   "{n} rough hole": { one: "{n} ثقب خشن", other: "{n} ثقوب خشنة" },
 
   // Left Rail: Orient & Suggest
-  "Rotate 90°": "تدوير 90°",
+  "Rotate 45°": "تدوير 45°",
   "Reset": "إعادة تعيين",
   "Undo": "تراجع",
   "Redo": "إعادة التنفيذ",

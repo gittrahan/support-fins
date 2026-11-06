@@ -19,7 +19,7 @@ export default {
   "Suggest": "Suggesties",
   "Strength": "Sterkte",
   "View": "Weergave",
-  "Turn the part: 90° steps, Reset, Lay a face flat and the rotate rings.": "Draai het onderdeel: stappen van 90°, Resetten, een vlak plat leggen en de draairingen.",
+  "Turn the part: 45° steps, Reset, Lay a face flat and the rotate rings.": "Draai het onderdeel: stappen van 45°, Resetten, een vlak plat leggen en de draairingen.",
   "Rank the ways this part could sit on the bed.": "Rangschik de mogelijke posities van dit onderdeel op het printbed.",
   "Strength arrow: which way is the part loaded in use?": "Sterktepijl: in welke richting wordt het onderdeel tijdens gebruik belast?",
   "Camera views, the mouse preset and the print layers around the part.": "Camerastandpunten, de muisinstellingen en de printlagen rond het onderdeel.",
@@ -57,7 +57,7 @@ export default {
   "Default": "Standaard",
   "Mouse": "Muis",
   "Show rotate rings": "Draairingen tonen",
-  "The rotate rings around the part. Off hides them; Rotate 90°, Reset and Lay a face flat still turn the part.": "De draairingen rond het onderdeel. Uit verbergt ze; Draaien 90°, Resetten en Een vlak plat leggen draaien het onderdeel nog steeds.",
+  "The rotate rings around the part. Off hides them; Rotate 45°, Reset and Lay a face flat still turn the part.": "De draairingen rond het onderdeel. Uit verbergt ze; Draaien 45°, Resetten en Een vlak plat leggen draaien het onderdeel nog steeds.",
   "times and filament from {profile}; yours will differ": "printtijd en filament geschat op basis van {profile}; jouw waarden kunnen afwijken",
   "Download": "Downloaden",
 
@@ -263,7 +263,7 @@ export default {
 	"{n} rough hole": { one: "{n} restoverhang", other: "{n} restoverhangen" },
 
 	// Left Rail: Orient & Suggest
-	"Rotate 90°": "90° draaien",
+	"Rotate 45°": "45° draaien",
 	"Reset": "Resetten",
 	"Undo": "Ongedaan maken",
 	"Redo": "Opnieuw uitvoeren",
