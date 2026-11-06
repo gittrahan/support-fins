@@ -1,0 +1,70 @@
+# Exact Fin test names from lewis252310/OrcaSlicer
+# d4da6e4d0efd6dc490e02147741a756a2ed98143
+# tests/fff_print/test_support_material.cpp; implementation remains in Orca.
+Painted shape contacts stop when upper walls cover more than one fin line width
+Fin style defaults to the existing simulated planner
+Painted shape creates one centered fin for one painted island
+Painted shape keeps a connected painted shell printable after macro partitioning
+Painted shape seed authorizes lower contacts on its traced wall
+Painted shape uses its region normal on a locally upward side
+Painted shape retains a high seed on a narrow vertical painted island
+Painted shape falls one horizontal line intent back to one point
+Painted shape keeps nearby disconnected painted islands independent
+Ordinary painted strokes switch to point fins at an eighty degree face angle
+Ordinary painted point fins use the full expansion factor on tilted faces
+Simple fins require painting and emit closed sheets from selected sites
+Simple fin contacts fit on the painted island edge
+Simple fins reach the highest painted layer on an upward-leaning side
+Simple fins start in the top layer when only that layer is painted
+Simple fins unite overlapping first-layer feet
+Simple fin feet use first-layer expansion and contacts follow their projection angle
+Simple fin unavailable ranges stay on their island contour
+Fin support does not create contacts without painted sides
+Fin count follows directional demand rather than uniform face spacing
+The first fin attaches near the middle of a large painted plane
+Half painting a leaning plane does not rotate its fins
+A full painted side starts the fin at its highest printable layer
+Fin directions follow a continuous lean instead of angular bins
+An unavailable lean direction does not hide other feasible support
+A cube resting on an edge receives fins on both sides of its narrow base
+Centered upper expansion supplies a direction beyond the bed axes
+Fins stay within thirty degrees of the only available painted face normal
+Fins at different seed heights do not emit overlapping sheet contours
+Oblique contact projections stay inside the sheet after the neck overlap
+A new demand direction selects a differently facing painted side
+Thicker fins reduce remaining directional demand without creating more sheets
+A centered column with painted sides receives fins in multiple broad directions
+A centered narrow column can start several fins on one layer
+Fin support alternates painted side contacts with side gaps
+Fin support has a filled first-layer foot
+Fin feet share one perimeter per merged bed island
+Fin outer edge stays vertical while contacts fit a leaning wall
+Fin expansion widens lower layers and their foot without changing top depth
+Fin expansion increases with height and smaller base area
+The seed face outward tilt reduces expansion for the whole fin
+Outward tilt of thirty degrees or more leaves the fin outer edge vertical
+Painted patches containing only upward facing normals do not create fins
+An L shaped profile retains lower contacts and adds upper contacts
+An active fin stops at the last painted height
+Fin contact layers stay below the painted face top
+Curved seed patches allow different normals across width and layer height
+An upward facing neighbor does not change a downward facing contact normal
+Fin contact bead stays inside the wall edges
+Fin layers print closed outlines starting away from contacts
+Fin geometry uses separate body thickness and contact width
+Fin wall loops use the requested count with a minimum of one
+Thin fins retain the loops that fit and omit the rest
+Fin contact front paths overlap the extrusion on the layer below
+Fin contact spans preserve positive widths below one extrusion line
+Fin contact projection angle controls how quickly the side gap returns
+Fin projections use the requested angle without a line width retreat cap
+Surface normal contact projections preserve the selected fin height
+Contact projections merge into the body without lowering the fin
+Overlapping fin contact projections remain supported on all bands
+Fin percentages resolve against the support line width
+Fin contact penetration scales with outer wall width in every style
+Painted contact continuation checks upper walls against its saved penetrated front
+A painted crease advances every root contact layer along its bisector
+Fin defaults use full support line contact length and absolute thickness
+Painted Shape line angle defaults to forty degrees
+Fin projections retain just the projected front segment or point

@@ -45,3 +45,6 @@ plugins/rhino/build/
 plugins/prusa/build/
 # user-reported parts (other people's files): measured locally, never committed
 prototype/examples/reports/
+
+# Optional native Orca fin validation: generated projects, builds and caches.
+/tmp/native-orca-*/
