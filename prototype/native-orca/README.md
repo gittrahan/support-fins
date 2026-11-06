@@ -201,6 +201,15 @@ and settings persistence. Screenshots should show the relevant layers and
 expected/actual behavior. An unavailable GUI check remains pending; native CLI
 round-trips do not replace this check.
 
+For GUI-saved projects, repeat `--inspect-mesh`, `--inspect-paint` and
+`--export-settings` through the same confined native runtime. Retain and review
+every settings difference. The pinned GUI populates equipment/filament metadata
+and object labels that its CLI exporter leaves empty; do not silently normalize
+those differences away or claim the whole G-code file is identical. Compare
+all executable G-code lines separately and retain the complete files and comment
+diffs. The recorded run and artifact paths are indexed in
+[gui-validation-macos.json](gui-validation-macos.json).
+
 Use `report.json`/`report.md` as the automated evidence index. Add a reviewed
 observation for each case: confirmed behavior, reproducible native finding,
 known limitation, or unavailable check. Retain the smallest failing project and

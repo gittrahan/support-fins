@@ -67,7 +67,7 @@
       "id": "flat",
       "projectSHA256": "82077693c128e2ced1e6f7486d322c7981c07f316c27c84d06ea0a83f808cf36",
       "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
-      "status": "sliced-review-pending",
+      "status": "preview-and-persistence-reviewed",
       "runs": [
         {
           "repeat": 1,
@@ -110,7 +110,7 @@
       "id": "convex",
       "projectSHA256": "f4fe0f3c63638b59db4a535264d6e6f61c6a2758e04bbfdff0bfb2552f653473",
       "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
-      "status": "sliced-review-pending",
+      "status": "preview-and-persistence-reviewed",
       "runs": [
         {
           "repeat": 1,
@@ -153,7 +153,7 @@
       "id": "concave",
       "projectSHA256": "e0beea7604e1600121b23329b18aa912ced719bd8d171d3be1c9febf087c51b1",
       "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
-      "status": "sliced-review-pending",
+      "status": "preview-and-persistence-reviewed",
       "runs": [
         {
           "repeat": 1,
@@ -196,7 +196,7 @@
       "id": "leaning",
       "projectSHA256": "cb4fdfcda870c668dfa4b79db75ab75b95f4d0843aa8190f4e8915cb33596016",
       "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
-      "status": "sliced-review-pending",
+      "status": "preview-and-persistence-reviewed",
       "runs": [
         {
           "repeat": 1,
@@ -239,7 +239,7 @@
       "id": "crease",
       "projectSHA256": "7bc1b54a9a0f218d3758c45b5cdc7272a66af4e82e8ffebc2b76368ecc53d91b",
       "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
-      "status": "sliced-review-pending",
+      "status": "preview-and-persistence-reviewed",
       "runs": [
         {
           "repeat": 1,
@@ -533,7 +533,7 @@
       "id": "convex-rotated",
       "projectSHA256": "205e10563dae44b581b0388f7782fe3c56c85b84cf8ffd8630842171e8b3faa6",
       "resolvedSettingsSHA256": "677499e432795116409a039268cb210b7fa64e9b16e8ef59c7af42f4fc794df1",
-      "status": "sliced-review-pending",
+      "status": "preview-and-persistence-reviewed",
       "runs": [
         {
           "repeat": 1,
@@ -572,5 +572,13 @@
       ],
       "failures": []
     }
-  ]
+  ],
+  "guiEvidence": {
+    "file": "gui-validation-macos.json",
+    "reviewedProjects": 13,
+    "savedAndReloadedProjects": 13,
+    "identicalExecutableGcodeProjects": 12,
+    "reproducedCollisionProjects": 1,
+    "physicalPrinting": "not performed"
+  }
 }
