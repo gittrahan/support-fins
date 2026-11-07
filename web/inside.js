@@ -26,7 +26,9 @@ import { gridDims } from './gridsize.js';
 
 const EPS = 1e-9;
 const EDGE_EPS = 1e-9;                 // barycentric: this close to 0 is on an edge
-const RAY_NUDGE_Y = 3.1415926535e-5, RAY_NUDGE_Z = 2.7182818284e-5;   // mm
+// mm, y and z. Off the float32 grid, and in different directions: an edge can run along
+// one nudge, keeping that ray on it.
+const RAY_NUDGES = [[3.1415926535e-5, 2.7182818284e-5], [-1.7320508075e-5, 4.1421356237e-5], [2.2360679774e-5, -5.7721566490e-5]];
 // solidClearance switches to the coarse grid past this many fine cells a box
 const COARSE_CELLS = 64;
 
@@ -572,10 +574,14 @@ export function insidePart(topo, rot, offset, qx, qy, qz) {
 
   // A ray through a shared edge or vertex counts every face meeting there, so parity
   // reads noise. A part centred on its axes puts rays exactly on those (#450: a false
-  // "buried" under a ball's pole). Cast again a hair off: not on the float32 grid, so
-  // it cannot land on a vertex. Ordinary queries never take this branch.
-  const n = crossingsAt(topo.pos, grid, ox, oy, oz);
-  return ((n < 0 ? crossingsAt(topo.pos, grid, ox, oy + RAY_NUDGE_Y, oz + RAY_NUDGE_Z) : n) & 1) === 1;
+  // "buried" under a ball's pole). Cast again a hair off. Ordinary queries never do.
+  let n = crossingsAt(topo.pos, grid, ox, oy, oz);
+  for (let i = 0; n < 0 && i < RAY_NUDGES.length; i++) {
+    n = crossingsAt(topo.pos, grid, ox, oy + RAY_NUDGES[i][0], oz + RAY_NUDGES[i][1]);
+  }
+  // Every cast on an edge has no answer to read; say outside, as a miss does (fins are
+  // verified against the mesh by other measures too: nearestPart, solidClearance).
+  return n > 0 && (n & 1) === 1;
 }
 
 /** Forward crossings of the +x ray at (oy, oz); -1 if it hit an edge or vertex. */
