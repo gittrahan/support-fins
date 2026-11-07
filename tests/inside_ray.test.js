@@ -17,10 +17,10 @@ const inside = (tris, x, y, z) => insidePart(topoOf(tris), IDENTITY3, ZERO, x, y
 
 // Apex on +x: a ray along the axis meets all `n` side faces at one vertex, then the base.
 // The hub is off the axis, so the base is crossed once, inside one triangle.
-function pyramid(n) {
+function pyramid(n, turn = 0.2) {
   const tris = [], apex = [1, 0, 0], hub = [0, 0.3, 0.2];
   for (let i = 0; i < n; i++) {
-    const a = (i * 2 * Math.PI) / n + 0.2, b = ((i + 1) * 2 * Math.PI) / n + 0.2;
+    const a = (i * 2 * Math.PI) / n + turn, b = ((i + 1) * 2 * Math.PI) / n + turn;
     const p = [0, Math.cos(a), Math.sin(a)], q = [0, Math.cos(b), Math.sin(b)];
     tris.push([p, q, apex], [q, p, hub]);
   }
@@ -54,6 +54,14 @@ Deno.test('insidePart: a ray through a shared edge counts as one crossing', () =
   assert(inside(CUBE, 0, 0, 0), 'the cube centre, its ray on the x = 1 diagonal');
   assert(!inside(CUBE, -2, 0, 0), 'outside, through both diagonals');
   assert(!inside(CUBE, 2, 0, 0), 'past the cube');
+});
+
+Deno.test('insidePart: a mesh edge along the first re-cast direction does not read as inside', () => {
+  // one apex edge projects along the first nudge, so that second cast is on an edge too
+  const along = pyramid(6, Math.atan2(2.7182818284, 3.1415926535));
+  assert(!inside(along, -1, 0, 0), 'in front of the base');
+  assert(!inside(along, 2, 0, 0), 'past the apex');
+  assert(inside(along, 0.5, 0, 0), 'inside');
 });
 
 Deno.test('insidePart: a ray clear of every edge answers as before', () => {
