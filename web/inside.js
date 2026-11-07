@@ -25,6 +25,8 @@
 import { gridDims } from './gridsize.js';
 
 const EPS = 1e-9;
+const EDGE_EPS = 1e-9;                 // barycentric: this close to 0 is on an edge
+const RAY_NUDGE_Y = 3.1415926535e-5, RAY_NUDGE_Z = 2.7182818284e-5;   // mm
 // solidClearance switches to the coarse grid past this many fine cells a box
 const COARSE_CELLS = 64;
 
@@ -560,7 +562,6 @@ function triClosestP(T, p) {
  * the test -- which is what lets the grid be orientation-independent.
  */
 export function insidePart(topo, rot, offset, qx, qy, qz) {
-  const { pos } = topo;
   const grid = buildGrid(topo);
 
   // inverse of an orthonormal rotation is its transpose
@@ -569,6 +570,16 @@ export function insidePart(topo, rot, offset, qx, qy, qz) {
   const oy = rot[3] * x + rot[4] * y + rot[5] * z;
   const oz = rot[6] * x + rot[7] * y + rot[8] * z;
 
+  // A ray through a shared edge or vertex counts every face meeting there, so parity
+  // reads noise. A part centred on its axes puts rays exactly on those (#450: a false
+  // "buried" under a ball's pole). Cast again a hair off: not on the float32 grid, so
+  // it cannot land on a vertex. Ordinary queries never take this branch.
+  const n = crossingsAt(topo.pos, grid, ox, oy, oz);
+  return ((n < 0 ? crossingsAt(topo.pos, grid, ox, oy + RAY_NUDGE_Y, oz + RAY_NUDGE_Z) : n) & 1) === 1;
+}
+
+/** Forward crossings of the +x ray at (oy, oz); -1 if it hit an edge or vertex. */
+function crossingsAt(pos, grid, ox, oy, oz) {
   const c = grid.cell(oy, oz);
   let crossings = 0;
   for (let i = grid.start[c]; i < grid.start[c + 1]; i++) {
@@ -583,11 +594,13 @@ export function insidePart(topo, rot, offset, qx, qy, qz) {
     const l1 = ((bz - cz) * (oy - cy) + (cy - by) * (oz - cz)) / d;
     const l2 = ((cz - az) * (oy - cy) + (ay - cy) * (oz - cz)) / d;
     const l3 = 1 - l1 - l2;
-    if (l1 < 0 || l2 < 0 || l3 < 0) continue;
+    if (l1 < -EDGE_EPS || l2 < -EDGE_EPS || l3 < -EDGE_EPS) continue;
 
     // x where the ray meets the triangle's plane; only forward hits count
     const hx = l1 * pos[o] + l2 * pos[o + 3] + l3 * pos[o + 6];
-    if (hx > ox) crossings++;
+    if (hx <= ox) continue;
+    if (l1 < EDGE_EPS || l2 < EDGE_EPS || l3 < EDGE_EPS) return -1;
+    crossings++;
   }
-  return (crossings & 1) === 1;
+  return crossings;
 }

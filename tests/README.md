@@ -18,6 +18,12 @@ deno test --allow-read tests/
 
 ## What's pinned (and why it exists)
 
+**`inside_ray.test.js`** -- `insidePart`'s ray through a shared vertex or edge still
+answers correctly, both ways, and a ray clear of them answers as before. On
+`ball_in_ball.stl` (#450, `fixtures/gen_ball_in_ball.py`) the ball hanging in the cavity
+gets its wall under its lowest point, centred on its axes or not, and no wall enters
+the part.
+
 **`sway_clearance.test.js`** -- square-ended Sway feet and bodies keep the 1 mm
 clearance without imaginary round caps rejecting opposite sides of a thin wall.
 Pins rotated 2/6 mm walls, cross ribs, duplicate refusal, actual overlap and gaps

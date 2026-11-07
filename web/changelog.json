@@ -193,5 +193,11 @@
       ]
     }
   ],
-  "unreleased": []
+  "unreleased": [
+    {
+      "date": "2026-11-06",
+      "check": "held",
+      "text": "A part centred on its axes no longer loses walls to a false \"inside the part\" reading at its centre, like a ball hanging inside a hollow ball."
+    }
+  ]
 }
