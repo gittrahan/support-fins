@@ -579,8 +579,8 @@ export function insidePart(topo, rot, offset, qx, qy, qz) {
   for (let i = 0; n < 0 && i < RAY_NUDGES.length; i++) {
     n = crossingsAt(topo.pos, grid, ox, oy + RAY_NUDGES[i][0], oz + RAY_NUDGES[i][1]);
   }
-  // Every cast on an edge has no answer to read; say outside, as a miss does (fins are
-  // verified against the mesh by other measures too: nearestPart, solidClearance).
+  // Every cast on an edge has no answer to read; say outside, as a miss does. The main
+  // wall paths also measure against the mesh (nearestPart, solidClearance).
   return n > 0 && (n & 1) === 1;
 }
 
