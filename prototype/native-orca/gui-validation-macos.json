@@ -1,0 +1,384 @@
+{
+  "format": 1,
+  "referenceExecutableSHA256": "f5981de4118175c165dc6148c3aae2b2336c96bbb4621e8a7d36c8579ad9f44d",
+  "date": "2026-11-05",
+  "cases": [
+    {
+      "id": "flat",
+      "project": "gui/flat-gui.3mf",
+      "projectSHA256": "670f28bb79a10a8d1093d2f6fc6db3e34fa98b77fe49d89955c1c2a79bb2a7a4",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/flat-close.png",
+          "sha256": "5199634194d90500dbdaa96a8f992d0173f872cebfdadafd6e2d6769e0c451bc"
+        },
+        {
+          "file": "gui/flat-first-layer-verified.png",
+          "sha256": "198c1557dcd73a7b4ecddf4f2f4e4809a6c9ec3b4b1afec3a16da90d478ad154"
+        },
+        {
+          "file": "gui/flat-contact-layer200.png",
+          "sha256": "55b8c0ba4c7ebd79f2b6500821d4a6be231b40c0507d200cb9e3f4bd062fb6a5"
+        },
+        {
+          "file": "gui/flat-clearance-layer201.png",
+          "sha256": "46059c39975d3bc044cf48af5f72a839fdd72e5d1a4142bf8306df6516118b21"
+        },
+        {
+          "file": "gui/flat-reloaded.png",
+          "sha256": "f1401927aa4b4e388fba5d8651115bbad1c73ef2214e98e3ae82cb9c60b4901a"
+        }
+      ],
+      "observation": "Positive control: a continuous fin reaches its filled first-layer foot. Repeated side contacts and clearance between contact bands are visible. At Z 40.0, support centerline X 155.210 with 0.42 mm width reaches X 155.000, matching the outer-wall edge and configured 0% penetration. At Z 40.2, centerline X 155.560 leaves the configured 0.35 mm clearance. The footprint remains on the plate. GUI save/reload/reslice completed.",
+      "audit": "gui/flat-native-check/comparison.json"
+    },
+    {
+      "id": "convex",
+      "project": "gui/convex-gui.3mf",
+      "projectSHA256": "526f180df17645bd0ef900be48536f148f5f3f24a2472fd8e637956361df4220",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/convex-front.png",
+          "sha256": "ccb0c31972fb06aa88be178b0f4a7a7b095ea73cef4a51706388b950ef7cde89"
+        },
+        {
+          "file": "gui/convex-reloaded-front.png",
+          "sha256": "ca46fc44527a4d2fe0298bce9a58a48251fc830009c02a2eaf0ede5b134eb4eb"
+        }
+      ],
+      "observation": "The continuous fin follows the outward-curving side with repeated contact bands and visible intervening clearance, reaching the plate. No unexpected disconnected support was observed in the reviewed preview. GUI save/reload/reslice completed.",
+      "audit": "gui/convex-native-check/comparison.json"
+    },
+    {
+      "id": "concave",
+      "project": "gui/concave-gui.3mf",
+      "projectSHA256": "c120150c045067c2cb4ec37540787cfc052e3a6b879d626f361e16800b75c915",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/concave-initial-front.png",
+          "sha256": "efb4c798f17e10a5f841d62480ea63c1a4eafa53b34c78f3e61a7d9fb528b483"
+        },
+        {
+          "file": "gui/concave-reloaded-front.png",
+          "sha256": "805356b929d5bb29bacab8da170394b06c43ae5e4b3987de98cb67d291d2bd1f"
+        }
+      ],
+      "observation": "The continuous fin follows the inward-curving side with repeated contact bands and visible recessed-side clearance, reaching the plate. No unexpected disconnected support was observed in the reviewed preview. GUI save/reload/reslice completed.",
+      "audit": "gui/concave-native-check/comparison.json"
+    },
+    {
+      "id": "leaning",
+      "project": "gui/leaning-gui.3mf",
+      "projectSHA256": "1638fb6a494ea5a3a819520326cc6275d42c00aa50bd61387e59b1a1a730f2c2",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/leaning-initial-front.png",
+          "sha256": "97cba1a61c0da637fe836a4143724ff42946aaa2a69f9c14e6d86f2178f30f75"
+        },
+        {
+          "file": "gui/leaning-reloaded-front.png",
+          "sha256": "1b2256801651c36f61a25e75a72396c3207518632ec21fe2efa346e33ea3e2d5"
+        }
+      ],
+      "observation": "A continuous fin connects the changing side position of the leaning body to the plate. Repeated contact bands and intervening clearance remain visible after GUI save/reload/reslice.",
+      "audit": "gui/leaning-native-check/comparison.json"
+    },
+    {
+      "id": "crease",
+      "project": "gui/crease-gui.3mf",
+      "projectSHA256": "0bf021b2a9e910c84020f5130a4e9a0db2385e8ef410aae19a7db485210b37a9",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/crease-reloaded-front.png",
+          "sha256": "ea9b810a090ee1efd8a3bd27209b0ae425103df5cb84105bd46163deefd30fad"
+        },
+        {
+          "file": "gui/crease-corner-layer200.png",
+          "sha256": "42b3744ccdc97d0979b9e9c66d6423b11d7d3fc1ffe92d3420186e0ddcfcebb7"
+        },
+        {
+          "file": "gui/crease-overview-isometric.png",
+          "sha256": "bf7850f9061f772fc33334b71562652c24790d9ad9ded2d13340351597bbf6e6"
+        }
+      ],
+      "observation": "The narrow strip crossing the corner produces a continuous fin down to the plate; a top view at Z 40.0 shows a diagonal contact path at the 90-degree corner. No disconnected extrusion was observed in the reviewed views. This does not assert a required fin count or identical contact shape to Support Fins. GUI save/reload/reslice completed.",
+      "audit": "gui/crease-native-check/comparison.json"
+    },
+    {
+      "id": "opposing",
+      "project": "gui/opposing-gui.3mf",
+      "projectSHA256": "8ad629ddd2baedf34be28a247d75f679278b21380bc14ce2b2cbcd494090dc08",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 155,
+      "allCommandLinesEqual": null,
+      "fullGcodeEqualAfterDateNormalization": null,
+      "screenshots": [
+        {
+          "file": "gui/opposing-collision-overview.png",
+          "sha256": "f0e6bda912b7b69ebc21999618d7220a8191db2c130c83e88f8759a52c18253e"
+        },
+        {
+          "file": "gui/opposing-collision-layer112.png",
+          "sha256": "d307201941a2f215f9c6b1b8867120d86bba5b398006e566402b8709ff362190"
+        },
+        {
+          "file": "gui/opposing-reloaded-front.png",
+          "sha256": "c4aad75bdbe2c358f9d72a2e445c63b7187f44d3d5693a38ac3ac4c13dd319e5"
+        }
+      ],
+      "observation": "Reproducible native clearance defect: the +X fin crosses the separate obstacle's wall and enters its interior. Initial GUI warning reports layer 112, Z 22.40; the reload warning reports layer 37, Z 7.40. These are reported affected layers, not a claim of the earliest collision. The layer-112 top-view screenshot shows the crossing. Collision checks remain enabled; GUI save/reload/reslice reproduces the warning.",
+      "audit": "gui/opposing-native-check/comparison.json"
+    },
+    {
+      "id": "flat-unpainted",
+      "project": "gui/flat-unpainted-gui.3mf",
+      "projectSHA256": "ffd67016e8a8de1acb4642596552d4930f58529881d6dff3cfa6002f31b5df71",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/flat-unpainted-reloaded-front.png",
+          "sha256": "745595c9cf25b68be8707981253d7ac919b0dd53909d4fec0f599c6ae625fb83"
+        }
+      ],
+      "observation": "No fins in native preview before or after GUI save/reload/reslice.",
+      "audit": "gui/flat-unpainted-native-check/comparison.json"
+    },
+    {
+      "id": "convex-unpainted",
+      "project": "gui/convex-unpainted-gui.3mf",
+      "projectSHA256": "1b2e6fdff617b1805821f4ec9318a278158624a378e4341e4cf07a0532a3577d",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/convex-unpainted-reloaded-front.png",
+          "sha256": "5dd042c0233ea63590669a3d6ad1d94271d506de98ddc3b4629a646ea9d867a6"
+        }
+      ],
+      "observation": "No fins in native preview before or after GUI save/reload/reslice.",
+      "audit": "gui/convex-unpainted-native-check/comparison.json"
+    },
+    {
+      "id": "concave-unpainted",
+      "project": "gui/concave-unpainted-gui.3mf",
+      "projectSHA256": "14f21ffeb31c3572dbeab981a1c68bbd098cc3ed818a5bf5fb99863f3eeb2e44",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/concave-unpainted-reloaded-front.png",
+          "sha256": "26108bc7a1a44b4e1fe5d87d14bc28c457b5bbe57d73e5b46dd4c3dad6c335dd"
+        }
+      ],
+      "observation": "No fins in native preview before or after GUI save/reload/reslice.",
+      "audit": "gui/concave-unpainted-native-check/comparison.json"
+    },
+    {
+      "id": "leaning-unpainted",
+      "project": "gui/leaning-unpainted-gui.3mf",
+      "projectSHA256": "206059519e7d8cc9aa6a2d9fc982cdd5e5524d40af334afc2c6068c622ad32bc",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/leaning-unpainted-reloaded-front.png",
+          "sha256": "413692d736ed4847f61447a661949799bf14add4ddad1709a3eebf8113661588"
+        }
+      ],
+      "observation": "No fins in native preview before or after GUI save/reload/reslice.",
+      "audit": "gui/leaning-unpainted-native-check/comparison.json"
+    },
+    {
+      "id": "crease-unpainted",
+      "project": "gui/crease-unpainted-gui.3mf",
+      "projectSHA256": "c0123c607b3c79f4bf6731040eade0107196b9b59e0d94e25e9b0068d24a420a",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/crease-unpainted-reloaded-front.png",
+          "sha256": "57d8867df6acc25a3d3468bf685ca0070136525996082fe3062442d2911ce4fa"
+        }
+      ],
+      "observation": "No fins in native preview before or after GUI save/reload/reslice.",
+      "audit": "gui/crease-unpainted-native-check/comparison.json"
+    },
+    {
+      "id": "opposing-unpainted",
+      "project": "gui/opposing-unpainted-gui.3mf",
+      "projectSHA256": "3e4314471f100fbbaec26c456155b9cd89a5d89ae062b4ce7c8c50f8464d2373",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/opposing-unpainted-reloaded-front.png",
+          "sha256": "d1f1f1e08e2e515387054233f2f4c90d42dad08c624ce75f9ae4b7cdb15443bb"
+        }
+      ],
+      "observation": "No fins or collision warning in native preview before or after GUI save/reload/reslice; separate bodies remain clear.",
+      "audit": "gui/opposing-unpainted-native-check/comparison.json"
+    },
+    {
+      "id": "convex-rotated",
+      "project": "gui/convex-rotated-gui.3mf",
+      "projectSHA256": "f38c8279eb9b06a850d6ebf3f1eed3d7fb734a02d52686903276eabd12977ac3",
+      "meshEqual": true,
+      "paintEqual": true,
+      "sliceExitCode": 0,
+      "allCommandLinesEqual": true,
+      "fullGcodeEqualAfterDateNormalization": false,
+      "screenshots": [
+        {
+          "file": "gui/convex-rotated-initial-front.png",
+          "sha256": "701af7cd8cf3a244d7247a43bbbfd24b9a429f929b03e785c191d770f701529b"
+        },
+        {
+          "file": "gui/convex-rotated-reloaded-front.png",
+          "sha256": "747dd35e5d3c19693b637cc2cf3aa4d1841d95a3b28c57f323dfcc062d90437d"
+        }
+      ],
+      "observation": "The rotated and translated convex model retains a continuous fin following its side and reaching the plate. GUI save/reload/reslice preserves the visible relationship. Rotationally identical fin geometry or counts are not required.",
+      "audit": "gui/convex-rotated-native-check/comparison.json"
+    }
+  ],
+  "physicalPrinting": "not performed",
+  "gcodeComparison": "Full files retained. Repeated CLI slices normalize only generation date. GUI round trips additionally report all command lines exactly; all comment/setting differences remain recorded, not normalized away.",
+  "guiSettingDifferences": {
+    "compatible_printers_condition": {
+      "original": "",
+      "gui": null
+    },
+    "extruder_ams_count": {
+      "original": [],
+      "gui": [
+        "1#0|4#0",
+        "1#0|4#0"
+      ]
+    },
+    "extruder_nozzle_stats": {
+      "original": [],
+      "gui": [
+        "Standard#1",
+        "Standard#6"
+      ]
+    },
+    "filament_colour_type": {
+      "original": null,
+      "gui": [
+        "1"
+      ]
+    },
+    "filament_ids": {
+      "original": [
+        ""
+      ],
+      "gui": [
+        "OFFvzqcd"
+      ]
+    },
+    "filament_multi_colour": {
+      "original": null,
+      "gui": [
+        "#F2754E"
+      ]
+    },
+    "filament_plugin_config_overrides": {
+      "original": null,
+      "gui": ""
+    },
+    "nozzle_volume_type": {
+      "original": [
+        "Standard"
+      ],
+      "gui": [
+        "Standard",
+        "Standard"
+      ]
+    },
+    "print_host": {
+      "original": "",
+      "gui": null
+    },
+    "print_host_webui": {
+      "original": "",
+      "gui": null
+    },
+    "printhost_apikey": {
+      "original": "",
+      "gui": null
+    },
+    "printhost_cafile": {
+      "original": "",
+      "gui": null
+    },
+    "printhost_password": {
+      "original": "",
+      "gui": null
+    },
+    "printhost_port": {
+      "original": "",
+      "gui": null
+    },
+    "printhost_user": {
+      "original": "",
+      "gui": null
+    }
+  },
+  "additionalEvidence": [
+    {
+      "id": "obstacle-minimal",
+      "observation": "The reduced two-body, 96-triangle fixture with one painted island reproduces the same support intrusion. GUI warning and top-view screenshot show the collision at layer 112, Z 22.40. The identical unpainted reduction passes both recorded CLI runs.",
+      "screenshots": [
+        {
+          "file": "gui/minimal-collision.png",
+          "sha256": "dcad264ec85bc7533c6a5db737eaa0a736ecdc204fa94668338936437a0d8fdb"
+        }
+      ]
+    }
+  ]
+}

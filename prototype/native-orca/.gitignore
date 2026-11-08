@@ -1,0 +1,4 @@
+out/
+*.gcode
+*.3mf
+*.log
