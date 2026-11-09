@@ -365,9 +365,10 @@ set the numbers.
 
 | feature | value | rationale |
 |---|---|---|
-| when | plate walls over `BRACE.tallH` (**100 mm**), Auto, Full and Draw; the **Brace tall walls** box, on by default | the reporter's 10 cm, until the coupon prints |
+| when | plate walls over `BRACE.tallH` (**100 mm**), Auto, Full and Draw; the **Brace tall walls** box, on by default | the reporter's 10 cm; the wobble coupon recorded no failure height to move it to |
 | where | a pair, one off each face, every `BRACE.faceStep` (**30 mm**) of wall length, at the middle of each share; never off the ends | a long wall is stiff along its line; across it, it is a sheet |
-| reach / rise / flange | the Wall ribs': `footRatio` × height (halved while blocked, ≥ 1.5 mm), **50 %** of the height, `footMin` flange | one rib shape; R50 vs R80 is on the coupon |
+| reach / flange | the Wall ribs': `footRatio` × height (halved while blocked, ≥ 1.5 mm), `footMin` flange | one rib shape |
+| rise | `BRACE.tallRise` **85 %** of the height (the Wall ribs and sway cross ribs keep `rise` 50 %), still stopping 1 mm under the tip taper | wobble coupon (eight free-standing 120 mm walls, Bambu A1, fast run, one printer): a 120 mm wall ribbed to 50 % went bad near the top, above its rib. 85 % is from a beam estimate (resonance ~4×, top sway ~10× less than 50 %, rib plastic +49 % vs +29 % of the wall), not printed; height helps, reach doesn't |
 | order | last: after every wall, wedge, fill wall and sway brace | ribs built as walls went in took plate the next walls needed (the fill pass's lesson) |
 | clearance | `sideClear` off the part (only at stations whose floor is the plate) and off every other support below the rib's top, in plan, ~1 mm pieces | no rib fuses two pieces; a 3D box grid was exact but cost 4 s on bigplate Y35, this ~0.2 s |
 | skipped | a wall the fill pass already ribbed (the slim rule) | no doubled ribs |

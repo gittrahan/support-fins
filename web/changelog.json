@@ -198,6 +198,11 @@
       "date": "2026-11-06",
       "check": "held",
       "text": "A part centred on its axes no longer loses walls to a false \"inside the part\" reading at its centre, like a ball hanging inside a hollow ball."
+    },
+    {
+      "date": "2026-11-09",
+      "check": "stays",
+      "text": "Ribs on walls taller than the Brace tall walls height now rise to 85% of the wall instead of half, to stiffen the top, which wobbled on a test print. About 15% more plastic on those walls only."
     }
   ]
 }

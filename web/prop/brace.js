@@ -26,7 +26,8 @@
  * face ribs whatever its length when the caller asks for them (`kinds.tall`, the Brace
  * tall walls box): a pair, one off each face, every BRACE.faceStep along it. A long
  * wall is stiff along its line; across it, it is a 1 mm sheet. tallH is the reporter's
- * 10 cm until the tall/ coupon prints.
+ * 10 cm. Those face pairs rise BRACE.tallRise, not rise: on the wobble coupon (A1,
+ * fast) a 120 mm wall ribbed to half its height went bad near the top, above the rib.
  */
 import { boxExtrude } from '../solids.js';
 import { PROP } from './config.js';
@@ -39,6 +40,7 @@ export const BRACE = {
   minReach: 1.5,               // mm: a rib shorter than this is not tried (blocked ribs retry at half reach)
   step: 0.25,                  // mm: part clearance sampled this finely under a rib
   tallH: 100,                  // mm: a wall taller than this gets face ribs at any length (kinds.tall; tall/ coupon)
+  tallRise: 0.85,              // the tall rule's face ribs rise this share instead (wobble coupon: 0.5 left the top half bare)
   faceStep: 30,                // mm: one pair of face ribs per this much wall length
 };
 
@@ -152,18 +154,20 @@ export function braceWall(top, floorZ, tris, zBed, out, clear = () => true, kind
   const dx = (b[0] - a[0]) / len, dy = (b[1] - a[1]) / len;
   const reach0 = tall ? Math.max(BRACE.minReach, PROP.footRatio * height) : PROP.footRatio * height;
   // ends only for a slim wall; face pairs at the middle of each faceStep share of a
-  // tall one (one pair, at the middle station, otherwise)
-  const ribs = slim ? [[0, [-dx, -dy]], [n - 1, [dx, dy]]] : [];
+  // tall one (one pair, at the middle station, otherwise). A tall wall's face pairs
+  // rise tallRise; a slim wall's ribs keep rise.
+  const ribs = slim ? [[0, [-dx, -dy], BRACE.rise], [n - 1, [dx, dy], BRACE.rise]] : [];
   const pairs = tall ? Math.max(1, Math.round(len / BRACE.faceStep)) : 1;
+  const faceRise = tall ? BRACE.tallRise : BRACE.rise;
   for (let j = 0; j < pairs; j++) {
     const i = Math.round((n - 1) * (j + 0.5) / pairs);
-    ribs.push([i, [dy, -dx]], [i, [-dy, dx]]);
+    ribs.push([i, [dy, -dx], faceRise], [i, [-dy, dx], faceRise]);
   }
   let built = 0;
-  for (const [i, d] of ribs) {
+  for (const [i, d, rise] of ribs) {
     if (floorZ(i) > zBed + BRACE.onPlate) continue;
     // under the tip taper: the contact and its breakaway stay exactly as they were
-    const stem = Math.min(BRACE.rise * (top[i][2] - PROP.gap - zBed), top[i][2] - PROP.gap - PROP.tipH - 1 - zBed);
+    const stem = Math.min(rise * (top[i][2] - PROP.gap - zBed), top[i][2] - PROP.gap - PROP.tipH - 1 - zBed);
     if (stem < PROP.baseH + 1) continue;
     for (let reach = reach0; reach >= BRACE.minReach; reach /= 2) {
       const r = rib(tris, [top[i][0], top[i][1]], d, zBed, stem, reach);

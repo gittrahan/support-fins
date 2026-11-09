@@ -44,6 +44,10 @@ Deno.test('tall: walls 110 mm up get face ribs; unticked is the build without th
     const r = bbox(on.triangles.slice(a, b));
     assert(r[2] > -1e-6 && r[2] < 1e-6, 'a rib stands on the plate');
     assert(r[5] < f.height - PROP.tipH - 0.9, 'a rib stops under the tip taper');
+    // tall ribs rise tallRise (wobble coupon: a half-height rib left the top wobbling)
+    assert(Math.abs(r[5] - Math.min(BRACE.tallRise * (f.height - PROP.gap), f.height - PROP.gap - PROP.tipH - 1)) < 1,
+      `rib top ${r[5].toFixed(1)} for a ${f.height.toFixed(1)} mm wall`);
+    assert(r[5] > 0.8 * f.height, 'well past half the wall');
   }
 });
 
