@@ -104,9 +104,9 @@ export function braceTallWalls(topo, result, rot, built) {
   built.tallRibs = 0;
   if (!tall.length) return built;
   const tris = seatedPartTris(topo, rot, result.offset);
-  // Only what a rib could meet goes in: under the tallest rib (a tall wall's tines,
-  // and everything above, never can)
-  const zTop = BRACE.rise * Math.max(...tall.map((f) => f.height)) + PROP.sideClear;
+  // Only what a rib could meet goes in: under the tallest rib (everything above it
+  // never can). These ribs rise tallRise (prop/brace.js)
+  const zTop = BRACE.tallRise * Math.max(...tall.map((f) => f.height)) + PROP.sideClear;
   const low = (p, q, r) => Math.min(p[2], q[2], r[2]) <= zTop;
   const grid = planGrid();
   fins.forEach((f, k) => { for (const [a, b] of f.triRanges ?? []) grid.add(built.triangles.slice(a, b), k, low); });
