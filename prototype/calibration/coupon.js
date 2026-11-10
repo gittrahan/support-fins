@@ -124,7 +124,7 @@ export const supportOf = (built) => [...(built.triangles ?? []), ...(built.padTr
 export async function writeCoupon(c, name, title, sup) {
   assertClosed(sup, `${name} supports`);
   const bytes = async (blob) => new Uint8Array(await blob.arrayBuffer());
-  Deno.writeFileSync(`${c.out}${name}-coupon.3mf`, await bytes(writeThreeMF(c.part, sup, title, { separate: true })));
+  Deno.writeFileSync(`${c.out}${name}-coupon.3mf`, await bytes(await writeThreeMF(c.part, sup, title, { separate: true })));
   Deno.writeFileSync(`${c.out}${name}-coupon.stl`, await bytes(writeBinarySTL([...c.part, ...sup], title)));
   if (sup.length) Deno.writeFileSync(`${c.out}${name}-fins.stl`, await bytes(writeBinarySTL(sup, `${title} supports`)));
   console.log(`wrote ${c.out}${name}-coupon.3mf (+ .stl${sup.length ? ', supports-only .stl' : ''})`);
