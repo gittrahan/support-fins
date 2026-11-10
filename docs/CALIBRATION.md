@@ -59,10 +59,11 @@ all the way left, a quarter, the middle (the default), three quarters, all the w
 right. Snap the walls off and look at each shelf's underside between the walls, and
 tell us which shelves came out flat and which sagged.
 
-Don't set the slider from this one yet. Today the slider doesn't always add walls
-as it moves right: on this shelf the middle position leaves a wider bare stretch
-(17 mm) than all the way left (12 mm). We're fixing that. Your result tells us how wide a
-bare stretch your printer can bridge.
+The walls run from the bar out to the shelf's free edge. They sit about 14 mm apart on
+the 0% and 25% shelves, 10 mm apart on 50% and 75%, and 6 mm apart on 100%, so the five
+shelves show three spacings. Set **Wide-face coverage** to the lowest position whose
+shelf came out flat. This coupon has not been print-tested by us yet, so your result
+also tells us how wide a bare stretch a printer can bridge.
 
 ## Pad (`pad/print/pad-coupon.3mf`)
 Six cubes standing on an edge. A pad is all that holds each one down. Each pad stands

@@ -178,9 +178,9 @@ whose shelf printed flat.
   to the free edge and are spaced along the shelf's 30 mm: widest gap between row centres
   14.4 / 14.4 / 9.6 / 9.6 / 5.8 mm at Coverage 0 / 25 / 50 / 75 / 100 %. `build.js` printed
   20.0 for the two sparse shelves until it stopped comparing rows with the edge wall that
-  runs the other way. **The file in `print/` was not rebuilt:** it still carries the old
-  rows, and CALIBRATION.md's Span section (17 mm against 12 mm) describes that file.
-  Rebuilding it changes what prints, so it is its own change.
+  runs the other way. `print/` was rebuilt on that layout the same day (it had carried
+  the 2026-10-07 build with the old rows), and CALIBRATION.md's Span section now gives
+  the three spacings and lets users set the dial from the lowest flat shelf.
 - **waiting on print.**
 
 ### angle/ -- what overhang does the printer manage unsupported? (the Overhang slider)
