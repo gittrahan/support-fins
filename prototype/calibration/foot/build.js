@@ -50,7 +50,7 @@ for (const l of JSON.parse(Deno.readTextFileSync(`${OUT}ledges.json`))) {
 PROP.footGap = 0; PROP.footTeeth = 0;
 const part = [];
 for (let i = 0; i < partTris.length; i += 3) part.push([partTris[i], partTris[i + 1], partTris[i + 2]]);
-Deno.writeFileSync(`${OUT}foot-coupon.3mf`, new Uint8Array(await writeThreeMF(part, out, 'Foot coupon').arrayBuffer()));
+Deno.writeFileSync(`${OUT}foot-coupon.3mf`, new Uint8Array(await (await writeThreeMF(part, out, 'Foot coupon')).arrayBuffer()));
 Deno.writeFileSync(`${OUT}foot-coupon.stl`, new Uint8Array(await writeBinarySTL([...part, ...out], 'Foot coupon').arrayBuffer()));
 Deno.writeFileSync(`${OUT}foot-fins.stl`, new Uint8Array(await writeBinarySTL(out, 'Foot coupon fins').arrayBuffer()));
 console.log(`wrote ${OUT}foot-coupon.3mf (+ .stl, fins-only .stl)`);

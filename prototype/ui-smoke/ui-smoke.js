@@ -319,9 +319,9 @@ try {
   const { writeThreeMF } = await import(join(ROOT, 'web/threemf.js'));
   const { unzip, zipStore } = await import(join(ROOT, 'web/zip.js'));
   const shift = (tris, dx) => tris.map(([x, y, z]) => [x + dx, y, z]);
-  const written = await unzip(new Uint8Array(await writeThreeMF(
+  const written = await unzip(new Uint8Array(await (await writeThreeMF(
     readSTL(join(MODELS, 'cone.stl')), shift(readSTL(join(MODELS, 'lbracket.stl')), 120),
-    'plate').arrayBuffer()));
+    'plate')).arrayBuffer()));
   const entries = [...written].map(([name, data]) => ({ name, data: name.endsWith('.model')
     ? new TextDecoder().decode(data).replace(/<build>.*<\/build>/s,
     '<build><item objectid="1"/><item objectid="2"/></build>') : data }));
@@ -356,6 +356,8 @@ try {
   for (const id of ['export-stl', 'export-3mf', 'export-fins']) {
     await click('export'); await click(id);
   }
+  // the 3MF is compressed before it downloads, so it arrives a moment after its click
+  await page.waitForFunction(() => window.__dl.some((d) => d.name.endsWith('.3mf')), { timeout: 30000 });
   await snap('exported');
   steps.at(-1).downloads = await page.evaluate(() => window.__dl);
 
