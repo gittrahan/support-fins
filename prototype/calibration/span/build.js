@@ -18,7 +18,7 @@ for (const r of c.rungs) {
   // an edge wall along x, and the distance between those two is not a gap between rows.
   const across = { x: [], y: [] };
   for (const f of walls) {
-    const [a, b] = f.line;
+    const a = f.line[0], b = f.line.at(-1);   // a polyline of stations: take its two ends
     const alongX = Math.abs(b[0] - a[0]) >= Math.abs(b[1] - a[1]);
     if (alongX) across.y.push(a[1] - c.off.y); else across.x.push(a[0] - c.off.x);
   }
