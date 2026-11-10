@@ -29,9 +29,9 @@ const surfaceDist = (p, part) => {
   }
   return m;
 };
-// Each triangle sampled on an 8-step barycentric grid (corners, edges and inside): a brace is
+// Each triangle sampled on a 4-step barycentric grid (corners, edges and inside): a brace is
 // a few triangles up to 150 mm long, and its closest point to the part can sit mid-face.
-const GRID = 8;
+const GRID = 4;
 function samples(verts) {
   const out = [];
   for (let i = 0; i + 2 < verts.length; i += 3) {
