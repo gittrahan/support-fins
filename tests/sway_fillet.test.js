@@ -29,13 +29,17 @@ const surfaceDist = (p, part) => {
   }
   return m;
 };
-// the triangle soup's points, plus its edge midpoints and centroids so a long plate is sampled along its edge
+// Each triangle sampled on an 8-step barycentric grid (corners, edges and inside): a brace is
+// a few triangles up to 150 mm long, and its closest point to the part can sit mid-face.
+const GRID = 8;
 function samples(verts) {
   const out = [];
   for (let i = 0; i + 2 < verts.length; i += 3) {
     const [a, b, c] = [verts[i], verts[i + 1], verts[i + 2]];
-    out.push(a, b, c);
-    for (const [p, q] of [[a, b], [b, c], [a, c]]) out.push([0, 1, 2].map((k) => (p[k] + q[k]) / 2));
+    for (let u = 0; u <= GRID; u++) for (let v = 0; u + v <= GRID; v++) {
+      const s = u / GRID, t = v / GRID, w = 1 - s - t;
+      out.push([0, 1, 2].map((k) => w * a[k] + s * b[k] + t * c[k]));
+    }
   }
   return out;
 }
@@ -83,6 +87,7 @@ for (const r of [2, 5, 10]) {
       }
       const rib = swayAtFace(topo, res, ID, best, [x + o.x, D / 2 + o.y, 100 + o.z], { full: true, tines: false, layerHeight: 0.2, gap: GAP });
       assert(rib.ok, `click at x=${x}: ${rib.reason}`);
+      assert(rib.tris.length > 0, `click at x=${x}: the brace has no triangles`);
       let worst = Infinity;
       for (const p of samples(rib.tris)) if (p[2] > 0.01) worst = Math.min(worst, surfaceDist(p, part));
       assert(worst >= GAP - 1e-3, `r=${r} click x=${x}: brace within ${worst.toFixed(3)} mm of the part`);
