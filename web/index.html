@@ -93,7 +93,7 @@
 </div>
 
 <header id="topbar">
-  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.5</small><!-- END version --></span></span>
+  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.6</small><!-- END version --></span></span>
   <!-- accept: the MIME types too, and octet-stream. Android's picker matches by MIME
        and knows none of these extensions, so it greyed every model out (#237); the
        format is read from the bytes (ui/io.js), not the name. -->
@@ -789,8 +789,13 @@
          with the card); released entries only, the list scrolls past a few lines. -->
     <!-- BEGIN whatsnew (web/changelog.js writes this block) -->
     <section id="whatsnew" class="whatsnew">
-      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.5</span></h2>
+      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.6</span></h2>
       <div class="list" tabindex="0">
+        <ul>
+          <li>Ribs on walls taller than the Brace tall walls height now rise to 85% of the wall instead of half, to stiffen the top, which wobbled on a test print. Those walls take a little more plastic; nothing else changes.</li>
+          <li>A part centred on its axes no longer loses walls to a false &quot;inside the part&quot; reading at its centre, like a ball hanging inside a hollow ball.</li>
+        </ul>
+        <p class="rel">v1.0.5 <span>2026-11-06</span></p>
         <ul>
           <li>The Rotate buttons turn 45° a click instead of 90°, so leaning a part back is one click and 90° is two.</li>
         </ul>

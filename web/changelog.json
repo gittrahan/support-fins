@@ -191,18 +191,23 @@
           "text": "The Rotate buttons turn 45° a click instead of 90°, so leaning a part back is one click and 90° is two."
         }
       ]
-    }
-  ],
-  "unreleased": [
-    {
-      "date": "2026-11-06",
-      "check": "held",
-      "text": "A part centred on its axes no longer loses walls to a false \"inside the part\" reading at its centre, like a ball hanging inside a hollow ball."
     },
     {
-      "date": "2026-11-09",
-      "check": "stays",
-      "text": "Ribs on walls taller than the Brace tall walls height now rise to 85% of the wall instead of half, to stiffen the top, which wobbled on a test print. Those walls take a little more plastic; nothing else changes."
+      "version": "1.0.6",
+      "date": "2026-11-10",
+      "entries": [
+        {
+          "date": "2026-11-06",
+          "check": "held",
+          "text": "A part centred on its axes no longer loses walls to a false \"inside the part\" reading at its centre, like a ball hanging inside a hollow ball."
+        },
+        {
+          "date": "2026-11-09",
+          "check": "stays",
+          "text": "Ribs on walls taller than the Brace tall walls height now rise to 85% of the wall instead of half, to stiffen the top, which wobbled on a test print. Those walls take a little more plastic; nothing else changes."
+        }
+      ]
     }
-  ]
+  ],
+  "unreleased": []
 }
