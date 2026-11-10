@@ -173,6 +173,11 @@ whose shelf printed flat.
   span than 0 %. The coupon prints what the site makes, so it will show it.
   Cause and proposed fix: local issue 024. Until then CALIBRATION.md asks users to
   report flat / sagged per shelf, not to set the dial from it.
+- **Re-run 2026-11-09 on main: the dial is monotonic again.** Walls now cross the slicer's
+  bridge, so the rows run from the bar to the free edge and are spaced along the shelf's
+  30 mm: widest gap 14.4 / 14.4 / 9.6 / 9.6 / 5.8 mm at Coverage 0 / 25 / 50 / 75 / 100 %.
+  `build.js` printed 20.0 for the two sparse shelves until it stopped comparing rows with
+  the edge wall that runs the other way.
 - **waiting on print.**
 
 ### angle/ -- what overhang does the printer manage unsupported? (the Overhang slider)
