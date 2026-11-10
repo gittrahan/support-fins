@@ -72,7 +72,7 @@ const readXML = async (opts) => readThreeMF(await pack(modelXML(opts)));
 
 Deno.test('3MF round trip: our own export reads back as the same geometry', async () => {
   const fins = CUBE.map((p) => [p[0], p[1], p[2] + 1]);   // a second body on top
-  const blob = writeThreeMF(CUBE, fins, 'test part');
+  const blob = await writeThreeMF(CUBE, fins, 'test part');
   const r = await readThreeMF(new Uint8Array(await blob.arrayBuffer()));
 
   assert(r.positions.length === (CUBE.length + fins.length) * 3,
@@ -92,9 +92,9 @@ Deno.test('3MF round trip: our own export reads back as the same geometry', asyn
 Deno.test('3MF separate export: two objects, one shared transform, in register and on the bed', async () => {
   const part = CUBE.map((p) => [p[0] * 20 - 10, p[1] * 10 - 5, p[2] * 8]);   // centred on the origin, like print space
   const fins = CUBE.map((p) => [p[0] * 2 - 1, p[1] * 2 - 1, p[2] * 8 + 8]);
-  const blob = writeThreeMF(part, fins, 'test part', { separate: true });
+  const blob = await writeThreeMF(part, fins, 'test part', { separate: true });
   const bytes = new Uint8Array(await blob.arrayBuffer());
-  const xml = new TextDecoder().decode(bytes);
+  const xml = new TextDecoder().decode((await unzip(bytes)).get('3D/3dmodel.model'));
   const items = [...xml.matchAll(/<item objectid="(\d+)" transform="([^"]+)"\/>/g)];
   assert(items.length === 2, `${items.length} build items, want 2 (part, supports)`);
   assert(items[0][2] === items[1][2], `transforms differ: ${items[0][2]} vs ${items[1][2]}`);
@@ -114,15 +114,15 @@ Deno.test('3MF separate export: two objects, one shared transform, in register a
 
 Deno.test('3MF separate export: a footprint wider than the bed centre starts 5 mm in', async () => {
   const part = CUBE.map((p) => [p[0] * 240 - 120, p[1] * 10, p[2]]);
-  const blob = writeThreeMF(part, CUBE, 'wide', { separate: true });
+  const blob = await writeThreeMF(part, CUBE, 'wide', { separate: true });
   const r = await readThreeMF(new Uint8Array(await blob.arrayBuffer()));
   const { lo } = bounds(r.positions);
   assertClose(lo[0], 5, 1e-6, 'x min');
 });
 
 Deno.test('3MF separate export with no fins is the part alone', async () => {
-  const blob = writeThreeMF(CUBE, [], 'bare', { separate: true });
-  const xml = new TextDecoder().decode(new Uint8Array(await blob.arrayBuffer()));
+  const blob = await writeThreeMF(CUBE, [], 'bare', { separate: true });
+  const xml = new TextDecoder().decode((await unzip(new Uint8Array(await blob.arrayBuffer()))).get('3D/3dmodel.model'));
   assert((xml.match(/<item /g) ?? []).length === 1, 'one build item');
 });
 
@@ -656,7 +656,7 @@ for (const [file, name] of [['bambu.3mf', 'Generic-Cube'], ['orca.3mf', 'Generic
 
 /** Write `extras` beside a 1 mm cube with a block of supports, read it back. */
 async function writeExtras(extras, { partTris = CUBE, colors = null, separate = true } = {}) {
-  const blob = writeThreeMF(partTris, triples(block(3, 4, 0, 1, 0, 1)), 'cube',
+  const blob = await writeThreeMF(partTris, triples(block(3, 4, 0, 1, 0, 1)), 'cube',
     { separate, colors, extras: extras.map((e) => ({ ...e, tris: triples(e.positions) })) });
   const bytes = new Uint8Array(await blob.arrayBuffer());
   return { r: await readThreeMF(bytes), parts: await unzip(bytes) };
@@ -731,7 +731,7 @@ Deno.test('3MF export: a PrusaSlicer 2 part goes back as triangle ranges of one 
 
 Deno.test('3MF export: with a colour table and the interface crest, every resource id is its own', async () => {
   const rgb = Array(12).fill('#FF0000');
-  const blob = writeThreeMF(CUBE, triples(block(3, 4, 0, 1, 0, 1)), 'cube', { separate: true,
+  const blob = await writeThreeMF(CUBE, triples(block(3, 4, 0, 1, 0, 1)), 'cube', { separate: true,
     colors: { paint: [], rgb }, iface: triples(block(3, 4, 0, 1, 1, 1.2)),
     extras: [NEG, MOD].map((e) => ({ ...e, tris: triples(e.positions) })) });
   const bytes = new Uint8Array(await blob.arrayBuffer());
@@ -757,7 +757,7 @@ Deno.test('3MF export: the locked form writes no slicer parts (they would cut th
 const at = (tris, dx, dy = 0) => tris.map((p) => [p[0] + dx, p[1] + dy, p[2]]);
 const box = (x0, x1, y0, y1, z0, z1) => triples(block(x0, x1, y0, y1, z0, z1));
 async function writePlate(models, opts = { separate: true }) {
-  const bytes = new Uint8Array(await writePlate3MF(models, opts).arrayBuffer());
+  const bytes = new Uint8Array(await (await writePlate3MF(models, opts)).arrayBuffer());
   const parts = await unzip(bytes);
   return { r: await readThreeMF(bytes), parts, model: new TextDecoder().decode(parts.get('3D/3dmodel.model')) };
 }
@@ -885,7 +885,10 @@ Deno.test('plate 3MF: PrusaSlicer paint on the second model alone still declares
 
 // One model writes the bytes it did before writePlate3MF (sha-256 of origin/main's
 // output for each): a change to the one-model file shows here, not just in the
-// structure the tests above read back.
+// structure the tests above read back. The hashes are of the STORED file (what
+// origin/main wrote, before the 3MF was deflated): a deflated file's bytes depend on the
+// runtime's zlib, so it is written with CompressionStream off for the hash, and the
+// deflated file must then hold the very same entries.
 Deno.test('3MF one-model output is unchanged (golden)', async () => {
   const FINS = box(3, 4, 0, 1, 0, 1);
   const neg = { ...NEG, tris: triples(NEG.positions) };
@@ -899,9 +902,20 @@ Deno.test('3MF one-model output is unchanged (golden)', async () => {
       colors: { paint: [{ name: 'slic3rpe:mmu_segmentation', v: '8' }], rgb: [] } }, '6eb7e99f0dad0e54699ce5083007f47c5f16f3cf3a2d7cbb5596060deaa57fd9'],
   };
   for (const [k, [part, fins, name, opts, want]] of Object.entries(cases)) {
-    const d = new Uint8Array(await crypto.subtle.digest('SHA-256', await writeThreeMF(part, fins, name, opts).arrayBuffer()));
+    const deflated = new Uint8Array(await (await writeThreeMF(part, fins, name, opts)).arrayBuffer());
+    const saved = globalThis.CompressionStream;
+    let stored;
+    try {
+      globalThis.CompressionStream = undefined;
+      stored = new Uint8Array(await (await writeThreeMF(part, fins, name, opts)).arrayBuffer());
+    } finally { globalThis.CompressionStream = saved; }
+    const d = new Uint8Array(await crypto.subtle.digest('SHA-256', stored));
     const got = [...d].map((b) => b.toString(16).padStart(2, '0')).join('');
     assert(got === want, `${k}: the one-model file changed (${got})`);
+    const a = await unzip(deflated), b = await unzip(stored);
+    assert([...a.keys()].join() === [...b.keys()].join() && [...a].every(([n, v]) => v.length === b.get(n).length && v.every((x, i) => x === b.get(n)[i])),
+      `${k}: the deflated file holds different entries`);
+    assert(deflated.length < stored.length, `${k}: deflated ${deflated.length} bytes, stored ${stored.length}`);
   }
 });
 
@@ -987,7 +1001,7 @@ function colouredCube(attr, { ns = '', resources = '', objAttrs = '' } = {}) {
 /** Write `partTris` + a fin with `colors`, read it back; also the model XML. */
 async function roundTrip(partTris, colors) {
   const fin = [[3, 0, 0], [4, 0, 0], [3, 1, 0]];
-  const blob = writeThreeMF(partTris, fin, 'painted', { separate: true, colors });
+  const blob = await writeThreeMF(partTris, fin, 'painted', { separate: true, colors });
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const xml = new TextDecoder().decode((await unzip(bytes)).get('3D/3dmodel.model'));
   return { r: await readThreeMF(bytes), xml };
@@ -1237,7 +1251,7 @@ Deno.test('INTEGRATION: a core 3MF part analyzes identically to the same STL', a
   const rot = rotX(40);
   const a = analyze(buildTopology(posAttr(stl)), 45, rot);
 
-  const blob = writeThreeMF(triples(stl), [], 'lbracket');
+  const blob = await writeThreeMF(triples(stl), [], 'lbracket');
   const r = await readThreeMF(new Uint8Array(await blob.arrayBuffer()));
   const b = analyze(buildTopology(posAttr(r.positions)), 45, rot);
 

@@ -1,11 +1,12 @@
 /**
- * Minimal ZIP writer (STORE only) and reader (STORE + DEFLATE).
+ * Minimal ZIP writer (STORE, or DEFLATE via zipDeflate) and reader (STORE + DEFLATE).
  *
  * A .3mf is an OPC package, which is just a ZIP with a fixed set of parts. We
  * write it here rather than pull in a compression library for the same reason
- * stl.js hand-rolls the STL: the container is part of the product, and a stored
- * (uncompressed) archive is a few hundred bytes over a DataView. Slicers read
- * stored entries fine -- 3MF text parts are small and compress poorly anyway.
+ * stl.js hand-rolls the STL: the container is part of the product. zipStore keeps
+ * entries as they are (the small parts, and a package of packages); zipDeflate
+ * compresses them with the platform's CompressionStream, which is what makes a 3MF
+ * smaller than the STL it came from (its model is XML text).
  *
  * Layout per the ZIP APPNOTE: a local file header + data per entry, then the
  * central directory, then the end-of-central-directory record.
@@ -36,80 +37,125 @@ const enc = new TextEncoder();
  * @returns Blob  the .zip / .3mf payload
  */
 export function zipStore(files) {
-  const entries = files.map(({ name, data }) => {
-    const nameBytes = enc.encode(name);
-    const bytes = typeof data === 'string' ? enc.encode(data) : data;
-    return { nameBytes, bytes, crc: crc32(bytes), offset: 0 };
-  });
+  return pack(files.map(prepare));
+}
 
-  // 30-byte fixed local header + name + data; 46-byte fixed central header + name.
-  let localSize = 0;
-  for (const e of entries) localSize += 30 + e.nameBytes.length + e.bytes.length;
-  let centralSize = 0;
-  for (const e of entries) centralSize += 46 + e.nameBytes.length;
+const MIME = 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml';
 
-  const buf = new ArrayBuffer(localSize + centralSize + 22);
-  const view = new DataView(buf);
-  const out = new Uint8Array(buf);
+function prepare({ name, data }) {
+  const bytes = typeof data === 'string' ? enc.encode(data) : data;
+  return { nameBytes: enc.encode(name), bytes, crc: crc32(bytes), method: 0, body: bytes };
+}
+
+/**
+ * Like zipStore, but each entry is DEFLATE-compressed (ZIP method 8) when that
+ * makes it smaller -- the model of a 3MF is XML text, ~4x smaller deflated, so the
+ * file is the compact format it is meant to be. The bytes of every entry come out of
+ * `unzip` unchanged; only the container differs.
+ *
+ * Compression is the platform's CompressionStream (async, so this is too): the same
+ * web standard the reader's DecompressionStream is. Where a runtime lacks it, or an
+ * entry would not shrink, that entry is STORED -- the archive stays valid, just
+ * larger -- so a host without the API degrades instead of failing.
+ *
+ * @param files  as zipStore
+ * @returns Promise<Blob>
+ */
+export async function zipDeflate(files) {
+  const entries = [];
+  for (const f of files) {
+    const e = prepare(f);
+    // under ~100 bytes the header costs more than deflate saves
+    if (canDeflate() && e.bytes.length > 100) {
+      const body = await deflateRaw(e.bytes);
+      if (body && body.length < e.bytes.length) { e.method = 8; e.body = body; }
+    }
+    entries.push(e);
+  }
+  return pack(entries);
+}
+
+// checked per call, not once: a host may add or lack the API after this module loads
+const canDeflate = () => typeof CompressionStream === 'function' && typeof Response === 'function' && typeof Blob === 'function';
+
+async function deflateRaw(bytes) {
+  try {
+    const stream = new Blob([bytes]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    return new Uint8Array(await new Response(stream).arrayBuffer());
+  } catch {
+    return null;                                   // a runtime that names it but cannot run it: store
+  }
+}
+
+/**
+ * Lay out prepared entries ({ nameBytes, bytes, crc, method, body }) as a ZIP:
+ * a local file header + body per entry, then the central directory, then the
+ * end-of-central-directory record. Headers are small; the bodies go into the Blob
+ * as they are, never copied into one big buffer.
+ */
+function pack(entries) {
+  const parts = [];
   let o = 0;
-
   for (const e of entries) {
     e.offset = o;
-    view.setUint32(o, 0x04034b50, true);     // local file header signature
-    view.setUint16(o + 4, 20, true);         // version needed to extract
-    view.setUint16(o + 6, 0, true);          // flags
-    view.setUint16(o + 8, 0, true);          // method: 0 = store
-    view.setUint16(o + 10, 0, true);         // mod time
-    view.setUint16(o + 12, 0x21, true);      // mod date (1980-01-01, arbitrary)
-    view.setUint32(o + 14, e.crc, true);
-    view.setUint32(o + 18, e.bytes.length, true);   // compressed size
-    view.setUint32(o + 22, e.bytes.length, true);   // uncompressed size
-    view.setUint16(o + 26, e.nameBytes.length, true);
-    view.setUint16(o + 28, 0, true);         // extra field length
-    o += 30;
-    out.set(e.nameBytes, o); o += e.nameBytes.length;
-    out.set(e.bytes, o); o += e.bytes.length;
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true);        // local file header signature
+    h.setUint16(4, 20, true);                // version needed to extract
+    h.setUint16(6, 0, true);                 // flags
+    h.setUint16(8, e.method, true);          // method: 0 = store, 8 = deflate
+    h.setUint16(10, 0, true);                // mod time
+    h.setUint16(12, 0x21, true);             // mod date (1980-01-01, arbitrary)
+    h.setUint32(14, e.crc, true);
+    h.setUint32(18, e.body.length, true);    // compressed size
+    h.setUint32(22, e.bytes.length, true);   // uncompressed size
+    h.setUint16(26, e.nameBytes.length, true);
+    h.setUint16(28, 0, true);                // extra field length
+    parts.push(h.buffer, e.nameBytes, e.body);
+    o += 30 + e.nameBytes.length + e.body.length;
   }
 
   const centralStart = o;
   for (const e of entries) {
-    view.setUint32(o, 0x02014b50, true);     // central directory header signature
-    view.setUint16(o + 4, 20, true);         // version made by
-    view.setUint16(o + 6, 20, true);         // version needed
-    view.setUint16(o + 8, 0, true);          // flags
-    view.setUint16(o + 10, 0, true);         // method
-    view.setUint16(o + 12, 0, true);         // mod time
-    view.setUint16(o + 14, 0x21, true);      // mod date
-    view.setUint32(o + 16, e.crc, true);
-    view.setUint32(o + 20, e.bytes.length, true);
-    view.setUint32(o + 24, e.bytes.length, true);
-    view.setUint16(o + 28, e.nameBytes.length, true);
-    view.setUint16(o + 30, 0, true);         // extra length
-    view.setUint16(o + 32, 0, true);         // comment length
-    view.setUint16(o + 34, 0, true);         // disk number start
-    view.setUint16(o + 36, 0, true);         // internal attributes
-    view.setUint32(o + 38, 0, true);         // external attributes
-    view.setUint32(o + 42, e.offset, true);  // local header offset
-    o += 46;
-    out.set(e.nameBytes, o); o += e.nameBytes.length;
+    const h = new DataView(new ArrayBuffer(46));
+    h.setUint32(0, 0x02014b50, true);        // central directory header signature
+    h.setUint16(4, 20, true);                // version made by
+    h.setUint16(6, 20, true);                // version needed
+    h.setUint16(8, 0, true);                 // flags
+    h.setUint16(10, e.method, true);         // method
+    h.setUint16(12, 0, true);                // mod time
+    h.setUint16(14, 0x21, true);             // mod date
+    h.setUint32(16, e.crc, true);
+    h.setUint32(20, e.body.length, true);
+    h.setUint32(24, e.bytes.length, true);
+    h.setUint16(28, e.nameBytes.length, true);
+    h.setUint16(30, 0, true);                // extra length
+    h.setUint16(32, 0, true);                // comment length
+    h.setUint16(34, 0, true);                // disk number start
+    h.setUint16(36, 0, true);                // internal attributes
+    h.setUint32(38, 0, true);                // external attributes
+    h.setUint32(42, e.offset, true);         // local header offset
+    parts.push(h.buffer, e.nameBytes);
+    o += 46 + e.nameBytes.length;
   }
 
-  view.setUint32(o, 0x06054b50, true);       // end of central directory signature
-  view.setUint16(o + 4, 0, true);            // disk number
-  view.setUint16(o + 6, 0, true);            // disk with central directory
-  view.setUint16(o + 8, entries.length, true);
-  view.setUint16(o + 10, entries.length, true);
-  view.setUint32(o + 12, centralSize, true);
-  view.setUint32(o + 16, centralStart, true);
-  view.setUint16(o + 20, 0, true);           // comment length
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true);        // end of central directory signature
+  end.setUint16(4, 0, true);                 // disk number
+  end.setUint16(6, 0, true);                 // disk with central directory
+  end.setUint16(8, entries.length, true);
+  end.setUint16(10, entries.length, true);
+  end.setUint32(12, o - centralStart, true);
+  end.setUint32(16, centralStart, true);
+  end.setUint16(20, 0, true);                // comment length
+  parts.push(end.buffer);
 
-  return new Blob([buf], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
+  return new Blob(parts, { type: MIME });
 }
 
 // ---------------------------------------------------------------- ZIP reader
 
 /**
- * Reading is not the mirror of writing: we emit STORE, but every 3MF a user
+ * Reading is not the mirror of writing: zipStore emits STORE, but every 3MF a user
  * drags in (Fusion, Bambu, Orca, Prusa, FreeCAD) is DEFLATE. Inflate comes from
  * the platform's DecompressionStream rather than a vendored ~200-line inflate --
  * it is a web standard, present in the browsers this app targets and in Deno, so

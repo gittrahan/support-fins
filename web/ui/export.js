@@ -169,7 +169,7 @@ const FORMATS = {
   // are none to split. Several models are each their own objects, in one file
   // (threemf.js writePlate3MF); the session is one model's, so only a plate of one
   // carries it.
-  'export-3mf': (gs) => {
+  'export-3mf': async (gs) => {
     const models = gs.map((g) => {
       const { body, iface } = splitInterface(g.finTris);
       const own = g.slicer ?? g;
@@ -177,7 +177,7 @@ const FORMATS = {
                extras: g.slicer?.extras ?? [] };
     });
     // each where it stands on the plate, the plate's centre the bed's (ui/move.js)
-    return [writePlate3MF(models, { title: gs[0].base, separate: true, bed: currentVolume(),
+    return [await writePlate3MF(models, { title: gs[0].base, separate: true, bed: currentVolume(),
                                     session: gs.length === 1 ? gs[0].session() : null }),
             plateName(gs, 'fins', '.3mf')];
   },
@@ -224,7 +224,7 @@ for (const [id, write] of Object.entries(FORMATS)) {
     // anyway); a 3MF of one, that one where it stands on the plate
     if (id !== 'export-3mf' || currentPlate().models.length === 1) {
       const g = buildExportGeometry();
-      if (g) download(...write([id === 'export-3mf' ? placed(g, liveXY()) : g]));
+      if (g) download(...await write([id === 'export-3mf' ? placed(g, liveXY()) : g]));
       return;
     }
     // the plate's other models are parked, their fins kept to its settings: wait for
@@ -237,7 +237,7 @@ for (const [id, write] of Object.entries(FORMATS)) {
       if (currentPlate() !== plate) return plateReady(plate) ? plateGeometry(plate) : null;
       return settled ? plateGeometry() : locked(plateGeometryLive);
     });
-    if (gs?.length) download(...write(gs));
+    if (gs?.length) download(...await write(gs));
   });
 }
 
@@ -266,8 +266,8 @@ el('export-all').addEventListener('click', () => {
 });
 
 /** `gs` (plateGeometry) as a 3MF, [blob, name], for Export all plates; null when
- *  there is nothing to write. */
-export const plate3MF = (gs) => (gs.length ? FORMATS['export-3mf'](gs) : null);
+ *  there is nothing to write. A promise: the file is deflated. */
+export const plate3MF = async (gs) => (gs.length ? FORMATS['export-3mf'](gs) : null);
 
 /** The plate being edited the old way (plateGeometryLive), for Export all plates
  *  when one's parked builds are not current (it holds the plates still). */

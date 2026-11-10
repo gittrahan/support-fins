@@ -294,11 +294,17 @@ export async function exportAll() {
   // switched plates meanwhile: the one left is judged as any other
   if (plates[active] !== at) return exportAll();
   const files = [], stale = [];
+  // each plate's geometry is read in one go (a switch of plate while the files are
+  // deflated must not change what is exported), then the 3MFs are written
+  const ready = [];
   plates.forEach((p, i) => {
     if (i === active ? !settled : !plateReady(p)) { stale.push(i); return; }
-    const f = plate3MF(plateGeometry(p));
-    if (f) files[i] = { name: `plate-${i + 1}-${f[1]}`, blob: f[0] };
+    ready.push([i, plateGeometry(p)]);
   });
+  for (const [i, gs] of ready) {
+    const f = await plate3MF(gs);
+    if (f) files[i] = { name: `plate-${i + 1}-${f[1]}`, blob: f[0] };
+  }
   if (stale.length) {
     const back = active;
     const ok = await locked(async () => {

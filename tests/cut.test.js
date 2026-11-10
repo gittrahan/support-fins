@@ -194,7 +194,7 @@ for (const file of ['bambu.3mf', 'orca.3mf', 'prusaslicer3.3mf']) {
       }
       return out;
     };
-    const blob = writeThreeMF(place(o.positions), [[0, 0, 0], [1, 0, 0], [0, 1, 0]], 'cube', { separate: true,
+    const blob = await writeThreeMF(place(o.positions), [[0, 0, 0], [1, 0, 0], [0, 1, 0]], 'cube', { separate: true,
       extras: o.extras.map((e) => ({ ...e, tris: place(e.positions) })) });
     const back = (await readThreeMF(new Uint8Array(await blob.arrayBuffer()))).objects.find((x) => !/ supports$/.test(x.name));
     assert(back.tris === 12 && back.extras.length === 1, `read back ${back.tris} tris, ${back.extras.length} extras`);

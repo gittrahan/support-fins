@@ -286,7 +286,7 @@ export async function finFile(input, args, io, engineOptions) {
   }
   const part = triples(posed, at);
   const blob = args.finsOnly ? writeBinarySTL(fins, `${name} fins`)
-    : /\.3mf$/i.test(output) ? threeMF(part, fins, name, read.slicer, args.rot, at)
+    : /\.3mf$/i.test(output) ? await threeMF(part, fins, name, read.slicer, args.rot, at)
     : writeBinarySTL([...part, ...fins], name);
   await io.write(output, new Uint8Array(await blob.arrayBuffer()));
   return { input, output, stats, report: reportLine(stats) };

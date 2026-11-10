@@ -79,7 +79,7 @@ Deno.test('Sway Cross: metre-high worker ownership, contact material and STL/3MF
     const stl=new Uint8Array(await writeBinarySTL(b.triangles).arrayBuffer());
     assert(readSTL(stl).length===b.triangles.length*3);
     const part=Array.from({length:topology.pos.length/3},(_,i)=>Array.from(topology.pos.slice(i*3,i*3+3)));
-    const data=new Uint8Array(await writeThreeMF(part,body,'synthetic-post',{separate:true,iface}).arrayBuffer());
+    const data=new Uint8Array(await (await writeThreeMF(part,body,'synthetic-post',{separate:true,iface})).arrayBuffer());
     const restored=await readThreeMF(data);
     assert(restored.objects[1].positions.length===b.triangles.length*3,'3MF loses cross geometry');
   } finally { worker.terminate();fins.applyTunables({iface:false,nozzle:0.4,wallLines:2}); }

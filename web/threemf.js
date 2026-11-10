@@ -30,7 +30,7 @@
  * triangle, already in print space (oriented, seated on the plate).
  */
 
-import { zipStore, unzip } from './zip.js';
+import { zipDeflate, unzip } from './zip.js';
 import { filamentPainter } from './paintcode.js';
 
 const NS_CORE = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02';
@@ -295,7 +295,7 @@ const ROOT_RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
  *                  { extras }: a slicer's parts to write back beside the part
  *                  (readThreeMF's, with `tris` in print space; extrasXML), in
  *                  the separate form only
- * @returns Blob    a .3mf package
+ * @returns Promise<Blob>  a .3mf package (deflated: zip.js zipDeflate, which is async)
  */
 export function writeThreeMF(partTris, finTris, name = 'Support Fins',
   { separate = false, session = null, iface = [], colors = null, extras = [] } = {}) {
@@ -311,7 +311,7 @@ export function writeThreeMF(partTris, finTris, name = 'Support Fins',
  * models were placed on ({ x, y } mm, print space's origin its centre), each where
  * it stands on it.
  * @param opts { title, separate, session, bed }: as writeThreeMF's, and `bed`
- * @returns Blob a .3mf package
+ * @returns Promise<Blob> a .3mf package (deflated)
  */
 export function writePlate3MF(models, { title = models[0]?.name ?? 'Support Fins', separate = false, session = null, bed = null } = {}) {
   const { xml, configs } = modelXML(models, title, separate, bed);
@@ -322,7 +322,7 @@ export function writePlate3MF(models, { title = models[0]?.name ?? 'Support Fins
     ...configs,
   ];
   if (session) entries.push({ name: SESSION_PART, data: JSON.stringify(session) });
-  return zipStore(entries);
+  return zipDeflate(entries);
 }
 
 /**
