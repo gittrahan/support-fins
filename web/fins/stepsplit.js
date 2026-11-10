@@ -4,7 +4,8 @@
  * as many walls as it likes, so it builds the stretch either side of the cut instead of
  * losing the whole line; Draw, one line one wall, shows the refusal.
  */
-import { DRAW_MIN_LEN, drawnWall } from '../draw.js';
+import { DRAW_MIN_LEN } from '../draw.js';
+import { heldDrawnWall } from './heldtines.js';
 
 // A cut sits between two stations, so each piece stops this many stations short of the
 // nearest one. Short of a piece's own cut, a piece cut again parts again, this many times.
@@ -29,7 +30,7 @@ const longEnough = (p, q) => Math.hypot(q[0] - p[0], q[1] - p[1]) >= DRAW_MIN_LE
  * the first refusal when none built; `tries`, the drawnWall calls spent; `parted`, the
  * cuts that split a line.
  */
-export function wallsAcrossCuts(a, b, tris, opts, build = drawnWall, parts = MAX_PARTS) {
+export function wallsAcrossCuts(a, b, tris, opts, build = heldDrawnWall, parts = MAX_PARTS) {
   const r = build(a, b, tris, 0, opts);
   if (r.ok) return { walls: [r], refused: null, tries: 1, parted: 0 };
   if (!r.cutAt || parts <= 0) return { walls: [], refused: r, tries: 1, parted: 0 };

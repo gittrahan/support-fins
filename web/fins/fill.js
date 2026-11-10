@@ -63,6 +63,7 @@ import { seatedPartTris } from './seating.js';
 import { headingField } from './field.js';
 import { rowWalls } from './rows.js';
 import { wallsAcrossCuts } from './stepsplit.js';
+import { restoreTines } from './heldtines.js';
 
 export const FILL = {
   sample: 1.0,       // mm: leftover red is merged into points this far apart
@@ -723,6 +724,7 @@ function fillOnce(topo, result, rot, opts, built) {
   const keep = (r, joined = false) => {
     const at = triangles.length;
     for (const t of r.tris) triangles.push(t);
+    restoreTines(r);               // the capture holds kept walls' tines only (fins/heldtines.js)
     others.add(r.tris, { fill: true, k: props.length });
     for (const p of r.top) { near.add(p); nearIsland.add(p); }
     props.push({ line: r.top, triRanges: [[at, triangles.length]], height: r.height, span: r.length,
