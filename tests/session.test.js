@@ -27,7 +27,7 @@ const FINS = triples(block(-1, 1, -1, 1, 5, 35));
 const A = [-30, 0, 35], B = [30, 0, 35];
 
 async function roundTrip(session) {
-  const blob = writeThreeMF(triples(L), FINS, 'shelf', { separate: true, session });
+  const blob = await writeThreeMF(triples(L), FINS, 'shelf', { separate: true, session });
   return readThreeMF(new Uint8Array(await blob.arrayBuffer()));
 }
 
@@ -42,7 +42,7 @@ Deno.test('session: written beside the model and read back as it was', async () 
 
 Deno.test('session: none written, none read; a bad or unknown one is ignored', async () => {
   assert((await roundTrip(null)).session === null, 'no session expected');
-  const model = writeThreeMF(triples(L), [], 'p');
+  const model = await writeThreeMF(triples(L), [], 'p');
   const entries = async (data) => {
     // the same package with SESSION_PART replaced
     const { unzip } = await import(`${WEB}zip.js`);
@@ -100,7 +100,7 @@ Deno.test('session: a gusset stored in the part frame, with its side normal, reb
   const rel = (p) => p.map((v, k) => v - centre[k]);
   // as ui/session.js writes it: the points from the box centre, the normal as a direction
   const saved = { kind: 'gusset', a: rel(GA), b: rel(GB), n: N };
-  const blob = writeThreeMF(triples(L2), FINS, 'gusset', { separate: true, session: { v: 1, part: { size }, walls: [saved] } });
+  const blob = await writeThreeMF(triples(L2), FINS, 'gusset', { separate: true, session: { v: 1, part: { size }, walls: [saved] } });
   const r = await readThreeMF(new Uint8Array(await blob.arrayBuffer()));
   const s = r.session.walls[0];
   assert(JSON.stringify(s) === JSON.stringify(saved), `stored gusset changed: ${JSON.stringify(s)}`);

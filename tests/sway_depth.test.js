@@ -114,8 +114,8 @@ Deno.test('Sway depth: metre-high ownership, interface clearance and STL/3MF exp
   const stl=new Uint8Array(await writeBinarySTL(b.triangles).arrayBuffer());
   assert(readSTL(stl).length===b.triangles.length*3);
   const part=Array.from({length:topo.pos.length/3},(_,i)=>Array.from(topo.pos.slice(i*3,i*3+3)));
-  const data=new Uint8Array(await writeThreeMF(part,body,'synthetic-post',{separate:true,iface,
-    session:{v:1,form:{'full-brace-depth':true}}}).arrayBuffer());
+  const data=new Uint8Array(await (await writeThreeMF(part,body,'synthetic-post',{separate:true,iface,
+    session:{v:1,form:{'full-brace-depth':true}}})).arrayBuffer());
   const restored=await readThreeMF(data);
   assert(restored.session.form['full-brace-depth']===true);
   assert(restored.objects[1].positions.length===b.triangles.length*3,'3MF loses support geometry');

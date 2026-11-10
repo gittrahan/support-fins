@@ -122,8 +122,8 @@ Deno.test('rounded feet: metre-high supports round-trip STL and component 3MF wi
   const part = Array.from({length: topo.pos.length/3}, (_,i) => Array.from(topo.pos.slice(i*3,i*3+3)));
   const { body, iface } = prop.splitInterface(rounded.triangles);
   const session = { v:1, form:{'rounded-feet':true} };
-  const exported = new Uint8Array(await writeThreeMF(part, body, 'synthetic-post',
-    { separate:true, iface, session }).arrayBuffer());
+  const exported = new Uint8Array(await (await writeThreeMF(part, body, 'synthetic-post',
+    { separate:true, iface, session })).arrayBuffer());
   const restored = await readThreeMF(exported);
   assert(restored.session?.form?.['rounded-feet'] === true, 'session loses rounded choice');
   assert(restored.objects[0].positions.length === topo.pos.length, 'support objects merged into editable part');

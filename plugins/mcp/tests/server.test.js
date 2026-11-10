@@ -12,6 +12,7 @@ import { run, OPTION_FLAGS } from '../../cli/cli.js';
 import { MODELS, assert } from '../../../tests/_util.js';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
+import { unzip } from '../../../web/zip.js';
 
 const LBRACKET = Deno.readFileSync(`${MODELS}lbracket.stl`);
 const ENTRY = fileURLToPath(new URL('../support-fins-mcp.js', import.meta.url));
@@ -30,6 +31,11 @@ async function viaCLI(argv, files) {
   return { code, fs: io.fs };
 }
 const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+/** Two 3MFs hold the same entries (their zip bytes differ with the runtime's deflate). */
+async function same3MF(a, b) {
+  const [x, y] = [await unzip(a), await unzip(b)];
+  return [...x.keys()].join() === [...y.keys()].join() && [...x].every(([n, v]) => same(v, y.get(n)));
+}
 const rpc = (method, params, id = 1) => ({ jsonrpc: '2.0', id, method, params });
 
 Deno.test('mcp: initialize negotiates the protocol and offers tools', async () => {
@@ -162,7 +168,8 @@ for (const [runtime, cmd, args] of [['deno', Deno.execPath(), ['run', '-RWE', EN
       assert(byId.get(null).error.code === -32700, 'a bad line is a parse error, not a crash');
       assert(byId.get(2).result.isError === false, JSON.stringify(byId.get(2)));
       const cli = await viaCLI(['lb.stl', '--rot', '0,35,0']);
-      assert(same(await Deno.readFile(`${dir}/lb-fins.3mf`), cli.fs.get('lb-fins.3mf')), 'file on disk = the CLI\'s');
+      // the same entries: Node's zlib and Deno's deflate the same XML to different bytes
+      assert(await same3MF(await Deno.readFile(`${dir}/lb-fins.3mf`), cli.fs.get('lb-fins.3mf')), 'file on disk = the CLI\'s');
       assert(byId.get(3).result.structuredContent.output === join(await Deno.realPath(dir), 'rel.stl'), JSON.stringify(byId.get(3)));
       assert((await Deno.stat(`${dir}/rel.stl`)).size > 0, 'relative output lands in the server\'s directory');
       await Deno.remove(dir, { recursive: true });

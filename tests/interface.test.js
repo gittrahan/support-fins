@@ -10,6 +10,7 @@
 import { WEB, assert, block, blockTopo, loadModel, analyze, fins, prop, rotX, rotY, isClosed } from './_util.js';
 
 const { writeThreeMF, readThreeMF } = await import(`${WEB}threemf.js`);
+const { unzip } = await import(`${WEB}zip.js`);
 const { drawnWall } = await import(`${WEB}draw.js`);
 const { CUT } = await import(`${WEB}cutout.js`);
 const { PROP, splitInterface } = prop;
@@ -212,8 +213,8 @@ Deno.test('interface crest: the 3MF writes it as a part of the supports object, 
   const on = build('cube', rotX(35), { iface: 'all' });
   const { body, iface } = splitInterface(on);
   const part = [[0, 0, 0], [1, 0, 0], [0, 1, 0]];
-  const bytes = new Uint8Array(await writeThreeMF(part, body, 'cube', { separate: true, iface }).arrayBuffer());
-  const xml = new TextDecoder().decode(bytes);
+  const bytes = new Uint8Array(await (await writeThreeMF(part, body, 'cube', { separate: true, iface })).arrayBuffer());
+  const xml = new TextDecoder().decode((await unzip(bytes)).get('3D/3dmodel.model'));
   // two build items, so the crest -- in mid-air on its own -- stands on the plate
   // with the supports (Orca refused a floating interface object: "empty first layer")
   const items = [...xml.matchAll(/<item objectid="(\d+)" transform="([^"]+)"\/>/g)];
@@ -229,7 +230,7 @@ Deno.test('interface crest: the 3MF writes it as a part of the supports object, 
   assert(tris === (body.length + iface.length) / 3, `supports read back ${tris} triangles, want ${(body.length + iface.length) / 3}`);
 
   // locked (the CLI's form), the crest is just more of the supports
-  const locked = new TextDecoder().decode(new Uint8Array(
-    await writeThreeMF(part, body, 'cube', { iface }).arrayBuffer()));
+  const locked = new TextDecoder().decode((await unzip(new Uint8Array(
+    await (await writeThreeMF(part, body, 'cube', { iface })).arrayBuffer()))).get('3D/3dmodel.model'));
   assert(!locked.includes('interface'), 'the locked form wrote an interface object');
 });

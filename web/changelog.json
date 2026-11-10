@@ -209,5 +209,11 @@
       ]
     }
   ],
-  "unreleased": []
+  "unreleased": [
+    {
+      "date": "2026-11-10",
+      "check": "easy",
+      "text": "The 3MF you export is now compressed: about a sixth the size of before for the same model (a 70 MB part's file went from 102 MB to 17 MB). Nothing in the model changes, and Bambu Studio and PrusaSlicer open it as before."
+    }
+  ]
 }
