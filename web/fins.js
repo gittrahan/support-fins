@@ -28,6 +28,7 @@
  *   shortwalls.js the last resort: short, stocky walls where nothing else reached
  *   coverage.js   which red must be held (MUST / tiny HOLE / near-plate LOW) and the
  *                 reach rule that holds it -- shared with the coverage scoreboard
+ *   heldtines.js a built wall's tines held out of the tine capture until the pass keeps it
  *   fill.js       Full coverage: Draw-built walls under the red Auto left bare
  *   tall.js       face ribs on walls over BRACE.tallH, last, around everything placed
  *   downhill.js   downhill walls kept only if the whole build is no worse (#25)
