@@ -63,7 +63,7 @@ import { seatedPartTris } from './seating.js';
 import { headingField } from './field.js';
 import { rowWalls } from './rows.js';
 import { wallsAcrossCuts } from './stepsplit.js';
-import { restoreTines } from './heldtines.js';
+import { heldCapture, keepTines, restoreTines } from './heldtines.js';
 
 export const FILL = {
   sample: 1.0,       // mm: leftover red is merged into points this far apart
@@ -642,14 +642,17 @@ export function fillCoverage(topo, result, rot, opts, built) {
   if (opts.longWalls === false || (opts.coverage ?? 0.5) < FILL.sparseBelow) {
     return fillOnce(topo, result, rot, { ...opts, longWalls: false }, built);
   }
-  const plain = fillOnce(topo, result, rot, { ...opts, longWalls: false }, built);
-  if (!(plain.unserved.area > 0)) return plain;    // nothing left for rows to win
-  const rows = fillOnce(topo, result, rot, opts, built);
+  // (each build holds its tines out of the tests' tine capture; the kept one's go back)
+  const plainH = heldCapture(() => fillOnce(topo, result, rot, { ...opts, longWalls: false }, built));
+  const plain = plainH.value;
+  if (!(plain.unserved.area > 0)) return keepTines(plainH);    // nothing left for rows to win
+  const rowsH = heldCapture(() => fillOnce(topo, result, rot, opts, built));
+  const rows = rowsH.value;
   if (!rows.stats.rows || rows.unserved.area > plain.unserved.area + 1e-6) {
     plain.stats.rowsLost = rows.stats.rows ? rows.unserved.area - plain.unserved.area : 0;
-    return plain;
+    return keepTines(plainH);
   }
-  return rows;
+  return keepTines(rowsH);
 }
 
 /**

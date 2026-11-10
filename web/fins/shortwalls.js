@@ -19,6 +19,7 @@
  */
 import { buildShortWalls, PROP } from '../prop.js';
 import { bareAfterWedges } from './wedges.js';
+import { heldCapture, keepSlice } from './heldtines.js';
 import { loneStrutRegions } from '../prop/lattice.js';
 
 /** [minX, minY, minZ, maxX, maxY, maxZ] over tris[from..to), one vertex per entry. */
@@ -44,12 +45,14 @@ export function lastResortWalls(topo, result, rot, opts, servedRegions, wedgeTri
   const bare = bareAfterWedges(topo, rot, result, servedRegions, wedgeTris);
   const none = { triangles: [], props: [], served: [], tines: 0 };
   if (!bare.length) return none;
-  const built = buildShortWalls(topo, result, rot, opts, new Set(bare));
+  // (the tests' tine capture keeps only the walls that stay: fins/heldtines.js)
+  const first = heldCapture(() => buildShortWalls(topo, result, rot, opts, new Set(bare)));
+  const built = first.value;
   const others = [];
   for (let i = 0; i < existing.length; i += 3) others.push(boxOf(existing, i, i + 3));
   const triangles = [], props = [], served = new Set();
   let tines = 0;
-  const append = (built) => {
+  const append = (built, held) => {
     for (const p of built.props) {
       const ranges = p.triRanges ?? [];
       const box = ranges.reduce((b, [a, z]) => {
@@ -63,16 +66,20 @@ export function lastResortWalls(topo, result, rot, opts, servedRegions, wedgeTri
         return [at, triangles.length];
       });
       others.push(box);                               // and the next short wall keeps off this one
+      keepSlice(held, p.caps);
       props.push({ ...p, triRanges, short: true });
       served.add(p.region);
       tines += p.tines ?? 0;
     }
   };
-  append(built);
+  append(built, first);
   // loneStruts: false is a test-only switch for comparing the old placement.
   if (opts.loneStruts !== false) {
     const remaining = loneStrutRegions(topo, result, rot, bare.filter(ri => !served.has(ri)));
-    if (remaining.size) append(buildShortWalls(topo, result, rot, { ...opts, strutWalls: true }, remaining));
+    if (remaining.size) {
+      const struts = heldCapture(() => buildShortWalls(topo, result, rot, { ...opts, strutWalls: true }, remaining));
+      append(struts.value, struts);
+    }
   }
   return { triangles, props, served: [...served], tines };
 }
