@@ -16,7 +16,7 @@ parts beside it (the original part is never modified):
 
 - **Overhang ribs.** Upside-down-T walls under each overhang. The rib top follows the
   underside a breakaway gap below it, necks to a 0.6 mm contact tip, and carries a comb of
-  one-layer horizontal tines that fuse into the part. This is the web app's current default
+  one-layer horizontal tines that reach across the gap and stop at the part's surface. This is the web app's current default
   support.
 - **Side bracing fins.** Round-topped walls standing a gap off a flat side of a part tipped
   onto an edge or corner, gripping it with rows of tines (ported from the old `fins.js`
@@ -94,8 +94,8 @@ Geometry and constants follow the web engine and `FIN-SPEC.md`. Where this port 
 - **Side fins are sized to the face outline.** The fin rises only as high as the face
   reaches across its whole length, so a tilted square face (a diamond) gets a fin in the
   middle rather than a plank beside a corner.
-- **Supports are separate parts.** Nothing is booleaned into the user's part. The tines and
-  pad overlap it slightly, exactly as the web export does, and the slicer unions them.
+- **Supports are separate parts.** Nothing is booleaned into the user's part. The tines (0.01 mm at
+  mid-layer) and pad overlap it slightly, exactly as the web export does, and the slicer unions them.
 
 ## Limits
 

@@ -18,7 +18,7 @@ icon::import(path : "abefb5afa905b59c44256585", version : "f6c32f7274276435879a1
  *   Overhang props   An upside-down-T rib under each overhang. The top follows
  *                    the underside a breakaway gap below it, necks to a thin
  *                    contact tip, and carries a comb of one-layer horizontal
- *                    tines that fuse into the part so it cannot peel or twist
+ *                    tines that reach the part's surface and fuse to it, so it cannot peel or twist
  *                    off. Bend the rib and the tines snap clean.
  *   Stabilize fins   A round-topped wall standing a gap off a near-upright
  *                    face, on an elliptical base, gripping the face with rows
@@ -166,6 +166,8 @@ const CONTOUR_SLOPE_MIN = 0.15;                   // steeper undersides get wall
 const TUBE_MIN_AREA     = 300 * millimeter ^ 2;   // curved regions this big get one wall on the lowest line
 const TINE_W            = 0.5 * millimeter;       // one nozzle bead (Slant3D: 0.4-0.8)
 const TINE_OVERLAP      = 0.3 * millimeter;       // how far a tine sinks back into the wall
+const KISS_STEP         = 0.05 * millimeter;      // rib tine ends round up to this, to share patterns (emitKissBoxes)
+const TINE_CONTACT      = 0.01 * millimeter;      // a tine ends this far past the part's surface: it KISSES it (PROP.tineContactOffset -0.01, web/kiss.js)
 const TINE_EDGE_BAND    = 8.0 * millimeter;       // dense comb this far from each end of a wall
 const TINE_MID_FACTOR   = 2.0;                    // interior spacing multiplier
 const TINE_STEP_SPARSE  = 5.0 * millimeter;       // never thinner than this across the middle
@@ -262,7 +264,7 @@ export const supportFins = defineFeature(function(context is Context, id is Id, 
             isLength(definition.maxSpan, SPAN_BOUNDS);
 
             annotation { "Name" : "Gripping tines", "Default" : true,
-                         "Description" : "Tiny one-layer bridges from the rib top into the part. They stop a tilted part from sliding or peeling off the rib, and snap cleanly when you bend the rib off. Off = plain breakaway ribs." }
+                         "Description" : "Tiny one-layer bridges from the rib top to the part. They stop a tilted part from sliding or peeling off the rib, and snap cleanly when you bend the rib off. Off = plain breakaway ribs." }
             definition.propTines is boolean;
 
             if (definition.propTines)
@@ -396,8 +398,8 @@ function resolveConfig(definition is map) returns map
         "layer"    : definition.layerHeight,
         "propGap"  : gap,
         "finGap"   : gap,
-        "propBite" : 0.5 * millimeter,
-        "finBite"  : 0.30 * millimeter,
+        "propReach": 0.5 * millimeter,   // a rib tine is placed only if solid lies this far out (PROP.tineReach)
+        "finReach" : 0.30 * millimeter,  // a side fin tine checks for solid this far past the face (SWAY.tineReach)
         "baseH"    : 0.6 * millimeter,   // rib flanges, squat brims and the pad: one height, no step
         "padGrab"  : 0.05 * millimeter,
         "angle"    : definition.overhangAngle is ValueWithUnits ? definition.overhangAngle : 45 * degree,
@@ -621,8 +623,8 @@ function supportPart(context is Context, pid is Id, part is Query, bedPlane is P
     result.pad = buildPad(context, pid + "pad", env, faceData.bedArea, definition.padMode);
 
     // ── Prop tines ───────────────────────────────────────────────────────────
-    result.tines += emitBoxes(context, pid + "propTines", env, propTines,
-                              -TINE_OVERLAP, cfg.propBite, cfg.tineW / 2);
+    result.tines += emitKissBoxes(context, pid + "propTines", env, propTines,
+                                  -TINE_OVERLAP, cfg.tineW / 2);
 
     // ── Merge each support into one body, drop floaters ─────────────────────
     var merged = size(evaluateQuery(context, supQ)) < 2;
@@ -1289,9 +1291,13 @@ function stationAt(u is ValueWithUnits, spacing is ValueWithUnits, n is number, 
 /**
  * One tine at one station, or nothing. The tine is exactly one layer tall and
  * snapped to the layer grid (so it slices as a single bead, not two partial
- * layers), and it pokes horizontally into the part along the downhill direction
- * of the underside. It is only emitted if its tip is verified inside the part --
- * on a near-flat underside a horizontal poke lands in air, so no tine.
+ * layers), and it reaches horizontally to the part along the downhill direction
+ * of the underside, ending at the part's surface at mid-layer, where the slicer
+ * cuts (the site's kiss tines, web/kiss.js). It is only emitted if solid lies
+ * within propReach -- on a near-flat underside a horizontal reach lands in air, so
+ * no tine. The site leans a tine's end with the surface; this end is upright, so
+ * above mid-layer it sits up to layer/2/tan(slope) inside the part and as far short
+ * below. The slice is the site's.
  */
 function propTineAt(context is Context, env is map, plan is map, c is ValueWithUnits, s is map,
     minTop is ValueWithUnits) returns map
@@ -1316,9 +1322,12 @@ function propTineAt(context is Context, env is map, plan is map, c is ValueWithU
     const mid = toWorld(plan.cs, vector(s.r, c, zMid));
     for (var d in dirs)
     {
-        if (!isQueryEmpty(context, qContainsPoint(env.part, mid + d * env.cfg.propBite)))
+        if (!isQueryEmpty(context, qContainsPoint(env.part, mid + d * env.cfg.propReach)))
         {
-            return { "ok" : true, "anchor" : { "origin" : toWorld(plan.cs, vector(s.r, c, tineTop)), "xDir" : d } };
+            // the tine ends at the part's surface, TINE_CONTACT past it (web/kiss.js)
+            const midTine = toWorld(plan.cs, vector(s.r, c, tineTop - layer / 2));   // the box's own mid-layer
+            const x1 = kissDistance(context, env.part, midTine, d, env.cfg.propReach) + TINE_CONTACT;
+            return { "ok" : true, "anchor" : { "origin" : toWorld(plan.cs, vector(s.r, c, tineTop)), "xDir" : d, "x1" : x1 } };
         }
     }
     return { "ok" : false };
@@ -1783,8 +1792,8 @@ function buildFinAt(context is Context, fid is Id, env is map, s is map, win is 
         {
             const uv = nU == 1 ? (sA + sB) / 2 : sA + (sB - sA) * i / (nU - 1);
             const onFace = s.origin + s.uDir * uv + s.tDir * tMid;   // part face at zMid
-            // a patch's bounding box is not its shape: confirm the bite lands in solid
-            if (!isQueryEmpty(context, qContainsPoint(env.part, onFace + xDir * (env.cfg.finBite / s.h))))
+            // a patch's bounding box is not its shape: confirm solid lies past the face
+            if (!isQueryEmpty(context, qContainsPoint(env.part, onFace + xDir * (env.cfg.finReach / s.h))))
             {
                 anchors = append(anchors, { "origin" : onFace + env.up * (layer / 2), "xDir" : xDir });
             }
@@ -1796,9 +1805,11 @@ function buildFinAt(context is Context, fid is Id, env is map, s is map, win is 
         return { "ok" : false, "reason" : "fewer than " ~ FIN_MIN_TINES ~ " tines could grip the face" };
     }
 
-    // tine spans from grip-deep in the wall to bite-deep in the part, measured normal to the face
+    // tine spans from grip-deep in the wall to the part's face, TINE_CONTACT past it
+    // (horizontal, as the site's kiss tines): the face is flat and the anchor is on it
+    // at mid-layer, where the slicer cuts
     const count = emitBoxes(context, fid + "tines", env, anchors,
-                            -(gap + FIN_TINE_GRIP) / s.h, env.cfg.finBite / s.h, env.cfg.tineW / 2);
+                            -(gap + FIN_TINE_GRIP) / s.h, TINE_CONTACT, env.cfg.tineW / 2);
     return { "ok" : true, "tines" : count };
 }
 
@@ -1995,6 +2006,58 @@ function emitBoxes(context is Context, bid is Id, env is map, anchors is array,
             });
     opDeleteBodies(context, bid + "tplDel", { "entities" : qCreatedBy(bid + "tpl", EntityType.BODY) });
     return size(anchors);
+}
+
+/**
+ * How far from `p` along `d` the part's solid begins, within `reach` (solid is known
+ * to lie at `reach`): 0 when `p` is already inside. Bisects to ~0.0001 mm.
+ */
+function kissDistance(context is Context, part is Query, p is Vector, d is Vector, reach is ValueWithUnits) returns ValueWithUnits
+{
+    if (!isQueryEmpty(context, qContainsPoint(part, p)))
+    {
+        return 0 * millimeter;
+    }
+    var lo = 0 * millimeter;
+    var hi = reach;
+    for (var i = 0; i < 12; i += 1)
+    {
+        const m = (lo + hi) / 2;
+        if (isQueryEmpty(context, qContainsPoint(part, p + d * m)))
+        {
+            lo = m;
+        }
+        else
+        {
+            hi = m;
+        }
+    }
+    return hi;
+}
+
+/**
+ * emitBoxes for tines whose far ends differ: each anchor carries its own `x1`.
+ * Every group costs three feature ops, so x1 is rounded UP to KISS_STEP (a tine
+ * never ends short of the surface; it overlaps 0.01-0.06 mm): at most ~11 groups
+ * over the 0.5 mm reach, instead of one per tine on a curved underside.
+ */
+function emitKissBoxes(context is Context, bid is Id, env is map, anchors is array,
+    x0 is ValueWithUnits, halfW is ValueWithUnits) returns number
+{
+    var groups = {};
+    for (var a in anchors)
+    {
+        const key = ceil(a.x1 / KISS_STEP - 1e-9);
+        groups[key] = append(groups[key] == undefined ? [] : groups[key], a);
+    }
+    var count = 0;
+    var i = 0;
+    for (var entry in groups)
+    {
+        count += emitBoxes(context, bid + ("k" ~ i), env, entry.value, x0, entry.key * KISS_STEP, halfW);
+        i += 1;
+    }
+    return count;
 }
 
 /** Delete bodies that don't stand on the plate, or never rise above minTop. */
