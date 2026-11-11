@@ -11,7 +11,7 @@ flat directory with a single menu entry:
   runs from a low tip on the plate up to the top of a straight back edge, **0.2 mm under the
   part**, on a thin foot with a round back end. A **comb of tines** runs along the slope: one-layer
   horizontal nubs, one bead (0.5 mm) wide, each top on the print preset's layer grid, that
-  reach across the gap and **0.5 mm into the part** at mid-layer (the site's old `PROP.tineBite`; the site's tines now stop at the surface), so each prints as one
+  reach across the gap and **stop at the part's surface** at mid-layer, as the site's tines do (0.01 mm past it, the site's contact offset), so each prints as one
   strand that fuses in and snaps clean (`docs/FIN-SPEC.md`). The top of the slope ends in a
   short flat (1.2 mm, a little more when steep), never a point. Params: **Slope Angle** (20–70°, default 45), **Fin Height**,
   a **Gripping Tines** toggle, and **Tine Spacing** (default 6 mm, the sway braces' printed
@@ -35,9 +35,10 @@ flat directory with a single menu entry:
   the underside meets the plate. The foot starts where the slope rises above it, so the part
   keeps the slope's own gap off it. Wide parts want a fin near each side.
 
-  The tines overlap your part, which PrusaSlicer slices as a separate object, so each tine's
-  0.5 mm bite is extruded twice (a few hundredths of a mm³ per tine). If your version can
-  merge the fin and part into one object, merging unions it instead.
+  The site leans each tine's end with the part's surface. A cube's end is upright, so here
+  it meets the surface at mid-layer, where the slicer cuts: above that it sits a little inside
+  the part (half a layer over the slope's tangent: 0.1 mm at 45° and 0.2 mm layers, 0.27 mm at
+  20°) and below it a little short. The slice, and so the print, is the site's.
 
   **How the slope is built:** the slope is **one cube turned to the angle** (`rotate = {y =
   -angle}`), a 1.5 mm rail whose top face *is* the slope. A stack of cube steps fills
@@ -117,8 +118,8 @@ semantics (corner-origin cubes, Z-axis cylinders, `other_volumes` translated **r
 main mesh** and turned right-handed about their own origin, as the bundled temp tower's
 upright text shows, and the preset's layer grid). At 30/45/60° and the clamps it asserts the
 rail's top face **is** the slope, the fill stays under it with its notches inside the rail,
-the foot clears the part, and every tine is one layer on the grid, grips the fin and bites
-0.5 mm into the part (also at a 0.3 layer over a 0.25 first layer, with the preset handing back
+the foot clears the part, and every tine is one layer on the grid, grips the fin and ends
+0.01 mm past the part's surface at mid-layer (also at a 0.3 layer over a 0.25 first layer, with the preset handing back
 strings like `"150%"`, and with no preset at all). The
 fatal, silent trap the scan guards is any `require`/`api` call **at file scope** — the scan runs
 the whole file just to read `info`, on an engine with neither, so a hit there produces no menu
