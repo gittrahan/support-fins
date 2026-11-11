@@ -387,7 +387,7 @@ table(["Option", "Description"], [
      "downward can be added. Added faces also accept shorter ribs (4 mm instead of 7 mm)."],
     ["Max unsupported span", "The widest stretch of overhang left between two ribs. A wide overhang gets a "
      "row of ribs no farther apart than this. Default 12 mm (0.5 in)."],
-    ["Gripping tines", "On by default. Tiny one-layer bridges from the rib top into the part. Off gives "
+    ["Gripping tines", "On by default. Tiny one-layer bridges from the rib top to the part. Off gives "
      "plain breakaway ribs that the part simply rests on."],
     ["Tine spacing", "Distance between tines near the ends of each rib; the middle is spaced twice as far, "
      "up to 5 mm. Smaller grips harder but leaves more marks. Default 2 mm."],
@@ -444,13 +444,16 @@ fig(rib_diagram(), "Figure 1. An overhang rib: side view (left) and cross-sectio
 
 subsection("4.2  Tines")
 P("A tine is a small block one layer tall and 0.5 mm wide. It sits on the rib's top, sinks 0.3 mm back into "
-  "the rib, and reaches into the part. Because it lies flat in a single layer, the nozzle prints it as one "
+  "the rib, and reaches across the gap to the part's surface, where it stops. Because it lies flat in a single "
+  "layer, the nozzle prints it as one "
   "continuous strand: rib, tine, part and back, with no retraction. That strand is strong enough to hold "
   "the part, and it bends and snaps cleanly when the rib is removed.")
 bullets([
     "Each tine is snapped to the layer grid, so it never straddles two layers.",
-    "A tine is only added where its tip is confirmed inside the part. On a nearly flat underside a sideways "
-    "poke finds nothing to grip, so flat overhangs get plain ribs.",
+    "A tine is only added where the part's solid lies within 0.5 mm of it. On a nearly flat underside a "
+    "sideways reach finds nothing to grip, so flat overhangs get plain ribs.",
+    "A tine ends at the part's surface at mid-layer, where the slicer cuts, as on the site. It no longer "
+    "runs into the part, so it comes off cleaner.",
     "Tines are packed tightly within 8 mm of each end of a rib, where the marks hide on edges and corners, "
     "and spaced out across the middle. Every rib gets at least three.",
 ])
@@ -462,7 +465,7 @@ P("A part tipped onto an edge or corner has a tiny footprint and can be knocked 
 bullets([
     "A 1.2 mm wall stands parallel to a flat side of the part, one support gap away, on an oval base "
     "9 mm deep. If the side leans, the fin leans with it.",
-    "Rows of horizontal tines cross the gap and fuse into the side: eight rows packed into the first "
+    "Rows of horizontal tines cross the gap to the side and fuse to it: eight rows packed into the first "
     "6 mm above the plate, then spreading out. The part is least stable near the bed.",
     "The fin is at most 25 mm long and only as tall as the face reaches across its whole length, so the "
     "entire fin has face behind it. On a tilted square face, which sits diamond-shaped, it goes in the "
