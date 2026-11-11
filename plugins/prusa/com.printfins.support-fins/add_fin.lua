@@ -54,7 +54,7 @@ local BASE_H       = 0.6    -- foot thickness, snapped to whole layers (PROP.bas
 local BASE_W       = 9.0    -- foot width across the fin [mm]
 local BASE_PAD     = 3.0    -- foot runs this far past the back edge [mm]
 local GAP          = 0.2    -- slope to part clearance, square to the slope (PROP.gap) [mm]
-local BITE         = 0.5    -- how far a tine reaches horizontally into the part (the site's old PROP.tineBite; its tines now stop at the surface, local issue 028) [mm]
+local CONTACT      = 0.01   -- a tine ends this far past the part's surface, at mid-layer: it KISSES the surface (PROP.tineContactOffset -0.01, web/kiss.js) [mm]
 local TINE_GRIP    = 0.4    -- how far a tine sinks back into the fin [mm]
 local TINE_W       = 0.5    -- tine width: one nozzle bead (PROP.tineW) [mm]
 local MIN_STEP     = 1.0    -- Tine Spacing never tighter than this [mm]
@@ -166,8 +166,12 @@ function execute(opts)
     -- band that welds into the part. A tine reaches from inside the fin --
     -- TINE_GRIP past the slope at its own top, and at least into the fill step
     -- behind it, so it holds on even without the rail -- out across the GAP
-    -- (GAP/sin measured level) and BITE into the part, measured at mid-layer
-    -- where the slicer cuts.
+    -- (GAP/sin measured level) to the part's surface, CONTACT past it, measured
+    -- at mid-layer where the slicer cuts: the site's kiss tines (web/kiss.js).
+    -- The site leans a tine's end with the surface; a cube's end is upright, so
+    -- above mid-layer it sits up to layer/2/tan(angle) inside the part (0.1 mm
+    -- at 45 deg, 0.2 layers) and below it short of the surface by the same. The
+    -- slice, and so the print, is the site's.
     if opts.tines then
         local top_lo = snap_top(base_h + 0.2 + layer, layer, first)
         local top_hi = first + math.floor((H - TOP_CLEAR - first) / layer + 1e-9) * layer
@@ -191,7 +195,7 @@ function execute(opts)
             for _, st in ipairs(steps) do
                 if st.z0 <= top - layer + 1e-6 and st.z1 > top - layer + 1e-6 then x_step = st.x0 end
             end
-            local xa = x_mid - GAP / sn - BITE
+            local xa = x_mid - GAP / sn - CONTACT
             local xb = math.max(x_top + TINE_GRIP, x_step + OVERLAP)
             fin:add {
                 mesh = api.make_cube(xb - xa, tine_w, layer),

@@ -197,21 +197,21 @@ local function check_fin(deg, H, tines_on)
 
     if tines_on then
         local t = p.tines
-        local join, bite, grip, grid, inside = #t > 0, true, true, true, true
+        local join, kiss, grip, grid, inside = #t > 0, true, true, true, true
         for _, n in ipairs(t) do
             local on = false
             for _, s in ipairs(st) do if overlaps(n, s) then on = true end end
             if not on then join = false end
             -- the part's face, level from the slope by gap/sin, at mid-layer
             local face = (n.z0 + n.z1) / 2 / tn - 0.2 / sn
-            if not near(n.x0, face - 0.5, 1e-6) then bite = false end
+            if not near(n.x0, face - 0.01, 1e-6) then kiss = false end
             local gx = n.x1 - n.z1 / tn                   -- grip past the slope at the top
             if gx < 0.4 - E or gx > 0.4 + 1.0 / tn + 0.1 + E then grip = false end
             if not on_grid(n.z1) then grid = false end
             if n.z0 < foot_top or n.z1 > H - 0.5 + E or not near((n.y0+n.y1)/2, FIN_D / 2) then inside = false end
         end
         chk("every tine sinks into the fin",        join)
-        chk("every tine crosses the gap and bites exactly 0.5 into the part", bite)
+        chk("every tine crosses the gap and kisses the part (0.01 past its face at mid-layer)", kiss)
         chk("every tine grips 0.4+ into the fin, never far past the step", grip)
         chk("every tine one layer, top on the grid",grid)
         chk("tines above the foot, below the top, centred", inside)
