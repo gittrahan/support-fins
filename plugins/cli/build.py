@@ -28,8 +28,10 @@ from bundle import esbuild_cmd  # noqa: E402
 # a one-file download has no beside, so the bytes ride in the bundle (~0.5 MB) and
 # are handed over before the command line starts.
 ENTRY = '''import {{ setManifoldWasm }} from {cut!r};
+import {{ setTurningWasm }} from {turning!r};
 import wasm from {wasm!r};
 setManifoldWasm(wasm);
+setTurningWasm(wasm);
 await import({cli!r});
 '''
 
@@ -42,6 +44,7 @@ def _entry(script, folder):
     folder.mkdir(parents=True, exist_ok=True)
     entry.write_text(ENTRY.format(
         cut=str(ROOT / "web" / "cut.js"),
+        turning=str(HERE / "project-turning-geometry.js"),
         wasm=str(ROOT / "web" / "vendor" / "manifold-3d-3.5.4" / "manifold.wasm"),
         cli=str(script)))
     return entry

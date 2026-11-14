@@ -7,6 +7,8 @@ import { ProjectZip } from './project-zip.js';
 import { ProjectReport, formatProjectReport } from './project-report.js';
 import { projectNozzle } from './project-nozzle.js';
 import { negativeComponents, projectPositions } from './project-analysis.js';
+import { turningSettings } from './project-turning-settings.js';
+import { turnProjectFins, turningBounds, turningBoundsOverlap, validateTurningNeighbor } from './project-turning.js';
 import { bakeProjectObject } from './project-bake-input.js';
 import { sequentialEdits } from './project-sequential.js';
 import { runtimeIdentity } from './project-cache.js';
@@ -246,6 +248,7 @@ async function processProject(input, args, io, report) {
       // can override the project's print sequence.
       const sequence = metadata(membership.get(`${o.id}:${o.instance}`).node).print_sequence ?? settings.print_sequence;
       const byObject = /object/i.test(String(sequence ?? ''));
+      const turning = args.turnFins ? turningSettings(settings, { options, byObject, variable, height, nozzle: nozzle.nozzle }) : null;
       const result = report.object(o);
       Object.assign(result, nozzle);
       if (nozzle.nozzleSource === 'override') result.warnings.push('nozzle override applies to fin generation only; saved printer settings are unchanged');
@@ -255,7 +258,7 @@ async function processProject(input, args, io, report) {
       if (args.disableNativeSupports && children(o.config, 'metadata').filter((m) => m.attrs.key === 'enable_support').length > 1) {
         throw new Error('duplicate enable_support setting');
       }
-      return { ...o, transform, height, slot, ...nozzle, options, native, byObject, negativeCount,
+      return { ...o, transform, height, slot, ...nozzle, options, native, byObject, negativeCount, turning,
         bake: byObject && negativeCount > 0 };
     } catch (e) { return skipOrThrow(o, e); }
   }).filter(Boolean);
@@ -266,7 +269,8 @@ async function processProject(input, args, io, report) {
   if (args.resume && !io.openProjectCache) throw new Error('--resume requires a file-system checkpoint store');
   const cache = args.resume ? await io.openProjectCache({ input, bytes: zip.bytes,
     selection: { objects: selected.map((o) => o.number), explicit: args.objects.length > 0 },
-    settings: { dialog: args.dialog, finExtruder: args.finExtruder, disableNativeSupports: args.disableNativeSupports },
+    settings: { dialog: args.dialog, finExtruder: args.finExtruder, disableNativeSupports: args.disableNativeSupports,
+      ...(args.turnFins ? { turnFins: true, turnAngle: args.turnAngle } : {}) },
     cacheDir: args.cacheDir, warn }) : null;
   const rootEdits = [], configEdits = [], supportObjects = [], results = [];
   // Bambu's cut-editing records use first-occurrence object ordinals, not
@@ -295,6 +299,7 @@ async function processProject(input, args, io, report) {
     rootEdits.push([root.open - 1, root.open - 1, ` xmlns:p="${PROD}"`]);
   }
   const rootBytes = enc.encode(rootXML), configBytes = enc.encode(configXML);
+  const acceptedTurns = new Map(); // compact world bounds, never analysis meshes
   // Load only this object's dependency tree. Discard the inflated meshes and
   // parsed geometry before the next object, instead of retaining an entire plate.
   for (const p of plans) {
@@ -302,6 +307,14 @@ async function processProject(input, args, io, report) {
     let generated = await cache?.load(p.number);
     if (generated && (p.bake && generated.triangles.length && !generated.baked || !p.bake && generated.baked)) {
       warn(`object ${p.number}: incomplete conversion checkpoint; recomputing`);
+      generated = null;
+    }
+    if (generated && p.turning && (!Number.isInteger(generated.stats?.turnedFins)
+      || !Number.isInteger(generated.stats?.turningSkipped) || !Array.isArray(generated.stats?.turningReasons)
+      || !Array.isArray(generated.stats?.turningDetails)
+      || generated.stats.turningDetails.length !== generated.stats.turnedFins
+      || generated.stats.turningDetails.some((d) => !['min', 'max'].every((k) => d.bounds?.[k]?.length === 3 && d.bounds[k].every(Number.isFinite))))) {
+      warn(`object ${p.number}: incomplete turning checkpoint; recomputing`);
       generated = null;
     }
     const reused = !!generated;
@@ -313,6 +326,7 @@ async function processProject(input, args, io, report) {
           ({ analysisPositions: positions, ...baked } = conversion);
         } else positions = await projectPositions(zip, rootBytes, configBytes, p);
         if (args.check) {
+          if (p.turning) report.object(p).warnings.push('Turning settings are compatible; roof eligibility, connections and clearance require generation and final slicing.');
           if (baked) {
             // Validate the same replacement serialization and manifest mappings,
             // without generating fins, publishing output or opening checkpoints.
@@ -326,6 +340,32 @@ async function processProject(input, args, io, report) {
           continue;
         }
         generated = computeFins(positions, p.options);
+        if (p.turning) generated = await turnProjectFins(generated, {
+          positions, dimensions: p.turning, angle: args.turnAngle, gap: p.options.gap,
+          validate: async (candidate) => {
+            const bounds = turningBounds(candidate);
+            if ((acceptedTurns.get(p.plate) ?? []).some((other) => turningBoundsOverlap(bounds, other, p.turning.sideGap))) {
+              throw new Error('turn overlaps an earlier turned support envelope');
+            }
+            // Decode neighbors serially, including unselected objects. A missing
+            // plate assignment cannot establish separation from this plate.
+            for (const other of items.filter((o) => o.number !== p.number && o.printable && (!o.plate || o.plate === p.plate))) {
+              if (!other.object || !other.config) throw new Error('another printable object cannot be inspected');
+              const neighbor = await projectPositions(zip, rootBytes, configBytes,
+                { ...other, negativeCount: negativeComponents(other.object, other.config) });
+              await validateTurningNeighbor(candidate, neighbor, p.turning.sideGap);
+              const planned = plans.find((q) => q.number === other.number);
+              if (planned) {
+                // Future objects may turn too; check their unchanged supports
+                // here, then reserve successful turn envelopes in plate order.
+                const fins = computeFins(neighbor, planned.options);
+                const flat = Float64Array.from(fins.triangles, (v, i) => v - [fins.offset.x, fins.offset.y, fins.offset.z][i % 3]);
+                try { await validateTurningNeighbor(candidate, flat, p.turning.sideGap); }
+                catch (e) { throw new Error(`neighboring generated supports: ${e.message}`); }
+              }
+            }
+          },
+        });
         if (baked && generated.triangles.length) generated.baked = baked;
       }
       const { triangles, offset, stats } = generated;
@@ -400,6 +440,15 @@ async function processProject(input, args, io, report) {
         nozzle: p.nozzle, nozzleSource: p.nozzleSource,
         layerHeight: p.height, filament: p.slot, triangles: triangles.length / 9, stats });
       report.object(p).status = triangles.length ? 'processed' : 'no_supports';
+      if (p.turning) {
+        acceptedTurns.set(p.plate, [...(acceptedTurns.get(p.plate) ?? []), ...stats.turningDetails.map((d) => d.bounds)]);
+        const warnings = [
+          ...(stats.turnedFins ? [`${stats.turnedFins} fin(s) turned below a roof; inspect roof strand direction and removal clearance in the slicer. Lower foundations are unchanged.`] : []),
+          ...(stats.turningSkipped ? [`${stats.turningSkipped} fin(s) retained unchanged: ${stats.turningReasons.join('; ')}`] : []),
+        ];
+        report.object(p).warnings.push(...warnings);
+        for (const message of warnings) warn(`object ${p.number} (${p.name}): ${message}`);
+      }
       if (generated.baked) {
         const warnings = [...generated.baked.warnings,
           'The output contains baked cuts; its cutters are no longer independently editable. Keep the original project for future changes.'];

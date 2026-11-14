@@ -6,6 +6,7 @@ import { openProjectCache } from '../project-cache.js';
 import { subtractProjectNegatives } from '../project-analysis.js';
 import { bakeProjectObject } from '../project-bake-input.js';
 import { bakeFixture } from './_bake-fixture.js';
+import { roofBody } from './_turning-fixture.js';
 import { xmlTree, children, child, metadata, editXML, insert } from '../project-xml.js';
 import { readThreeMF, readThreeMFParts, meshXML } from '../../../web/threemf.js';
 import { zipStore } from '../../../web/zip.js';
@@ -48,7 +49,7 @@ async function compressed(files) {
 async function fixture({ duplicate = false, negative = false, variable = null, layer = '0.16', printable = true, mirror = false,
   app = 'BambuStudio-02.04.00.70', sequence = 'by layer', plateSequence = null,
   plateIDs = [1, 2], emptyPlates = [], together = false, sameName = false, steep = false, nozzle = ['0.4'], positions = null,
-  cutters = [], upright = false } = {}) {
+  cutters = [], upright = false, savedSettings = {} } = {}) {
   const cube = triples(positions ?? block(0, 20, 0, 20, 0, 20));
   const q = upright ? 1 : steep ? 0.5 : Math.SQRT1_2, s = upright ? 0 : steep ? Math.sqrt(3) / 2 : q;
   const resource = (id, file) => `<object id="${id}" type="model" p:UUID="original-${id}"><components>`
@@ -84,7 +85,8 @@ async function fixture({ duplicate = false, negative = false, variable = null, l
       + emptyPlates.map((id) => `<plate><metadata key="plater_id" value="${id}"/></plate>`).join('') + '<assemble/></config>' },
     { name: SETTINGS, data: JSON.stringify({ layer_height: layer, initial_layer_print_height: '0.3', nozzle_diameter: nozzle,
       wall_filament: '0', sparse_infill_filament: '0', solid_infill_filament: '0',
-      filament_colour: ['#FFFFFF', '#123456'], filament_type: ['PETG', 'PETG'], enable_support: '1', print_sequence: sequence }) },
+      filament_colour: ['#FFFFFF', '#123456'], filament_type: ['PETG', 'PETG'], enable_support: '1', print_sequence: sequence,
+      ...savedSettings }) },
     { name: '3D/Objects/a.model', data: model('4') },
     { name: '3D/Objects/b.model', data: model('8') },
     { name: '_rels/.rels', data: `<Relationships xmlns="${RELS}"><Relationship Id="root" Target="/${ROOT}" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/></Relationships>` },
@@ -119,6 +121,101 @@ async function cli(source, flags = [], additional = {}, overrides = {}) {
   const code = await run(['part.3mf', '--preserve-project', '--json', ...flags], { ...io, ...overrides });
   return { code, fs, out, err, result: out.length ? JSON.parse(out[0]) : null };
 }
+
+const turnSaved = { initial_layer_print_height: '0.4', line_width: '0.82', support_object_xy_distance: '0.35', raft_layers: '0' };
+const turnFlags = ['--turn-fins', '--gap', '0.3', '--pad-style', 'off', '--coverage', '50'];
+const turnFixture = async (extra = {}) => ({ positions: await roofBody(), upright: true, layer: '0.4', nozzle: ['0.8'], savedSettings: turnSaved, ...extra });
+
+Deno.test('project turning: opt-in replaces the selected upper wall and preserves original compressed members', async () => {
+  const source = await fixture(await turnFixture()), original = new ProjectZip(source);
+  const enabled = await cli(source, [...turnFlags, '--object', '1']);
+  const disabled = await cli(source, [...turnFlags, '--object', '1', '--no-turn-fins']);
+  const plain = await cli(source, [...turnFlags.slice(1), '--object', '1']);
+  for (const r of [enabled, disabled, plain]) assert(r.code === 0, r.err.join('\n'));
+  assert(enabled.result.objects[0].stats.turnedFins === 1, JSON.stringify(enabled.result));
+  assert(!('turnedFins' in disabled.result.objects[0].stats), 'default statistics changed');
+  const outputs = [enabled, disabled, plain].map((r) => new ProjectZip(r.fs.get('part-fins-project.3mf')));
+  const normalize = (s) => s.replace(/p:UUID="[^"]*"/g, 'p:UUID="same"');
+  assert(normalize(await outputs[1].text(SUPPORTS)) === normalize(await outputs[2].text(SUPPORTS)), 'disabled output changed');
+  assert(normalize(await outputs[0].text(SUPPORTS)) !== normalize(await outputs[1].text(SUPPORTS)), 'turn did not reach export');
+  for (const name of ['3D/Objects/a.model', '3D/Objects/b.model', SETTINGS]) {
+    const a = original.entries.get(name), b = outputs[0].entries.get(name);
+    equal(original.bytes.slice(a.offset, a.end), outputs[0].bytes.slice(b.offset, b.end), `compressed member changed: ${name}`);
+  }
+  assert(enabled.result.objectResults[0].warnings.some((s) => s.includes('turned')), 'turn not reported');
+});
+
+Deno.test('project turning: settings errors follow selection rules and listings remain lightweight', async () => {
+  const source = await fixture(await turnFixture({ variable: 1 }));
+  const explicit = await cli(source, [...turnFlags, '--object', '1']);
+  assert(explicit.code === 1 && explicit.fs.size === 1 && JSON.parse(explicit.err.at(-1)).objectResults[0].status === 'failed', 'explicit incompatible selection wrote output');
+  const batch = await cli(source, turnFlags);
+  assert(batch.code === 0 && batch.result.summary.skipped === 1 && batch.result.summary.processed === 1, batch.err.join('\n'));
+  const checked = await cli(source, [...turnFlags, '--check']);
+  assert(checked.code === 1 && checked.fs.size === 1 && checked.result.summary.incompatible === 1, 'check accepted variable layers');
+  const valid = await cli(await fixture(await turnFixture()), [...turnFlags, '--check']);
+  assert(valid.code === 0 && valid.fs.size === 1 && valid.result.objectResults.every((r) => r.warnings.some((s) => s.includes('final slicing'))), 'check overclaimed feasibility');
+  const listed = await cli(await fixture(), ['--turn-fins', '--list-objects']);
+  assert(listed.code === 0 && listed.fs.size === 1, 'listing unexpectedly validated turning settings');
+});
+
+Deno.test('project turning: transformed negative assemblies and unselected neighbors are checked', async () => {
+  for (const mirror of [false, true]) {
+    const source = await fixture(await turnFixture({ mirror, together: true,
+      cutters: [{ positions: block(-1, 1, -1, 1, 1, 3) }] }));
+    const r = await cli(source, [...turnFlags, '--object', '1']);
+    assert(r.code === 0 && r.result.objects[0].stats.turnedFins === 1, r.err.join('\n'));
+    const zip = new ProjectZip(source), result = new ProjectZip(r.fs.get('part-fins-project.3mf'));
+    equal(await zip.read('3D/Objects/cutter0.model'), await result.read('3D/Objects/cutter0.model'), 'cutter changed');
+    const colliding = new Uint8Array(await (await zip.patch(new Map([[ROOT,
+      (await zip.text(ROOT)).replace('1 0 0 0 1 0 0 0 1 400 50 0', '1 0 0 0 1 0 0 0 1 30 40 0')]]))).arrayBuffer());
+    const blocked = await cli(colliding, [...turnFlags, '--object', '1']);
+    assert(blocked.code === 0 && blocked.result.objects[0].stats.turnedFins === 0
+      && blocked.result.objectResults[0].warnings.some((s) => s.includes('another plate object')), 'unselected collision ignored');
+  }
+});
+
+Deno.test('project turning: clear neighboring bodies do not imply clear generated supports', async () => {
+  const body = await roofBody(.5, .8, false), zip = new ProjectZip(await fixture(await turnFixture({ positions: body, together: true })));
+  const larger = Float64Array.from(body, (v, i) => v * (i % 3 === 1 ? 1 : 1.5));
+  const source = new Uint8Array(await (await zip.patch(new Map([
+    [ROOT, (await zip.text(ROOT)).replace('1 0 0 0 1 0 0 0 1 400 50 0', '1 0 0 0 1 0 0 0 1 30 40 0')],
+    ['3D/Objects/b.model', (await zip.text('3D/Objects/b.model')).replace(/<mesh>[\s\S]*?<\/mesh>/, meshXML(triples(larger)))],
+  ]))).arrayBuffer());
+  const alone = await cli(source, [...turnFlags, '--object', '1']);
+  assert(alone.code === 0 && alone.result.objects[0].stats.turnedFins === 1, alone.err.join('\n'));
+  const both = await cli(source, turnFlags);
+  assert(both.code === 0 && both.result.objects[0].stats.turnedFins === 0
+    && both.result.objectResults[0].warnings.some((s) => s.includes('neighboring generated supports')), both.err.join('\n'));
+});
+
+Deno.test('project turning resume: interruption and failed final writes retain complete turns and warnings', async () => diskProject(async ({ dir, call }) => {
+  const flags = [...turnFlags, '--resume'];
+  const interrupted = await call(flags, (c) => ({ ...c, load: (n) => { if (n === 2) throw Error('interrupt'); return c.load(n); } }));
+  assert(interrupted.code === 1 && interrupted.saved.join() === '1', 'incomplete object cached');
+  const failWrite = () => { throw Error('output unavailable'); };
+  const failed = await call(flags, (c) => c, failWrite);
+  assert(failed.code === 1 && failed.hits.join() === '1' && failed.saved.join() === '2', 'resume recomputed completed turn');
+  const resumed = await call([...flags, '-o', `${dir}/resumed.3mf`]);
+  const fresh = await call([...turnFlags, '-o', `${dir}/fresh.3mf`]);
+  assert(resumed.code === 0 && resumed.hits.join() === '1,2' && !resumed.saved.length && fresh.code === 0, resumed.err.join('\n'));
+  assert(resumed.result.objects.every((o) => o.stats.turnedFins === 1), 'fixture did not turn both objects');
+  assert(JSON.stringify(resumed.result.objects) === JSON.stringify(fresh.result.objects), 'stats changed on resume');
+  assert(JSON.stringify(resumed.result.objectResults) === JSON.stringify(fresh.result.objectResults), 'warnings changed on resume');
+  const a = new ProjectZip(await Deno.readFile(`${dir}/resumed.3mf`)), b = new ProjectZip(await Deno.readFile(`${dir}/fresh.3mf`));
+  assert(normalizedXML(await a.text(SUPPORTS)) === normalizedXML(await b.text(SUPPORTS)), 'resumed geometry changed');
+}, await turnFixture({ together: true })));
+
+Deno.test('project turning resume: changing activation or angle invalidates old turns', async () => diskProject(async ({ call }) => {
+  const failWrite = () => { throw Error('output unavailable'); };
+  const flags = [...turnFlags, '--resume'];
+  const initial = await call(flags, (c) => c, failWrite);
+  assert(initial.code === 1 && initial.saved.join() === '1,2', 'turn checkpoints missing');
+  const changed = await call([...flags, '--turn-angle', '90'], (c) => c, failWrite);
+  assert(changed.code === 1 && !changed.hits.length && changed.saved.join() === '1,2', 'angle reused stale turns');
+  const disabled = await call([...flags, '--no-turn-fins']);
+  assert(disabled.code === 0 && !disabled.hits.length && disabled.saved.join() === '1,2', 'disabled mode reused turns');
+}, await turnFixture()));
 
 Deno.test('project: an empty nested cutter cannot hide beside a valid leaf in the same component', async () => {
   const original = await fixture({ upright: true, cutters: [{ positions: block(4, 8, 4, 8, -1, 21) }] });
