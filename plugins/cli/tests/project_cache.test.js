@@ -133,8 +133,11 @@ Deno.test('cache: source build identity detects uncommitted engine/schema change
   const engine = await runtimeIdentity();
   await fs.writeFile(path.join(dir, 'plugins/shared/engine/options.json'), '{"changed":true}');
   const schema = await runtimeIdentity();
+  await fs.writeFile(path.join(dir, 'plugins/cli/project-turning.js'), 'changed turning planner');
+  const turning = await runtimeIdentity();
   assert(before !== engine && engine !== schema, 'unstamped source edits reused a build identity');
-  assert(schema === await runtimeIdentity(), 'identity unstable for unchanged files');
+  assert(schema !== turning, 'turning planner omitted from runtime identity');
+  assert(turning === await runtimeIdentity(), 'identity unstable for unchanged files');
 }));
 
 

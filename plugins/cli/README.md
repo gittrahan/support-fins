@@ -124,6 +124,7 @@ supports object because the tines touch it; that is expected, and the plate stil
 prints. A project or plate that prints by object instead gets the fins as a part of each
 model (they would otherwise print after it), with a warning. Models needing no fins
 get nothing. Unselected and nonprintable objects remain in the output.
+
 `--list-objects` shows a plate summary followed by the original build-item
 numbers, names, resource IDs and plate IDs. `--list-plates` shows just the summary:
 each plate's ID, total object count and printable-object count, including empty
@@ -253,6 +254,56 @@ removability, collision clearance or sequential print order.
 Shared build instances, inline-only assemblies, ZIP64 archives and other slicer project formats
 are refused with an explanation (in the every-object default, a model with one is skipped). Direct output from this mode is refused as
 input to avoid adding fins twice. Individually editable fins are not included.
+
+### Optional turning fins
+
+`--turn-fins` replaces eligible upper straight walls with gradual turns ending in
+one top strip, while retaining their lower attachments. It is **off by default**;
+`--no-turn-fins` explicitly keeps ordinary output. The source bodies, negative
+parts, painting, filament assignments, placement and saved settings stay unchanged.
+
+```sh
+support-fins project.3mf --preserve-project --turn-fins
+support-fins project.3mf --preserve-project --turn-fins --turn-angle 90
+```
+
+Automatic direction uses the shorter axis of an isolated rectangular horizontal
+roof. Near-square roofs and already aligned fins stay unchanged. `--turn-angle`
+overrides the top direction in plate XY: 0 is along X, 90 along Y; angles from 0
+through 180 are accepted, with 180 equivalent to 0. It requires `--turn-fins`.
+This geometry-based choice does not predict all bridge, perimeter or infill paths.
+Inspect the sliced roof strands and choose an override when needed.
+
+The initial planner handles fixed-layer FDM print-by-layer projects with closed
+source geometry, a straight upper wall and enough height for the turn. It requires
+explicit saved nozzle, first/subsequent layer heights, ordinary extrusion widths
+and positive lateral clearance. Automatic widths, rafts, variable layers, resin,
+sequential printing and conflicting nozzle/layer overrides are unsupported when
+turning is enabled. Missing/incompatible settings follow the usual project
+selection rules. The feature does not change the printer settings to fit a turn.
+
+The turn must fit beneath the roof, clear the source and other printable plate
+objects and neighboring generated supports, preserve existing side contacts and
+avoid excluded overhang columns. Previously accepted turns reserve their bounding
+envelopes conservatively; a close pair can therefore remain straight. Neighbor
+analysis is serial and may add processing time on crowded plates.
+Growth is bounded geometrically to 45 degrees per layer. Unsupported roofs,
+insufficient clearance or an unprovable attachment retain the original fin with
+an explanation. The initial roof reach bound is 6 mm; it is a conservative scope
+limit, not a material-specific guarantee against sagging. Turning does not add
+foundations or fix pre-existing floating lower starts. Native supports are left
+as saved unless `--disable-native-supports` is supplied.
+
+Project statistics include `turnedFins`, `turningSkipped`, `turningReasons` and
+`turningDetails` (piece, direction and layer span). Original fin/tine counts retain
+their meanings; triangle counts reflect replacements. Resume stores completed
+turns and restores the same warnings. Changing activation, angle, input, settings
+or runtime invalidates reuse without changing the checkpoint format. `--check`
+validates source/settings compatibility only; eligibility, connections and final
+printability require generation and slicing. Listings do not generate turns.
+
+Always inspect the output in the slicer. A successful geometric check does not
+establish adhesion, removal ease or roof quality for a new model/material.
 
 ### Resume an interrupted project run
 

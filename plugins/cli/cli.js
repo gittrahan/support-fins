@@ -50,6 +50,10 @@ export function helpText() {
     '                        exit 1 if any selected object is incompatible',
     '  --fin-extruder <n>    project mode: existing filament slot for fins (1-based)',
     '  --disable-native-supports  project mode: disable slicer supports on selected objects',
+    '  --turn-fins           project mode: opt in to gradual turns below suitable roofs',
+    '  --no-turn-fins        keep ordinary straight fins (default)',
+    '  --turn-angle <0-180>  with --turn-fins: absolute top direction in plate XY degrees',
+    '                        default: geometry-derived; inspect actual roof paths in the slicer',
     '  --overwrite           project mode: allow replacing an existing output',
     '                        default: <part>-fins-project.3mf; repeat --object to select several',
     '                        nozzle: read from project unless --nozzle overrides fin generation',
@@ -83,7 +87,7 @@ class UsageError extends Error {}
 export function parseArgs(argv) {
   const out = { inputs: [], output: null, rot: null, finsOnly: false, object: null, objects: [],
                 json: false, help: false, dialog: {}, preserveProject: false, listObjects: false, check: false,
-                plates: [], listPlates: false,
+                plates: [], listPlates: false, turnFins: null, turnAngle: null,
                 finExtruder: null, disableNativeSupports: false, overwrite: false, resume: false, cacheDir: null };
   let files = false;
   for (let i = 0; i < argv.length; i++) {
@@ -110,6 +114,15 @@ export function parseArgs(argv) {
       out.plates.push(v);
     }
     else if (a === '--json') out.json = true;
+    else if (a === '--turn-fins' || a === '--no-turn-fins') {
+      if (value !== null) throw new UsageError(`${a} takes no value`);
+      out.turnFins = a === '--turn-fins';
+    }
+    else if (a === '--turn-angle') {
+      const v = next(), n = Number(v);
+      if (!v.trim() || !Number.isFinite(n) || n < 0 || n > 180) throw new UsageError('--turn-angle must be between 0 and 180 degrees');
+      out.turnAngle = n === 180 ? 0 : n;
+    }
     else if (a === '--cache-dir') {
       out.cacheDir = next();
       if (!out.cacheDir.trim() || out.cacheDir.startsWith('--')) throw new UsageError('--cache-dir needs a directory path');
@@ -324,6 +337,10 @@ export async function run(argv, io) {
     if (args.preserveProject && (args.rot || args.finsOnly)) {
       throw new UsageError('--preserve-project keeps the existing pose and writes a full project; do not combine with --rot or --fins-only');
     }
+    if (!args.preserveProject && (args.turnFins !== null || args.turnAngle !== null)) {
+      throw new UsageError('--turn-fins, --no-turn-fins and --turn-angle require --preserve-project');
+    }
+    if (args.turnAngle !== null && !args.turnFins) throw new UsageError('--turn-angle requires --turn-fins');
     if (!args.preserveProject && (args.check || args.listObjects || args.listPlates || args.plates.length
         || args.finExtruder !== null || args.disableNativeSupports || args.overwrite)) {
       throw new UsageError('--plate, --check, --list-objects, --list-plates, --fin-extruder, --disable-native-supports and --overwrite require --preserve-project');
