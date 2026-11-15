@@ -221,7 +221,7 @@
       "text": "Docker now runs nginx without root privileges. The container port changes from 80 to 8080; Compose still serves the app on host port 8731. Update custom port mappings, proxy targets and health checks when upgrading."
     },
     {
-      "date": "2026-11-15",
+      "date": "2026-11-16",
       "check": "clean",
       "text": "Independent side and bottom clearances, with optional line contacts under FDM walls standing on the model. Existing defaults stay the same.",
       "pr": 416
