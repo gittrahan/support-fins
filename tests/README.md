@@ -203,6 +203,14 @@ no DOM), so a change to a verdict or a solver can't silently drift:
   object of its own is refused by Orca) and reads back with every triangle; the locked
   form folds it into the supports.
 
+**`threemf_bytes.test.js`** -- a byte gate for the 3MF writer and reader: fixed
+inputs (locked, separate, interface, session, painted, PrusaSlicer 2, each slicer
+fixture's negative part, two models on a plate with and without a bed) hashed as
+their unzipped entries, and every reader result hashed (the three slicer fixtures,
+each written file read back, `readThreeMFParts` with each option). Recorded before
+`web/threemf.js` was split into `web/threemf/`; a change meant to be output-neutral
+must leave it green, and a deliberate format change updates the hashes and says why.
+
 **`threemf.test.js`** -- the 3MF container, both directions (the only tests here
 that aren't fin geometry, because the file format is equally part of the product):
 - our own export **round-trips** back to the same geometry, both bodies intact
