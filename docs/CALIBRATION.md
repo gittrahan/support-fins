@@ -25,8 +25,13 @@ For each listed nozzle, it writes the same shelf with a gap-only foot, welded
 foot and line anchors; `settings.json` records the settings. Print the matching
 nozzle files with 0.20 mm layers and native supports disabled. Compare whether
 the wall survives printing, how it breaks away, and the marks on the floor.
-These new line contacts have no physical-print validation yet; the older
-gap-only foot coupon does not validate them.
+A user-reported comparison of the prepared H2C/PETG, 0.8 mm nozzle, 0.20 mm
+layer projects found easy removal and clean connections with line anchors.
+Gap-only fins were harder to remove; welded side fins could not be removed.
+Both removable variants still had loose roof strands, including a later
+bridge-direction control. This is bounded contact/removal evidence, not a
+claim of complete roof support or measured removal force. No 0.4 mm physical
+result has been reported.
 
 | Test | Sets | Where on printfins.com |
 |---|---|---|
