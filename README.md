@@ -181,7 +181,7 @@ The export ships **pure geometry with no slicer profile embedded** on purpose: b
 in a profile would silence the notice but replace whoever-opens-it's printer/filament/
 print settings with ours on load, and it would have to be re-authored per slicer _and_
 per slicer version — a worse trade than a one-time, benign notice on a file whose
-geometry is already right. See `web/threemf.js` for the writer.
+geometry is already right. See `web/threemf/write.js` for the writer.
 
 ## Run it locally
 
