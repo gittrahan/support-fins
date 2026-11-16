@@ -4,6 +4,29 @@ Code every plugin that can run JavaScript shares, so they all run **the website'
 engine (`web/*.js`), unmodified**, instead of keeping their own copy of the geometry.
 A fix on the site reaches a plugin the next time it is built.
 
+FDM Auto/Full results also include `diagnostics.support`: locations of new support
+starts, narrow layer sections and growth beyond a conservative 45-degree limit.
+`status: "complete"` means that geometric inspection completed, **not** that a
+slicer or printer accepted the supports. `incomplete` includes the stopping
+piece/layer and reason; `unavailable` explains missing settings. Coordinates use
+the returned support geometry's seated frame; subtract `offset` to locate them
+in the input model. `diagnostics.coverage.points` contains existing sampled
+contact-reach residuals `[x, y, z, area]`, not measured extrusion contacts.
+The parallel `coverage.sourceFaces` arrays identify contributing input faces;
+`coverage.contacts` associates each piece with its sampled wall-top points.
+Support findings use zero-based layer indices. `z`/`sliceZ` use the seated frame,
+while `printZ` is the layer's top height above the actual build plate. A preserved
+project's elevated object therefore does not move the plate or layer schedule.
+
+Ordinary hosts use the selected nozzle diameter as a labelled width proxy and
+assume a uniform first layer. Actual line widths, adaptive walls, bridging,
+extrusion order and separation gaps require slicer inspection. Preserved projects
+instead supply saved ordinary-mesh widths and first/regular layer heights. Draw
+and resin retain their existing paths. No support triangles or original counts
+are changed by these diagnostics. The synchronous adapter and Python bridge
+remain synchronous; human summaries distinguish support-section findings from
+disconnected pieces of the model.
+
 ```
 engine/fins_entry.js    posed triangle soup in (mm, z up) -> fin + bed-pad triangles out,
                         plus `pieces` (which triangles are which fin, for a host that

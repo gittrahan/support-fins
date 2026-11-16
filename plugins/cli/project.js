@@ -6,6 +6,8 @@ import { meshXML } from '../../web/threemf.js';
 import { ProjectZip } from './project-zip.js';
 import { ProjectReport, formatProjectReport } from './project-report.js';
 import { projectNozzle } from './project-nozzle.js';
+import { projectPrintability } from './project-printability.js';
+import { supportDiagnosticLine } from '../shared/engine/report.js';
 import { negativeComponents, projectPositions } from './project-analysis.js';
 import { turningSettings, projectBridgeAngle } from './project-turning-settings.js';
 import { turnProjectFins, plateFinCache, turningBounds, turningBoundsOverlap, validateTurningNeighbor } from './project-turning.js';
@@ -253,6 +255,7 @@ async function processProject(input, args, io, report) {
         try { turning = { ...turningSettings(settings, { options, byObject, variable, height, nozzle: nozzle.nozzle }), bridgeAngle: projectBridgeAngle(settings, o.config) }; }
         catch (e) { turningWarning = `${e.message}; normal straight fins will be generated.`; }
       }
+      options.diagnostics = projectPrintability(settings, { byObject, variable, resin: options.tineDir === 'vertical' });
       const result = report.object(o);
       Object.assign(result, nozzle);
       if (turningWarning) result.warnings.push(turningWarning);
@@ -446,7 +449,7 @@ async function processProject(input, args, io, report) {
       }
       results.push({ number: p.number, id: p.id, name: p.name, plate: p.plate, supportObject: supportID,
         nozzle: p.nozzle, nozzleSource: p.nozzleSource,
-        layerHeight: p.height, filament: p.slot, triangles: triangles.length / 9, stats });
+        layerHeight: p.height, filament: p.slot, triangles: triangles.length / 9, stats, diagnostics: generated.diagnostics });
       report.object(p).status = triangles.length ? 'processed' : 'no_supports';
       if (p.turning) {
         acceptedTurns.set(p.plate, [...(acceptedTurns.get(p.plate) ?? []), ...stats.turningDetails.map((d) => d.bounds)]);
@@ -457,6 +460,9 @@ async function processProject(input, args, io, report) {
         report.object(p).warnings.push(...warnings);
         for (const message of warnings) warn(`object ${p.number} (${p.name}): ${message}`);
       }
+      report.object(p).diagnostics = generated.diagnostics;
+      const diagnosticWarning = supportDiagnosticLine(stats);
+      if (diagnosticWarning) report.object(p).warnings.push(diagnosticWarning);
       if (generated.baked) {
         const warnings = [...generated.baked.warnings,
           'The output contains baked cuts; its cutters are no longer independently editable. Keep the original project for future changes.'];

@@ -20,6 +20,7 @@ import { buildFins } from '../../../web/fins.js';
 import { seatSoup, clearances, flatten } from './seat.js';
 import SCHEMA from './options.json' with { type: 'json' };
 import { nozzleSize } from './nozzle.js';
+import { nominalContext, printabilityStats } from '../../../web/fins/printability.js';
 
 // The dialog settings (options.json) are the one source of their defaults: every
 // plugin's dialog is built from the same file, so the entry can't disagree with it.
@@ -164,6 +165,7 @@ export function computeFins(positions, options = {}) {
   const { pos, shift } = seatSoup(positions);
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   const result = analyze(topo, opts.threshold, IDENTITY3);
+  const offset = { x: result.offset.x - shift.x, y: result.offset.y - shift.y, z: result.offset.z - shift.z };
   const built = buildFins(topo, result, IDENTITY3, {
     mode: opts.mode, bedPad: opts.bedPad && opts.padStyle !== 'off', tines: opts.tines,
     tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
@@ -181,6 +183,12 @@ export function computeFins(positions, options = {}) {
                     : undefined,
     tunables,
     turning: opts.turning ? { ...opts.turning, layerOffset: result.offset.z - shift.z } : null, // internal; no public control
+    // Internal host context, not a public engine option. A saved project must
+    // supply its actual slicing widths/schedule; ordinary hosts have only a
+    // labelled nozzle-width proxy. False is reserved for parity/performance checks.
+    diagnostics: opts.diagnostics === false ? null : opts.diagnostics?.frame === 'input'
+      ? { ...opts.diagnostics, plateZ: offset.z }
+      : opts.diagnostics ?? nominalContext(opts.layerHeight, tunables.nozzle, 0.2),
   });
   // buildFins does not re-analyse the mesh. Its automatic exclusion mask moves
   // only exempt ceilings to amber, without changing the original analysis.
@@ -202,12 +210,14 @@ export function computeFins(positions, options = {}) {
   return {
     triangles,
     // seated = input + offset  (so the caller maps fins back with input = seated - offset)
-    offset: { x: result.offset.x - shift.x, y: result.offset.y - shift.y, z: result.offset.z - shift.z },
+    offset,
     pieces,
     overFaces: Int32Array.from(overFaces),
     smallFaces: Int32Array.from(smallFaces),
+    diagnostics: built.printability ? { support: built.printability, coverage: built.coverage, offset } : null,
     stats: {
       ...(built.turning ?? {}),
+      ...printabilityStats(built.printability),
       overhangRegions: result.regions.length,
       // The soup is fins | sway braces | pad, in these counts.
       finTriangles: fin.length / 9 - swayTris,

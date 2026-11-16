@@ -41,6 +41,12 @@ fin this way up (tilt the part steeper)") plus the numbers behind it. Unsupporte
 overhangs are reported, not errors. A bad setting or an unreadable file is a tool error
 that says why, and nothing is written.
 
+FDM Auto/Full results also include `structuredContent.diagnostics`: support starts,
+narrow sections, rapid growth and sampled coverage residuals. The context labels
+nozzle diameter as a width proxy. A `complete` check means geometric inspection
+finished; inspect actual extrusion paths and gaps in the slicer before printing.
+See the [shared diagnostic format](../shared/README.md) for coordinates and limits.
+
 ## Install
 
 Download `support-fins-mcp.mjs` from the `plugins-latest` release on GitHub. It is the whole server in one file and needs Node 20.10+ or Deno 2.

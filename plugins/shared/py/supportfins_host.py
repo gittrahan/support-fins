@@ -179,6 +179,15 @@ def host_report(stats):
     walls = stats.get("braces", 0) + stats.get("props", 0)   # tined + plain, as the site counts
     tines = stats.get("tines", 0)
     parts = [f"{walls} wall{'' if walls == 1 else 's'}, {tines} tine{'' if tines == 1 else 's'}"]
+    check = stats.get("supportCheck")
+    findings = stats.get("supportFindings") or 0
+    if check == "incomplete":
+        parts.append("support-section checks are incomplete; inspect all supports in the slicer")
+    elif check == "unavailable":
+        parts.append("support-section checks are unavailable for these settings")
+    elif findings:
+        first = float(stats.get("supportFirstZ") or 0)
+        parts.append(f"{findings} support-section finding{'' if findings == 1 else 's'} need{'s' if findings == 1 else ''} slicer inspection (first at {first:.1f} mm)")
     braces = stats.get("swayBraces") or 0
     if braces:   # they hold the tall sides, not an overhang: never added to the walls
         parts[0] += f", {braces} sway brace{'' if braces == 1 else 's'}"

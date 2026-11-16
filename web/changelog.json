@@ -248,6 +248,11 @@
       "date": "2026-11-18",
       "check": "held",
       "text": "The CLI can optionally turn eligible fins gradually below a roof in preserved print-by-layer projects, ending in a single top strip. Use --turn-fins, with --turn-angle for an explicit direction; ordinary output is unchanged."
+    },
+    {
+      "date": "2026-11-16",
+      "check": "stays",
+      "text": "FDM generation now flags narrow support sections, unsupported starts and rapid growth for slicer inspection. The browser, plugins and CLI report these geometric findings without changing the fins."
     }
   ]
 }
