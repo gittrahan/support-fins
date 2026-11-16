@@ -360,6 +360,29 @@ manually when no command is using them. Cleanup never recursively deletes the
 before it is read. Runs without `--resume` neither read nor write checkpoints;
 `--cache-dir` requires `--resume`, which cannot be combined with `--list-objects`.
 
+### Inspect generated support sections
+
+FDM Auto/Full generation reports geometric support-section findings, including
+thin starts and disconnected upper sections. `--json` includes their piece IDs,
+zero-based layer indices, heights and XY bounds in `diagnostics`; preserved-project
+results provide these per object. Locations use the seated support frame; subtract
+`diagnostics.offset` to recover input-frame positions (after `--rot`, if supplied).
+`printZ` is the layer's top height above the build plate. These checks do not add
+or remove fins, and a completed check does not certify toolpaths, adhesion or
+removal. Inspect the final project in your slicer.
+Coverage face indices refer to the engine's input mesh. For preserved projects
+with negative parts, this is the temporary subtracted analysis mesh, rather than
+the original editable component triangles.
+
+For fixed-layer preserved print-by-layer projects, diagnostics use saved printer
+nozzle, ordinary outer-wall/first-layer widths, first/regular layer heights and
+bottom separation. Native-support line widths and fin-generation overrides do
+not replace those saved settings. Missing, automatic or conflicting settings
+are reported as unavailable rather than guessed. Sequential and variable-layer
+projects retain their existing generation paths without this additional check.
+`--check` still checks source compatibility without generating or inspecting fins.
+Compatible resume records retain diagnostic locations and reproduce the warnings.
+
 ### Check compatibility before generating fins
 
 ```sh

@@ -390,6 +390,10 @@ Deno.test('cli: the summary line says what was left unsupported, word for word w
     { braces: 1, tines: 2, floating: 1, floatingDrop: 4.25 },   // a tie: Python rounds to even
     { braces: 0, tines: 0, smallHoleRegions: 1 },
     { braces: 2, tines: 4, smallHoleRegions: 2, unserved: 1 },
+    { braces: 1, tines: 2, supportCheck: 'complete', supportFindings: 1, supportFirstZ: 12.25 },
+    { braces: 1, tines: 2, supportCheck: 'complete', supportFindings: 2, supportFirstZ: 12.26 },
+    { braces: 1, tines: 2, supportCheck: 'incomplete', supportFindings: 0 },
+    { braces: 1, tines: 2, supportCheck: 'unavailable', supportFindings: 0 },
   ];
   assert(/1 overhang is too shallow/.test(reportLine(samples[1])), reportLine(samples[1]));
   assert(/one piece isn't joined to the rest: it starts 4\.3 mm up/.test(reportLine(samples[2])), reportLine(samples[2]));

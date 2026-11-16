@@ -100,6 +100,11 @@ Deno.test('mcp: fin_part writes exactly what the command line writes', async () 
   const cli = await viaCLI(['lb.stl', '--rot', '0,35,0', '--coverage', '70', '--sway', '--nozzle', '0.8']);
   assert(cli.code === 0 && same(io.fs.get('lb-fins.3mf'), cli.fs.get('lb-fins.3mf')), '3MF differs from the CLI\'s');
   assert(r.structuredContent.output === 'lb-fins.3mf' && r.structuredContent.stats.braces >= 1, 'output + stats');
+  const diagnostic = r.structuredContent.diagnostics;
+  assert(diagnostic?.support.status === 'complete' && diagnostic.support.context.nozzle === 0.8,
+    'MCP lost the generated support diagnostics or used the wrong nozzle');
+  assert(Array.isArray(diagnostic.support.starts) && Array.isArray(diagnostic.coverage.sourceFaces),
+    'MCP lost support locations or coverage provenance');
   assert(/^wrote lb-fins\.3mf: \d+ walls?, \d+ tines?/.test(r.content[0].text), r.content[0].text);
   // a merged STL, and fins only
   const stl = await callTool('fin_part', { path: 'lb.stl', output: 'out.stl', rot: [0, 35, 0] }, io);

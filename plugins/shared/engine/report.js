@@ -17,6 +17,13 @@ function oneDecimal(x) {
 
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
+export function supportDiagnosticLine(stats) {
+  if (stats.supportCheck === 'incomplete') return 'support-section checks are incomplete; inspect all supports in the slicer';
+  if (stats.supportCheck === 'unavailable') return 'support-section checks are unavailable for these settings';
+  if (stats.supportFindings) return `${plural(stats.supportFindings, 'support-section finding', 'support-section findings')} ${stats.supportFindings === 1 ? 'needs' : 'need'} slicer inspection (first at ${oneDecimal(stats.supportFirstZ)} mm)`;
+  return '';
+}
+
 /** @param {object} stats  computeFins(...).stats */
 export function reportLine(stats) {
   const walls = (stats.braces || 0) + (stats.props || 0);   // tined + plain, as the site counts
@@ -24,6 +31,8 @@ export function reportLine(stats) {
   // Sway braces hold the tall sides, not an overhang: never added to the walls.
   if (stats.swayBraces) head += `, ${plural(stats.swayBraces, 'sway brace', 'sway braces')}`;
   const parts = [head];
+  const support = supportDiagnosticLine(stats);
+  if (support) parts.push(support);
   if (stats.smallHoleRegions) {
     parts.push(`${plural(stats.smallHoleRegions, 'small-hole ceiling', 'small-hole ceilings')} left unsupported for bridging`);
   }

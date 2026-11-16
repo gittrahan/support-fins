@@ -103,7 +103,7 @@ export function fillReach(coverage) {
  * centroid alone would call the whole face held or bare). `regions` (a Set, or
  * null for all) keeps only those regions' faces.
  */
-function leftoverPoints(topo, result, rot, near, cls, regions = null) {
+function leftoverPoints(topo, result, rot, near, cls, regions = null, sourceFaces = null) {
   const { pos } = topo, off = result.offset;
   const seat = (o) => [rot[0] * pos[o] + rot[3] * pos[o + 1] + rot[6] * pos[o + 2] + off.x,
     rot[1] * pos[o] + rot[4] * pos[o + 1] + rot[7] * pos[o + 2] + off.y,
@@ -114,11 +114,13 @@ function leftoverPoints(topo, result, rot, near, cls, regions = null) {
     only = new Uint8Array(topo.nFaces);
     for (const ri of regions) for (const f of result.regions[ri]?.faces ?? []) only[f] = 1;
   }
-  const put = (x, y, z, a) => {
+  const put = (x, y, z, a, face) => {
     if (z < PLATE_Z || near(x, y, z)) return;
     const k = `${Math.floor(x / s)},${Math.floor(y / s)},${Math.floor(z / s)}`;
-    const c = cells.get(k);
-    if (c) { c[0] += x * a; c[1] += y * a; c[2] += z * a; c[3] += a; } else cells.set(k, [x * a, y * a, z * a, a]);
+    let c = cells.get(k);
+    if (c) { c[0] += x * a; c[1] += y * a; c[2] += z * a; c[3] += a; }
+    else { c = [x * a, y * a, z * a, a]; cells.set(k, c); }
+    if (sourceFaces) (c[4] ??= new Set()).add(face);
   };
   for (let f = 0; f < topo.nFaces; f++) {
     if (!result.over[f] || cls[f] !== MUST || (only && !only[f])) continue;
@@ -131,11 +133,14 @@ function leftoverPoints(topo, result, rot, near, cls, regions = null) {
     for (let i = 0; i < n; i++) for (let j = 0; i + j < n; j++) {
       for (const [u, v] of i + j < n - 1 ? [[i + 1 / 3, j + 1 / 3], [i + 2 / 3, j + 2 / 3]] : [[i + 1 / 3, j + 1 / 3]]) {
         const bu = u / n, bv = v / n, bw = 1 - bu - bv;
-        put(bw * A[0] + bu * B[0] + bv * C[0], bw * A[1] + bu * B[1] + bv * C[1], bw * A[2] + bu * B[2] + bv * C[2], a);
+        put(bw * A[0] + bu * B[0] + bv * C[0], bw * A[1] + bu * B[1] + bv * C[1], bw * A[2] + bu * B[2] + bv * C[2], a, f);
       }
     }
   }
-  return [...cells.values()].map((c) => [c[0] / c[3], c[1] / c[3], c[2] / c[3], c[3]]);
+  return [...cells.values()].map((c) => {
+    if (sourceFaces) sourceFaces.push([...c[4]].sort((a, b) => a - b));
+    return [c[0] / c[3], c[1] / c[3], c[2] / c[3], c[3]];
+  });
 }
 
 /**
@@ -661,15 +666,20 @@ export function fillCoverage(topo, result, rot, opts, built) {
  * `total` being all the MUST red. No walls are placed. Auto's readout says it, so a
  * build that holds little doesn't read as done (fins.js sets built.bare).
  */
-export function bareArea(topo, result, rot, opts, built) {
+export function bareArea(topo, result, rot, opts, built, withPoints = false) {
   const tops = [];
   // (a sway brace's line is its foot on the plate, and it holds no red)
   for (const w of built.fins ?? []) if (w.kind !== 'sway') for (const p of w.line ?? []) tops.push(p);
   const near = reachOf(tops, fillReach(Math.max(0, Math.min(1, opts.coverage ?? 0.5))));
   const cls = classify(topo, result, rot);
   const sum = (pts) => pts.reduce((s, p) => s + p[3], 0);
-  const total = sum(leftoverPoints(topo, result, rot, () => false, cls));
-  return { area: tops.length ? sum(leftoverPoints(topo, result, rot, near, cls)) : total, total };
+  const sourceFaces = withPoints ? [] : null;
+  const all = leftoverPoints(topo, result, rot, () => false, cls, null, tops.length ? null : sourceFaces);
+  const total = sum(all);
+  const bare = tops.length ? leftoverPoints(topo, result, rot, near, cls, null, sourceFaces) : all;
+  return { area: sum(bare), total, ...(withPoints ? { points: bare, sourceFaces,
+    contacts: (built.fins ?? []).filter((w) => w.kind !== 'sway' && w.line?.length)
+      .map((w) => ({ piece: String(w.id), points: w.line.map((p) => [...p]) })) } : {}) };
 }
 
 function fillOnce(topo, result, rot, opts, built) {

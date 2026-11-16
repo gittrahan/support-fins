@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
+import { printabilityStats, validDiagnostics } from '../../web/fins/diagnostics.js';
 
 const MAGIC = Buffer.from('SFINSC01');
 const BAKED_MAGIC = Buffer.from('SFINSC02');
@@ -33,7 +34,7 @@ export async function runtimeIdentity() {
   return hash.digest('hex');
 }
 
-function encode(key, number, { triangles, offset, stats, baked }) {
+function encode(key, number, { triangles, offset, stats, baked, diagnostics }) {
   // Fins keep their existing float32 representation. Converted bodies require
   // float64 and explicit vertex identity: JSON/float32 coordinate round trips
   // can collapse paint boundaries or join otherwise distinct shells.
@@ -48,7 +49,7 @@ function encode(key, number, { triangles, offset, stats, baked }) {
       return { ...part, coordinates: positions.length, vertices: vertexIDs?.length ?? null, faces: sourceFaces?.length ?? null };
     }) };
   }
-  const metadata = Buffer.from(JSON.stringify({ key, number, offset, stats,
+  const metadata = Buffer.from(JSON.stringify({ key, number, offset, stats, diagnostics,
     ...(baked ? { triangleCoordinates: triangles.length, baked: conversion } : {}) }));
   const body = Buffer.alloc(4 + metadata.length + arrays.reduce((n, a) => n + a.values.length * a.width, 0));
   body.writeUInt32LE(metadata.length); metadata.copy(body, 4);
@@ -96,6 +97,15 @@ function decode(bytes, key, number) {
   const triangles = array(converted ? meta.triangleCoordinates : (body.length - end) / 4, 4);
   if (triangles.length % 9) throw new Error('incomplete triangle data');
   const result = { triangles, offset: meta.offset, stats: meta.stats };
+  if (meta.stats.supportCheck && !meta.diagnostics) throw new Error('missing checkpoint diagnostics');
+  if (meta.diagnostics != null) {
+    if (!validDiagnostics(meta.diagnostics)
+        || ['x', 'y', 'z'].some((k) => meta.diagnostics.offset[k] !== meta.offset[k])
+        || Object.entries(printabilityStats(meta.diagnostics.support)).some(([k, v]) => meta.stats[k] !== v)) {
+      throw new Error('invalid checkpoint diagnostics');
+    }
+    result.diagnostics = meta.diagnostics;
+  }
   if (converted) {
     const baked = meta.baked;
     if (!triangles.length || baked?.version !== 1 || !Array.isArray(baked.parts) || !baked.parts.length ||

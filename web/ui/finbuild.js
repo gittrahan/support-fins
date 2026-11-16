@@ -8,6 +8,7 @@ import { buildFins, FIN, PAD } from '../fins.js';
 import { BRACE, PROP } from '../prop.js';
 import { CUT } from '../cutout.js';
 import { nozzle, wallLines } from '../nozzle.js';
+import { nominalContext } from '../fins/printability.js';
 import { el } from './dom.js';
 import { t } from './i18n.js';
 import { scene, meshFrom, ifaceMaterial, clip, requestRender } from './scene.js';
@@ -127,6 +128,7 @@ export function finOpts(isl = islands) {
            tines: el('tines').checked,
            tineDensity: el('tine-density').valueAsNumber / 100,
            layerHeight: el('layer-height').valueAsNumber,
+           diagnostics: nominalContext(el('layer-height').valueAsNumber, nozzle, PROP.footGap),
            // Full coverage walls the island starts too (fins/fill.js): found here, on
            // the page, since the Worker's topology has no vertex ids (deleted below)
            islands: finMode === 'full' ? isl : undefined,
@@ -390,5 +392,10 @@ export function markFinsStale() {
   for (const m of [finMesh, padMesh, drawnMesh]) if (m) for (const mat of [m.material].flat()) mat.opacity = 0.25;
   finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = ifaceMaterial.transparent = true;
   el('s-fins').textContent = t('generating supports…');
+  // Locations and warnings belong to the completed pose/settings. Do not leave
+  // them under the generating label while a drag or replacement build is active.
+  el('s-fin-note').textContent = '';
+  el('s-fin-info').title = '';
+  el('s-fin-info').hidden = true;
   el('report-row').hidden = true;     // nothing current to report (ui/report.js) until it lands
 }

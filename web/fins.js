@@ -53,6 +53,7 @@ import { judgeDownhill } from './fins/downhill.js';
 import { automaticTargets } from './fins/coverage.js';
 import { bends, CURVED } from './prop/curved.js';
 import { applyNozzle, applyWallLines } from './nozzle.js';
+import { supportPrintability } from './fins/printability.js';
 
 // Moved into web/fins/ (one module per concern); re-exported here so every
 // importer of fins.js is unchanged.
@@ -159,7 +160,6 @@ export function buildFins(topo, result, rot, opts = {}) {
   if (opts.mode !== 'draw' && opts.tallRibs !== false) braceTallWalls(topo, result, rot, built);
   if (opts.turning && opts.mode !== 'draw') turnBuilt(topo, result, rot, built, opts.turning);
   crestPart(null);   // the crest's part is only for this build (a Worker keeps no mesh)
-  forgetSeated(topo);   // nor the seated part: a page building inline would hold it
   // A piece of the part that starts in mid-air (a cut clean through, a loose
   // body) needs saying no matter what was placed: see floatingPieces.
   built.floating = floatingPieces(topo, result, rot);
@@ -168,12 +168,38 @@ export function buildFins(topo, result, rot, opts = {}) {
   // total is added. Draw's walls are placed on the page, so it has none.
   // `coverage` rides along so the page can re-measure after fins are removed by hand.
   const coverage = opts.coverage ?? 0.5;
+  const diagnostics = opts.diagnostics && PROP.tineDir !== 'vertical'
+    && ['auto', 'stabilize', 'full'].includes(opts.mode) ? opts.diagnostics : null;
   if (opts.mode === 'auto' || opts.mode === 'stabilize') {
-    built.bare = { ...bareArea(topo, result, rot, opts, built), coverage };
+    built.bare = { ...bareArea(topo, result, rot, opts, built, !!diagnostics), coverage };
   } else if (opts.mode === 'full' && built.fill) {
     built.bare = { area: built.fill.unservedArea,
                    total: bareArea(topo, result, rot, opts, { fins: [] }).total, coverage };
   }
+  // Only final FDM generation requests diagnostics. Orientation search and
+  // candidate builds keep their existing cost; no classification runs on a drag.
+  // The request's context travels through the Worker with the geometry settings.
+  if (diagnostics) {
+    const flat = typeof built.triangles[0] === 'number', per = flat ? 9 : 3;
+    const soup = [...built.triangles];
+    const pieces = (built.fins ?? []).map((f) => ({ id: String(f.id),
+      ranges: f.triRanges.map(([a, b]) => [a / per, b / per]) }));
+    const pad = built.padTriangles ?? [];
+    if (pad.length) {
+      const start = soup.length / per;
+      const padFlat = typeof pad[0] === 'number';
+      if (flat === padFlat) for (const p of pad) soup.push(p);
+      else if (flat) for (const p of pad) soup.push(...p);
+      else for (let i = 0; i < pad.length; i += 3) soup.push([pad[i], pad[i + 1], pad[i + 2]]);
+      pieces.push({ id: 'pad', ranges: [[start, soup.length / per]] });
+    }
+    built.printability = supportPrintability(soup, pieces, () => seatedPartTris(topo, rot, result.offset), diagnostics);
+    // This is the existing sampled contact-reach metric, not measured slicer
+    // contact. Preserve Full's historical scoreboard and unserved counts.
+    built.coverage = { basis: 'sampled-contact-reach', ...(built.bare?.points ? built.bare
+      : bareArea(topo, result, rot, opts, built, true)) };
+  }
+  forgetSeated(topo);   // nor the seated part: a page building inline would hold it
   return built;
 }
 

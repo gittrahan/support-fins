@@ -190,7 +190,7 @@ export async function callTool(name, args, io) {
   const text = [r.output ? `wrote ${r.output}: ${r.report}` : r.report, ...warnings.map((w) => `warning: ${w}`)];
   return {
     content: [{ type: 'text', text: text.join('\n') }],
-    structuredContent: { output: r.output, report: r.report, stats: r.stats, warnings },
+    structuredContent: { output: r.output, report: r.report, stats: r.stats, diagnostics: r.diagnostics, warnings },
     isError: false,
   };
 }

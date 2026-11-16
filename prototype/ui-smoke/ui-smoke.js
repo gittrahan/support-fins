@@ -53,14 +53,19 @@ const log = (s) => Deno.stderr.writeSync(new TextEncoder().encode(s + '\n'));
 
 /** Wait for any support build in flight to land. */
 async function settle() {
-  await sleep(150);
-  for (let i = 0; i < 200; i++) {
-    const busy = await page.evaluate(() =>
-      document.getElementById('s-fins')?.textContent === 'generating supports…'
-      || document.getElementById('spinner').classList.contains('show'));
-    if (!busy) break;
-    await sleep(100);
-  }
+  // Sliders debounce generation by 180 ms. Checking at 150 ms can observe an
+  // idle page, then snapshot the old supports while the next build is running.
+  await sleep(250);
+  await page.waitForFunction(async () => {
+    const build = await import('./ui/finbuild.js');
+    return !build.buildPending()
+      && document.getElementById('s-fins')?.textContent !== 'generating supports…'
+      && !document.getElementById('spinner').classList.contains('show');
+  }, { timeout: 60000 });
+  // Compare the settled UI, not the timing of a rotation tooltip's 1.2 s fade.
+  // Keep the class in the snapshot so a stuck tooltip still fails the check.
+  await page.waitForFunction(() => !document.getElementById('drag-angle')?.classList.contains('show'),
+    { timeout: 5000 });
   await sleep(250);
 }
 

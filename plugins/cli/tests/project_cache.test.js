@@ -3,6 +3,9 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { openProjectCache } from '../project-cache.js';
 import { assert } from '../../../tests/_util.js';
+import { nominalContext, printabilityStats, supportPrintability } from '../../../web/fins/printability.js';
+import { block } from '../../../tests/_util.js';
+import { supportDiagnosticLine } from '../../shared/engine/report.js';
 
 const data = { triangles: new Float32Array([0, 1 / 3, -2, 3, 4, 5, 6, 7, 8]),
   offset: { x: -12.25, y: 7, z: 0 }, stats: { fins: 1, nested: { count: 2 } } };
@@ -21,6 +24,31 @@ function request(dir, changes = {}, warnings = []) {
 const open = (r, build = 'build-a') => openProjectCache(r, async () => build);
 const folders = (root) => fs.readdir(root);
 const records = async (root) => (await fs.readdir(root, { recursive: true })).filter((n) => n.endsWith('.cache'));
+
+Deno.test('cache: resumed support diagnostics preserve locations, width context and warnings', () => temporary(async (dir) => {
+  const support = supportPrintability(block(-2, 2, -1, 1, 2, 4), [{ id: '0', ranges: [[0, 12]] }], [], nominalContext(0.4, 0.8, 0.2));
+  const value = { ...data, stats: { ...data.stats, ...printabilityStats(support) },
+    diagnostics: { support, offset: { ...data.offset }, coverage: { basis: 'sampled-contact-reach', area: 1, total: 2,
+      points: [[0, 0, 4, 1]], sourceFaces: [[0]], contacts: [] } } };
+  const r = request(dir), c = await open(r);
+  await c.save(1, value);
+  const got = await (await open(r)).load(1);
+  assert(same(got, value), 'resumed diagnostic locations/settings changed');
+  assert(supportDiagnosticLine(got.stats) === supportDiagnosticLine(value.stats), 'resume warning changed');
+  assert(await (await open(r, 'new-diagnostics-runtime')).load(1) === null, 'old runtime bypassed diagnostic generation');
+  for (const mutate of [
+    (v) => { delete v.diagnostics; },
+    (v) => { v.diagnostics.offset.z += 1; },
+    (v) => { v.diagnostics.support.starts[0].bounds[0] = NaN; },
+    (v) => { v.diagnostics.coverage.sourceFaces = []; },
+    (v) => { v.stats.supportFindings += 1; },
+  ]) {
+    const broken = structuredClone(value); mutate(broken);
+    let failed = false;
+    try { await c.save(2, broken); } catch { failed = true; }
+    assert(failed && await (await open(r)).load(2) === null, 'malformed diagnostics became a completed checkpoint');
+  }
+}));
 
 Deno.test('cache: persist exact geometry, offsets, stats and zero-fin objects; remove only completed run', () => temporary(async (dir) => {
   const r = request(dir), root = `${r.input}.fins-cache`, c = await open(r);
@@ -124,7 +152,8 @@ Deno.test('cache: concurrent writers use independent records and cleanup does no
 Deno.test('cache: source build identity detects uncommitted engine/schema changes without Git', () => temporary(async (dir) => {
   await fs.mkdir(path.join(dir, 'plugins/cli'), { recursive: true });
   await fs.mkdir(path.join(dir, 'plugins/shared/engine'), { recursive: true });
-  await fs.mkdir(path.join(dir, 'web'), { recursive: true });
+  await fs.mkdir(path.join(dir, 'web/fins'), { recursive: true });
+  await fs.copyFile(new URL('../../../web/fins/diagnostics.js', import.meta.url), path.join(dir, 'web/fins/diagnostics.js'));
   const module = path.join(dir, 'plugins/cli/project-cache.mjs');
   await fs.copyFile(new URL('../project-cache.js', import.meta.url), module);
   const { runtimeIdentity } = await import(pathToFileURL(module).href);
@@ -140,7 +169,12 @@ Deno.test('cache: source build identity detects uncommitted engine/schema change
   assert(turning === await runtimeIdentity(), 'identity unstable for unchanged files');
   await fs.mkdir(path.join(dir, 'web/prop'), {recursive:true});
   await fs.writeFile(path.join(dir, 'web/prop/turn-frame.js'), 'changed shared turning sweep');
-  assert(turning !== await runtimeIdentity(), 'shared turning geometry omitted from runtime identity');
+  const turnFrame = await runtimeIdentity();
+  assert(turning !== turnFrame, 'shared turning geometry omitted from runtime identity');
+  assert(turnFrame === await runtimeIdentity(), 'identity unstable for unchanged files');
+  await fs.writeFile(path.join(dir, 'web/fins/sections.js'), 'changed section implementation');
+  const sections = await runtimeIdentity();
+  assert(sections !== turnFrame, 'new section module did not invalidate runtime identity');
 }));
 
 

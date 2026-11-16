@@ -5,6 +5,7 @@ import { t, tn } from './i18n.js';
  */
 import { FIN, PAD } from '../fins.js';
 import { bareArea, fillReach } from '../fins/fill.js';
+import { printabilityStats } from '../fins/printability.js';
 import { PROP } from '../prop.js';
 import { el } from './dom.js';
 
@@ -375,6 +376,24 @@ function updateFinReadout(built, ms) {
   // how-to-fix, goes behind the (i). Split so the panel doesn't read as a wall.
   const lead = [];
   const help = [];
+  if (built.printability) {
+    const check = printabilityStats(built.printability);
+    // The combined lead adds its own sentence separator below.
+    const note = (message) => lead.push(message.replace(/[.。]$/, ''));
+    if (removedIds.size || drawnOk) {
+      note(t('Support-section checks describe the original generation. Inspect supports again after manual changes.'));
+    } else if (check.supportCheck === 'incomplete') {
+      note(t('Support-section checks are incomplete. Inspect all supports in the slicer.'));
+    } else if (check.supportCheck === 'unavailable') {
+      note(t('Support-section checks are unavailable for these settings.'));
+    } else if (check.supportFindings) {
+      note(tn('{n} support-section finding needs slicer inspection (first at {z} mm).',
+        '{n} support-section findings need slicer inspection (first at {z} mm).',
+        check.supportFindings, { z: check.supportFirstZ.toFixed(1) }));
+    }
+    help.push(t('These geometric checks locate narrow sections, new starts and rapid growth. Model material below a start does not prove a printable seat. Check extrusion paths and gaps in the slicer.'));
+    if (built.printability.context?.basis === 'nozzle-proxy') help.push(t('Section widths use the selected nozzle as a proxy; actual slicer line widths and first-layer settings may differ.'));
+  }
   if (!n && !drawnOk) {
     // Nothing placed -- the box names the outcome; the why goes in the
     // (i), since it's a paragraph and the user can hover for it.

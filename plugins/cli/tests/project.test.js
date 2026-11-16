@@ -279,6 +279,23 @@ Deno.test('project turning resume: changing activation or angle invalidates old 
   assert(disabled.code === 0 && !disabled.hits.length && disabled.saved.join() === '1,2', 'disabled mode reused turns');
 }, await turnFixture()));
 
+Deno.test('project diagnostics: saved slicing context survives overrides without editing source settings', async () => {
+  const zip = new ProjectZip(await fixture());
+  const settings = { ...JSON.parse(await zip.text(SETTINGS)), nozzle_diameter: ['0.8'], layer_height: '0.4',
+    initial_layer_print_height: '0.3', line_width: '0.82', initial_layer_line_width: '0.9', support_bottom_z_distance: '0.2' };
+  const source = new Uint8Array(await (await zip.patch(new Map([[SETTINGS, JSON.stringify(settings)]]))).arrayBuffer());
+  const r = await cli(source, ['--object', '1', '--nozzle', '0.4', '--layer-height', '0.2']);
+  assert(r.code === 0, r.err.join('\n'));
+  const o = r.result.objects[0], c = o.diagnostics.support.context;
+  assert(o.nozzle === 0.4 && o.layerHeight === 0.2, 'generation override changed');
+  assert(c.nozzle === 0.8 && c.layerHeight === 0.4 && c.firstLayerHeight === 0.3, 'diagnostics used generation overrides');
+  assert(c.lineWidth === 0.82 && c.firstLayerWidth === 0.9);
+  assert(c.plateZ === o.diagnostics.offset.z, 'saved plate did not follow coordinate conversion');
+  const saved = new ProjectZip(r.fs.get(r.result.output));
+  assert(await saved.text(SETTINGS) === JSON.stringify(settings), 'diagnostics changed project settings');
+  for (const name of ['3D/Objects/a.model', '3D/Objects/b.model']) assert(await saved.text(name) === await zip.text(name));
+});
+
 Deno.test('project: an empty nested cutter cannot hide beside a valid leaf in the same component', async () => {
   const original = await fixture({ upright: true, cutters: [{ positions: block(4, 8, 4, 8, -1, 21) }] });
   const zip = new ProjectZip(original), path = '3D/Objects/cutter0.model';
