@@ -297,8 +297,13 @@ jobs:
           path: plugins/blender/build
       - name: Install Blender's system libraries
         run: sudo apt-get update -q && sudo apt-get install -y -q libx11-6 libxi6 libxrender1 libxfixes3 libxxf86vm1 libgl1 libsm6 libice6 libxkbcommon0
+      - name: Cache the Blender download
+        uses: actions/cache@v4
+        with:
+          path: ~/blender-download
+          key: blender-${{ matrix.version }}-linux-x64
       - name: Smoke test in Blender ${{ matrix.version }}
-        run: python plugins/blender/tests/run_blender.py --version '${{ matrix.version }}' --package plugins/blender/build/support_fins-linux-x64.zip
+        run: python plugins/blender/tests/run_blender.py --version '${{ matrix.version }}' --package plugins/blender/build/support_fins-linux-x64.zip --cache ~/blender-download
 
   prusa:
     runs-on: ubuntu-latest
