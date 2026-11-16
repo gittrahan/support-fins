@@ -19,47 +19,63 @@ import urllib.error
 import urllib.request
 
 
+# The official checksums from download.blender.org/release/Blender<x.y>/blender-<version>.sha256.
+# Pinned here so a mirror's copy can be trusted and no checksum file has to be fetched.
+SHA256 = {
+    '4.2.23': 'bea0eb3146be13eae6225409a117b215184f41b7f79e799f97cb3abb8f6dc404',
+    '5.2.2': '84098912789dc450e95697c4184fb8a90acbe5111c2ba4aede3fecb57806a168',
+}
+MIRRORS = (
+    'https://download.blender.org/release/',
+    'https://mirrors.ocf.berkeley.edu/blender/release/',
+    'https://mirror.clarkson.edu/blender/release/',
+    'https://ftp.halifax.rwth-aachen.de/blender/release/',
+)
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--version', choices=('4.2.23', '5.2.2'), required=True)
+    parser.add_argument('--version', choices=sorted(SHA256), required=True)
     parser.add_argument('--package', type=Path, required=True)
-    # A folder kept between CI runs (actions/cache): the archive and its checksum file are
-    # downloaded once, so most runs never touch download.blender.org.
+    # A folder kept between CI runs (actions/cache): the archive is downloaded once, so most
+    # runs never touch a download server.
     parser.add_argument('--cache', type=Path)
     args = parser.parse_args()
-    base = f"https://download.blender.org/release/Blender{args.version.rsplit('.', 1)[0]}/"
+    folder = f"Blender{args.version.rsplit('.', 1)[0]}/"
     name = f'blender-{args.version}-linux-x64.tar.xz'
-    sums = f'blender-{args.version}.sha256'
-    def download(url, target):
-        # download.blender.org sometimes answers GitHub's runners with 403 or a dropped
-        # connection; it clears within a minute or two, so retry with backoff.
-        for attempt in range(6):
-            try:
-                request = urllib.request.Request(url, headers={'User-Agent':'SupportFins-tests'})
-                with urllib.request.urlopen(request, timeout=120) as response, target.open('wb') as output:
-                    shutil.copyfileobj(response, output)
-                return
-            except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
-                if attempt == 5:
-                    raise
-                wait = 10 * 2 ** attempt
-                print(f'{url}: {error}; retrying in {wait} s', flush=True)
-                time.sleep(wait)
+    expected = SHA256[args.version]
+    def digest(path):
+        with path.open('rb') as source:
+            return hashlib.file_digest(source, 'sha256').hexdigest()
+    def download(target):
+        # download.blender.org answers some GitHub runners with HTTP 403 for minutes at a
+        # time, so each official mirror is tried in turn, twice round with a pause.
+        for attempt in range(2):
+            for base in MIRRORS:
+                url = base + folder + name
+                try:
+                    request = urllib.request.Request(url, headers={'User-Agent': 'SupportFins-tests'})
+                    with urllib.request.urlopen(request, timeout=120) as response, target.open('wb') as output:
+                        shutil.copyfileobj(response, output)
+                except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                    print(f'{url}: {error}', flush=True)
+                    continue
+                if digest(target) == expected:
+                    print(f'Downloaded {url}', flush=True)
+                    return
+                print(f'{url}: checksum mismatch', flush=True)
+            if attempt == 0:
+                time.sleep(60)
+        raise RuntimeError(f'Could not download {name} with the official checksum')
     with tempfile.TemporaryDirectory(prefix='blender-ci-') as directory:
         directory = Path(directory)
         store = args.cache or directory
         store.mkdir(parents=True, exist_ok=True)
         archive = store / name
-        if not (archive.exists() and (store / sums).exists()):
-            download(base + name, archive)
-            download(base + sums, store / sums)
-        checks = (store / sums).read_text()
-        expected = next(line.split()[0] for line in checks.splitlines() if line.split()[-1].lstrip('*') == name)
-        with archive.open('rb') as source:
-            actual = hashlib.file_digest(source, 'sha256').hexdigest()
-        if actual != expected:
-            archive.unlink()
-            raise RuntimeError('Official Blender checksum mismatch')
+        if archive.exists() and digest(archive) == expected:
+            print(f'Using cached {archive}', flush=True)
+        else:
+            download(archive)
         with tarfile.open(archive) as source:
             source.extractall(directory, filter='data')
         blender = directory / name.removesuffix('.tar.xz') / 'blender'
