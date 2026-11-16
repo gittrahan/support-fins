@@ -214,6 +214,11 @@
       "date": "2026-11-10",
       "check": "easy",
       "text": "The 3MF you export is now compressed: about a sixth the size of before for the same model (a 70 MB part's file went from 102 MB to 17 MB). Nothing in the model changes, and Bambu Studio and PrusaSlicer open it as before."
+    },
+    {
+      "date": "2026-11-16",
+      "check": "easy",
+      "text": "Docker now runs nginx without root privileges. The container port changes from 80 to 8080; Compose still serves the app on host port 8731. Update custom port mappings, proxy targets and health checks when upgrading."
     }
   ]
 }
