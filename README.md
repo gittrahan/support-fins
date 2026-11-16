@@ -208,7 +208,20 @@ docker compose up -d        # http://localhost:8731/
 
 This uses the latest stable release by default.
 
-To pin a release, add this to a `.env` file beside `docker-compose.yml`:
+The image runs nginx as the non-root user `nginx` (UID 101), listening on
+container port **8080**. Compose maps it to host port **8731**. For a direct
+container run, use `docker run --rm -p 8731:8080 ghcr.io/gittrahan/support-fins:latest`;
+reverse proxies connecting directly to the container should also use port 8080.
+
+**Port migration:** older images listen on port 80. Update custom port mappings,
+proxy targets and health checks when upgrading to the non-root image. Keep an
+older image paired with its release's Compose file (and port 80), rather than
+using the current Compose file with it. Image changes on `main` reach `latest`
+only after a release is published; until then, build this checkout locally to
+use its matching image.
+
+To pin a release, use that release's `docker-compose.yml` and add its version to
+a `.env` file beside it:
 
 ```env
 SUPPORT_FINS_VERSION=v1.0.0
@@ -219,6 +232,19 @@ To build the checked-out source instead:
 ```bash
 docker compose up --build
 ```
+
+Container checks run in the Docker CI workflow on Linux amd64 and arm64. To run
+the same checks with Docker Engine, Buildx, Compose v2, Python 3 and curl installed:
+
+```bash
+bash .github/scripts/test-docker.sh
+```
+
+This builds a test image, checks Compose health and HTTP delivery on port 8731,
+and repeats with a read-only filesystem, writable `/tmp` and no Linux
+capabilities. It uses unique test resource names, removes its containers and image
+on exit, and keeps diagnostics under `tmp/docker-smoke.*/evidence/`. Port 8731
+must be free. Docker stores image layers and build cache in its own data directory.
 
 The Python prototype is the proof of concept the engine was ported from — plain mesh math,
 no CAD kernel:

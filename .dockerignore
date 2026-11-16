@@ -3,9 +3,18 @@
 # dev/research artifact that should not enter the image.
 
 # VCS + OS
-.git/
+.git
 .gitignore
 .DS_Store
+
+# Local tooling, credentials and evidence must not enter the build context.
+.codex/
+tokens/
+tmp/
+evidence/
+.playwright-mcp/
+.env
+.env.*
 
 # Python bytecode / caches
 __pycache__/
