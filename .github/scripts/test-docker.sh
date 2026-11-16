@@ -7,7 +7,7 @@ mkdir -p "$root/tmp"
 scratch=$(mktemp -d "$root/tmp/docker-smoke.XXXXXX")
 evidence="$scratch/evidence"
 mkdir "$evidence"
-suffix=$(basename "$scratch" | tr '[:upper:]' '[:lower:]')
+suffix=$(printf '%s' "${scratch##*.}" | tr '[:upper:]' '[:lower:]')
 project="support-fins-$suffix"
 image="support-fins-smoke:$suffix"
 container="$project-web"
