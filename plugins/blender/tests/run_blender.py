@@ -9,13 +9,13 @@ into the temp dir, so the run never touches a real install. From RemusTL's PR #1
 import argparse
 import os
 import hashlib
+import http.client
 from pathlib import Path
 import shutil
 import subprocess
 import tarfile
 import tempfile
 import time
-import urllib.error
 import urllib.request
 
 
@@ -57,7 +57,7 @@ def main():
                     request = urllib.request.Request(url, headers={'User-Agent': 'SupportFins-tests'})
                     with urllib.request.urlopen(request, timeout=120) as response, target.open('wb') as output:
                         shutil.copyfileobj(response, output)
-                except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
+                except (OSError, http.client.HTTPException) as error:  # URLError is an OSError
                     print(f'{url}: {error}', flush=True)
                     continue
                 if digest(target) == expected:
