@@ -8,6 +8,7 @@
 // 中文没有复数变化，复数一律只写 other（Intl.PluralRules("zh") 恒返回 other）。
 
 export default {
+  "Side clearance is zero: support walls may fuse to the model. Increase it for removable supports.": "侧面间隙为零：支撑壁可能与模型熔合。请增大间隙，以便移除支撑。",
   "Side clearance": "侧向间隙",
   "Bottom gap": "底部间隙",
   "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.": "支撑壁宽面旁的间隙。窄端会自动修剪。设为零可能使支撑壁与模型熔合。默认 0.35 毫米。",

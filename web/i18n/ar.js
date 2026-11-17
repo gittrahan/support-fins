@@ -1,5 +1,6 @@
 // Arabic translation
 export default {
+  "Side clearance is zero: support walls may fuse to the model. Increase it for removable supports.": "الخلوص الجانبي صفر: قد تلتحم جدران الدعم بالنموذج. زِد الخلوص لتتمكن من إزالة الدعامات.",
   "Side clearance": "الخلوص الجانبي",
   "Bottom gap": "الفجوة السفلية",
   "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.": "الخلوص بجوار الوجهين العريضين لجدار الدعم. تُقصّ النهايات الضيقة تلقائيًا. قد تؤدي القيمة صفر إلى التحام الجدار بالقطعة. الافتراضي 0.35 مم.",

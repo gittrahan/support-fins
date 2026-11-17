@@ -1,8 +1,11 @@
 // #119: bottom and side clearances are independent of top gap.
-import { assert, block, isClosed, prop, fins } from './_util.js';
+import { assert, block, isClosed, prop, fins, buildTopology, analyze } from './_util.js';
 import { drawnWall } from '../web/draw.js';
-import { computeFins } from '../plugins/shared/engine/fins_entry.js';
+import { computeFins, ENGINE_DEFAULTS } from '../plugins/shared/engine/fins_entry.js';
 import { shelf } from '../prototype/calibration/part-contact.js';
+
+import { clearances, seatSoup, flatten } from '../plugins/shared/engine/seat.js';
+import { IDENTITY3 } from '../web/overhangs.js';
 
 const { PROP } = prop;
 const model = new Float32Array([...block(-40, 40, -10, 10, 0, 5), ...block(-40, 40, -10, 10, 35, 39)]);
@@ -49,5 +52,38 @@ Deno.test('part clearances: adapter validates controls and resets them between c
     let error;
     try { computeFins(model, { ...opts, ...change }); } catch (e) { error = e; }
     assert(error, `invalid setting accepted: ${JSON.stringify(change)}`);
+  }
+}));
+
+Deno.test('part clearances: a measured side gap admits or refuses the wall, in the engine and adapter', () => withSettings(() => {
+  // The pocket sides are at y=+-1.1. Its one central wall is 1 mm wide:
+  // 0.6 mm of measured air admits a 0.35 mm requirement, but not 0.8 mm.
+  const pocket = new Float32Array([...block(-20,20,-5,5,0,5), ...block(-20,20,-5,5,15,17),
+    ...block(-20,20,-5,-1.1,5,15), ...block(-20,20,1.1,5,5,15)]);
+  const { pos } = seatSoup(pocket);
+  const topo = buildTopology({getAttribute: () => ({array:pos})});
+  const analysis = analyze(topo,45,IDENTITY3);
+  for (const mode of ['auto', 'full']) {
+    const opts = {...ENGINE_DEFAULTS, mode, tines:false, bedPad:false};
+    const original = computeFins(pocket, opts).triangles;
+    assert(original.length > 0, `${mode}: missing control wall`);
+    const sides = [];
+    for (let i=0; i<original.length; i+=3) {
+      if (original[i+2] > 5.01 && original[i+2] < 14) sides.push(Math.abs(original[i+1]));
+    }
+    const measured = 1.1 - Math.max(...sides);
+    assert(Math.abs(measured - 0.6) < 1e-6, `${mode}: unexpected flank gap ${measured}`);
+    for (const sideClearance of [0.35,0.8,0.35]) {
+      const settings = {...opts,sideClearance}, actual = computeFins(pocket,settings).triangles;
+      const site = fins.buildFins(topo,analysis,IDENTITY3,{...opts,...clearances(settings)});
+      assert(same(actual,flatten(site.triangles)), `${mode}: browser/adapter differ`);
+      if (sideClearance > measured) {
+        assert(!same(actual, original), `${mode}: side clearance did not change placement`);
+        if (mode === 'auto') assert(actual.length === 0, 'Auto retained the wall with insufficient flank clearance');
+        // Full may replace the refused Auto wall in its separate fill pass.
+      }
+      else assert(same(actual,original), `${mode}: default/restore changed geometry`);
+    }
+    assert(same(computeFins(pocket,opts).triangles, original), 'clearance leaked to next call');
   }
 }));

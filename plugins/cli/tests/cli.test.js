@@ -41,6 +41,9 @@ Deno.test('cli: independent part clearances reach the engine', async () => {
   }
   const resin = await cli([...args, '--tine-dir', 'vertical', '--bottom-gap', '0.4'], files);
   assert(resin.err.some(s => s.includes('bottom-gap does nothing')), 'inactive settings were not reported');
+  const zero = await cli([...args, '--side-clearance', '0'], files);
+  assert(zero.code === 0 && zero.err.some(s => s.includes('may fuse to the model')), 'zero clearance warning missing');
+  assert(!baseline.err.some(s => s.includes('may fuse to the model')), 'default clearance warned');
   const help = await cli(['--help']);
   assert(['--side-clearance', '--bottom-gap'].every(flag => help.out.join('\n').includes(flag)), 'help omitted controls');
 });
