@@ -15,7 +15,6 @@ import { PROP } from './config.js';
 import { contourTop, lowerSag, settleTop } from './contact.js';
 import { floorLine, moldLine } from './mold.js';
 import { sweepBetween } from './sweep.js';
-import { AnchorContactError } from './anchors.js';
 
 // How far below the clicked/probed overhang a settle pass may still pull the top
 // down when looking for a part-attached support. Comfortably covers an overhang's
@@ -90,7 +89,7 @@ export function clearBetween(top, floor, k, topo, rot, offset) {
   const nP = Math.max(3, Math.ceil((zTop - zBot) / 1.5));
   for (let i = 1; i < nP; i++) {                 // strictly interior heights
     const z = zBot + ((zTop - zBot) * i) / nP;
-    for (const m of [Math.min(0.12, PROP.sideClear), Math.min(0.24, PROP.sideClear), PROP.sideClear]) {
+    for (const m of [0.12, 0.24, PROP.sideClear]) {
       const w = PROP.th / 2 + m;
       if (insidePart(topo, rot, offset, p[0] + sx * w, p[1] + sy * w, z)) return false;
       if (insidePart(topo, rot, offset, p[0] - sx * w, p[1] - sy * w, z)) return false;
@@ -179,13 +178,7 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out) {
 
   const before = out.length;
   const mold = moldLine(subTop, partTris);
-  try {
-    if (!sweepBetween(mold.top, mold.floor, out, PROP.minHeight, partTris)) { out.length = before; return { floored: 'degenerate' }; }
-  } catch (e) {
-    if (!(e instanceof AnchorContactError)) throw e;
-    out.length = before;
-    return { floored: 'blocked' }; // no checked contact; never fall through to a plate wall
-  }
+  if (!sweepBetween(mold.top, mold.floor, out)) { out.length = before; return { floored: 'degenerate' }; }
 
   // In a bore when most of the kept run is walled all round.
   let walled = 0;

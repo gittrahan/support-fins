@@ -11,28 +11,6 @@ supports are already in the file (and the angle test needs none). Download them 
 the site's **Calibrate** menu, which also shows each one's print time and filament;
 they're also in `prototype/calibration/<name>/print/`.
 
-**Part-supported wall contacts (#119).** More settings offers Side clearance
-(default 0.35 mm), Bottom gap (default 0.2 mm) and optional Line anchors (off).
-Support gap still controls the top. Resin keeps a welded bottom; plate feet stay
-on the plate. Decreasing bottom gap or adding contacts can leave marks. Anchors
-require a nozzle-scaled straight interval on a verified upward floor facet; if
-none fits, the wall is omitted. Curved or finely tessellated floors can therefore
-lose support. Check coverage before printing.
-
-Generate the procedural comparison with
-`deno run -A prototype/calibration/part-contact.js tmp/part-contact`.
-For each listed nozzle, it writes the same shelf with a gap-only foot, welded
-foot and line anchors; `settings.json` records the settings. Print the matching
-nozzle files with 0.20 mm layers and native supports disabled. Compare whether
-the wall survives printing, how it breaks away, and the marks on the floor.
-A user-reported comparison of the prepared H2C/PETG, 0.8 mm nozzle, 0.20 mm
-layer projects found easy removal and clean connections with line anchors.
-Gap-only fins were harder to remove; welded side fins could not be removed.
-Both removable variants still had loose roof strands, including a later
-bridge-direction control. This is bounded contact/removal evidence, not a
-claim of complete roof support or measured removal force. No 0.4 mm physical
-result has been reported.
-
 | Test | Sets | Where on printfins.com |
 |---|---|---|
 | Angle | which faces need support | Overhang slider (top bar) |

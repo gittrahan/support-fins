@@ -223,7 +223,7 @@
     {
       "date": "2026-11-16",
       "check": "clean",
-      "text": "Independent side and bottom clearances, with optional line contacts under FDM walls standing on the model. Existing defaults stay the same.",
+      "text": "Independent side and bottom clearances for FDM walls standing on the model. Existing defaults stay the same.",
       "pr": 416
     }
   ]

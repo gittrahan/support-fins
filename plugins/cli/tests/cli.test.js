@@ -26,7 +26,7 @@ import { unzip, zipStore } from '../../../web/zip.js';
 
 const LBRACKET = Deno.readFileSync(`${MODELS}lbracket.stl`);
 
-Deno.test('cli: independent part clearances and line anchors reach the engine', async () => {
+Deno.test('cli: independent part clearances reach the engine', async () => {
   const pos = new Float32Array([...block(-20, 20, -5, 5, 0, 5), ...block(-20, 20, -5, 5, 15, 17),
     ...block(-20, 20, -5, -1.1, 5, 15), ...block(-20, 20, 1.1, 5, 5, 15)]);
   const triples = Array.from({ length: pos.length / 3 }, (_, i) => Array.from(pos.slice(i * 3, i * 3 + 3)));
@@ -34,17 +34,15 @@ Deno.test('cli: independent part clearances and line anchors reach the engine', 
   const args = ['pocket.stl', '-o', 'out.stl', '--no-tines', '--pad-style', 'off'];
   const baseline = await cli(args, files);
   const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
-  for (const flags of [['--bottom-gap', '0.4'], ['--bottom-anchors'], ['--side-clearance', '1']]) {
+  for (const flags of [['--bottom-gap', '0.4'], ['--side-clearance', '1']]) {
     const r = await cli([...args, ...flags], files);
     assert(r.code === 0, r.err.join('\n'));
     assert(!same(baseline.fs.get('out.stl'), r.fs.get('out.stl')), `${flags} had no effect`);
   }
-  const off = await cli([...args, '--no-bottom-anchors'], files);
-  assert(same(baseline.fs.get('out.stl'), off.fs.get('out.stl')), 'explicit false changed defaults');
-  const resin = await cli([...args, '--tine-dir', 'vertical', '--bottom-gap', '0.4', '--bottom-anchors'], files);
-  assert(resin.err.some(s => s.includes('bottom-gap does nothing')) && resin.err.some(s => s.includes('bottom-anchors does nothing')), 'inactive settings were not reported');
+  const resin = await cli([...args, '--tine-dir', 'vertical', '--bottom-gap', '0.4'], files);
+  assert(resin.err.some(s => s.includes('bottom-gap does nothing')), 'inactive settings were not reported');
   const help = await cli(['--help']);
-  assert(['--side-clearance', '--bottom-gap', '--bottom-anchors'].every(flag => help.out.join('\n').includes(flag)), 'help omitted controls');
+  assert(['--side-clearance', '--bottom-gap'].every(flag => help.out.join('\n').includes(flag)), 'help omitted controls');
 });
 
 Deno.test('cli: nozzle reaches generated geometry, defaults to 0.4 and rejects bad arguments before I/O', async () => {

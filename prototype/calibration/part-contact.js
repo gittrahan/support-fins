@@ -31,9 +31,9 @@ if (import.meta.main) {
   await Deno.mkdir(out, {recursive: true});
   const positions = shelf();
   const manifest = [];
-  for (const nozzle of [0.4, 0.8]) for (const name of ['gap-only', 'welded', 'line-anchors']) {
+  for (const nozzle of [0.4, 0.8]) for (const name of ['gap-only', 'welded']) {
     const options = { nozzle, layerHeight: 0.2, gap: 0.2, bottomGap: name === 'welded' ? 0 : 0.2,
-      bottomAnchors: name === 'line-anchors', padStyle: 'off', tines: false };
+      padStyle: 'off', tines: false };
     const built = computeFins(positions, options);
     if (!built.triangles.length) throw new Error(`No supports for ${name}, nozzle ${nozzle}`);
     const part = triples(positions).map(p => p.map((v,k) => v + built.offset[['x','y','z'][k]]));

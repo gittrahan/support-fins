@@ -29,12 +29,10 @@ or `"off"`. It keeps fill walls from crossing or sharing their bases, but can le
 more overhang unsupported; thin ties between tall walls stay. In Auto placement (`"mode": "auto"`) it has no
 effect and returns a warning.
 
-For independent clearances and optional FDM line contacts, use
-`"settings": {"side-clearance": 0.35, "bottom-gap": 0.2, "bottom-anchors": true}`.
-The clearances are in millimetres; anchors default to `false`. Top clearance
-remains `gap`. Resin ignores bottom gap and anchors. Plate feet are unchanged.
-An anchored wall needs a verified floor contact; otherwise it is omitted. Check
-the resulting coverage in the slicer and print-test contact strength and marking.
+For independent clearances, use
+`"settings": {"side-clearance": 0.35, "bottom-gap": 0.2}`.
+The clearances are in millimetres. Top clearance remains `gap`. Resin ignores
+bottom gap. Plate feet are unchanged.
 
 The result is the CLI's report line ("5 walls, 20 tines; 1 overhang is too shallow for a
 fin this way up (tilt the part steeper)") plus the numbers behind it. Unsupported
