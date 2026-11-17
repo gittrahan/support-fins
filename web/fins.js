@@ -117,7 +117,10 @@ export function applyTunables(t = {}) {
   // Not a clearance, but module state with the same Worker problem.
   if (CUTOUT_PATTERNS.includes(t.cutout)) CUT.pattern = t.cutout;
   // So is the interface crest's mode (GitHub #21, prop/crest.js).
-  if ([false, 'flat', 'all'].includes(t.iface)) PROP.iface = t.iface;
+  if ([false, 'flat', 'all', 'tines'].includes(t.iface)) PROP.iface = t.iface;
+  else if (PROP.iface === 'tines') PROP.iface = false;
+  // Opt-in capture must not leak from a browser build into an ordinary caller.
+  PROP.separateTines = t.separateTines === true;
   // And the tine direction (#309): 'vertical' lays resin pins (prop/pins.js).
   // A wall standing on the part welds its foot there too: resin builds the wall from
   // the part outward, so a foot `footGap` off the part would start as a floating island.

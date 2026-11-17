@@ -7,6 +7,9 @@ import * as THREE from 'three';
 import { writeBinarySTL, download } from '../stl.js';
 import { writePlate3MF } from '../threemf.js';
 import { splitInterface } from '../prop.js';
+import { hasSupportRoles } from '../support-materials.js';
+import { partitionSupportExport } from '../material-worker-client.js';
+import { moveSupportTriangles } from '../support-roles.js';
 import { el } from './dom.js';
 import { t } from './i18n.js';
 import { finMode, finsVisible } from './settings.js';
@@ -83,6 +86,7 @@ function modelGeometry({ mesh, topology, rot, offset, name: partName, added, lay
   // the two settings the slicer must match, carried in the file name (#279)
   const name = (stem, ext) => exportName(`${base}-${stem}`, ext, { nozzle, layerHeight });
   return { partTris, finTris, base, name, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
+           materialFormat: model ? model.form['material-format'] ?? 'components' : el('material-format').value,
            session: () => sessionOf(partTris, model) };
 }
 
@@ -110,7 +114,7 @@ function placed(g, [x, y]) {
   const at = (tris) => tris.map((p) => { const q = p.slice(); q[0] += x; q[1] += y; return q; });
   const slicer = g.slicer && { ...g.slicer, partTris: at(g.slicer.partTris),
     extras: g.slicer.extras.map((e) => ({ ...e, tris: at(e.tris) })) };
-  return { ...g, partTris: at(g.partTris), finTris: at(g.finTris), slicer };
+  return { ...g, partTris: at(g.partTris), finTris: moveSupportTriangles(g.finTris, x, y), slicer };
 }
 
 /** Is every parked model of `plate` (not the one edited) built under its settings? */
@@ -172,15 +176,19 @@ const FORMATS = {
   // (threemf.js writePlate3MF); the session is one model's, so only a plate of one
   // carries it.
   'export-3mf': async (gs) => {
-    const models = gs.map((g) => {
+    // Capture the session before the optional asynchronous partition. The user
+    // can edit the page while WASM loads; this file stays with its snapshot.
+    const session = gs.length === 1 ? gs[0].session() : null, bed = { ...currentVolume() };
+    const models = [];
+    for (const g of gs) {
       const { body, iface } = splitInterface(g.finTris);
       const own = g.slicer ?? g;
-      return { partTris: own.partTris, finTris: body, name: g.base, iface, colors: own.colors,
-               extras: g.slicer?.extras ?? [] };
-    });
+      const materialParts = hasSupportRoles(g.finTris) ? (await partitionSupportExport(g.finTris)).parts : null;
+      models.push({ partTris: own.partTris, finTris: materialParts ? [] : body, name: g.base,
+        iface: materialParts ? [] : iface, materialParts, materialFormat: g.materialFormat, colors: own.colors, extras: g.slicer?.extras ?? [] });
+    }
     // each where it stands on the plate, the plate's centre the bed's (ui/move.js)
-    return [await writePlate3MF(models, { title: gs[0].base, separate: true, bed: currentVolume(),
-                                    session: gs.length === 1 ? gs[0].session() : null }),
+    return [await writePlate3MF(models, { title: gs[0].base, separate: true, bed, session }),
             plateName(gs, 'fins', '.3mf')];
   },
   // Just the fins + pad (issue #5). One body, so 3MF would add nothing over STL.
@@ -221,25 +229,32 @@ function setOpen(open) {
 btn.addEventListener('click', () => setOpen(menu.hidden));
 for (const [id, write] of Object.entries(FORMATS)) {
   el(id).addEventListener('click', async () => {
+    el('export-error').hidden = true;
     setOpen(false);
-    // an STL is the model being edited, alone and centred (a slicer centres it
-    // anyway); a 3MF of one, that one where it stands on the plate
-    if (id !== 'export-3mf' || currentPlate().models.length === 1) {
-      const g = buildExportGeometry();
-      if (g) download(...await write([id === 'export-3mf' ? placed(g, liveXY()) : g]));
-      return;
+    try {
+      // an STL is the model being edited, alone and centred (a slicer centres it
+      // anyway); a 3MF of one, that one where it stands on the plate
+      if (id !== 'export-3mf' || currentPlate().models.length === 1) {
+        const g = buildExportGeometry();
+        if (g) download(...await write([id === 'export-3mf' ? placed(g, liveXY()) : g]));
+        return;
+      }
+      // the plate's other models are parked, their fins kept to its settings: wait for
+      // any still building, then write them as they stand
+      if (waiting) return;
+      const plate = currentPlate();
+      const gs = await whileWaiting(async () => {
+        const settled = await parkedSettled();
+        // switched away meanwhile: that plate, if its models are current
+        if (currentPlate() !== plate) return plateReady(plate) ? plateGeometry(plate) : null;
+        return settled ? plateGeometry() : locked(plateGeometryLive);
+      });
+      if (gs?.length) download(...await write(gs));
+    } catch (error) {
+      el('export-error').textContent = `${t('Could not export support material parts. No file was written.')} ${error.message}`;
+      el('export-error').hidden = false;
+      setOpen(true);
     }
-    // the plate's other models are parked, their fins kept to its settings: wait for
-    // any still building, then write them as they stand
-    if (waiting) return;
-    const plate = currentPlate();
-    const gs = await whileWaiting(async () => {
-      const settled = await parkedSettled();
-      // switched away meanwhile: that plate, if its models are current
-      if (currentPlate() !== plate) return plateReady(plate) ? plateGeometry(plate) : null;
-      return settled ? plateGeometry() : locked(plateGeometryLive);
-    });
-    if (gs?.length) download(...await write(gs));
   });
 }
 
@@ -262,9 +277,14 @@ el('export-arrange').addEventListener('click', () => {
   arrange();
 });
 // Every plate, one 3MF each (ui/plates.js); shown only with more than one plate.
-el('export-all').addEventListener('click', () => {
+el('export-all').addEventListener('click', async () => {
   setOpen(false);
-  exportAll();
+  try { await exportAll(); }
+  catch (error) {
+    el('export-error').textContent = `${t('Could not export support material parts. No file was written.')} ${error.message}`;
+    el('export-error').hidden = false;
+    setOpen(true);
+  }
 });
 
 /** `gs` (plateGeometry) as a 3MF, [blob, name], for Export all plates; null when

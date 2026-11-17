@@ -18,6 +18,9 @@ deno run -A prototype/ui-smoke/compare.js base.json run.json
 
 # small-hole readouts, translations, vertex colours and worker lifecycle
 deno run -A prototype/ui-smoke/small-holes.js
+
+# support material controls, workers, real downloads and session reload
+deno run -A prototype/ui-smoke/support-materials.js --out /existing/temporary/directory
 ```
 
 **The script:** load → rotate X, Y → fins on → remove the nearest fin (hover,

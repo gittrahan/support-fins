@@ -317,6 +317,11 @@
       "date": "2026-11-20",
       "check": "easy",
       "text": "Orca plugin: re-slicing a part whose fins have not changed reuses them instead of rebuilding (a 59,000-face figure: 3.2 s to 5 ms)."
+    },
+    {
+      "date": "2026-11-18",
+      "check": "clean",
+      "text": "Optional 3MF material parts for support bodies, tines and top interfaces; assign their filaments independently in the slicer."
     }
   ]
 }
