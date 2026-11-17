@@ -327,6 +327,11 @@
       "date": "2026-11-20",
       "check": "clean",
       "text": "Preserved-project CLI exports can assign separate filament slots to tines and top interfaces, with complete material partitions retained when resuming."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "clean",
+      "text": "Optional preserved-project contact matching follows saved model materials and paint boundaries, with a selected fallback for unresolved regions."
     }
   ]
 }

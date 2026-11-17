@@ -7,7 +7,7 @@ const CORE = 'http://schemas.microsoft.com/3dmanufacturing/core/2015/02';
 const PROD = 'http://schemas.microsoft.com/3dmanufacturing/production/2015/06';
 const triples = (p) => Array.from({ length: p.length / 3 }, (_, i) => Array.from(p.slice(i * 3, i * 3 + 3)));
 export async function materialFixture({ sequence = 'by layer', mirror = false, positions = block(0,20,0,20,0,20),
-  upright = false, second = false, negative = false, palette = ['#FFFFFF','#FFFFFF','#123456'] } = {}) {
+  upright = false, second = false, negative = false, palette = ['#FFFFFF','#FFFFFF','#123456'], paint = (i) => i % 2 ? '8' : '' } = {}) {
   const q = upright ? 1 : Math.cos(35*Math.PI/180), s = upright ? 0 : Math.sin(35*Math.PI/180);
   const resource = (id) => `<object id="${id}"><components><component objectid="1" p:path="/3D/Objects/body.model"/>`
     + (negative ? '<component objectid="2" p:path="/3D/Objects/cut.model"/>' : '') + '</components></object>';
@@ -18,7 +18,7 @@ export async function materialFixture({ sequence = 'by layer', mirror = false, p
   const instance = (id) => `<model_instance><metadata key="object_id" value="${id}"/><metadata key="instance_id" value="0"/><metadata key="identify_id" value="${id}"/></model_instance>`;
   const files = [
     { name:'3D/3dmodel.model', data:`<model xmlns="${CORE}" xmlns:p="${PROD}" unit="millimeter"><resources>${resource(100)}${second ? resource(200) : ''}</resources><build>${build(100,60)}${second ? build(200,120) : ''}</build></model>` },
-    { name:'3D/Objects/body.model', data:`<model xmlns="${CORE}" unit="millimeter"><resources><object id="1">${meshXML(triples(positions), (i)=>i%2 ? ' paint_color="8"' : '')}</object></resources></model>` },
+    { name:'3D/Objects/body.model', data:`<model xmlns="${CORE}" unit="millimeter"><resources><object id="1">${meshXML(triples(positions), (i)=>paint(i) ? ` paint_color="${paint(i)}"` : '')}</object></resources></model>` },
     { name:'Metadata/model_settings.config', data:`<config>${config(100)}${second ? config(200) : ''}<plate><metadata key="plater_id" value="1"/>${instance(100)}${second ? instance(200) : ''}</plate></config>` },
     { name:'Metadata/project_settings.config', data:JSON.stringify({ layer_height:'0.2',initial_layer_print_height:'0.2',nozzle_diameter:['0.4'],filament_colour:palette,
       filament_type:palette.map(()=>'PETG'),print_sequence:sequence,enable_support:'1',wall_filament:'0',sparse_infill_filament:'0',solid_infill_filament:'0' }) },

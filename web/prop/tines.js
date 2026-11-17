@@ -256,7 +256,7 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
     const outline = (h) => [[ov, -half], [e[h][0], -half], [e[h][1], half], [ov, half]];
     const from = out.length;
     loftExtrude(outline('bot'), outline('top'), tineBot, tineTop, P, out);
-    if (separateSupportRoles()) markSupportRole(out, from, 'tine', { direction: [dirx, diry, 0], footprint: [
+    if (separateSupportRoles()) markSupportRole(out, from, 'tine', { direction: [dirx, diry, 0], surfaceOffset: PROP.tineContactOffset, footprint: [
       P(e.bot[0], -half, tineBot), P(e.bot[1], half, tineBot),
       P(e.top[1], half, tineTop), P(e.top[0], -half, tineTop),
     ] });

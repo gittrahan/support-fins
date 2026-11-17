@@ -8,7 +8,9 @@ import { ProjectReport, formatProjectReport } from './project-report.js';
 import { projectNozzle } from './project-nozzle.js';
 import { projectPrintability } from './project-printability.js';
 import { supportDiagnosticLine } from '../shared/engine/report.js';
-import { negativeComponents, projectPositions } from './project-analysis.js';
+import { negativeComponents, projectPositions, projectModel, subtractProjectNegatives } from './project-analysis.js';
+import { cutNegatives } from '../../web/cut.js';
+import { sourceContactRegions } from '../../web/contact-source.js';
 import { turningSettings, projectBridgeAngle } from './project-turning-settings.js';
 import { turnProjectFins, plateFinCache, turningBounds, turningBoundsOverlap, validateTurningNeighbor } from './project-turning.js';
 import { bakeProjectObject } from './project-bake-input.js';
@@ -243,7 +245,7 @@ async function processProject(input, args, io, report) {
       const slot = filament(settings, o.config, args.finExtruder);
       const materialSlots = projectMaterialSlots(settings, args, slot);
       const materialOptions = { supportMaterials: !!materialSlots,
-        interfaceMode: args.interfaceExtruder != null ? args.interfaceMode ?? 'flat' : false };
+        interfaceMode: args.interfaceExtruder != null || args.matchContactMaterials ? args.interfaceMode ?? 'flat' : false };
       const { warning: nozzleWarning, ...nozzle } = projectNozzle(settings, args.dialog.nozzle);
       const options = optionsFromDialog({ ...args.dialog, layerHeight: height, nozzle: nozzle.nozzle });
       const own = metadata(o.config);
@@ -286,7 +288,8 @@ async function processProject(input, args, io, report) {
     settings: { dialog: args.dialog, finExtruder: args.finExtruder, disableNativeSupports: args.disableNativeSupports,
       ...(args.turnFins ? { turnFins: true, turnAngle: args.turnAngle } : {}),
       ...(plans.some((p) => p.materialSlots) ? { tineExtruder: args.tineExtruder, interfaceExtruder: args.interfaceExtruder,
-        interfaceMode: args.interfaceMode } : {}) },
+        interfaceMode: args.interfaceMode } : {}),
+      ...(args.matchContactMaterials ? { matchContactMaterials: true, contactFallbackExtruder: args.contactFallbackExtruder } : {}) },
     cacheDir: args.cacheDir, warn }) : null;
   const rootEdits = [], configEdits = [], supportObjects = [], results = [];
   // Bambu's cut-editing records use first-occurrence object ordinals, not
@@ -340,7 +343,7 @@ async function processProject(input, args, io, report) {
     if (generated && (p.materialSlots || generated.materialParts)) {
       try {
         if (!p.materialSlots) throw new Error('unexpected support materials');
-        validateProjectMaterialParts(generated.materialParts, p.materialSlots, generated.triangles.length > 0);
+        validateProjectMaterialParts(generated.materialParts, p.materialSlots, generated.triangles.length > 0, generated.contactMaterials);
       } catch (e) {
         warn(`object ${p.number}: ${e.message}; recomputing`);
         generated = null;
@@ -349,11 +352,21 @@ async function processProject(input, args, io, report) {
     const reused = !!generated;
     try {
       if (!generated) {
-        let positions, baked;
+        let positions, baked, regions;
         if (p.bake) {
           const conversion = await bakeProjectObject(zip.bytes, { buildIndex: p.number - 1, identity: identityForBake });
           ({ analysisPositions: positions, ...baked } = conversion);
-        } else positions = await projectPositions(zip, rootBytes, configBytes, p);
+        } else if (!p.materialSlots?.match) positions = await projectPositions(zip, rootBytes, configBytes, p);
+        if (p.materialSlots?.match) {
+          const model = await projectModel(zip, rootBytes, configBytes, p, { withMaterials: true });
+          let surface;
+          const analysis = await subtractProjectNegatives(model, p.negativeCount, async (input) => {
+            surface = await cutNegatives(input, { provenance: true });
+            return surface;
+          });
+          positions ??= analysis;
+          regions = sourceContactRegions(model, surface);
+        }
         if (args.check) {
           if (p.turning) report.object(p).warnings.push('Turning settings are compatible; roof eligibility, connections and clearance require generation and final slicing.');
           if (baked) {
@@ -395,7 +408,7 @@ async function processProject(input, args, io, report) {
             }
           },
         });
-        if (p.materialSlots) generated = await projectMaterialParts(generated, p.materialSlots);
+        if (p.materialSlots) generated = await projectMaterialParts(generated, p.materialSlots, regions);
         if (baked && generated.triangles.length) generated.baked = baked;
       }
       const { triangles, offset, stats } = generated;
@@ -408,7 +421,8 @@ async function processProject(input, args, io, report) {
       if (triangles.length) {
         const name = `${p.name} supports`, components = [], parts = [];
         for (const material of generated.materialParts ?? [{ triangles, filament: p.slot }]) {
-          const id = allocate(), label = material.role ? `${name} ${{ body: 'bodies', tine: 'tines', interface: 'top interfaces' }[material.role]}` : name;
+          const id = allocate(), label = material.role ? `${name} ${{ body: 'bodies', tine: 'tines', interface: 'top interfaces' }[material.role]}`
+            + (generated.contactMaterials ? ` (filament ${material.filament})` : '') : name;
           const mesh = supportMesh(material.triangles, offset, p.transform);
           own.supports.push(`<object id="${id}" type="model" name="${esc(label)}" p:UUID="${crypto.randomUUID()}">${mesh}</object>`);
           components.push(`<component objectid="${id}" ${prefix}:path="/${SUPPORTS}" ${prefix}:UUID="${crypto.randomUUID()}" transform="${identity.join(' ')}"/>`);
@@ -493,7 +507,8 @@ async function processProject(input, args, io, report) {
       if (generated.materialParts) {
         const materials = generated.materialParts.map(({ role, filament, triangles }) => ({ role, filament, triangles: triangles.length / 9 }));
         results.at(-1).materials = report.object(p).materials = materials;
-        const warnings = projectMaterialWarnings(generated.materialParts, args);
+        if (generated.contactMaterials) results.at(-1).contactMaterials = report.object(p).contactMaterials = generated.contactMaterials;
+        const warnings = projectMaterialWarnings(generated.materialParts, args, generated.contactMaterials);
         report.object(p).warnings.push(...warnings);
         for (const message of warnings) warn(`object ${p.number} (${p.name}): ${message}`);
       }

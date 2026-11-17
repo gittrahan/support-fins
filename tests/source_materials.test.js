@@ -119,7 +119,8 @@ Deno.test('source materials: Prusa 2 volume ranges, inherited painting and indep
   assertEquals(id(obj), ['filament:2', 'filament:1']);
   assertEquals(id(obj, 1), ['filament:3']);
   assertEquals(id(obj, 6), ['filament:2']);
-  assertEquals(face(obj, 1).roles, { wall: 'filament:1', infill: 'filament:3', solidInfill: 'filament:3' });
+  assertEquals(face(obj, 1).roles, { wall: 'filament:3', infill: 'filament:3', solidInfill: 'filament:3' });
+  assertEquals(face(obj, 6).roles, { wall: 'filament:1', infill: 'filament:3', solidInfill: 'filament:2' });
   assertEquals(obj.materials.materials[0].name, 'Profile; name');
   assertEquals(obj.materials.materials[1].materialType, null, 'profile description must not invent slot identity');
   const inherited = read(prusaFixture({ paint: ' slic3rpe:mmu_segmentation="401"' }));
@@ -199,4 +200,27 @@ Deno.test('source materials: gradients, unknown resources and unmapped core/fila
   assertEquals(id(obj), [null]);
   assert(face(obj).core && face(obj).base, 'keep both original identities for a later explicit mapping');
   assertThrows(() => worldMaterialRegions(obj.components[0], -1, face(obj)), Error, 'invalid material face');
+});
+
+Deno.test('source materials: Bambu explicit feature Default blocks a higher-level feature override',()=>{
+ const obj=read(fixture({settings:{wall_filament:'1',sparse_infill_filament:'1',solid_infill_filament:'1'},
+  config:xmlSettings('2','3','<metadata key="wall_filament" value="0"/><metadata key="sparse_infill_filament" value="0"/><metadata key="solid_infill_filament" value="0"/>')}));
+ assertEquals(face(obj).roles,{wall:'filament:3',infill:'filament:3',solidInfill:'filament:3'});
+});
+
+Deno.test('source materials: a Bambu sole volume uses the saved object filament',()=>{
+ const parts=fixture({config:xmlSettings('2','3','<metadata key="wall_filament" value="0"/>'),settings:{wall_filament:'1'}});
+ const key='3D/3dmodel.model',text=new TextDecoder().decode(parts.get(key));
+ parts.set(key,enc.encode(text.replace('<component objectid="11" p:path="/3D/Objects/part.model" transform="1 0 0 0 1 0 0 0 1 40 0 0"/>','')));
+ const obj=read(parts);assertEquals(obj.components.length,1);assertEquals(id(obj),['filament:2']);assertEquals(face(obj).roles.wall,'filament:2');
+});
+
+Deno.test('source materials: Orca explicit feature IDs differ from legacy default-one selectors',()=>{
+ const make=(part,settings)=>{const parts=fixture({config:xmlSettings('2','3',part),settings});const key='3D/3dmodel.model';parts.set(key,enc.encode(new TextDecoder().decode(parts.get(key)).replace('<resources>','<metadata name="OrcaSlicer">2.5.0</metadata><resources>')));return read(parts);};
+ assertEquals(face(make('',{outer_wall_filament_id:'1'})).roles.wall,'filament:1');
+ assertEquals(face(make('',{wall_filament:'1'})).roles.wall,'filament:3');
+ assertEquals(face(make('<metadata key="outer_wall_filament_id" value="0"/>',{outer_wall_filament_id:'1'})).roles.wall,'filament:3');
+ assertEquals(face(make('',{bottom_surface_filament_id:'2'})).roles.bottomSurface,'filament:2');
+ const bad=make('<metadata key="outer_wall_filament_id" value="2"/><metadata key="wall_filament" value="3"/>',{});
+ assert(!bad.materials.complete);assertStringIncludes(face(bad).unresolved,'conflicting');
 });
