@@ -36,6 +36,7 @@ export function reportLine(stats) {
   if (stats.smallHoleRegions) {
     parts.push(`${plural(stats.smallHoleRegions, 'small-hole ceiling', 'small-hole ceilings')} left unsupported for bridging`);
   }
+  if (stats.anchorLimited) parts.push("Line anchors could not fit some placements; check unsupported areas or turn off Line anchors");
   const unserved = stats.unserved || 0;
   if (unserved) {
     parts.push(`${unserved} overhang${unserved === 1 ? ' is' : 's are'} too shallow `

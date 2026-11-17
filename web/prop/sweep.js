@@ -12,6 +12,7 @@ import { ribbon, roundedFlange } from '../solids.js';
 import { PROP } from './config.js';
 import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
 import { windowedFlange } from './resinfoot.js';
+import { bottomAnchors } from './anchors.js';
 
 /**
  * Foot half-width for a wall of height `h`.
@@ -161,10 +162,10 @@ export function sweep(line, zBed, out, minH = PROP.minHeight, frame = null) {
  * `minH` is the least headroom a station needs (Draw mode passes minHeightSquat
  * for a squat wall the user asked for by hand; Auto keeps minHeight).
  */
-export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, frame = null) {
+export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, frame = null, partTris) {
   if (frame) {
     const local = [];
-    if (!sweepBetween(topLine, botLine, local, minH)) return false;
+    if (!sweepBetween(topLine, botLine, local, minH, null, partTris)) return false;
     for (const p of frameSweep(local, frame)) out.push(p);
     return true;
   }
@@ -231,9 +232,11 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, frame
     st.push({ p, sx, sy, top: zTop, ztip: zTopTip, holeTop: top - taper, tipHalf: wTop, sh, bot: bHi, botTip: zBotTip, taperBot: welded, botN: bN, botP: bP });
   }
 
+  const anchors = bottomAnchors(st, partTris);
   const from = out.length;
   if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
   if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
+  out.push(...anchors);
   return true;
 }
 

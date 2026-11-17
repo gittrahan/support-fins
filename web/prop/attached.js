@@ -15,6 +15,7 @@ import { PROP } from './config.js';
 import { contourTop, lowerSag, settleTop } from './contact.js';
 import { floorLine, moldLine } from './mold.js';
 import { sweepBetween } from './sweep.js';
+import { AnchorContactError } from './anchors.js';
 
 // How far below the clicked/probed overhang a settle pass may still pull the top
 // down when looking for a part-attached support. Comfortably covers an overhang's
@@ -178,7 +179,13 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out, captur
 
   const before = out.length;
   const mold = moldLine(subTop, partTris);
-  if (!sweepBetween(mold.top, mold.floor, out)) { out.length = before; return { floored: 'degenerate' }; }
+  try {
+    if (!sweepBetween(mold.top, mold.floor, out, PROP.minHeight, null, partTris)) { out.length = before; return { floored: 'degenerate' }; }
+  } catch (e) {
+    if (!(e instanceof AnchorContactError)) throw e;
+    out.length = before;
+    return { floored: 'anchors' }; // no checked contact; never fall through to a plate wall
+  }
 
   // In a bore when most of the kept run is walled all round.
   let walled = 0;
