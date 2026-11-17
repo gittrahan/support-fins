@@ -84,10 +84,12 @@ function modelGeometry({ mesh, topology, rot, offset, name: partName, added, lay
     extras: slicer.extras.map((e) => ({ kind: e.kind, name: e.name, settings: e.settings, tris: toPrint(e.positions, centre) })),
   } : null;
   // the two settings the slicer must match, carried in the file name (#279)
-  const name = (stem, ext) => exportName(`${base}-${stem}`, ext, { nozzle, layerHeight });
+  const savedNozzle = model ? Number(model.form.nozzle ?? nozzle) : nozzle;
+  const name = (stem, ext) => exportName(`${base}-${stem}`, ext, { nozzle: savedNozzle, layerHeight });
+  const capturedSession = sessionOf(partTris, model);
   return { partTris, finTris, base, name, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
            materialFormat: model ? model.form['material-format'] ?? 'components' : el('material-format').value,
-           session: () => sessionOf(partTris, model) };
+           session: () => capturedSession };
 }
 
 /**
@@ -179,6 +181,11 @@ const FORMATS = {
     // Capture the session before the optional asynchronous partition. The user
     // can edit the page while WASM loads; this file stays with its snapshot.
     const session = gs.length === 1 ? gs[0].session() : null, bed = { ...currentVolume() };
+    // Let the progress text paint before WASM initialization or inline fallback.
+    // Geometry, session, placement and bed above already belong to this export.
+    if (gs.some(g => hasSupportRoles(g.finTris))) {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
     const models = [];
     for (const g of gs) {
       const { body, iface } = splitInterface(g.finTris);
@@ -196,6 +203,7 @@ const FORMATS = {
                           plateName(gs, 'fins-only', '.stl')],
 };
 
+let exporting = false;
 const btn = el('export');
 const menu = el('export-menu');
 
@@ -205,7 +213,7 @@ function setOpen(open) {
   if (open) {
     // nothing to write until a part is loaded; no fins-only file without fins; and
     // nothing while a rebuild is out -- the old fins under the new settings' name
-    const ready = !!(part && topology && lastResult) && !buildPending();
+    const ready = !!(part && topology && lastResult) && !buildPending() && !exporting;
     el('export-stl').disabled = el('export-3mf').disabled = !ready;
     // STL and Fins only write the model being edited; 3MF the whole plate, whose
     // parked models' fins count too
@@ -227,35 +235,42 @@ function setOpen(open) {
 }
 
 btn.addEventListener('click', () => setOpen(menu.hidden));
+/** Own the entire user action, including parked builds, partition and serialization.
+ * Export-all stages its files before downloading, so a failure writes nothing. */
+async function runExport(fn, material = true) {
+  if (exporting) return;
+  exporting = true;
+  el('export-error').hidden = true;
+  el('export-progress').hidden = !material;
+  btn.disabled = true;
+  setOpen(false);
+  try { await fn(); }
+  catch (error) {
+    el('export-error').textContent = `${t('Could not export support material parts. No file was written.')} ${t('Turn off Separate tine material and retry. If Interface material is Tines only, choose Off as well.')} ${error.message}`;
+    el('export-error').hidden = false;
+    setOpen(true);
+  } finally {
+    exporting = false;
+    btn.disabled = false;
+    el('export-progress').hidden = true;
+    if (!menu.hidden) setOpen(true);
+  }
+}
 for (const [id, write] of Object.entries(FORMATS)) {
-  el(id).addEventListener('click', async () => {
-    el('export-error').hidden = true;
-    setOpen(false);
-    try {
-      // an STL is the model being edited, alone and centred (a slicer centres it
-      // anyway); a 3MF of one, that one where it stands on the plate
-      if (id !== 'export-3mf' || currentPlate().models.length === 1) {
-        const g = buildExportGeometry();
-        if (g) download(...await write([id === 'export-3mf' ? placed(g, liveXY()) : g]));
-        return;
-      }
-      // the plate's other models are parked, their fins kept to its settings: wait for
-      // any still building, then write them as they stand
-      if (waiting) return;
-      const plate = currentPlate();
-      const gs = await whileWaiting(async () => {
-        const settled = await parkedSettled();
-        // switched away meanwhile: that plate, if its models are current
-        if (currentPlate() !== plate) return plateReady(plate) ? plateGeometry(plate) : null;
-        return settled ? plateGeometry() : locked(plateGeometryLive);
-      });
-      if (gs?.length) download(...await write(gs));
-    } catch (error) {
-      el('export-error').textContent = `${t('Could not export support material parts. No file was written.')} ${error.message}`;
-      el('export-error').hidden = false;
-      setOpen(true);
+  el(id).addEventListener('click', () => runExport(async () => {
+    if (id !== 'export-3mf' || currentPlate().models.length === 1) {
+      const g = buildExportGeometry();
+      if (g) download(...await write([id === 'export-3mf' ? placed(g, liveXY()) : g]));
+      return;
     }
-  });
+    const plate = currentPlate();
+    const gs = await whileWaiting(async () => {
+      const settled = await parkedSettled();
+      if (currentPlate() !== plate) return plateReady(plate) ? plateGeometry(plate) : null;
+      return settled ? plateGeometry() : locked(plateGeometryLive);
+    });
+    if (gs?.length) download(...await write(gs));
+  }, id === 'export-3mf'));
 }
 
 let waiting = false;     // an export is waiting on parked builds: a second click waits too
@@ -277,15 +292,7 @@ el('export-arrange').addEventListener('click', () => {
   arrange();
 });
 // Every plate, one 3MF each (ui/plates.js); shown only with more than one plate.
-el('export-all').addEventListener('click', async () => {
-  setOpen(false);
-  try { await exportAll(); }
-  catch (error) {
-    el('export-error').textContent = `${t('Could not export support material parts. No file was written.')} ${error.message}`;
-    el('export-error').hidden = false;
-    setOpen(true);
-  }
-});
+el('export-all').addEventListener('click', () => runExport(exportAll));
 
 /** `gs` (plateGeometry) as a 3MF, [blob, name], for Export all plates; null when
  *  there is nothing to write. A promise: the file is deflated. */

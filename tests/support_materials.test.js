@@ -219,11 +219,18 @@ Deno.test('material parts: five translations cover controls, warnings and export
   const html = await Deno.readTextFile(new URL('../web/index.html', import.meta.url));
   const tip = html.match(/<label data-tip-pic="iface"[^>]*title="([^"]+)"/)[1];
   const separate = html.match(/<label id="separate-tines-fld"[^>]*title="([^"]+)"/)[1];
-  const keys = ['3MF compatibility', 'Tines only', 'Separate tine material', tip, separate,
+  const keys = ['Preparing support parts…', 'Turn off Separate tine material and retry. If Interface material is Tines only, choose Off as well.', '3MF compatibility', 'Tines only', 'Separate tine material', tip, separate,
     'Could not export support material parts. No file was written.', 'No tines to separate in this build.',
     '3MF exports tines as their own material part. Assign filaments in the slicer; different-material tines may lose grip.'];
   for (const lang of ['de', 'nl', 'pt', 'zh', 'ar']) {
     const { default: dictionary } = await import(`../web/i18n/${lang}.js`);
     for (const key of keys) assert(typeof dictionary[key] === 'string' && dictionary[key] !== key, `${lang}: ${key}`);
   }
+});
+
+Deno.test('material parts: an introduced T junction fails explicitly instead of repairing or dropping a face', async () => {
+  const tris = overlappingRoles(), [a,b,c] = tris.slice(0,3);
+  const m = a.map((v,k) => k < 3 ? (v+b[k])/2 : v);
+  const broken = [a,m,c,m,b,c,...tris.slice(3)];
+  await rejects(() => partitionSupportMaterials(broken), 'T-junction source silently repaired');
 });
