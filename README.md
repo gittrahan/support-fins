@@ -41,6 +41,13 @@ default; STL cannot retain material parts. A different-material tine may lose
 grip: check stability and removal on a test print. Source-colour matching is not
 automatic.
 
+Material parts are complementary, adjacent volumes: their combined shape preserves
+the original supports, without deliberate overlap between body, tine and interface
+parts. Geometric adjacency does not prove that different polymers will bond or
+retain useful grip. During 3MF export, **Preparing support parts…** remains visible
+while the parts are computed. If partitioning fails, no file is downloaded; turn
+off **Separate tine material** and also leave **Tines only** mode before retrying.
+
 **Why you pick the rotation, not the software:** "stronger" means nothing without a load
 direction, and the geometry doesn't contain one. Turn a solver fully loose and it'll hand
 you a part 155 mm tall balanced on a needle with two sail-sized fins — technically optimal,
@@ -270,8 +277,12 @@ python3 prototype/spike_arrow.py yourpart.stl 0,0,-1   # load-direction scoring
 Tests (Deno for the JS engine):
 
 ```bash
-deno test --allow-read tests/
+deno test -A tests/
 ```
+
+Developers can run the serial stock-model matrix with
+`deno run -A prototype/material-stress/run.js --out tmp/material-stress`.
+See [the stress runner documentation](prototype/material-stress/README.md).
 
 ### Releases
 

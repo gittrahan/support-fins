@@ -30,6 +30,9 @@ export default {
   "{n} support-section findings need slicer inspection (first at {z} mm).": {"other": "有 {n} 处支撑截面需要在切片软件中检查（首处位于 {z} mm）。"},
   "The count includes narrow sections and unresolved starts. Rapid growth remains in the detailed report only. Model material below a start does not prove a printable seat. Check extrusion paths and gaps in the slicer.": "计数包括狭窄截面和未确定支撑的起点。快速扩展仅保留在详细报告中。起点下方存在模型材料，并不代表支撑底部可打印。请在切片软件中检查挤出路径和间隙。",
   "Section widths use the selected nozzle as a proxy; actual slicer line widths and first-layer settings may differ.": "截面宽度以所选喷嘴直径作为估计值；切片软件的实际线宽和首层设置可能不同。",
+  "Flat contacts separates level wall tops; Everywhere separates all wall tops and includes tines unless separated below. Tines only leaves wall tops in the body material. Assign filaments in the slicer. Tilted interfaces may change tools every layer. 3MF only.": "平面接触分离水平墙顶；所有位置分离全部墙顶，并包含齿，除非在下方单独分离。仅齿使墙顶保持主体材料。在切片软件中分配耗材。倾斜界面可能每层都需换工具。仅限 3MF。",
+  "Turn off Separate tine material and retry. If Interface material is Tines only, choose Off as well.": "关闭独立齿材料后重试。如果界面材料为仅齿，也请选择关闭。",
+  "Preparing support parts…": "正在准备支撑部件…",
   "Optional 3MF material parts for support bodies, tines and top interfaces; assign their filaments independently in the slicer.": "可选的 3MF 材料部件：支撑主体、支齿和顶部接触层；可在切片软件中分别分配耗材。",
   "3MF compatibility": "3MF 兼容性",
   "Tines only": "仅齿",
@@ -38,7 +41,6 @@ export default {
   "Could not export support material parts. No file was written.": "无法导出支撑的材料部件。未写入文件。",
   "No tines to separate in this build.": "本次生成没有可分离的齿。",
   "3MF exports tines as their own material part. Assign filaments in the slicer; different-material tines may lose grip.": "3MF 会将齿导出为独立的材料部件。请在切片软件中分配耗材；不同材料的齿可能失去抓附力。",
-  "Flat contacts splits level wall tops; Everywhere splits all wall tops and tines. Tines only leaves wall tops in the body material. Separate tine material makes tines independently assignable. Set filaments in the slicer. Different-material tines can lose grip, and tilted interfaces can require a tool change each layer. Tine separation is FDM only; 3MF only.": "平面接触分离水平墙顶；全部分离所有墙顶和齿。仅齿使墙顶继续使用主体材料。单独的齿材料允许为齿独立分配材料。请在切片软件中设置耗材。不同材料的齿可能失去抓附力，倾斜接触层可能每层都需要换头。齿分离仅适用于 FDM；仅限 3MF。",
 
   "recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer": "识别出的小孔顶部不添加支撑，以保持孔口畅通；请在切片软件中检查桥接",
   "{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.": {"other":"{n} 个小孔顶部不添加支撑，留作桥接 — 请检查切片预览和打印设置。"},
