@@ -118,7 +118,7 @@ const formOf = (form) => (form && typeof form === 'object'
   // and before Long walls, tall-wall ribs and Curved walls without them (the nozzle and the viewer's
   // settings stay as this browser has them, even from a file saved before they were left out)
     ? { 'side-clearance': '0.35', 'bottom-gap': '0.2',
-      'rounded-feet': false, 'wall-lines': '2', 'long-walls': false, 'tall-ribs': false, 'curved-walls': false, 'separate-walls': false,
+      'separate-tines': false, 'material-format': 'components', 'rounded-feet': false, 'wall-lines': '2', 'long-walls': false, 'tall-ribs': false, 'curved-walls': false, 'separate-walls': false,
       'sway-cross-height': '50', 'tall-ribs-height': '10', anchor: false, ...Object.fromEntries(Object.entries(form)
     .filter(([id, v]) => !VIEWER_IDS.has(id) && settable(id, v))) }
   : {});

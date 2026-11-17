@@ -245,6 +245,7 @@ function modelXML(models, title, separate, bed) {
     // a negative part cuts every part of its object: only apart from the supports
     // can it ride along without cutting the walls built in its hole
     const slicer = separate && extras.length ? extrasXML(m.partTris, extras, m.name, col, base) : null;
+    let nextMaterialID = (slicer?.root ?? id(MATERIALS_ID)) + 1;
     tables.push(col.table);
     objects.push(slicer?.prusa2 ?? `<object id="${id(1)}" type="model" name="${name}"${col.pid}>${meshXML(m.partTris, col.triAttrs)}</object>`);
     // the part with its slicer parts is an assembly of them (extrasXML)
@@ -258,7 +259,56 @@ function modelXML(models, title, separate, bed) {
     // is just more of the supports
     if (iface.length && !separate) finTris = [...finTris, ...iface];
 
-    if (finTris && finTris.length) {
+    if (m.materialParts?.length) {
+      if (!separate) throw new Error('support material parts require separate-object 3MF export');
+      if (finTris?.length || iface.length) throw new Error('support material parts cannot replace additional support triangles');
+      if (m.materialFormat !== undefined && !['components', 'prusa2'].includes(m.materialFormat)) throw new Error('unknown support material format');
+      const roles = new Set(), components = [], volumes = [], triangles = [];
+      for (const part of m.materialParts) {
+        if (!['body', 'tine', 'interface'].includes(part.role) || roles.has(part.role) || !part.triangles?.length) {
+          throw new Error('invalid support material parts');
+        }
+        roles.add(part.role);
+        const label = `${m.name} ${{ body: 'support bodies', tine: 'tines', interface: 'top interfaces' }[part.role]}`;
+        if (m.materialFormat === 'prusa2') {
+          const first = triangles.length / 3;
+          for (const p of part.triangles) triangles.push(p);
+          volumes.push({ name: label, first, end: triangles.length / 3 });
+        } else {
+          const id = nextMaterialID++;
+          objects.push(`<object id="${id}" type="model" name="${esc(label)}">${meshXML(part.triangles)}</object>`);
+          components.push(`<component objectid="${id}"/>`);
+          volumes.push({ id, name: label });
+        }
+        footprint.push(part.triangles);
+      }
+      const resource = nextMaterialID++;
+      if (m.materialFormat === 'prusa2') {
+        // PrusaSlicer 2 flattens core component assemblies into separate objects.
+        // Its named triangle ranges keep every upper material with its support.
+        if (m.extras?.some((e) => !e.settings?.prusa2)) throw new Error('PrusaSlicer 2 export cannot preserve another slicer’s part settings');
+        if (m.colors?.paint.some((p) => !p.name.startsWith('slic3rpe:'))) throw new Error('PrusaSlicer 2 export cannot preserve another slicer’s painting');
+        const kept = [], mesh = meshXML(triangles, null, kept);
+        const ranges = volumes.map((v) => {
+          const first = kept.findIndex((i) => i >= v.first), end = kept.findIndex((i) => i >= v.end);
+          return { ...v, first, last: (end < 0 ? kept.length : end) - 1 };
+        });
+        if (ranges.some((v) => v.first < 0 || v.last < v.first)) throw new Error('empty support material part');
+        objects.push(`<object id="${resource}" type="model" name="${name} supports">${mesh}</object>`);
+        cfg.prusa2.push(`<object id="${resource}" instances_count="1">${metaXML([['name', `${m.name} supports`]], ' type="object"')}` +
+          ranges.map((v) => `<volume firstid="${v.first}" lastid="${v.last}">${metaXML([['name', v.name], ['volume_type', 'ModelPart']], ' type="volume"')}</volume>`).join('') + '</object>');
+        prusa2 = true;
+      } else {
+        objects.push(`<object id="${resource}" type="model" name="${name} supports"><components>${components.join('')}</components></object>`);
+        // Bambu/Orca use the assembly's name for every child unless their part
+        // metadata names the volumes explicitly. Keep role names on reimport.
+        cfg.bambu.push(`<object id="${resource}">${metaXML([['name', `${m.name} supports`]])}` +
+          volumes.map((v) => `<part id="${v.id}" subtype="normal_part">${metaXML([['name', v.name]])}</part>`).join('') + '</object>');
+        cfg.prusa3.push({ id: resource, object_settings: {}, volumes: volumes.map((v) =>
+          ({ id: v.id, type: 'ModelPart', volume_settings: {} })) });
+      }
+      own = [partId, resource];
+    } else if (finTris && finTris.length) {
       objects.push(`<object id="${id(2)}" type="model" name="${name} supports">${meshXML(finTris)}</object>`);
       if (separate) {
         // two objects (three with the interface crest), one shared transform: in
@@ -287,7 +337,7 @@ function modelXML(models, title, separate, bed) {
     // the slicer's parts too: a modifier reaching past the part stays on the bed
     footprint.push(m.partTris, finTris ?? [], slicer?.tris ?? []);
     items.push(...own);
-    base = slicer?.root ?? id(MATERIALS_ID);
+    base = m.materialParts?.length ? nextMaterialID - 1 : slicer?.root ?? id(MATERIALS_ID);
   }
 
   // One model in the separate form, with supports, or several in either: the items
@@ -295,7 +345,7 @@ function modelXML(models, title, separate, bed) {
   // of known size every file is placed, a lone part without supports too: it stands
   // where it was moved to (ui/move.js)
   let t = '';
-  if (bed || models.length > 1 || (separate && models.some((m) => m.finTris?.length))) {
+  if (bed || models.length > 1 || (separate && models.some((m) => m.finTris?.length || m.materialParts?.length))) {
     // placed on a bed of known size (the site's plate, its centre the origin): each
     // where it stands on it, from the bed's corner, as a slicer's bed counts
     const [tx, ty] = bed ? [bed.x / 2, bed.y / 2] : bedShift(footprint);
@@ -316,8 +366,8 @@ function modelXML(models, title, separate, bed) {
     configs.push({ name: 'Metadata/Slic3r_PE_model.config', data: XML_HEAD + `<config>${cfg.prusa2.join('')}</config>` });
   }
   if (cfg.bambu.length) {
-    configs.push({ name: 'Metadata/model_settings.config', data: XML_HEAD + `<config>${cfg.bambu.join('')}</config>` },
-      { name: 'Metadata/PrusaSlicer3_project.json', data: JSON.stringify({ objects: cfg.prusa3 }) });
+    configs.push({ name: 'Metadata/model_settings.config', data: XML_HEAD + `<config>${cfg.bambu.join('')}</config>` });
+    if (cfg.prusa3.length) configs.push({ name: 'Metadata/PrusaSlicer3_project.json', data: JSON.stringify({ objects: cfg.prusa3 }) });
   }
   return { xml, configs };
 }
@@ -347,11 +397,14 @@ const ROOT_RELS = '<?xml version="1.0" encoding="UTF-8"?>\n' +
  *                  { extras }: a slicer's parts to write back beside the part
  *                  (readThreeMF's, with `tris` in print space; extrasXML), in
  *                  the separate form only
+ *                  { materialParts }: optional validated {role, triangles} parts,
+ *                  replacing finTris/iface; requires separate=true. materialFormat
+ *                  is 'components' (Bambu/Orca) or 'prusa2' (named volume ranges).
  * @returns Promise<Blob>  a .3mf package (deflated: zip.js zipDeflate, which is async)
  */
 export function writeThreeMF(partTris, finTris, name = 'Support Fins',
-  { separate = false, session = null, iface = [], colors = null, extras = [] } = {}) {
-  return writePlate3MF([{ partTris, finTris, name, iface, colors, extras }], { title: name, separate, session });
+  { separate = false, session = null, iface = [], colors = null, extras = [], materialParts = null, materialFormat = 'components' } = {}) {
+  return writePlate3MF([{ partTris, finTris, name, iface, colors, extras, materialParts, materialFormat }], { title: name, separate, session });
 }
 
 /**

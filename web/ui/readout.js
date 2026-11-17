@@ -7,6 +7,7 @@ import { FIN, PAD } from '../fins.js';
 import { bareArea, fillReach } from '../fins/fill.js';
 import { printabilityStats } from '../fins/printability.js';
 import { PROP } from '../prop.js';
+import { separateSupportRoles } from '../support-roles.js';
 import { el } from './dom.js';
 
 // Vertical tines are resin pins (#309, prop/pins.js): count them as what they are.
@@ -180,6 +181,12 @@ export function updateReadout(built, ms) {
  * a pad alone is no support to put an interface on.
  */
 function ifaceNote() {
+  if (separateSupportRoles()) {
+    const tris = activeWalls();
+    if (!tris.length) return null;
+    if (!tris.some((v) => v[4]?.role === 'tine')) return t('No tines to separate in this build.');
+    return t('3MF exports tines as their own material part. Assign filaments in the slicer; different-material tines may lose grip.');
+  }
   if (PROP.iface !== 'flat') return null;
   const tris = activeWalls();
   if (!tris.length || tris.some((v) => v[3] === 1)) return null;

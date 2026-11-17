@@ -31,6 +31,16 @@ now you had to CAD it by hand every time.
    lever?_ — and it scores orientations for strength too.
 4. Export. Fins and a bed pad come baked into the STL (or 3MF).
 
+For independently assignable support materials, choose **Interface material →
+Tines only**, or enable **Separate tine material** with **Flat contacts** or
+**Everywhere**. Choose **3MF compatibility** for Bambu/Orca or PrusaSlicer 2, then
+export as 3MF and assign filaments to the named support bodies, tines and top
+interfaces in your slicer. They remain parts of one support object,
+so the upper parts stay registered with their base. This FDM option is off by
+default; STL cannot retain material parts. A different-material tine may lose
+grip: check stability and removal on a test print. Source-colour matching is not
+automatic.
+
 **Why you pick the rotation, not the software:** "stronger" means nothing without a load
 direction, and the geometry doesn't contain one. Turn a solver fully loose and it'll hand
 you a part 155 mm tall balanced on a needle with two sail-sized fins — technically optimal,
