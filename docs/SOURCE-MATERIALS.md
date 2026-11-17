@@ -83,3 +83,41 @@ Focused verification:
 deno test -A tests/source_materials.test.js tests/paint_tree.test.js \
   tests/provenance.test.js tests/threemf_bytes.test.js plugins/cli/tests/paint.test.js
 ```
+
+## Browser mapping and preview
+
+In the browser, **Match contact materials** enables source-matched tines and top
+interfaces for FDM. Choose a fixed **Body filament** and an explicit **Fallback
+filament**. Flat interfaces are used when no interface mode was selected; choose
+Everywhere or Tines only for the corresponding contact roles.
+
+The palette rows describe destination filament slots. Imported declared slots
+initially map to the same numbers. Core material resources and unresolved slots
+need an explicit mapping or use the fallback. Equal colours remain separate
+identities. Mappings belong to their source file, so editing one imported file's
+mapping does not change another file's mapping. Source painting is not recoloured.
+Match the destination slot numbers to the model's materials in the slicer: the
+browser does not export printer or filament presets.
+
+**Preview materials** shows the active model's exact decoded paint regions and
+its actual partitioned support parts. Unknown source surfaces are grey. The status
+reports unresolved contacts assigned to the fallback. Preview is replaced after
+a rebuild and discarded immediately when the model, pose or support visibility
+changes. Leaving preview restores the normal overhang/fin display. The viewer's
+preview setting does not alter STL geometry.
+
+3MF export writes assigned parts in one support object. Select **Bambu / Orca**
+or **PrusaSlicer 2** to match the destination's part layout. Cross-dialect source
+painting is not silently translated: use the matching source/destination format.
+Single-model sessions retain the source field, palette, mapping and fallback;
+old sessions opt out. Editing the source geometry, painting or slicer settings
+invalidates the saved field and prompts a mapping review on import. Multiple models retain separate per-source mappings and
+per-plate export settings. The CLI remains the path for preserving full project
+settings and editable project structure.
+
+Material partitioning must preserve the combined support shape. An invalid or
+numerically ambiguous partition stops preview/export with an explanation; it
+does not repair generated geometry or export a partly matched result.
+
+Software checks do not establish bonding, support stability or removal ease.
+Different-material contacts still need a test print with the intended materials.

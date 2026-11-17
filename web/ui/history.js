@@ -1,3 +1,4 @@
+import { MATERIAL_FORM_IDS } from '../browser-materials.js';
 /**
  * Undo / redo.
  *
@@ -44,7 +45,7 @@ let redoStack = [];
 const FORM_IDS = ['nozzle', 'thr', 'tines', 'tine-density', 'tine-dir', 'pin-depth', 'layer-height', 'first-layer', 'gap', 'side-clearance', 'bottom-gap',
   'bed-pad', 'pad-h', 'pad-gap', 'pad-grip', 'pad-margin', 'sway', 'anchor', 'sway-from',
   'sway-spacing', 'sway-depth', 'sway-cross-height', 'full-brace-depth', 'rounded-feet', 'wall-lines', 'cutout', 'iface', 'coverage', 'plate-only', 'long-walls', 'separate-walls', 'tall-ribs', 'tall-ribs-height', 'curved-walls', 'highlight-small', 'show-islands', 'show-layers',
-  'show-rings', 'nav-preset', 'separate-tines', 'material-format'];
+  'show-rings', 'nav-preset', 'separate-tines', 'material-format', ...MATERIAL_FORM_IDS, 'show-materials'];
 const readForm = () => Object.fromEntries(FORM_IDS.map((id) => {
   const f = el(id);
   return [id, f.type === 'checkbox' ? f.checked : f.value];
@@ -59,7 +60,7 @@ let restoring = false;
 // nor, from an older file that has them, applies them. Layer height and support gap
 // are remembered across visits too, but a session keeps them: it comes back as it was
 // left, and the removed fins it lists are matched by heights the gap shifts (remove.js).
-export const VIEWER_IDS = new Set(['highlight-small', 'show-islands', 'show-layers', 'show-rings', 'nav-preset', 'nozzle']);
+export const VIEWER_IDS = new Set(['show-materials', 'highlight-small', 'show-islands', 'show-layers', 'show-rings', 'nav-preset', 'nozzle']);
 /** The settings a support build follows, as one string: a parked model's fins built
  *  under another are out of date (ui/parkedbuild.js). The nozzle counts; how the
  *  viewer draws does not. */

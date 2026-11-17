@@ -7,7 +7,8 @@ import { supportMaterialMesh, SupportMeshError } from './support-material-mesh.j
 
 const ROLES = ['body', 'interface', 'tine'];
 
-/** Retry only numerical partition/extraction failures from original coordinates. */
+/** A numerical Boolean failure can retry from the original double coordinates;
+ * malformed input and missing material identities must not use this retry. */
 export class SupportPartitionError extends Error {}
 
 export function indexedSupportMesh(w, triangles) {
@@ -101,16 +102,16 @@ export function supportSoup(solid) {
 }
 
 /** Return named parts in stable body/tine/interface order, and partition evidence. */
-export async function partitionSupportMaterials(tris) {
-  try { return await partition(tris, false); }
+export async function partitionSupportMaterials(tris, consume = (result) => result) {
+  try { return await partition(tris, consume, false); }
   catch (error) {
-    if (!(error instanceof SupportMeshError) && !(error instanceof SupportPartitionError)) throw error;
-    return partition(tris, true);
+    if (!(error instanceof SupportPartitionError) && !(error instanceof SupportMeshError)) throw error;
+    return partition(tris, consume, true);
   }
 }
 
-async function partition(tris, preserveCoordinates) {
-  if (!tris.length) return { parts: [], contacts: [], volume: 0 };
+async function partition(tris, consume, preserveCoordinates) {
+  if (!tris.length) return consume({ parts: [], contacts: [], volume: 0 }, new Map());
   const w = await manifold(), owned = new Set(), groups = new Map(ROLES.map((r) => [r, []]));
   const own = (s) => { owned.add(s); return s; };
   const valid = (s) => {
@@ -156,11 +157,15 @@ async function partition(tris, preserveCoordinates) {
     for (const [a, b] of [[body, tine], [body, iface], [tine, iface]]) {
       if (Math.abs(valid(own(a.intersect(b))).volume()) > roundoff) throw new SupportPartitionError('support materials overlap');
     }
-    const parts = [['body', body], ['tine', tine], ['interface', iface]]
+    const solids = new Map([['body', body], ['tine', tine], ['interface', iface]]);
+    const parts = [...solids]
       .filter(([, s]) => !s.isEmpty()).map(([role, s]) => ({ role, ...supportMaterialMesh(s) }));
     const records = [...new Set(tris.map((p) => p[4]).filter(Boolean))];
     const contacts = records.filter((r) => r.contact).map((r) => ({ role: r.role, ...structuredClone(r.contact) }));
-    return { parts, contacts, volume: source.volume(), residual: { missingVolume, extraVolume, roundoff, coordinateTolerance } };
+    // Internal consumers may further partition the live double-precision solids.
+    // Reimporting getMesh() here would quantize every Boolean intersection to
+    // float32 before matching. Ownership stays here until the consumer completes.
+    return await consume({ parts, contacts, volume: source.volume(), residual: { missingVolume, extraVolume, roundoff, coordinateTolerance } }, solids, preserveCoordinates);
   } finally {
     for (const s of owned) s.delete();
   }

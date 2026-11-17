@@ -38,6 +38,12 @@ negative parts, painting and both 3MF layouts (Bambu/Orca components and
 PrusaSlicer 2 volume ranges). Invalid solids and incompatible target metadata
 fail without a partial export. Run this worker-enabled file with `deno test -A`.
 
+**`browser_materials.test.js`**, **`browser_materials_i18n.test.js`** -- explicit
+destination mappings and fallback, equal-colour identities, session-field
+invalidation, assigned parts in both 3MF layouts, cancellation and translations.
+**`support_material_precision.test.js`** covers original-coordinate recovery and
+rotated contact partitioning without changing generated triangles or tolerances.
+
 **`inside_ray.test.js`** -- `insidePart`'s ray through a shared vertex or edge still
 answers correctly, both ways, and a ray clear of them answers as before. On
 `ball_in_ball.stl` (#450, `fixtures/gen_ball_in_ball.py`) the ball hanging in the cavity
