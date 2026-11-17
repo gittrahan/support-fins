@@ -322,6 +322,11 @@
       "date": "2026-11-20",
       "check": "clean",
       "text": "Optional 3MF material parts for support bodies, tines and top interfaces; assign their filaments independently in the slicer."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "clean",
+      "text": "Preserved-project CLI exports can assign separate filament slots to tines and top interfaces, with complete material partitions retained when resuming."
     }
   ]
 }

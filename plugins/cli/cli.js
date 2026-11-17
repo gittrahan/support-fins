@@ -49,6 +49,10 @@ export function helpText() {
     '  --check               with --preserve-project: check settings and meshes; write nothing',
     '                        exit 1 if any selected object is incompatible',
     '  --fin-extruder <n>    project mode: existing filament slot for fins (1-based)',
+    '  --tine-extruder <n>   project mode: separate FDM tine material (existing slot)',
+    '  --interface-extruder <n>  project mode: separate top-interface material',
+    '  --interface-mode <flat|all>  with --interface-extruder: flat undersides (default)',
+    '                        or all undersides; support bodies keep --fin-extruder',
     '  --disable-native-supports  project mode: disable slicer supports on selected objects',
     '  --turn-fins           project mode: opt in to gradual turns below suitable roofs',
     '  --no-turn-fins        keep ordinary straight fins (default)',
@@ -88,7 +92,8 @@ export function parseArgs(argv) {
   const out = { inputs: [], output: null, rot: null, finsOnly: false, object: null, objects: [],
                 json: false, help: false, dialog: {}, preserveProject: false, listObjects: false, check: false,
                 plates: [], listPlates: false, turnFins: null, turnAngle: null,
-                finExtruder: null, disableNativeSupports: false, overwrite: false, resume: false, cacheDir: null };
+                finExtruder: null, tineExtruder: null, interfaceExtruder: null, interfaceMode: null,
+                disableNativeSupports: false, overwrite: false, resume: false, cacheDir: null };
   let files = false;
   for (let i = 0; i < argv.length; i++) {
     let a = argv[i];
@@ -127,10 +132,14 @@ export function parseArgs(argv) {
       out.cacheDir = next();
       if (!out.cacheDir.trim() || out.cacheDir.startsWith('--')) throw new UsageError('--cache-dir needs a directory path');
     }
-    else if (a === '--fin-extruder') {
+    else if (['--fin-extruder', '--tine-extruder', '--interface-extruder'].includes(a)) {
       const v = next();
-      if (!/^[1-9]\d*$/.test(v) || !Number.isSafeInteger(+v)) throw new UsageError('--fin-extruder must be a positive integer');
-      out.finExtruder = +v;
+      if (!/^[1-9]\d*$/.test(v) || !Number.isSafeInteger(+v)) throw new UsageError(`${a} must be a positive integer`);
+      out[{ '--fin-extruder': 'finExtruder', '--tine-extruder': 'tineExtruder', '--interface-extruder': 'interfaceExtruder' }[a]] = +v;
+    } else if (a === '--interface-mode') {
+      const v = next();
+      if (!['flat', 'all'].includes(v)) throw new UsageError('--interface-mode must be flat or all');
+      out.interfaceMode = v;
     } else if (['--preserve-project', '--list-objects', '--list-plates', '--check', '--disable-native-supports', '--overwrite', '--resume'].includes(a)) {
       if (value !== null) throw new UsageError(`${a} takes no value`);
       out[{ '--preserve-project': 'preserveProject', '--list-objects': 'listObjects', '--check': 'check',
@@ -344,6 +353,13 @@ export async function run(argv, io) {
     if (!args.preserveProject && (args.check || args.listObjects || args.listPlates || args.plates.length
         || args.finExtruder !== null || args.disableNativeSupports || args.overwrite)) {
       throw new UsageError('--plate, --check, --list-objects, --list-plates, --fin-extruder, --disable-native-supports and --overwrite require --preserve-project');
+    }
+    if (!args.preserveProject && (args.tineExtruder !== null || args.interfaceExtruder !== null || args.interfaceMode !== null)) {
+      throw new UsageError('--tine-extruder, --interface-extruder and --interface-mode require --preserve-project');
+    }
+    if (args.interfaceMode !== null && args.interfaceExtruder === null) throw new UsageError('--interface-mode requires --interface-extruder');
+    if ((args.tineExtruder !== null || args.interfaceExtruder !== null) && args.dialog.tineDir === 'vertical') {
+      throw new UsageError('separate support materials require horizontal FDM tines');
     }
     if (args.check && (args.listObjects || args.listPlates || args.output || args.overwrite)) {
       throw new UsageError('--check writes nothing; do not combine with --list-objects, --list-plates, --output or --overwrite');
