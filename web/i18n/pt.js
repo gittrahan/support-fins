@@ -1,4 +1,5 @@
 export default {
+  "Side clearance is zero: support walls may fuse to the model. Increase it for removable supports.": "A folga lateral é zero: as paredes de suporte podem fundir-se com o modelo. Aumente-a para permitir a remoção dos suportes.",
   "Side clearance": "Folga lateral",
   "Bottom gap": "Folga inferior",
   "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.": "Folga junto às faces largas de uma parede de suporte. As extremidades estreitas são aparadas automaticamente. Zero pode fundir a parede à peça. Padrão: 0,35 mm.",

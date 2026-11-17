@@ -1,4 +1,5 @@
 export default {
+  "Side clearance is zero: support walls may fuse to the model. Increase it for removable supports.": "De zijdelingse speling is nul: steunwanden kunnen aan het model vastsmelten. Vergroot de speling voor verwijderbare steunen.",
   "Side clearance": "Zijdelingse speling",
   "Bottom gap": "Onderste speling",
   "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.": "Speling naast de brede zijden van een steunwand. De smalle uiteinden worden automatisch ingekort. Bij nul kan de wand aan het model vastsmelten. Standaard 0,35 mm.",

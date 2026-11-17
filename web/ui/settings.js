@@ -171,9 +171,7 @@ const PIN_SPACING_TIP = 'How many pins each wall gets. More pins = a firmer hold
 let gripTip = null;
 function syncTineGrip() {
   const on = el('tines').checked;
-  for (const id of ['bottom-gap-fld']) {
-    el(id).hidden = el('tine-dir').value === 'vertical';
-  }
+  el('bottom-gap-fld').hidden = el('tine-dir').value === 'vertical';
   el('rounded-feet-fld').hidden = el('tine-dir').value === 'vertical';
   el('tinegrip-fld').hidden = !on;
   el('tinedir-fld').hidden = !on;
@@ -274,6 +272,10 @@ function wireGap(id, obj, key, lo, hi) {
   });
 }
 wireGap('gap', PROP, 'gap', 0.1, 0.4);
+function syncClearanceWarning() {
+  el('side-clearance-warning').hidden = el('side-clearance').valueAsNumber !== 0;
+}
+syncClearanceWarning();
 for (const id of ['side-clearance', 'bottom-gap']) {
   el(id).addEventListener('input', () => {
     const input = el(id);
@@ -283,6 +285,7 @@ for (const id of ['side-clearance', 'bottom-gap']) {
       input.value = String(Math.max(+input.min, Math.min(+input.max, v)));
     }
     applyTunables(tineDirTunables());
+    syncClearanceWarning();
     debouncedRefresh();
   });
 }

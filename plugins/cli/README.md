@@ -13,6 +13,8 @@ Part-supported FDM walls have independent clearances: `--gap` controls their top
 These defaults preserve existing output. Bottom gap does not lift plate feet;
 resin keeps its welded bottom. There is no new material preset selection.
 
+Zero side clearance is allowed, with a warning that support walls may fuse to the model.
+
 ```
 support-fins shelf.3mf --preserve-project --side-clearance 0.35 --bottom-gap 0.2
 ```

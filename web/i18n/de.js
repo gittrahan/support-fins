@@ -1,4 +1,5 @@
 export default {
+  "Side clearance is zero: support walls may fuse to the model. Increase it for removable supports.": "Der seitliche Abstand ist null: Stützwände können mit dem Modell verschmelzen. Erhöhen Sie ihn für entfernbare Stützen.",
   "Horizontal: one-layer tines that grip the part and snap off clean (FDM). Vertical: pins that stand up from each wall into the part, like a resin slicer's contact tips, for resin printers, where every support has to be attached.": "Horizontal: Einlagige Haltezacken, die das Bauteil greifen und sauber abbrechen (FDM). Vertikal: Stifte, die von jeder Wand in das Bauteil hineinragen – wie die Kontaktspitzen eines Resin-Slicers, für Resin-Drucker, bei denen jede Stütze angebunden sein muss.",
   "the part’s base spreads out under this face, so there is no room on the plate for the brace’s foot": "Die Basis des Bauteils breitet sich unter dieser Fläche aus, sodass auf der Platte kein Platz für den Stützfuß ist",
   "a support already stands there, and the two would fuse into one piece ": "Dort steht bereits eine Stütze, beide würden zu einem Teil verschmelzen",

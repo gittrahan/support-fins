@@ -57,6 +57,14 @@ try {
     const mesh = () => page.evaluate(() => JSON.stringify(h.build.finTris));
     await settle();
     const baseline = await mesh();
+    assertEquals(await page.$eval('#side-clearance-warning', e => e.hidden), true);
+    await change('side-clearance', '0');
+    assertEquals(await page.$eval('#side-clearance-warning', e => e.hidden), false);
+    await page.evaluate(() => h.history.undo()); await settle();
+    assertEquals(await page.$eval('#side-clearance-warning', e => e.hidden), true);
+    await page.evaluate(() => h.history.redo()); await settle();
+    assertEquals(await page.$eval('#side-clearance-warning', e => e.hidden), false);
+    await change('side-clearance', '0.35');
     assert(baseline.length > 100);
     await change('bottom-gap', '0.3');
     assert(await mesh() !== baseline, 'worker ignored bottom gap');
@@ -66,9 +74,9 @@ try {
     assertEquals(await page.$eval('#bottom-gap', e => e.value), '0.3');
     await change('bottom-gap', '0.2');
     await change('bottom-gap', '0.3');
-    const anchored = await mesh();
-    assert(anchored !== baseline, 'worker ignored clearance');
-    outputs.push(anchored);
+    const changed = await mesh();
+    assert(changed !== baseline, 'worker ignored clearance');
+    outputs.push(changed);
     await change('tines', false);
     assertEquals(await page.$eval('#bottom-gap-fld', e => e.hidden), false, 'bottom gap depends on tines');
     await change('tines', true);
@@ -79,7 +87,7 @@ try {
     assertEquals(await mesh(), resin, 'resin geometry changed');
     await change('bottom-gap', '0.3');
     await change('tine-dir', 'horizontal');
-    assertEquals(await mesh(), anchored, 'direction switch lost stored settings');
+    assertEquals(await mesh(), changed, 'direction switch lost stored settings');
 
     const saved = await page.evaluate(async pos => {
       const triples = Array.from({length: pos.length / 3}, (_, i) => pos.slice(i * 3, i * 3 + 3));
@@ -91,12 +99,17 @@ try {
     await change('side-clearance', '0.6');
     await change('bottom-gap', '0.3');
     await page.evaluate(s => h.session.restoreSession(s), saved); await settle();
-    assertEquals(await mesh(), anchored, '3MF settings round trip changed geometry');
+    assertEquals(await mesh(), changed, '3MF settings round trip changed geometry');
+    saved.form['side-clearance'] = '0';
+    await page.evaluate(s => h.session.restoreSession(s), saved); await settle();
+    assertEquals(await page.$eval('#side-clearance-warning', e => e.hidden), false);
+    assertEquals(await page.$eval('#side-clearance', e => e.value), '0');
     for (const key of ['bottom-gap', 'side-clearance']) delete saved.form[key];
     await page.evaluate(s => h.session.restoreSession(s), saved); await settle();
     assertEquals(await mesh(), baseline, 'older session inherited new settings');
     for (const lang of ['nl', 'de', 'pt', 'zh', 'ar']) {
       await page.evaluate(lang => h.i18n.setLanguage(lang), lang);
+      assert(!(await page.$eval('#side-clearance-warning', e => e.textContent)).startsWith('Side clearance is zero'), `${lang}: untranslated warning`);
       for (const id of ['side-clearance', 'bottom-gap']) {
         const title = await page.$eval(`#${id}-fld`, e => e.title);
         assert(title && !title.startsWith('Clearance beside') && !title.startsWith('Gap between') && !title.startsWith('Add short'), `${lang}: untranslated ${id}`);
