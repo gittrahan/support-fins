@@ -1,3 +1,4 @@
+import { sourceContactRegions } from '../contact-source.js';
 import { t, tn } from './i18n.js';
 /**
  * File import: sniff the format, read STL / 3MF / STEP / OBJ into one flat position
@@ -66,6 +67,7 @@ export function renderImportNote() {
     } else if (m.session === 'unreadable') {
       notes.push(t('saved supports not loaded: the saved session is damaged'));
     }
+    if (m.materialsChanged) notes.push(t('saved material mapping needs review: source geometry, painting or settings changed'));
     return notes.length ? `3MF: ${notes.join('; ')}.` : '';
   }
   return importNote;
@@ -232,7 +234,7 @@ async function parseModel(buffer) {
     return geometry;
   }
 
-  const { objects, unit, skipped, session } = await readThreeMF(new Uint8Array(buffer));
+  const { objects, unit, skipped, session } = await readThreeMF(new Uint8Array(buffer), { withMaterials: true });
 
   // One object loads straight in; a plate of several goes to the picker so the
   // user chooses which body to fin rather than us merging distinct models. A file
@@ -250,6 +252,10 @@ async function parseModel(buffer) {
   // the part's painted/material colours, by triangle, for the 3MF export (#236);
   // the triangles keep their order all the way there
   geometry.userData.colors = mergeColors(cuts.objects);
+  const digest = await crypto.subtle.digest('SHA-256', buffer);
+  geometry.userData.materialField = { version: 1, key: Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join(''),
+    materials: [...new Map(chosen.flatMap((o) => (o.materials?.materials ?? []).map((m) => [m.id, m]))).values()],
+    regions: chosen.flatMap((o, i) => sourceContactRegions(o, cuts.objects[i].materialSurface ?? null)) };
   // A slicer's own parts go back out in the 3MF export, beside the part AS THE FILE
   // HAD IT: the slicer makes the cut again, so moving or deleting a negative part
   // there does what it says, and no paint is lost to the cut (#104).
@@ -307,9 +313,9 @@ async function cutChosen(chosen) {
   try {
     tally.objects = [];
     for (const o of chosen) {
-      const c = await cutNegatives(o);
+      const c = await cutNegatives(o, { provenance: true });
       tally.cut += c.cut; tally.uncut += c.uncut; tally.why ||= c.why;
-      tally.objects.push({ ...o, positions: c.positions, colors: c.colors });
+      tally.objects.push({ ...o, positions: c.positions, colors: c.colors, materialSurface: c.sourceFaces ? c : null });
     }
   } finally {
     spinner.classList.remove('show');
@@ -384,6 +390,7 @@ function afterLoad(geometry, name, beside = false) {
   try { r = restoreSession(s, beside); } catch (err) { console.error(err); }
   rejoin();
   lastImportMeta.restored = r.n ?? null;
+  lastImportMeta.materialsChanged = r.materialsChanged;
   lastImportMeta.session = r.why ?? (beside ? 'beside' : 'restored');
   importNote = renderImportNote();
   el('s-import-note').textContent = importNote;    // the load's report already ran

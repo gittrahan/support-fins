@@ -1,3 +1,4 @@
+import { validateMaterialField, transformMaterialField } from '../browser-materials.js';
 /**
  * SESSION (#214): the supports a user placed by hand, saved inside the 3MF the
  * site exports and restored when that file is opened again -- so a part drawn
@@ -118,7 +119,7 @@ const formOf = (form) => (form && typeof form === 'object'
   // and before Long walls, tall-wall ribs and Curved walls without them (the nozzle and the viewer's
   // settings stay as this browser has them, even from a file saved before they were left out)
     ? { 'side-clearance': '0.35', 'bottom-gap': '0.2',
-      'separate-tines': false, 'material-format': 'components', 'rounded-feet': false, 'wall-lines': '2', 'long-walls': false, 'tall-ribs': false, 'curved-walls': false, 'separate-walls': false,
+      'match-contact-materials': false, 'material-body': '1', 'material-fallback': '', 'material-palette': '', 'material-mapping': '', 'separate-tines': false, 'material-format': 'components', 'rounded-feet': false, 'wall-lines': '2', 'long-walls': false, 'tall-ribs': false, 'curved-walls': false, 'separate-walls': false,
       'sway-cross-height': '50', 'tall-ribs-height': '10', anchor: false, ...Object.fromEntries(Object.entries(form)
     .filter(([id, v]) => !VIEWER_IDS.has(id) && settable(id, v))) }
   : {});
@@ -137,6 +138,11 @@ export function restoreSession(s, beside = false) {
   const bb = part.geometry.boundingBox;
   const size = [bb.max.x - bb.min.x, bb.max.y - bb.min.y, bb.max.z - bb.min.z];
   if (!point(s.part?.size) || size.some((v, k) => Math.abs(v - s.part.size[k]) > SIZE_TOL)) return { why: 'changed' };
+  if (s.materialField) {
+    validateMaterialField(s.materialField);
+    const c = part.geometry.userData.centre;
+    part.geometry.userData.materialField = transformMaterialField(s.materialField, (p) => p.map((v, k) => v + c[k]));
+  }
   const vec = (a) => new THREE.Vector3(a[0], a[1], a[2]);
   const walls = [];
   for (const w of s.walls ?? []) {
@@ -159,5 +165,5 @@ export function restoreSession(s, beside = false) {
     form: beside ? {} : formOf(s.form),
   });
   resetHistory();          // a fresh part: undo starts here, not at the plain load
-  return { n: walls.length };
+  return { n: walls.length, materialsChanged: !!s.materialFieldStale };
 }

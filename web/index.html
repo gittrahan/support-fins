@@ -343,6 +343,18 @@
     <label id="material-format-fld" class="fld row" hidden><span data-i18n="3MF compatibility">3MF compatibility</span>
       <select id="material-format"><option value="components">Bambu / Orca</option><option value="prusa2">PrusaSlicer 2</option></select>
     </label>
+    <label class="fld row" id="match-materials-fld"><span data-i18n="Match contact materials">Match contact materials</span><input type="checkbox" id="match-contact-materials"></label>
+    <div id="material-controls" hidden>
+      <p class="note" data-i18n="Map source materials to support filaments. Model painting is unchanged. Match these slot numbers in the slicer; printer and filament presets are not exported.">Map source materials to support filaments. Model painting is unchanged. Match these slot numbers in the slicer; printer and filament presets are not exported.</p>
+      <label class="fld row"><span data-i18n="Body filament">Body filament</span><input type="number" id="material-body" min="1" max="255" step="1" value="1"></label>
+      <label class="fld row"><span data-i18n="Fallback filament">Fallback filament</span><input type="number" id="material-fallback" min="1" max="255" step="1" value=""></label>
+      <input type="hidden" id="material-palette" value=""><input type="hidden" id="material-mapping" value="">
+      <div id="material-palette-rows"></div><button type="button" class="btn" id="material-add" data-i18n="Add filament slot">Add filament slot</button>
+      <div id="material-map-rows"></div>
+      <label class="fld row"><span data-i18n="Preview materials">Preview materials</span><input type="checkbox" id="show-materials"></label>
+      <p id="material-status" class="note" role="status" aria-live="polite"></p>
+      <p class="note" data-i18n="Different materials can reduce grip. Check bonding, stability and removal with a test print.">Different materials can reduce grip. Check bonding, stability and removal with a test print.</p>
+    </div>
   </details>
 
   <div class="sec placement">

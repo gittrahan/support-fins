@@ -37,6 +37,7 @@ import './ui/navigation.js';
 import './ui/camviews.js';
 import { syncViewCube } from './ui/viewcube.js';
 import './ui/scale.js';
+import './ui/materials.js';
 import { updateReadout } from './ui/readout.js';
 import {
   drawnWalls, drawnTris, drawStart, selectedWall, drawActive, sizeMarkers, clearPreview,

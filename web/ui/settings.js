@@ -326,10 +326,14 @@ el('curved-walls').addEventListener('change', () => { syncCoverageUI(); refreshF
 const ifaceMode = () => ({ flat: 'flat', all: 'all', tines: 'tines' })[el('iface').value] ?? false;
 function syncMaterialParts() {
   const resin = el('tine-dir').value === 'vertical';
-  el('separate-tines-fld').hidden = resin || !['flat', 'all'].includes(el('iface').value);
+  const matching = !resin && el('match-contact-materials').checked;
+  el('match-contact-materials').disabled = resin;
+  el('material-controls').hidden = !matching;
+  el('separate-tines-fld').hidden = matching || resin || !['flat', 'all'].includes(el('iface').value);
   el('iface').querySelector('[value="tines"]').disabled = resin;
-  PROP.separateTines = !resin && el('separate-tines').checked && ['flat', 'all'].includes(el('iface').value);
-  PROP.iface = resin && el('iface').value === 'tines' ? false : ifaceMode();
+  PROP.separateTines = !resin && (matching || el('separate-tines').checked) && ['flat', 'all'].includes(el('iface').value);
+  PROP.iface = matching ? ifaceMode() || 'flat' : resin && el('iface').value === 'tines' ? false : ifaceMode();
+  if (matching && PROP.iface !== 'tines') PROP.separateTines = true;
   el('material-format-fld').hidden = resin || !(PROP.iface === 'tines' || PROP.separateTines);
 }
 el('iface').addEventListener('change', () => {
@@ -337,6 +341,7 @@ el('iface').addEventListener('change', () => {
   syncTineGrip();
   refreshFins();
 });
+el('match-contact-materials').addEventListener('change', () => { syncMaterialParts(); refreshFins(); });
 el('separate-tines').addEventListener('change', () => { syncMaterialParts(); refreshFins(); });
 
 // The grams receipt's filament density: PLA's (../materials.js). The PLA/PETG

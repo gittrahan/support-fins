@@ -332,6 +332,11 @@
       "date": "2026-11-20",
       "check": "clean",
       "text": "Optional preserved-project contact matching follows saved model materials and paint boundaries, with a selected fallback for unresolved regions."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "clean",
+      "text": "Optional browser contact-material matching with explicit filament mapping, fallback, material preview and assigned Bambu/Orca/Prusa 3MF parts."
     }
   ]
 }

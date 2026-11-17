@@ -38,6 +38,7 @@ export function setFinTris(tris) {
   if (finMesh) { scene.remove(finMesh); finMesh.geometry.dispose(); }
   finTris = tris;
   finMesh = meshFrom(finTris, finMaterial, ifaceMaterial);
+  document.dispatchEvent(new Event('supportchange'));
 }
 
 export const finMaterial = new THREE.MeshStandardMaterial({
@@ -318,6 +319,7 @@ function inline(opts) {
 }
 
 export function refreshFins() {
+  document.dispatchEvent(new Event('materialpreviewinvalidate'));
   setSmallHoleHighlight(null);
   scheduleParked();                    // the parked models follow the plate's settings
   if (!finsVisible || !lastResult || !topology) {
@@ -436,6 +438,7 @@ function applyBuilt(built) {
   // Restore-all visibility keys off removedIds (this orientation's removals), which
   // is only known after the reconcile above -- refresh it once the build lands.
   syncRemoveUI();
+  document.dispatchEvent(new Event('supportchange'));
 }
 
 /**
@@ -448,6 +451,7 @@ function applyBuilt(built) {
 export function markFinsStale() {
   cancelInspection();
   syncSupportFindings(null);
+  document.dispatchEvent(new Event('materialpreviewinvalidate'));
   for (const m of [finMesh, padMesh, drawnMesh]) if (m) for (const mat of [m.material].flat()) mat.opacity = 0.25;
   finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = ifaceMaterial.transparent = true;
   el('s-fins').textContent = t('generating supports…');

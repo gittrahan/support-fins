@@ -1,3 +1,4 @@
+import { materialSessionFingerprint } from './material-session.js';
 /**
  * 3MF writer (core spec, 2015/02 namespace).
  *
@@ -290,12 +291,13 @@ function modelXML(models, title, separate, bed) {
       const roles = new Set(), components = [], volumes = [], triangles = [], vertexIds = [];
       let vertexOffset = 0;
       for (const part of m.materialParts) {
-        if (!['body', 'tine', 'interface'].includes(part.role) || roles.has(part.role) || !part.triangles?.length) {
+        if (!['body', 'tine', 'interface'].includes(part.role) || roles.has(`${part.role}:${part.filament ?? ''}`) || !part.triangles?.length) {
           throw new Error('invalid support material parts');
         }
         validateVertexIds(part.triangles, part.vertexIds);
-        roles.add(part.role);
-        const label = `${m.name} ${{ body: 'support bodies', tine: 'tines', interface: 'top interfaces' }[part.role]}`;
+        if (part.filament != null && (!Number.isSafeInteger(part.filament) || part.filament < 1 || part.filament > 255)) throw new Error('invalid support filament');
+        roles.add(`${part.role}:${part.filament ?? ''}`);
+        const label = `${m.name} ${{ body: 'support bodies', tine: 'tines', interface: 'top interfaces' }[part.role]}` + (part.filament ? ` (filament ${part.filament})` : '');
         if (m.materialFormat === 'prusa2') {
           const first = triangles.length / 3;
           for (const p of part.triangles) triangles.push(p);
@@ -305,12 +307,12 @@ function modelXML(models, title, separate, bed) {
             if (!local.has(key)) local.set(key, vertexOffset++);
             vertexIds.push(local.get(key));
           }
-          volumes.push({ name: label, first, end: triangles.length / 3 });
+          volumes.push({ name: label, filament: part.filament, first, end: triangles.length / 3 });
         } else {
           const id = nextMaterialID++;
           objects.push(`<object id="${id}" type="model" name="${esc(label)}">${meshXML(part.triangles, null, null, { precise: true, vertexIds: part.vertexIds })}</object>`);
           components.push(`<component objectid="${id}"/>`);
-          volumes.push({ id, name: label });
+          volumes.push({ id, name: label, filament: part.filament });
         }
         footprint.push(part.triangles);
       }
@@ -328,16 +330,16 @@ function modelXML(models, title, separate, bed) {
         if (ranges.some((v) => v.first < 0 || v.last < v.first)) throw new Error('empty support material part');
         objects.push(`<object id="${resource}" type="model" name="${name} supports">${mesh}</object>`);
         cfg.prusa2.push(`<object id="${resource}" instances_count="1">${metaXML([['name', `${m.name} supports`]], ' type="object"')}` +
-          ranges.map((v) => `<volume firstid="${v.first}" lastid="${v.last}">${metaXML([['name', v.name], ['volume_type', 'ModelPart']], ' type="volume"')}</volume>`).join('') + '</object>');
+          ranges.map((v) => `<volume firstid="${v.first}" lastid="${v.last}">${metaXML([['name', v.name], ['volume_type', 'ModelPart'], ...supportFilament(v.filament, 'prusa')], ' type="volume"')}</volume>`).join('') + '</object>');
         prusa2 = true;
       } else {
         objects.push(`<object id="${resource}" type="model" name="${name} supports"><components>${components.join('')}</components></object>`);
         // Bambu/Orca use the assembly's name for every child unless their part
         // metadata names the volumes explicitly. Keep role names on reimport.
         cfg.bambu.push(`<object id="${resource}">${metaXML([['name', `${m.name} supports`]])}` +
-          volumes.map((v) => `<part id="${v.id}" subtype="normal_part">${metaXML([['name', v.name]])}</part>`).join('') + '</object>');
+          volumes.map((v) => `<part id="${v.id}" subtype="normal_part">${metaXML([['name', v.name], ...supportFilament(v.filament, 'bambu')])}</part>`).join('') + '</object>');
         cfg.prusa3.push({ id: resource, object_settings: {}, volumes: volumes.map((v) =>
-          ({ id: v.id, type: 'ModelPart', volume_settings: {} })) });
+          ({ id: v.id, type: 'ModelPart', volume_settings: Object.fromEntries(supportFilament(v.filament, 'prusa')) })) });
       }
       own = [partId, resource];
     } else if (finTris && finTris.length) {
@@ -450,7 +452,7 @@ export function writeThreeMF(partTris, finTris, name = 'Support Fins',
  * @param opts { title, separate, session, bed }: as writeThreeMF's, and `bed`
  * @returns Promise<Blob> a .3mf package (deflated)
  */
-export function writePlate3MF(models, { title = models[0]?.name ?? 'Support Fins', separate = false, session = null, bed = null } = {}) {
+export async function writePlate3MF(models, { title = models[0]?.name ?? 'Support Fins', separate = false, session = null, bed = null } = {}) {
   const { xml, configs } = modelXML(models, title, separate, bed);
   const entries = [
     { name: '[Content_Types].xml', data: CONTENT_TYPES },
@@ -458,6 +460,7 @@ export function writePlate3MF(models, { title = models[0]?.name ?? 'Support Fins
     { name: '3D/3dmodel.model', data: xml },
     ...configs,
   ];
+  if (session?.materialField) session = { ...session, materialFieldFingerprint: await materialSessionFingerprint(new Map(entries.map(({ name, data }) => [name, data]))) };
   if (session) entries.push({ name: SESSION_PART, data: JSON.stringify(session) });
   return zipDeflate(entries);
 }
@@ -485,6 +488,11 @@ export function writePlate3MF(models, { title = models[0]?.name ?? 'Support Fins
  */
 const BAMBU_SUBTYPE = { part: 'normal_part', negative: 'negative_part', modifier: 'modifier_part', blocker: 'support_blocker', enforcer: 'support_enforcer' };
 const PRUSA_TYPE = { part: 'ModelPart', negative: 'NegativeVolume', modifier: 'ParameterModifier', blocker: 'SupportBlocker', enforcer: 'SupportEnforcer' };
+function supportFilament(slot, flavor) {
+  if (slot == null) return [];
+  return (flavor === 'bambu' ? ['extruder', 'wall_filament', 'sparse_infill_filament', 'solid_infill_filament']
+    : ['extruder', 'perimeter_extruder', 'infill_extruder', 'solid_infill_extruder']).map((key) => [key, String(slot)]);
+}
 const XML_HEAD = '<?xml version="1.0" encoding="UTF-8"?>\n';
 const metaXML = (pairs, type = '') =>
   pairs.map(([k, v]) => `<metadata${type} key="${esc(k)}" value="${esc(v)}"/>`).join('');

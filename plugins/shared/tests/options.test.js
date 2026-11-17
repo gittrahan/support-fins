@@ -44,6 +44,12 @@ const SITE_AUTO_CHECKBOX = { separateWalls: 'ticked by the site when Vertical (r
 const SITE_EXCLUDED = {
   'material-format': 'browser 3MF compatibility; host adapters own their export format',
   'separate-tines': 'browser-only material-part export; plugin adapters keep their existing single support mesh',
+  'match-contact-materials': 'browser material export; CLI matching has separate preserved-project controls',
+  'material-body': 'browser destination filament mapping, not support generation',
+  'material-fallback': 'browser explicit fallback for unresolved source materials',
+  'material-palette': 'browser destination palette stored with the session',
+  'material-mapping': 'browser per-source material mapping stored with the session',
+  'show-materials': 'browser-only material preview',
   'full-brace-depth': 'browser opt-in; plugin dialogs retain the established 60 mm Sway depth limit',
   'sway-cross-height': 'browser sway cross-ribs only; plugin dialogs retain the default rib height ratio',
   'tall-ribs': 'the plugins build with the engine default (on, as the site starts); a dialog control can follow',

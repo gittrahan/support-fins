@@ -1,3 +1,4 @@
+import { materialSessionFingerprint } from './material-session.js';
 import { unzip } from '../zip.js';
 import { filamentPainter } from '../paintcode.js';
 import { ON_PART, PAINT_ATTRS, REL_3DMODEL, SESSION_PART, attrLocal, compose, local, parseMatrix, partName, scanXML } from './common.js';
@@ -357,7 +358,12 @@ function findRootPart(parts) {
  */
 export async function readThreeMF(bytes, options = {}) {
   const parts = await unzip(bytes);
-  return readThreeMFParts(parts, options);
+  const result = readThreeMFParts(parts, options);
+  if (result.session?.materialField && result.session.materialFieldFingerprint !== await materialSessionFingerprint(parts)) {
+    delete result.session.materialField;
+    result.session.materialFieldStale = true;
+  }
+  return result;
 }
 
 /**
