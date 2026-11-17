@@ -48,7 +48,7 @@ Deno.test('part clearances: adapter validates controls and resets them between c
     assert(same(original, computeFins(model, opts).triangles), 'settings leaked');
   }
   for (const change of [{ bottomGap: -0.1 }, { bottomGap: 0.5 }, { bottomGap: '0.2' },
-    { sideClearance: -1 }, { sideClearance: 2 }, { sideClearance: NaN }]) {
+    { sideClearance: -1 }, { sideClearance: 0 }, { sideClearance: 0.1 }, { sideClearance: 2 }, { sideClearance: NaN }]) {
     let error;
     try { computeFins(model, { ...opts, ...change }); } catch (e) { error = e; }
     assert(error, `invalid setting accepted: ${JSON.stringify(change)}`);
@@ -85,5 +85,19 @@ Deno.test('part clearances: a measured side gap admits or refuses the wall, in t
       else assert(same(actual,original), `${mode}: default/restore changed geometry`);
     }
     assert(same(computeFins(pocket,opts).triangles, original), 'clearance leaked to next call');
+  }
+}));
+
+Deno.test('part clearances: a wall standing on the part relaxes down to the 0.2 mm floor', () => withSettings(() => {
+  // 0.22 mm beside the wall: past the 0.205 mm weld guard, but inside the old fixed
+  // 0.24 mm probe that attached walls kept whatever Side clearance said.
+  const pocket = new Float32Array([...block(-20,20,-5,5,0,5), ...block(-20,20,-5,5,15,17),
+    ...block(-20,20,-5,-0.72,5,15), ...block(-20,20,0.72,5,5,15)]);
+  const opts = {...ENGINE_DEFAULTS, mode:'auto', tines:false, bedPad:false};
+  assert(computeFins(pocket, opts).triangles.length === 0, 'default 0.35 mm admitted a 0.22 mm gap');
+  const tight = computeFins(pocket, {...opts, sideClearance:0.2}).triangles;
+  assert(tight.length > 0, 'Side clearance 0.2 did not admit a 0.22 mm gap');
+  for (let i = 0; i < tight.length; i += 3) {
+    if (tight[i+2] > 5.01 && tight[i+2] < 14) assert(Math.abs(tight[i+1]) <= 0.72 - 0.2 + 1e-6, 'wall closer than 0.2 mm');
   }
 }));
