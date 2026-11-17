@@ -122,12 +122,12 @@ A few things that look right but aren't:
 | Setting | JSON key | Values (JSON) | Default | CLI flag |
 |---|---|---|---|---|
 | Support gap | `gap` | 0.1 to 0.4 | `0.2` | `--gap` |
-| Side clearance | `sideClearance` | 0 to 1 | `0.35` | `--side-clearance` |
+| Side clearance | `sideClearance` | 0.2 to 1 | `0.35` | `--side-clearance` |
 | Bottom gap | `bottomGap` | 0 to 0.4 | `0.2` | `--bottom-gap` |
 | Bed pad | `padStyle` | `off`, `auto`, `light`, `sure` | `auto` | `--pad-style` |
 
 - **Support gap** (`gap`): Clearance between a support top and the part. Bigger = cleaner surface / easier removal; too big stops holding the overhang. Default 0.2mm.
-- **Side clearance** (`sideClearance`): Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.
+- **Side clearance** (`sideClearance`): Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Minimum 0.2 mm: a closer wall would fuse to the part. Default 0.35 mm.
 - **Bottom gap** (`bottomGap`): Gap between an FDM support and the model below it. Does not lift feet off the build plate. Zero welds the contact; larger gaps can weaken support. Default 0.2 mm. Only used when Direction is Horizontal (FDM).
 - **Bed pad** (`padStyle`): A tilted part rests on an edge and peels off the plate without a pad. Auto: Light, or Sure hold when the part meets the plate on a point or a small round foot. Light: one layer, 0.12mm off the part, peels off like a brim. Sure hold: thicker and tacked into the part, holds harder but is harder to remove.
 

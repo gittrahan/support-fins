@@ -25,10 +25,10 @@ function gapOf(gap) {
   return gap;
 }
 
-function clearance(value, fallback, max, name) {
+function clearance(value, fallback, min, max, name) {
   value ??= fallback;
-  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > max) {
-    throw new Error(`${name} must be 0..${max}, got ${JSON.stringify(value)}`);
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+    throw new Error(`${name} must be ${min}..${max}, got ${JSON.stringify(value)}`);
   }
   return value;
 }
@@ -49,8 +49,8 @@ export function clearances(opts) {
     // Wall-line selection remains a browser feature; plugin walls use two lines.
     nozzle: nozzleSize(opts.nozzle), wallLines: 2,
     padH: MATERIAL.pla.padH, padGrab: MATERIAL.pla.padGrab, propGap: gapOf(opts.gap),
-    sideClearance: clearance(opts.sideClearance, 0.35, 1, 'sideClearance'),
-    bottomGap: clearance(opts.bottomGap, 0.2, 0.4, 'bottomGap'),
+    sideClearance: clearance(opts.sideClearance, 0.35, 0.2, 1, 'sideClearance'),
+    bottomGap: clearance(opts.bottomGap, 0.2, 0, 0.4, 'bottomGap'),
     // Off builds no pad, so which style it carries doesn't matter; Auto keeps it valid.
     padStyle: pick('padStyle', opts.padStyle, PAD_STYLES) === 'off' ? 'auto' : opts.padStyle,
     cutout: pick('cutout', opts.cutout, CUTOUT_PATTERNS),

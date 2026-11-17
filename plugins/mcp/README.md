@@ -34,7 +34,7 @@ For independent clearances, use
 The clearances are in millimetres. Top clearance remains `gap`. Resin ignores
 bottom gap. Plate feet are unchanged.
 
-Zero side clearance is allowed, with a warning that support walls may fuse to the model.
+Side clearance is 0.2 to 1 mm: a wall closer than 0.2 mm would fuse to the part.
 
 The result is the CLI's report line ("5 walls, 20 tines; 1 overhang is too shallow for a
 fin this way up (tilt the part steeper)") plus the numbers behind it. Unsupported

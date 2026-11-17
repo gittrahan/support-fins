@@ -34,7 +34,8 @@ try {
       window.h = { THREE: await import('three'), part: await import('./ui/part.js'),
         build: await import('./ui/finbuild.js'), settings: await import('./ui/settings.js'),
         history: await import('./ui/history.js'), session: await import('./ui/session.js'),
-        i18n: await import('./ui/i18n.js'), mf: await import('./threemf.js') };
+        i18n: await import('./ui/i18n.js'), mf: await import('./threemf.js'),
+        PROP: (await import('./prop/config.js')).PROP };
       h.i18n.setLanguage('en');
       const geom = new h.THREE.BufferGeometry();
       geom.setAttribute('position', new h.THREE.Float32BufferAttribute(pos, 3));
@@ -57,13 +58,8 @@ try {
     const mesh = () => page.evaluate(() => JSON.stringify(h.build.finTris));
     await settle();
     const baseline = await mesh();
-    assertEquals(await page.$eval('#side-clearance-warning', e => e.hidden), true);
     await change('side-clearance', '0');
-    assertEquals(await page.$eval('#side-clearance-warning', e => e.hidden), false);
-    await page.evaluate(() => h.history.undo()); await settle();
-    assertEquals(await page.$eval('#side-clearance-warning', e => e.hidden), true);
-    await page.evaluate(() => h.history.redo()); await settle();
-    assertEquals(await page.$eval('#side-clearance-warning', e => e.hidden), false);
+    assertEquals(await page.$eval('#side-clearance', e => e.value), '0.2', 'below-floor value not clamped');
     await change('side-clearance', '0.35');
     assert(baseline.length > 100);
     await change('bottom-gap', '0.3');
@@ -102,14 +98,12 @@ try {
     assertEquals(await mesh(), changed, '3MF settings round trip changed geometry');
     saved.form['side-clearance'] = '0';
     await page.evaluate(s => h.session.restoreSession(s), saved); await settle();
-    assertEquals(await page.$eval('#side-clearance-warning', e => e.hidden), false);
-    assertEquals(await page.$eval('#side-clearance', e => e.value), '0');
+    assertEquals(await page.evaluate(() => h.PROP.sideClear), 0.2, 'restored zero not floored');
     for (const key of ['bottom-gap', 'side-clearance']) delete saved.form[key];
     await page.evaluate(s => h.session.restoreSession(s), saved); await settle();
     assertEquals(await mesh(), baseline, 'older session inherited new settings');
     for (const lang of ['nl', 'de', 'pt', 'zh', 'ar']) {
       await page.evaluate(lang => h.i18n.setLanguage(lang), lang);
-      assert(!(await page.$eval('#side-clearance-warning', e => e.textContent)).startsWith('Side clearance is zero'), `${lang}: untranslated warning`);
       for (const id of ['side-clearance', 'bottom-gap']) {
         const title = await page.$eval(`#${id}-fld`, e => e.title);
         assert(title && !title.startsWith('Clearance beside') && !title.startsWith('Gap between') && !title.startsWith('Add short'), `${lang}: untranslated ${id}`);

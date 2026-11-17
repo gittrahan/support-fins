@@ -272,21 +272,22 @@ function wireGap(id, obj, key, lo, hi) {
   });
 }
 wireGap('gap', PROP, 'gap', 0.1, 0.4);
-function syncClearanceWarning() {
-  el('side-clearance-warning').hidden = el('side-clearance').valueAsNumber !== 0;
-}
-syncClearanceWarning();
+// Typing applies each finite value (applyTunables clamps it); the field itself is
+// clamped only on change, so a half-typed "1.5" isn't rewritten to "1" mid-entry.
 for (const id of ['side-clearance', 'bottom-gap']) {
-  el(id).addEventListener('input', () => {
-    const input = el(id);
-    if (input.type !== 'checkbox') {
-      const v = input.valueAsNumber;
-      if (!Number.isFinite(v)) return;
-      input.value = String(Math.max(+input.min, Math.min(+input.max, v)));
-    }
+  const input = el(id);
+  input.addEventListener('input', () => {
+    if (!Number.isFinite(input.valueAsNumber)) return;
     applyTunables(tineDirTunables());
-    syncClearanceWarning();
     debouncedRefresh();
+  });
+  input.addEventListener('change', () => {
+    const v = input.valueAsNumber;
+    if (!Number.isFinite(v)) return;
+    const clamped = Math.max(+input.min, Math.min(+input.max, v));
+    if (clamped === v) return;
+    input.value = String(clamped);
+    input.dispatchEvent(new Event('input'));
   });
 }
 

@@ -34,9 +34,9 @@ Deno.test('mcp: part clearances match the CLI', async () => {
   }
   assert(!same(...outputs), 'bottom gap did not reach geometry');
 });
-Deno.test('mcp: zero side clearance retains output and reports the fusion warning', async () => {
+Deno.test('mcp: side clearance below 0.2 mm is refused', async () => {
   const r = await callTool('fin_part', {path:'lb.stl', output:'out.stl', settings:{'side-clearance':0}}, memIO());
-  assert(!r.isError && r.structuredContent.warnings.some(s => s.includes('may fuse to the model')));
+  assert(r.isError, 'zero side clearance accepted');
 });
 const ENTRY = fileURLToPath(new URL('../support-fins-mcp.js', import.meta.url));
 
