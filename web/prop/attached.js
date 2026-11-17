@@ -89,7 +89,7 @@ export function clearBetween(top, floor, k, topo, rot, offset) {
   const nP = Math.max(3, Math.ceil((zTop - zBot) / 1.5));
   for (let i = 1; i < nP; i++) {                 // strictly interior heights
     const z = zBot + ((zTop - zBot) * i) / nP;
-    for (const m of [0.12, 0.24, PROP.sideClear]) {
+    for (const m of [Math.min(0.12, PROP.sideClear), Math.min(0.24, PROP.sideClear), PROP.sideClear]) {
       const w = PROP.th / 2 + m;
       if (insidePart(topo, rot, offset, p[0] + sx * w, p[1] + sy * w, z)) return false;
       if (insidePart(topo, rot, offset, p[0] - sx * w, p[1] - sy * w, z)) return false;
