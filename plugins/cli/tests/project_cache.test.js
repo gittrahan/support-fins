@@ -6,6 +6,7 @@ import { assert } from '../../../tests/_util.js';
 import { nominalContext, printabilityStats, supportPrintability } from '../../../web/fins/printability.js';
 import { block } from '../../../tests/_util.js';
 import { supportDiagnosticLine } from '../../shared/engine/report.js';
+import { assertEquals } from 'jsr:@std/assert';
 
 const data = { triangles: new Float32Array([0, 1 / 3, -2, 3, 4, 5, 6, 7, 8]),
   offset: { x: -12.25, y: 7, z: 0 }, stats: { fins: 1, nested: { count: 2 } } };
@@ -171,6 +172,7 @@ Deno.test('cache: source build identity detects uncommitted engine/schema change
   await fs.copyFile(new URL('../../../web/fins/diagnostics.js', import.meta.url), path.join(dir, 'web/fins/diagnostics.js'));
   const module = path.join(dir, 'plugins/cli/project-cache.mjs');
   await fs.copyFile(new URL('../project-cache.js', import.meta.url), module);
+  await fs.copyFile(new URL('../project-material-records.js', import.meta.url), path.join(dir, 'plugins/cli/project-material-records.js'));
   const { runtimeIdentity } = await import(pathToFileURL(module).href);
   const before = await runtimeIdentity();
   await fs.writeFile(path.join(dir, 'web/fins.js'), 'changed engine');
@@ -233,9 +235,58 @@ Deno.test('cache: checksum and version reject damaged baked geometry before reus
   for(const version of [false,true]) {
     const warnings=[],r=request(dir,{settings:{version}},warnings),c=await open(r); await c.save(1,converted());
     const root=`${r.input}.fins-cache`,record=(await records(root)).find(n=>n.endsWith('.cache'));
-    const file=path.join(root,record),bytes=await fs.readFile(file); bytes[version?7:bytes.length-1]^=1; await fs.writeFile(file,bytes);
+    const file=path.join(root,record),bytes=await fs.readFile(file); bytes[version?7:bytes.length-1]^=version?0x40:1; await fs.writeFile(file,bytes);
     assert(await (await open(r)).load(1)===null,'damaged conversion reused');
     assert(warnings.some(w=>w.includes(version?'header':'checksum')),'invalid checkpoint not explained');
     await c.finish();
+  }
+}));
+
+const materialData = () => ({ ...data, materialParts: [
+  { role:'body',filament:1,triangles:data.triangles.slice() },
+  { role:'tine',filament:2,triangles:Float32Array.of(0,0,0,1,0,0,0,1,0) },
+] });
+Deno.test('cache: material partitions roundtrip exactly with and without baked bodies',()=>temporary(async(dir)=>{
+  const r=request(dir),c=await open(r);
+  for(const [number,baked] of [[1,false],[2,true]]) {
+    const value={...(baked?converted():{}),...materialData()};
+    await c.save(number,value);
+    assertEquals(await (await open(r)).load(number),value,'material or converted output changed');
+  }
+  const empty={...data,triangles:new Float32Array(),materialParts:[]};
+  await c.save(3,empty);assert(same(await (await open(r)).load(3),empty));
+  const changed=await open({...r,settings:{...r.settings,tineExtruder:3}});
+  assert(await changed.load(1)===null,'material selector changed but checkpoint reused');
+}));
+
+Deno.test('cache: incomplete, malformed and damaged material records cannot be reused',()=>temporary(async(dir)=>{
+  for(const mutate of [v=>v.materialParts=[],v=>v.materialParts[0].role='unknown',
+    v=>v.materialParts[0].filament=0,v=>v.materialParts[0].triangles[0]=NaN,
+    v=>v.materialParts[1].role='body',v=>v.materialParts[0].triangles=new Float32Array(8)]) {
+    const value=materialData();mutate(value);const c=await open(request(dir));let failed=false;
+    try {await c.save(1,value);}catch(e){failed=/cannot save checkpoint/.test(e.message);}
+    assert(failed,'invalid material record saved');
+    assert(await (await open(request(dir))).load(1)===null);
+  }
+  const warnings=[],r=request(dir,{},warnings),c=await open(r);await c.save(1,materialData());
+  const root=`${r.input}.fins-cache`,record=(await records(root)).find(n=>n.endsWith('.cache'));
+  const file=path.join(root,record),bytes=await fs.readFile(file);bytes[bytes.length-1]^=1;await fs.writeFile(file,bytes);
+  assert(await (await open(r)).load(1)===null);assert(warnings.some(w=>w.includes('checksum')));
+}));
+
+Deno.test('cache: material and baked records retain diagnostics and reject missing findings',()=>temporary(async(dir)=>{
+  const support=supportPrintability(block(-2,2,-1,1,2,4),[{id:'0',ranges:[[0,12]]}],[],nominalContext(.4,.8,.2));
+  const diagnostics={support,offset:{...data.offset},coverage:{basis:'sampled-contact-reach',area:0,total:0,points:[],sourceFaces:[],contacts:[]}};
+  const r=request(dir),c=await open(r);
+  for(const [number,baked] of [[1,false],[2,true]]){
+    const value={...(baked?converted():{}),...materialData(),diagnostics,
+      stats:{...data.stats,...printabilityStats(support)}};
+    await c.save(number,value);
+    const resumed=await (await open(r)).load(number);
+    assertEquals(resumed,value,'material checkpoint lost its diagnostic or baked fields');
+    assertEquals(supportDiagnosticLine(resumed.stats),supportDiagnosticLine(value.stats));
+    const broken=structuredClone(value);delete broken.diagnostics;
+    let failed=false;try{await c.save(number+10,broken);}catch{failed=true;}
+    assert(failed && await (await open(r)).load(number+10)===null,'missing diagnostics accepted');
   }
 }));
