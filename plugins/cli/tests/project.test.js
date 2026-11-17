@@ -159,7 +159,7 @@ Deno.test('project: Separate walls reaches selected geometry and preserves the o
 Deno.test('project: bottom settings reach selected supports without editing source or unselected parts', async () => {
   const positions = new Float32Array([...block(-20, 20, -5, 5, 0, 5), ...block(-20, 20, -5, 5, 15, 17)]);
   const source = await fixture({positions, upright: true}), original = new ProjectZip(source), meshes = [];
-  for (const flags of [[], ['--bottom-gap', '0.4'], ['--bottom-anchors'], ['--no-bottom-anchors']]) {
+  for (const flags of [[], ['--bottom-gap', '0.4']]) {
     const r = await cli(source, ['--object', '1', ...flags]);
     assert(r.code === 0, r.err.join('\n'));
     const zip = new ProjectZip(r.fs.get('part-fins-project.3mf'));
@@ -169,8 +169,7 @@ Deno.test('project: bottom settings reach selected supports without editing sour
     }
     assert(r.result.objects.length === 1 && r.result.objects[0].number === 1, 'selection changed');
   }
-  assert(meshes[0] !== meshes[1] && meshes[0] !== meshes[2], 'settings did not reach preserved-project generation');
-  assert(meshes[0] === meshes[3], 'explicit false differs from the default');
+  assert(meshes[0] !== meshes[1], 'settings did not reach preserved-project generation');
 });
 
 Deno.test('project nozzle: saved diameter equals an explicit run, is reported and never edits printer settings', async () => {

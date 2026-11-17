@@ -143,7 +143,6 @@ export function finOpts(isl = islands) {
                        propGap: PROP.gap,
                        sideClearance: PROP.sideClear,
                        bottomGap: el('bottom-gap').valueAsNumber,
-                       bottomAnchors: el('bottom-anchors').checked,
                        tallRibsHeight: BRACE.tallH,
                        cutout: CUT.pattern,
                        iface: PROP.iface,

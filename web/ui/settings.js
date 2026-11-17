@@ -171,7 +171,7 @@ const PIN_SPACING_TIP = 'How many pins each wall gets. More pins = a firmer hold
 let gripTip = null;
 function syncTineGrip() {
   const on = el('tines').checked;
-  for (const id of ['bottom-gap-fld', 'bottom-anchors-fld']) {
+  for (const id of ['bottom-gap-fld']) {
     el(id).hidden = el('tine-dir').value === 'vertical';
   }
   el('rounded-feet-fld').hidden = el('tine-dir').value === 'vertical';
@@ -198,8 +198,7 @@ window.addEventListener('languagechange', syncTineGrip);   // the swapped toolti
 // copy is set here for Draw; the Worker gets it in the build's tunables.
 export function tineDirTunables() {
   return { roundFeet: el('rounded-feet').checked, tineDir: el('tine-dir').value, pinDepth: el('pin-depth').valueAsNumber,
-    sideClearance: el('side-clearance').valueAsNumber, bottomGap: el('bottom-gap').valueAsNumber,
-    bottomAnchors: el('bottom-anchors').checked };
+    sideClearance: el('side-clearance').valueAsNumber, bottomGap: el('bottom-gap').valueAsNumber };
 }
 // Resin cures joined walls into one block (#309), so picking a direction sets
 // Separate walls to match; the box is the user's to change after.
@@ -275,7 +274,7 @@ function wireGap(id, obj, key, lo, hi) {
   });
 }
 wireGap('gap', PROP, 'gap', 0.1, 0.4);
-for (const id of ['side-clearance', 'bottom-gap', 'bottom-anchors']) {
+for (const id of ['side-clearance', 'bottom-gap']) {
   el(id).addEventListener('input', () => {
     const input = el(id);
     if (input.type !== 'checkbox') {
@@ -443,7 +442,6 @@ export function syncSectionSums() {
     `${el('gap').value} ${t('gap')}`,
     el('side-clearance').valueAsNumber === 0.35 ? null : `${el('side-clearance').value} ${t('Side clearance')}`,
     el('bottom-gap-fld').hidden || el('bottom-gap').valueAsNumber === 0.2 ? null : `${el('bottom-gap').value} ${t('Bottom gap')}`,
-    el('bottom-anchors-fld').hidden || !el('bottom-anchors').checked ? null : t('Line anchors'),
     el('iface').value === 'off' ? null : t('interface'),
   ].filter(Boolean).join(' · ');
   const grip = el('tine-density').valueAsNumber;

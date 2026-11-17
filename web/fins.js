@@ -124,9 +124,6 @@ export function applyTunables(t = {}) {
     PROP.footGap = t.tineDir === 'vertical' ? 0 : FOOT_GAP;
   }
   if (Number.isFinite(t.bottomGap) && PROP.tineDir !== 'vertical') PROP.footGap = Math.max(0, Math.min(0.4, t.bottomGap));
-  if (t.bottomAnchors !== undefined || t.tineDir !== undefined) {
-    PROP.bottomAnchors = t.bottomAnchors === true && PROP.tineDir !== 'vertical';
-  }
   if (Number.isFinite(t.pinDepth)) PROP.pinDepth = Math.max(0.05, Math.min(PROP.pinDepthMax, t.pinDepth));
   // And the nozzle and wall lines, which scale the support widths (nozzle.js).
   if (t.nozzle !== undefined) applyNozzle(t.nozzle);

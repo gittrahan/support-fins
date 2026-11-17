@@ -65,19 +65,19 @@ try {
     await page.evaluate(() => h.history.redo()); await settle();
     assertEquals(await page.$eval('#bottom-gap', e => e.value), '0.3');
     await change('bottom-gap', '0.2');
-    await change('bottom-anchors', true);
+    await change('bottom-gap', '0.3');
     const anchored = await mesh();
-    assert(anchored !== baseline, 'worker ignored anchors');
+    assert(anchored !== baseline, 'worker ignored clearance');
     outputs.push(anchored);
     await change('tines', false);
-    assertEquals(await page.$eval('#bottom-anchors-fld', e => e.hidden), false, 'anchors depend on tines');
+    assertEquals(await page.$eval('#bottom-gap-fld', e => e.hidden), false, 'bottom gap depends on tines');
     await change('tines', true);
     await change('tine-dir', 'vertical');
-    assertEquals(await page.$eval('#bottom-anchors-fld', e => e.hidden), true);
+    assertEquals(await page.$eval('#bottom-gap-fld', e => e.hidden), true);
     const resin = await mesh();
-    await change('bottom-anchors', false);
+    await change('bottom-gap', '0.1');
     assertEquals(await mesh(), resin, 'resin geometry changed');
-    await change('bottom-anchors', true);
+    await change('bottom-gap', '0.3');
     await change('tine-dir', 'horizontal');
     assertEquals(await mesh(), anchored, 'direction switch lost stored settings');
 
@@ -87,17 +87,17 @@ try {
       const blob = await h.mf.writeThreeMF(triples, h.build.finTris, 'shelf', {separate: true, session});
       return (await h.mf.readThreeMF(new Uint8Array(await blob.arrayBuffer()))).session;
     }, Array.from(shelf()));
-    assertEquals(saved.form['bottom-anchors'], true);
+    assertEquals(saved.form['bottom-gap'], '0.3');
     await change('side-clearance', '0.6');
     await change('bottom-gap', '0.3');
     await page.evaluate(s => h.session.restoreSession(s), saved); await settle();
     assertEquals(await mesh(), anchored, '3MF settings round trip changed geometry');
-    for (const key of ['bottom-anchors', 'bottom-gap', 'side-clearance']) delete saved.form[key];
+    for (const key of ['bottom-gap', 'side-clearance']) delete saved.form[key];
     await page.evaluate(s => h.session.restoreSession(s), saved); await settle();
     assertEquals(await mesh(), baseline, 'older session inherited new settings');
     for (const lang of ['nl', 'de', 'pt', 'zh', 'ar']) {
       await page.evaluate(lang => h.i18n.setLanguage(lang), lang);
-      for (const id of ['side-clearance', 'bottom-gap', 'bottom-anchors']) {
+      for (const id of ['side-clearance', 'bottom-gap']) {
         const title = await page.$eval(`#${id}-fld`, e => e.title);
         assert(title && !title.startsWith('Clearance beside') && !title.startsWith('Gap between') && !title.startsWith('Add short'), `${lang}: untranslated ${id}`);
       }

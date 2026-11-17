@@ -40,7 +40,6 @@ export const ENGINE_DEFAULTS = Object.freeze({
   gap: OPTION.gap.default,             // mm: the site's Support gap (PROP.gap)
   sideClearance: OPTION.sideClearance.default,
   bottomGap: OPTION.bottomGap.default,
-  bottomAnchors: OPTION.bottomAnchors.default,
   padStyle: OPTION.padStyle.default,   // one of PAD_STYLES
   cutout: OPTION.cutout.default,       // one of web/cutout.js CUTOUT_PATTERNS
   tineDir: OPTION.tineDir.default,     // 'horizontal' (FDM) | 'vertical' (resin pins, #309)

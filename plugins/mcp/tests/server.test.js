@@ -17,23 +17,22 @@ import { unzip } from '../../../web/zip.js';
 
 const LBRACKET = Deno.readFileSync(`${MODELS}lbracket.stl`);
 
-Deno.test('mcp: part clearances and both anchor values match the CLI', async () => {
+Deno.test('mcp: part clearances match the CLI', async () => {
   const pos = new Float32Array([...block(-20, 20, -5, 5, 0, 5), ...block(-20, 20, -5, 5, 15, 17)]);
   const triples = Array.from({ length: pos.length / 3 }, (_, i) => Array.from(pos.slice(i * 3, i * 3 + 3)));
   const files = { 'shelf.stl': new Uint8Array(await writeBinarySTL(triples).arrayBuffer()) };
   const outputs = [];
-  for (const value of [false, true]) {
+  for (const value of [0.1, 0.3]) {
     const io = memIO(files);
     const r = await callTool('fin_part', { path: 'shelf.stl', output: 'out.stl', settings: {
-      'side-clearance': 0.5, 'bottom-gap': 0.3, 'bottom-anchors': value } }, io);
-    const cli = await viaCLI(['shelf.stl', '-o', 'out.stl', '--side-clearance', '0.5', '--bottom-gap', '0.3',
-      value ? '--bottom-anchors' : '--no-bottom-anchors'], files);
+      'side-clearance': 0.5, 'bottom-gap': value } }, io);
+    const cli = await viaCLI(['shelf.stl', '-o', 'out.stl', '--side-clearance', '0.5', '--bottom-gap', String(value)], files);
     assert(!r.isError && cli.code === 0, r.content[0].text);
     const bytes = io.fs.get('out.stl');
     assert(same(bytes, cli.fs.get('out.stl')), 'MCP differs from CLI');
     outputs.push(bytes);
   }
-  assert(!same(...outputs), 'anchor setting did not reach geometry');
+  assert(!same(...outputs), 'bottom gap did not reach geometry');
 });
 const ENTRY = fileURLToPath(new URL('../support-fins-mcp.js', import.meta.url));
 
