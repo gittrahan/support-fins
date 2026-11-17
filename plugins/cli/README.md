@@ -194,6 +194,32 @@ Source meshes, painting and saved print settings are unchanged by these selector
 Omitting them preserves the previous output. `--check` verifies the slot choices;
 partition feasibility and printable extrusion still require generation and slicing.
 
+**Match contact materials.** To match tines and top interfaces to the model's
+saved surface assignments, choose an explicit fallback slot:
+
+```sh
+support-fins project.3mf --preserve-project --fin-extruder 1 \
+  --match-contact-materials --contact-fallback-extruder 2 --interface-mode all
+```
+
+Bodies retain the fixed support filament. Contacts crossing a painted boundary
+are split into closed material parts using the saved regions, including recursive
+painting; slots with identical displayed colours remain distinct. Flat interfaces
+are enabled by default; `--interface-mode all` also includes sloped undersides.
+Choose matching or fixed `--tine-extruder`/`--interface-extruder` assignments.
+
+Uncovered, conflicting or unsupported source regions use the required fallback
+and produce a warning. This includes newly exposed cut surfaces without proven
+exterior painting. Matching follows saved surface assignments and applicable
+extrusion-role settings, not a reconstruction of the slicer's interior material
+propagation. Inspect the named role/filament parts in the slicer. No palette slots
+are added, colours guessed, inputs repaired or support bodies recoloured.
+Both print sequences keep their existing export and removal caveats. `--check`
+validates the source and fallback slot; matching completeness needs generation.
+Resume retains the matched parts and fallback diagnostics, so a reused result
+reports the same warnings. The JSON `contactMaterials` record includes the
+fallback slot and unresolved role volumes in mm³.
+
 **Nozzle diameter.** Project mode reads `nozzle_diameter` from
 `Metadata/project_settings.config`. A single value, or an array of identical
 diameters such as `["0.4", "0.4"]`, applies to the selected objects, used as saved

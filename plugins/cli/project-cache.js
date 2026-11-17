@@ -36,7 +36,8 @@ export async function runtimeIdentity() {
   return hash.digest('hex');
 }
 
-function encode(key, number, { triangles, offset, stats, baked, diagnostics, materialParts }) {
+function encode(key, number, { triangles, offset, stats, baked, diagnostics, materialParts, contactMaterials }) {
+  if (contactMaterials && !materialParts) throw new Error('missing matched support material geometry');
   // Fins keep their existing float32 representation. Converted bodies require
   // float64 and explicit vertex identity: JSON/float32 coordinate round trips
   // can collapse paint boundaries or join otherwise distinct shells.
@@ -53,8 +54,8 @@ function encode(key, number, { triangles, offset, stats, baked, diagnostics, mat
   }
   let materials;
   if (materialParts) {
-    validateProjectMaterialParts(materialParts, null, triangles.length > 0);
-    materials = { version: 1, parts: materialParts.map(({ triangles, ...part }) => {
+    validateProjectMaterialParts(materialParts, null, triangles.length > 0, contactMaterials);
+    materials = { version: contactMaterials ? 2 : 1, ...(contactMaterials ? { matching: contactMaterials } : {}), parts: materialParts.map(({ triangles, ...part }) => {
       arrays.push({ values: triangles, width: 4, kind: 'float' });
       return { ...part, coordinates: triangles.length };
     }) };
@@ -142,9 +143,11 @@ function decode(bytes, key, number) {
     result.baked = conversion;
   }
   if (materials) {
-    if (meta.materials?.version !== 1 || !Array.isArray(meta.materials.parts)) throw new Error('invalid support material checkpoint metadata');
+    if (![1, 2].includes(meta.materials?.version) || !Array.isArray(meta.materials.parts)
+      || (meta.materials.version === 2) !== !!meta.materials.matching) throw new Error('invalid support material checkpoint metadata');
     result.materialParts = meta.materials.parts.map(({ coordinates, ...part }) => ({ ...part, triangles: array(coordinates, 4) }));
-    validateProjectMaterialParts(result.materialParts, null, triangles.length > 0);
+    if (meta.materials.matching) result.contactMaterials = meta.materials.matching;
+    validateProjectMaterialParts(result.materialParts, null, triangles.length > 0, result.contactMaterials);
   }
   if (cursor !== body.length) throw new Error('unexpected checkpoint geometry');
   return result;

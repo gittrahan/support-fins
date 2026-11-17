@@ -53,6 +53,8 @@ export function helpText() {
     '  --interface-extruder <n>  project mode: separate top-interface material',
     '  --interface-mode <flat|all>  with --interface-extruder: flat undersides (default)',
     '                        or all undersides; support bodies keep --fin-extruder',
+    '  --match-contact-materials  project mode: match tine/interface source materials',
+    '  --contact-fallback-extruder <n>  required with matching; existing slot for unresolved regions',
     '  --disable-native-supports  project mode: disable slicer supports on selected objects',
     '  --turn-fins           project mode: opt in to gradual turns below suitable roofs',
     '  --no-turn-fins        keep ordinary straight fins (default)',
@@ -93,6 +95,7 @@ export function parseArgs(argv) {
                 json: false, help: false, dialog: {}, preserveProject: false, listObjects: false, check: false,
                 plates: [], listPlates: false, turnFins: null, turnAngle: null,
                 finExtruder: null, tineExtruder: null, interfaceExtruder: null, interfaceMode: null,
+                matchContactMaterials: false, contactFallbackExtruder: null,
                 disableNativeSupports: false, overwrite: false, resume: false, cacheDir: null };
   let files = false;
   for (let i = 0; i < argv.length; i++) {
@@ -132,14 +135,17 @@ export function parseArgs(argv) {
       out.cacheDir = next();
       if (!out.cacheDir.trim() || out.cacheDir.startsWith('--')) throw new UsageError('--cache-dir needs a directory path');
     }
-    else if (['--fin-extruder', '--tine-extruder', '--interface-extruder'].includes(a)) {
+    else if (['--fin-extruder', '--tine-extruder', '--interface-extruder', '--contact-fallback-extruder'].includes(a)) {
       const v = next();
       if (!/^[1-9]\d*$/.test(v) || !Number.isSafeInteger(+v)) throw new UsageError(`${a} must be a positive integer`);
-      out[{ '--fin-extruder': 'finExtruder', '--tine-extruder': 'tineExtruder', '--interface-extruder': 'interfaceExtruder' }[a]] = +v;
+      out[{ '--fin-extruder': 'finExtruder', '--tine-extruder': 'tineExtruder', '--interface-extruder': 'interfaceExtruder', '--contact-fallback-extruder': 'contactFallbackExtruder' }[a]] = +v;
     } else if (a === '--interface-mode') {
       const v = next();
       if (!['flat', 'all'].includes(v)) throw new UsageError('--interface-mode must be flat or all');
       out.interfaceMode = v;
+    } else if (a === '--match-contact-materials') {
+      if (value !== null) throw new UsageError(`${a} takes no value`);
+      out.matchContactMaterials = true;
     } else if (['--preserve-project', '--list-objects', '--list-plates', '--check', '--disable-native-supports', '--overwrite', '--resume'].includes(a)) {
       if (value !== null) throw new UsageError(`${a} takes no value`);
       out[{ '--preserve-project': 'preserveProject', '--list-objects': 'listObjects', '--check': 'check',
@@ -357,8 +363,11 @@ export async function run(argv, io) {
     if (!args.preserveProject && (args.tineExtruder !== null || args.interfaceExtruder !== null || args.interfaceMode !== null)) {
       throw new UsageError('--tine-extruder, --interface-extruder and --interface-mode require --preserve-project');
     }
-    if (args.interfaceMode !== null && args.interfaceExtruder === null) throw new UsageError('--interface-mode requires --interface-extruder');
-    if ((args.tineExtruder !== null || args.interfaceExtruder !== null) && args.dialog.tineDir === 'vertical') {
+    if (!args.preserveProject && (args.matchContactMaterials || args.contactFallbackExtruder !== null)) throw new UsageError('contact material matching requires --preserve-project');
+    if (args.matchContactMaterials !== (args.contactFallbackExtruder !== null)) throw new UsageError('--match-contact-materials requires --contact-fallback-extruder, and vice versa');
+    if (args.matchContactMaterials && (args.tineExtruder !== null || args.interfaceExtruder !== null)) throw new UsageError('choose contact matching or fixed tine/interface filaments');
+    if (args.interfaceMode !== null && args.interfaceExtruder === null && !args.matchContactMaterials) throw new UsageError('--interface-mode requires --interface-extruder or --match-contact-materials');
+    if ((args.matchContactMaterials || args.tineExtruder !== null || args.interfaceExtruder !== null) && args.dialog.tineDir === 'vertical') {
       throw new UsageError('separate support materials require horizontal FDM tines');
     }
     if (args.check && (args.listObjects || args.listPlates || args.output || args.overwrite)) {

@@ -80,7 +80,7 @@ function shells(triangles) {
   return [...groups.values()];
 }
 
-function solidGroups(tris) {
+export function supportSolidGroups(tris) {
   if (tris.length % 3) throw new Error('incomplete support triangle');
   const records = new Map(), plain = [];
   for (let t = 0; t < tris.length; t += 3) {
@@ -91,8 +91,13 @@ function solidGroups(tris) {
     if (!records.has(record)) records.set(record, []);
     records.get(record).push(...triangle);
   }
-  return [...records].map(([r, triangles]) => ({ role: r.role, triangles }))
+  return [...records].map(([r, triangles]) => ({ role: r.role, contact: r.contact, triangles }))
     .concat(shells(plain).map((triangles) => ({ role: 'body', triangles })));
+}
+
+export function supportSoup(solid) {
+  const { vertProperties: p, triVerts: faces, numProp } = solid.getMesh();
+  return Array.from(faces, (v) => [p[v * numProp], p[v * numProp + 1], p[v * numProp + 2]]);
 }
 
 /** Return named parts in stable body/tine/interface order, and partition evidence. */
@@ -113,7 +118,7 @@ async function partition(tris, preserveCoordinates) {
     return s;
   };
   try {
-    for (const { role, triangles } of solidGroups(tris)) {
+    for (const { role, triangles } of supportSolidGroups(tris)) {
       const s = valid(own(preserveCoordinates ? supportSolid(w, triangles) : new w.Manifold(indexedSupportMesh(w, triangles))));
       if (!s.isEmpty()) {
         if (!(s.volume() > 0) || !Number.isFinite(s.volume())) throw new Error('support material source must be outward and have positive volume');

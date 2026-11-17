@@ -290,3 +290,17 @@ Deno.test('cache: material and baked records retain diagnostics and reject missi
     assert(failed && await (await open(r)).load(number+10)===null,'missing diagnostics accepted');
   }
 }));
+
+Deno.test('cache: matched contacts retain several materials per role and reject missing matching diagnostics',()=>temporary(async(dir)=>{
+ const r=request(dir),c=await open(r),value=materialData();
+ const support=supportPrintability(block(-2,2,-1,1,2,4),[{id:'0',ranges:[[0,12]]}],[],nominalContext(.4,.8,.2));
+ value.stats={...value.stats,...printabilityStats(support)};
+ value.diagnostics={support,offset:{...value.offset},coverage:{basis:'sampled-contact-reach',area:0,total:0,points:[],sourceFaces:[],contacts:[]}};
+ value.materialParts.push({role:'tine',filament:3,triangles:Float32Array.of(2,0,0,3,0,0,2,1,0)});
+ value.contactMaterials={version:1,fallback:3,diagnostics:[{role:'tine',code:'unresolved-contact-material',volume:.25}]};
+ await c.save(1,value);assertEquals(await (await open(r)).load(1),value);
+ for(const mutate of [v=>delete v.contactMaterials,v=>v.contactMaterials.version=2,v=>v.contactMaterials.diagnostics[0].volume=NaN,v=>delete v.materialParts]){
+  const broken=structuredClone(value);mutate(broken);let failed=false;
+  try{await c.save(2,broken);}catch{failed=true;}assert(failed,'partial matching checkpoint was saved');assert(await c.load(2)===null);
+ }
+}));
