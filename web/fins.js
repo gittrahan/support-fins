@@ -100,7 +100,7 @@ export function applyTunables(t = {}) {
   if (['auto', 'light', 'sure', 'custom'].includes(t.padStyle)) PAD.style = t.padStyle;
   if (t.padCustom) for (const k of Object.keys(PAD.custom)) set(PAD.custom, k, t.padCustom[k]);
   set(PROP, 'gap', t.propGap);
-  if (Number.isFinite(t.sideClearance)) PROP.sideClear = Math.max(0, Math.min(1, t.sideClearance));
+  if (Number.isFinite(t.sideClearance)) PROP.sideClear = Math.max(0.2, Math.min(1, t.sideClearance));   // welds() refuses closer anyway
   if (Number.isFinite(t.tineContactOffset)) PROP.tineContactOffset = Math.max(-0.2, Math.min(0.2, t.tineContactOffset));
   if (Number.isFinite(t.tallRibsHeight) && t.tallRibsHeight > 0) {
     BRACE.tallH = Math.min(2000, Math.max(1, t.tallRibsHeight));

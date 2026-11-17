@@ -477,10 +477,9 @@
     <summary><span class="sec-title" data-i18n="More settings">More settings</span><span class="sec-sum more-count" id="more-count"></span></summary>
     <div class="group">
       <h5 data-i18n="Hold the part">Hold the part</h5>
-      <label data-i18n-title class="fld row" id="side-clearance-fld" title="Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.">
-        <span><span data-i18n="Side clearance">Side clearance</span> <span class="mut">mm</span></span><input id="side-clearance" aria-describedby="side-clearance-warning" type="number" min="0" max="1" step="0.05" value="0.35">
+      <label data-i18n-title class="fld row" id="side-clearance-fld" title="Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Minimum 0.2 mm: a closer wall would fuse to the part. Default 0.35 mm.">
+        <span><span data-i18n="Side clearance">Side clearance</span> <span class="mut">mm</span></span><input id="side-clearance" type="number" min="0.2" max="1" step="0.05" value="0.35">
       </label>
-      <p class="note warn" id="side-clearance-warning" role="alert" hidden data-i18n="Side clearance is zero: support walls may fuse to the model. Increase it for removable supports.">Side clearance is zero: support walls may fuse to the model. Increase it for removable supports.</p>
       <label data-i18n-title class="fld row" id="bottom-gap-fld" title="Gap between an FDM support and the model below it. Does not lift feet off the build plate. Zero welds the contact; larger gaps can weaken support. Default 0.2 mm.">
         <span><span data-i18n="Bottom gap">Bottom gap</span> <span class="mut">mm</span></span><input id="bottom-gap" type="number" min="0" max="0.4" step="0.05" value="0.2">
       </label>

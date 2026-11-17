@@ -8,10 +8,9 @@
 // 中文没有复数变化，复数一律只写 other（Intl.PluralRules("zh") 恒返回 other）。
 
 export default {
-  "Side clearance is zero: support walls may fuse to the model. Increase it for removable supports.": "侧面间隙为零：支撑壁可能与模型熔合。请增大间隙，以便移除支撑。",
   "Side clearance": "侧向间隙",
   "Bottom gap": "底部间隙",
-  "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Zero may fuse the wall to the part. Default 0.35 mm.": "支撑壁宽面旁的间隙。窄端会自动修剪。设为零可能使支撑壁与模型熔合。默认 0.35 毫米。",
+  "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Minimum 0.2 mm: a closer wall would fuse to the part. Default 0.35 mm.": "支撑壁宽面旁的间隙。窄端会自动修剪。最小 0.2 毫米：更近的支撑壁会与模型熔合。默认 0.35 毫米。",
   "Gap between an FDM support and the model below it. Does not lift feet off the build plate. Zero welds the contact; larger gaps can weaken support. Default 0.2 mm.": "FDM 支撑与下方模型之间的间隙。不会将底脚抬离打印平台。零间隙会使接触处熔合；较大间隙可能削弱支撑。默认 0.2 毫米。",
   "recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer": "识别出的小孔顶部不添加支撑，以保持孔口畅通；请在切片软件中检查桥接",
   "{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.": {"other":"{n} 个小孔顶部不添加支撑，留作桥接 — 请检查切片预览和打印设置。"},
