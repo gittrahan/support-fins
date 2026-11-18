@@ -93,7 +93,7 @@
 </div>
 
 <header id="topbar">
-  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.6</small><!-- END version --></span></span>
+  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.7</small><!-- END version --></span></span>
   <!-- accept: the MIME types too, and octet-stream. Android's picker matches by MIME
        and knows none of these extensions, so it greyed every model out (#237); the
        format is read from the bytes (ui/io.js), not the name. -->
@@ -796,8 +796,16 @@
          with the card); released entries only, the list scrolls past a few lines. -->
     <!-- BEGIN whatsnew (web/changelog.js writes this block) -->
     <section id="whatsnew" class="whatsnew">
-      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.6</span></h2>
+      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.7</span></h2>
       <div class="list" tabindex="0">
+        <ul>
+          <li>Exported 3MFs no longer fail in OrcaSlicer or Bambu Studio with &quot;empty layers&quot; when some walls stand on the part: those walls join the model's object. The Bore coupon slices as opened.</li>
+          <li>Full coverage no longer builds a wall where nothing is overhead: a row beside the part used to stand in open air, holding nothing.</li>
+          <li>Independent side and bottom clearances for FDM walls standing on the model. Existing defaults stay the same.</li>
+          <li>Docker now runs nginx without root privileges. The container port changes from 80 to 8080; Compose still serves the app on host port 8731. Update custom port mappings, proxy targets and health checks when upgrading.</li>
+          <li>The 3MF you export is now compressed: about a sixth the size of before for the same model (a 70 MB part's file went from 102 MB to 17 MB). Nothing in the model changes, and Bambu Studio and PrusaSlicer open it as before.</li>
+        </ul>
+        <p class="rel">v1.0.6 <span>2026-11-10</span></p>
         <ul>
           <li>Ribs on walls taller than the Brace tall walls height now rise to 85% of the wall instead of half, to stiffen the top, which wobbled on a test print. Those walls take a little more plastic; nothing else changes.</li>
           <li>A part centred on its axes no longer loses walls to a false &quot;inside the part&quot; reading at its centre, like a ball hanging inside a hollow ball.</li>

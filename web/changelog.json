@@ -207,36 +207,41 @@
           "text": "Ribs on walls taller than the Brace tall walls height now rise to 85% of the wall instead of half, to stiffen the top, which wobbled on a test print. Those walls take a little more plastic; nothing else changes."
         }
       ]
+    },
+    {
+      "version": "1.0.7",
+      "date": "2026-11-18",
+      "entries": [
+        {
+          "date": "2026-11-10",
+          "check": "easy",
+          "text": "The 3MF you export is now compressed: about a sixth the size of before for the same model (a 70 MB part's file went from 102 MB to 17 MB). Nothing in the model changes, and Bambu Studio and PrusaSlicer open it as before."
+        },
+        {
+          "date": "2026-11-16",
+          "check": "easy",
+          "text": "Docker now runs nginx without root privileges. The container port changes from 80 to 8080; Compose still serves the app on host port 8731. Update custom port mappings, proxy targets and health checks when upgrading."
+        },
+        {
+          "date": "2026-11-16",
+          "check": "clean",
+          "text": "Independent side and bottom clearances for FDM walls standing on the model. Existing defaults stay the same.",
+          "pr": 416
+        },
+        {
+          "date": "2026-11-17",
+          "check": "easy",
+          "text": "Full coverage no longer builds a wall where nothing is overhead: a row beside the part used to stand in open air, holding nothing.",
+          "pr": 478
+        },
+        {
+          "date": "2026-11-17",
+          "check": "easy",
+          "text": "Exported 3MFs no longer fail in OrcaSlicer or Bambu Studio with \"empty layers\" when some walls stand on the part: those walls join the model's object. The Bore coupon slices as opened.",
+          "pr": 479
+        }
+      ]
     }
   ],
-  "unreleased": [
-    {
-      "date": "2026-11-10",
-      "check": "easy",
-      "text": "The 3MF you export is now compressed: about a sixth the size of before for the same model (a 70 MB part's file went from 102 MB to 17 MB). Nothing in the model changes, and Bambu Studio and PrusaSlicer open it as before."
-    },
-    {
-      "date": "2026-11-16",
-      "check": "easy",
-      "text": "Docker now runs nginx without root privileges. The container port changes from 80 to 8080; Compose still serves the app on host port 8731. Update custom port mappings, proxy targets and health checks when upgrading."
-    },
-    {
-      "date": "2026-11-16",
-      "check": "clean",
-      "text": "Independent side and bottom clearances for FDM walls standing on the model. Existing defaults stay the same.",
-      "pr": 416
-    },
-    {
-      "date": "2026-11-17",
-      "check": "easy",
-      "text": "Full coverage no longer builds a wall where nothing is overhead: a row beside the part used to stand in open air, holding nothing.",
-      "pr": 478
-    },
-    {
-      "date": "2026-11-17",
-      "check": "easy",
-      "text": "Exported 3MFs no longer fail in OrcaSlicer or Bambu Studio with \"empty layers\" when some walls stand on the part: those walls join the model's object. The Bore coupon slices as opened.",
-      "pr": 479
-    }
-  ]
+  "unreleased": []
 }
