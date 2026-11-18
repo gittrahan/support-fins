@@ -21,6 +21,7 @@ const tracked=new Deno.Command('git',{args:['ls-files','web','prototype/material
 const paths=new TextDecoder().decode(tracked.stdout).trim().split('\n').filter(p=>/\.(js|wasm|json)$/.test(p));
 // New tooling can be validated before committing: include it explicitly too.
 for(const file of ['cases.js','check.js','worker.js','run.js'])paths.push('prototype/material-stress/'+file);
+paths.push('web/support-material-mesh.js');
 const codeHashes={};
 for(const file of new Set(paths))codeHashes[file]=await hash(await Deno.readFile(new URL(file,root)));
 const manifest={codeHashes,revision:new TextDecoder().decode(git.stdout).trim(),runtime:Deno.version,
