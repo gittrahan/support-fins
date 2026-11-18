@@ -237,6 +237,10 @@ function modelXML(models, title, separate, bed) {
     const col = colorXML(m.colors, id(MATERIALS_ID));
     let iface = m.iface ?? [];
     let finTris = m.finTris;
+    // Check before stranded supports can move into the model's extra parts.
+    if (m.materialParts?.length && (finTris?.length || iface.length)) {
+      throw new Error('support material parts cannot replace additional support triangles');
+    }
     let extras = m.extras ?? [];
     if (separate) {
       // supports the slicer would refuse as an object of their own join the part
@@ -282,7 +286,6 @@ function modelXML(models, title, separate, bed) {
 
     if (m.materialParts?.length) {
       if (!separate) throw new Error('support material parts require separate-object 3MF export');
-      if (finTris?.length || iface.length) throw new Error('support material parts cannot replace additional support triangles');
       if (m.materialFormat !== undefined && !['components', 'prusa2'].includes(m.materialFormat)) throw new Error('unknown support material format');
       const roles = new Set(), components = [], volumes = [], triangles = [], vertexIds = [];
       let vertexOffset = 0;
