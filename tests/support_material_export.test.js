@@ -79,7 +79,7 @@ function expectedFaces(tris) {
 }
 
 function assertClosed(faces, indices = null) {
-  const edges = new Map();
+  const edges = new Map(), links = new Map();
   for (let t = 0; t < faces.length; t++) {
     const [a, b, c] = faces[t];
     const u = b.map((v, k) => v - a[k]), v = c.map((v, k) => v - a[k]);
@@ -87,12 +87,29 @@ function assertClosed(faces, indices = null) {
       u[0] * v[1] - u[1] * v[0]) > 0, 'serialized triangle became a line');
     const ps = indices ? indices[t] : [a, b, c].map((p) => p.join(','));
     for (let i = 0; i < 3; i++) {
+      const v = ps[i], a = ps[(i + 1) % 3], b = ps[(i + 2) % 3];
+      if (!links.has(v)) links.set(v, new Map());
+      const link = links.get(v);
+      for (const [x, y] of [[a, b], [b, a]]) {
+        if (!link.has(x)) link.set(x, new Set());
+        link.get(x).add(y);
+      }
       const x = ps[i], y = ps[(i + 1) % 3], key = x < y ? `${x}/${y}` : `${y}/${x}`;
       const edge = edges.get(key) ?? { count: 0, direction: 0 };
       edge.count++; edge.direction += x < y ? 1 : -1; edges.set(key, edge);
     }
   }
   assert([...edges.values()].every((e) => e.count === 2 && e.direction === 0), 'serialized part lost closed, consistent topology');
+  for (const link of links.values()) {
+    assert([...link.values()].every(neighbors => neighbors.size === 2), 'non-manifold vertex link');
+    const visited = new Set(), queue = [link.keys().next().value];
+    while (queue.length) {
+      const v = queue.pop();
+      if (visited.has(v)) continue;
+      visited.add(v); queue.push(...link.get(v));
+    }
+    assert(visited.size === link.size, 'distinct touching vertex fans were joined');
+  }
 }
 
 for (const [reach, seat] of [[25, 5.15], [25, 5.125], [33, 5.175]]) {
@@ -122,3 +139,33 @@ for (const [reach, seat] of [[25, 5.15], [25, 5.125], [33, 5.175]]) {
     }
   });
 }
+
+Deno.test('material export: rotated sloping contacts retain closed parts across collapsed sheets', async () => {
+  // Rooted cube/ledge control from prototype/material-parts: its rotation exposes
+  // coincident opposite faces and an existing diagonal in the Boolean result.
+  const soup = p => Array.from({ length: p.length / 3 }, (_, i) => Array.from(p.slice(i * 3, i * 3 + 3)));
+  const tilt = rotX(35), cube = soup(block(-12, 12, -12, 12, 0, 24))
+    .map(([x, y, z]) => [x, tilt[4] * y + tilt[7] * z, tilt[5] * y + tilt[8] * z]);
+  const floor = Math.min(...cube.map(p => p[2]));
+  for (const p of cube) p[2] -= floor;
+  const bodies = [cube, soup(block(-14, 14, -14, 14, 0, 2)), soup(block(8, 30, -8, 8, 20, 24))]
+    .flatMap(tris => { const role = { role: 'body' }; return tris.map(p => [...p, 0, role]); });
+  const source = (await partitionSupportMaterials(bodies)).parts[0].triangles;
+  const array = Float32Array.from(source.flat()), topo = buildTopology({ getAttribute: () => ({ array }) });
+  const c = Math.cos(.37), s = Math.sin(.37), rot = [c, s, 0, -s, c, 0, 0, 0, 1];
+  const built = fins.buildFins(topo, analyze(topo, 45, rot), rot, {
+    mode: 'auto', coverage: 1, tines: true, bedPad: false,
+    tunables: { ...MATERIAL.pla, iface: 'flat', separateTines: true, tineDir: 'horizontal',
+      nozzle: .4, wallLines: 2, tinesPerWall: 0, sideClearance: .35, bottomGap: .2, cutout: 'none' },
+  });
+  const original = structuredClone(built.triangles);
+  const { parts, residual } = await partitionSupportMaterials(built.triangles);
+  assert(residual.missingVolume <= residual.roundoff && residual.extraVolume <= residual.roundoff);
+  assert(JSON.stringify(original) === JSON.stringify(built.triangles));
+  for (const materialFormat of ['components', 'prusa2']) {
+    const blob = await writePlate3MF([{ name: 'rotated', partTris: [], finTris: [], materialParts: parts, materialFormat }], { separate: true });
+    const files = await unzip(new Uint8Array(await blob.arrayBuffer()));
+    const meshes = writtenMeshes(new TextDecoder().decode(files.get('3D/3dmodel.model')));
+    for (const m of meshes) assertClosed(m.faces.map(f => f.map(i => m.vertices[i])), m.faces);
+  }
+});

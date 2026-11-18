@@ -7,6 +7,9 @@ import { supportMaterialMesh, SupportMeshError } from './support-material-mesh.j
 
 const ROLES = ['body', 'interface', 'tine'];
 
+/** Retry only numerical partition/extraction failures from original coordinates. */
+export class SupportPartitionError extends Error {}
+
 export function indexedSupportMesh(w, triangles) {
   const vertices = [], faces = [], ids = new Map();
   for (let t = 0; t < triangles.length; t += 3) {
@@ -96,7 +99,7 @@ function solidGroups(tris) {
 export async function partitionSupportMaterials(tris) {
   try { return await partition(tris, false); }
   catch (error) {
-    if (!(error instanceof SupportMeshError)) throw error;
+    if (!(error instanceof SupportMeshError) && !(error instanceof SupportPartitionError)) throw error;
     return partition(tris, true);
   }
 }
@@ -143,10 +146,10 @@ async function partition(tris, preserveCoordinates) {
       * Math.max(1, source.surfaceArea());
     const missingVolume = Math.abs(missing.volume()), extraVolume = Math.abs(extra.volume());
     if (missingVolume > roundoff || extraVolume > roundoff) {
-      throw new Error(`support material partition changed the combined shape (${missingVolume} missing, ${extraVolume} extra mm³; numerical bound ${roundoff})`);
+      throw new SupportPartitionError(`support material partition changed the combined shape (${missingVolume} missing, ${extraVolume} extra mm³; numerical bound ${roundoff})`);
     }
     for (const [a, b] of [[body, tine], [body, iface], [tine, iface]]) {
-      if (Math.abs(valid(own(a.intersect(b))).volume()) > roundoff) throw new Error('support materials overlap');
+      if (Math.abs(valid(own(a.intersect(b))).volume()) > roundoff) throw new SupportPartitionError('support materials overlap');
     }
     const parts = [['body', body], ['tine', tine], ['interface', iface]]
       .filter(([, s]) => !s.isEmpty()).map(([role, s]) => ({ role, ...supportMaterialMesh(s) }));
