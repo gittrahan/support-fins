@@ -1375,3 +1375,34 @@ Deno.test('3MF separate export, PrusaSlicer 2 layout: the stranded walls are a M
   const own = r.objects.find((o) => o.name === 'stand');
   assert(own.positions.length === STAND.length * 3 && own.extras.length === 1, `read back ${own.positions.length / 9} part triangles, ${own.extras.length} extras`);
 });
+
+// #472: the bed pad is a part of the part's object in the separate form, so a part on
+// an edge or a point still has a first layer (OrcaSlicer on a 0.24 mm first layer erased
+// the edge's sliver and refused the part: "empty first layer").
+const EDGE = box(-10, 10, -5, 5, 0, 20), PAD = box(-14, 14, -9, 9, 0, 0.2), WALL = box(-2, 2, -0.5, 0.5, 0, 10);
+async function writePad(opts = { separate: true }, extras = []) {
+  const bytes = new Uint8Array(await (await writePlate3MF([{ partTris: EDGE, finTris: WALL, padTris: PAD, name: 'edge',
+    extras: extras.map((e) => ({ ...e, tris: triples(e.positions) })) }], opts)).arrayBuffer());
+  const parts = await unzip(bytes);
+  return { r: await readThreeMF(bytes), model: new TextDecoder().decode(parts.get('3D/3dmodel.model')) };
+}
+
+Deno.test('3MF separate export: the bed pad is a part of the part object, the walls their own (#472)', async () => {
+  const { model, r } = await writePad();
+  assertClose(zSpan(model, 'edge bed pad')?.[1], 0.2, 1e-4, 'the pad is a part of the part object');
+  assertClose(zSpan(model, 'edge supports')?.[1], 10, 1e-4, 'the walls stay their own object');
+  assert((model.match(/<item /g) ?? []).length === 2, 'two items: the part (with its pad) and the supports');
+  const own = r.objects.find((o) => o.name === 'edge');
+  assert(own.positions.length === EDGE.length * 3, 'read back: the part alone, without its pad');
+});
+
+Deno.test('3MF locked export: the bed pad is just more of the supports (#472)', async () => {
+  const { model } = await writePad({ separate: false });
+  assert(!model.includes('bed pad'), 'no pad part in the locked form');
+  assertClose(zSpan(model, 'edge supports')?.[0], 0, 1e-4, 'the pad is in the supports mesh');
+});
+
+Deno.test('3MF separate export: a negative part reaching the pad keeps it with the supports (#472)', async () => {
+  const { model } = await writePad({ separate: true }, [{ ...NEG, positions: block(-12, -11, -1, 1, -1, 1) }]);
+  assert(!model.includes('bed pad'), 'the negative part would cut the pad: it stays in the supports object');
+});

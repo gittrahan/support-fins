@@ -11,7 +11,7 @@ import { el } from './dom.js';
 import { t } from './i18n.js';
 import { finMode, finsVisible } from './settings.js';
 import { part, topology, lastResult, rotM3, partName } from './part.js';
-import { activeAdded, buildPending } from './finbuild.js';
+import { activeAdded, buildPending, padTris } from './finbuild.js';
 import { sessionOf } from './session.js';
 import { sessionForm, settingsKeyOf, VIEWER_IDS } from './history.js';
 import { parkedSettled } from './parkedbuild.js';
@@ -39,7 +39,7 @@ export function buildExportGeometry() {
     mesh: part, topology, rot: rotM3.elements, offset: lastResult.offset, name: partName,
     // whichever walls the live mode contributes -- hand-drawn in Draw, suggested
     // in Suggest -- plus the pad, all already in print space
-    added: activeAdded(), layerHeight: el('layer-height').valueAsNumber, model: undefined,
+    added: activeAdded(), pad: padTris, layerHeight: el('layer-height').valueAsNumber, model: undefined,
   });
 }
 
@@ -48,7 +48,7 @@ export function buildExportGeometry() {
  * `rot`, seated at `offset`, with the supports it `added`; `model`, what its saved
  * session reads (session.js sessionOf; undefined: the one on screen).
  */
-function modelGeometry({ mesh, topology, rot, offset, name: partName, added, layerHeight, model }) {
+function modelGeometry({ mesh, topology, rot, offset, name: partName, added, pad = [], layerHeight, model }) {
   const dz = offset.z;
   const dx = offset.x, dy = offset.y;
   const { pos } = topology;
@@ -69,6 +69,9 @@ function modelGeometry({ mesh, topology, rot, offset, name: partName, added, lay
 
   const partTris = toPrint(pos);
   const finTris = [...added];
+  // the bed pad (also in `added`), which the 3MF writes into the part's object (#472)
+  const padIn = new Set(pad);
+  const wallTris = finTris.filter((v) => !padIn.has(v)), padTris = finTris.filter((v) => padIn.has(v));
   const base = partName.replace(/\.(stl|3mf|step|stp)$/i, '') || 'part';
   // A file with a slicer's own parts (#104) goes out as the file had it: the part
   // uncut, with its negative parts, modifiers and blockers posed the same way --
@@ -82,7 +85,7 @@ function modelGeometry({ mesh, topology, rot, offset, name: partName, added, lay
   } : null;
   // the two settings the slicer must match, carried in the file name (#279)
   const name = (stem, ext) => exportName(`${base}-${stem}`, ext, { nozzle, layerHeight });
-  return { partTris, finTris, base, name, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
+  return { partTris, finTris, wallTris, padTris, base, name, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
            session: () => sessionOf(partTris, model) };
 }
 
@@ -98,7 +101,7 @@ function parkedGeometry(m, plate, shown) {
   const st = shown ? { form: sessionForm(), finMode, finsVisible } : plate.settings;
   const form = Object.fromEntries(Object.entries(st.form).filter(([id]) => !VIEWER_IDS.has(id)));
   return modelGeometry({
-    mesh, topology: s.part.topology, rot, offset: mesh.position, name: s.part.name, added: s.added,
+    mesh, topology: s.part.topology, rot, offset: mesh.position, name: s.part.name, added: s.added, pad: s.pad ?? [],
     layerHeight: shown ? el('layer-height').valueAsNumber : Number(st.form['layer-height']),
     model: { rot, offset: mesh.position, finMode: st.finMode, finsVisible: st.finsVisible, form,
              walls: s.state.walls, removed: s.state.removedSigs },
@@ -110,7 +113,7 @@ function placed(g, [x, y]) {
   const at = (tris) => tris.map((p) => { const q = p.slice(); q[0] += x; q[1] += y; return q; });
   const slicer = g.slicer && { ...g.slicer, partTris: at(g.slicer.partTris),
     extras: g.slicer.extras.map((e) => ({ ...e, tris: at(e.tris) })) };
-  return { ...g, partTris: at(g.partTris), finTris: at(g.finTris), slicer };
+  return { ...g, partTris: at(g.partTris), finTris: at(g.finTris), wallTris: at(g.wallTris), padTris: at(g.padTris), slicer };
 }
 
 /** Is every parked model of `plate` (not the one edited) built under its settings? */
@@ -173,9 +176,9 @@ const FORMATS = {
   // carries it.
   'export-3mf': async (gs) => {
     const models = gs.map((g) => {
-      const { body, iface } = splitInterface(g.finTris);
+      const { body, iface } = splitInterface(g.wallTris);
       const own = g.slicer ?? g;
-      return { partTris: own.partTris, finTris: body, name: g.base, iface, colors: own.colors,
+      return { partTris: own.partTris, finTris: body, padTris: g.padTris, name: g.base, iface, colors: own.colors,
                extras: g.slicer?.extras ?? [] };
     });
     // each where it stands on the plate, the plate's centre the bed's (ui/move.js)

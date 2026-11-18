@@ -24,7 +24,7 @@ import { part, clearPart, stashPart, unstashPart } from './part.js';
 import { takeState, takeHistory, setHistory, restoreState, applySettings, settingsKey, VIEWER_IDS } from './history.js';
 import { scaleState, setScaleState } from './scale.js';
 import { importState, setImportState } from './io.js';
-import { activeAdded, buildPending } from './finbuild.js';
+import { activeAdded, buildPending, padTris } from './finbuild.js';
 import { sectionState, restoreSection } from './section.js';
 import { suggestState, restoreSuggestions } from './suggest.js';
 import { currentVolume } from './volume.js';
@@ -71,18 +71,19 @@ export function park(plate) {
   const last = m.ghost, pending = buildPending();   // before stashPart: it drops the build
   m.ghost = null;
   // `added`: the supports it adds, in print space, as the export writes them
-  let fins, added = [];
+  let fins, added = [], pad = [];
   if (last && pending && part.quaternion.equals(last.quat)) fins = last.fins;
   else {
     if (last?.fins) last.fins.geometry.dispose();
     added = [...activeAdded()];
+    pad = [...padTris];              // also in `added`; the 3MF writes it into the part's object
     fins = ghostFins(added);
   }
   const rec = stashPart();
   parkMesh(rec.mesh);
   // the settings its fins were built under (a build still in flight: none yet)
   const finsKey = pending ? null : settingsKey();
-  m.stash = { part: rec, fins, added, finsKey, state, scale, imp, section, suggest };
+  m.stash = { part: rec, fins, added, pad, finsKey, state, scale, imp, section, suggest };
 }
 
 /** Bring `plate`'s live slot back (stashed, or empty) under the plate's settings;

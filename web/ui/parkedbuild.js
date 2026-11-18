@@ -156,6 +156,7 @@ function land(j, built) {
   if (s.fins) { s.fins.removeFromParent(); s.fins.geometry.dispose(); }
   s.fins = tris.length ? ghostFins(tris) : null;
   s.added = tris;
+  s.pad = built?.padTriangles ?? [];   // the pad alone too: the 3MF writes it into the part's object (#472)
   s.finsKey = key;
   redraw();
   scheduleParked();

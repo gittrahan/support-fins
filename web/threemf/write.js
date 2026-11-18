@@ -179,6 +179,22 @@ function splitAt(tris, cut) {
   return [kept, off];
 }
 
+/** Does a negative part among `extras` reach `tris` (bounding boxes)? It cuts every part
+ *  of its object, so supports it reaches can't join the part's object. */
+function negativeReaches(extras, tris) {
+  const box = (ts) => {
+    const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+    for (const p of ts) for (let k = 0; k < 3; k++) { b[k] = Math.min(b[k], p[k]); b[k + 3] = Math.max(b[k + 3], p[k]); }
+    return b;
+  };
+  const t = box(tris);
+  return extras.some((e) => {
+    if (e.kind !== 'negative' || !e.tris?.length) return false;
+    const n = box(e.tris);
+    return [0, 1, 2].every((k) => n[k] <= t[k + 3] && t[k] <= n[k + 3]);
+  });
+}
+
 // Where a SEPARATE export opens: two objects keep their 3MF positions (a single one
 // gets centred by the slicer), and print space is centred on the origin, so the pair
 // would sit half off the bed. Shift both by one transform: the footprint's centre to
@@ -217,6 +233,17 @@ function modelXML(models, title, separate, bed) {
     let iface = m.iface ?? [];
     let finTris = m.finTris;
     let extras = m.extras ?? [];
+    const pad = m.padTris ?? [];
+    // the bed pad: locked, just more of the supports; separate, a part of the PART's
+    // object (#472). On a part standing on an edge or a point the part's own first
+    // layer is a sliver a slicer's elephant-foot compensation can erase (OrcaSlicer on a
+    // 0.24 mm first layer: "empty first layer"); with the pad in its object, that
+    // layer prints. The pad is built to meet the part as one object -- Light's sideways
+    // gap keeps two regions, Sure hold is tacked on to bond -- so nothing is lost.
+    // (A negative part reaching it would cut it, as it would walls: then it stays.)
+    if (pad.length && separate && !negativeReaches(extras, pad)) {
+      extras = [...extras, { kind: 'part', name: `${m.name} bed pad`, tris: pad }];
+    } else if (pad.length) finTris = [...(finTris ?? []), ...pad];
     if (separate) {
       // supports the slicer would refuse as an object of their own join the part
       // (strandedFrom); a supports object left with only crest goes whole
@@ -227,15 +254,7 @@ function modelXML(models, title, separate, bed) {
       // ...unless a negative part of the object reaches them: it cuts every part of the
       // object, so walls built in its hole would be cut away. They stay apart (the slicer
       // may refuse the supports object, as before, but no wall is lost)
-      const box = (tris) => {
-        const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
-        for (const p of tris) for (let k = 0; k < 3; k++) { b[k] = Math.min(b[k], p[k]); b[k + 3] = Math.max(b[k + 3], p[k]); }
-        return b;
-      };
-      const cuts = (a, b) => [0, 1, 2].every((k) => a[k] <= b[k + 3] && b[k] <= a[k + 3]);
-      const moved = box([...onPart, ...crestOn]);
-      const negative = extras.some((e) => e.kind === 'negative' && e.tris?.length && cuts(box(e.tris), moved));
-      if ((onPart.length || crestOn.length) && !negative) {
+      if ((onPart.length || crestOn.length) && !negativeReaches(extras, [...onPart, ...crestOn])) {
         finTris = body; iface = crest;
         extras = [...extras,
           ...(onPart.length ? [{ kind: 'part', name: `${m.name} supports on part`, tris: onPart }] : []),
