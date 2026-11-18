@@ -396,7 +396,7 @@ function updateFinReadout(built, ms) {
         '{n} support-section findings need slicer inspection (first at {z} mm).',
         check.supportFindings, { z: check.supportFirstZ.toFixed(1) }));
     }
-    help.push(t('These geometric checks locate narrow sections, new starts and rapid growth. Model material below a start does not prove a printable seat. Check extrusion paths and gaps in the slicer.'));
+    help.push(t('The count includes narrow sections and unresolved starts. Rapid growth remains in the detailed report only. Model material below a start does not prove a printable seat. Check extrusion paths and gaps in the slicer.'));
     if (built.printability.context?.basis === 'nozzle-proxy') help.push(t('Section widths use the selected nozzle as a proxy; actual slicer line widths and first-layer settings may differ.'));
   }
   if (!n && !drawnOk) {

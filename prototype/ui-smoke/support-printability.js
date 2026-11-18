@@ -3,7 +3,7 @@
 import puppeteer from 'npm:puppeteer-core@24';
 import { serveDir } from 'jsr:@std/http@1/file-server';
 import { assert, assertEquals } from 'jsr:@std/assert';
-import { block, loadModel, rotX } from '../../tests/_util.js';
+import { block, readSTL } from '../../tests/_util.js';
 
 const web = new URL('../../web/', import.meta.url).pathname;
 const server = Deno.serve({ port: 0, hostname: '127.0.0.1', onListen() {} },
@@ -14,11 +14,9 @@ const browser = await puppeteer.launch({
   defaultViewport: { width: 1400, height: 900 },
 });
 const seated = [...block(-12, 12, -12, 12, 0, 6), ...block(-2, 2, -2, 2, 6, 26), ...block(-10, 10, -10, 10, 26, 28)];
-const source = loadModel('sphere').pos, rot = rotX(35), soup = [];
-for (let i = 0; i < source.length; i += 3) {
-  const [x, y, z] = source.slice(i, i + 3);
-  soup.push(x, rot[4] * y + rot[7] * z, rot[5] * y + rot[8] * z);
-}
+// This committed procedural fixture retains narrow findings after intentional
+// model seats and unproven growth have been removed from the headline count.
+const soup = readSTL(Deno.readFileSync(new URL('../../tests/fixtures/ball_in_ball.stl', import.meta.url)));
 const errors = [];
 let page;
 const settle = () => page.waitForFunction(() => !h.build.buildPending() && !h.build.inspectionPending(), { timeout: 30000 });
@@ -74,9 +72,9 @@ async function open(inline) {
       pose: await import('./ui/pose.js'), scene: await import('./ui/scene.js'), diagnostics: await import('./fins/diagnostics.js') };
     h.i18n.setLanguage('en');
     const layer = document.getElementById('layer-height');
-    layer.value = '0.4'; layer.dispatchEvent(new Event('input', { bubbles: true }));
+    layer.value = '0.2'; layer.dispatchEvent(new Event('input', { bubbles: true }));
     const nozzle = document.getElementById('nozzle');
-    nozzle.value = '0.8'; nozzle.dispatchEvent(new Event('change', { bubbles: true }));
+    nozzle.value = '0.4'; nozzle.dispatchEvent(new Event('change', { bubbles: true }));
   });
 }
 
@@ -100,6 +98,16 @@ try {
   const worker = await snapshot();
   assert(worker.note.includes('support-section'), worker.note);
   assert(worker.info.includes('proxy'), worker.info);
+  assert(await page.evaluate(() => {
+    const built = h.build.lastBuilt, original = built.printability;
+    try {
+      built.printability = { ...original, starts: [], narrow: [], growth: [original.starts[0]] };
+      h.readout.updateReadout(built);
+      return document.getElementById('support-findings').hidden
+        && !document.getElementById('s-fin-note').textContent.includes('support-section finding')
+        && document.getElementById('s-fin-info').title.includes('detailed report only');
+    } finally { built.printability = original; h.readout.updateReadout(built); }
+  }), 'growth-only report produced a count or a navigation target');
   await click('support-finding-toggle');
   assert(await page.evaluate(() => {
     const expected = h.diagnostics.supportFindings(h.build.lastBuilt.printability)[0];

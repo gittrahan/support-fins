@@ -38,7 +38,7 @@ export function supportPrintability(triangles, pieces, model, rawContext) {
     for (const { mesh } of indexed) top = Math.max(top, mesh.maxZ);
     const last = Math.ceil((top - context.plateZ - context.firstLayerHeight + context.layerHeight / 2) / context.layerHeight);
     if (last > 20000) throw new Error('layer count limit exceeded');
-    let part = null, modelSoup = null, previous = [], previousNarrow = [];
+    let part = null, modelSoup = null, previous = [], previousNarrow = [], previousRaw = [];
     const partSection = (z) => {
       if (z < context.plateZ) return [];
       modelSoup ??= typeof model === 'function' ? model() : model ?? [];
@@ -48,7 +48,7 @@ export function supportPrintability(triangles, pieces, model, rawContext) {
     };
     for (let i = 0; i <= Math.max(0, last); i++) {
       layer = layerAt(i, context);
-      const next = [], nextNarrow = [];
+      const next = [], nextNarrow = [], nextRaw = [];
       let modelBelow;
       for (const piece of indexed) {
         currentPiece = piece.id;
@@ -57,6 +57,7 @@ export function supportPrintability(triangles, pieces, model, rawContext) {
         if (piece.mesh.minZ > layer.sliceZ || piece.mesh.maxZ <= layer.sliceZ) continue;
         const paths = sectionAt(piece.mesh, layer.sliceZ);
         for (const region of components(paths)) {
+          nextRaw.push({ piece: piece.id, paths: region, bounds: bounds(region) });
           // Vertical sections often repeat for hundreds of layers. Reuse only
           // EXACTLY identical integer paths at the same width from the preceding
           // layer. Still slice every layer and recompute its parent/root/growth
@@ -97,10 +98,25 @@ export function supportPrintability(triangles, pieces, model, rawContext) {
               : parents.length && parents.every((p) => p.root === 'model-below') ? 'model-below' : 'unresolved';
             if (i === 0 && area(intersection(footprint, sectionAt(piece.mesh, context.plateZ + EPS))) > 0) root = 'plate';
             else if (!parents.length && context.bottomGap > 0) {
-              // Only an observation of model material beneath the entire section.
-              // It does not validate the underside or exclude intervening geometry.
-              modelBelow ??= partSection(layer.z - layer.height - context.bottomGap - EPS);
-              if (modelBelow.length && !difference(footprint, modelBelow).length) root = 'model-below';
+              // Use the actual model slice whose extrusion top is below this
+              // layer's bottom minus the requested gap. Sampling that TOP as a
+              // slice plane misses sloping seats and ignores the first layer.
+              const seatIndex = Math.floor((layer.z - layer.height - context.bottomGap
+                - context.plateZ - context.firstLayerHeight + EPS) / context.layerHeight);
+              modelBelow ??= seatIndex < 0 ? [] : partSection(layerAt(seatIndex, context).sliceZ);
+              // Partial overlap is a possible model seat, not a wholly floating
+              // start. Neither partial nor full overlap certifies printability;
+              // its adequacy and separation still need actual toolpaths.
+              if (modelBelow.length && area(intersection(footprint, modelBelow)) > 0) root = 'model-below';
+            }
+            if (root === 'unresolved' && !parents.length && previousRaw.some((p) => p.piece === piece.id
+                && overlaps(footprintBounds, p.bounds) && area(intersection(footprint, p.paths)) > 0)) {
+              // The ordinary-width footprint has just appeared on an existing
+              // narrow part of this support. Keep the transition in the report,
+              // but don't count it again as a new floating start. Narrow-run
+              // findings remain counted; this does NOT establish a printable
+              // parent or let a later child inherit a certified support root.
+              root = 'narrow-below';
             }
             if (!samePiece) report.starts.push({ ...location, bounds: footprintBounds, root,
               parents: [...new Set(parents.map((p) => p.piece))], area: shape.area });
@@ -120,7 +136,7 @@ export function supportPrintability(triangles, pieces, model, rawContext) {
           }
         }
       }
-      previous = next; previousNarrow = nextNarrow;
+      previous = next; previousNarrow = nextNarrow; previousRaw = nextRaw;
       report.layers++;
       if (report.starts.length + report.growth.length + report.narrow.length > 50000) throw new Error('finding count limit exceeded');
     }

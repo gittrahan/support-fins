@@ -47,9 +47,10 @@ Deno.test('support diagnostics: full model footprint is only a possible seat, ne
   assert(printabilityStats(r).supportFindings === 0, 'intentional model-below seat was counted as a risk');
   assert(supportFindings(r).length === 0);
   const partial = inspect([fin], block(-6, 0, -3, 3, 0, 4.2));
-  assert(partial.starts[0].root === 'unresolved', 'a partly supported underside was credited');
-  assert(supportFindings(partial)[0].kind === 'start');
-  assert(printabilityStats(partial).supportFindings === 1);
+  assert(partial.starts[0].root === 'model-below', 'partial model seat was described as wholly floating');
+  assert(printabilityStats(partial).supportFindings === 0);
+  assert(inspect([fin], block(-6, -4.1, -3, 3, 0, 4.2)).starts[0].root === 'unresolved',
+    'nearby model material without overlap was credited');
   const zero = inspect([fin], model, { ...context, bottomGap: 0 });
   assert(zero.starts[0].root === 'unresolved', 'zero gap was treated as a separated seat');
 });
@@ -62,14 +63,48 @@ Deno.test('support diagnostics: a wedge can lose initial sections before its fir
   const r = inspect([soup]);
   assert(r.status === 'complete', JSON.stringify(r.stopped));
   assert(r.narrow.length > 0);
-  assert(r.starts[0].root === 'unresolved');
+  assert(r.starts[0].root === 'narrow-below');
+  assert(supportFindings(r).every((f) => f.kind !== 'start'), 'narrow wedge was counted twice');
   assert(r.starts[0].z > r.narrow[0].z);
+});
+
+Deno.test('support diagnostics: a sloping partial model seat uses a real preceding slice plane', () => {
+  const settings = nominalContext(0.2, 0.4, 0.2);
+  const model = Array.from(block(-2, 2, -1, 1, 0, 4));
+  // At the old query plane Z=4.4 there is no material. The preceding
+  // model extrusion is sliced at Z=4.3 and supports part of the footprint.
+  for (let i = 0; i < model.length; i += 3) if (model[i + 2] === 4) model[i + 2] = 4.3 + model[i] * 0.025;
+  const r = inspect([block(-2, 2, -1, 1, 4.6, 8)], model, settings);
+  assert(r.starts[0].root === 'model-below', JSON.stringify(r.starts));
+  assert(printabilityStats(r).supportFindings === 0);
+});
+
+Deno.test('support diagnostics: model seats honor a different first layer and do not search across extra gaps', () => {
+  const settings = { ...nominalContext(0.2, 0.4, 0.2), firstLayerHeight: 0.3 };
+  const model = block(-3, 3, -2, 2, 0, 0.3);
+  const seated = inspect([block(-2, 2, -1, 1, 0.5, 2)], model, settings);
+  assert(seated.starts[0].root === 'model-below');
+  const floating = inspect([block(-2, 2, -1, 1, 0.7, 2)], model, settings);
+  assert(floating.starts[0].root === 'unresolved', 'extra missing layer was hidden as a model seat');
+  assert(printabilityStats(floating).supportFindings === 1);
+});
+
+Deno.test('support diagnostics: narrow predecessor stays detailed and cannot certify another support', () => {
+  const lower = [...block(-4, 4, -0.25, 0.25, 0, 2), ...block(-4, 4, -1, 1, 2, 4)];
+  const r = inspect([lower, block(-4, 4, -1, 1, 4, 8)]);
+  assert(r.narrow.length === 1);
+  assert(r.starts[0].root === 'narrow-below');
+  assert(r.starts[1].root === 'unresolved' && r.starts[1].piece === '1');
+  assert(printabilityStats(r).supportFindings === 2, 'narrow transition was duplicated or certified');
 });
 
 Deno.test('support diagnostics: report growth beyond 45 degrees separately from a new island', () => {
   const r = inspect([block(-2, 2, -1, 1, 0, 4), block(-6, 6, -1, 1, 4, 8)]);
   assert(r.starts[1].root === 'support');
   assert(r.growth.some((g) => g.layer === 10 && g.area > 1));
+  assert(supportFindings(r).length === 0, 'growth alone inflated the headline/navigation count');
+  assert(printabilityStats(r).supportFindings === 0);
+  assert(printabilityStats(r).supportFirstZ === null);
 });
 
 Deno.test('support diagnostics: first layer schedule and ordinary widths are independent of fin settings', () => {
@@ -77,7 +112,7 @@ Deno.test('support diagnostics: first layer schedule and ordinary widths are ind
   assert(layerAt(0, c).sliceZ === 0.1 && layerAt(1, c).sliceZ === 0.4000000000000001);
   const r = inspect([block(-4, 4, -0.5, 0.5, 0, 3)], [], c);
   assert(r.narrow[0].layer === 0 && r.narrow[0].width === 1.1);
-  assert(r.starts[0].layer === 1 && r.starts[0].root === 'unresolved');
+  assert(r.starts[0].layer === 1 && r.starts[0].root === 'narrow-below');
   const fine = inspect([block(-4, 4, -0.25, 0.25, 0, 3)], [], nominalContext(0.2, 0.4, 0.2));
   assert(fine.starts[0].root === 'plate');
 });

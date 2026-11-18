@@ -28,12 +28,13 @@ export function nominalContext(layerHeight, nozzle, bottomGap) {
     lineWidth: nozzle, firstLayerWidth: nozzle, bottomGap, basis: 'nozzle-proxy' };
 }
 
-/** Counted, locatable findings. Intentional model seats remain in the full report. */
+/** Counted, locatable findings. Intentional model seats, narrow-to-wide transitions and
+ * geometric growth remain in the full report. Growth alone has not established missing/floating
+ * extrusion, so it must not inflate the headline count or its navigation. */
 export function supportFindings(report) {
   if (!report) return [];
   return [...report.starts.filter((s) => s.root === 'unresolved').map((s) => ({ ...s, kind: 'start' })),
-    ...report.narrow.map((s) => ({ ...s, kind: 'narrow' })),
-    ...report.growth.map((s) => ({ ...s, kind: 'growth' }))]
+    ...report.narrow.map((s) => ({ ...s, kind: 'narrow' }))]
     .sort((a, b) => a.layer - b.layer || a.piece.localeCompare(b.piece) || a.kind.localeCompare(b.kind));
 }
 
@@ -65,7 +66,7 @@ export function validDiagnostics(d) {
           || !Number.isFinite(f.z) || !Number.isFinite(f.printZ) || !Number.isFinite(f.sliceZ) || !Number.isFinite(f.area) || f.area < 0
           || !Array.isArray(f.bounds) || f.bounds.length !== 4 || !f.bounds.every(Number.isFinite)
           || f.bounds[0] > f.bounds[2] || f.bounds[1] > f.bounds[3]) return false;
-      if (key === 'starts' && (!['plate', 'support', 'model-below', 'unresolved'].includes(f.root)
+      if (key === 'starts' && (!['plate', 'support', 'model-below', 'narrow-below', 'unresolved'].includes(f.root)
           || !Array.isArray(f.parents) || f.parents.some((p) => typeof p !== 'string'))) return false;
       if (key === 'narrow' && !(Number.isFinite(f.width) && f.width > 0)) return false;
     }

@@ -28,7 +28,7 @@ export default {
   "Support-section checks are unavailable for these settings.": "当前设置无法进行支撑截面检查。",
   "{n} support-section finding needs slicer inspection (first at {z} mm).": {"other": "有 {n} 处支撑截面需要在切片软件中检查（首处位于 {z} mm）。"},
   "{n} support-section findings need slicer inspection (first at {z} mm).": {"other": "有 {n} 处支撑截面需要在切片软件中检查（首处位于 {z} mm）。"},
-  "These geometric checks locate narrow sections, new starts and rapid growth. Model material below a start does not prove a printable seat. Check extrusion paths and gaps in the slicer.": "这些几何检查用于查找狭窄截面、新起点和快速扩展。起点下方存在模型材料，并不代表支撑底部可打印。请在切片软件中检查挤出路径和间隙。",
+  "The count includes narrow sections and unresolved starts. Rapid growth remains in the detailed report only. Model material below a start does not prove a printable seat. Check extrusion paths and gaps in the slicer.": "计数包括狭窄截面和未确定支撑的起点。快速扩展仅保留在详细报告中。起点下方存在模型材料，并不代表支撑底部可打印。请在切片软件中检查挤出路径和间隙。",
   "Section widths use the selected nozzle as a proxy; actual slicer line widths and first-layer settings may differ.": "截面宽度以所选喷嘴直径作为估计值；切片软件的实际线宽和首层设置可能不同。",
   "recognised small-hole ceilings are left unsupported to keep their openings clear; check bridging in the slicer": "识别出的小孔顶部不添加支撑，以保持孔口畅通；请在切片软件中检查桥接",
   "{n} small-hole ceilings left unsupported for bridging — check the slicer preview and print settings.": {"other":"{n} 个小孔顶部不添加支撑，留作桥接 — 请检查切片预览和打印设置。"},

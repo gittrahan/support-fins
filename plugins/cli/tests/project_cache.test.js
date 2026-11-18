@@ -25,6 +25,21 @@ const open = (r, build = 'build-a') => openProjectCache(r, async () => build);
 const folders = (root) => fs.readdir(root);
 const records = async (root) => (await fs.readdir(root, { recursive: true })).filter((n) => n.endsWith('.cache'));
 
+Deno.test('cache: detailed growth and narrow transitions do not return as counted starts on resume', () => temporary(async (dir) => {
+  const soup = [...block(-2, 2, -.2, .2, 0, 2), ...block(-2, 2, -1, 1, 2, 4), ...block(-6, 6, -1, 1, 4, 6)];
+  const support = supportPrintability(soup, [{ id: '0', ranges: [[0, soup.length / 9]] }], [], nominalContext(.4, .8, .2));
+  assert(support.starts.some((s) => s.root === 'narrow-below') && support.growth.length);
+  const value = { ...data, stats: { ...data.stats, ...printabilityStats(support) },
+    diagnostics: { support, offset: { ...data.offset }, coverage: { basis: 'sampled-contact-reach',
+      area: 0, total: 0, points: [], sourceFaces: [], contacts: [] } } };
+  assert(value.stats.supportFindings === 1 && value.stats.supportFirstZ === .4);
+  const requestData = request(dir), cache = await open(requestData);
+  await cache.save(1, value);
+  const resumed = await (await open(requestData)).load(1);
+  assert(same(resumed, value), 'detailed observations or their excluded counts changed');
+  assert(supportDiagnosticLine(resumed.stats) === supportDiagnosticLine(value.stats));
+}));
+
 Deno.test('cache: resumed support diagnostics preserve locations, width context and warnings', () => temporary(async (dir) => {
   const support = supportPrintability(block(-2, 2, -1, 1, 2, 4), [{ id: '0', ranges: [[0, 12]] }], [], nominalContext(0.4, 0.8, 0.2));
   const value = { ...data, stats: { ...data.stats, ...printabilityStats(support) },
