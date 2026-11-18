@@ -235,7 +235,7 @@
     {
       "date": "2026-11-17",
       "check": "easy",
-      "text": "Exported 3MFs now slice in OrcaSlicer, Bambu Studio and their forks when some walls stand on the part above the rest: those walls are a part of the model's object, so the slicer no longer refuses the supports for empty layers. The Bore calibration coupon slices as opened.",
+      "text": "Exported 3MFs no longer fail in OrcaSlicer or Bambu Studio with \"empty layers\" when some walls stand on the part: those walls join the model's object. The Bore coupon slices as opened.",
       "pr": 479
     }
   ]
