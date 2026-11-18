@@ -264,3 +264,14 @@ Deno.test('draw: a thin pin inside the flange footprint, between stations, refus
   const r = drawnWall([-10, 0, 20], [10, 0, 20], topo.pos, 0);
   assert(!r.ok && /too close/.test(r.reason), `expected 'too close', got ${r.ok ? 'a wall' : r.reason}`);
 });
+
+Deno.test('draw: a fill line (under) with no part overhead is refused; under the shelf it builds (#475)', () => {
+  // a shelf z 10-14 over the plate (no post: a floating block is enough for the line)
+  const topo = topoOf(block(-10, 10, 0, 10, 10, 14));
+  // beside the shelf, in open air: every station would keep its 10 mm hint
+  const air = drawnWall([-5, -4, 10], [5, -4, 10], topo.pos, 0, { under: true });
+  assert(!air.ok, 'a fill wall with nothing over it should be refused, not stand at its hint height');
+  // the same line under the shelf still builds
+  const under = drawnWall([-5, 5, 10], [5, 5, 10], topo.pos, 0, { under: true });
+  assert(under.ok, `a fill wall under the shelf should build: ${under.reason}`);
+});

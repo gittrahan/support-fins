@@ -143,6 +143,7 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, 
   const arc = through ? arcStations(a, b, through, step, PROP.minStations) : null;
   const n = arc ? arc.length - 1 : Math.max(PROP.minStations - 1, Math.ceil(len / step));
   const line = [];
+  let hits = 0;
   for (let k = 0; k <= n; k++) {
     const t = k / n;
     const x = arc ? arc[k][0] : a[0] + dx * t, y = arc ? arc[k][1] : a[1] + dy * t;
@@ -160,8 +161,13 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, 
       const d = Math.abs(zz - hint);
       if (d < best) { best = d; z = zz; }
     }
+    if (zs.length) hits++;
     line.push([x, y, z]);
   }
+  // `under` (the fill pass and Full's rows): a line with no down-facing surface over
+  // any station holds nothing -- every station would keep its hint and stand a wall in
+  // open air beside the part (GitHub #475). A hand-drawn line keeps its hint.
+  if (under && !hits) return null;
   // `band` bounds every settle pass to surfaces within `band` of the clicked
   // overhang, so an over-the-part overhang isn't dragged down onto its own floor
   // (the collapse that made part-attached supports impossible). Infinity keeps
