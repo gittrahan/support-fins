@@ -7,8 +7,8 @@ import { ProjectZip } from './project-zip.js';
 import { ProjectReport, formatProjectReport } from './project-report.js';
 import { projectNozzle } from './project-nozzle.js';
 import { negativeComponents, projectPositions } from './project-analysis.js';
-import { turningSettings } from './project-turning-settings.js';
-import { turnProjectFins, turningBounds, turningBoundsOverlap, validateTurningNeighbor } from './project-turning.js';
+import { turningSettings, projectBridgeAngle } from './project-turning-settings.js';
+import { turnProjectFins, plateFinCache, turningBounds, turningBoundsOverlap, validateTurningNeighbor } from './project-turning.js';
 import { bakeProjectObject } from './project-bake-input.js';
 import { sequentialEdits } from './project-sequential.js';
 import { runtimeIdentity } from './project-cache.js';
@@ -248,9 +248,14 @@ async function processProject(input, args, io, report) {
       // can override the project's print sequence.
       const sequence = metadata(membership.get(`${o.id}:${o.instance}`).node).print_sequence ?? settings.print_sequence;
       const byObject = /object/i.test(String(sequence ?? ''));
-      const turning = args.turnFins ? turningSettings(settings, { options, byObject, variable, height, nozzle: nozzle.nozzle }) : null;
+      let turning = null, turningWarning = null;
+      if (args.turnFins) {
+        try { turning = { ...turningSettings(settings, { options, byObject, variable, height, nozzle: nozzle.nozzle }), bridgeAngle: projectBridgeAngle(settings, o.config) }; }
+        catch (e) { turningWarning = `${e.message}; normal straight fins will be generated.`; }
+      }
       const result = report.object(o);
       Object.assign(result, nozzle);
+      if (turningWarning) result.warnings.push(turningWarning);
       if (nozzle.nozzleSource === 'override') result.warnings.push('nozzle override applies to fin generation only; saved printer settings are unchanged');
       if (nozzleWarning) result.warnings.push(nozzleWarning);
       if (native && !args.disableNativeSupports) result.warnings.push('native slicer supports remain enabled; both native supports and fins may print');
@@ -258,7 +263,7 @@ async function processProject(input, args, io, report) {
       if (args.disableNativeSupports && children(o.config, 'metadata').filter((m) => m.attrs.key === 'enable_support').length > 1) {
         throw new Error('duplicate enable_support setting');
       }
-      return { ...o, transform, height, slot, ...nozzle, options, native, byObject, negativeCount, turning,
+      return { ...o, transform, height, slot, ...nozzle, options, native, byObject, negativeCount, turning, turningWarning,
         bake: byObject && negativeCount > 0 };
     } catch (e) { return skipOrThrow(o, e); }
   }).filter(Boolean);
@@ -299,10 +304,14 @@ async function processProject(input, args, io, report) {
     rootEdits.push([root.open - 1, root.open - 1, ` xmlns:p="${PROD}"`]);
   }
   const rootBytes = enc.encode(rootXML), configBytes = enc.encode(configXML);
+  const neighbors = plateFinCache();
+  // Stable plate groups bound neighbor storage and avoid recomputation when
+  // build-item ordinals interleave plates. Report identities stay unchanged.
+  const work = args.turnFins ? [...new Set(plans.map(p=>p.plate))].flatMap(id=>plans.filter(p=>p.plate===id)) : plans;
   const acceptedTurns = new Map(); // compact world bounds, never analysis meshes
   // Load only this object's dependency tree. Discard the inflated meshes and
   // parsed geometry before the next object, instead of retaining an entire plate.
-  for (const p of plans) {
+  for (const p of work) {
     if (!args.check) warn(`object ${p.number}/${items.length}, plate ${p.plate}: ${p.name}; layer ${p.height} mm, filament ${p.slot}, nozzle ${p.nozzle} mm (${p.nozzleSource})`);
     let generated = await cache?.load(p.number);
     if (generated && (p.bake && generated.triangles.length && !generated.baked || !p.bake && generated.baked)) {
@@ -339,9 +348,9 @@ async function processProject(input, args, io, report) {
           Object.assign(report.object(p), { status: 'compatible', layerHeight: p.height, filament: p.slot });
           continue;
         }
-        generated = computeFins(positions, p.options);
-        if (p.turning) generated = await turnProjectFins(generated, {
-          positions, dimensions: p.turning, angle: args.turnAngle, gap: p.options.gap,
+        if (!p.turning) generated = computeFins(positions, p.options);
+        if (p.turning) generated = await turnProjectFins({
+          positions, options: p.options, dimensions: p.turning, angle: args.turnAngle, gap: p.options.gap,
           validate: async (candidate) => {
             const bounds = turningBounds(candidate);
             if ((acceptedTurns.get(p.plate) ?? []).some((other) => turningBoundsOverlap(bounds, other, p.turning.sideGap))) {
@@ -358,8 +367,7 @@ async function processProject(input, args, io, report) {
               if (planned) {
                 // Future objects may turn too; check their unchanged supports
                 // here, then reserve successful turn envelopes in plate order.
-                const fins = computeFins(neighbor, planned.options);
-                const flat = Float64Array.from(fins.triangles, (v, i) => v - [fins.offset.x, fins.offset.y, fins.offset.z][i % 3]);
+                const flat = neighbors.get(p.plate, other.number, neighbor, planned.options);
                 try { await validateTurningNeighbor(candidate, flat, p.turning.sideGap); }
                 catch (e) { throw new Error(`neighboring generated supports: ${e.message}`); }
               }

@@ -136,7 +136,7 @@ export function trimmedEnds(top, floor, topo, rot, offset) {
  * refuses to pierce side walls (clearBetween). A wall inside a bore is built and
  * flagged `inBore` (enclosedColumn).
  */
-export function buildPartAttached(line, partTris, topo, rot, offset, out) {
+export function buildPartAttached(line, partTris, topo, rot, offset, out, captureWall = false) {
   const top = line.map((p) => [p[0], p[1], p[2]]);
   contourTop(top, partTris, PART_BAND);
   lowerSag(top, partTris, PART_BAND);
@@ -199,6 +199,7 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out) {
     prop: {
       span, height, stations: subTop.length, volume: Math.abs(vol),
       partAttached: true, inBore,
+      ...(captureWall ? { turnWall: { top: mold.top, floor: mold.floor, count: out.length - before } } : {}),
       line: subTop.map((p) => [p[0], p[1], p[2] - PROP.gap]),
     },
   };

@@ -35,6 +35,7 @@
  *
  * Each module imports only modules above it in this list and never fins.js.
  */
+import { turnBuilt } from './prop/turn.js';
 import { floatingPieces } from './pieces.js';
 import { findWallPatches } from './planes.js';
 import { BRACE, buildProps, crestOn, crestPart, noProps, PROP } from './prop.js';
@@ -156,6 +157,7 @@ export function buildFins(topo, result, rot, opts = {}) {
   // Tall walls get face ribs, last, around everything placed (fins/tall.js). Draw
   // ribs its own walls on the page (draw.js braceTall).
   if (opts.mode !== 'draw' && opts.tallRibs !== false) braceTallWalls(topo, result, rot, built);
+  if (opts.turning && opts.mode !== 'draw') turnBuilt(topo, result, rot, built, opts.turning);
   crestPart(null);   // the crest's part is only for this build (a Worker keeps no mesh)
   forgetSeated(topo);   // nor the seated part: a page building inline would hold it
   // A piece of the part that starts in mid-air (a cut clean through, a loose
@@ -365,6 +367,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
       tines: q.tines ?? 0,                         // the prop's own count; base.fins[i] carries 0 (#037)
       triRanges: q.triRanges ?? [],
       line: q.line, span: q.span, height: q.height,
+      ...(q.turnWall ? { turnWall: q.turnWall } : {}),
     }));
     let wid = fins.length;
     for (const wd of wedgeRecs) {
@@ -456,6 +459,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
       stilt: 0, lean: 0, bearing: 0, site: null,
       id: q.id, kind: q.kind ?? 'prop',
       triRanges: q.triRanges ?? [], line: q.line, span: q.span,
+      ...(q.turnWall ? { turnWall: q.turnWall } : {}),
     })),
     props: built.props,
     volume: built.volume,

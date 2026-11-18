@@ -1,3 +1,4 @@
+import { children, metadata } from './project-xml.js';
 import { projectNozzle } from './project-nozzle.js';
 
 function number(value, name, positive = true) {
@@ -50,4 +51,28 @@ export function turningSettings(settings, { options, byObject, variable, height,
     .map((key) => width(settings[key], base, nozzle, key)));
   const sideGap = number(settings.support_object_xy_distance, 'support_object_xy_distance');
   return { nozzle, layerHeight, firstLayerHeight, lineWidth, sideGap };
+}
+
+/** A body's bridge angle describes its roof strands, unlike the exported
+ * support object's extrusion widths. Preserve per-object/part inheritance;
+ * conflicting part angles cannot establish one direction for that object. */
+export function projectBridgeAngle(settings, config) {
+  const effective = metadata(config).bridge_angle ?? settings.bridge_angle ?? 0;
+  const values = [
+    effective,
+    ...children(config, 'part').filter((p) =>
+      (p.attrs.subtype ?? 'normal_part') === 'normal_part'
+    ).map((p) => metadata(p).bridge_angle ?? effective),
+  ];
+  const parsed = values.map((v) => {
+    const n = number(v, 'bridge_angle', false);
+    if (n < 0 || n > 180) {
+      throw Error('turning fins: invalid saved bridge angle');
+    }
+    return n === 0 ? null : n % 180;
+  });
+  if (new Set(parsed).size !== 1) {
+    throw Error('turning fins: conflicting part bridge angles');
+  }
+  return parsed[0];
 }

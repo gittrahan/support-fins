@@ -39,7 +39,7 @@ const BRIDGED = 0.25;    // share of the free area anchored at both ends that ma
  * `turned` is true when this is not what the old rule (walls along the longer
  * free run) picked, and `old` is that pick: buildProps races the two (prop/bridgerace.js).
  */
-export function flatRunAxis(pts, patchTris, step, support) {
+export function flatRunAxis(pts, patchTris, step, support, minSpan = PROP.minSpan) {
   let xLo = Infinity, xHi = -Infinity, yLo = Infinity, yHi = -Infinity, zSum = 0;
   for (const p of pts) {
     if (p[0] < xLo) xLo = p[0]; if (p[0] > xHi) xHi = p[0];
@@ -109,7 +109,7 @@ export function flatRunAxis(pts, patchTris, step, support) {
   const along = (wantY) => {
     const len = wantY ? sy.longest : sx.longest, other = wantY ? sx.longest : sy.longest;
     // (+2 cells: a run counts its boundary cells, and the wall stands clear of the part)
-    return len < PROP.minSpan + 2 * Math.max(dx, dy) && other > len ? !wantY : wantY;
+    return len < minSpan + 2 * Math.max(dx, dy) && other > len ? !wantY : wantY;
   };
   const free = Math.max(sx.free, sy.free);
   if (free > 0 && Math.max(sx.anchored, sy.anchored) >= BRIDGED * free) {

@@ -1,4 +1,5 @@
-import { turningSettings } from '../project-turning-settings.js';
+import { xmlTree } from '../project-xml.js';
+import { turningSettings, projectBridgeAngle } from '../project-turning-settings.js';
 import { assert } from '../../../tests/_util.js';
 
 const settings = { nozzle_diameter: ['0.8'], layer_height: '0.4', initial_layer_print_height: '0.4',
@@ -29,4 +30,34 @@ Deno.test('turning validates exported support settings and keeps other modes exc
   rejects({}, { options: { tineDir: 'vertical' } }); rejects({ printer_technology: 'SLA' });
   rejects({ raft_layers: '1' }); rejects({ raft_layers: '-1' });
   rejects({ initial_layer_print_height: '1' });
+});
+
+Deno.test('saved bridge direction preserves automatic, object and part inheritance', () => {
+  const config = xmlTree('<object><part subtype="normal_part"/></object>');
+  assert(projectBridgeAngle({ bridge_angle: '0' }, config) === null);
+  assert(projectBridgeAngle({ bridge_angle: '90' }, config) === 90);
+  assert(projectBridgeAngle({ bridge_angle: '180' }, config) === 0);
+  const own = xmlTree(
+    '<object><metadata key="bridge_angle" value="45"/><part subtype="normal_part"/></object>',
+  );
+  assert(projectBridgeAngle({ bridge_angle: '90' }, own) === 45);
+  for (const value of ['no', '181', '-1', true]) {
+    let failed = false;
+    try {
+      projectBridgeAngle({ bridge_angle: value }, config);
+    } catch {
+      failed = true;
+    }
+    assert(failed);
+  }
+  const split = xmlTree(
+    '<object><part subtype="normal_part"><metadata key="bridge_angle" value="45"/></part><part subtype="normal_part"/></object>',
+  );
+  let failed = false;
+  try {
+    projectBridgeAngle({ bridge_angle: '90' }, split);
+  } catch {
+    failed = true;
+  }
+  assert(failed);
 });
