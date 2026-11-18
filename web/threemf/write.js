@@ -224,7 +224,18 @@ function modelXML(models, title, separate, bed) {
       let [body, onPart] = splitAt(finTris ?? [], cut);
       if (!body.length && cut !== Infinity) { cut = -Infinity; [body, onPart] = [[], finTris ?? []]; }
       const [crest, crestOn] = splitAt(iface, cut);
-      if (onPart.length || crestOn.length) {
+      // ...unless a negative part of the object reaches them: it cuts every part of the
+      // object, so walls built in its hole would be cut away. They stay apart (the slicer
+      // may refuse the supports object, as before, but no wall is lost)
+      const box = (tris) => {
+        const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+        for (const p of tris) for (let k = 0; k < 3; k++) { b[k] = Math.min(b[k], p[k]); b[k + 3] = Math.max(b[k + 3], p[k]); }
+        return b;
+      };
+      const cuts = (a, b) => [0, 1, 2].every((k) => a[k] <= b[k + 3] && b[k] <= a[k + 3]);
+      const moved = box([...onPart, ...crestOn]);
+      const negative = extras.some((e) => e.kind === 'negative' && e.tris?.length && cuts(box(e.tris), moved));
+      if ((onPart.length || crestOn.length) && !negative) {
         finTris = body; iface = crest;
         extras = [...extras,
           ...(onPart.length ? [{ kind: 'part', name: `${m.name} supports on part`, tris: onPart }] : []),

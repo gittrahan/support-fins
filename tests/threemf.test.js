@@ -1338,3 +1338,40 @@ Deno.test('INTEGRATION: a production-extension 3MF (mesh via p:path) analyzes id
   assertClose(b.overArea, a.overArea, a.overArea * 1e-3 + 1e-4, 'overhang area via p:path');
   assert(b.regions.length === a.regions.length, `regions ${b.regions.length} vs STL's ${a.regions.length}`);
 });
+
+// #476 with a slicer's parts beside the part (review): a negative part cuts every part of
+// its object, so walls it reaches stay apart; elsewhere they join, and every config names them.
+const STAND = box(-10, 10, -5, 5, 0, 30);
+const PLATE_WALL = box(-8, -6, -0.5, 0.5, 0, 3.6), HIGH_WALL = box(4, 6, -0.5, 0.5, 14.8, 24.8);
+async function writeStrand(extras) {
+  const bytes = new Uint8Array(await (await writeThreeMF(STAND, [...PLATE_WALL, ...HIGH_WALL], 'stand',
+    { separate: true, extras: extras.map((e) => ({ ...e, tris: triples(e.positions) })) })).arrayBuffer());
+  const parts = await unzip(bytes), text = (n) => parts.get(n) && new TextDecoder().decode(parts.get(n));
+  return { r: await readThreeMF(bytes), model: text('3D/3dmodel.model'), text };
+}
+
+Deno.test('3MF separate export: a negative part reaching the stranded walls keeps them apart (#476)', async () => {
+  const { model } = await writeStrand([{ ...NEG, positions: block(3, 7, -1, 1, 14, 26) }]);
+  assert(!model.includes('on part'), 'the walls would be cut by the negative part: they stay in the supports object');
+  assertClose(zSpan(model, 'stand supports')?.[1], 24.8, 1e-4, 'the high wall is still in the supports object');
+});
+
+Deno.test('3MF separate export: stranded walls join beside a negative part elsewhere, in both configs (#476)', async () => {
+  const { model, text, r } = await writeStrand([{ ...NEG, positions: block(-9, -7, -1, 1, 26, 29) }]);
+  assertClose(zSpan(model, 'stand supports on part')?.[0], 14.8, 1e-4, 'the high wall joins the part');
+  assert(/subtype="negative_part"/.test(text('Metadata/model_settings.config'))
+    && /subtype="normal_part"><metadata key="name" value="stand supports on part"/.test(text('Metadata/model_settings.config')), 'Bambu config');
+  const p3 = JSON.parse(text('Metadata/PrusaSlicer3_project.json')).objects[0].volumes.map((v) => v.type);
+  assert(p3.join() === 'ModelPart,NegativeVolume,ModelPart', `PrusaSlicer 3 volumes ${p3}`);
+  const own = r.objects.find((o) => o.name === 'stand');
+  assert(own.positions.length === STAND.length * 3 && own.extras.length === 1 && own.extras[0].kind === 'negative',
+    'read back: the part, its negative part, not the moved wall');
+});
+
+Deno.test('3MF separate export, PrusaSlicer 2 layout: the stranded walls are a ModelPart range, left out on reading (#476)', async () => {
+  const { text, r } = await writeStrand([{ ...NEG, settings: { prusa2: [] }, positions: block(-9, -7, -1, 1, 26, 29) }]);
+  const cfg = text('Metadata/Slic3r_PE_model.config');
+  assert(/value="stand supports on part"\/><metadata type="volume" key="volume_type" value="ModelPart"/.test(cfg), 'a ModelPart range named for it');
+  const own = r.objects.find((o) => o.name === 'stand');
+  assert(own.positions.length === STAND.length * 3 && own.extras.length === 1, `read back ${own.positions.length / 9} part triangles, ${own.extras.length} extras`);
+});

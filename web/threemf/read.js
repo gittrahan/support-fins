@@ -267,6 +267,7 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
       continue;
     }
     const r = ranges ? ranges.find((v) => t / 3 >= v.first && t / 3 <= v.last) ?? role : role;
+    if (r?.kind === 'ours') continue;              // our supports in the part (slicers.js)
     const target = sink(r), { out, col } = target;
     if (components) record(r, target).sourceFaces.push(t / 3);
     if (!r) partTris++;

@@ -2,7 +2,7 @@
  *  record about each part in their own config files (kind, name, settings,
  *  filament), read so the part and its non-printing parts come in as the slicer had them. */
 
-import { local, scanXML } from './common.js';
+import { local, ON_PART, scanXML } from './common.js';
 
 /**
  * A slicer's non-printing parts (GitHub #104). Bambu Studio, OrcaSlicer and
@@ -195,7 +195,10 @@ export function parsePrusaConfig(configXML, filaments) {
   });
   for (const [id, list] of vols) {
     const kept = list
-      .map((v) => ({ first: v.first, last: v.last, kind: v.kind ?? v.legacy, name: v.name, settings: { prusa2: v.settings } }))
+      // 'ours': our own export's supports moved into the part (write.js strandedFrom),
+      // a ModelPart range the reader drops rather than read as the part
+      .map((v) => ({ first: v.first, last: v.last, kind: v.kind ?? v.legacy ?? (ON_PART.test(v.name) ? 'ours' : null),
+                     name: v.name, settings: { prusa2: v.settings } }))
       .filter((v) => v.kind && Number.isFinite(v.first) && Number.isFinite(v.last));
     if (kept.length) vols.set(id, kept); else vols.delete(id);
   }
