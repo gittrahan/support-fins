@@ -95,6 +95,11 @@ slides out along the hole). Tell us which came out clean and which broke or stuc
 whether A or X left the smoother hole ceiling. That tells us how small a hole the tool
 should still support, and which way its walls should run.
 
+Every wall here stands inside its hole, above the plate, so the walls are a part of the
+block's object (`Bore coupon supports on part`), not an object of their own: OrcaSlicer
+and Bambu Studio refuse an object whose first layer is empty. The walls touch the hole,
+so your slicer may say the part has floating regions: that's expected, print it anyway.
+
 ## Sampler (`sampler/print/sampler-coupon.3mf`)
 One part with every hard shape at once, supported the way the site does it in
 **Full coverage** at the default settings: ramps (40°, 30°, 20°, written on top),

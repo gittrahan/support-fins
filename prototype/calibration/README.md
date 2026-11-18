@@ -32,7 +32,11 @@ PrusaSlicer's command line for the time and filament the menu shows
 engine moves on. The .3mf has the part and supports as TWO objects in register, as the
 site's Export > 3MF writes them since #199 (the slicer keeps them apart, so a tine only
 touches the part); never Arrange them apart. Files printed before that were one object;
-`separate.py` converted gap, grip, pad, span and lip in place on 2026-10-07 with their
+The site's writer moves supports a slicer would refuse as an object of their own (a
+first layer in mid-air, or empty layers between their walls: Orca, Bambu, GitHub #476)
+into the part's object as a part named `<name> supports on part`. bore/ is the one
+coupon that has them (every wall stands in its hole): its .3mf was rewritten that way
+on 2026-11-17, meshes unchanged. `separate.py` converted gap, grip, pad, span and lip in place on 2026-10-07 with their
 meshes unchanged (slender, foot, orient keep the one-object form they were printed in;
 tine/ has its own split). Record each print's result below, with the date and the
 setting it decided; the number itself goes in `web/prop/config.js` with a pointer here.
