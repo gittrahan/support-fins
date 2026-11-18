@@ -1406,3 +1406,13 @@ Deno.test('3MF separate export: a negative part reaching the pad keeps it with t
   const { model } = await writePad({ separate: true }, [{ ...NEG, positions: block(-12, -11, -1, 1, -1, 1) }]);
   assert(!model.includes('bed pad'), 'the negative part would cut the pad: it stays in the supports object');
 });
+
+Deno.test('3MF separate export: on a padded part the walls stand on the plate, so taking the pad out strands none (#472)', async () => {
+  const { run } = await import('./_scene.js');
+  const { strandedFrom } = await import(`${WEB}threemf.js`);
+  for (const rot of [[45, 0, 0], [45, 35, 0]]) {        // the cube on an edge (Light pad), on a point (Sure hold)
+    const r = run({ model: 'cube', rot, set: { mode: 'auto' } });
+    assert(r.pad.length && r.tris.length, `cube ${rot}: a pad and walls expected`);
+    assert(strandedFrom(r.tris) === Infinity, `cube ${rot}: walls without the pad would leave the plate`);
+  }
+});
