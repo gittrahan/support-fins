@@ -35,11 +35,22 @@ remain synchronous; human summaries distinguish support-section findings from
 disconnected pieces of the model.
 
 Intentional `model-below` starts remain in the detailed report but are excluded
-from the risk count. Other starts, narrow sections and rapid growth remain
-conservative findings: a slicer can print a section narrower than the configured
+from the risk count. Rapid growth also remains detailed-only: crossing the
+45-degree envelope alone has not established missing or floating extrusion.
+The count and finding navigation include unresolved starts and narrow sections.
+These remain conservative findings: a slicer can print a section narrower than the configured
 ordinary line width. In the browser, **Show findings** and **Previous/Next finding**
 highlight each counted location and show its support ID, Z height and XY bounds.
 Locations are hidden during regeneration, pose changes and manual support edits.
+
+`model-below` means that some model material lies beneath the section at the
+preceding model slice allowed by the bottom gap; partial seats are not called
+wholly floating starts. It does not certify adhesion or the rest of the underside.
+`narrow-below` records a new ordinary-width footprint above existing narrow
+geometry of the same support. It stays detailed-only to avoid counting the narrow
+run again as a new start. Narrow runs still count, and a narrow predecessor never
+certifies another support as plate-rooted. Material farther below than the gap's
+layer schedule is not credited as a model seat.
 
 ```
 engine/fins_entry.js    posed triangle soup in (mm, z up) -> fin + bed-pad triangles out,

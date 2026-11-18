@@ -17,7 +17,7 @@ const keys = [
   'Support-section checks are unavailable for these settings.',
   '{n} support-section finding needs slicer inspection (first at {z} mm).',
   '{n} support-section findings need slicer inspection (first at {z} mm).',
-  'These geometric checks locate narrow sections, new starts and rapid growth. Model material below a start does not prove a printable seat. Check extrusion paths and gaps in the slicer.',
+  'The count includes narrow sections and unresolved starts. Rapid growth remains in the detailed report only. Model material below a start does not prove a printable seat. Check extrusion paths and gaps in the slicer.',
   'Section widths use the selected nozzle as a proxy; actual slicer line widths and first-layer settings may differ.',
 ];
 

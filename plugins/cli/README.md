@@ -384,8 +384,10 @@ projects retain their existing generation paths without this additional check.
 Compatible resume records retain diagnostic locations and reproduce the warnings.
 
 Intentional model-seated starts (`root: "model-below"`) are recorded without
-adding to the risk count. Narrow-section and rapid-growth findings are geometric
-preflight, not predicted slicer failures. In procedural native checks with Bambu
+adding to the risk count. Rapid growth is also retained only in the detailed
+report; it does not increase the count or determine its first height. Counted
+unresolved starts and narrow sections are geometric preflight, not predicted
+slicer failures. In procedural native checks with Bambu
 Studio 02.08.04.61, a 0.50 mm isolated strip was omitted while its wider control
 produced toolpaths, but a flagged 0.80 mm strip had extrusion on all 15 layers despite a configured
 0.82 mm line width. An abrupt widening from 4 to 12 mm at Z=4 mm produced actual
@@ -393,6 +395,12 @@ extrusion beyond the previous layer's 45-degree envelope; slicing still complete
 These checks used 0.8 mm nozzles, 0.4 mm layers, Classic walls, thin-wall detection
 off and native supports off. They establish the need for inspection, not physical
 printability. Use the reported bounds and layer to check your actual toolpaths.
+
+Possible model seats include partial overlap and use the actual preceding model
+slice allowed by the saved bottom gap, including a different first-layer height.
+Transitions from existing narrow support geometry (`root: "narrow-below"`) remain
+in the detailed report without being counted again as new floating starts. The
+original narrow-section warning remains. Neither category certifies printability.
 
 ### Check compatibility before generating fins
 
