@@ -3,10 +3,11 @@
  * No mesh repair, material guessing or partially successful export is allowed.
  */
 import { manifold } from './cut.js';
+import { supportMaterialMesh, SupportMeshError } from './support-material-mesh.js';
 
 const ROLES = ['body', 'interface', 'tine'];
 
-function indexed(w, triangles) {
+export function indexedSupportMesh(w, triangles) {
   const vertices = [], faces = [], ids = new Map();
   for (let t = 0; t < triangles.length; t += 3) {
     const face = triangles.slice(t, t + 3).map((p) => {
@@ -18,6 +19,40 @@ function indexed(w, triangles) {
     if (new Set(face).size === 3) faces.push(...face);
   }
   return new w.Mesh({ numProp: 3, vertProperties: new Float32Array(vertices), triVerts: new Uint32Array(faces) });
+}
+
+/** The JS Mesh binding accepts float32 coordinates, while Manifold operates in
+ * doubles. Restore the generated coordinates before any Boolean operations:
+ * rounding adjacent angled faces independently can create artificial slivers.
+ * This changes neither the source triangles nor the preservation tolerance.
+ */
+export function supportSolid(w, triangles) {
+  const original = new Map();
+  for (const p of triangles) {
+    const key = p.slice(0, 3).map(Math.fround).join(','), old = original.get(key);
+    // Shared corners can differ by arithmetic roundoff. A float32 collision
+    // between distinct features cannot be reconstructed unambiguously.
+    if (old && old.some((v, k) => Math.abs(v - p[k]) >
+      64 * Number.EPSILON * Math.max(1, Math.abs(v), Math.abs(p[k])))) {
+      throw new Error('support coordinates lose distinct vertices at export precision');
+    }
+    original.set(key, p.slice(0, 3));
+  }
+  const source = new w.Manifold(indexedSupportMesh(w, triangles));
+  if (!triangles.length) return source;
+  try {
+    let missing = false;
+    const result = source.warp((p) => {
+      const q = original.get(p.join(','));
+      if (!q) { missing = true; return; }
+      for (let k = 0; k < 3; k++) p[k] = q[k];
+    });
+    if (missing) {
+      result.delete();
+      throw new Error('support coordinate provenance was lost during mesh construction');
+    }
+    return result;
+  } finally { source.delete(); }
 }
 
 /** Untagged auxiliary body geometry is split along exact shared edges only. */
@@ -57,13 +92,16 @@ function solidGroups(tris) {
     .concat(shells(plain).map((triangles) => ({ role: 'body', triangles })));
 }
 
-function soup(solid) {
-  const { vertProperties: p, triVerts: faces, numProp } = solid.getMesh();
-  return Array.from(faces, (v) => [p[v * numProp], p[v * numProp + 1], p[v * numProp + 2]]);
-}
-
 /** Return named parts in stable body/tine/interface order, and partition evidence. */
 export async function partitionSupportMaterials(tris) {
+  try { return await partition(tris, false); }
+  catch (error) {
+    if (!(error instanceof SupportMeshError)) throw error;
+    return partition(tris, true);
+  }
+}
+
+async function partition(tris, preserveCoordinates) {
   if (!tris.length) return { parts: [], contacts: [], volume: 0 };
   const w = await manifold(), owned = new Set(), groups = new Map(ROLES.map((r) => [r, []]));
   const own = (s) => { owned.add(s); return s; };
@@ -73,13 +111,13 @@ export async function partitionSupportMaterials(tris) {
   };
   try {
     for (const { role, triangles } of solidGroups(tris)) {
-      const s = valid(own(new w.Manifold(indexed(w, triangles))));
+      const s = valid(own(preserveCoordinates ? supportSolid(w, triangles) : new w.Manifold(indexedSupportMesh(w, triangles))));
       if (!s.isEmpty()) {
         if (!(s.volume() > 0) || !Number.isFinite(s.volume())) throw new Error('support material source must be outward and have positive volume');
         groups.get(role).push(s);
       }
     }
-    const union = (xs) => valid(own(xs.length ? w.Manifold.union(xs) : new w.Manifold(indexed(w, []))));
+    const union = (xs) => valid(own(xs.length ? w.Manifold.union(xs) : new w.Manifold(indexedSupportMesh(w, []))));
     const split = (s, cutter) => {
       const parts = s.split(cutter).map(own); // own both even if validation rejects one
       parts.forEach(valid);
@@ -111,7 +149,7 @@ export async function partitionSupportMaterials(tris) {
       if (Math.abs(valid(own(a.intersect(b))).volume()) > roundoff) throw new Error('support materials overlap');
     }
     const parts = [['body', body], ['tine', tine], ['interface', iface]]
-      .filter(([, s]) => !s.isEmpty()).map(([role, s]) => ({ role, triangles: soup(s) }));
+      .filter(([, s]) => !s.isEmpty()).map(([role, s]) => ({ role, ...supportMaterialMesh(s) }));
     const records = [...new Set(tris.map((p) => p[4]).filter(Boolean))];
     const contacts = records.filter((r) => r.contact).map((r) => ({ role: r.role, ...structuredClone(r.contact) }));
     return { parts, contacts, volume: source.volume(), residual: { missingVolume, extraVolume, roundoff, coordinateTolerance } };

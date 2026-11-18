@@ -49,13 +49,31 @@ function fmt(n) {
   return s === '-0' ? '0' : s;
 }
 
-/**
- * Build an indexed <mesh> from a flat triangle-soup array. Vertices that share
- * exact coordinates are merged (they do, because every vertex is produced by the
- * identical transform of the same source point), which restores shared topology
- * and shrinks the file; anything that doesn't merge is left as-is and slices fine.
- */
-export function meshXML(tris, triAttrs = null, kept = null) {
+// Validated material partitions can contain nearby intersection vertices that
+// the compact six-decimal format would collapse. Preserve their numbers, using
+// decimal notation (3MF coordinates do not use JavaScript's exponent spelling).
+function exactCoordinate(n) {
+  if (!Number.isFinite(n)) throw new Error('invalid support material coordinate');
+  const value = String(n);
+  if (!/[eE]/.test(value)) return value;
+  const [mantissa, exponent] = value.split(/[eE]/), sign = n < 0 ? '-' : '';
+  const digits = mantissa.replace('-', '').replace('.', '');
+  const point = mantissa.replace('-', '').split('.')[0].length + Number(exponent);
+  return sign + (point <= 0 ? '0.' + '0'.repeat(-point) + digits
+    : point >= digits.length ? digits + '0'.repeat(point - digits.length)
+    : digits.slice(0, point) + '.' + digits.slice(point));
+}
+
+function validateVertexIds(tris, vertexIds) {
+  if (vertexIds && (vertexIds.length !== tris.length || vertexIds.some((v) => !Number.isSafeInteger(v) || v < 0))) {
+    throw new Error('invalid support material vertex identities');
+  }
+}
+
+/** Index ordinary soups by coordinates; material partitions can supply their
+ * validated vertex identities so touching shells stay topologically separate. */
+export function meshXML(tris, triAttrs = null, kept = null, { precise = false, vertexIds = null } = {}) {
+  validateVertexIds(tris, vertexIds);
   const index = new Map();
   const verts = [];
   const faces = [];
@@ -63,12 +81,14 @@ export function meshXML(tris, triAttrs = null, kept = null) {
     const idx = [];
     for (let i = 0; i < 3; i++) {
       const p = tris[t + i];
-      const key = `${p[0]},${p[1]},${p[2]}`;
+      const key = vertexIds ? vertexIds[t + i] : `${p[0]},${p[1]},${p[2]}`;
       let vi = index.get(key);
       if (vi === undefined) {
         vi = verts.length;
         index.set(key, vi);
         verts.push(p);
+      } else if (vertexIds && p.slice(0, 3).some((v, k) => v !== verts[vi][k])) {
+        throw new Error('support material vertex identity has inconsistent coordinates');
       }
       idx.push(vi);
     }
@@ -82,9 +102,10 @@ export function meshXML(tris, triAttrs = null, kept = null) {
   }
 
   const v = new Array(verts.length);
+  const coordinate = precise ? exactCoordinate : fmt;
   for (let i = 0; i < verts.length; i++) {
     const p = verts[i];
-    v[i] = `<vertex x="${fmt(p[0])}" y="${fmt(p[1])}" z="${fmt(p[2])}"/>`;
+    v[i] = `<vertex x="${coordinate(p[0])}" y="${coordinate(p[1])}" z="${coordinate(p[2])}"/>`;
   }
   const f = new Array(faces.length);
   for (let i = 0; i < faces.length; i++) {
@@ -263,20 +284,28 @@ function modelXML(models, title, separate, bed) {
       if (!separate) throw new Error('support material parts require separate-object 3MF export');
       if (finTris?.length || iface.length) throw new Error('support material parts cannot replace additional support triangles');
       if (m.materialFormat !== undefined && !['components', 'prusa2'].includes(m.materialFormat)) throw new Error('unknown support material format');
-      const roles = new Set(), components = [], volumes = [], triangles = [];
+      const roles = new Set(), components = [], volumes = [], triangles = [], vertexIds = [];
+      let vertexOffset = 0;
       for (const part of m.materialParts) {
         if (!['body', 'tine', 'interface'].includes(part.role) || roles.has(part.role) || !part.triangles?.length) {
           throw new Error('invalid support material parts');
         }
+        validateVertexIds(part.triangles, part.vertexIds);
         roles.add(part.role);
         const label = `${m.name} ${{ body: 'support bodies', tine: 'tines', interface: 'top interfaces' }[part.role]}`;
         if (m.materialFormat === 'prusa2') {
           const first = triangles.length / 3;
           for (const p of part.triangles) triangles.push(p);
+          const local = new Map();
+          for (let i = 0; i < part.triangles.length; i++) {
+            const key = part.vertexIds ? part.vertexIds[i] : part.triangles[i].slice(0, 3).join(',');
+            if (!local.has(key)) local.set(key, vertexOffset++);
+            vertexIds.push(local.get(key));
+          }
           volumes.push({ name: label, first, end: triangles.length / 3 });
         } else {
           const id = nextMaterialID++;
-          objects.push(`<object id="${id}" type="model" name="${esc(label)}">${meshXML(part.triangles)}</object>`);
+          objects.push(`<object id="${id}" type="model" name="${esc(label)}">${meshXML(part.triangles, null, null, { precise: true, vertexIds: part.vertexIds })}</object>`);
           components.push(`<component objectid="${id}"/>`);
           volumes.push({ id, name: label });
         }
@@ -288,7 +317,7 @@ function modelXML(models, title, separate, bed) {
         // Its named triangle ranges keep every upper material with its support.
         if (m.extras?.some((e) => !e.settings?.prusa2)) throw new Error('PrusaSlicer 2 export cannot preserve another slicer’s part settings');
         if (m.colors?.paint.some((p) => !p.name.startsWith('slic3rpe:'))) throw new Error('PrusaSlicer 2 export cannot preserve another slicer’s painting');
-        const kept = [], mesh = meshXML(triangles, null, kept);
+        const kept = [], mesh = meshXML(triangles, null, kept, { precise: true, vertexIds });
         const ranges = volumes.map((v) => {
           const first = kept.findIndex((i) => i >= v.first), end = kept.findIndex((i) => i >= v.end);
           return { ...v, first, last: (end < 0 ? kept.length : end) - 1 };
