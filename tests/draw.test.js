@@ -270,8 +270,16 @@ Deno.test('draw: a fill line (under) with no part overhead is refused; under the
   const topo = topoOf(block(-10, 10, 0, 10, 10, 14));
   // beside the shelf, in open air: every station would keep its 10 mm hint
   const air = drawnWall([-5, -4, 10], [5, -4, 10], topo.pos, 0, { under: true });
-  assert(!air.ok, 'a fill wall with nothing over it should be refused, not stand at its hint height');
+  assert(!air.ok && /no surface found/.test(air.reason),
+    `a fill wall with nothing over it should be refused, not stand at its hint height: ${air.reason}`);
   // the same line under the shelf still builds
   const under = drawnWall([-5, 5, 10], [5, 5, 10], topo.pos, 0, { under: true });
   assert(under.ok, `a fill wall under the shelf should build: ${under.reason}`);
+});
+
+Deno.test('draw: a fill line (under) that crosses a gap between two shelves still builds (#475)', () => {
+  // two shelves z 10-14 with a 4 mm gap between them: the middle stations have nothing over them
+  const topo = topoOf(block(-10, -2, 0, 10, 10, 14), block(2, 10, 0, 10, 10, 14));
+  const r = drawnWall([-8, 5, 10], [8, 5, 10], topo.pos, 0, { under: true });
+  assert(r.ok, `a fill wall across the gap should build: ${r.reason}`);
 });
