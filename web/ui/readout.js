@@ -20,8 +20,9 @@ import {
 import { analysisTiming, topology, lastResult, rotM3 } from './part.js';
 import { islandsBuilt } from './islands.js';
 import { ifaceMaterial } from './scene.js';
-import { activeAdded, activeWalls, finMaterial, padMaterial } from './finbuild.js';
+import { activeAdded, activeWalls, finMaterial, padMaterial, builtRequest } from './finbuild.js';
 import { syncReport } from './report.js';
+import { syncSupportFindings } from './supportfindings.js';
 
 // The "fins won't hold most of this" warning (updateReadout): over half the red bare,
 // and at least this much of it, so a part with a few bare slivers isn't told to
@@ -161,6 +162,8 @@ let lastMs = null;
 export function updateReadout(built, ms) {
   lastBuilt = built;
   if (ms != null) lastMs = ms;
+  syncSupportFindings(finsVisible && autoLike() && builtRequest()?.built === built
+    && !removedIds.size && !(drawShown() && drawnWalls.some((w) => w.ok)) ? built?.printability : null);
   if (finMode === 'draw') updateDrawReadout(built, ms);
   else updateFinReadout(built, ms);
   // the midair-starts card: what Full coverage's walls left bare (a Full build with no
@@ -376,6 +379,8 @@ function updateFinReadout(built, ms) {
   // how-to-fix, goes behind the (i). Split so the panel doesn't read as a wall.
   const lead = [];
   const help = [];
+  if (built.inspectionPending) lead.push(t('Checking support sections…'));
+  else if (built.inspectionUnavailable) lead.push(t('Support-section checks are unavailable. Inspect supports in the slicer.').replace(/\.$/, ''));
   if (built.printability) {
     const check = printabilityStats(built.printability);
     // The combined lead adds its own sentence separator below.

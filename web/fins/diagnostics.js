@@ -28,10 +28,19 @@ export function nominalContext(layerHeight, nozzle, bottomGap) {
     lineWidth: nozzle, firstLayerWidth: nozzle, bottomGap, basis: 'nozzle-proxy' };
 }
 
+/** Counted, locatable findings. Intentional model seats remain in the full report. */
+export function supportFindings(report) {
+  if (!report) return [];
+  return [...report.starts.filter((s) => s.root === 'unresolved').map((s) => ({ ...s, kind: 'start' })),
+    ...report.narrow.map((s) => ({ ...s, kind: 'narrow' })),
+    ...report.growth.map((s) => ({ ...s, kind: 'growth' }))]
+    .sort((a, b) => a.layer - b.layer || a.piece.localeCompare(b.piece) || a.kind.localeCompare(b.kind));
+}
+
 /** Compact, cacheable host statistics. Existing model-island counts stay separate. */
 export function printabilityStats(report) {
   if (!report) return {};
-  const findings = [...report.starts.filter((s) => ['unresolved', 'model-below'].includes(s.root)), ...report.narrow, ...report.growth];
+  const findings = supportFindings(report);
   return { supportCheck: report.status, supportFindings: findings.length,
     supportFirstZ: findings.length ? findings.reduce((z, f) => Math.min(z, f.printZ), Infinity) : null };
 }

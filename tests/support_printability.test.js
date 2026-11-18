@@ -1,5 +1,6 @@
 import { assert, block } from './_util.js';
 import { layerAt, nominalContext, supportPrintability } from '../web/fins/printability.js';
+import { printabilityStats, supportFindings } from '../web/fins/diagnostics.js';
 
 const context = { ...nominalContext(0.4, 0.8, 0.2), lineWidth: 0.82, firstLayerWidth: 0.82, basis: 'test' };
 const make = (soups) => {
@@ -43,8 +44,12 @@ Deno.test('support diagnostics: full model footprint is only a possible seat, ne
   const fin = block(-4, 4, -1, 1, 4.4, 8), model = block(-6, 6, -3, 3, 0, 4.2);
   const r = inspect([fin], model);
   assert(r.starts[0].root === 'model-below');
+  assert(printabilityStats(r).supportFindings === 0, 'intentional model-below seat was counted as a risk');
+  assert(supportFindings(r).length === 0);
   const partial = inspect([fin], block(-6, 0, -3, 3, 0, 4.2));
   assert(partial.starts[0].root === 'unresolved', 'a partly supported underside was credited');
+  assert(supportFindings(partial)[0].kind === 'start');
+  assert(printabilityStats(partial).supportFindings === 1);
   const zero = inspect([fin], model, { ...context, bottomGap: 0 });
   assert(zero.starts[0].root === 'unresolved', 'zero gap was treated as a separated seat');
 });
@@ -129,4 +134,18 @@ Deno.test('support diagnostics: no supports require no model decoding or layer s
   let called = false;
   const r = supportPrintability([], [], () => { called = true; return []; }, { ...context, plateZ: -10000 });
   assert(r.status === 'complete' && r.layers === 0 && !called);
+});
+
+Deno.test('support diagnostics: native-control strip remains locatable beside a printable body', () => {
+  // Native Classic/0.8/0.4 comparison: the 0.50 mm strip has no extrusion, while
+  // the wider body prints. This unit check only pins the geometric finding.
+  const r = inspect([[...block(-4, 4, -.25, .25, 0, 6), ...block(6, 10, -2, 2, 0, 6)]]);
+  assert(r.narrow.length === 1 && r.narrow[0].printZ === .4);
+  assert(JSON.stringify(r.narrow[0].bounds) === JSON.stringify([-4, -.25, 4, .25]));
+  assert(r.starts.some((s) => s.root === 'plate'));
+});
+
+Deno.test('support diagnostics: mild growth does not inherit the abrupt-growth warning', () => {
+  const r = inspect([[...block(-2, 2, -1, 1, 0, 4), ...block(-2.2, 2.2, -1, 1, 4, 8)]]);
+  assert(!r.growth.length && printabilityStats(r).supportFindings === 0);
 });

@@ -4,7 +4,14 @@ Code every plugin that can run JavaScript shares, so they all run **the website'
 engine (`web/*.js`), unmodified**, instead of keeping their own copy of the geometry.
 A fix on the site reaches a plugin the next time it is built.
 
-FDM Auto/Full results also include `diagnostics.support`: locations of new support
+Diagnostics are off by default in `computeFins`, so ordinary plugins pay no
+section-inspection cost. A host can explicitly pass `{ diagnostics: true }` for
+a nozzle-width proxy, or `{ diagnostics: context }` for resolved slicing settings.
+The CLI/MCP explicitly request inspection for their reports; the browser displays
+fins first, then requests inspection in a separate worker message. Without a
+working worker it displays the fins and reports inspection as unavailable.
+
+Opted-in FDM Auto/Full results include `diagnostics.support`: locations of new support
 starts, narrow layer sections and growth beyond a conservative 45-degree limit.
 `status: "complete"` means that geometric inspection completed, **not** that a
 slicer or printer accepted the supports. `incomplete` includes the stopping
@@ -26,6 +33,13 @@ and resin retain their existing paths. No support triangles or original counts
 are changed by these diagnostics. The synchronous adapter and Python bridge
 remain synchronous; human summaries distinguish support-section findings from
 disconnected pieces of the model.
+
+Intentional `model-below` starts remain in the detailed report but are excluded
+from the risk count. Other starts, narrow sections and rapid growth remain
+conservative findings: a slicer can print a section narrower than the configured
+ordinary line width. In the browser, **Show findings** and **Previous/Next finding**
+highlight each counted location and show its support ID, Z height and XY bounds.
+Locations are hidden during regeneration, pose changes and manual support edits.
 
 ```
 engine/fins_entry.js    posed triangle soup in (mm, z up) -> fin + bed-pad triangles out,

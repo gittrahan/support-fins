@@ -155,7 +155,7 @@ Deno.test('cli: fins are computeFins\' on the posed part, and match the website 
   const { code, out, fs } = await cli(['lb.stl', '--rot', '0,35,0', '--json']);
   assert(code === 0, `exit ${code}`);
   const r = JSON.parse(out[0]);
-  const direct = computeFins(pose(readSTL(LBRACKET), [0, 35, 0]));
+  const direct = computeFins(pose(readSTL(LBRACKET), [0, 35, 0]), { diagnostics: true });
   assert(JSON.stringify(r.stats) === JSON.stringify(direct.stats), 'CLI stats differ from computeFins');
   // The website: the raw STL, rotation handed to analyze (ui/part.js shade), and the
   // options panel's defaults. buildFins' own defaults are NOT the site's: with them
@@ -255,7 +255,7 @@ Deno.test('cli: flags reach the engine in the site\'s units', async () => {
   const off = JSON.parse((await cli(['lb.stl', '--rot', '0,35,0', '--json', '--no-tines'])).out[0]).stats;
   assert(off.tines === 0 && off.props >= 1, `--no-tines: ${off.tines} tines, ${off.props} plain walls`);
   const dense = JSON.parse((await cli(['lb.stl', '--rot=0,35,0', '--json', '--coverage', '100'])).out[0]).stats;
-  const want = computeFins(pose(readSTL(LBRACKET), [0, 35, 0]), { coverage: 1 }).stats;
+  const want = computeFins(pose(readSTL(LBRACKET), [0, 35, 0]), { coverage: 1, diagnostics: true }).stats;
   assert(JSON.stringify(dense) === JSON.stringify(want), '--coverage 100 is the entry\'s coverage 1');
   const nopad = JSON.parse((await cli(['lb.stl', '--rot', '0,35,0', '--json', '--pad-style', 'off'])).out[0]).stats;
   assert(base.padTriangles > 0 && nopad.padTriangles === 0, 'pad style off drops the pad');
@@ -344,7 +344,7 @@ Deno.test('cli: a 3MF input reads; one with several objects asks which', async (
   const cube = block(0, 20, 0, 20, 0, 20);
   const r1 = await cli(['c.3mf', '--rot', '45,0,0', '--json'], { 'c.3mf': await plate3MF([cube]) });
   assert(r1.code === 0, `exit ${r1.code}: ${r1.err}`);
-  const want = computeFins(pose(cube, [45, 0, 0])).stats;
+  const want = computeFins(pose(cube, [45, 0, 0]), { diagnostics: true }).stats;
   assert(JSON.stringify(JSON.parse(r1.out[0]).stats) === JSON.stringify(want), '3MF input fins = STL input fins');
 
   // A plate of two objects: refused without --object, finned with it.
@@ -368,7 +368,7 @@ Deno.test('cli: an OBJ input reads; one with several objects asks which', async 
     });
     return new TextEncoder().encode(s);
   };
-  const want = computeFins(pose(cube, [45, 0, 0])).stats;
+  const want = computeFins(pose(cube, [45, 0, 0]), { diagnostics: true }).stats;
   const r1 = await cli(['c.obj', '--rot', '45,0,0', '--json'], { 'c.obj': objText([cube]) });
   assert(r1.code === 0 && r1.fs.has('c-fins.3mf'), `exit ${r1.code}: ${r1.err}`);
   assert(JSON.stringify(JSON.parse(r1.out[0]).stats) === JSON.stringify(want), 'OBJ input fins = STL input fins');

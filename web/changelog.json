@@ -252,7 +252,7 @@
     {
       "date": "2026-11-16",
       "check": "stays",
-      "text": "FDM generation now flags narrow support sections, unsupported starts and rapid growth for slicer inspection. The browser, plugins and CLI report these geometric findings without changing the fins."
+      "text": "FDM support-section checks run after fins appear, with highlighted locations for slicer inspection. Plugin hosts opt in; intentional model-seated starts are excluded from risk counts. Support geometry is unchanged."
     }
   ]
 }

@@ -59,6 +59,7 @@ async function settle() {
   await page.waitForFunction(async () => {
     const build = await import('./ui/finbuild.js');
     return !build.buildPending()
+      && !build.inspectionPending?.()
       && document.getElementById('s-fins')?.textContent !== 'generating supports…'
       && !document.getElementById('spinner').classList.contains('show');
   }, { timeout: 60000 });

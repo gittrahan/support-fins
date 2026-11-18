@@ -383,6 +383,17 @@ projects retain their existing generation paths without this additional check.
 `--check` still checks source compatibility without generating or inspecting fins.
 Compatible resume records retain diagnostic locations and reproduce the warnings.
 
+Intentional model-seated starts (`root: "model-below"`) are recorded without
+adding to the risk count. Narrow-section and rapid-growth findings are geometric
+preflight, not predicted slicer failures. In procedural native checks with Bambu
+Studio 02.08.04.61, a 0.50 mm isolated strip was omitted while its wider control
+produced toolpaths, but a flagged 0.80 mm strip had extrusion on all 15 layers despite a configured
+0.82 mm line width. An abrupt widening from 4 to 12 mm at Z=4 mm produced actual
+extrusion beyond the previous layer's 45-degree envelope; slicing still completed.
+These checks used 0.8 mm nozzles, 0.4 mm layers, Classic walls, thin-wall detection
+off and native supports off. They establish the need for inspection, not physical
+printability. Use the reported bounds and layer to check your actual toolpaths.
+
 ### Check compatibility before generating fins
 
 ```sh

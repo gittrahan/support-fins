@@ -8,6 +8,17 @@
 // 中文没有复数变化，复数一律只写 other（Intl.PluralRules("zh") 恒返回 other）。
 
 export default {
+  "Checking support sections…": "正在检查支撑截面…",
+  "Support-section checks are unavailable. Inspect supports in the slicer.": "支撑截面检查不可用。请在切片软件中检查支撑。",
+  "Show findings": "显示检查结果",
+  "Hide findings": "隐藏检查结果",
+  "Previous finding": "上一处",
+  "Next finding": "下一处",
+  "Unsupported start": "无支撑起点",
+  "Narrow section": "狭窄截面",
+  "Rapid growth": "快速扩展",
+  "Finding {n} of {total}: {kind}; support {id}, Z {z} mm.": "第 {n} 处，共 {total} 处：{kind}；支撑 {id}，Z {z} 毫米。",
+  "X {x0}–{x1} mm, Y {y0}–{y1} mm.": "X {x0}–{x1} 毫米，Y {y0}–{y1} 毫米。",
   "Side clearance": "侧向间隙",
   "Bottom gap": "底部间隙",
   "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Minimum 0.2 mm: a closer wall would fuse to the part. Default 0.35 mm.": "支撑壁宽面旁的间隙。窄端会自动修剪。最小 0.2 毫米：更近的支撑壁会与模型熔合。默认 0.35 毫米。",
