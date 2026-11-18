@@ -168,18 +168,29 @@ export function buildFins(topo, result, rot, opts = {}) {
   // total is added. Draw's walls are placed on the page, so it has none.
   // `coverage` rides along so the page can re-measure after fins are removed by hand.
   const coverage = opts.coverage ?? 0.5;
-  const diagnostics = opts.diagnostics && PROP.tineDir !== 'vertical'
-    && ['auto', 'stabilize', 'full'].includes(opts.mode) ? opts.diagnostics : null;
   if (opts.mode === 'auto' || opts.mode === 'stabilize') {
-    built.bare = { ...bareArea(topo, result, rot, opts, built, !!diagnostics), coverage };
+    built.bare = { ...bareArea(topo, result, rot, opts, built), coverage };
   } else if (opts.mode === 'full' && built.fill) {
     built.bare = { area: built.fill.unservedArea,
                    total: bareArea(topo, result, rot, opts, { fins: [] }).total, coverage };
   }
-  // Only final FDM generation requests diagnostics. Orientation search and
-  // candidate builds keep their existing cost; no classification runs on a drag.
-  // The request's context travels through the Worker with the geometry settings.
-  if (diagnostics) {
+  // Synchronous hosts explicitly opt in. The browser instead calls inspectFins
+  // in a second worker message after displaying this build.
+  if (opts.diagnostics) Object.assign(built, inspectFins(topo, result, rot, built, opts));
+  forgetSeated(topo);   // nor the seated part: a page building inline would hold it
+  return built;
+}
+
+/** Inspect an existing build, without generating or changing any triangles.
+ * Callers must bind the result to the same model, pose, options and build. */
+export function inspectFins(topo, result, rot, built, opts) {
+  if (!opts.diagnostics || opts.tunables?.tineDir === 'vertical'
+      || !['auto', 'stabilize', 'full'].includes(opts.mode)) return {};
+  applyTunables(opts.tunables);
+  // The build's small-hole mask already identifies its automatic targets. Avoid
+  // reclassifying geometry or constructing exclusion solids for a report.
+  result = { ...result, regions: result.regions.filter((r) => !built.smallHoleMask?.[r.faces[0]]) };
+  try {
     const flat = typeof built.triangles[0] === 'number', per = flat ? 9 : 3;
     const soup = [...built.triangles];
     const pieces = (built.fins ?? []).map((f) => ({ id: String(f.id),
@@ -193,14 +204,12 @@ export function buildFins(topo, result, rot, opts = {}) {
       else for (let i = 0; i < pad.length; i += 3) soup.push([pad[i], pad[i + 1], pad[i + 2]]);
       pieces.push({ id: 'pad', ranges: [[start, soup.length / per]] });
     }
-    built.printability = supportPrintability(soup, pieces, () => seatedPartTris(topo, rot, result.offset), diagnostics);
+    const printability = supportPrintability(soup, pieces, () => seatedPartTris(topo, rot, result.offset), opts.diagnostics);
     // This is the existing sampled contact-reach metric, not measured slicer
     // contact. Preserve Full's historical scoreboard and unserved counts.
-    built.coverage = { basis: 'sampled-contact-reach', ...(built.bare?.points ? built.bare
-      : bareArea(topo, result, rot, opts, built, true)) };
-  }
-  forgetSeated(topo);   // nor the seated part: a page building inline would hold it
-  return built;
+    const coverage = { basis: 'sampled-contact-reach', ...bareArea(topo, result, rot, opts, built, true) };
+    return { printability, coverage };
+  } finally { forgetSeated(topo); }
 }
 
 function buildFinsAndBraces(topo, result, rot, opts = {}) {

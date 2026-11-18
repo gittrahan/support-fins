@@ -184,11 +184,11 @@ export function computeFins(positions, options = {}) {
     tunables,
     turning: opts.turning ? { ...opts.turning, layerOffset: result.offset.z - shift.z } : null, // internal; no public control
     // Internal host context, not a public engine option. A saved project must
-    // supply its actual slicing widths/schedule; ordinary hosts have only a
-    // labelled nozzle-width proxy. False is reserved for parity/performance checks.
-    diagnostics: opts.diagnostics === false ? null : opts.diagnostics?.frame === 'input'
+    // supply its actual slicing widths/schedule. Omission adds no inspection
+    // cost; a host can explicitly request a labelled nozzle proxy with true.
+    diagnostics: !opts.diagnostics ? null : opts.diagnostics?.frame === 'input'
       ? { ...opts.diagnostics, plateZ: offset.z }
-      : opts.diagnostics ?? nominalContext(opts.layerHeight, tunables.nozzle, 0.2),
+      : opts.diagnostics === true ? nominalContext(opts.layerHeight, tunables.nozzle, tunables.bottomGap ?? 0.2) : opts.diagnostics,
   });
   // buildFins does not re-analyse the mesh. Its automatic exclusion mask moves
   // only exempt ceilings to amber, without changing the original analysis.

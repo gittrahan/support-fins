@@ -25,6 +25,7 @@ import { topology, rotM3, lastResult, updateFit, setSmallHoleHighlight } from '.
 import { scheduleParked } from './parkedbuild.js';
 import { liveStart, liveMessage, liveEnd, liveStopping, liveWalls } from './livebuild.js';
 import { stopOpts } from '../fins/progress.js';
+import { syncSupportFindings } from './supportfindings.js';
 
 export let finMesh = null;
 export let padMesh = null;
@@ -89,6 +90,8 @@ const currentBuild = () => finsVisible && buildSource?.topology === topology
   && buildSource?.result === lastResult && buildSource?.mode === finMode;
 let finSpinnerTimer = null;  // shows the spinner only if a build runs past ~1s
 let finBusy = false;         // a worker build is outstanding (used to supersede it)
+let inspectionBusy = false, inspectionFrame = null, inspectionTimer = null;
+export const inspectionPending = () => inspectionBusy;
 /** A worker build is outstanding: the fins on screen are the last settings', not
  *  the current ones -- Export waits, so a file never carries the wrong ones (#279). */
 export const buildPending = () => finBusy;
@@ -178,7 +181,18 @@ export function swayOpts() {
 function makeFinWorker() {
   const w = new Worker(new URL('../finworker.js', import.meta.url), { type: 'module' });
   w.onmessage = (e) => {
-    if (w !== finWorker || !finBusy || e.data.id !== finGen) return;
+    if (w !== finWorker || e.data.id !== finGen) return;
+    if (e.data.inspection || e.data.inspectionError) {
+      if (!inspectionBusy) return;
+      inspectionBusy = false;
+      if (!currentBuild()) return;
+      lastBuilt.inspectionPending = false;
+      if (e.data.inspectionError) lastBuilt.inspectionUnavailable = true;
+      else Object.assign(lastBuilt, e.data.inspection);
+      updateReadout(lastBuilt);
+      return;
+    }
+    if (!finBusy) return;
     // a live Full build's walls and bar (ui/livebuild.js), on the way
     if (e.data.progress) { if (currentBuild()) liveMessage(e.data.progress, hideStale); return; }
     // A drag re-analyses on every frame but requests new fins only on release.
@@ -200,6 +214,12 @@ function makeFinWorker() {
     e.preventDefault();
     if (w !== finWorker) return;
     const dropped = finBusy && currentBuild();
+    if (inspectionBusy && currentBuild()) {
+      lastBuilt.inspectionPending = false;
+      lastBuilt.inspectionUnavailable = true;
+      updateReadout(lastBuilt);
+    }
+    inspectionBusy = false;
     finWorker = null; finBusy = false; clearSpinner(); liveEnd();
     if (dropped) refreshFins();
   };
@@ -219,11 +239,43 @@ function getFinWorker() {
 // the spinner looked stuck and the stale fins lingered. Terminating discards the
 // running + queued work so only the latest pose computes.
 function supersedeBuild() {
+  cancelInspection();
   finGen++;
   buildSource = null;
   if (finBusy && finWorker) { finWorker.terminate(); finWorker = undefined; }
   finBusy = false;
   liveEnd();
+}
+
+function cancelInspection() {
+  cancelAnimationFrame(inspectionFrame); clearTimeout(inspectionTimer);
+  inspectionFrame = inspectionTimer = null;
+  if (inspectionBusy && finWorker) { finWorker.terminate(); finWorker = undefined; }
+  inspectionBusy = false;
+}
+
+function scheduleInspection(built) {
+  if (!lastOpts.diagnostics || lastOpts.tunables?.tineDir === 'vertical' || !autoLike()) return;
+  // With no Worker, show the fins but do not add a long synchronous inspection
+  // to the fallback. Absence of a check must never look like a passing report.
+  if (!finWorker) { built.inspectionUnavailable = true; return; }
+  const id = finGen, worker = finWorker;
+  built.inspectionPending = inspectionBusy = true;
+  // A task after this rendering opportunity lets the mesh appear before the
+  // worker starts inspecting. Export/rotation do not wait for diagnostics.
+  inspectionFrame = requestAnimationFrame(() => {
+    inspectionFrame = null;
+    inspectionTimer = setTimeout(() => {
+      inspectionTimer = null;
+      if (id !== finGen || worker !== finWorker || !currentBuild() || lastBuilt !== built) return;
+      try { worker.postMessage({ type: 'inspect', id }); }
+      catch {
+        inspectionBusy = built.inspectionPending = false;
+        built.inspectionUnavailable = true;
+        updateReadout(built);
+      }
+    }, 0);
+  });
 }
 
 /** The last build's fins, greyed under a live build, go once its new walls are in. */
@@ -258,7 +310,10 @@ function stopLive() {
 /** Build on the page and show it: the fallback when the Worker can't. A throw still
  *  ends a live build (ui/livebuild.js), or the page would stay locked. */
 function inline(opts) {
-  try { applyBuilt(buildFins(topology, lastResult, rotM3.elements, opts)); } finally { liveEnd(); }
+  // No retained worker build exists after fallback.
+  if (finWorker) finWorker.terminate();
+  finWorker = null;
+  try { applyBuilt(buildFins(topology, lastResult, rotM3.elements, { ...opts, diagnostics: null })); } finally { liveEnd(); }
 }
 
 export function refreshFins() {
@@ -288,7 +343,7 @@ export function refreshFins() {
     for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
     finMesh = padMesh = null;
     finTris = padTris = [];
-    applyBuilt(buildFins(topology, lastResult, rotM3.elements, lastOpts));
+    inline(lastOpts);
     return;
   }
 
@@ -321,7 +376,7 @@ export function refreshFins() {
     for (const m of [finMesh, padMesh]) { if (m) { scene.remove(m); m.geometry.dispose(); } }
     finMesh = padMesh = null;
     finTris = padTris = [];
-    applyBuilt(buildFins(topology, lastResult, rotM3.elements, lastOpts));
+    inline(lastOpts);
   }
 }
 
@@ -374,6 +429,7 @@ function applyBuilt(built) {
     // self-gates on drawShown(), so it clears them when none apply.
     rebuildDrawn();
   }
+  scheduleInspection(built);
   updateReadout(built, performance.now() - finT0);
   updateFit();
   // Restore-all visibility keys off removedIds (this orientation's removals), which
@@ -389,6 +445,8 @@ function applyBuilt(built) {
  */
 /** Grey the fins while a drag is in flight, so nothing on screen is a lie. */
 export function markFinsStale() {
+  cancelInspection();
+  syncSupportFindings(null);
   for (const m of [finMesh, padMesh, drawnMesh]) if (m) for (const mat of [m.material].flat()) mat.opacity = 0.25;
   finMaterial.transparent = padMaterial.transparent = drawMaterial.transparent = ifaceMaterial.transparent = true;
   el('s-fins').textContent = t('generating supports…');

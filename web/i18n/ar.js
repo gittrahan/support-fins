@@ -1,5 +1,16 @@
 // Arabic translation
 export default {
+  "Checking support sections…": "جارٍ فحص مقاطع الدعامات…",
+  "Support-section checks are unavailable. Inspect supports in the slicer.": "فحوص مقاطع الدعامات غير متاحة. افحص الدعامات في برنامج التقطيع.",
+  "Show findings": "إظهار النتائج",
+  "Hide findings": "إخفاء النتائج",
+  "Previous finding": "النتيجة السابقة",
+  "Next finding": "النتيجة التالية",
+  "Unsupported start": "بداية بلا ارتكاز",
+  "Narrow section": "مقطع ضيق",
+  "Rapid growth": "توسع سريع",
+  "Finding {n} of {total}: {kind}; support {id}, Z {z} mm.": "النتيجة {n} من {total}: {kind}؛ الدعامة {id}، Z {z} مم.",
+  "X {x0}–{x1} mm, Y {y0}–{y1} mm.": "X من {x0} إلى {x1} مم، Y من {y0} إلى {y1} مم.",
   "Side clearance": "الخلوص الجانبي",
   "Bottom gap": "الفجوة السفلية",
   "Clearance beside a support wall's wide faces. Its narrow ends are trimmed automatically. Minimum 0.2 mm: a closer wall would fuse to the part. Default 0.35 mm.": "الخلوص بجوار الوجهين العريضين لجدار الدعم. تُقصّ النهايات الضيقة تلقائيًا. الحد الأدنى 0.2 مم: الجدار الأقرب سيلتحم بالقطعة. الافتراضي 0.35 مم.",

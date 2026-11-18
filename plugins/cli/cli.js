@@ -282,7 +282,7 @@ export async function finFile(input, args, io, engineOptions) {
   const warn = (line) => io.err(`support-fins: ${input}: warning: ${line}`);
   const read = await readPart(input, await io.read(input), args.object, warn);
   const posed = pose(read.positions, args.rot);
-  const { triangles, offset, stats, diagnostics } = computeFins(posed, engineOptions);
+  const { triangles, offset, stats, diagnostics } = computeFins(posed, { ...engineOptions, diagnostics: true });
   const name = (input.split(/[\\/]/).pop() || 'part').replace(/\.(stl|3mf|obj)$/i, '');
   if (args.finsOnly && triangles.length === 0) {
     return { input, output: null, stats, diagnostics, report: `${reportLine(stats)}; no fins, nothing written` };

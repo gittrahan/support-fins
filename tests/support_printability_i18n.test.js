@@ -1,6 +1,17 @@
 import { assert, assertEquals } from 'jsr:@std/assert';
 
 const keys = [
+  "Checking support sections…",
+  "Support-section checks are unavailable. Inspect supports in the slicer.",
+  "Show findings",
+  "Hide findings",
+  "Previous finding",
+  "Next finding",
+  "Unsupported start",
+  "Narrow section",
+  "Rapid growth",
+  "Finding {n} of {total}: {kind}; support {id}, Z {z} mm.",
+  "X {x0}–{x1} mm, Y {y0}–{y1} mm.",
   'Support-section checks describe the original generation. Inspect supports again after manual changes.',
   'Support-section checks are incomplete. Inspect all supports in the slicer.',
   'Support-section checks are unavailable for these settings.',
