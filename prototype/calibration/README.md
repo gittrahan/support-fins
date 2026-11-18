@@ -36,7 +36,8 @@ The site's writer moves supports a slicer would refuse as an object of their own
 first layer in mid-air, or empty layers between their walls: Orca, Bambu, GitHub #476)
 into the part's object as a part named `<name> supports on part`. bore/ is the one
 coupon that has them (every wall stands in its hole): its .3mf was rewritten that way
-on 2026-11-17, meshes unchanged. `separate.py` converted gap, grip, pad, span and lip in place on 2026-10-07 with their
+on 2026-11-17, meshes unchanged. The writer also puts the bed pad in the part's object (#472): pad/'s .3mf was rewritten
+that way the same day (its supports are all pads), meshes unchanged. `separate.py` converted gap, grip, pad, span and lip in place on 2026-10-07 with their
 meshes unchanged (slender, foot, orient keep the one-object form they were printed in;
 tine/ has its own split). Record each print's result below, with the date and the
 setting it decided; the number itself goes in `web/prop/config.js` with a pointer here.

@@ -75,6 +75,12 @@ a different gap off its cube: 0, 0.08, 0.12, 0.16, 0.2, 0.3 mm, written on each 
   0.2, Pad grip 0, Pad spread 4**. Custom starts from whatever pad the part had before,
   which may not be those.
 
+The pads are a part of the cubes' object (`Pad coupon bed pad`), as the site exports a
+bed pad: a cube standing on its edge has a first layer only a sliver wide, which some
+slicer profiles erase (OrcaSlicer: "empty first layer"), and the pad gives that object a
+first layer. A slicer closes gaps under about 0.1 mm inside one object, so the 0 and 0.08
+rungs print as one with their cube.
+
 ## Cutouts (`cutout/print/cutout-coupon.3mf`)
 Five tall ledges, each held by walls cut with one **Cutouts** style, written on top:
 NONE, DIAMOND, TRIANGLE, ARCH and LATTICE. Cutouts open the middle of a tall wall to
