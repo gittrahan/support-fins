@@ -127,12 +127,19 @@ const turnFlags = ['--turn-fins', '--gap', '0.3', '--pad-style', 'off', '--cover
 const turnFixture = async (extra = {}) => ({ positions: await roofBody(), upright: true, layer: '0.4', nozzle: ['0.8'], savedSettings: turnSaved, ...extra });
 
 Deno.test('project turning: opt-in replaces the selected upper wall and preserves original compressed members', async () => {
-  const source = await fixture(await turnFixture()), original = new ProjectZip(source);
+  const source = await fixture(await turnFixture({ savedSettings: { ...turnSaved, support_bottom_z_distance: '0.2' } })), original = new ProjectZip(source);
   const enabled = await cli(source, [...turnFlags, '--object', '1']);
   const disabled = await cli(source, [...turnFlags, '--object', '1', '--no-turn-fins']);
   const plain = await cli(source, [...turnFlags.slice(1), '--object', '1']);
   for (const r of [enabled, disabled, plain]) assert(r.code === 0, r.err.join('\n'));
   assert(enabled.result.objects[0].stats.turnedFins === 1, JSON.stringify(enabled.result));
+  for (const r of [enabled, disabled, plain]) {
+    const o = r.result.objects[0];
+    assert(o.stats.supportCheck === 'complete' && o.diagnostics.support.status === 'complete', 'turning lost the diagnostic report');
+    assert(o.diagnostics.support.context.nozzle === 0.8 && o.diagnostics.support.context.lineWidth === 0.82,
+      'turning diagnostics lost the saved extrusion settings');
+    assert(JSON.stringify(r.result.objectResults[0].diagnostics) === JSON.stringify(o.diagnostics), 'object report lost diagnostics');
+  }
   assert(!('turnedFins' in disabled.result.objects[0].stats), 'default statistics changed');
   const outputs = [enabled, disabled, plain].map((r) => new ProjectZip(r.fs.get('part-fins-project.3mf')));
   const normalize = (s) => s.replace(/p:UUID="[^"]*"/g, 'p:UUID="same"');
@@ -262,11 +269,13 @@ Deno.test('project turning resume: interruption and failed final writes retain c
   const fresh = await call([...turnFlags, '-o', `${dir}/fresh.3mf`]);
   assert(resumed.code === 0 && resumed.hits.join() === '1,2' && !resumed.saved.length && fresh.code === 0, resumed.err.join('\n'));
   assert(resumed.result.objects.every((o) => o.stats.turnedFins === 1), 'fixture did not turn both objects');
+  assert(resumed.result.objects.every((o) => o.stats.supportCheck === 'complete'
+    && o.diagnostics.support.status === 'complete'), 'resume lost turning diagnostics');
   assert(JSON.stringify(resumed.result.objects) === JSON.stringify(fresh.result.objects), 'stats changed on resume');
   assert(JSON.stringify(resumed.result.objectResults) === JSON.stringify(fresh.result.objectResults), 'warnings changed on resume');
   const a = new ProjectZip(await Deno.readFile(`${dir}/resumed.3mf`)), b = new ProjectZip(await Deno.readFile(`${dir}/fresh.3mf`));
   assert(normalizedXML(await a.text(SUPPORTS)) === normalizedXML(await b.text(SUPPORTS)), 'resumed geometry changed');
-}, await turnFixture({ together: true })));
+}, await turnFixture({ together: true, savedSettings: { ...turnSaved, support_bottom_z_distance: '0.2' } })));
 
 Deno.test('project turning resume: changing activation or angle invalidates old turns', async () => diskProject(async ({ call }) => {
   const failWrite = () => { throw Error('output unavailable'); };
