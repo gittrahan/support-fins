@@ -122,7 +122,7 @@ async function cli(source, flags = [], additional = {}, overrides = {}) {
   return { code, fs, out, err, result: out.length ? JSON.parse(out[0]) : null };
 }
 
-const turnSaved = { initial_layer_print_height: '0.4', line_width: '0.82', support_object_xy_distance: '0.35', raft_layers: '0' };
+const turnSaved = { bridge_angle: '90', initial_layer_print_height: '0.4', line_width: '0.82', support_object_xy_distance: '0.35', raft_layers: '0' };
 const turnFlags = ['--turn-fins', '--gap', '0.3', '--pad-style', 'off', '--coverage', '50'];
 const turnFixture = async (extra = {}) => ({ positions: await roofBody(), upright: true, layer: '0.4', nozzle: ['0.8'], savedSettings: turnSaved, ...extra });
 
@@ -145,18 +145,80 @@ Deno.test('project turning: opt-in replaces the selected upper wall and preserve
   assert(enabled.result.objectResults[0].warnings.some((s) => s.includes('turned')), 'turn not reported');
 });
 
-Deno.test('project turning: settings errors follow selection rules and listings remain lightweight', async () => {
+Deno.test('project turning: incompatible settings warn and retain ordinary selected fins', async () => {
+  for (
+    const patch of [
+      { savedSettings: { ...turnSaved, line_width: '0' } },
+      { savedSettings: { ...turnSaved, raft_layers: '1' } },
+      { sequence: 'by object' },
+      { savedSettings: { ...turnSaved, line_width: ['0.82', '0.9'] } },
+      { flags: ['--nozzle', '0.4'] },
+      { flags: ['--tine-dir', 'vertical'] },
+    ]
+  ) {
+    const source = await fixture(await turnFixture(patch));
+    const extra = patch.flags ?? [];
+    for (const selection of [[], ['--object', '1']]) {
+      const on = await cli(source, [...turnFlags, ...selection, ...extra]),
+        off = await cli(source, [
+          ...turnFlags,
+          ...selection,
+          ...extra,
+          '--no-turn-fins',
+        ]);
+      assert(on.code === 0 && off.code === 0, on.err.join('\n'));
+      assert(
+        on.result.objectResults.some((r) =>
+          r.warnings.some((s) => s.includes('normal straight fins'))
+        ),
+        JSON.stringify(on.result),
+      );
+      const normalize = (s) => s.replace(/p:UUID="[^"]*"/g, 'p:UUID="same"');
+      assert(
+        normalize(
+          await new ProjectZip(on.fs.get('part-fins-project.3mf')).text(
+            SUPPORTS,
+          ),
+        ) ===
+          normalize(
+            await new ProjectZip(off.fs.get('part-fins-project.3mf')).text(
+              SUPPORTS,
+            ),
+          ),
+        'fallback changed ordinary fins',
+      );
+    }
+  }
   const source = await fixture(await turnFixture({ variable: 1 }));
-  const explicit = await cli(source, [...turnFlags, '--object', '1']);
-  assert(explicit.code === 1 && explicit.fs.size === 1 && JSON.parse(explicit.err.at(-1)).objectResults[0].status === 'failed', 'explicit incompatible selection wrote output');
-  const batch = await cli(source, turnFlags);
-  assert(batch.code === 0 && batch.result.summary.skipped === 1 && batch.result.summary.processed === 1, batch.err.join('\n'));
+  const explicit = await cli(source, [
+    ...turnFlags,
+    '--object',
+    '1',
+    '--layer-height',
+    '0.4',
+  ]);
+  assert(
+    explicit.code === 0 && explicit.result.objectResults[0].warnings.some((s) =>
+      s.includes('fixed layer')
+    ),
+    explicit.err.join('\n'),
+  );
+  // Ordinary source incompatibility still fails if no fixed generation height
+  // was supplied. Turning fallback must not hide that unrelated error.
   const checked = await cli(source, [...turnFlags, '--check']);
-  assert(checked.code === 1 && checked.fs.size === 1 && checked.result.summary.incompatible === 1, 'check accepted variable layers');
-  const valid = await cli(await fixture(await turnFixture()), [...turnFlags, '--check']);
-  assert(valid.code === 0 && valid.fs.size === 1 && valid.result.objectResults.every((r) => r.warnings.some((s) => s.includes('final slicing'))), 'check overclaimed feasibility');
+  assert(checked.code === 1 && checked.fs.size === 1);
+  const valid = await cli(await fixture(await turnFixture()), [
+    ...turnFlags,
+    '--check',
+  ]);
+  assert(
+    valid.code === 0 && valid.fs.size === 1 &&
+      valid.result.objectResults.every((r) =>
+        r.warnings.some((s) => s.includes('final slicing'))
+      ),
+  );
   const listed = await cli(await fixture(), ['--turn-fins', '--list-objects']);
-  assert(listed.code === 0 && listed.fs.size === 1, 'listing unexpectedly validated turning settings');
+  assert(listed.code === 0 && listed.fs.size === 1);
 });
 
 Deno.test('project turning: transformed negative assemblies and unselected neighbors are checked', async () => {

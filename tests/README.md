@@ -18,6 +18,12 @@ deno test --allow-read tests/
 
 ## What's pinned (and why it exists)
 
+**`turn_sweep.test.js`** checks the internal height-dependent wall frame: ordinary
+profiles and interface tags, closed sections, fixed-layer growth, unchanged lower
+coordinates, and zero-turn parity. The CLI turning suites also compare direct
+engine and worker results, conservative fallbacks, plate-neighbor reuse, project
+preservation and resume. Turning is opt-in and has no public browser control.
+
 **`inside_ray.test.js`** -- `insidePart`'s ray through a shared vertex or edge still
 answers correctly, both ways, and a ray clear of them answers as before. On
 `ball_in_ball.stl` (#450, `fixtures/gen_ball_in_ball.py`) the ball hanging in the cavity

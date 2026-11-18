@@ -6,6 +6,7 @@
  *
  * Split out of prop.js, which re-exports the public names.
  */
+import { frameSweep } from './turn-frame.js';
 import { cutWall } from '../cutout.js';
 import { ribbon, roundedFlange } from '../solids.js';
 import { PROP } from './config.js';
@@ -76,7 +77,13 @@ export function stemHalf(rise) {
  * uses -- which keeps each section convex and sidesteps capping a T's concave
  * outline. Replaces the single cone-footed solid that read as a golf tee.
  */
-export function sweep(line, zBed, out, minH = PROP.minHeight) {
+export function sweep(line, zBed, out, minH = PROP.minHeight, frame = null) {
+  if (frame) {
+    const local = [];
+    if (!sweep(line, zBed, local, minH)) return false;
+    for (const p of frameSweep(local, frame)) out.push(p);
+    return true;
+  }
   const wall = [], flange = [], st = [], crest = [], feet = [];
   const kinds = crestKinds(line);          // the interface crest's plan, null when off
   for (let i = 0; i < line.length; i++) {
@@ -154,7 +161,13 @@ export function sweep(line, zBed, out, minH = PROP.minHeight) {
  * `minH` is the least headroom a station needs (Draw mode passes minHeightSquat
  * for a squat wall the user asked for by hand; Auto keeps minHeight).
  */
-export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight) {
+export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, frame = null) {
+  if (frame) {
+    const local = [];
+    if (!sweepBetween(topLine, botLine, local, minH)) return false;
+    for (const p of frameSweep(local, frame)) out.push(p);
+    return true;
+  }
   const welded = PROP.footGap <= 0;
   // only the PART gets the gap: a station whose floor is open plate all across
   // (floorLine's 0, the highest surface under the wall's width) stands on it --

@@ -180,6 +180,7 @@ export function computeFins(positions, options = {}) {
                         ...Object.fromEntries(Object.entries(opts.sway).filter(([, v]) => v != null)) }
                     : undefined,
     tunables,
+    turning: opts.turning ? { ...opts.turning, layerOffset: result.offset.z - shift.z } : null, // internal; no public control
   });
   // buildFins does not re-analyse the mesh. Its automatic exclusion mask moves
   // only exempt ceilings to amber, without changing the original analysis.
@@ -206,6 +207,7 @@ export function computeFins(positions, options = {}) {
     overFaces: Int32Array.from(overFaces),
     smallFaces: Int32Array.from(smallFaces),
     stats: {
+      ...(built.turning ?? {}),
       overhangRegions: result.regions.length,
       // The soup is fins | sway braces | pad, in these counts.
       finTriangles: fin.length / 9 - swayTris,

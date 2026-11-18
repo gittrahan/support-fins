@@ -16,14 +16,14 @@ export function solid(w, flat) {
 
 /** A roof on two end walls above an inclined seat. Pure procedural source;
  * no user model, saved project, slicer cache or registered test imports. */
-export async function roofBody(sx = .5, sy = .8, withSeat = true) {
+export async function roofBody(sx = .5, sy = .8, withSeat = true, roofHeight = 44) {
   const w = await turningRuntime(), soups = [];
   const box = (x0, x1, y0, y1, z0, z1) => {
     const t = []; boxExtrude([[x0, y0], [x1, y0], [x1, y1], [x0, y1]], z0, z1, (x, y, z) => [x, y, z], t); soups.push(t.flat());
   };
   const t = [], curve = Array.from({ length: 49 }, (_, i) => { const y = 6 - i / 4; return [y, 14 + 2 * y]; });
   if (withSeat) { boxExtrude([[-6, 0], [6, 0], ...curve], -10, 10, (y, z, x) => [x, y, z], t); soups.push(t.flat()); }
-  box(-10, -8, -6, 6, 0, 36); box(8, 10, -6, 6, 0, 36); box(-10, 10, -6, 6, 34, 36);
+  box(-10, -8, -6, 6, 0, roofHeight + 2); box(8, 10, -6, 6, 0, roofHeight + 2); box(-10, 10, -6, 6, roofHeight, roofHeight + 2);
   const parts = soups.map((p) => solid(w, p)); let joined;
   try {
     joined = w.Manifold.union(parts);
@@ -32,4 +32,4 @@ export async function roofBody(sx = .5, sy = .8, withSeat = true) {
 }
 
 export const finOptions = { mode: 'auto', nozzle: .8, layerHeight: .4, gap: .3, bedPad: false, tines: true, coverage: .5 };
-export const dimensions = { nozzle: .8, lineWidth: .82, layerHeight: .4, firstLayerHeight: .4, sideGap: .35 };
+export const dimensions = { nozzle: .8, lineWidth: .82, layerHeight: .4, firstLayerHeight: .4, sideGap: .35, bridgeAngle: 90 };

@@ -258,7 +258,9 @@ input to avoid adding fins twice. Individually editable fins are not included.
 ### Optional turning fins
 
 `--turn-fins` replaces eligible upper straight walls with gradual turns ending in
-one top strip, while retaining their lower attachments. It is **off by default**;
+one top strip, while retaining their lower attachments. The shared engine sweeps
+its normal wall profile, foot and top interface through the turn; retained lower
+tines keep their original contact coordinates. It is **off by default**;
 `--no-turn-fins` explicitly keeps ordinary output. The source bodies, negative
 parts, painting, filament assignments, placement and saved settings stay unchanged.
 
@@ -267,26 +269,33 @@ support-fins project.3mf --preserve-project --turn-fins
 support-fins project.3mf --preserve-project --turn-fins --turn-angle 90
 ```
 
-Automatic direction uses the shorter axis of an isolated rectangular horizontal
-roof. Near-square roofs and already aligned fins stay unchanged. `--turn-angle`
+Automatic direction crosses an explicit bridge angle saved for the source
+object. With automatic bridge direction, it uses the shared engine's geometric
+anchor rule: bridge between opposite supports, otherwise the longer free run.
+Near-square roofs without an explicit direction and already aligned fins stay
+unchanged. Conflicting per-part bridge angles retain straight fins. `--turn-angle`
 overrides the top direction in plate XY: 0 is along X, 90 along Y; angles from 0
 through 180 are accepted, with 180 equivalent to 0. It requires `--turn-fins`.
 This geometry-based choice does not predict all bridge, perimeter or infill paths.
-Inspect the sliced roof strands and choose an override when needed.
+Improving bridge-infill support can leave other perimeter spans less supported.
+Inspect all sliced roof paths and choose an override or retain straight fins
+when needed.
 
 The initial planner handles fixed-layer FDM print-by-layer projects with closed
 source geometry, a straight upper wall and enough height for the turn. It requires
 explicit saved nozzle, first/subsequent layer heights, ordinary extrusion widths
 and positive lateral clearance. Automatic widths, rafts, variable layers, resin,
 sequential printing and conflicting nozzle/layer overrides are unsupported when
-turning is enabled. Missing/incompatible settings follow the usual project
-selection rules. The feature does not change the printer settings to fit a turn.
+turning is enabled. These turning restrictions produce a warning and ordinary
+straight fins, including explicit object selections. Ordinary source/generation
+errors still follow the usual project selection rules. The feature does not change the printer settings to fit a turn.
 
 The turn must fit beneath the roof, clear the source and other printable plate
 objects and neighboring generated supports, preserve existing side contacts and
 avoid excluded overhang columns. Previously accepted turns reserve their bounding
 envelopes conservatively; a close pair can therefore remain straight. Neighbor
-analysis is serial and may add processing time on crowded plates.
+analysis is serial and may add processing time on crowded plates. Each neighbor's
+unchanged fins are computed once per plate and released when that plate finishes.
 Growth is bounded geometrically to 45 degrees per layer. Unsupported roofs,
 insufficient clearance or an unprovable attachment retain the original fin with
 an explanation. The initial roof reach bound is 6 mm; it is a conservative scope
