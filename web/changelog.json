@@ -225,6 +225,12 @@
       "check": "clean",
       "text": "Independent side and bottom clearances for FDM walls standing on the model. Existing defaults stay the same.",
       "pr": 416
+    },
+    {
+      "date": "2026-11-17",
+      "check": "easy",
+      "text": "Full coverage no longer builds a wall where nothing is overhead: a row beside the part used to stand in open air, holding nothing.",
+      "pr": 478
     }
   ]
 }
