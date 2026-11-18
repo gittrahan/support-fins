@@ -19,6 +19,9 @@
  *        (GitHub #21) the supports object is an assembly of two parts, the body
  *        and "<name> interface" (the walls' tops and the tines), so a toolchanger
  *        can give the interface its own filament.
+ *        Supports the slicer would refuse as an object of their own (a first layer
+ *        in mid-air, or empty layers between walls) join the part's object instead:
+ *        strandedFrom (GitHub #476).
  *
  * We do NOT embed slicer-specific print profiles (Bambu/Orca bind "supports off"
  * to a full printer-specific project config, which breaks across printers and
@@ -130,6 +133,52 @@ function colorXML(colors, id = MATERIALS_ID) {
   };
 }
 
+/**
+ * The supports a SEPARATE export can't keep in their own object (GitHub #476). Bambu
+ * Studio, OrcaSlicer and its forks check every object on its own: its first layer must
+ * print ("empty first layer") and no layer between its bottom and top may be empty
+ * ("The object has empty layers between 3.6 and 14.8 and can't be printed"). Walls
+ * standing on the part above every wall on the plate leave the supports object a gap;
+ * walls in a bore start it in mid-air. Only z counts (each layer of the object, wherever
+ * it is), so this sweeps the triangles' z spans up from the plate: everything from the
+ * first gap over STRAND_GAP up is stranded -- all of it when nothing starts within
+ * PLATE_Z of the plate. A connected piece's spans have no gap, so a piece is never cut.
+ * The stranded triangles go into the PART object as a part of their own (modelXML):
+ * a slicer unions them with the part, so their tines fuse to it, as in the locked
+ * form; their feet already stand welded on it (FIN-SPEC foot gap 0).
+ * @returns { cut } the z from which a triangle is stranded (Infinity: none is)
+ */
+export const PLATE_Z = 0.05, STRAND_GAP = 0.1;
+export function strandedFrom(...lists) {
+  const spans = [];
+  for (const tris of lists) {
+    for (let t = 0; t + 2 < tris.length; t += 3) {
+      const a = tris[t][2], b = tris[t + 1][2], c = tris[t + 2][2];
+      spans.push([Math.min(a, b, c), Math.max(a, b, c)]);
+    }
+  }
+  if (!spans.length) return Infinity;
+  spans.sort((p, q) => p[0] - q[0]);
+  if (spans[0][0] > PLATE_Z) return -Infinity;
+  let reach = spans[0][1];
+  for (const [lo, hi] of spans) {
+    if (lo > reach + STRAND_GAP) return lo;
+    if (hi > reach) reach = hi;
+  }
+  return Infinity;
+}
+
+/** `tris` split at `cut` (strandedFrom): [kept, stranded], whole triangles. */
+function splitAt(tris, cut) {
+  if (cut === Infinity) return [tris, []];
+  const kept = [], off = [];
+  for (let t = 0; t + 2 < tris.length; t += 3) {
+    const lo = Math.min(tris[t][2], tris[t + 1][2], tris[t + 2][2]);
+    (lo >= cut ? off : kept).push(tris[t], tris[t + 1], tris[t + 2]);
+  }
+  return [kept, off];
+}
+
 // Where a SEPARATE export opens: two objects keep their 3MF positions (a single one
 // gets centred by the slicer), and print space is centred on the origin, so the pair
 // would sit half off the bed. Shift both by one transform: the footprint's centre to
@@ -165,11 +214,26 @@ function modelXML(models, title, separate, bed) {
     const id = (k) => base + k;
     const name = esc(m.name);
     const col = colorXML(m.colors, id(MATERIALS_ID));
-    const iface = m.iface ?? [];
+    let iface = m.iface ?? [];
     let finTris = m.finTris;
+    let extras = m.extras ?? [];
+    if (separate) {
+      // supports the slicer would refuse as an object of their own join the part
+      // (strandedFrom); a supports object left with only crest goes whole
+      let cut = strandedFrom(finTris ?? [], iface);
+      let [body, onPart] = splitAt(finTris ?? [], cut);
+      if (!body.length && cut !== Infinity) { cut = -Infinity; [body, onPart] = [[], finTris ?? []]; }
+      const [crest, crestOn] = splitAt(iface, cut);
+      if (onPart.length || crestOn.length) {
+        finTris = body; iface = crest;
+        extras = [...extras,
+          ...(onPart.length ? [{ kind: 'part', name: `${m.name} supports on part`, tris: onPart }] : []),
+          ...(crestOn.length ? [{ kind: 'part', name: `${m.name} interface on part`, tris: crestOn }] : [])];
+      }
+    }
     // a negative part cuts every part of its object: only apart from the supports
     // can it ride along without cutting the walls built in its hole
-    const slicer = separate && m.extras?.length ? extrasXML(m.partTris, m.extras, m.name, col, base) : null;
+    const slicer = separate && extras.length ? extrasXML(m.partTris, extras, m.name, col, base) : null;
     tables.push(col.table);
     objects.push(slicer?.prusa2 ?? `<object id="${id(1)}" type="model" name="${name}"${col.pid}>${meshXML(m.partTris, col.triAttrs)}</object>`);
     // the part with its slicer parts is an assembly of them (extrasXML)
@@ -323,8 +387,8 @@ export function writePlate3MF(models, { title = models[0]?.name ?? 'Support Fins
  * config this model's entry in its slicer's config, which modelXML writes once
  * for every model of the plate
  */
-const BAMBU_SUBTYPE = { negative: 'negative_part', modifier: 'modifier_part', blocker: 'support_blocker', enforcer: 'support_enforcer' };
-const PRUSA_TYPE = { negative: 'NegativeVolume', modifier: 'ParameterModifier', blocker: 'SupportBlocker', enforcer: 'SupportEnforcer' };
+const BAMBU_SUBTYPE = { part: 'normal_part', negative: 'negative_part', modifier: 'modifier_part', blocker: 'support_blocker', enforcer: 'support_enforcer' };
+const PRUSA_TYPE = { part: 'ModelPart', negative: 'NegativeVolume', modifier: 'ParameterModifier', blocker: 'SupportBlocker', enforcer: 'SupportEnforcer' };
 const XML_HEAD = '<?xml version="1.0" encoding="UTF-8"?>\n';
 const metaXML = (pairs, type = '') =>
   pairs.map(([k, v]) => `<metadata${type} key="${esc(k)}" value="${esc(v)}"/>`).join('');

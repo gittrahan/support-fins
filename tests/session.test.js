@@ -36,8 +36,9 @@ Deno.test('session: written beside the model and read back as it was', async () 
               walls: [{ a: [1, 2, 3], b: [4, 5, 6] }, { a: [1, 2, 3], b: [4, 5, 6], m: [3, 9, 4] }, { kind: 'sway', a: [7, 8, 9] }, { kind: 'sway', a: [7, 8, 9], capped: true, anchor: true }] };
   const r = await roundTrip(s);
   assert(JSON.stringify(r.session) === JSON.stringify(s), `session changed: ${JSON.stringify(r.session)}`);
-  // still a plain two-object 3MF to anyone else
-  assert(r.objects.length === 2 && r.objects.some((o) => / supports$/.test(o.name)), 'part + supports objects');
+  // the wall stands on the shelf's slab, above the plate: it is a part of the shelf's
+  // object (write.js strandedFrom, #476), which reads back as the shelf alone
+  assert(r.objects.length === 1 && r.objects[0].positions.length === L.length, 'the shelf alone, without its wall');
 });
 
 Deno.test('session: none written, none read; a bad or unknown one is ignored', async () => {
