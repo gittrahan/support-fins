@@ -4,6 +4,60 @@ import { writePlate3MF, scanXML } from '../web/threemf.js';
 import { unzip } from '../web/zip.js';
 import { MATERIAL } from '../web/materials.js';
 
+const triples = (positions) => Array.from({ length: positions.length / 3 }, (_, i) => Array.from(positions.slice(i * 3, i * 3 + 3)));
+
+Deno.test('material export: stranded geometry cannot bypass conflicting-input validation', async () => {
+  const source = triples(block(0, 10, 0, 10, 0, 20));
+  const elevated = triples(block(12, 13, 0, 4, 12, 15));
+  for (const materialFormat of ['components', 'prusa2']) for (const field of ['finTris', 'iface']) {
+    let rejected = false;
+    try {
+      await writePlate3MF([{ name: 'conflict', partTris: source, finTris: [], [field]: elevated,
+        materialFormat, materialParts: [{ role: 'body', triangles: elevated }] }], { separate: true });
+    } catch (error) { rejected = /cannot replace additional support triangles/.test(error.message); }
+    assert(rejected, `${materialFormat}/${field}: stranded supports bypassed validation`);
+  }
+});
+
+Deno.test('material export: mixed plate retains stranded grouping and distinct material resources', async () => {
+  for (const materialFormat of ['components', 'prusa2']) {
+    const source = triples(block(0, 10, 0, 10, 0, 20));
+    const blob = await writePlate3MF([
+      { name: 'ordinary', partTris: source, finTris: [
+        ...triples(block(12, 13, 0, 4, 0, 5)), ...triples(block(8, 9, 0, 4, 12, 15))] },
+      { name: 'materials', partTris: source.map(([x, y, z]) => [x + 30, y, z]), finTris: [], materialFormat,
+        materialParts: [{ role: 'body', triangles: triples(block(42, 43, 0, 4, 0, 5)) },
+          { role: 'tine', triangles: triples(block(41, 43, 0, 4, 4, 5)) }] },
+    ], { separate: true });
+    const files = await unzip(new Uint8Array(await blob.arrayBuffer()));
+    const xml = new TextDecoder().decode(files.get('3D/3dmodel.model'));
+    const objects = new Map(), items = []; let current;
+    scanXML(xml, (tag, a) => {
+      if (tag === 'object') {
+        assert(!objects.has(a.id), 'duplicate resource ID');
+        current = { name: a.name, components: [] }; objects.set(a.id, current);
+      }
+      if (tag === 'component') current.components.push(a.objectid);
+      if (tag === 'item') items.push(a.objectid);
+    }, () => {});
+    assert(items.length === 4 && new Set(items).size === 4, 'objects lost or aliased');
+    assert([...objects.values()].some(o => o.name === 'ordinary supports on part'), 'upstream grouping lost');
+    const ordinary = objects.get(items[0]);
+    assert(ordinary.components.some(id => objects.get(id)?.name === 'ordinary supports on part'));
+    assert(objects.get(items[1]).name === 'ordinary supports');
+    assert(objects.get(items[2]).name === 'materials');
+    assert(objects.get(items[3]).name === 'materials supports');
+    for (const object of objects.values()) for (const id of object.components) assert(objects.has(id), 'dangling component');
+    if (materialFormat === 'components') {
+      const names = objects.get(items[3]).components.map(id => objects.get(id).name);
+      assert(names.join('|') === 'materials support bodies|materials tines', 'material roles changed');
+    } else {
+      const cfg = new TextDecoder().decode(files.get('Metadata/Slic3r_PE_model.config'));
+      assert(cfg.includes('materials support bodies') && cfg.includes('materials tines'), 'material ranges missing');
+    }
+  }
+});
+
 // A closed ledge adapted from prototype/calibration/grip/gen.py. Small changes
 // to its dimensions expose partition vertices less than 0.000001 mm apart.
 async function ledge(reach, seat) {
