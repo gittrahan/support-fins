@@ -160,7 +160,9 @@ const FORMATS = {
   // 3MF states millimeters, so the file opens correctly oriented and support-free
   // in Bambu Studio, OrcaSlicer, or PrusaSlicer without a re-scale or a re-rotate.
   // It writes the supports as their OWN object, so the slicer slices them apart and
-  // a tine only touches the part (GitHub #38, the grip coupon's split print). The
+  // a tine only touches the part (GitHub #38, the grip coupon's split print) -- all but
+  // walls a slicer would refuse as an object of their own, which join the part's object
+  // (threemf/write.js strandedFrom, #476). The
   // site offers only this form: the old one-object assembly kept the pair from being
   // arranged apart, too small a gain for tines that fuse. It also carries the
   // session (ui/session.js), so opening it here again brings the drawn walls back.

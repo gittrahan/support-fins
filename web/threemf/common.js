@@ -134,3 +134,7 @@ export function compose(a, b) {
   }
   return m;
 }
+
+/** The names the separate export gives supports it moved into the part object
+ *  (write.js strandedFrom, GitHub #476); read.js leaves such a component out of the part. */
+export const ON_PART = / (supports|interface) on part$/;

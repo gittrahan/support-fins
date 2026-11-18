@@ -91,7 +91,7 @@ Deno.test('3MF round trip: our own export reads back as the same geometry', asyn
 // positions, so both carry ONE transform that puts the pair on the bed, in register.
 Deno.test('3MF separate export: two objects, one shared transform, in register and on the bed', async () => {
   const part = CUBE.map((p) => [p[0] * 20 - 10, p[1] * 10 - 5, p[2] * 8]);   // centred on the origin, like print space
-  const fins = CUBE.map((p) => [p[0] * 2 - 1, p[1] * 2 - 1, p[2] * 8 + 8]);
+  const fins = CUBE.map((p) => [p[0] * 2 - 1, p[1] * 2 - 1, p[2] * 16]);           // on the plate (strandedFrom)
   const blob = await writeThreeMF(part, fins, 'test part', { separate: true });
   const bytes = new Uint8Array(await blob.arrayBuffer());
   const xml = new TextDecoder().decode((await unzip(bytes)).get('3D/3dmodel.model'));
@@ -118,6 +118,64 @@ Deno.test('3MF separate export: a footprint wider than the bed centre starts 5 m
   const r = await readThreeMF(new Uint8Array(await blob.arrayBuffer()));
   const { lo } = bounds(r.positions);
   assertClose(lo[0], 5, 1e-6, 'x min');
+});
+
+// GitHub #476: Bambu, Orca and its forks check each object alone -- its first layer
+// must print, and no layer between its bottom and top may be empty. Supports that
+// would break that join the part object as a part of their own (write.js strandedFrom).
+const modelOf = async (blob) => new TextDecoder().decode((await unzip(new Uint8Array(await blob.arrayBuffer()))).get('3D/3dmodel.model'));
+const zSpan = (xml, name) => {
+  const m = xml.match(new RegExp(`<object id="\\d+" type="model" name="${name}">(<mesh>.*?</mesh>)`, 's'));
+  if (!m) return null;
+  const zs = [...m[1].matchAll(/ z="([^"]+)"/g)].map((v) => +v[1]);
+  return [Math.min(...zs), Math.max(...zs)];
+};
+
+Deno.test('3MF separate export: supports above a gap join the part object (#476)', async () => {
+  const part = CUBE.map((p) => [p[0] * 20 - 10, p[1] * 10 - 5, p[2] * 30]);
+  const plate = CUBE.map((p) => [p[0] * 2 - 8, p[1] - 0.5, p[2] * 3.6]);          // a wall on the plate, z 0-3.6
+  const high = CUBE.map((p) => [p[0] * 2 + 4, p[1] - 0.5, p[2] * 10 + 14.8]);     // a wall on the part, z 14.8-24.8
+  const xml = await modelOf(await writeThreeMF(part, [...plate, ...high], 'stand', { separate: true }));
+  const sup = zSpan(xml, 'stand supports'), on = zSpan(xml, 'stand supports on part');
+  assert(sup && sup[0] === 0 && sup[1] === 3.6, `supports object z ${sup}, want 0..3.6`);
+  assert(on && on[0] === 14.8, `the high wall should be a part of the part object, z ${on}`);
+  assert(/<component objectid="\d+"\/>/.test(xml) && (xml.match(/<item /g) ?? []).length === 2,
+    'two items: the part (now an assembly with the high wall) and the supports');
+  const cfg = new TextDecoder().decode((await unzip(new Uint8Array(await (await writeThreeMF(part, [...plate, ...high], 'stand', { separate: true })).arrayBuffer()))).get('Metadata/model_settings.config'));
+  assert(/subtype="normal_part"><metadata key="name" value="stand supports on part"/.test(cfg), 'Bambu/Orca config names it a normal part');
+  // read back (re-opening our own export): the part is the part, without the wall
+  const r = await readThreeMF(new Uint8Array(await (await writeThreeMF(part, [...plate, ...high], 'stand', { separate: true })).arrayBuffer()));
+  const own = r.objects.find((o) => o.name === 'stand');
+  assert(own && own.positions.length === part.length * 3, `the part read back has ${own?.positions.length / 9} triangles, want ${part.length / 3}`);
+});
+
+Deno.test('3MF separate export: supports that start above the plate (a wall in a bore) all join the part (#476)', async () => {
+  const part = CUBE.map((p) => [p[0] * 20 - 10, p[1] * 10 - 5, p[2] * 20]);
+  const bore = CUBE.map((p) => [p[0] * 2 - 1, p[1] - 0.5, p[2] * 10 + 3.2]);
+  const xml = await modelOf(await writeThreeMF(part, bore, 'bore', { separate: true }));
+  assert(!zSpan(xml, 'bore supports'), 'no supports object of its own');
+  assert(zSpan(xml, 'bore supports on part')?.[0] === 3.2, 'the bore wall is a part of the part object');
+  assert((xml.match(/<item /g) ?? []).length === 1, 'one build item');
+});
+
+Deno.test('3MF separate export: supports with no gap stay their own object, unchanged (#476)', async () => {
+  const part = CUBE.map((p) => [p[0] * 20 - 10, p[1] * 10 - 5, p[2] * 20]);
+  const a = CUBE.map((p) => [p[0] * 2 - 8, p[1] - 0.5, p[2] * 10]);              // z 0-10
+  const b = CUBE.map((p) => [p[0] * 2 + 4, p[1] - 0.5, p[2] * 8 + 10.05]);       // z 10.05-18.05: under STRAND_GAP
+  const xml = await modelOf(await writeThreeMF(part, [...a, ...b], 'ok', { separate: true }));
+  assert(!xml.includes('on part') && !xml.includes('<components>'), 'nothing moved, no assembly');
+  assert(zSpan(xml, 'ok supports')?.[1] === 18.05, 'both walls in the supports object');
+});
+
+Deno.test('3MF separate export: the interface crest above a gap goes with its walls (#476)', async () => {
+  const part = CUBE.map((p) => [p[0] * 20 - 10, p[1] * 10 - 5, p[2] * 30]);
+  const plate = CUBE.map((p) => [p[0] * 2 - 8, p[1] - 0.5, p[2] * 3.6]);
+  const high = CUBE.map((p) => [p[0] * 2 + 4, p[1] - 0.5, p[2] * 10 + 14.8]);
+  const crestLow = CUBE.map((p) => [p[0] * 2 - 8, p[1] - 0.5, p[2] * 0.2 + 3.6]);
+  const crestHigh = CUBE.map((p) => [p[0] * 2 + 4, p[1] - 0.5, p[2] * 0.2 + 24.8]);
+  const xml = await modelOf(await writeThreeMF(part, [...plate, ...high], 'c', { separate: true, iface: [...crestLow, ...crestHigh] }));
+  assert(zSpan(xml, 'c interface')?.[1] === 3.8, 'the low crest stays the supports object\'s interface');
+  assert(zSpan(xml, 'c interface on part')?.[0] === 24.8, 'the high crest is a part of the part object');
 });
 
 Deno.test('3MF separate export with no fins is the part alone', async () => {
@@ -770,7 +828,7 @@ function idsResolve(model) {
 }
 
 Deno.test('plate 3MF: two models, each its part and supports, one shared shift, as they stood', async () => {
-  const a = { partTris: box(-40, -30, -5, 5, 0, 8), finTris: box(-36, -34, -1, 1, 8, 10), name: 'a' };
+  const a = { partTris: box(-40, -30, -5, 5, 0, 8), finTris: box(-36, -34, -1, 1, 0, 10), name: 'a' };
   const b = { partTris: box(20, 30, 10, 20, 0, 5), finTris: [], name: 'b' };
   const { r, model } = await writePlate([a, b]);
   const items = [...model.matchAll(/<item objectid="(\d+)" transform="([^"]+)"\/>/g)];
@@ -787,7 +845,7 @@ Deno.test('plate 3MF: two models, each its part and supports, one shared shift, 
 });
 
 Deno.test('plate 3MF on a known bed: each model where it stands on it, a lone one too', async () => {
-  const a = { partTris: box(-40, -30, -5, 5, 0, 8), finTris: box(-36, -34, -1, 1, 8, 10), name: 'a' };
+  const a = { partTris: box(-40, -30, -5, 5, 0, 8), finTris: box(-36, -34, -1, 1, 0, 10), name: 'a' };
   const b = { partTris: box(20, 30, 10, 20, 0, 5), finTris: [], name: 'b' };
   const bed = { x: 250, y: 210 };
   const { r } = await writePlate([a, b], { separate: true, bed });

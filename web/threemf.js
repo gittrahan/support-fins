@@ -5,6 +5,6 @@
  * halves share). This file keeps the one import path the site, the CLI and the
  * tests use.
  */
-export { meshXML, mergeColors, SEPARATE_CENTRE, writeThreeMF, writePlate3MF } from './threemf/write.js';
+export { meshXML, mergeColors, SEPARATE_CENTRE, strandedFrom, writeThreeMF, writePlate3MF } from './threemf/write.js';
 export { readThreeMF, readThreeMFParts } from './threemf/read.js';
 export { PAINT_ATTRS, SESSION_PART, scanXML } from './threemf/common.js';

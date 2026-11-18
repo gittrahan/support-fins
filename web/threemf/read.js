@@ -1,6 +1,6 @@
 import { unzip } from '../zip.js';
 import { filamentPainter } from '../paintcode.js';
-import { PAINT_ATTRS, REL_3DMODEL, SESSION_PART, attrLocal, compose, local, parseMatrix, partName, scanXML } from './common.js';
+import { ON_PART, PAINT_ATTRS, REL_3DMODEL, SESSION_PART, attrLocal, compose, local, parseMatrix, partName, scanXML } from './common.js';
 import { addPrusa3Parts, bambuComponentSettings, parseBambuConfig, parsePrusaConfig, stripExt } from './slicers.js';
 
 // ---------------------------------------------------------------- 3MF reader
@@ -226,6 +226,9 @@ function emitObject(getPart, path, id, m, sink, seen, stats, role = null, roles 
   // Bambu writes a non-printing part as type="other": the config naming it wins,
   // so it is kept by kind instead of skipped as unknown geometry.
   if (SKIP_TYPES.has(obj.type) && !role) { stats.skipped++; return; }
+  // our own export's supports moved into the part object (write.js strandedFrom): a
+  // component of it, never the part. (An object of that name picked on its own still loads.)
+  if (seen.size && ON_PART.test(obj.name)) { stats.skipped++; return; }
   if (role && !role.name && obj.name) role.name = stripExt(obj.name);
   seen.add(key);
 
