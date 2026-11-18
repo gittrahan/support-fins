@@ -132,7 +132,8 @@ function acrossClear(line, tris, w, z) {
  * is the part surface nearest the line the user drew -- not the global lowest,
  * which would jump to another feature -- and then the three prop/contact.js passes pull
  * the top to a clean `gap` below the part exactly as the auto-placer does. `under`
- * limits the pick to down-facing surfaces (the fill pass; see below).
+ * limits the pick to down-facing surfaces (the fill pass; see below), and then a line
+ * with no down-facing surface over any station is null (#475).
  */
 export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, under = false, through = null) {
   const dx = b[0] - a[0], dy = b[1] - a[1];
@@ -181,7 +182,8 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, 
 /**
  * Build one drawn breakaway wall. Returns `{ ok: true, tris, length, height, top }`
  * (`top`: the wall's contact line, the surface-z stations its top follows).
- * `opts.under`: follow only down-facing surfaces (drawnLine) -- the fill pass's walls.
+ * `opts.under`: follow only down-facing surfaces (drawnLine) -- the fill pass's walls;
+ *   a line with none over any station is refused, "no surface found" (#475).
  * `opts.plateOnly`: never stand on the part; a line with part under it is refused (#218).
  * `opts.brace`: a wall that stands on the plate over BRACE.aspect x its length gets
  *   ribs at the plate (prop/brace.js; `braces` counts them). `opts.braceTall`: one
