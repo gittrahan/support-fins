@@ -253,6 +253,11 @@
       "date": "2026-11-18",
       "check": "stays",
       "text": "After FDM generation, support-section checks flag narrow sections and unresolved starts for slicer inspection. Possible model seats, transitions above narrow geometry and rapid growth stay in the detailed report. The fins are unchanged."
+    },
+    {
+      "date": "2026-11-18",
+      "check": "easy",
+      "text": "The Pad calibration coupon opens as one object with its pads, avoiding OrcaSlicer’s empty-first-layer error without changing the calibration geometry."
     }
   ]
 }

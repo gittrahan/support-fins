@@ -18,4 +18,6 @@ for (const r of rungs) {
   part.push(...shift(c.part, r.x));
   sup.push(...shift(supportOf(built), r.x));
 }
-await writeCoupon({ out: new URL('./out/', import.meta.url).pathname, part }, 'pad', 'Pad coupon', sup);
+// The cubes start on edges too thin for a first extrusion. Keep their pads in the
+// same printable object so Orca does not reject the cubes' empty first layer (#472).
+await writeCoupon({ out: new URL('./out/', import.meta.url).pathname, part }, 'pad', 'Pad coupon', sup, { separate: false });

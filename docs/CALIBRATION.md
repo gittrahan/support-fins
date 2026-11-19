@@ -68,6 +68,14 @@ also tells us how wide a bare stretch a printer can bridge.
 ## Pad (`pad/print/pad-coupon.3mf`)
 Six cubes standing on an edge. A pad is all that holds each one down. Each pad stands
 a different gap off its cube: 0, 0.08, 0.12, 0.16, 0.2, 0.3 mm, written on each cube.
+
+The cubes and pads are two mesh parts in **one object**. Keep them assembled: the
+cube edges can be too thin to produce a first-layer extrusion on their own. Splitting
+them into separate objects can make OrcaSlicer report "One object has an empty first
+layer and can't be printed". For an older download with two objects, select both and
+use **Assemble**, or load it as a single object with multiple parts when prompted.
+Keep slicer-generated supports off; the pads in the file provide the intended support.
+
 - Cube came loose mid-print → gap too big.
 - Pad won't peel, or tears the cube's edge → gap too small.
 - Use the **biggest gap whose cube stayed put**. Set Bed pad to **Custom**, put it in

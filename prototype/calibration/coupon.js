@@ -3,7 +3,8 @@
  * part, run the SAME call the site makes -- analyze(topo, 45, rot), then
  * buildFins(..., { mode: 'auto', bedPad: true, ... }) with the site's defaults --
  * once per rung with that rung's setting, keep the support triangles inside the
- * rung's box, and write the 3MF (part + supports as separate objects) and STLs.
+ * rung's box, and write the 3MF and STLs. Part and supports are separate objects unless
+ * the coupon requests one assembly (the Pad coupon).
  *
  * Coordinates: gen.py works in the part's own frame; buildFins returns the seated
  * frame (posed + offset). `rungBox` and `keep` handle the shift.
@@ -119,12 +120,13 @@ export function assertClosed(verts, what) {
 /** All of a build's support triangles: walls, wedges, braces and the bed pad. */
 export const supportOf = (built) => [...(built.triangles ?? []), ...(built.padTriangles ?? [])];
 
-/** out/<name>-coupon.3mf (part and supports as two objects in register, the site's
- *  Export > 3MF since #199), .stl (merged), -fins.stl. */
-export async function writeCoupon(c, name, title, sup) {
+/** out/<name>-coupon.3mf, .stl (merged), -fins.stl.
+ *  Separate objects by default, like the site's Export > 3MF since #199. A coupon
+ *  whose part has no printable first layer may request one assembly instead. */
+export async function writeCoupon(c, name, title, sup, { separate = true } = {}) {
   assertClosed(sup, `${name} supports`);
   const bytes = async (blob) => new Uint8Array(await blob.arrayBuffer());
-  Deno.writeFileSync(`${c.out}${name}-coupon.3mf`, await bytes(await writeThreeMF(c.part, sup, title, { separate: true })));
+  Deno.writeFileSync(`${c.out}${name}-coupon.3mf`, await bytes(await writeThreeMF(c.part, sup, title, { separate })));
   Deno.writeFileSync(`${c.out}${name}-coupon.stl`, await bytes(writeBinarySTL([...c.part, ...sup], title)));
   if (sup.length) Deno.writeFileSync(`${c.out}${name}-fins.stl`, await bytes(writeBinarySTL(sup, `${title} supports`)));
   console.log(`wrote ${c.out}${name}-coupon.3mf (+ .stl${sup.length ? ', supports-only .stl' : ''})`);
