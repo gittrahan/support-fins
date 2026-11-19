@@ -7,6 +7,8 @@
 // and nothing stale is left over.
 
 import { WEB, assert } from './_util.js';
+import { unzip } from '../web/zip.js';
+import { readThreeMF } from '../web/threemf.js';
 
 const DIR = new URL('../web/calibration/', import.meta.url);
 const PROTO = new URL('../prototype/calibration/', import.meta.url);
@@ -45,4 +47,32 @@ Deno.test('calibrate: nothing in web/calibration/ the menu doesn\'t list', () =>
     if (name !== 'coupons.json') assert(name in est.coupons, `${name}: no estimate`);
   }
   for (const f of Object.keys(est.coupons)) assert(files.includes(f), `coupons.json lists ${f}, the menu doesn't`);
+});
+
+// #472: edge-standing cubes can have no printable first-layer extrusion on their
+// own. The pads and cubes must be components of one build item, not two objects.
+Deno.test('calibrate: Pad ships as one assembly with unchanged calibration meshes', async () => {
+  const bytes = await Deno.readFile(new URL('pad-coupon.3mf', DIR));
+  const files = await unzip(bytes);
+  const xml = new TextDecoder().decode(files.get('3D/3dmodel.model'));
+  const items = [...xml.matchAll(/<item\b[^>]*objectid="([^"]+)"[^>]*\/>/g)];
+  assert(items.length === 1, 'Pad must open as one printable object');
+  const assembly = [...xml.matchAll(/<object\b[^>]*id="([^"]+)"[^>]*>(.*?)<\/object>/gs)]
+    .find((m) => m[1] === items[0][1]);
+  assert(assembly, 'Pad build item must reference an object');
+  const parts = [...assembly[2].matchAll(/<component objectid="([^"]+)"\/>/g)];
+  assert(parts.length === 2 && parts[0][1] !== parts[1][1], 'Keep cubes and pads as two mesh parts');
+  // Pin the published geometry so an export fix cannot silently change gaps,
+  // labels, contact footprints or the cubes' edge-standing pose.
+  const meshes = [...xml.matchAll(/<mesh>.*?<\/mesh>/gs)].map((m) => m[0]);
+  const expected = ['91123e292de58ddc210e7f3f4579c2539c34d090cf0b203c242b3587e596440b', 'd10ad6fbec898bedf5ba225ab3a0e6944ede8e214557cfc8cdd7dd56cf6ac656'];
+  assert(meshes.length === expected.length, 'Only the original two meshes belong in the coupon');
+  for (let i = 0; i < meshes.length; i++) {
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(meshes[i])));
+    const hash = Array.from(digest, (x) => x.toString(16).padStart(2, '0')).join('');
+    assert(hash === expected[i], `Pad mesh ${i} changed: review calibration geometry before updating this hash`);
+  }
+  const loaded = await readThreeMF(bytes);
+  assert(loaded.meshes === 2 && loaded.positions.length / 9 === 66044,
+    'Both the cubes and their pads must survive import');
 });
