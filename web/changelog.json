@@ -279,6 +279,11 @@
       "date": "2026-11-20",
       "check": "easy",
       "text": "Orca plugin: a settings page in Orca with the site's controls (mode, overhang angle, tines, clearances, bed pad, sway braces, walls) replaces the raw JSON box. Settings you don't change keep following the site's defaults."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "easy",
+      "text": "Orca plugin: when overhangs are too shallow for a fin the way the part sits, the slice notification names a tilt that leaves fewer of them (checked by building the fins that way), for Orca's Lay on face or rotate tool."
     }
   ]
 }

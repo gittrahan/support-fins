@@ -67,7 +67,12 @@ Install and turn on (OrcaSlicer 2.5):
    keep their fins), and a part that needs no fins isn't listed. It is a warning when something
    needs a look (overhangs too shallow for a fin this way up, pieces held only by
    supports, support-section findings), and a serious warning when a part got no fins
-   at all, e.g. a config key the engine refused. Parts left to Orca's supports aren't
+   at all, e.g. a config key the engine refused.
+   When overhangs are too shallow for a fin this way up, the line also names a pose
+   that leaves fewer of them, checked by building the fins in it, for Orca's **Lay on
+   face** (F) or rotate tool: `...; laying it on its left side (-X) leaves none of them`.
+   It comes from the site's orientation suggester (plugins/shared/engine/tilt.js) and
+   is named only when it really helps. Parts left to Orca's supports aren't
    listed. If the slice fails for another reason, only the parts that got no fins are
    listed. The full diagnostics still go to `support_fins_log.jsonl` next to the plugin.
 
