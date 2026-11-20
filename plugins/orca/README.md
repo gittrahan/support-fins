@@ -55,7 +55,8 @@ Install and turn on (OrcaSlicer 2.5 nightly):
    which is the local self-pipe of the asyncio loop mini-racer creates, not network
    access), answer Yes.
 4. When the slice finishes, an Orca notification lists what each part got, one line
-   per part: `Support Fins, bracket: 5 walls, 28 tines`. Only parts Orca actually
+   per part: `Support Fins, bracket: 5 walls, 28 tines`, in the bottom-right corner of
+   the 3D view. All-good results stay 20 seconds; warnings stay until you close them. Only parts Orca actually
    re-sliced are listed: edit one part and only that part's line shows (the others
    keep their fins), and a part that needs no fins isn't listed. It is a warning when something
    needs a look (overhangs too shallow for a fin this way up, pieces held only by
