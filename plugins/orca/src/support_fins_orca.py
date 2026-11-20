@@ -39,7 +39,7 @@ THE ENGINE
   so the fins match the website instead of being a re-implementation that drifts.
 
 RESULTS
-  When slicing finishes, one Orca notification lists each part's result: walls and
+  When slicing finishes, one Orca notification lists each re-sliced part's result: walls and
   tines added, and -- quality first -- overhangs left bare and why. A warning when
   something needs a look, a serious warning when a part got no fins (a bad config).
   The full diagnostics still go to support_fins_log.jsonl next to the plugin.
@@ -345,7 +345,7 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
     if len(fins) == 0:
         # Quality first: no fins can still mean overhangs left bare, so say so.
         bare = stats.get("unserved") or stats.get("floating") or stats.get("smallHoleRegions")
-        log["attention"] = bool(bare)
+        log["attention"] = _attention(stats)
         return host_report(stats) if bare else "no fins needed"
     pts = soup.reshape(-1, 3)
     bbox = print_object.bounding_box()
@@ -429,7 +429,8 @@ class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
         log["result"] = msg
         log["seconds"] = round(time.time() - log["started"], 3)
         _write_log(log)
-        _note(po, msg, "warning" if log.get("attention") else "info")
+        if msg != "no fins needed":   # not worth a notification on every re-slice
+            _note(po, msg, "warning" if log.get("attention") else "info")
         return orca.ExecutionResult.success(f"Support Fins: {msg}")
 
     def on_lifecycle_event(self, event, ctx):
@@ -447,7 +448,11 @@ class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
             elif event == ev.SlicingJobComplete:
                 notes = _take_notes()
                 code = getattr(orca, "LifecycleEvtCode", None)
-                if notes and (code is None or ctx.code == code.Ok):
+                if code is not None and ctx.code != code.Ok:
+                    # cancelled: say nothing. Failed for another reason: a part that got
+                    # no fins still says why, the rest wait for a slice that finishes
+                    notes = [n for n in notes if n[2] == "error"] if ctx.code == code.Error else []
+                if notes:
                     _show_notes(notes)
         except Exception:  # never break Orca over a notification
             pass
@@ -497,9 +502,9 @@ def _show_notes(notes):
 
 def _attention(stats, touched=None):
     """Whether a result needs the user to look: overhangs left bare, findings for the
-    slicer, or fins that reached no layer. Mirrors what host_report adds after the
-    walls-and-tines part of its line."""
-    return bool(stats.get("unserved") or stats.get("floating") or stats.get("smallHoleRegions")
+    slicer, or fins that reached no layer. Small-hole ceilings are left for bridging by
+    design, so host_report names them but they don't make a warning on their own."""
+    return bool(stats.get("unserved") or stats.get("floating")
                 or stats.get("supportFindings") or stats.get("supportCheck") in ("incomplete", "unavailable")
                 or touched == 0)
 
