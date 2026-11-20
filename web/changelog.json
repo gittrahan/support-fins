@@ -290,5 +290,11 @@
       ]
     }
   ],
-  "unreleased": []
+  "unreleased": [
+    {
+      "date": "2026-11-20",
+      "check": "easy",
+      "text": "Orca plugin on macOS: fins build about 5 to 25 times faster in OrcaSlicer 2.5.0 and later, which now allows the engine's fast compiler (a 40,000-face part: 2.7 s instead of 12.9 s)."
+    }
+  ]
 }
