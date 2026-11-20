@@ -17,6 +17,7 @@ PLUGIN = '# /// script\n# version = "0.7.1040"\n# ///\nimport orca\nVERSION = "0
 CHANGELOG = {"releases": [
     {"version": "1.0.7", "date": "2026-11-21", "entries": [
         {"text": "Taller ribs on tall walls"},
+        {"text": "Blender plugin: faster install"},
         {"text": "Orca plugin: a notification lists what each part got"},
         {"text": "Big one", "highlights": [{"text": "Plugins for Cura and Blender", "prs": [1]},
                                             {"text": "Full coverage mode", "prs": [2]}]},
@@ -48,6 +49,8 @@ def test_the_changelog_puts_plugin_lines_first_and_links_the_full_release(tmp_pa
     assert log.splitlines()[:3] == ["OrcaSlicer plugin:", "- Orca plugin: a notification lists what each part got",
                                     "- Plugins for Cura and Blender"]
     assert "- Taller ribs on tall walls" in log and "- Full coverage mode" in log and "Older" not in log
+    shared = log.split("Engine and site")[1]
+    assert "- Blender plugin: faster install" in shared, "another plugin's news isn't Orca's"
     assert log.endswith("https://github.com/gittrahan/support-fins/releases/tag/v1.0.7")
 
 

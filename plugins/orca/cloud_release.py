@@ -13,8 +13,8 @@ skipped (a pre-release tag such as v1.1.0-rc.1: only stable releases go to Orca 
 - File name: "_any" tells Orca Cloud the file runs on every OS (it is one Python file;
   Orca installs numpy and mini-racer per platform from its PEP 723 header).
 - Changelog: that release's web/changelog.json entries, the ones naming Orca or the
-  plugins first, then the engine and site changes the plugin shares, cut to Orca Cloud's
-  4000 characters with a link to the full release.
+  plugins first, then the engine and site changes the plugin shares, cut under Orca
+  Cloud's 4000 characters with a link to the full release.
 """
 import json
 import pathlib
@@ -22,8 +22,10 @@ import re
 import sys
 
 REPO = "gittrahan/support-fins"
-LIMIT = 4000
-_PLUGIN = re.compile(r"\b(orca|orcaslicer|plugins?)\b", re.I)
+LIMIT = 3800   # Orca Cloud takes 4000; margin in case it counts bytes, not characters
+# Orca by name, or "plugins" in general ("Plugins for Orca, Cura, ..."); a singular
+# "Prusa plugin" is another plugin's news, not this one's
+_PLUGIN = re.compile(r"\b(orca|orcaslicer|plugins)\b", re.I)
 
 
 def stamp_version(source, version):

@@ -504,7 +504,13 @@ jobs:
             -F "metadata=<cloud/metadata.json" -F "files=@cloud/support_fins_orca_any.py" \
             https://api.orcaslicer.com/api/v1/plugin-publish/releases)"
           cat response.json; echo
-          [ "$status" = "201" ] || { echo "::error::Orca Cloud answered $status"; exit 1; }
+          [ "$status" = "201" ] && exit 0
+          # a re-run (Re-run jobs, or plugins dispatched with the tag) posts a version the
+          # listing already has: say so and pass rather than turn the release red
+          if [ "$status" = "409" ] || grep -qiE 'already|exists|higher|greater' response.json; then
+            echo "::warning::Orca Cloud already has $(jq -r .version cloud/metadata.json) ($status)"; exit 0
+          fi
+          echo "::error::Orca Cloud answered $status"; exit 1
 
   docker-publish:
     if: github.event_name == 'release' || inputs.tag != ''
