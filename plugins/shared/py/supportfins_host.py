@@ -103,6 +103,26 @@ def host_compute_pieces(ctx, soup, options):
             np.array(out["overFaces"], dtype=np.int64), np.array(out["smallFaces"], dtype=np.int64))
 
 
+def host_tilt(ctx, soup, options, unserved):
+    """A tilt that leaves fewer overhangs too shallow for a fin (engine/tilt.js), or None.
+
+    soup, options  as for host_compute, the pose the fins were built in
+    unserved       host_compute's stats["unserved"] for that pose; 0 answers None at once
+    Returns {"degrees", "down": [x, y, z] (the face to put on the plate, soup's frame),
+    "phrase": "tilting it 40° toward the back (+Y)", "unserved": bare overhangs after}.
+    Each pose it checks costs a fin build, so call it only when something was left bare.
+    """
+    if not unserved:
+        return None
+    return json.loads(ctx.call("SupportFinsEngine.tiltHintB64", _soup_b64(soup), json.dumps(options), int(unserved)))
+
+
+def tilt_words(hint):
+    """host_tilt's answer as a clause for the report line."""
+    left = hint["unserved"]
+    return f"{hint['phrase']} leaves {'none' if left == 0 else left} of them"
+
+
 def host_draw_wall(ctx, soup, a, b, options):
     """One hand-drawn wall from a to b (Draw mode; draw_entry.js drawWall).
 

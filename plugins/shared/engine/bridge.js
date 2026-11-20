@@ -13,6 +13,7 @@
 import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from './fins_entry.js';
 import { drawWall } from './draw_entry.js';
 import { reportLine } from './report.js';
+import { tiltHint } from './tilt.js';
 
 const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 const LOOKUP = new Uint8Array(256);
@@ -72,6 +73,12 @@ export function drawWallB64(soupB64, aJson, bJson, optionsJson) {
   return JSON.stringify({ ok: true, triangles: trianglesB64(res.triangles), offset: res.offset, stats: res.stats });
 }
 
+// A tilt to try when overhangs were left too shallow for a fin (tilt.js), or null.
+export function tiltHintB64(soupB64, optionsJson, unserved) {
+  const options = optionsJson ? JSON.parse(optionsJson) : {};
+  return JSON.stringify(tiltHint(soupOf(soupB64), options, Number(unserved) || 0));
+}
+
 // A Python host's settings dialog, as JSON strings like computeFinsB64 (supportfins_host
 // host_schema / host_options / host_visible).
 export const optionsSchemaJson = () => JSON.stringify(OPTIONS_SCHEMA);
@@ -80,4 +87,4 @@ export const optionVisibleJson = (key, valuesJson) => optionVisible(key, JSON.pa
 
 // optionsFromDialog / optionVisible / OPTIONS_SCHEMA: what a host's settings dialog needs;
 // reportLine: the one-line result, for a host whose dialog is a web page (SolidWorks)
-export { computeFins, drawWall, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA, reportLine };
+export { computeFins, drawWall, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA, reportLine, tiltHint };

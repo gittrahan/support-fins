@@ -191,3 +191,22 @@ def test_report_says_what_was_not_reached():
     assert host.host_report({"braces": 2, "swayBraces": 1}) == "2 walls, 0 tines, 1 sway brace"
     assert host.host_report({"smallHoleRegions": 1}) == "0 walls, 0 tines; 1 small-hole ceiling left unsupported for bridging"
     assert "2 small-hole ceilings left unsupported for bridging" in host.host_report({"smallHoleRegions": 2})
+
+
+def _stl_soup(name):
+    data = (ROOT / "prototype" / "stress" / "models" / name).read_bytes()
+    n = int(np.frombuffer(data, dtype="<u4", count=1, offset=80)[0])
+    rec = np.frombuffer(data, dtype=np.dtype([("n", "<f4", 3), ("v", "<f4", (3, 3)), ("a", "<u2")]),
+                        count=n, offset=84)
+    return rec["v"].astype(np.float64)
+
+
+def test_a_tilt_is_named_only_when_it_leaves_less_bare(ctx):
+    soup = _stl_soup("torus.stl")
+    _, stats = host.host_compute(ctx, soup, {})
+    assert stats["unserved"] > 0
+    hint = host.host_tilt(ctx, soup, {}, stats["unserved"])
+    assert hint["unserved"] < stats["unserved"] and hint["phrase"].startswith("laying it on its")
+    assert len(hint["down"]) == 3 and 0 < hint["degrees"] <= 180
+    assert host.tilt_words(hint).endswith("leaves none of them") or "leaves" in host.tilt_words(hint)
+    assert host.host_tilt(ctx, soup, {}, 0) is None
