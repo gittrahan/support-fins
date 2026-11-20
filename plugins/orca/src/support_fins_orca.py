@@ -44,11 +44,18 @@ RESULTS
   something needs a look, a serious warning when a part got no fins (a bad config).
   The full diagnostics still go to support_fins_log.jsonl next to the plugin.
 
+PREVIEW PANEL
+  Plugins > Support Fins > Preview fins opens a panel beside the 3D view: pick a part and
+  see its overhangs and the fins the slice will add, before slicing (src/preview.py).
+
 LIMITS (spike)
-  * The fins appear in the sliced Preview, not in the Prepare 3D view.
+  * The fins print from the slice: Orca's Prepare 3D view doesn't show them (the
+    preview panel does).
   * The slicing-pipeline API is marked research/experimental by Orca.
   * One fin set per print object (all instances of an object share it).
 """
+import asyncio
+import base64
 import json
 import os
 import threading
@@ -113,8 +120,9 @@ def compute_fins(soup, layer_height, cfg, nozzle=None):
     nozzle: the part's nozzle diameter (mm), which sizes the walls and tines; None = 0.4.
     Returns (fins (K,3,3) float64 in the SAME frame as `soup`, stats dict).
     """
-    ctx = _engine_ctx()
-    return host_compute(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle))
+    with _ENGINE_LOCK:
+        ctx = _engine_ctx()
+        return host_compute(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle))
 
 
 def tilt_hint(soup, layer_height, cfg, nozzle, stats, log):
@@ -128,9 +136,10 @@ def tilt_hint(soup, layer_height, cfg, nozzle, stats, log):
         return ""
     t0 = time.time()
     try:
-        ctx = _engine_ctx()
-        hint = host_tilt(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle), unserved,
-                         stats.get("floating") or 0)
+        with _ENGINE_LOCK:
+            ctx = _engine_ctx()
+            hint = host_tilt(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle), unserved,
+                             stats.get("floating") or 0)
     except Exception as e:
         log["tilt_error"] = f"{type(e).__name__}: {e}"
         return ""
@@ -422,6 +431,10 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
 
 
 class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
+    def __init__(self):
+        super().__init__()
+        _SLICING[:] = [self]   # the preview panel builds with this capability's settings
+
     def get_name(self):
         return "Support Fins"
 
@@ -437,7 +450,9 @@ class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
         so a setting added to the site shows up here too. An empty answer makes Orca fall
         back to its JSON editor, so a page that can't be built never locks the config."""
         try:
-            return config_page_html(host_schema(_engine_ctx()))
+            with _ENGINE_LOCK:
+                schema = host_schema(_engine_ctx())
+            return config_page_html(schema)
         except Exception:
             return ""
 
@@ -584,7 +599,14 @@ def _write_log(entry):
         pass
 
 
+# ---------------------------------------------------------------------------------
+# Preview panel (Plugins > Support Fins > Preview fins)
+# ---------------------------------------------------------------------------------
+# __SF_PREVIEW__ (build.py inlines src/preview.py here)
+
+
 @orca.plugin
 class SupportFinsPlugin(orca.base):
     def register_capabilities(self):
         orca.register_capability(SupportFinsSlicing)
+        orca.register_capability(SupportFinsPreview)

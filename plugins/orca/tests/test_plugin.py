@@ -188,10 +188,10 @@ def test_errors_are_reported_not_raised(monkeypatch):
     assert res.status is fake_orca.PluginResult.RecoverableError and "boom" in res.message
 
 
-def test_plugin_registers_its_capability():
+def test_plugin_registers_its_capabilities():
     ORCA.registered.clear()
     SF.SupportFinsPlugin().register_capabilities()
-    assert ORCA.registered == [SF.SupportFinsSlicing]
+    assert ORCA.registered == [SF.SupportFinsSlicing, SF.SupportFinsPreview]
 
 
 def test_mirrored_part_gets_the_same_fins_as_its_twin():

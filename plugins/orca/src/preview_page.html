@@ -1,0 +1,62 @@
+<!-- The Support Fins preview panel in Orca (#477). build.py inlines preview_page.js at the
+     script marker. The plugin (src/preview.py) answers the page's messages: the parts on the
+     plate, and per part its overhangs and fins. Colours come from the --orca-* variables. -->
+<style>
+  :root {
+    --ink: var(--orca-fg, #1f2429);
+    --paper: var(--orca-bg, #ffffff);
+    --rule: var(--orca-border, #d9dee3);
+    --quiet: var(--orca-muted, #6b7580);
+    --live: var(--orca-accent, #009688);
+    --live-ink: var(--orca-accent-fg, #ffffff);
+    --ui: var(--orca-font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  }
+  html[data-orca-theme="dark"] {
+    --ink: var(--orca-fg, #e4e6e8);
+    --paper: var(--orca-bg, #2b2d30);
+    --rule: var(--orca-border, #3d4043);
+    --quiet: var(--orca-muted, #9aa0a6);
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body { margin: 0; display: flex; flex-direction: column; background: var(--paper); color: var(--ink);
+         font: 13px/1.4 var(--ui); }
+  .bar { display: flex; gap: 6px; align-items: center; padding: 8px 10px; border-bottom: 1px solid var(--rule); }
+  select { flex: 1 1 0; width: 0; min-width: 0; font: inherit; color: var(--ink); background: var(--paper);
+           border: 1px solid var(--rule); border-radius: 4px; padding: 3px 6px; }
+  button { flex: none; font: inherit; border-radius: 4px; padding: 3px 10px; cursor: pointer;
+           border: 1px solid var(--rule); background: var(--paper); color: var(--ink); }
+  button.primary { background: var(--live); border-color: var(--live); color: var(--live-ink); }
+  button:disabled { opacity: .5; cursor: default; }
+  #view { position: relative; flex: 1; min-height: 200px; }
+  canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+  canvas.drag { cursor: grabbing; }
+  #placeholder[hidden] { display: none; }
+  #placeholder { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+                 padding: 24px; text-align: center; color: var(--quiet); }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 6px 10px; border-top: 1px solid var(--rule);
+            color: var(--quiet); font-size: 12px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px;
+              vertical-align: -1px; }
+  #report { padding: 8px 10px 10px; border-top: 1px solid var(--rule); min-height: 3.2em; }
+  #report .note { color: var(--quiet); margin-top: 4px; }
+  #report .warn { color: var(--ink); font-weight: 600; margin-bottom: 4px; }
+</style>
+<div class="bar">
+  <select id="part" aria-label="Part"></select>
+  <button id="refresh" type="button" title="Read the plate again">&#x21bb;</button>
+  <button id="go" type="button" class="primary">Preview</button>
+</div>
+<div id="view">
+  <canvas id="gl"></canvas>
+  <div id="placeholder">Pick a part and press Preview. Drag to turn it, scroll to zoom.</div>
+</div>
+<div class="legend">
+  <span><i style="background:#ff5a4d"></i>overhang</span>
+  <span><i style="background:#ffb454"></i>small hole, left to bridge</span>
+  <span><i style="background:#59d98e"></i>fins</span>
+</div>
+<div id="report" role="status"></div>
+<script>
+/*__SF_PREVIEW_JS__*/
+</script>

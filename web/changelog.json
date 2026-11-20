@@ -284,6 +284,11 @@
       "date": "2026-11-20",
       "check": "easy",
       "text": "Orca plugin: when overhangs are too shallow for a fin the way the part sits, the slice notification names a tilt that leaves fewer of them (checked by building the fins that way), for Orca's Lay on face or rotate tool."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "easy",
+      "text": "Orca plugin: a preview panel (Plugins > Support Fins > Preview fins) shows a part's overhangs and the fins the slice will add, in 3D beside Orca's view, before slicing."
     }
   ]
 }

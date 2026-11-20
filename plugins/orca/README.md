@@ -76,7 +76,22 @@ Install and turn on (OrcaSlicer 2.5):
    listed. If the slice fails for another reason, only the parts that got no fins are
    listed. The full diagnostics still go to `support_fins_log.jsonl` next to the plugin.
 
-### Settings (the plugin config)
+### Preview panel
+
+**Plugins > Support Fins > Preview fins** opens a panel beside the 3D view. Pick a part
+and press **Preview**: it shows the part as it sits on the plate, its overhangs in red,
+small-hole ceilings left to bridge in amber, and the fins the slice will add in green,
+with the same result line (and tilt hint) the slice notification gives. Drag to turn
+it, scroll to zoom; after moving or rotating the part, press Preview again.
+
+It builds with the plugin's settings, Orca's layer height and nozzle, as the slice does,
+on Orca's script worker so Orca stays usable meanwhile. Orca gives plugins no "selected
+part", hence the list. A part with Orca supports on is previewed anyway, with a note that
+the slice leaves it to Orca's supports. Over 250,000 triangles, only the overhangs are drawn.
+On macOS the engine runs without V8's JIT (Orca isn't signed for it), so a big part's
+preview takes as long as slicing it does.
+
+## Settings (the plugin config)
 
 **Plugins ▸ Support Fins ▸ Config** shows a settings page with the site's controls:
 placement mode, overhang angle, tines, clearances, bed pad, sway braces and walls,

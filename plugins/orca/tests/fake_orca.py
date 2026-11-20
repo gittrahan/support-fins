@@ -178,15 +178,82 @@ class FakeVolume:
         return self._part
 
 
+class FakeInstance:
+    def __init__(self, matrix=None):
+        self._m = np.eye(4) if matrix is None else np.asarray(matrix, dtype=np.float64)
+
+    def matrix(self):
+        return self._m.copy()
+
+
 class FakeModelObject:
-    def __init__(self, volumes, oid=1, name="part"):
+    """orca.host.ModelObject (PluginHostModel.cpp): what the plugin reads of a plate object."""
+
+    def __init__(self, volumes, oid=1, name="part", instances=None, config=None):
         self._v, self._id, self.name = volumes, oid, name
+        self._inst = [FakeInstance()] if instances is None else instances
+        self._cfg = dict(config or {})
 
     def volumes(self):
         return self._v
 
     def id(self):
         return self._id
+
+    def instances(self):
+        return list(self._inst)
+
+    def instance_count(self):
+        return len(self._inst)
+
+    def facets_count(self):
+        return sum(len(v.mesh().triangles()) for v in self._v)
+
+    def config_value(self, key):
+        return self._cfg.get(key)
+
+
+class FakeModel:
+    def __init__(self, objects):
+        self._o = list(objects)
+
+    def objects(self):
+        return list(self._o)
+
+
+class FakePresetBundle:
+    def __init__(self, values=None):
+        self._v = {"layer_height": "0.2", "nozzle_diameter": "0.4", "enable_support": "0", **(values or {})}
+
+    def full_config_value(self, key):
+        return self._v.get(key)
+
+
+class FakeDockPanel:
+    """orca.host.ui.UiDockPanel: records posts; close() fires on_close as Orca does."""
+
+    def __init__(self, html, on_message, on_close, **kw):
+        self.html, self.on_message, self.on_close, self.kw = html, on_message, on_close, kw
+        self.posts, self.open, self.shown = [], True, True
+
+    def post(self, data):
+        import json
+        self.posts.append(json.loads(json.dumps(data)))   # Orca converts to JSON
+
+    def show(self):
+        self.shown = True
+
+    def hide(self):
+        self.shown = False
+
+    def is_open(self):
+        return self.open
+
+    def close(self):
+        if self.open:
+            self.open = False
+            if self.on_close:
+                self.on_close()
 
 
 class FakePrintObject:
@@ -316,9 +383,23 @@ def install():
             raise TypeError("push_notification(): notification_level must be NotificationLevel")
         m.notifications.append((notification_level, text))
 
+    m.panels = []   # FakeDockPanel per orca.host.ui.create_dock_panel
+    m.plate = FakeModel([])   # what orca.host.model() answers; tests set it
+    m.presets = FakePresetBundle()
+
+    def create_dock_panel(html, title="OrcaSlicer", width=320, height=480, on_message=None,
+                          on_close=None, dock="right"):
+        if dock not in ("left", "right", "bottom", "float"):
+            raise ValueError("dock must be left, right, bottom or float")
+        p = FakeDockPanel(html, on_message, on_close, title=title, width=width, height=height, dock=dock)
+        m.panels.append(p)
+        return p
+
     m.host = types.SimpleNamespace(ExPolygon=ExPolygon, SurfaceType=SurfaceType,
+                                   model=lambda: m.plate, preset_bundle=lambda: m.presets,
                                    ui=types.SimpleNamespace(NotificationLevel=NotificationLevel,
-                                                            push_notification=push_notification))
+                                                            push_notification=push_notification,
+                                                            create_dock_panel=create_dock_panel))
     m.LifecycleEvent = LifecycleEvent
     m.LifecycleEvtCode = LifecycleEvtCode
     m.slicing = types.SimpleNamespace(SlicingPipelineCapabilityBase=_CapBase, Step=Step,
