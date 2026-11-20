@@ -93,7 +93,7 @@
 </div>
 
 <header id="topbar">
-  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.7</small><!-- END version --></span></span>
+  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.8</small><!-- END version --></span></span>
   <!-- accept: the MIME types too, and octet-stream. Android's picker matches by MIME
        and knows none of these extensions, so it greyed every model out (#237); the
        format is read from the bytes (ui/io.js), not the name. -->
@@ -802,8 +802,15 @@
          with the card); released entries only, the list scrolls past a few lines. -->
     <!-- BEGIN whatsnew (web/changelog.js writes this block) -->
     <section id="whatsnew" class="whatsnew">
-      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.7</span></h2>
+      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.8</span></h2>
       <div class="list" tabindex="0">
+        <ul>
+          <li>Orca plugin: when slicing finishes, a notification lists what each part got (walls, tines) and any overhangs left bare and why, instead of only a log file. A part that got no fins because of a bad config is a serious warning.</li>
+          <li>The Pad calibration coupon opens as one object with its pads, avoiding OrcaSlicer’s empty-first-layer error without changing the calibration geometry.</li>
+          <li>After FDM generation, support-section checks flag narrow sections and unresolved starts for slicer inspection. Possible model seats, transitions above narrow geometry and rapid growth stay in the detailed report. The fins are unchanged.</li>
+          <li>The CLI can optionally turn eligible fins gradually below a roof in preserved print-by-layer projects, ending in a single top strip. Use --turn-fins, with --turn-angle for an explicit direction; ordinary output is unchanged.</li>
+        </ul>
+        <p class="rel">v1.0.7 <span>2026-11-18</span></p>
         <ul>
           <li>Exported 3MFs no longer fail in OrcaSlicer or Bambu Studio with &quot;empty layers&quot; when some walls stand on the part: those walls join the model's object. The Bore coupon slices as opened.</li>
           <li>Full coverage no longer builds a wall where nothing is overhead: a row beside the part used to stand in open air, holding nothing.</li>

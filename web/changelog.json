@@ -241,28 +241,33 @@
           "pr": 479
         }
       ]
+    },
+    {
+      "version": "1.0.8",
+      "date": "2026-11-20",
+      "entries": [
+        {
+          "date": "2026-11-18",
+          "check": "held",
+          "text": "The CLI can optionally turn eligible fins gradually below a roof in preserved print-by-layer projects, ending in a single top strip. Use --turn-fins, with --turn-angle for an explicit direction; ordinary output is unchanged."
+        },
+        {
+          "date": "2026-11-18",
+          "check": "stays",
+          "text": "After FDM generation, support-section checks flag narrow sections and unresolved starts for slicer inspection. Possible model seats, transitions above narrow geometry and rapid growth stay in the detailed report. The fins are unchanged."
+        },
+        {
+          "date": "2026-11-18",
+          "check": "easy",
+          "text": "The Pad calibration coupon opens as one object with its pads, avoiding OrcaSlicer’s empty-first-layer error without changing the calibration geometry."
+        },
+        {
+          "date": "2026-11-19",
+          "check": "easy",
+          "text": "Orca plugin: when slicing finishes, a notification lists what each part got (walls, tines) and any overhangs left bare and why, instead of only a log file. A part that got no fins because of a bad config is a serious warning."
+        }
+      ]
     }
   ],
-  "unreleased": [
-    {
-      "date": "2026-11-18",
-      "check": "held",
-      "text": "The CLI can optionally turn eligible fins gradually below a roof in preserved print-by-layer projects, ending in a single top strip. Use --turn-fins, with --turn-angle for an explicit direction; ordinary output is unchanged."
-    },
-    {
-      "date": "2026-11-18",
-      "check": "stays",
-      "text": "After FDM generation, support-section checks flag narrow sections and unresolved starts for slicer inspection. Possible model seats, transitions above narrow geometry and rapid growth stay in the detailed report. The fins are unchanged."
-    },
-    {
-      "date": "2026-11-18",
-      "check": "easy",
-      "text": "The Pad calibration coupon opens as one object with its pads, avoiding OrcaSlicer’s empty-first-layer error without changing the calibration geometry."
-    },
-    {
-      "date": "2026-11-19",
-      "check": "easy",
-      "text": "Orca plugin: when slicing finishes, a notification lists what each part got (walls, tines) and any overhangs left bare and why, instead of only a log file. A part that got no fins because of a bad config is a serious warning."
-    }
-  ]
+  "unreleased": []
 }
