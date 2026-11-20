@@ -30,6 +30,11 @@ INLINE = {
     "supportfins_slice.py": "# __SUPPORTFINS_SLICE__",
 }
 
+# plugin-local module -> its marker line in src/support_fins_orca.py (from src/)
+INLINE_LOCAL = {
+    "fincache.py": "# __FINCACHE__",
+}
+
 sys.path.insert(0, str(HERE.parent / "shared"))
 from bundle import bundle_engine  # noqa: E402
 from version import engine_plugin_version, stamp  # noqa: E402
@@ -52,12 +57,14 @@ def main():
     if src.count(PLACEHOLDER) != 1:
         sys.exit("placeholder for the engine bundle not found exactly once in src/support_fins_orca.py")
     lines = src.splitlines(keepends=True)
-    for name, marker in INLINE.items():
+    for name, marker in [*INLINE.items(), *INLINE_LOCAL.items()]:
+        local = name in INLINE_LOCAL
         at = [i for i, line in enumerate(lines) if line.startswith(marker)]
         if len(at) != 1:
             sys.exit(f"{marker} not found exactly once in src/support_fins_orca.py")
-        code = (SHARED_PY / name).read_text(encoding="utf-8")
-        lines[at[0]] = (f"# --- inlined from plugins/shared/py/{name} ---\n"
+        code = ((HERE / "src" if local else SHARED_PY) / name).read_text(encoding="utf-8")
+        where = "plugins/orca/src" if local else "plugins/shared/py"
+        lines[at[0]] = (f"# --- inlined from {where}/{name} ---\n"
                         f"{code}# --- end {name[:-3]} ---\n")
     # json.dumps yields a valid Python string literal (ASCII, escaped).
     out = "".join(lines).replace(PLACEHOLDER, json.dumps(js))
