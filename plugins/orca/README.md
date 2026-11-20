@@ -54,6 +54,12 @@ Install and turn on (OrcaSlicer 2.5 nightly):
    permission request** (reading Python's own library files, or `socket.__new__`,
    which is the local self-pipe of the asyncio loop mini-racer creates, not network
    access), answer Yes.
+4. When the slice finishes, an Orca notification lists what each part got, one line
+   per part: `Support Fins, bracket: 5 walls, 28 tines`. It is a warning when something
+   needs a look (overhangs too shallow for a fin this way up, pieces held only by
+   supports, support-section findings), and a serious warning when a part got no fins
+   at all, e.g. a config key the engine refused. Parts left to Orca's supports aren't
+   listed. The full diagnostics still go to `support_fins_log.jsonl` next to the plugin.
 
 ### Settings (the plugin config)
 

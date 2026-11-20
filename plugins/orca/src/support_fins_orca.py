@@ -38,6 +38,12 @@ THE ENGINE
   bundled from web/*.js with esbuild and run in an embedded V8 (mini-racer) --
   so the fins match the website instead of being a re-implementation that drifts.
 
+RESULTS
+  When slicing finishes, one Orca notification lists each part's result: walls and
+  tines added, and -- quality first -- overhangs left bare and why. A warning when
+  something needs a look, a serious warning when a part got no fins (a bad config).
+  The full diagnostics still go to support_fins_log.jsonl next to the plugin.
+
 LIMITS (spike)
   * The fins appear in the sliced Preview, not in the Prepare 3D view.
   * The slicing-pipeline API is marked research/experimental by Orca.
@@ -45,6 +51,7 @@ LIMITS (spike)
 """
 import json
 import os
+import threading
 import time
 
 import orca
@@ -338,6 +345,7 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
     if len(fins) == 0:
         # Quality first: no fins can still mean overhangs left bare, so say so.
         bare = stats.get("unserved") or stats.get("floating") or stats.get("smallHoleRegions")
+        log["attention"] = bool(bare)
         return host_report(stats) if bare else "no fins needed"
     pts = soup.reshape(-1, 3)
     bbox = print_object.bounding_box()
@@ -373,6 +381,7 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
             touched += 1
             log["layers"].append([round(z, 4), round(sum(e.area() for e in expolys) * unit * unit, 4)])
     log["layers_touched"] = touched
+    log["attention"] = _attention(stats, touched)
     report = host_report(stats)   # the same line every plugin shows
     if touched == 0:   # placed, but no layer took them: the overhangs are still bare
         report += "; none of it reached a layer, so nothing was added (see support_fins_log.jsonl)"
@@ -412,12 +421,87 @@ class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
             _write_log(log)
             # a config the engine refused says so in its own words; anything else is a bug
             why = str(e) if isinstance(e, ValueError) else f"{type(e).__name__}: {e}"
+            # Orca only logs a RecoverableError, so without this the slice goes on with
+            # no fins and nothing on screen says why
+            _note(po, f"no fins added: {why}", "error")
             return orca.ExecutionResult.failure(orca.PluginResult.RecoverableError,
                                                 f"Support Fins: {why}")
         log["result"] = msg
         log["seconds"] = round(time.time() - log["started"], 3)
         _write_log(log)
+        _note(po, msg, "warning" if log.get("attention") else "info")
         return orca.ExecutionResult.success(f"Support Fins: {msg}")
+
+    def on_lifecycle_event(self, event, ctx):
+        """Show the slice's results in Orca (#477). Orca only logs a pipeline hook's
+        message, and a UI call from the hook itself can deadlock (it runs on the slicing
+        worker, which the UI thread may be waiting on). So execute() keeps each part's
+        result, and they are shown together when the slicing job completes: Orca fires
+        SlicingJobComplete from its slice-finished handler on the UI thread."""
+        try:
+            ev = getattr(orca, "LifecycleEvent", None)
+            if ev is None:
+                return
+            if event == ev.SliceStarted:
+                _take_notes()   # a fresh slice: drop anything a cancelled one left
+            elif event == ev.SlicingJobComplete:
+                notes = _take_notes()
+                code = getattr(orca, "LifecycleEvtCode", None)
+                if notes and (code is None or ctx.code == code.Ok):
+                    _show_notes(notes)
+        except Exception:  # never break Orca over a notification
+            pass
+
+
+# Results kept for the notification shown when slicing completes (see on_lifecycle_event).
+# execute() runs on the slicing worker, the event on the UI thread.
+_NOTES = []
+_NOTES_LOCK = threading.Lock()
+_NOTE_LINES = 6   # one line per part; more than this and the rest are counted
+
+
+def _note(print_object, text, level):
+    name = _safe(lambda: print_object.model_object().name) or "part"
+    with _NOTES_LOCK:
+        _NOTES.append((name, text, level))
+
+
+def _take_notes():
+    with _NOTES_LOCK:
+        notes = list(_NOTES)
+        _NOTES.clear()
+    return notes
+
+
+def notification_text(notes):
+    """One line per part: 'Support Fins, <part>: <result>'. Past _NOTE_LINES, the rest
+    are counted and left to the log."""
+    lines = [f"Support Fins, {name}: {text}" for name, text, _ in notes[:_NOTE_LINES]]
+    rest = len(notes) - _NOTE_LINES
+    if rest > 0:
+        lines.append(f"... and {rest} more part{'' if rest == 1 else 's'} (see support_fins_log.jsonl)")
+    return "\n".join(lines)
+
+
+def notification_level(notes):
+    """The worst result picks the level: an error (no fins) > something left bare > info."""
+    levels = {lvl for _, _, lvl in notes}
+    return ("SeriousWarningNotificationLevel" if "error" in levels else
+            "WarningNotificationLevel" if "warning" in levels else "RegularNotificationLevel")
+
+
+def _show_notes(notes):
+    ui = orca.host.ui
+    ui.push_notification(getattr(ui.NotificationLevel, notification_level(notes)), notification_text(notes))
+
+
+def _attention(stats, touched=None):
+    """Whether a result needs the user to look: overhangs left bare, findings for the
+    slicer, or fins that reached no layer. Mirrors what host_report adds after the
+    walls-and-tines part of its line."""
+    return bool(stats.get("unserved") or stats.get("floating") or stats.get("smallHoleRegions")
+                or stats.get("supportFindings") or stats.get("supportCheck") in ("incomplete", "unavailable")
+                or touched == 0)
 
 
 def _safe(fn):

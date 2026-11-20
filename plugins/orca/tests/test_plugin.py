@@ -322,3 +322,92 @@ def test_the_nozzle_reaches_the_engine():
     wide, _ = SF.compute_fins(soup, 0.2, dict(SF._DEFAULTS), 0.8)
     assert np.array_equal(default, same)
     assert default.shape != wide.shape or not np.allclose(default, wide)
+
+
+# ------------------------------------------------------------------ notifications (#477)
+def _slice(cap, *pos):
+    """One slicing job as Orca runs it: SliceStarted, each part's posSlice hook, then
+    SlicingJobComplete (on the UI thread, where a notification is safe)."""
+    ORCA.notifications.clear()
+    cap.on_lifecycle_event(ORCA.LifecycleEvent.SliceStarted, fake_orca.LifecycleEventContext())
+    for po in pos:
+        cap.execute(fake_orca.Ctx(po))
+    assert ORCA.notifications == [], "nothing may touch the UI from the slicing hook"
+
+
+def _complete(cap, code=None):
+    ORCA.notifications.clear()
+    cap.on_lifecycle_event(ORCA.LifecycleEvent.SlicingJobComplete,
+                           fake_orca.LifecycleEventContext(code or ORCA.LifecycleEvtCode.Ok))
+    return list(ORCA.notifications)
+
+
+def test_results_show_as_one_notification_when_slicing_completes():
+    cube = fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45), name="cube")
+    bracket = fake_orca.FakePrintObject(trimesh.load(MODELS / "lbracket.stl"), rot_x(35), name="bracket")
+    cap = SF.SupportFinsSlicing()
+    _slice(cap, cube, bracket)
+    shown = _complete(cap)
+    assert len(shown) == 1
+    level, text = shown[0]
+    lines = text.split("\n")
+    assert [ln.split(":")[0] for ln in lines] == ["Support Fins, cube", "Support Fins, bracket"]
+    assert all("wall" in ln for ln in lines)
+    assert level in (ORCA.host.ui.NotificationLevel.RegularNotificationLevel,
+                     ORCA.host.ui.NotificationLevel.WarningNotificationLevel)
+    assert _complete(cap) == [], "shown once, not again on the next job"
+
+
+def test_overhangs_left_bare_raise_a_warning(monkeypatch):
+    po = fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45), name="flat")
+    monkeypatch.setattr(SF, "compute_fins", lambda *a: (np.zeros((0, 3, 3)), {"unserved": 3}))
+    cap = SF.SupportFinsSlicing()
+    _slice(cap, po)
+    [(level, text)] = _complete(cap)
+    assert level is ORCA.host.ui.NotificationLevel.WarningNotificationLevel
+    assert "3 overhangs are too shallow" in text and "tilt the part steeper" in text
+
+
+def test_a_part_that_got_no_fins_is_a_serious_warning(monkeypatch):
+    ok = fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45), name="ok")
+    cap = SF.SupportFinsSlicing()
+    cap._config = json.dumps({"sparkle": 1})
+    _slice(cap, ok)
+    [(level, text)] = _complete(cap)
+    assert level is ORCA.host.ui.NotificationLevel.SeriousWarningNotificationLevel
+    assert text.startswith("Support Fins, ok: no fins added:") and "sparkle" in text
+
+
+def test_a_cancelled_or_failed_slice_shows_nothing_and_leaves_nothing_behind():
+    po = fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45))
+    cap = SF.SupportFinsSlicing()
+    for code in (ORCA.LifecycleEvtCode.Warn, ORCA.LifecycleEvtCode.Error):
+        _slice(cap, po)
+        assert _complete(cap, code) == []
+        assert _complete(cap) == [], "a stale result must not show on the next job"
+
+
+def test_parts_left_to_orca_supports_or_disabled_are_not_announced():
+    po = fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45), config={"enable_support": "1"})
+    cap = SF.SupportFinsSlicing()
+    _slice(cap, po)
+    assert _complete(cap) == []
+    cap._config = json.dumps({"enabled": False})
+    _slice(cap, fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45)))
+    assert _complete(cap) == []
+
+
+def test_many_parts_are_counted_past_the_line_limit():
+    notes = [(f"p{i}", "1 wall, 2 tines", "info") for i in range(SF._NOTE_LINES + 3)]
+    text = SF.notification_text(notes)
+    assert text.count("\n") == SF._NOTE_LINES
+    assert text.endswith("and 3 more parts (see support_fins_log.jsonl)")
+
+
+def test_other_events_and_an_orca_without_lifecycle_events_are_ignored(monkeypatch):
+    cap = SF.SupportFinsSlicing()
+    ORCA.notifications.clear()
+    cap.on_lifecycle_event(ORCA.LifecycleEvent.ObjectAdded, fake_orca.LifecycleEventContext())
+    monkeypatch.delattr(ORCA, "LifecycleEvent")
+    cap.on_lifecycle_event("SlicingJobComplete", fake_orca.LifecycleEventContext())
+    assert ORCA.notifications == []

@@ -179,8 +179,8 @@ class FakeVolume:
 
 
 class FakeModelObject:
-    def __init__(self, volumes, oid=1):
-        self._v, self._id = volumes, oid
+    def __init__(self, volumes, oid=1, name="part"):
+        self._v, self._id, self.name = volumes, oid, name
 
     def volumes(self):
         return self._v
@@ -192,11 +192,11 @@ class FakeModelObject:
 class FakePrintObject:
     """Slices `trimesh_part` (already in OBJECT coords) through `trafo` like Orca."""
 
-    def __init__(self, trimesh_part, trafo, layer_height=0.2, config=None):
+    def __init__(self, trimesh_part, trafo, layer_height=0.2, config=None, name="part"):
         import trimesh
         self._trafo = np.array(trafo, dtype=np.float64)
         self._mo = FakeModelObject([FakeVolume(np.asarray(trimesh_part.vertices),
-                                               np.asarray(trimesh_part.faces))])
+                                               np.asarray(trimesh_part.faces))], name=name)
         self._cfg = {"enable_support": "0", "layer_height": str(layer_height)}
         self._cfg.update(config or {})
         posed = trimesh_part.copy()
@@ -275,12 +275,51 @@ class Ctx:
         return False
 
 
+class LifecycleEvent(enum.Enum):
+    """A few of orca.LifecycleEvent (PythonPluginBridge.cpp)."""
+    SliceStarted = 6
+    SliceGeometryFinished = 7
+    SlicingJobComplete = 10
+    ObjectAdded = 11
+
+
+class LifecycleEvtCode(enum.Enum):
+    Ok = 0
+    Error = 1
+    Warn = 2
+
+
+class LifecycleEventContext:
+    def __init__(self, code=LifecycleEvtCode.Ok, msg=""):
+        self.code, self.msg, self.name, self.id = code, msg, "", ""
+
+
+class NotificationLevel(enum.Enum):
+    """orca.host.ui.NotificationLevel (PluginHostUi.cpp)."""
+    RegularNotificationLevel = 2
+    PrintInfoNotificationLevel = 3
+    WarningNotificationLevel = 6
+    SeriousWarningNotificationLevel = 7
+    ErrorNotificationLevel = 8
+
+
 def install():
     """Register this fake as `orca` in sys.modules and return it."""
     m = types.ModuleType("orca")
     m.PluginResult = PluginResult
     m.ExecutionResult = ExecutionResult
-    m.host = types.SimpleNamespace(ExPolygon=ExPolygon, SurfaceType=SurfaceType)
+    m.notifications = []   # (NotificationLevel, text) per orca.host.ui.push_notification
+
+    def push_notification(notification_level, text, hyper_text="", on_click=None):
+        if not isinstance(notification_level, NotificationLevel):
+            raise TypeError("push_notification(): notification_level must be NotificationLevel")
+        m.notifications.append((notification_level, text))
+
+    m.host = types.SimpleNamespace(ExPolygon=ExPolygon, SurfaceType=SurfaceType,
+                                   ui=types.SimpleNamespace(NotificationLevel=NotificationLevel,
+                                                            push_notification=push_notification))
+    m.LifecycleEvent = LifecycleEvent
+    m.LifecycleEvtCode = LifecycleEvtCode
     m.slicing = types.SimpleNamespace(SlicingPipelineCapabilityBase=_CapBase, Step=Step,
                                       unscale=lambda v: v / SCALE)
     m.script = types.SimpleNamespace(ScriptPluginCapabilityBase=_CapBase)
