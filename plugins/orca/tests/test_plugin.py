@@ -467,3 +467,27 @@ def test_the_notification_step_is_logged_and_a_failure_says_why(monkeypatch):
     monkeypatch.setattr(ORCA.host.ui, "push_notification", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no ui")))
     assert _complete(cap) == []
     assert lines[-1]["error"] == "RuntimeError: no ui" and lines[-1]["notes"] == 1
+
+
+# ------------------------------------------------------------------ settings page (#477)
+def test_orca_shows_the_settings_page_instead_of_the_json_editor():
+    cap = SF.SupportFinsSlicing()
+    assert cap.has_config_ui() is True
+    page = cap.get_config_ui()
+    assert "__SF_DATA__" not in page and "__SF_CONFIG_JS__" not in page
+    data = json.loads(page.split("window.SF_DATA = ", 1)[1].split(";</script>", 1)[0])
+    assert data["defaults"] == SF._DEFAULTS
+    assert [o["key"] for o in data["schema"]["options"]] == [o["key"] for o in SF.host_schema(SF._engine_ctx())["options"]]
+    assert "var SF = (function" in page and "saveConfig" in page
+
+
+def test_no_text_in_the_settings_data_can_close_its_script_tag(monkeypatch):
+    schema = {"sections": [], "options": [{"key": "x", "label": "</script><b>"}]}
+    page = SF.config_page_html(schema)
+    data = page.split("window.SF_DATA = ", 1)[1].split(";</script>", 1)[0]
+    assert "</script" not in data and json.loads(data)["schema"]["options"][0]["label"] == "</script><b>"
+
+
+def test_a_settings_page_that_cannot_be_built_falls_back_to_orcas_json_editor(monkeypatch):
+    monkeypatch.setattr(SF, "host_schema", lambda ctx: (_ for _ in ()).throw(RuntimeError("no engine")))
+    assert SF.SupportFinsSlicing().get_config_ui() == ""

@@ -62,6 +62,7 @@ except ImportError:  # pragma: no cover - surfaced to the user in execute()
     np = None
 
 ENGINE_JS = "__FINS_ENGINE_JS__"   # replaced by build.py with the esbuild bundle
+CONFIG_PAGE = "__SF_CONFIG_PAGE__"   # replaced by build.py: src/config_page.html + config_page.js
 VERSION = "0.7.0"   # stamped by build.py (plugins/shared/version.py), as the header's
 
 # The plugin's own config keys, and its whole default config: Orca's "Restore defaults"
@@ -225,6 +226,16 @@ def _cfg(self):
     if not isinstance(src, dict):
         src = {}
     return {**_DEFAULTS, **src}   # unknown keys are kept: the engine refuses them by name
+
+
+def config_page_html(schema):
+    """CONFIG_PAGE with the schema and the plugin's defaults filled in. "<" is escaped so
+    no text in them can close the page's <script> early."""
+    data = json.dumps({"schema": schema, "defaults": _DEFAULTS}).replace("<", "\\u003c")
+    token = "window.SF_DATA = __SF_DATA__;"
+    if CONFIG_PAGE.count(token) != 1:
+        raise ValueError("settings page: data marker not found exactly once")
+    return CONFIG_PAGE.replace(token, f"window.SF_DATA = {data};")
 
 
 def _truthy(v):
@@ -394,6 +405,19 @@ class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
 
     def get_default_config(self):
         return dict(_DEFAULTS)
+
+    def has_config_ui(self):
+        """Orca's Plugins dialog shows the settings page (#477) instead of the JSON editor."""
+        return not CONFIG_PAGE.startswith("__SF_CONFIG")
+
+    def get_config_ui(self):
+        """The settings page, built from the engine's own options.json: the site's controls,
+        so a setting added to the site shows up here too. An empty answer makes Orca fall
+        back to its JSON editor, so a page that can't be built never locks the config."""
+        try:
+            return config_page_html(host_schema(_engine_ctx()))
+        except Exception:
+            return ""
 
     def execute(self, ctx):
         if ctx.step != orca.slicing.Step.posSlice or ctx.object is None:
