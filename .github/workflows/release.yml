@@ -135,4 +135,5 @@ jobs:
     permissions:
       contents: write
       packages: write
+      id-token: write   # plugins.yml's orca-cloud job: Orca Cloud trusted publishing
 

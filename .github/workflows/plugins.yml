@@ -9,7 +9,8 @@ name: plugins
 #   push to main:  build + test, then publish the builds to the rolling
 #                  `plugins-latest` pre-release (printfins.com's Plugins menu links here)
 #   GitHub Release: build + test, then attach plugin builds and publish the
-#                   versioned Docker image. Stable releases also move `latest`.
+#                   versioned Docker image. Stable releases also move `latest` and publish
+#                   the Orca plugin to its Orca Cloud listing (orca-cloud job).
 #   called / dispatched with a `tag`: the same as a GitHub Release for that tag (release.yml
 #                   creates one on each release run and calls this for it).
 #
@@ -459,6 +460,51 @@ jobs:
       - name: Attach plugin builds to this GitHub Release
         if: env.RELEASE_TAG != ''
         run: xargs -d '\n' gh release upload "$RELEASE_TAG" --clobber < labels.txt
+
+  orca-cloud:
+    # A stable release also publishes the Orca plugin to its Orca Cloud listing (#474), so
+    # Orca users install and update it from inside Orca. GitHub trusted publishing: the hub
+    # checks an OIDC token GitHub signs for this repo, so there is no secret. Needs the
+    # repo connected under Edit plugin > GitHub publishing on cloud.orcaslicer.com
+    # (https://cloud.orcaslicer.com/wiki/#publish-from-github). Pre-releases and
+    # plugins-latest builds don't publish. Its own job, so a hub outage can't hold back the
+    # Docker image. Rerun it by dispatching plugins with the tag.
+    if: github.event_name == 'release' || inputs.tag != ''
+    needs: [publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
+      PRERELEASE: ${{ github.event.release.prerelease }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v7
+        with:
+          name: orca
+          path: dist
+      - name: Stamp the release version and write the changelog
+        id: prep
+        run: |
+          set -euo pipefail
+          if [ "$PRERELEASE" = "true" ]; then echo "pre-release: not published to Orca Cloud"; exit 0; fi
+          python3 plugins/orca/cloud_release.py "$RELEASE_TAG" dist/support_fins_orca.py web/changelog.json cloud | tee prep.txt
+          if [ -f cloud/metadata.json ]; then echo "publish=true" >> "$GITHUB_OUTPUT"; fi
+      - name: Publish to Orca Cloud
+        if: steps.prep.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          oidc_token="$(curl -sS -H "Authorization: Bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+            "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=orcacloud" | jq -r .value)"
+          # metadata from a file: an inline -F value is split at any ";" in the notes
+          status="$(curl -sS -o response.json -w '%{http_code}' \
+            -H "Authorization: Bearer $oidc_token" \
+            -F "metadata=<cloud/metadata.json" -F "files=@cloud/support_fins_orca_any.py" \
+            https://api.orcaslicer.com/api/v1/plugin-publish/releases)"
+          cat response.json; echo
+          [ "$status" = "201" ] || { echo "::error::Orca Cloud answered $status"; exit 1; }
 
   docker-publish:
     if: github.event_name == 'release' || inputs.tag != ''
