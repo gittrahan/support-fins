@@ -629,6 +629,14 @@ def test_the_elephant_foot_is_applied_after_the_cache(monkeypatch):
     log = {}
     SF.inject_fins(po2, dict(SF._DEFAULTS), 0.2, 1e-6, log)
     assert log["fin_cache"] == "hit"
+    assert po2.layers()[0].islands().area < po1.layers()[0].islands().area   # shrunk after the cache
+
+
+def test_a_failed_tilt_hint_is_not_cached(monkeypatch):
+    monkeypatch.setattr(SF, "host_tilt", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+    assert _run("torus", np.eye(4))[2]["fin_cache"] == "miss (not kept)"
+    monkeypatch.undo()
+    assert _run("torus", np.eye(4))[2]["fin_cache"] == "miss"
 
 
 def test_the_cache_is_bounded_and_evicts_the_least_recently_used():
