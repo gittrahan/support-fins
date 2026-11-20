@@ -491,3 +491,31 @@ def test_no_text_in_the_settings_data_can_close_its_script_tag(monkeypatch):
 def test_a_settings_page_that_cannot_be_built_falls_back_to_orcas_json_editor(monkeypatch):
     monkeypatch.setattr(SF, "host_schema", lambda ctx: (_ for _ in ()).throw(RuntimeError("no engine")))
     assert SF.SupportFinsSlicing().get_config_ui() == ""
+
+
+# ------------------------------------------------------------------ tilt hint (#477)
+def test_bare_overhangs_come_with_a_tilt_to_try():
+    po = fake_orca.FakePrintObject(trimesh.load(MODELS / "torus.stl"), np.eye(4), name="torus")
+    log = {}
+    msg = SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6, log)
+    assert "too shallow for a fin this way up" in msg
+    assert "; laying it on its " in msg and "(Lay on face, F)" in msg, msg
+    bare = int(msg.split(" overhang")[0].split("; ")[-1])   # "...; 2 overhangs are too shallow..."
+    assert log["tilt"]["unserved"] < bare and log["tilt_seconds"] >= 0
+
+
+def test_no_tilt_is_tried_when_nothing_is_bare(monkeypatch):
+    calls = []
+    monkeypatch.setattr(SF, "host_tilt", lambda *a: calls.append(a))
+    po = fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45))
+    SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6, {})
+    assert calls == []
+
+
+def test_a_tilt_that_fails_never_costs_the_fins(monkeypatch):
+    monkeypatch.setattr(SF, "host_tilt", lambda *a: (_ for _ in ()).throw(RuntimeError("boom")))
+    po = fake_orca.FakePrintObject(trimesh.load(MODELS / "torus.stl"), np.eye(4))
+    log = {}
+    msg = SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6, log)
+    assert "too shallow" in msg and "Lay on face" not in msg and log["tilt_error"] == "RuntimeError: boom"
+    assert msg.endswith("(tilt the part steeper)"), msg

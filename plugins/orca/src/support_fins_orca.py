@@ -117,6 +117,27 @@ def compute_fins(soup, layer_height, cfg, nozzle=None):
     return host_compute(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle))
 
 
+def tilt_hint(soup, layer_height, cfg, nozzle, stats, log):
+    """'; tilting it 40° toward the back (+Y) leaves none of them (Lay on face)' for the
+    report when this pose left overhangs too shallow for a fin (#477), else ''.
+    Orca can't rotate a part from a plugin, so the hint names the pose for Orca's
+    rotate or Lay on face tool. Checking a pose costs a fin build, so it runs only when
+    something was left bare, and a failure here never costs the fins."""
+    unserved = stats.get("unserved") or 0
+    if not unserved:
+        return ""
+    t0 = time.time()
+    try:
+        ctx = _engine_ctx()
+        hint = host_tilt(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle), unserved)
+    except Exception as e:
+        log["tilt_error"] = f"{type(e).__name__}: {e}"
+        return ""
+    log["tilt"] = hint
+    log["tilt_seconds"] = round(time.time() - t0, 3)
+    return f"; {tilt_words(hint)} (Lay on face, F)" if hint else ""
+
+
 def engine_options(ctx, cfg, layer_height, nozzle=None):
     """The plugin config -> checked engine options (raises ValueError on a bad key or
     value). Layer height and nozzle are always the slice's own (options.json
@@ -357,7 +378,7 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
         # Quality first: no fins can still mean overhangs left bare, so say so.
         bare = stats.get("unserved") or stats.get("floating") or stats.get("smallHoleRegions")
         log["attention"] = _attention(stats)
-        return host_report(stats) if bare else "no fins needed"
+        return host_report(stats) + tilt_hint(soup, layer_height, cfg, nozzle, stats, log) if bare else "no fins needed"
     pts = soup.reshape(-1, 3)
     bbox = print_object.bounding_box()
     frame = SliceFrame(pts[:, :2].min(axis=0), pts[:, :2].max(axis=0), bbox, unit)
@@ -393,7 +414,7 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
             log["layers"].append([round(z, 4), round(sum(e.area() for e in expolys) * unit * unit, 4)])
     log["layers_touched"] = touched
     log["attention"] = _attention(stats, touched)
-    report = host_report(stats)   # the same line every plugin shows
+    report = host_report(stats) + tilt_hint(soup, layer_height, cfg, nozzle, stats, log)   # the line every plugin shows, + a tilt to try
     if touched == 0:   # placed, but no layer took them: the overhangs are still bare
         report += "; none of it reached a layer, so nothing was added (see support_fins_log.jsonl)"
     return report
