@@ -93,7 +93,7 @@
 </div>
 
 <header id="topbar">
-  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.8</small><!-- END version --></span></span>
+  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.9</small><!-- END version --></span></span>
   <!-- accept: the MIME types too, and octet-stream. Android's picker matches by MIME
        and knows none of these extensions, so it greyed every model out (#237); the
        format is read from the bytes (ui/io.js), not the name. -->
@@ -802,8 +802,14 @@
          with the card); released entries only, the list scrolls past a few lines. -->
     <!-- BEGIN whatsnew (web/changelog.js writes this block) -->
     <section id="whatsnew" class="whatsnew">
-      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.8</span></h2>
+      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.9</span></h2>
       <div class="list" tabindex="0">
+        <ul>
+          <li>Orca plugin: when overhangs are too shallow for a fin the way the part sits, the slice notification names a tilt that leaves fewer of them (checked by building the fins that way), for Orca's Lay on face or rotate tool.</li>
+          <li>Orca plugin: a settings page in Orca with the site's controls (mode, overhang angle, tines, clearances, bed pad, sway braces, walls) replaces the raw JSON box. Settings you don't change keep following the site's defaults.</li>
+          <li>The Orca plugin is published to Orca Cloud with each release, so OrcaSlicer 2.5 users can find the official Support Fins listing in Orca's plugin hub and get updates there, on every OS.</li>
+        </ul>
+        <p class="rel">v1.0.8 <span>2026-11-20</span></p>
         <ul>
           <li>Orca plugin: when slicing finishes, a notification lists what each part got (walls, tines) and any overhangs left bare and why, instead of only a log file. A part that got no fins because of a bad config is a serious warning.</li>
           <li>The Pad calibration coupon opens as one object with its pads, avoiding OrcaSlicer’s empty-first-layer error without changing the calibration geometry.</li>
