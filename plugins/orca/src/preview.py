@@ -32,12 +32,15 @@ def _setting(obj, bundle, key):
 
 
 class _Values:
-    """config_value() over an object and the presets, for _nozzle."""
+    """config_value() over an object and the presets, each key read once (the preset
+    bundle rebuilds its full config on every lookup)."""
     def __init__(self, obj, bundle):
-        self.obj, self.bundle = obj, bundle
+        self.obj, self.bundle, self._seen = obj, bundle, {}
 
     def config_value(self, key):
-        return _setting(self.obj, self.bundle, key)
+        if key not in self._seen:
+            self._seen[key] = _setting(self.obj, self.bundle, key)
+        return self._seen[key]
 
 
 def object_soup(obj):
@@ -70,20 +73,24 @@ def plate_parts(model):
     return {"command": "parts", "parts": out}
 
 
-def snapshot(model, bundle, index, cfg):
+def snapshot(model, bundle, index, cfg, cfg_note=""):
     """Everything a preview build needs, read on the UI thread (the model can change under a
     worker): the posed soup, its settings, and whether the slice would fin it at all."""
     objs = model.objects()
     if not 0 <= index < len(objs):
         raise ValueError("that part is no longer on the plate: refresh the list")
     obj = objs[index]
+    values = _Values(obj, bundle)
     try:
-        lh = float(_setting(obj, bundle, "layer_height") or 0.2)
+        lh = float(values.config_value("layer_height") or 0.2)
     except (TypeError, ValueError):
         lh = 0.2
-    supports = _truthy(_setting(obj, bundle, "enable_support") or "0")
-    return {"id": index, "name": obj.name or f"Object {index + 1}", "soup": object_soup(obj),
-            "layer_height": lh, "nozzle": _nozzle(_Values(obj, bundle)), "cfg": cfg,
+    supports = _truthy(values.config_value("enable_support") or "0")
+    soup = object_soup(obj)
+    if len(soup):   # bottom on the plate, as inject_fins seats the part for the engine
+        soup[..., 2] -= soup[..., 2].min()
+    return {"id": index, "name": obj.name or f"Object {index + 1}", "soup": soup,
+            "layer_height": lh, "nozzle": _nozzle(values), "cfg": cfg, "cfg_note": cfg_note,
             "skipped": (not _truthy(cfg["enabled"]) and "Support Fins is turned off in its settings")
                        or (supports and cfg["apply_to"] != "all"
                            and "Orca supports are on for this part, so the slice leaves it to them")
@@ -109,7 +116,7 @@ def preview(job):
     cls[over] = 1
     cls[small] = 2
     msg = {"command": "result", "id": job["id"], "name": job["name"], "report": report,
-           "skipped": job["skipped"], "faces": int(len(soup)), "size": (hi - lo).round(1).tolist(),
+           "skipped": job["skipped"], "cfg_note": job.get("cfg_note", ""), "faces": int(len(soup)), "size": (hi - lo).round(1).tolist(),
            "seconds": round(time.time() - t0, 2), "fins": _b64((fins - centre).reshape(-1), "<f4")}
     if len(soup) <= PREVIEW_DRAW_MAX:
         msg["part"] = _b64((soup - centre).reshape(-1), "<f4")
@@ -122,44 +129,73 @@ def preview(job):
     return msg
 
 
+class _Session:
+    """One open panel and the Script run serving it. Kept apart from the capability, which
+    Orca keeps for the plugin's life: a panel closed mid-build and opened again gets a new
+    session, and the old run's late result or clean-up can't reach the new one."""
+
+    def __init__(self, loop):
+        self.loop, self.queue, self.panel, self.closed = loop, asyncio.Queue(), None, False
+
+    def post(self, msg):
+        panel = self.panel
+        if panel is not None and not self.closed:
+            panel.post(msg)
+
+    def submit(self, job):
+        """From the UI thread: hand a job (None = stop) to the run's loop. False when the
+        run has already ended."""
+        try:
+            self.loop.call_soon_threadsafe(self.queue.put_nowait, job)
+            return True
+        except RuntimeError:   # loop closed
+            return False
+
+
 class SupportFinsPreview(orca.script.ScriptPluginCapabilityBase):
     """Plugins > Support Fins > Preview fins: opens the panel, then builds previews on this
     Script's worker until the panel closes."""
-    panel = None
-    _queue = None
-    _loop = None
+    session = None
 
     def get_name(self):
         return "Preview fins"
 
     async def execute(self):
-        if self.panel is not None and self.panel.is_open():
-            self.panel.show()
+        s = self.session
+        if s is not None and not s.closed and s.panel is not None and s.panel.is_open():
+            s.panel.show()
             return orca.ExecutionResult.success("The Support Fins preview is already open.")
         if PREVIEW_PAGE.startswith("__SF_PREVIEW"):
             return orca.ExecutionResult.failure(orca.PluginResult.RecoverableError,
                                                 "preview page missing -- run plugins/orca/build.py")
-        self._loop = asyncio.get_running_loop()
-        self._queue = asyncio.Queue()
-        self.panel = orca.host.ui.create_dock_panel(html=PREVIEW_PAGE, title="Support Fins preview",
-                                                    width=380, height=560, on_message=self.on_message,
-                                                    on_close=self.on_close, dock="right")
+        s = self.session = _Session(asyncio.get_running_loop())
+        s.panel = orca.host.ui.create_dock_panel(html=PREVIEW_PAGE, title="Support Fins preview",
+                                                 width=380, height=560,
+                                                 on_message=lambda m: self.on_message(s, m),
+                                                 on_close=lambda: self.on_close(s), dock="right")
         try:
             while True:
-                job = await self._queue.get()
+                job = await s.queue.get()
                 if job is None:
                     break
-                await self.work(job)
+                self.work(s, job)
         finally:
-            self._queue = self._loop = None
+            # stopped with the panel still up (Orca cancelled the run: plugin reloaded or
+            # turned off): say so rather than leave the page waiting
+            s.post({"command": "stopped",
+                    "error": "the preview stopped (plugin reloaded?): close the panel and open it again"})
+            s.closed = True
+            if self.session is s:
+                self.session = None
         return orca.ExecutionResult.success("Support Fins preview closed.")
 
-    async def work(self, job):
+    @staticmethod
+    def work(s, job):
         # the newest request wins: a part picked twice in a row is built once
-        while not self._queue.empty():
-            nxt = self._queue.get_nowait()
+        while not s.queue.empty():
+            nxt = s.queue.get_nowait()
             if nxt is None:
-                self._queue.put_nowait(None)
+                s.queue.put_nowait(None)
                 break
             job = nxt
         try:
@@ -167,25 +203,34 @@ class SupportFinsPreview(orca.script.ScriptPluginCapabilityBase):
         except Exception as e:   # the panel says why; Orca stays up
             why = str(e) if isinstance(e, ValueError) else f"{type(e).__name__}: {e}"
             msg = {"command": "error", "id": job["id"], "error": why}
-        if self.panel is not None:
-            self.panel.post(msg)
+        s.post(msg)
 
     # Orca's UI thread: quick reads only, then hand the build to the worker.
-    def on_message(self, message):
+    @staticmethod
+    def on_message(s, message):
+        if s.closed or s.panel is None:
+            return
         command = (message or {}).get("command")
         try:
             if command in ("ready", "refresh"):
-                self.panel.post(plate_parts(orca.host.model()))
+                s.post(plate_parts(orca.host.model()))
             elif command == "preview":
-                cfg = _cfg(_SLICING[0]) if _SLICING else dict(_DEFAULTS)
-                job = snapshot(orca.host.model(), orca.host.preset_bundle(), int(message.get("id", -1)), cfg)
-                self.panel.post({"command": "busy", "id": job["id"]})
-                self._loop.call_soon_threadsafe(self._queue.put_nowait, job)
+                if _SLICING:
+                    cfg, note = _cfg(_SLICING[0]), ""
+                else:
+                    cfg, note = dict(_DEFAULTS), "Support Fins' settings weren't loaded yet: previewed with the defaults"
+                job = snapshot(orca.host.model(), orca.host.preset_bundle(), int(message.get("id", -1)), cfg, note)
+                s.post({"command": "busy", "id": job["id"]})
+                if not s.submit(job):
+                    s.post({"command": "stopped", "error": "the preview stopped: close the panel and open it again"})
         except Exception as e:
             why = str(e) if isinstance(e, ValueError) else f"{type(e).__name__}: {e}"
-            self.panel.post({"command": "error", "id": (message or {}).get("id"), "error": why})
+            try:
+                s.post({"command": "error", "id": (message or {}).get("id"), "error": why})
+            except Exception:
+                pass
 
-    def on_close(self):
-        self.panel = None
-        if self._loop is not None:
-            self._loop.call_soon_threadsafe(self._queue.put_nowait, None)
+    @staticmethod
+    def on_close(s):
+        s.closed = True
+        s.submit(None)

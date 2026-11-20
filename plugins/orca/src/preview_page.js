@@ -190,6 +190,7 @@ if (typeof document !== "undefined") (function () {
     }
     report.textContent = "";
     if (msg.skipped) text(report, "Not finned when slicing: " + msg.skipped + ".", "warn");
+    if (msg.cfg_note) text(report, msg.cfg_note + ".", "warn");
     text(report, msg.name + ": " + msg.report);
     var notes = [];
     if (msg.partial) notes.push("Part too detailed to draw whole here: only its overhangs are shown");
@@ -225,14 +226,14 @@ if (typeof document !== "undefined") (function () {
       });
       if (keep && msg.parts.some(function (p) { return String(p.id) === keep; })) select.value = keep;
       if (!msg.parts.length) { report.textContent = "No parts on the plate."; }
-      setBusy(busy);
+      setBusy(false);   // a list read again also frees a button whose build never answered
     } else if (msg.command === "busy") {
       setBusy(true);
       report.textContent = "Building fins…";
     } else if (msg.command === "result") {
       setBusy(false);
       show(msg);
-    } else if (msg.command === "error") {
+    } else if (msg.command === "error" || msg.command === "stopped") {
       setBusy(false);
       report.textContent = "";
       text(report, "No preview: " + msg.error, "warn");

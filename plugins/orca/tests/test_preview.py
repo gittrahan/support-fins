@@ -51,13 +51,15 @@ class Running:
 
     def __init__(self, cap):
         self.cap, self.result = cap, None
+        before = cap.session
         self.t = threading.Thread(target=lambda: setattr(self, "result", asyncio.run(cap.execute())), daemon=True)
         self.t.start()
         for _ in range(200):
-            if cap._queue is not None:
+            if cap.session is not None and cap.session is not before and cap.session.panel is not None:
                 break
             time.sleep(0.01)
-        self.panel = ORCA.panels[-1]
+        self.session = cap.session
+        self.panel = cap.session.panel
 
     def say(self, **msg):   # the page posting, delivered on the UI thread
         self.panel.on_message(msg)
@@ -190,3 +192,80 @@ def test_a_huge_part_draws_only_what_matters(plate, monkeypatch):
     run.close()
     cls = np.frombuffer(base64.b64decode(res["cls"]), "u1")
     assert res["partial"] and len(cls) and cls.min() >= 1 and res["faces"] == 12
+
+
+def test_a_raised_part_is_seated_as_the_slice_seats_it(plate):
+    """A lifted instance (z offset) builds what it builds on the plate."""
+    run = Running(SF.SupportFinsPreview())
+    run.say(command="preview", id=1)
+    on_plate = run.wait_for("result")
+    plate._o[1] = obj("cube", "cube.stl", rot_x(30, (50, 0, 35)), oid=2)
+    run.say(command="preview", id=1)
+    raised = run.wait_for("result", 2)
+    run.close()
+    assert raised["report"] == on_plate["report"] and raised["fins"] == on_plate["fins"]
+
+
+def test_closed_mid_build_and_opened_again_the_new_panel_works(plate, monkeypatch):
+    gate = threading.Event()
+    real = SF.preview
+    monkeypatch.setattr(SF, "preview", lambda job: (gate.wait(30), real(job))[1])
+    cap = SF.SupportFinsPreview()
+    first = Running(cap)
+    first.say(command="preview", id=1)
+    first.wait_for("busy")
+    first.panel.close()                     # closed while the build runs
+    second = Running(cap)                   # and opened again from the menu
+    assert second.session is not first.session and len(ORCA.panels) == 2
+    gate.set()                              # the old build finishes
+    first.t.join(30)
+    assert cap.session is second.session, "the old run's clean-up must not reach the new panel"
+    assert not [p for p in first.panel.posts if p["command"] == "result"], "a closed panel gets nothing"
+    second.say(command="preview", id=1)
+    second.wait_for("result")
+    second.close()
+
+
+def test_messages_after_close_are_ignored(plate):
+    run = Running(SF.SupportFinsPreview())
+    run.close()
+    n = len(run.panel.posts)
+    run.say(command="refresh")              # a late message from the closing page
+    run.say(command="preview", id=1)
+    assert len(run.panel.posts) == n
+
+
+def test_a_cancelled_run_tells_the_page(plate):
+    """Orca cancels a Script's task on unload: the page is told, not left waiting."""
+    cap = SF.SupportFinsPreview()
+    holder = {}
+
+    def go():
+        async def main():
+            holder["task"] = asyncio.current_task()
+            holder["loop"] = asyncio.get_running_loop()
+            return await cap.execute()
+        try:
+            asyncio.run(main())
+        except asyncio.CancelledError:
+            pass
+    t = threading.Thread(target=go, daemon=True)
+    t.start()
+    for _ in range(200):
+        if cap.session is not None and "loop" in holder:
+            break
+        time.sleep(0.01)
+    panel = cap.session.panel
+    holder["loop"].call_soon_threadsafe(holder["task"].cancel)
+    t.join(30)
+    assert [p for p in panel.posts if p["command"] == "stopped"]
+    assert cap.session is None
+
+
+def test_without_the_slicers_settings_it_says_it_used_the_defaults(plate):
+    SF._SLICING.clear()
+    run = Running(SF.SupportFinsPreview())
+    run.say(command="preview", id=1)
+    res = run.wait_for("result")
+    run.close()
+    assert "defaults" in res["cfg_note"]
