@@ -298,6 +298,7 @@ class NotificationLevel(enum.Enum):
     """orca.host.ui.NotificationLevel (PluginHostUi.cpp)."""
     RegularNotificationLevel = 2
     PrintInfoNotificationLevel = 3
+    ImportantNotificationLevel = 5
     WarningNotificationLevel = 6
     SeriousWarningNotificationLevel = 7
     ErrorNotificationLevel = 8

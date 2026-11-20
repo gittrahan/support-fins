@@ -498,10 +498,12 @@ def notification_text(notes):
 
 
 def notification_level(notes):
-    """The worst result picks the level: an error (no fins) > something left bare > info."""
+    """The worst result picks the level: an error (no fins) > something left bare > info.
+    Orca fades a Regular notification after 10 s, easy to miss; Important stays 20 s
+    with an icon. Warnings stay until closed (NotificationManager.hpp)."""
     levels = {lvl for _, _, lvl in notes}
     return ("SeriousWarningNotificationLevel" if "error" in levels else
-            "WarningNotificationLevel" if "warning" in levels else "RegularNotificationLevel")
+            "WarningNotificationLevel" if "warning" in levels else "ImportantNotificationLevel")
 
 
 def _show_notes(notes):

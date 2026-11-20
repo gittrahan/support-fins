@@ -353,7 +353,7 @@ def test_results_show_as_one_notification_when_slicing_completes():
     lines = text.split("\n")
     assert [ln.split(":")[0] for ln in lines] == ["Support Fins, cube", "Support Fins, bracket"]
     assert all("wall" in ln for ln in lines)
-    assert level is ORCA.host.ui.NotificationLevel.RegularNotificationLevel
+    assert level is ORCA.host.ui.NotificationLevel.ImportantNotificationLevel
     assert _complete(cap) == [], "shown once, not again on the next job"
 
 
