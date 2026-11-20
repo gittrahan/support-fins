@@ -127,6 +127,41 @@ def compute_fins(soup, layer_height, cfg, nozzle=None):
     return host_compute(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle))
 
 
+# __FINCACHE__ (build.py inlines plugins/orca/src/fincache.py here)
+
+_FIN_CACHE = FinCache()
+
+
+def build_fins(soup, layer_height, cfg, nozzle, log):
+    """compute_fins + the report line, from the cache when this part (anywhere on the
+    plate, same way up) was built with these exact options before.
+
+    soup: the part, bottom at z = 0. Returns (fins in soup's frame, stats, report).
+    The engine always runs on the part moved to its footprint corner, hit or miss, so a
+    hit is byte-identical to a miss for a part left in place. log gets fin_cache = hit / miss."""
+    ctx = _engine_ctx()
+    options = engine_options(ctx, cfg, layer_height, nozzle)   # raises on a bad config, as ever
+    norm, origin = normalize_soup(soup)
+    key = fin_cache_key(norm, options, VERSION)
+    t0 = time.time()
+    hit = _FIN_CACHE.get(key)
+    if hit is None:
+        fins, stats = compute_fins(norm, layer_height, cfg, nozzle)
+        extra = {}
+        report = host_report(stats) + tilt_hint(norm, layer_height, cfg, nozzle, stats, extra)
+        kept = _FIN_CACHE.put(key, {"fins": np.asarray(fins), "stats": stats, "report": report, "extra": extra})
+        log["fin_cache"] = "miss" if kept else "miss (too big to keep)"
+        log.update(extra)
+        log["fin_cache_entries"] = len(_FIN_CACHE)
+    else:
+        fins, stats, report = hit["fins"], hit["stats"], hit["report"]
+        log["fin_cache"] = "hit"
+        log["fin_cache_entries"] = len(_FIN_CACHE)
+        log.update(hit["extra"])
+    log["fin_build_seconds"] = round(time.time() - t0, 4)
+    return np.asarray(fins) + origin, stats, report
+
+
 def tilt_hint(soup, layer_height, cfg, nozzle, stats, log):
     """'; tilting it 40° toward the back (+Y) leaves none of them (Lay on face)' for the
     report when this pose left overhangs too shallow for a fin (#477), else ''.
@@ -384,12 +419,12 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
         return "no model-part volumes"
     zmin = soup[:, :, 2].min()
     soup = soup - np.array([0.0, 0.0, zmin])       # object bottom at z = 0, like slice_z
-    fins, stats = compute_fins(soup, layer_height, cfg, nozzle)
+    fins, stats, report = build_fins(soup, layer_height, cfg, nozzle, log)
     if len(fins) == 0:
         # Quality first: no fins can still mean overhangs left bare, so say so.
         bare = stats.get("unserved") or stats.get("floating") or stats.get("smallHoleRegions")
         log["attention"] = _attention(stats)
-        return host_report(stats) + tilt_hint(soup, layer_height, cfg, nozzle, stats, log) if bare else "no fins needed"
+        return report if bare else "no fins needed"
     pts = soup.reshape(-1, 3)
     bbox = print_object.bounding_box()
     frame = SliceFrame(pts[:, :2].min(axis=0), pts[:, :2].max(axis=0), bbox, unit)
@@ -425,7 +460,6 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
             log["layers"].append([round(z, 4), round(sum(e.area() for e in expolys) * unit * unit, 4)])
     log["layers_touched"] = touched
     log["attention"] = _attention(stats, touched)
-    report = host_report(stats) + tilt_hint(soup, layer_height, cfg, nozzle, stats, log)   # the line every plugin shows, + a tilt to try
     if touched == 0:   # placed, but no layer took them: the overhangs are still bare
         report += "; none of it reached a layer, so nothing was added (see support_fins_log.jsonl)"
     return report

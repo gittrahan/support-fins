@@ -38,6 +38,14 @@ def load_plugin():
 SF = load_plugin()
 
 
+@pytest.fixture(autouse=True)
+def _fresh_fin_cache():
+    """Tests that stub the engine must not meet another test's cached fins."""
+    SF._FIN_CACHE.clear()
+    yield
+    SF._FIN_CACHE.clear()
+
+
 def rot_x(deg, shift=(0, 0, 0), scale=1.0):
     m = trimesh.transformations.rotation_matrix(np.radians(deg), [1, 0, 0])
     m[:3, :3] *= scale
@@ -124,8 +132,10 @@ def test_no_fins_still_reports_overhangs_left_bare(monkeypatch):
     po = fake_orca.FakePrintObject(part, rot_x(45, (50, 50, 0)))
     monkeypatch.setattr(SF, "compute_fins", lambda *a: (np.zeros((0, 3, 3)), {"unserved": 2}))
     assert "2 overhangs are too shallow" in SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6)
+    SF._FIN_CACHE.clear()   # a stub's answer is not the next stub's
     monkeypatch.setattr(SF, "compute_fins", lambda *a: (np.zeros((0, 3, 3)), {"smallHoleRegions": 1}))
     assert "1 small-hole ceiling left unsupported for bridging" in SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6)
+    SF._FIN_CACHE.clear()
     monkeypatch.setattr(SF, "compute_fins", lambda *a: (np.zeros((0, 3, 3)), {}))
     assert SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6) == "no fins needed"
 
@@ -534,3 +544,133 @@ def test_jit_follows_the_orca_build(monkeypatch):
     monkeypatch.setattr(fresh, "host_engine", lambda js, jit=None: seen.append(jit))
     fresh._engine_ctx()
     assert seen[-1] is True
+
+
+# ------------------------------------------------------------------ fin cache
+def _run(model="cube", trafo=None, cfg=None, lh=0.2, nozzle=None, log=None):
+    po = fake_orca.FakePrintObject(trimesh.load(MODELS / f"{model}.stl"),
+                                   rot_x(45) if trafo is None else trafo, layer_height=lh)
+    log = {} if log is None else log
+    msg = SF.inject_fins(po, {**SF._DEFAULTS, **(cfg or {})}, lh, 1e-6, log, nozzle=nozzle)
+    return po, msg, log
+
+
+def _islands(po):
+    return [L.islands().wkb for L in po.layers()]
+
+
+def _same_layers(a, b):
+    """Every layer's islands identical to the last coordinate."""
+    return _islands(a) == _islands(b)
+
+
+def test_a_cache_hit_gives_the_same_layers_and_message_as_the_miss():
+    po1, msg1, log1 = _run()
+    po2, msg2, log2 = _run()
+    assert (log1["fin_cache"], log2["fin_cache"]) == ("miss", "hit")
+    assert msg1 == msg2 and " walls, " in msg1 or " wall, " in msg1
+    assert _same_layers(po1, po2) and any(L.islands().area for L in po1.layers())
+    assert log1["layers"] == log2["layers"] and log1["engine"] == log2["engine"]
+
+
+def test_moving_the_part_on_the_plate_hits_the_cache():
+    po1, msg1, _ = _run(trafo=rot_x(45, (10, 20, 0)))
+    for shift in [(137.25, -88.5, 0), (0.3, 0.1, 12.0), (-400.0, 250.0, 3.3)]:
+        po2, msg2, log2 = _run(trafo=rot_x(45, shift))
+        assert log2["fin_cache"] == "hit", shift
+        assert msg2 == msg1
+        # the fake slicer centres the footprint, so the layers are the same as the first run's
+        assert _same_layers(po1, po2)
+
+
+def test_a_moved_part_matches_a_fresh_build_at_the_new_spot():
+    _run(trafo=rot_x(45, (0, 0, 0)))
+    po_hit, _, log = _run(trafo=rot_x(45, (91.0, -33.0, 5.0)))
+    assert log["fin_cache"] == "hit"
+    SF._FIN_CACHE.clear()
+    po_miss, _, log = _run(trafo=rot_x(45, (91.0, -33.0, 5.0)))
+    assert log["fin_cache"] == "miss" and _same_layers(po_hit, po_miss)
+
+
+def test_turning_the_part_about_z_misses():
+    _run(trafo=rot_x(45))
+    rz = trimesh.transformations.rotation_matrix(np.radians(30), [0, 0, 1])
+    assert _run(trafo=rz @ rot_x(45))[2]["fin_cache"] == "miss"
+    assert _run(trafo=rot_x(45))[2]["fin_cache"] == "hit"   # the first pose is still held
+
+
+@pytest.mark.parametrize("cfg", [{"gap": 0.3}, {"mode": "full"}, {"tineDensity": 0.5}, {"padStyle": "off"}])
+def test_any_fin_option_change_misses(cfg):
+    _run()
+    assert _run(cfg=cfg)[2]["fin_cache"] == "miss"
+    assert _run(cfg=cfg)[2]["fin_cache"] == "hit"
+
+
+def test_layer_height_or_nozzle_change_misses():
+    _run()
+    assert _run(lh=0.16)[2]["fin_cache"] == "miss"
+    assert _run(nozzle=0.6)[2]["fin_cache"] == "miss"
+    assert _run(nozzle=0.6)[2]["fin_cache"] == "hit"
+    assert _run()[2]["fin_cache"] == "hit"
+
+
+def test_a_different_part_misses():
+    _run("cube")
+    assert _run("wedge")[2]["fin_cache"] == "miss"
+
+
+def test_the_elephant_foot_is_applied_after_the_cache(monkeypatch):
+    # Orca setting changes that re-run posSlice (elephant foot, xy compensation) are not fin
+    # inputs: the fins hit, and the first layers are still shrunk by the new value.
+    po1, _, _ = _run()
+    po2 = fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45),
+                                    config={"elefant_foot_compensation": "0.2",
+                                            "elefant_foot_compensation_layers": "2"})
+    log = {}
+    SF.inject_fins(po2, dict(SF._DEFAULTS), 0.2, 1e-6, log)
+    assert log["fin_cache"] == "hit"
+
+
+def test_the_cache_is_bounded_and_evicts_the_least_recently_used():
+    c = SF.FinCache(entries=2, max_triangles=100)
+    mk = lambda n: {"fins": np.zeros((n, 3, 3)), "stats": {}, "report": "", "extra": {}}
+    c.put("a", mk(10)); c.put("b", mk(10))
+    assert c.get("a") is not None          # a is now the most recent
+    c.put("c", mk(10))
+    assert c.get("b") is None and c.get("a") is not None and c.get("c") is not None
+    assert not c.put("huge", mk(101)) and c.get("huge") is None   # too big to keep
+    c.put("d", mk(60)); c.put("e", mk(60))   # 120 > 100 triangles: the oldest goes
+    assert len(c) == 1 and c.get("e") is not None
+
+
+def test_the_cache_is_safe_across_threads():
+    import threading
+    c = SF.FinCache(entries=4)
+    def work(i):
+        for j in range(200):
+            k = f"k{(i + j) % 9}"
+            if c.get(k) is None:
+                c.put(k, {"fins": np.zeros((1, 3, 3)), "stats": {}, "report": "", "extra": {}})
+    ts = [threading.Thread(target=work, args=(i,)) for i in range(6)]
+    [t.start() for t in ts]; [t.join() for t in ts]
+    assert len(c) <= 4
+
+
+def test_a_cached_tilt_hint_comes_back_with_the_report():
+    po1, msg1, log1 = _run("torus", np.eye(4))
+    po2, msg2, log2 = _run("torus", np.eye(4))
+    assert log2["fin_cache"] == "hit" and msg1 == msg2 and "Lay on face" in msg2
+    assert log1["tilt"] == log2["tilt"]
+
+
+def test_a_bad_config_still_fails_even_when_the_part_is_cached():
+    _run()
+    with pytest.raises(ValueError):
+        _run(cfg={"sparkle": 1})
+
+
+def test_a_hit_is_much_faster_than_a_miss():
+    _, _, miss = _run("staircase")
+    _, _, hit = _run("staircase")
+    assert (miss["fin_cache"], hit["fin_cache"]) == ("miss", "hit")
+    assert hit["fin_build_seconds"] * 20 < miss["fin_build_seconds"], (miss["fin_build_seconds"], hit["fin_build_seconds"])

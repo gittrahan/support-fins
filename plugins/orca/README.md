@@ -76,6 +76,10 @@ Install and turn on (OrcaSlicer 2.5):
    listed. If the slice fails for another reason, only the parts that got no fins are
    listed. The full diagnostics still go to `support_fins_log.jsonl` next to the plugin.
 
+Fins are cached in memory for the Orca session: a re-slice of the same part (any spot on
+the plate, same way up) with the same fin settings, layer height and nozzle reuses them
+instead of rebuilding. The log line says `fin_cache: hit` or `miss`.
+
 ### Settings (the plugin config)
 
 **Plugins ▸ Support Fins ▸ Config** shows a settings page with the site's controls:
