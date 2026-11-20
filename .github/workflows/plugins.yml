@@ -480,7 +480,11 @@ jobs:
       RELEASE_TAG: ${{ inputs.tag || github.event.release.tag_name }}
       PRERELEASE: ${{ github.event.release.prerelease }}
     steps:
+      # the release's own commit: a release run starts one commit before it, so its
+      # changelog still has the notes as unreleased (v1.0.9's upload stopped there)
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.tag || github.event.release.tag_name }}
       - uses: actions/download-artifact@v7
         with:
           name: orca
