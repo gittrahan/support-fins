@@ -439,14 +439,19 @@ class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
         worker, which the UI thread may be waiting on). So execute() keeps each part's
         result, and they are shown together when the slicing job completes: Orca fires
         SlicingJobComplete from its slice-finished handler on the UI thread."""
+        entry = {}
         try:
             ev = getattr(orca, "LifecycleEvent", None)
             if ev is None:
                 return
             if event == ev.SliceStarted:
-                _take_notes()   # a fresh slice: drop anything a cancelled one left
+                dropped = _take_notes()   # a fresh slice: drop anything a cancelled one left
+                if dropped:
+                    entry = {"lifecycle": "SliceStarted", "dropped": len(dropped)}
             elif event == ev.SlicingJobComplete:
                 notes = _take_notes()
+                entry = {"lifecycle": "SlicingJobComplete", "code": str(getattr(ctx, "code", "")),
+                         "notes": len(notes)}
                 code = getattr(orca, "LifecycleEvtCode", None)
                 if code is not None and ctx.code != code.Ok:
                     # cancelled: say nothing. Failed for another reason: a part that got
@@ -454,8 +459,12 @@ class SupportFinsSlicing(orca.slicing.SlicingPipelineCapabilityBase):
                     notes = [n for n in notes if n[2] == "error"] if ctx.code == code.Error else []
                 if notes:
                     _show_notes(notes)
-        except Exception:  # never break Orca over a notification
-            pass
+                    entry["shown"] = len(notes)
+        except Exception as e:  # never break Orca over a notification; say why in the log
+            entry["error"] = f"{type(e).__name__}: {e}"
+        if entry:
+            entry.update({"time": time.time(), "version": VERSION})
+            _write_log(entry)
 
 
 # Results kept for the notification shown when slicing completes (see on_lifecycle_event).

@@ -454,3 +454,16 @@ def test_other_events_and_an_orca_without_lifecycle_events_are_ignored(monkeypat
     cap.on_lifecycle_event("SlicingJobComplete", fake_orca.LifecycleEventContext())
     assert ORCA.notifications == []
     assert SF._take_notes(), "an Orca without lifecycle events leaves the notes alone"
+
+
+def test_the_notification_step_is_logged_and_a_failure_says_why(monkeypatch):
+    lines = []
+    monkeypatch.setattr(SF, "_write_log", lines.append)
+    cap = SF.SupportFinsSlicing()
+    SF._take_notes()
+    SF._note(fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45)), "1 wall, 2 tines", "info")
+    assert _complete(cap) and lines[-1]["lifecycle"] == "SlicingJobComplete" and lines[-1]["shown"] == 1
+    SF._note(fake_orca.FakePrintObject(trimesh.load(MODELS / "cube.stl"), rot_x(45)), "1 wall, 2 tines", "info")
+    monkeypatch.setattr(ORCA.host.ui, "push_notification", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("no ui")))
+    assert _complete(cap) == []
+    assert lines[-1]["error"] == "RuntimeError: no ui" and lines[-1]["notes"] == 1
