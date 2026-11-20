@@ -3,11 +3,13 @@
 // say it, so this turns the best one into words for the slicer's own rotate or
 // "Lay on face" tool, and only names it after checking that it helps.
 //
-//   tiltHint(positions, options, unserved) -> { degrees, down, phrase, unserved } | null
+//   tiltHint(positions, options, unserved, floating) -> { degrees, down, rot, phrase, unserved } | null
 //
 // positions  the posed part as computeFins takes it (flat xyz triangle soup, mm, z up)
 // options    the same engine options as the fins next to it
 // unserved   computeFins(...).stats.unserved for the pose as it is
+// floating   computeFins(...).stats.floating for it: a pose that leaves more pieces held
+//            only by supports isn't named, however few overhangs it leaves bare
 //
 // The poses are the site's suggestOrientations (web/orient.js), ranked by its cheap pass
 // alone (no fin builds, as for a part over RANK_CHEAP_FACES), so ranking costs one
@@ -15,7 +17,7 @@
 // current one are built with computeFins and the first that leaves fewer overhangs bare
 // is named; none is named when none does. Each one costs a fin build, so a host calls
 // this only when something was left bare.
-import { buildTopology, IDENTITY3 } from '../../../web/overhangs.js';
+import { buildTopology } from '../../../web/overhangs.js';
 import { suggestOrientations } from '../../../web/orient.js';
 import { computeFins, ENGINE_DEFAULTS } from './fins_entry.js';
 import { seatSoup } from './seat.js';
@@ -32,7 +34,7 @@ export function downOf(rot) {
   return d.map((v) => v / n);
 }
 
-function rotate(positions, R) {
+export function rotate(positions, R) {
   const out = new Float64Array(positions.length);
   for (let i = 0; i < positions.length; i += 3) {
     const x = positions[i], y = positions[i + 1], z = positions[i + 2];
@@ -65,7 +67,7 @@ export function tiltPhrase(down) {
   return { degrees, phrase: `tilting it ${degrees}° toward the ${word} (${axis})` };
 }
 
-export function tiltHint(positions, options = {}, unserved = 0) {
+export function tiltHint(positions, options = {}, unserved = 0, floating = 0) {
   if (!(unserved > 0)) return null;
   const threshold = options.threshold ?? ENGINE_DEFAULTS.threshold;
   const { pos } = seatSoup(positions);
@@ -74,10 +76,14 @@ export function tiltHint(positions, options = {}, unserved = 0) {
   let tried = 0;
   for (const c of candidates) {
     const down = downOf(c.rot);
-    if (-down[2] > SAME_POSE || c.rot === IDENTITY3) continue;   // the pose it's already in
+    if (-down[2] > SAME_POSE) continue;   // the pose it's already in
     if (tried++ >= TRY) break;
-    const after = computeFins(rotate(positions, c.rot), options).stats.unserved || 0;
-    if (after < unserved) return { ...tiltPhrase(down), down, unserved: after };
+    const s = computeFins(rotate(positions, c.rot), options).stats;
+    // a count the build didn't give (null) is unknown, not zero: say nothing on it
+    if (typeof s.unserved !== 'number') continue;
+    if (s.unserved < unserved && (s.floating || 0) <= (floating || 0)) {
+      return { ...tiltPhrase(down), down, rot: c.rot, unserved: s.unserved };
+    }
   }
   return null;
 }

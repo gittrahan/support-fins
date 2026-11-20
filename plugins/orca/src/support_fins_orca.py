@@ -129,7 +129,8 @@ def tilt_hint(soup, layer_height, cfg, nozzle, stats, log):
     t0 = time.time()
     try:
         ctx = _engine_ctx()
-        hint = host_tilt(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle), unserved)
+        hint = host_tilt(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle), unserved,
+                         stats.get("floating") or 0)
     except Exception as e:
         log["tilt_error"] = f"{type(e).__name__}: {e}"
         return ""
