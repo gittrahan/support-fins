@@ -301,5 +301,11 @@
       ]
     }
   ],
-  "unreleased": []
+  "unreleased": [
+    {
+      "date": "2026-11-20",
+      "check": "easy",
+      "text": "Orca plugin: new versions now reach the Orca Cloud listing automatically, so Orca offers the update in its plugin manager."
+    }
+  ]
 }
