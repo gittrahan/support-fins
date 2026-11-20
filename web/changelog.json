@@ -288,13 +288,18 @@
           "text": "Orca plugin: when overhangs are too shallow for a fin the way the part sits, the slice notification names a tilt that leaves fewer of them (checked by building the fins that way), for Orca's Lay on face or rotate tool."
         }
       ]
+    },
+    {
+      "version": "1.0.10",
+      "date": "2026-11-20",
+      "entries": [
+        {
+          "date": "2026-11-20",
+          "check": "easy",
+          "text": "Orca plugin on macOS: fins build about 5 to 25 times faster in OrcaSlicer 2.5.0 and later, which now allows the engine's fast compiler (a 40,000-face part: 2.7 s instead of 12.9 s)."
+        }
+      ]
     }
   ],
-  "unreleased": [
-    {
-      "date": "2026-11-20",
-      "check": "easy",
-      "text": "Orca plugin on macOS: fins build about 5 to 25 times faster in OrcaSlicer 2.5.0 and later, which now allows the engine's fast compiler (a 40,000-face part: 2.7 s instead of 12.9 s)."
-    }
-  ]
+  "unreleased": []
 }
