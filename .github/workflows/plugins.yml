@@ -11,8 +11,9 @@ name: plugins
 #   GitHub Release: build + test, then attach plugin builds and publish the
 #                   versioned Docker image. Stable releases also move `latest` and publish
 #                   the Orca plugin to its Orca Cloud listing (orca-cloud job).
-#   called / dispatched with a `tag`: the same as a GitHub Release for that tag (release.yml
-#                   creates one on each release run and calls this for it).
+#   called / dispatched with a `tag`: the same as a GitHub Release for that tag, except
+#                   Orca Cloud (it takes uploads only from a release event). release.yml
+#                   calls this when it made the release without RELEASE_TOKEN.
 #
 # The Fusion add-in runs the engine in Fusion's own browser (a hidden palette), so
 # its zip has nothing native in it and serves Windows and macOS alike. It has been
@@ -36,9 +37,10 @@ on:
       - '.github/workflows/plugins.yml'
   release:
     types: [published]
-  # release.yml calls this for each release it creates: a release made with the
-  # workflow's GITHUB_TOKEN does not fire the `release` event above. Dispatching it by
-  # hand with a tag (run it on that tag's ref) rebuilds a release's assets and image.
+  # release.yml makes releases with RELEASE_TOKEN, so they fire the `release` event above;
+  # without that secret it calls this instead (a release made with GITHUB_TOKEN fires no
+  # event). Dispatching it by hand with a tag (run it on that tag's ref) rebuilds a
+  # release's assets and image.
   workflow_call:
     inputs:
       tag:
