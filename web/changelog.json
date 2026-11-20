@@ -269,5 +269,11 @@
       ]
     }
   ],
-  "unreleased": []
+  "unreleased": [
+    {
+      "date": "2026-11-20",
+      "check": "easy",
+      "text": "The Orca plugin is published to Orca Cloud with each release, so OrcaSlicer 2.5 users can find the official Support Fins listing in Orca's plugin hub and get updates there, on every OS."
+    }
+  ]
 }

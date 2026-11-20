@@ -40,8 +40,14 @@ python3 -m pytest -q plugins/orca/tests/ plugins/shared/py/tests/   # needs nump
 modules (`plugins/shared/py/`: V8 host, mesh slicer) at their `# __SUPPORTFINS_*__`
 marker lines, so the plugin still ships as one file.
 
-Install and turn on (OrcaSlicer 2.5 nightly):
+Install and turn on (OrcaSlicer 2.5):
 
+0. Easiest: in Orca, open the **Orca Cloud** plugin hub, search "Support Fins" and
+   subscribe to the listing published from this repo
+   (https://cloud.orcaslicer.com/app/plugins/shared-plugins/42520a1e-e6fd-47d6-956f-e18c2e108522).
+   Every stable release publishes to it (`.github/workflows/plugins.yml`, job
+   `orca-cloud`, via `cloud_release.py`), with the version printfins.com shows, so Orca
+   updates it for you. Then carry on at step 2. To install a build by hand instead:
 1. Drop `build/support_fins_orca.py` into `<data_dir>/orca_plugins/SupportFins/`
    (or Plugins ▸ Install plugin). Open **Plugins** from the main menu and tick
    **Support Fins**. Orca's bundled `uv` installs `numpy` and `mini-racer` from the
