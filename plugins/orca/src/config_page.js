@@ -88,9 +88,11 @@ var SF = (function () {
   // are Orca's own, and the plugin refuses a config that sets them. Anything else is kept.
   // In a preset's override (scope "preset") the plugin's keys are written only when they
   // differ too, so the preset keeps following the global config for the rest.
-  function toConfig(form, stored, data, scope) {
+  // dropUnknown: also leave out the keys unknownKeys names (the page's Remove them button).
+  function toConfig(form, stored, data, scope, dropUnknown) {
     var out = {};
     Object.keys(stored || {}).forEach(function (k) { out[k] = stored[k]; });
+    if (dropUnknown) unknownKeys(stored, data).forEach(function (k) { delete out[k]; });
     delete out.tine_density;
     delete out.bed_pad;
     data.schema.options.forEach(function (o) { if (o.hostSupplied) delete out[o.key]; });
@@ -214,12 +216,17 @@ if (typeof document !== "undefined") (function () {
       r.row.classList.toggle("changed", f.section !== "plugin" && v !== f.default);
       r.input.disabled = !!context.readOnly;
     });
-    var dirty = !SF.same(SF.toConfig(form, stored, DATA, context.scope), stored);
+    var dirty = !SF.same(SF.toConfig(form, stored, DATA, context.scope, dropUnknown), stored);
     var odd = SF.unknownKeys(stored, DATA);
     var note = document.getElementById("unknown");
     note.hidden = odd.length === 0;
-    note.textContent = odd.length ? "Also in the config, with no control here (kept as written): " + odd.join(", ") +
-      ". If a slice fails naming one of them, remove it with Orca's JSON editor." : "";
+    document.getElementById("unknown-text").textContent = odd.length ? (dropUnknown
+      ? "Save removes " + odd.join(", ") + " from the config."
+      : "Also in the config, with no control here (kept as written): " + odd.join(", ") +
+        ". If a slice fails naming one of them, remove them.") : "";
+    var drop = document.getElementById("drop-unknown");
+    drop.hidden = dropUnknown;
+    drop.disabled = !!context.readOnly;
     document.getElementById("save").disabled = !!context.readOnly || !dirty;
     var restore = document.getElementById("restore");
     var preset = context.scope === "preset";
@@ -234,8 +241,10 @@ if (typeof document !== "undefined") (function () {
   function status(text) { document.getElementById("status").textContent = text; }
 
   var lastAction = "";
+  var dropUnknown = false;
 
   function load(config) {
+    dropUnknown = false;
     stored = config || {};
     form = SF.fromConfig(stored, DATA);
     paint();
@@ -247,7 +256,10 @@ if (typeof document !== "undefined") (function () {
 
   document.getElementById("save").addEventListener("click", function () {
     lastAction = "save";
-    if (window.orca) window.orca.saveConfig(SF.toConfig(form, stored, DATA, context.scope));
+    if (window.orca) window.orca.saveConfig(SF.toConfig(form, stored, DATA, context.scope, dropUnknown));
+  });
+  document.getElementById("drop-unknown").addEventListener("click", function () {
+    dropUnknown = true; status(""); paint();
   });
   document.getElementById("restore").addEventListener("click", function () {
     lastAction = "restore";

@@ -105,3 +105,10 @@ Deno.test('orca settings page: engine on/off reads only what the engine takes, p
   const off = SF.fromConfig({ tines: '0', 'sway.on': '1' }, DATA);
   assertEquals([off.tines, off['sway.on']], [false, true]);
 });
+
+Deno.test('orca settings page: Remove them drops the keys it has no control for, and only those', () => {
+  const stored = { enabled: true, apply_to: 'no-supports', mode: 'full', sparkle: 1 };
+  const form = SF.fromConfig(stored, DATA);
+  assertEquals(SF.toConfig(form, stored, DATA, 'global', false).sparkle, 1);
+  assertEquals(SF.toConfig(form, stored, DATA, 'global', true), { enabled: true, apply_to: 'no-supports', mode: 'full' });
+});
