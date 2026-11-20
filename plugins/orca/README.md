@@ -73,7 +73,17 @@ Install and turn on (OrcaSlicer 2.5):
 
 ### Settings (the plugin config)
 
-The plugin's config is JSON. Besides its own two keys, `enabled` and `apply_to`
+**Plugins ▸ Support Fins ▸ Config** shows a settings page with the site's controls:
+placement mode, overhang angle, tines, clearances, bed pad, sway braces and walls,
+each shown only when it applies, as on printfins.com. Layer height and nozzle aren't
+there: they are Orca's own. **Save** stores only what you changed, so every other
+setting keeps following the site's defaults; **Site defaults** clears every change. The
+page is built from the engine's own `options.json` when Orca opens it
+(`src/config_page.html` + `config_page.js`, inlined by `build.py`), so a setting added
+to the site shows up here without a plugin change. If the page can't be built, Orca
+shows its plain JSON editor instead.
+
+Underneath, the config is JSON, and you can still write it by hand. Besides its own two keys, `enabled` and `apply_to`
 (`"no-supports"` skips parts with Orca's Enable support on, `"all"` fins every part),
 it takes **every setting printfins.com and the other plugins have**: any key of
 [`plugins/shared/engine/options.json`](../shared/engine/options.json), in the engine's

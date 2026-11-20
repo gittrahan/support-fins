@@ -21,6 +21,8 @@ import sys
 HERE = pathlib.Path(__file__).resolve().parent
 OUT = HERE / "build"
 PLACEHOLDER = '"__FINS_ENGINE_JS__"'
+PAGE_PLACEHOLDER = '"__SF_CONFIG_PAGE__"'
+PAGE_JS_MARKER = "/*__SF_CONFIG_JS__*/"
 SHARED_PY = HERE.parent / "shared" / "py"
 # shared module -> the marker line in src/support_fins_orca.py it replaces
 INLINE = {
@@ -31,6 +33,17 @@ INLINE = {
 sys.path.insert(0, str(HERE.parent / "shared"))
 from bundle import bundle_engine  # noqa: E402
 from version import engine_plugin_version, stamp  # noqa: E402
+
+
+def config_page():
+    """The settings page Orca shows (src/config_page.html with config_page.js inlined)."""
+    html = (HERE / "src" / "config_page.html").read_text(encoding="utf-8")
+    page_js = (HERE / "src" / "config_page.js").read_text(encoding="utf-8")
+    if html.count(PAGE_JS_MARKER) != 1:
+        sys.exit(f"{PAGE_JS_MARKER} not found exactly once in src/config_page.html")
+    if "</script" in page_js.lower():
+        sys.exit("src/config_page.js must not contain </script: it is inlined into a <script> tag")
+    return html.replace(PAGE_JS_MARKER, page_js)
 
 
 def main():
@@ -48,6 +61,7 @@ def main():
                         f"{code}# --- end {name[:-3]} ---\n")
     # json.dumps yields a valid Python string literal (ASCII, escaped).
     out = "".join(lines).replace(PLACEHOLDER, json.dumps(js))
+    out = stamp(out, PAGE_PLACEHOLDER, json.dumps(config_page()), "src/support_fins_orca.py")
     v = engine_plugin_version(HERE)
     out = stamp(out, '# version = "0.7.0"', f'# version = "{v}"', "src/support_fins_orca.py")
     out = stamp(out, 'VERSION = "0.7.0"', f'VERSION = "{v}"', "src/support_fins_orca.py")

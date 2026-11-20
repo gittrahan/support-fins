@@ -1,0 +1,61 @@
+<!-- Support Fins settings in Orca's Plugins dialog. build.py inlines config_page.js at
+     the script marker; the plugin fills in window.SF_DATA (options.json + its defaults) when
+     Orca asks for the page. Colours come from the --orca-* variables the host injects. -->
+<style>
+  :root {
+    --ink: var(--orca-fg, #1f2429);
+    --paper: var(--orca-bg, #ffffff);
+    --rule: var(--orca-border, #d9dee3);
+    --quiet: var(--orca-muted, #6b7580);
+    --live: var(--orca-accent, #009688);
+    --live-ink: var(--orca-accent-fg, #ffffff);
+    --ui: var(--orca-font, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  }
+  html[data-orca-theme="dark"] {
+    --ink: var(--orca-fg, #e4e6e8);
+    --paper: var(--orca-bg, #2b2d30);
+    --rule: var(--orca-border, #3d4043);
+    --quiet: var(--orca-muted, #9aa0a6);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 12px 16px 64px; background: var(--paper); color: var(--ink);
+         font: 13px/1.4 var(--ui); }
+  .intro { color: var(--quiet); margin: 0 0 8px; }
+  .intro a { color: var(--live); }
+  .group { border-top: 1px solid var(--rule); padding: 6px 0 4px; }
+  h2 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+       color: var(--quiet); margin: 4px 0 2px; }
+  .row { display: grid; grid-template-columns: minmax(130px, 40%) 1fr; align-items: center;
+         gap: 10px; padding: 3px 0; }
+  .row[hidden] { display: none; }
+  .row.changed label { color: var(--live); font-weight: 600; }
+  .row.changed label::after { content: " \25CF"; font-size: 9px; vertical-align: 2px; }
+  .control { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  select, input[type="number"] { font: inherit; color: var(--ink); background: var(--paper);
+         border: 1px solid var(--rule); border-radius: 4px; padding: 2px 6px; min-width: 0; }
+  select { max-width: 100%; }
+  input[type="number"] { width: 6em; }
+  input[type="range"] { flex: 1; min-width: 80px; accent-color: var(--live); }
+  input[type="checkbox"] { accent-color: var(--live); }
+  .readout { min-width: 2.5em; text-align: right; font-variant-numeric: tabular-nums; }
+  .hint { color: var(--quiet); white-space: nowrap; }
+  footer { position: fixed; left: 0; right: 0; bottom: 0; display: flex; align-items: center;
+           gap: 8px; padding: 10px 16px; background: var(--paper); border-top: 1px solid var(--rule); }
+  #status { flex: 1; color: var(--quiet); }
+  button { font: inherit; border-radius: 4px; padding: 4px 12px; cursor: pointer;
+           border: 1px solid var(--rule); background: var(--paper); color: var(--ink); }
+  button.primary { background: var(--live); border-color: var(--live); color: var(--live-ink); }
+  button:disabled { opacity: .5; cursor: default; }
+</style>
+<p class="intro">The same settings as printfins.com. Layer height and nozzle come from Orca's own
+  settings. Settings you changed are marked; the rest follow the site's defaults.</p>
+<div id="rows"></div>
+<footer>
+  <span id="status" role="status"></span>
+  <button id="restore" type="button">Site defaults</button>
+  <button id="save" type="button" class="primary">Save</button>
+</footer>
+<script>window.SF_DATA = __SF_DATA__;</script>
+<script>
+/*__SF_CONFIG_JS__*/
+</script>

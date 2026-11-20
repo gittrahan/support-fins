@@ -274,6 +274,11 @@
       "date": "2026-11-20",
       "check": "easy",
       "text": "The Orca plugin is published to Orca Cloud with each release, so OrcaSlicer 2.5 users can find the official Support Fins listing in Orca's plugin hub and get updates there, on every OS."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "easy",
+      "text": "Orca plugin: a settings page in Orca with the site's controls (mode, overhang angle, tines, clearances, bed pad, sway braces, walls) replaces the raw JSON box. Settings you don't change keep following the site's defaults."
     }
   ]
 }
