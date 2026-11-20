@@ -74,9 +74,9 @@ export function drawWallB64(soupB64, aJson, bJson, optionsJson) {
 }
 
 // A tilt to try when overhangs were left too shallow for a fin (tilt.js), or null.
-export function tiltHintB64(soupB64, optionsJson, unserved) {
+export function tiltHintB64(soupB64, optionsJson, unserved, floating) {
   const options = optionsJson ? JSON.parse(optionsJson) : {};
-  return JSON.stringify(tiltHint(soupOf(soupB64), options, Number(unserved) || 0));
+  return JSON.stringify(tiltHint(soupOf(soupB64), options, Number(unserved) || 0, Number(floating) || 0));
 }
 
 // A Python host's settings dialog, as JSON strings like computeFinsB64 (supportfins_host
