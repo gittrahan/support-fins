@@ -51,6 +51,9 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     outputs:
       created: ${{ steps.create.outputs.created }}
+      # true: the releases were made with RELEASE_TOKEN, so GitHub fires their `release`
+      # event and plugins.yml builds them from it (the build job below stands down)
+      via_event: ${{ steps.create.outputs.via_event }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -90,18 +93,29 @@ jobs:
         # releases made before a failure. Each release is tagged at the commit that
         # released it, not $GITHUB_SHA: when runs queue up, a later push's run can be
         # the one that finds a release untagged.
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
         run: |
           set -euo pipefail
           created=()
           write_created() { echo "created=$(printf '%s\n' "${created[@]}" | jq -R 'select(length>0)' | jq -sc .)" >> "$GITHUB_OUTPUT"; }
           trap write_created EXIT
+          if [ -n "${RELEASE_TOKEN:-}" ]; then
+            echo "via_event=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::RELEASE_TOKEN isn't set: the release fires no release event, so this run builds the plugins itself and the Orca plugin isn't published to Orca Cloud (see plugins/orca/README.md)"
+          fi
           tags=$(deno run -A .github/scripts/release.js --pending)
           echo "untagged releases: $tags"
           for tag in $(echo "$tags" | jq -r '.[]'); do
             if gh release view "$tag" >/dev/null 2>&1; then echo "$tag exists, skipping"; continue; fi
             sha=$(deno run -A .github/scripts/release.js --commit "$tag")
             deno run -A .github/scripts/release.js --notes "$tag" > notes.md
-            gh release create "$tag" --target "$sha" --title "$tag" --notes-file notes.md
+            # With RELEASE_TOKEN (a fine-grained token, Contents: read and write on this repo)
+            # the release fires its `release` event, which runs plugins.yml as Orca Cloud's
+            # GitHub publishing requires (#474): it refuses an upload from a run started any
+            # other way. github.token can make the release but GitHub fires no event for it.
+            GH_TOKEN="${RELEASE_TOKEN:-$GH_TOKEN}" gh release create "$tag" --target "$sha" --title "$tag" --notes-file notes.md
             created+=("$tag")
           done
       - name: Move live to the newest release
@@ -123,7 +137,10 @@ jobs:
     # this run's commit: if one run makes two releases, the older one's assets come from
     # the newer tree (rare -- each run stamps one).
     needs: [publish]
-    if: always() && needs.publish.outputs.created != '' && needs.publish.outputs.created != '[]'
+    # Only without RELEASE_TOKEN: with it, each release's own `release` event runs plugins.yml.
+    if: >-
+      always() && needs.publish.outputs.created != '' && needs.publish.outputs.created != '[]'
+      && needs.publish.outputs.via_event != 'true'
     strategy:
       max-parallel: 1
       fail-fast: false
