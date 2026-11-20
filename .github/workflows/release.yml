@@ -19,9 +19,12 @@ name: release
 # runs here before the push instead. main has no required checks or protection, so the push
 # lands (if it ever gets protected, push with an app or personal token allowed to bypass
 # it). A push that lost a race with a merge fails rather than overwriting main: run it again.
-# plugins.yml is called rather than left to its own `release` trigger: a release made with
-# GITHUB_TOKEN does not start other workflows. If a build fails after its release exists,
-# re-run it: Actions > plugins > Run workflow, on that tag, with the tag as input.
+# With the RELEASE_TOKEN secret, each release is made with it and fires its own `release`
+# event, which runs plugins.yml (builds, Docker, Orca Cloud). Without it, a release made
+# with GITHUB_TOKEN starts no other workflow, so the build job calls plugins.yml instead
+# and Orca Cloud is skipped (it takes uploads only from a release event). If a build fails
+# after its release exists, re-run that plugins run; or Actions > plugins > Run workflow,
+# on that tag, with the tag as input (rebuilds the assets and image, not Orca Cloud).
 
 on:
   workflow_dispatch:
@@ -152,5 +155,5 @@ jobs:
     permissions:
       contents: write
       packages: write
-      id-token: write   # plugins.yml's orca-cloud job: Orca Cloud trusted publishing
+      id-token: write   # plugins.yml asks for it (orca-cloud job, which skips on this path)
 

@@ -49,12 +49,6 @@ Install and turn on (OrcaSlicer 2.5):
    `orca-cloud`, via `cloud_release.py`), with the version printfins.com shows, so Orca
    updates it for you. Then carry on at step 2. To install a build by hand instead:
 
-   (Maintainers: Orca Cloud takes an upload only from a run that a GitHub `release`
-   event started, as in its setup guide, and GitHub fires no event for a release made
-   with the workflow's own token. So `release.yml` makes releases with the repo secret
-   `RELEASE_TOKEN`: a fine-grained personal access token for this repository only,
-   **Contents: read and write**. Without it a release still ships everywhere else and
-   says it skipped Orca Cloud. When it expires, make a new one with the same scope.)
 1. Drop `build/support_fins_orca.py` into `<data_dir>/orca_plugins/SupportFins/`
    (or Plugins ▸ Install plugin). Open **Plugins** from the main menu and tick
    **Support Fins**. Orca's bundled `uv` installs `numpy` and `mini-racer` from the
@@ -154,6 +148,13 @@ Compared the plugin's G-code with the website's finned STL sliced the normal way
 * Parts with **Enable support** on are skipped. The log reads `skipped (Orca supports are on for this part)`.
 
 ---
+
+Maintainers: Orca Cloud takes an upload only from a run that a GitHub `release` event
+started, as in its setup guide, and GitHub fires no event for a release made with the
+workflow's own token. So `release.yml` makes releases with the repo secret
+`RELEASE_TOKEN`: a fine-grained personal access token for this repository only,
+**Contents: read and write**. Without it a release still ships everywhere else and warns
+that it skipped Orca Cloud. When the token expires, make a new one with the same scope.
 
 ## The read/write split that shapes everything here
 
