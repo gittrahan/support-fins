@@ -81,3 +81,27 @@ Deno.test('orca settings page: numbers stay in range and on their step', () => {
   const bad = SF.fromConfig({ mode: 'sideways', threshold: 400, tines: 'maybe' }, DATA);
   assertEquals([bad.mode, bad.threshold, bad.tines], ['auto', 70, true]);
 });
+
+Deno.test('orca settings page: layer height and nozzle in a stored config are dropped on save', () => {
+  const stored = { enabled: true, apply_to: 'no-supports', layerHeight: 0.2, nozzle: '0.6', gap: 0.3 };
+  const cfg = SF.toConfig(SF.fromConfig(stored, DATA), stored, DATA);
+  assertEquals(cfg, { enabled: true, apply_to: 'no-supports', gap: 0.3 });
+});
+
+Deno.test('orca settings page: names the keys it has no control for', () => {
+  assertEquals(SF.unknownKeys({ enabled: true, mode: 'full', sparkle: 1, tine_density: 0.2, layerHeight: 0.2 }, DATA), ['sparkle']);
+});
+
+Deno.test('orca settings page: a preset override keeps only what differs, plugin keys too', () => {
+  const form = SF.fromConfig({}, DATA);
+  assertEquals(SF.toConfig(form, {}, DATA, 'preset'), {});
+  form.apply_to = 'all'; form.mode = 'full';
+  assertEquals(SF.toConfig(form, {}, DATA, 'preset'), { apply_to: 'all', mode: 'full' });
+});
+
+Deno.test('orca settings page: engine on/off reads only what the engine takes, plugin keys read loosely', () => {
+  const form = SF.fromConfig({ tines: 'yes', 'sway.on': 'on', enabled: 'no' }, DATA);
+  assertEquals([form.tines, form['sway.on'], form.enabled], [true, false, false]);   // tines: 'yes' unreadable -> default true
+  const off = SF.fromConfig({ tines: '0', 'sway.on': '1' }, DATA);
+  assertEquals([off.tines, off['sway.on']], [false, true]);
+});

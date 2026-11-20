@@ -35,11 +35,13 @@ var SF = (function () {
     return schema.options.filter(function (o) { return !o.hostSupplied; });
   }
 
-  function asBool(v) {
+  // On/off as the plugin reads it: its own keys take yes/on too (_truthy), an engine setting
+  // only true/false or 1/0 (engine_options converts "1"/"0"; the engine refuses the rest).
+  function asBool(v, loose) {
     if (v === true || v === false) return v;
     var s = String(v).trim().toLowerCase();
-    if (s === "1" || s === "true" || s === "yes" || s === "on") return true;
-    if (s === "0" || s === "false" || s === "no" || s === "off") return false;
+    if (s === "1" || s === "true" || (loose && (s === "yes" || s === "on"))) return true;
+    if (s === "0" || s === "false" || (loose && (s === "no" || s === "off"))) return false;
     return null;
   }
 
@@ -60,7 +62,7 @@ var SF = (function () {
   // One field's value from a stored config, or its default when missing or unusable.
   function read(field, v) {
     if (v === undefined || v === null || v === "") return field.default;
-    if (field.type === "bool") { var b = asBool(v); return b === null ? field.default : b; }
+    if (field.type === "bool") { var b = asBool(v, field.section === "plugin"); return b === null ? field.default : b; }
     if (field.type === "number") return fit(field, v);
     var hit = field.choices.filter(function (c) { return String(c.value) === String(v); })[0];
     return hit ? hit.value : field.default;
@@ -74,7 +76,7 @@ var SF = (function () {
     ownFields(data.defaults).concat(engineFields(data.schema)).forEach(function (f) {
       var v = config[f.key];
       if (v === undefined && f.key === "tineDensity") v = config.tine_density;
-      if (v === undefined && f.key === "padStyle" && asBool(config.bed_pad) === false) v = "off";
+      if (v === undefined && f.key === "padStyle" && asBool(config.bed_pad, true) === false) v = "off";
       form[f.key] = read(f, v);
     });
     return form;
@@ -82,13 +84,20 @@ var SF = (function () {
 
   // The form -> the config to save: the stored config with the plugin's keys set, each engine
   // setting set when it differs from the default and removed when it doesn't, and older names
-  // dropped once the field they mean is written. Anything else the config held is kept.
-  function toConfig(form, stored, data) {
+  // dropped once the field they mean is written. Layer height and nozzle are dropped too: they
+  // are Orca's own, and the plugin refuses a config that sets them. Anything else is kept.
+  // In a preset's override (scope "preset") the plugin's keys are written only when they
+  // differ too, so the preset keeps following the global config for the rest.
+  function toConfig(form, stored, data, scope) {
     var out = {};
     Object.keys(stored || {}).forEach(function (k) { out[k] = stored[k]; });
     delete out.tine_density;
     delete out.bed_pad;
-    ownFields(data.defaults).forEach(function (f) { out[f.key] = form[f.key]; });
+    data.schema.options.forEach(function (o) { if (o.hostSupplied) delete out[o.key]; });
+    ownFields(data.defaults).forEach(function (f) {
+      if (scope === "preset" && form[f.key] === f.default) delete out[f.key];
+      else out[f.key] = form[f.key];
+    });
     engineFields(data.schema).forEach(function (f) {
       if (form[f.key] === f.default) delete out[f.key];
       else out[f.key] = form[f.key];
@@ -107,13 +116,20 @@ var SF = (function () {
     return (field.showIf || []).every(holds);
   }
 
+  // Keys a stored config holds that no control on the page stands for (kept on save).
+  function unknownKeys(stored, data) {
+    var known = { tine_density: 1, bed_pad: 1 };
+    ownFields(data.defaults).concat(data.schema.options).forEach(function (f) { known[f.key] = 1; });
+    return Object.keys(stored || {}).filter(function (k) { return !known[k]; });
+  }
+
   function same(a, b) {
     var ka = Object.keys(a), kb = Object.keys(b);
     return ka.length === kb.length && ka.every(function (k) { return a[k] === b[k]; });
   }
 
   return { ownFields: ownFields, engineFields: engineFields, fromConfig: fromConfig,
-           toConfig: toConfig, visible: visible, fit: fit, same: same };
+           toConfig: toConfig, visible: visible, fit: fit, same: same, unknownKeys: unknownKeys };
 })();
 
 // ---- the page ------------------------------------------------------------------------------
@@ -156,7 +172,7 @@ if (typeof document !== "undefined") (function () {
       input.type = f.slider ? "range" : "number";
       input.min = f.min * k; input.max = f.max * k; input.step = f.step * k;
       if (f.slider) readout = el("span", "readout");
-      var commit = function () { set(f, SF.fit(f, Number(input.value) / k)); };
+      var commit = function () { set(f, input.value === "" ? f.default : SF.fit(f, Number(input.value) / k)); };
       input.addEventListener(f.slider ? "input" : "change", commit);
     }
     input.id = id;
@@ -198,7 +214,12 @@ if (typeof document !== "undefined") (function () {
       r.row.classList.toggle("changed", f.section !== "plugin" && v !== f.default);
       r.input.disabled = !!context.readOnly;
     });
-    var dirty = !SF.same(SF.toConfig(form, stored, DATA), stored);
+    var dirty = !SF.same(SF.toConfig(form, stored, DATA, context.scope), stored);
+    var odd = SF.unknownKeys(stored, DATA);
+    var note = document.getElementById("unknown");
+    note.hidden = odd.length === 0;
+    note.textContent = odd.length ? "Also in the config, with no control here (kept as written): " + odd.join(", ") +
+      ". If a slice fails naming one of them, remove it with Orca's JSON editor." : "";
     document.getElementById("save").disabled = !!context.readOnly || !dirty;
     var restore = document.getElementById("restore");
     var preset = context.scope === "preset";
@@ -212,6 +233,8 @@ if (typeof document !== "undefined") (function () {
 
   function status(text) { document.getElementById("status").textContent = text; }
 
+  var lastAction = "";
+
   function load(config) {
     stored = config || {};
     form = SF.fromConfig(stored, DATA);
@@ -223,19 +246,23 @@ if (typeof document !== "undefined") (function () {
   load(window.orca ? window.orca.getConfig() : {});
 
   document.getElementById("save").addEventListener("click", function () {
-    if (window.orca) window.orca.saveConfig(SF.toConfig(form, stored, DATA));
+    lastAction = "save";
+    if (window.orca) window.orca.saveConfig(SF.toConfig(form, stored, DATA, context.scope));
   });
   document.getElementById("restore").addEventListener("click", function () {
+    lastAction = "restore";
     if (window.orca) window.orca.restoreDefaults();
   });
   if (window.orca && window.orca.onConfig) {
-    var first = true;
     window.orca.onConfig(function (config) {
-      // fires once at once (loaded above), then on every host save: show what was stored
-      if (first) { first = false; return; }
+      // Orca calls this once at once with what getConfig gave (already loaded), then after
+      // every save or restore with what it stored: show that, never what was typed.
+      if (config === stored && !lastAction) return;
       if (window.orca.getContext) context = window.orca.getContext();
       load(config);
-      status("Saved. Slice again to use it.");
+      status(lastAction === "restore" ? "Back to the site's defaults. Slice again to use them."
+                                      : "Saved. Slice again to use it.");
+      lastAction = "";
     });
   }
 })();
