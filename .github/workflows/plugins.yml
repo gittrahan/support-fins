@@ -468,8 +468,11 @@ jobs:
     # repo connected under Edit plugin > GitHub publishing on cloud.orcaslicer.com
     # (https://cloud.orcaslicer.com/wiki/#publish-from-github). Pre-releases and
     # plugins-latest builds don't publish. Its own job, so a hub outage can't hold back the
-    # Docker image. Rerun it by dispatching plugins with the tag.
-    if: github.event_name == 'release' || inputs.tag != ''
+    # Docker image. Only from a release's own `release` event: Orca Cloud refuses a token
+    # from a run started any other way (401 "connected release workflow" for v1.0.9 and
+    # v1.0.10, made from manual runs), so release.yml makes releases with RELEASE_TOKEN.
+    # A failed upload: re-run this job (Re-run failed jobs keeps the release event).
+    if: github.event_name == 'release'
     needs: [publish]
     runs-on: ubuntu-latest
     timeout-minutes: 5
