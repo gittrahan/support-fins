@@ -49,6 +49,7 @@ LIMITS (spike)
   * The slicing-pipeline API is marked research/experimental by Orca.
   * One fin set per print object (all instances of an object share it).
 """
+import copy
 import json
 import os
 import threading
@@ -149,8 +150,10 @@ def build_fins(soup, layer_height, cfg, nozzle, log):
         fins, stats = compute_fins(norm, layer_height, cfg, nozzle)
         extra = {}
         report = host_report(stats) + tilt_hint(norm, layer_height, cfg, nozzle, stats, extra)
-        kept = _FIN_CACHE.put(key, {"fins": np.asarray(fins), "stats": stats, "report": report, "extra": extra})
-        log["fin_cache"] = "miss" if kept else "miss (too big to keep)"
+        # a tilt hint that failed is not kept: the next slice tries it again
+        kept = "tilt_error" not in extra and _FIN_CACHE.put(
+            key, {"fins": np.array(fins), "stats": copy.deepcopy(stats), "report": report, "extra": copy.deepcopy(extra)})
+        log["fin_cache"] = "miss" if kept else "miss (not kept)"
         log.update(extra)
         log["fin_cache_entries"] = len(_FIN_CACHE)
     else:
