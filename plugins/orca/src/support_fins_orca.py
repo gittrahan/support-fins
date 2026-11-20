@@ -87,6 +87,16 @@ _ALIASES = {"tine_density": "tineDensity"}
 # __SUPPORTFINS_HOST__ (build.py inlines plugins/shared/py/supportfins_host.py here)
 
 
+# V8's JIT on macOS. Orca 2.5.0 is signed with allow-unsigned-executable-memory (OrcaSlicer
+# #16203, 2026-10-07), which lets V8 compile on Apple Silicon under the hardened runtime:
+# a 40,000-face Full build took 2.7 s in Orca with it, 12.9 s without. Earlier 2.5 betas and
+# nightlies refuse that memory and V8 dies with SIGTRAP (the first Orca spike), taking Orca
+# with it. Orca can't be asked its version while plugins load (app_info is UI-thread only),
+# but app_info itself arrived three days after the entitlement (#16324, 2026-10-10): a build
+# that has it has the entitlement. Other platforms always JIT (host_engine).
+_JIT_OK = hasattr(getattr(orca, "host", None), "app_info")
+
+
 def _engine_ctx():
     """One V8 context per process (loading the engine costs ~3 ms).
 
@@ -96,7 +106,7 @@ def _engine_ctx():
     """
     if ENGINE_JS.startswith("__FINS_ENGINE"):
         raise RuntimeError("fin engine bundle missing -- run plugins/orca/build.py")
-    return host_engine(ENGINE_JS)
+    return host_engine(ENGINE_JS, jit=_JIT_OK)
 
 
 if not ENGINE_JS.startswith("__FINS_ENGINE"):

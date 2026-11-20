@@ -40,7 +40,8 @@ def host_engine(js_source, vendor_dir=None, jit=None):
                 there in a hardened app that refuses JIT memory (lessons from the first
                 Orca spike). True: a host whose macOS app allows JIT (Blender is signed
                 with com.apple.security.cs.allow-jit) keeps it -- jitless is ~25x slower
-                on a big part (75k triangles: 80 s vs 3 s).
+                on a big part (75k triangles: 80 s vs 3 s). Orca 2.5.0 and later
+                pass True too (its app is signed for it; see support_fins_orca.py _JIT_OK).
     """
     global _host_ctx
     if _host_ctx is None:

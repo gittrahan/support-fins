@@ -519,3 +519,18 @@ def test_a_tilt_that_fails_never_costs_the_fins(monkeypatch):
     msg = SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6, log)
     assert "too shallow" in msg and "Lay on face" not in msg and log["tilt_error"] == "RuntimeError: boom"
     assert msg.endswith("(tilt the part steeper)"), msg
+
+
+# ------------------------------------------------------------------ macOS JIT
+def test_jit_follows_the_orca_build(monkeypatch):
+    """V8 runs with JIT where Orca's app allows it: builds with orca.host.app_info (2.5.0+)."""
+    seen = []
+    monkeypatch.setattr(SF, "host_engine", lambda js, jit=None: seen.append(jit))
+    monkeypatch.setattr(SF, "_JIT_OK", hasattr(ORCA.host, "app_info"))
+    SF._engine_ctx()
+    assert seen == [False], "the fake orca has no app_info: an older Orca, jitless on macOS"
+    monkeypatch.setattr(ORCA.host, "app_info", lambda: {}, raising=False)
+    fresh = load_plugin()
+    monkeypatch.setattr(fresh, "host_engine", lambda js, jit=None: seen.append(jit))
+    fresh._engine_ctx()
+    assert seen[-1] is True
