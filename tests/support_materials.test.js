@@ -5,6 +5,7 @@ import { readThreeMF, writePlate3MF, scanXML } from '../web/threemf.js';
 import { unzip } from '../web/zip.js';
 import { partitionSupportExport } from '../web/material-worker-client.js';
 import { drawnWall } from '../web/draw.js';
+import { nominalContext } from '../web/fins/diagnostics.js';
 
 const xyz = (tris) => tris.flatMap((p) => p.slice(0, 3));
 const soup = (p) => Array.from({ length: p.length / 3 }, (_, i) => [...p.slice(i * 3, i * 3 + 3)]);
@@ -21,6 +22,33 @@ function build(name, rot, opts) {
     ...opts, tunables: { iface: false, separateTines: false, tineDir: 'horizontal', cutout: 'none',
       nozzle: .4, ...(opts?.tunables ?? {}) } });
 }
+
+Deno.test('material parts: diagnostics inspect coordinates without losing role metadata', () => {
+  const topo = loadModel('cube'), rot = rotX(35), result = analyze(topo, 45, rot);
+  const opts = { mode: 'auto', bedPad: true, layerHeight: .2,
+    tunables: { iface: 'all', separateTines: true, tineDir: 'horizontal', cutout: 'none', nozzle: .4 } };
+  const built = fins.buildFins(topo, result, rot, opts);
+  assert(built.triangles.some((p) => p[4]?.role === 'tine'), 'fixture needs tagged contacts');
+  const before = JSON.stringify(built), records = built.triangles.map((p) => p[4]);
+  const settings = { ...opts, diagnostics: nominalContext(.2, .4, .2) };
+  const plain = { ...built, triangles: built.triangles.map((p) => p.slice(0, 3)),
+    padTriangles: built.padTriangles.map((p) => p.slice(0, 3)) };
+  const expected = fins.inspectFins(topo, result, rot, plain, settings);
+  assert(expected.printability.status === 'complete', JSON.stringify(expected.printability.stopped));
+  equal(fins.inspectFins(topo, result, rot, built, settings), expected, 'material tags changed diagnostics');
+  equal(fins.inspectFins(topo, result, rot, { ...built, triangles: xyz(built.triangles),
+    fins: built.fins.map((f) => ({ ...f, triRanges: f.triRanges.map(([a, b]) => [a * 3, b * 3]) })) }, settings),
+    expected, 'flat supports with tagged pads changed diagnostics');
+  equal(JSON.stringify(built), before, 'diagnostics changed support data');
+  assert(built.triangles.every((p, i) => p[4] === records[i]), 'diagnostics replaced material identities');
+  equal(fins.buildFins(topo, result, rot, settings).printability, expected.printability,
+    'synchronous hosts lost material diagnostics');
+  const broken = structuredClone(built);
+  broken.triangles[0][0] = NaN;
+  const invalid = fins.inspectFins(topo, result, rot, broken, settings).printability;
+  assert(invalid.status === 'incomplete' && invalid.stopped.reason.includes('non-finite'),
+    'discarding material metadata hid an invalid XYZ coordinate');
+});
 
 const cases = [
   ['cube', rotX(35), {}], ['plate', rotX(60), {}],

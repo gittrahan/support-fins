@@ -8,12 +8,14 @@ const rot = [1, 0, 0, 0, 1, 0, 0, 0, 1];
 const opts = { mode: 'auto', tines: true, bedPad: false, layerHeight: 0.2,
   tunables: { nozzle: 0.4, wallLines: 2, tineDir: 'horizontal', propGap: 0.2, cutout: 'none' } };
 
-Deno.test('support diagnostics: worker displays geometry before a separate inspection request', async () => {
+for (const separate of [false, true]) Deno.test(`support diagnostics: worker displays geometry before inspection (material parts ${separate})`, async () => {
+  const options = separate ? { ...opts, tunables: { ...opts.tunables, iface: 'all', separateTines: true } } : opts;
   const topo = tiltedBlockTopo(-10, 10, -10, 10, -10, 10, 35), result = analyze(topo, 45, rot);
   const workerTopo = structuredClone(topo);
   const before = { over: result.over.slice(), kept: result.kept.slice() };
-  const plain = fins.buildFins(topo, result, rot, opts);
-  const diagnosed = { ...opts, diagnostics: nominalContext(0.2, 0.4, 0.2) };
+  const plain = fins.buildFins(topo, result, rot, options);
+  if (separate) assert(plain.triangles.some((p) => p[4]?.role === 'tine'));
+  const diagnosed = { ...options, diagnostics: nominalContext(0.2, 0.4, 0.2) };
   const inline = inspectFins(topo, result, rot, plain, diagnosed);
   const worker = new Worker(new URL('../web/finworker.js', import.meta.url), { type: 'module' });
   const output = await new Promise((resolve, reject) => {
@@ -33,7 +35,7 @@ Deno.test('support diagnostics: worker displays geometry before a separate inspe
   });
   assertEquals(output.id, 72);
   assertEquals(output.inspection, inline);
-  assertEquals(plain, fins.buildFins(topo, result, rot, opts), 'inspection mutated the build');
+  assertEquals(plain, fins.buildFins(topo, result, rot, options), 'inspection mutated the build');
   assertEquals(result.over, before.over); assertEquals(result.kept, before.kept);
   assertEquals(inline.printability.status, 'complete');
   assert(inline.coverage.points.every((p) => p.length === 4));
