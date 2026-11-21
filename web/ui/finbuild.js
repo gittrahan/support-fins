@@ -151,6 +151,7 @@ export function finOpts(isl = islands) {
                        tallRibsHeight: BRACE.tallH,
                        cutout: CUT.pattern,
                        iface: PROP.iface,
+                       separateTines: PROP.separateTines,
                        // tine direction (#309): resin pins instead of the comb
                        tineDir: PROP.tineDir, pinDepth: PROP.pinDepth,
                        nozzle, wallLines } };

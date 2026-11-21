@@ -30,7 +30,7 @@ let wasmBinary = null;
  */
 export function setManifoldWasm(bytes) { wasmBinary = bytes; wasm = null; }
 
-async function manifold() {
+export async function manifold() {
   // a literal path, so a bundler pulls the loader in
   wasm ??= import('./vendor/manifold-3d-3.5.4/manifold.js').then(async (m) => {
     const w = await m.default(wasmBinary ? { wasmBinary } : {});
