@@ -126,6 +126,9 @@ export function applyTunables(t = {}) {
     PROP.footGap = t.tineDir === 'vertical' ? 0 : FOOT_GAP;
   }
   if (Number.isFinite(t.bottomGap) && PROP.tineDir !== 'vertical') PROP.footGap = Math.max(0, Math.min(0.4, t.bottomGap));
+  if (t.bottomAnchors !== undefined || t.tineDir !== undefined) {
+    PROP.bottomAnchors = t.bottomAnchors === true && PROP.tineDir !== 'vertical';
+  }
   if (Number.isFinite(t.pinDepth)) PROP.pinDepth = Math.max(0.05, Math.min(PROP.pinDepthMax, t.pinDepth));
   // And the nozzle and wall lines, which scale the support widths (nozzle.js).
   if (t.nozzle !== undefined) applyNozzle(t.nozzle);
@@ -174,6 +177,10 @@ export function buildFins(topo, result, rot, opts = {}) {
     built.bare = { area: built.fill.unservedArea,
                    total: bareArea(topo, result, rot, opts, { fins: [] }).total, coverage };
   }
+  built.anchorLimited = !!(PROP.bottomAnchors && PROP.footGap > 0
+    && PROP.tineDir !== 'vertical' && opts.mode !== 'draw'
+    && (built.bare ? built.bare.area > 1e-6 : built.unserved > 0)
+    && (built.skipped?.anchors || built.fill?.refused?.["No safe line anchors fit this floor. Turn off Line anchors or change the support placement."]));
   // Synchronous hosts explicitly opt in. The browser instead calls inspectFins
   // in a second worker message after displaying this build.
   if (opts.diagnostics) Object.assign(built, inspectFins(topo, result, rot, built, opts));

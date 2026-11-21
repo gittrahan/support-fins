@@ -218,6 +218,8 @@ def host_report(stats):
     holes = stats.get("smallHoleRegions") or 0
     if holes:
         parts.append(f"{holes} small-hole ceiling{'s' if holes != 1 else ''} left unsupported for bridging")
+    if stats.get("anchorLimited"):
+        parts.append("Line anchors could not fit some placements; check unsupported areas or turn off Line anchors")
     unserved = stats.get("unserved") or 0
     if unserved:
         parts.append(f"{unserved} overhang{' is' if unserved == 1 else 's are'} too shallow "

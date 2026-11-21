@@ -317,6 +317,11 @@
       "date": "2026-11-20",
       "check": "easy",
       "text": "Orca plugin: re-slicing a part whose fins have not changed reuses them instead of rebuilding (a 59,000-face figure: 3.2 s to 5 ms)."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "clean",
+      "text": "Optional Line anchors add checked, short contacts below FDM walls on the model. Walls without safe contacts are refused with a notice; slice and print-test before use."
     }
   ]
 }

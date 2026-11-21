@@ -153,7 +153,7 @@ Deno.test('optionVisible hides exactly what the site hides (web/ui/settings.js)'
   const shown = (key, values) => optionVisible(key, values);
   for (const tines of [true, false]) {
     assert(shown('sideClearance', { tineDir: 'vertical', tines }), 'side clearance remains active in resin');
-    for (const key of ['bottomGap']) {
+    for (const key of ['bottomGap', 'bottomAnchors']) {
       assert(shown(key, { tineDir: 'horizontal', tines }), `${key}: hidden for FDM`);
       assert(!shown(key, { tineDir: 'vertical', tines }), `${key}: shown for resin`);
     }
@@ -272,7 +272,7 @@ Deno.test('every option reaches the geometry (no dead dialog control)', () => {
           : o.key === 'separateWalls'   // the sphere has joined fill walls and bases
             ? changesFins(sphere, o, computeFins(sphere, { mode: 'full' }).triangles,
                 (v) => computeFins(sphere, { mode: 'full', separateWalls: v }))
-          : ['sideClearance', 'bottomGap'].includes(o.key)
+          : ['sideClearance', 'bottomGap', 'bottomAnchors'].includes(o.key)
             ? changesFins(pocket, o, computeFins(pocket, {}).triangles, (v) => computeFins(pocket, { [o.key]: v }))
           : o.key === 'plateOnly'
             ? changesFins(portal, o, computeFins(portal, {}).triangles, (v) => computeFins(portal, { plateOnly: v }))

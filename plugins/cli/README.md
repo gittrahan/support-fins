@@ -11,12 +11,17 @@ same settings: the flags are generated from `plugins/shared/engine/options.json`
 Part-supported FDM walls have independent clearances: `--gap` controls their top,
 `--side-clearance 0.35` the wide sides, and `--bottom-gap 0.2` the bottom (millimetres).
 These defaults preserve existing output. Bottom gap does not lift plate feet;
-resin keeps its welded bottom. There is no new material preset selection.
+resin keeps its welded bottom. `--bottom-anchors` adds optional short line contacts
+to the model below; `--no-bottom-anchors` keeps the default gap-only foot.
+Anchors need a positive bottom gap and enough verified floor for a nozzle-scaled
+line contact. Walls without a safe contact are omitted and remain unsupported.
+Contacts may mark the model: check coverage and the first support layers in your
+slicer and print-test before use. There is no new material preset selection.
 
 Side clearance is 0.2 to 1 mm: a wall closer than 0.2 mm would fuse to the part.
 
 ```
-support-fins shelf.3mf --preserve-project --side-clearance 0.35 --bottom-gap 0.2
+support-fins shelf.3mf --preserve-project --bottom-gap 0.2 --bottom-anchors
 ```
 
 ```
@@ -567,3 +572,8 @@ attributes and ambiguous assignments still fail. Native material-region
 comparisons are diagnostic for this policy; they must not be presented as exact
 preservation passes. Sequential project generation presents these warnings on
 both fresh and resumed conversions.
+
+Line anchors are inactive at zero Bottom gap and with resin pins. A refusal notice
+means some attempted contacts did not fit verified source facets; inspect remaining
+unsupported areas or turn Line anchors off. It is not a count or area of lost walls.
+Curved and finely tessellated floors may not admit safe contacts.

@@ -37,6 +37,7 @@ import { clearBetween, trimmedEnds } from './prop/attached.js';
 import { welds } from './prop/clearance.js';
 import { surfaceHitsAt } from './prop/surface.js';
 import { sweepBetween } from './prop/sweep.js';
+import { AnchorContactError } from './prop/anchors.js';
 import { loftExtrude } from './solids.js';
 import { SWAY } from './sway.js';
 
@@ -175,8 +176,13 @@ export function gussetAt(w, o, side, tris, opts) {
 
   const out = [];
   if (crestOn()) crestPart(tris, layerH);
-  if (!sweepBetween(top, floors, out, PROP.minHeightSquat)) {
-    return { ok: false, reason: 'too little room under the overhang there for a gusset' };
+  try {
+    if (!sweepBetween(top, floors, out, PROP.minHeightSquat, null, tris)) {
+      return { ok: false, reason: 'too little room under the overhang there for a gusset' };
+    }
+  } catch (e) {
+    if (!(e instanceof AnchorContactError)) throw e;
+    return { ok: false, reason: e.message };
   }
   // ...and then the swept body is MEASURED against the whole part, as Auto's walls are
   // (prop.js): the stations above are a mm apart, and a rib thinner than that between

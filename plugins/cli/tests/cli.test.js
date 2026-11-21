@@ -26,7 +26,7 @@ import { unzip, zipStore } from '../../../web/zip.js';
 
 const LBRACKET = Deno.readFileSync(`${MODELS}lbracket.stl`);
 
-Deno.test('cli: independent part clearances reach the engine', async () => {
+Deno.test('cli: independent part clearances and line anchors reach the engine', async () => {
   const pos = new Float32Array([...block(-20, 20, -5, 5, 0, 5), ...block(-20, 20, -5, 5, 15, 17),
     ...block(-20, 20, -5, -1.1, 5, 15), ...block(-20, 20, 1.1, 5, 5, 15)]);
   const triples = Array.from({ length: pos.length / 3 }, (_, i) => Array.from(pos.slice(i * 3, i * 3 + 3)));
@@ -34,17 +34,21 @@ Deno.test('cli: independent part clearances reach the engine', async () => {
   const args = ['pocket.stl', '-o', 'out.stl', '--no-tines', '--pad-style', 'off'];
   const baseline = await cli(args, files);
   const same = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
-  for (const flags of [['--bottom-gap', '0.4'], ['--side-clearance', '1']]) {
+  for (const flags of [['--bottom-gap', '0.4'], ['--bottom-anchors'], ['--side-clearance', '1']]) {
     const r = await cli([...args, ...flags], files);
     assert(r.code === 0, r.err.join('\n'));
     assert(!same(baseline.fs.get('out.stl'), r.fs.get('out.stl')), `${flags} had no effect`);
   }
-  const resin = await cli([...args, '--tine-dir', 'vertical', '--bottom-gap', '0.4'], files);
-  assert(resin.err.some(s => s.includes('bottom-gap does nothing')), 'inactive settings were not reported');
+  const off = await cli([...args, '--no-bottom-anchors'], files);
+  assert(same(baseline.fs.get('out.stl'), off.fs.get('out.stl')), 'explicit false changed defaults');
+  const resin = await cli([...args, '--tine-dir', 'vertical', '--bottom-gap', '0.4', '--bottom-anchors'], files);
+  assert(resin.err.some(s => s.includes('bottom-gap does nothing')) && resin.err.some(s => s.includes('bottom-anchors does nothing')), 'inactive settings were not reported');
+  const inactive = await cli([...args, '--bottom-gap', '0', '--bottom-anchors'], files);
+  assert(inactive.code === 0 && inactive.err.some(s => s.includes('--bottom-anchors does nothing with --bottom-gap 0')));
   const zero = await cli([...args, '--side-clearance', '0'], files);
   assert(zero.code !== 0 && !zero.fs.has('out.stl'), 'side clearance below 0.2 accepted');
   const help = await cli(['--help']);
-  assert(['--side-clearance', '--bottom-gap'].every(flag => help.out.join('\n').includes(flag)), 'help omitted controls');
+  assert(['--side-clearance', '--bottom-gap', '--bottom-anchors'].every(flag => help.out.join('\n').includes(flag)), 'help omitted controls');
 });
 
 Deno.test('cli: turning is opt-in, project-only and has a bounded absolute angle', async () => {
@@ -395,6 +399,8 @@ Deno.test('cli: the summary line says what was left unsupported, word for word w
     { braces: 1, tines: 2, supportCheck: 'incomplete', supportFindings: 0 },
     { braces: 1, tines: 2, supportCheck: 'unavailable', supportFindings: 0 },
   ];
+  samples.push({braces:2, anchorLimited:true, unserved:1});
+  assert(reportLine(samples.at(-1)).includes("turn off Line anchors"));
   assert(/1 overhang is too shallow/.test(reportLine(samples[1])), reportLine(samples[1]));
   assert(/one piece isn't joined to the rest: it starts 4\.3 mm up/.test(reportLine(samples[2])), reportLine(samples[2]));
   assert(/it starts 4\.2 mm up/.test(reportLine(samples[4])), reportLine(samples[4]));

@@ -304,3 +304,22 @@ Deno.test('gusset: a turned pose turns the kept normal with it', () => {
   assertClose(d[1], 1, 1e-9, 'y');
   assert(gussetDir(null, IDENTITY, [0, 0, -1]) === null, 'a downward normal is no side');
 });
+
+Deno.test('gusset: Line anchors return a typed contact refusal, without partial geometry or leaked settings', () => {
+  const saved = {...PROP};
+  try {
+    PROP.bottomAnchors = false;
+    const before = build().r;
+    assert(before.ok);
+    PROP.bottomAnchors = true;
+    const refused = build().r;
+    assert(!refused.ok && refused.reason.includes('No safe line anchors'), JSON.stringify(refused));
+    assert(!refused.tris, 'refused gusset retained partial geometry');
+    PROP.bottomAnchors = false;
+    assert(JSON.stringify(build().r.tris) === JSON.stringify(before.tris), 'off geometry changed');
+    PROP.footGap = 0;
+    const zero = build().r;
+    PROP.bottomAnchors = true;
+    assert(JSON.stringify(build().r.tris) === JSON.stringify(zero.tris), 'zero-gap gusset changed');
+  } finally { Object.assign(PROP, saved); }
+});

@@ -97,7 +97,7 @@ export function noProps() {
   return {
     triangles: [], props: [], served: 0, volume: 0,
     skipped: { noLine: 0, wanders: 0, stub: 0, blocked: 0,
-               degenerate: 0, buried: 0, weld: 0, sliver: 0, onPart: 0 },
+               degenerate: 0, buried: 0, weld: 0, sliver: 0, onPart: 0, anchors: 0 },
   };
 }
 
@@ -255,7 +255,7 @@ function buildPass(topo, result, rot, opts, raster) {
   const out = [];
   const props = [];
   const skipped = { noLine: 0, wanders: 0, stub: 0, blocked: 0,
-                    degenerate: 0, buried: 0, weld: 0, sliver: 0, onPart: 0 };
+                    degenerate: 0, buried: 0, weld: 0, sliver: 0, onPart: 0, anchors: 0 };
   // Plate only (#218): every support stands on the plate. A line with part under it
   // (the part-attached path's) is counted (onPart) and handed to the plate path,
   // whose column probes trim the stations over the part and keep any stretch that

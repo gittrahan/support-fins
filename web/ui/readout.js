@@ -239,6 +239,7 @@ function updateDrawReadout(built, ms) {
 
   const lead = [];
   const help = [];
+  if (built.anchorLimited) lead.push(t("Line anchors could not fit some placements. Check the remaining unsupported areas; curved or finely divided floors may need Line anchors turned off."));
   if (!drawnWalls.length && !drawMsg) {
     lead.push(drawShapeNow() === 'gusset'
       ? t('Click a side of the part under an overhang, then the overhang itself, '
@@ -399,6 +400,7 @@ function updateFinReadout(built, ms) {
     help.push(t('The count includes narrow sections and unresolved starts. Rapid growth remains in the detailed report only. Model material below a start does not prove a printable seat. Check extrusion paths and gaps in the slicer.'));
     if (built.printability.context?.basis === 'nozzle-proxy') help.push(t('Section widths use the selected nozzle as a proxy; actual slicer line widths and first-layer settings may differ.'));
   }
+  if (built.anchorLimited) lead.push(t("Line anchors could not fit some placements. Check the remaining unsupported areas; curved or finely divided floors may need Line anchors turned off."));
   if (!n && !drawnOk) {
     // Nothing placed -- the box names the outcome; the why goes in the
     // (i), since it's a paragraph and the user can hover for it.
