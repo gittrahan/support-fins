@@ -17,8 +17,9 @@
  * line-settling passes verbatim.
  */
 import { bodyCut } from './prop/bodycut.js';
+import { seatPartWall } from './prop/foot-seat.js';
 import { arcStations, arcThrough, DRAW_MIN_RADIUS } from './drawarc.js';
-import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor, crestOn, crestPart, trimmedEnds } from './prop.js';
+import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor, crestOn, crestPart, trimmedEnds } from './prop.js';
 
 /**
  * A hand-drawn wall may be much shorter than an auto wall (PROP.minSpan, 7 mm): the user
@@ -271,12 +272,18 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     }
     const mold = floorMax > PROP.gap + 0.5 ? moldLine(topPA, tris) : null;
     const before = out.length;
-    if (mold && sweepBetween(mold.top, mold.floor, out)) {
+    const seated = mold && seatPartWall(mold, tris, opts.layerHeight ?? PROP.tineH, PROP.minHeight, opts.keepClear);
+    if (seated?.blocked) return { ok: false, reason: 'no clear landing for the wall beside this ledge' };
+    if (seated?.ok) {
+      for (const p of seated.triangles) out.push(p);
       const cut = cutRefusal(out.slice(before), topPA);
       if (cut) return cut;
       let height = 0;
       for (let i = 0; i < topPA.length; i++) {
         height = Math.max(height, (topPA[i][2] - PROP.gap) - floor[i][2]);
+      }
+      if (seated.route) for (let i = 0; i < seated.top.length; i++) {
+        height = Math.max(height, seated.top[i][2] - PROP.gap - seated.floor[i][2]);
       }
       // a station whose floor is open air runs down to the plate (floorLine's 0): with
       // no flange there, it is the one that most needs a brace (Isaac's hands)
@@ -321,7 +328,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
     // drawn wall that built before builds exactly the same:
     //   - on the part, with as little as minHeightSquat headroom (a hand just over a thigh);
     //   - on the plate, its low stations a brimmed squat stem, the tall ones the full wall.
-    const squat = squatWall(topPA, line, tris, zBed, !!opts.plateOnly);
+    const squat = squatWall(topPA, line, tris, zBed, !!opts.plateOnly, opts.layerHeight ?? PROP.tineH, opts.keepClear);
     const squatCut = squat && cutRefusal(squat.tris, squat.top);
     if (squatCut) return squatCut;
     if (squat) {
@@ -354,7 +361,7 @@ export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
  * (sweepSquat, what Auto builds near the bed), taller runs keep the flanged wall.
  * A station under minHeightSquat still refuses the whole line. `plateOnly`: the plate only.
  */
-function squatWall(topPA, line, tris, zBed, plateOnly = false) {
+function squatWall(topPA, line, tris, zBed, plateOnly = false, layerHeight = PROP.tineH, keepClear = null) {
   if (!plateOnly && topPA && topPA.length >= PROP.minStations && underAnOverhang(topPA, tris)) {
     const floor = floorLine(topPA, tris);
     // the wall's middle, between its floor and its top, is air (on an upward slope
@@ -363,11 +370,11 @@ function squatWall(topPA, line, tris, zBed, plateOnly = false) {
       (i) => (topPA[i][2] - PROP.gap + floor[i][2] + PROP.footGap) / 2);
     if (midClear && floor.some((p) => p[2] > PROP.gap + 0.5)) {
       const mold = moldLine(topPA, tris);
-      const t = [];
-      if (mold && sweepBetween(mold.top, mold.floor, t, PROP.minHeightSquat)) {
+      const seated = mold && seatPartWall(mold, tris, layerHeight, PROP.minHeightSquat, keepClear);
+      if (seated?.ok) {
         let height = 0;
         for (let i = 0; i < topPA.length; i++) height = Math.max(height, topPA[i][2] - PROP.gap - floor[i][2]);
-        return { tris: t, top: topPA, height, partAttached: true };
+        return { tris: seated.triangles, top: topPA, height, partAttached: true };
       }
     }
   }

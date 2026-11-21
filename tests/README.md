@@ -102,6 +102,13 @@ welded). A wall run under a lip to 0.1 mm short of the end wall: parity probing 
 that station, the outline measurement (`welds`) trims it. A DRAWN wall (Draw, and the
 Full fill pass) trims its ends the same way (`trimmedEnds`) when given the topology.
 
+**`part_ledge.test.js`** -- straight walls whose clearance probes reach a ledge but
+whose actual first layer stands over air (#482). Procedural closed ledges cover
+moving onto the ledge, extending to a lower surface, blocked routes, keep-clear
+volumes, open source sections, nozzle/layer scaling, transforms and no-op parity.
+Cutout bends stay solid; upper contacts, interface tags and turning recipe replay
+are preserved. Native slicing and physical adhesion/removal remain separate gates.
+
 **`small_holes.test.js`** -- automatic placement honours the existing tiny-hole
 coverage exemption: recognised circular bores stay clear in Auto and Full, while
 larger bores and neighbouring overhangs keep their supports. Procedural geometry

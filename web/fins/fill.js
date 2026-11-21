@@ -720,7 +720,7 @@ function fillOnce(topo, result, rot, opts, built) {
   // break apart. Never the flange or joined retries, and no flange band is shared.
   const apart = opts.separateWalls === true, shared = !apart;
   const drawOpts = { under: true, tines: opts.tines ?? true, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
-                     plateOnly, topo, rot, offset: result.offset };
+                     plateOnly, topo, rot, offset: result.offset, keepClear: result.excludedSupportVolumes };
   let tines = 0;
   const floors = [];               // each kept wall's bottom z per station (drawnWall), for the braces
   const dead = new Set();          // points no line could serve
