@@ -36,13 +36,14 @@
 import { ribbon } from '../solids.js';
 import { PROP } from './config.js';
 import { surfaceHitsAt } from './surface.js';
+import { markSupportRole, separateSupportRoles } from '../support-roles.js';
 
 // how far the crest reaches down into the body, so the two overlap: a slicer
 // samples each layer at mid-height, so 0.01 mm of double material never prints
 const CREST_OVERLAP = 0.01;
 
 /** Is the crest on (either mode)? */
-export const crestOn = () => !!PROP.iface && PROP.ifaceLayers > 0;
+export const crestOn = () => ['flat', 'all'].includes(PROP.iface) && PROP.ifaceLayers > 0;
 
 // The seated part the 'flat' test reads the underside from, and the print's layer
 // height: set at each build's entry (buildFins, drawnWall), which hold the part in
@@ -90,7 +91,13 @@ export function emitCrest(sections, out) {
   for (let i = 0; i < sections.length; ) {
     let j = i;
     while (j < sections.length && sections[j]) j++;
-    if (j - i >= 2) ribbon(sections.slice(i, j), out);
+    if (j - i >= 2) {
+      const start = out.length, run = sections.slice(i, j);
+      ribbon(run, out);
+      if (separateSupportRoles()) markSupportRole(out, start, 'interface', { direction: [0, 0, 1], footprint:
+        [...run.map((s) => s[1]), ...run.toReversed().map((s) => s[2])]
+          .map((p) => [p[0], p[1], p[2] + PROP.gap]) });
+    }
     i = j + 1;
   }
   markInterface(out, from);

@@ -117,7 +117,10 @@ export function applyTunables(t = {}) {
   // Not a clearance, but module state with the same Worker problem.
   if (CUTOUT_PATTERNS.includes(t.cutout)) CUT.pattern = t.cutout;
   // So is the interface crest's mode (GitHub #21, prop/crest.js).
-  if ([false, 'flat', 'all'].includes(t.iface)) PROP.iface = t.iface;
+  if ([false, 'flat', 'all', 'tines'].includes(t.iface)) PROP.iface = t.iface;
+  else if (PROP.iface === 'tines') PROP.iface = false;
+  // Opt-in capture must not leak from a browser build into an ordinary caller.
+  PROP.separateTines = t.separateTines === true;
   // And the tine direction (#309): 'vertical' lays resin pins (prop/pins.js).
   // A wall standing on the part welds its foot there too: resin builds the wall from
   // the part outward, so a foot `footGap` off the part would start as a floating island.
@@ -192,15 +195,18 @@ export function inspectFins(topo, result, rot, built, opts) {
   result = { ...result, regions: result.regions.filter((r) => !built.smallHoleMask?.[r.faces[0]]) };
   try {
     const flat = typeof built.triangles[0] === 'number', per = flat ? 9 : 3;
-    const soup = [...built.triangles];
+    // Engine vertices may carry interface colours and material/solid identity.
+    // Sections consume XYZ only; keep the original tagged build for export.
+    const xyz = (p) => p.length > 3 ? p.slice(0, 3) : p;
+    const soup = flat ? [...built.triangles] : built.triangles.map(xyz);
     const pieces = (built.fins ?? []).map((f) => ({ id: String(f.id),
       ranges: f.triRanges.map(([a, b]) => [a / per, b / per]) }));
     const pad = built.padTriangles ?? [];
     if (pad.length) {
       const start = soup.length / per;
       const padFlat = typeof pad[0] === 'number';
-      if (flat === padFlat) for (const p of pad) soup.push(p);
-      else if (flat) for (const p of pad) soup.push(...p);
+      if (flat === padFlat) for (const p of pad) soup.push(flat ? p : xyz(p));
+      else if (flat) for (const p of pad) soup.push(...xyz(p));
       else for (let i = 0; i < pad.length; i += 3) soup.push([pad[i], pad[i + 1], pad[i + 2]]);
       pieces.push({ id: 'pad', ranges: [[start, soup.length / per]] });
     }

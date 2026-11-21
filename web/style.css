@@ -32,6 +32,22 @@ html, body {
 /* Nothing imported yet (ui/plates.js): no view to orbit, no fields to set. */
 body.no-part #viewport canvas { pointer-events: none; }
 
+/* Export status stays above the canvas while the user edits or switches plates. */
+#export-progress {
+  position: fixed;
+  left: 50%; top: calc(var(--topbar-h) + var(--chips-h, 0px) + 12px);
+  transform: translateX(-50%);
+  z-index: 5;
+  max-width: calc(100vw - 32px);
+  padding: 9px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--panel);
+  color: var(--text);
+  text-align: center;
+  pointer-events: none;
+}
+
 /* ---------- long-build spinner ---------- */
 #spinner {
   position: fixed;
