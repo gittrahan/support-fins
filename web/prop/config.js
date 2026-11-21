@@ -53,6 +53,7 @@ export const PROP = {
   // contact; the 0.6 mm (three layers) it was cost two more for no clear gain on a
   // two-line wall top (Matthew, 2026-10-09).
   iface: false,
+  separateTines: false, // optional independently assignable 3MF material parts
   ifaceLayers: 1,
   // 'flat': 10deg keeps a th-wide crest's edge 0.09 mm off the part (under the gap)
   ifaceFlatDeg: 10,

@@ -44,7 +44,7 @@ let redoStack = [];
 const FORM_IDS = ['nozzle', 'thr', 'tines', 'tine-density', 'tine-dir', 'pin-depth', 'layer-height', 'gap', 'side-clearance', 'bottom-gap',
   'bed-pad', 'pad-h', 'pad-gap', 'pad-grip', 'pad-margin', 'sway', 'anchor', 'sway-from',
   'sway-spacing', 'sway-depth', 'sway-cross-height', 'full-brace-depth', 'rounded-feet', 'wall-lines', 'cutout', 'iface', 'coverage', 'plate-only', 'long-walls', 'separate-walls', 'tall-ribs', 'tall-ribs-height', 'curved-walls', 'highlight-small', 'show-islands', 'show-layers',
-  'show-rings', 'nav-preset'];
+  'show-rings', 'nav-preset', 'separate-tines', 'material-format'];
 const readForm = () => Object.fromEntries(FORM_IDS.map((id) => {
   const f = el(id);
   return [id, f.type === 'checkbox' ? f.checked : f.value];

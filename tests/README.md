@@ -24,6 +24,13 @@ coordinates, and zero-turn parity. The CLI turning suites also compare direct
 engine and worker results, conservative fallbacks, plate-neighbor reuse, project
 preservation and resume. Turning is opt-in and has no public browser control.
 
+**`support_materials.test.js`** -- opt-in browser material parts preserve generated
+coordinates, piece ownership and the combined support shape. Covers closed solid
+partitioning, tine/interface overlap priority, contact records, worker parity,
+negative parts, painting and both 3MF layouts (Bambu/Orca components and
+PrusaSlicer 2 volume ranges). Invalid solids and incompatible target metadata
+fail without a partial export. Run this worker-enabled file with `deno test -A`.
+
 **`inside_ray.test.js`** -- `insidePart`'s ray through a shared vertex or edge still
 answers correctly, both ways, and a ray clear of them answers as before. On
 `ball_in_ball.stl` (#450, `fixtures/gen_ball_in_ball.py`) the ball hanging in the cavity
