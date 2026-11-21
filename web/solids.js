@@ -3,6 +3,7 @@
  * cutouts (cutout.js). Pure mesh math: each takes cross-sections or a polygon
  * and pushes outward-wound triangles, as vertex triples, onto `out`.
  */
+import { recordSupportSolid } from './support-roles.js';
 
 /** Inscribed corner arcs of a convex CCW polygon; radii may be per corner. */
 export function roundedPolygon(poly, radius, steps = 8) {
@@ -93,6 +94,7 @@ export function roundedFlange(sections, out) {
  * being called validated. A slicer would read it as a hole rather than a wall.
  */
 export function ribbon(secs, out) {
+  const from = out.length;
   const k = secs[0].length;
   const tri = (a, b, c) => out.push(a, c, b);
   for (let i = 0; i < secs.length - 1; i++) {
@@ -107,6 +109,7 @@ export function ribbon(secs, out) {
     const e = secs[secs.length - 1];
     tri(e[0], e[j], e[j + 1]);
   }
+  recordSupportSolid(out, from);
 }
 
 /**
@@ -117,6 +120,7 @@ export function ribbon(secs, out) {
  * caller below guarantees by construction.
  */
 export function boxExtrude(poly, lo, hi, P, out) {
+  const from = out.length;
   const n = poly.length;
   const vlo = poly.map(([a, b]) => P(a, b, lo));
   const vhi = poly.map(([a, b]) => P(a, b, hi));
@@ -129,12 +133,14 @@ export function boxExtrude(poly, lo, hi, P, out) {
     out.push(vhi[0], vhi[i], vhi[i + 1]);
     out.push(vlo[0], vlo[i + 1], vlo[i]);
   }
+  recordSupportSolid(out, from);
 }
 
 /** boxExtrude with a different (same-size) outline at the top: a tine whose end leans
  *  with the part's surface. Same vertex order and faces as boxExtrude, so a tine is
  *  still one 36-vertex block (tests/_util.js tineBoxes). */
 export function loftExtrude(polyLo, polyHi, lo, hi, P, out) {
+  const from = out.length;
   const n = polyLo.length;
   const vlo = polyLo.map(([a, b]) => P(a, b, lo));
   const vhi = polyHi.map(([a, b]) => P(a, b, hi));
@@ -147,11 +153,13 @@ export function loftExtrude(polyLo, polyHi, lo, hi, P, out) {
     out.push(vhi[0], vhi[i], vhi[i + 1]);
     out.push(vlo[0], vlo[i + 1], vlo[i]);
   }
+  recordSupportSolid(out, from);
 }
 
 /** boxExtrude through a stack of outlines: polys[i] (same vertex count and order) at
  *  zs[i], zs rising. One closed solid -- a resin pin that narrows to its contact tip. */
 export function stackExtrude(polys, zs, P, out) {
+  const from = out.length;
   const n = polys[0].length;
   const rings = polys.map((poly, r) => poly.map(([a, b]) => P(a, b, zs[r])));
   for (let r = 0; r + 1 < rings.length; r++) {
@@ -167,4 +175,5 @@ export function stackExtrude(polys, zs, P, out) {
     out.push(vhi[0], vhi[i], vhi[i + 1]);
     out.push(vlo[0], vlo[i + 1], vlo[i]);
   }
+  recordSupportSolid(out, from);
 }
