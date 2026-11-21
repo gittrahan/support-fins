@@ -161,10 +161,10 @@ export function sweep(line, zBed, out, minH = PROP.minHeight, frame = null) {
  * `minH` is the least headroom a station needs (Draw mode passes minHeightSquat
  * for a squat wall the user asked for by hand; Auto keeps minHeight).
  */
-export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, frame = null) {
+export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, frame = null, solidUntil = null) {
   if (frame) {
     const local = [];
-    if (!sweepBetween(topLine, botLine, local, minH)) return false;
+    if (!sweepBetween(topLine, botLine, local, minH, null, solidUntil)) return false;
     for (const p of frameSweep(local, frame)) out.push(p);
     return true;
   }
@@ -228,7 +228,10 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, frame
       P(+sh, bP), P(+sh, zTopTip), P(+wTop, zTop),
       P(-wTop, zTop), P(-sh, zTopTip), P(-sh, bN),
     ]);
-    st.push({ p, sx, sy, top: zTop, ztip: zTopTip, holeTop: top - taper, tipHalf: wTop, sh, bot: bHi, botTip: zBotTip, taperBot: welded, botN: bN, botP: bP });
+    // A routed foot returns sideways before its first cutout. Combining that
+    // slope with a diagonal cutout web would exceed its printable growth bound.
+    const holeBottom = solidUntil === null ? zBotTip : Math.max(zBotTip, solidUntil);
+    st.push({ p, sx, sy, top: zTop, ztip: zTopTip, holeTop: top - taper, tipHalf: wTop, sh, bot: bHi, botTip: holeBottom, taperBot: welded, botN: bN, botP: bP });
   }
 
   const from = out.length;

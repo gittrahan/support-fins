@@ -295,6 +295,7 @@ function buildPass(topo, result, rot, opts, raster) {
   const capAt = () => globalThis.__TINECAP?.length ?? null;
 
   const pass = { topo, rot, off, opts, step, rowSpan, wantSparse, raster, downhill, traced,
+                 keepClear: result.excludedSupportVolumes,
                  partTris, plateOnly, short, withTines, tineStepEff, tineHeight, capAt,
                  out, props, skipped, served: new Set(), tally,
                  // Per-fin identity, assigned in build order. The id is only used to map a

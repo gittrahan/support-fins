@@ -14,7 +14,7 @@ import { longestRun, welds } from './clearance.js';
 import { PROP } from './config.js';
 import { contourTop, lowerSag, settleTop } from './contact.js';
 import { floorLine, moldLine } from './mold.js';
-import { sweepBetween } from './sweep.js';
+import { seatPartWall } from './foot-seat.js';
 
 // How far below the clicked/probed overhang a settle pass may still pull the top
 // down when looking for a part-attached support. Comfortably covers an overhang's
@@ -136,7 +136,7 @@ export function trimmedEnds(top, floor, topo, rot, offset) {
  * refuses to pierce side walls (clearBetween). A wall inside a bore is built and
  * flagged `inBore` (enclosedColumn).
  */
-export function buildPartAttached(line, partTris, topo, rot, offset, out, captureWall = false) {
+export function buildPartAttached(line, partTris, topo, rot, offset, out, captureWall = false, layerHeight = PROP.tineH, keepClear = null) {
   const top = line.map((p) => [p[0], p[1], p[2]]);
   contourTop(top, partTris, PART_BAND);
   lowerSag(top, partTris, PART_BAND);
@@ -178,7 +178,9 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out, captur
 
   const before = out.length;
   const mold = moldLine(subTop, partTris);
-  if (!sweepBetween(mold.top, mold.floor, out)) { out.length = before; return { floored: 'degenerate' }; }
+  const seated = seatPartWall(mold, partTris, layerHeight, PROP.minHeight, keepClear);
+  if (!seated.ok) return { floored: seated.blocked ? 'blocked' : 'degenerate' };
+  for (const p of seated.triangles) out.push(p);
 
   // In a bore when most of the kept run is walled all round.
   let walled = 0;
@@ -188,6 +190,9 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out, captur
   let height = 0, vol = 0;
   for (let i = 0; i < subTop.length; i++) {
     height = Math.max(height, (subTop[i][2] - PROP.gap) - subFloor[i][2]);
+  }
+  if (seated.route) for (let i = 0; i < seated.top.length; i++) {
+    height = Math.max(height, seated.top[i][2] - PROP.gap - seated.floor[i][2]);
   }
   for (let i = before; i < out.length; i += 3) {
     const a = out[i], b = out[i + 1], c = out[i + 2];
@@ -199,7 +204,8 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out, captur
     prop: {
       span, height, stations: subTop.length, volume: Math.abs(vol),
       partAttached: true, inBore,
-      ...(captureWall ? { turnWall: { top: mold.top, floor: mold.floor, count: out.length - before } } : {}),
+      ...(captureWall ? { turnWall: { top: seated.top, floor: seated.floor, count: out.length - before,
+        ...(seated.route ? { seating: seated.route } : {}) } } : {}),
       line: subTop.map((p) => [p[0], p[1], p[2] - PROP.gap]),
     },
   };

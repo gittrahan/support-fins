@@ -543,6 +543,7 @@ export default {
   "Copy failed": "فشل النسخ",
   "Opens a GitHub issue filled in with this build’s settings and numbers (not your model: attach it there if you can)": "يفتح بلاغًا على GitHub معبّأً بإعدادات هذا البناء وأرقامه (من دون نموذجك: أرفقه هناك إن استطعت)",
   "Copy this build’s settings as JSON: with the model, they rebuild exactly these supports": "انسخ إعدادات هذا البناء بصيغة JSON: مع النموذج تعيد بناء هذه الدعامات نفسها تمامًا",
+  "no clear landing for the wall beside this ledge": "لا توجد قاعدة خالية للجدار بجانب هذه الحافة",
   "too close to the part’s side wall — draw the line a little further from it": "قريب جدًا من الجدار الجانبي للقطعة — ارسم الخط بعيدًا عنه قليلًا",
   "What's new": "ما الجديد",
   "See all releases": "عرض كل الإصدارات",
