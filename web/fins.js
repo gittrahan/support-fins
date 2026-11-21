@@ -195,15 +195,18 @@ export function inspectFins(topo, result, rot, built, opts) {
   result = { ...result, regions: result.regions.filter((r) => !built.smallHoleMask?.[r.faces[0]]) };
   try {
     const flat = typeof built.triangles[0] === 'number', per = flat ? 9 : 3;
-    const soup = [...built.triangles];
+    // Engine vertices may carry interface colours and material/solid identity.
+    // Sections consume XYZ only; keep the original tagged build for export.
+    const xyz = (p) => p.length > 3 ? p.slice(0, 3) : p;
+    const soup = flat ? [...built.triangles] : built.triangles.map(xyz);
     const pieces = (built.fins ?? []).map((f) => ({ id: String(f.id),
       ranges: f.triRanges.map(([a, b]) => [a / per, b / per]) }));
     const pad = built.padTriangles ?? [];
     if (pad.length) {
       const start = soup.length / per;
       const padFlat = typeof pad[0] === 'number';
-      if (flat === padFlat) for (const p of pad) soup.push(p);
-      else if (flat) for (const p of pad) soup.push(...p);
+      if (flat === padFlat) for (const p of pad) soup.push(flat ? p : xyz(p));
+      else if (flat) for (const p of pad) soup.push(...xyz(p));
       else for (let i = 0; i < pad.length; i += 3) soup.push([pad[i], pad[i + 1], pad[i + 2]]);
       pieces.push({ id: 'pad', ranges: [[start, soup.length / per]] });
     }
