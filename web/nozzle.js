@@ -61,6 +61,7 @@ export function applyWallLines(n) {
 
 function rescale() {
   const k = nozzle / NOZZLE_REF, grow = Math.max(1, k), thick = grow * wallLines / 2;
+  PROP.nominalLineWidth = nozzle * 1.05;
   PROP.tip = BASE.tip * k;
   PROP.tineW = BASE.tineW * k;
   SWAY.tineW = BASE.swayTineW * k;

@@ -41,7 +41,7 @@ export function placeLine(lines, li, patch, pass) {
   // no longer a refusal: its wall is built and flagged inBore. Works on a COPY so
   // the plate path's own `line` is untouched.
   const tri0 = out.length;
-  let pa = buildPartAttached(line, partTris, topo, rot, off, out, !!opts.turning);
+  let pa = buildPartAttached(line, partTris, topo, rot, off, out, !!opts.turning, tineHeight, pass.keepClear);
   // (Plate only: undo it and take the plate path, as a bed overhang would)
   if (plateOnly && (pa.ok || pa.floored)) { out.length = tri0; skipped.onPart++; pa = {}; }
   if (pa.ok && patch.smallTube) {

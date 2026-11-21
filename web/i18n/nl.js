@@ -542,6 +542,7 @@ export default {
   "Copy failed": "Kopiëren mislukt",
   "Opens a GitHub issue filled in with this build’s settings and numbers (not your model: attach it there if you can)": "Opent een GitHub-issue, ingevuld met de instellingen en getallen van deze opbouw (niet je model: voeg dat daar toe als je kunt)",
   "Copy this build’s settings as JSON: with the model, they rebuild exactly these supports": "Kopieer de instellingen van deze opbouw als JSON: samen met het model maken ze precies deze steunen opnieuw",
+  "no clear landing for the wall beside this ledge": "geen vrije ondergrond voor de wand naast deze rand",
   "too close to the part’s side wall — draw the line a little further from it": "te dicht bij de zijwand van het onderdeel — teken de lijn iets verder ervandaan",
   "What's new": "Wat is er nieuw",
   "See all releases": "Alle releases bekijken",

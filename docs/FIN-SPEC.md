@@ -174,6 +174,29 @@ checked inside the part. **Not tested on a resin printer.**
   corner placement, 0.3×0.5 horizontal tines, two-fins-opposite, one-STL — is already
   implemented; this chamfer is the only spec feature we intentionally skip.)
 
+- **Landing beside a ledge (#482).** Clearance probes extend beyond a wall's real
+  width. If they hit a ledge while almost all of a straight, gapped wall's actual
+  bottom is over air, `prop/foot-seat.js` searches nearby landings. It prefers the
+  part, then the plate, keeps the bottom's full structural width, and returns to
+  the original upper wall at no more than 45 degrees of lateral growth. The
+  source part, top contact and tines stay in place. Cutouts begin above the bend;
+  combining a sideways bend with their diagonal webs would create a steeper
+  unsupported growth rate. Existing interface tags and turning rebuilds retain
+  the lower route. Automatic routes also keep out of exempt small-hole volumes.
+
+  Already seated, curved and welded walls retain their existing construction.
+  A drop must exceed the existing molded-foot tilt/drop envelope before this
+  correction is considered; continuous steep seats keep that earlier policy.
+  A clearly unsupported straight wall with no validated route is refused using
+  the existing blocked-wall reporting; Draw explains that no clear landing fits.
+  Candidate checks include the complete changed lower solid, side clearance,
+  closed source sections and a nominal first-layer footprint. Browser/shared
+  geometry uses the entered layer height and a nominal 1.05-nozzle line width;
+  it does not know a slicer's custom first-layer height or extrusion settings.
+  Final slicing remains required. Intentional bottom gaps may still produce
+  floating-region warnings. Adhesion, removal and roof bridge direction are not
+  established by these geometric checks.
+
 - **Wall cutouts (optional, off by default).** Issue #34 asked for holes through the
   fins to save filament; Slant3D's fins are solid. The Cutouts setting cuts diamond,
   triangle or arch holes through the middle of *breakaway walls* and *wedges* (`CUT` in
