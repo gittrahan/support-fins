@@ -317,6 +317,26 @@
       "date": "2026-11-20",
       "check": "easy",
       "text": "Orca plugin: re-slicing a part whose fins have not changed reuses them instead of rebuilding (a 59,000-face figure: 3.2 s to 5 ms)."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "clean",
+      "text": "Optional 3MF material parts for support bodies, tines and top interfaces; assign their filaments independently in the slicer."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "clean",
+      "text": "Preserved-project CLI exports can assign separate filament slots to tines and top interfaces, with complete material partitions retained when resuming."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "clean",
+      "text": "Optional preserved-project contact matching follows saved model materials and paint boundaries, with a selected fallback for unresolved regions."
+    },
+    {
+      "date": "2026-11-20",
+      "check": "clean",
+      "text": "Optional browser contact-material matching with explicit filament mapping, fallback, material preview and assigned Bambu/Orca/Prusa 3MF parts."
     }
   ]
 }

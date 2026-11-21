@@ -81,6 +81,7 @@
      worker, hidden the moment it lands, so a quick rebuild never flashes it.
      pointer-events:none lets clicks pass to the canvas, all but its Cancel, which
      turns fins off (ui/settings.js) -- a build on a huge part can run for minutes. -->
+<p id="export-progress" class="note" role="status" aria-live="polite" hidden data-i18n="Preparing support parts…">Preparing support parts…</p>
 <div id="spinner" aria-live="polite"><span class="ring"></span><span id="spinner-label" data-i18n="generating supports…">generating supports…</span>
   <button type="button" class="btn sm" id="spinner-cancel" data-i18n-title title="Stop building and turn fins off." data-i18n="Cancel">Cancel</button></div>
 <!-- A live Full coverage build (ui/livebuild.js): how far along, Stop -- which keeps
@@ -123,6 +124,7 @@
             aria-controls="export-menu" data-i18n="Export ▾">Export&nbsp;▾</button>
     <div class="menu" id="export-menu" role="menu" aria-describedby="export-nofins export-clash" hidden>
       <p class="menu-note" id="export-nofins" hidden></p>
+      <p class="menu-note warn" id="export-error" role="alert" hidden></p>
       <p class="menu-note warn" id="export-clash" hidden data-i18n="Models overlap: the 3MF prints them into each other.">Models overlap: the 3MF prints them into each other.</p>
       <button role="menuitem" id="export-arrange" hidden data-i18n="Arrange first">Arrange first</button>
       <button role="menuitem" id="export-stl"
@@ -325,14 +327,34 @@
          to print in a material that won't bond to the part (PETG under PLA). Flat
          contacts only by default: on a tilted underside the band climbs every layer,
          and PETG wouldn't print on the narrow PLA tip (a 35deg cube). -->
-    <label data-tip-pic="iface" class="fld row" data-i18n-title title="For a printer with two or more toolheads. The top layer of a wall exports as its own part of the supports, shown purple: give it a material that won't bond to the part (PETG under PLA) for a clean release. Flat contacts: only under flat undersides, where it works and costs a few tool changes. Everywhere: every wall top and the tines too, a tool change every layer on a tilted part. 3MF only.">
+    <label data-tip-pic="iface" class="fld row" data-i18n-title title="Flat contacts separates level wall tops; Everywhere separates all wall tops and includes tines unless separated below. Tines only leaves wall tops in the body material. Assign filaments in the slicer. Tilted interfaces may change tools every layer. 3MF only.">
       <span data-i18n="Interface material">Interface material</span>
       <select id="iface">
         <option value="off" data-i18n="Off">Off</option>
         <option value="flat" data-i18n="Flat contacts">Flat contacts</option>
         <option value="all" data-i18n="Everywhere">Everywhere</option>
+        <option value="tines" data-i18n="Tines only">Tines only</option>
       </select>
     </label>
+    <label id="separate-tines-fld" class="fld row" hidden data-i18n-title title="Export support bodies, tines and top interfaces as independently assignable parts of the supports object. Choose their filaments in the slicer. Different-material tines may lose grip; check stability and removal on a test print. 3MF only.">
+      <span data-i18n="Separate tine material">Separate tine material</span>
+      <input type="checkbox" id="separate-tines">
+    </label>
+    <label id="material-format-fld" class="fld row" hidden><span data-i18n="3MF compatibility">3MF compatibility</span>
+      <select id="material-format"><option value="components">Bambu / Orca</option><option value="prusa2">PrusaSlicer 2</option></select>
+    </label>
+    <label class="fld row" id="match-materials-fld"><span data-i18n="Match contact materials">Match contact materials</span><input type="checkbox" id="match-contact-materials"></label>
+    <div id="material-controls" hidden>
+      <p class="note" data-i18n="Map source materials to support filaments. Model painting is unchanged. Match these slot numbers in the slicer; printer and filament presets are not exported.">Map source materials to support filaments. Model painting is unchanged. Match these slot numbers in the slicer; printer and filament presets are not exported.</p>
+      <label class="fld row"><span data-i18n="Body filament">Body filament</span><input type="number" id="material-body" min="1" max="255" step="1" value="1"></label>
+      <label class="fld row"><span data-i18n="Fallback filament">Fallback filament</span><input type="number" id="material-fallback" min="1" max="255" step="1" value=""></label>
+      <input type="hidden" id="material-palette" value=""><input type="hidden" id="material-mapping" value="">
+      <div id="material-palette-rows"></div><button type="button" class="btn" id="material-add" data-i18n="Add filament slot">Add filament slot</button>
+      <div id="material-map-rows"></div>
+      <label class="fld row"><span data-i18n="Preview materials">Preview materials</span><input type="checkbox" id="show-materials"></label>
+      <p id="material-status" class="note" role="status" aria-live="polite"></p>
+      <p class="note" data-i18n="Different materials can reduce grip. Check bonding, stability and removal with a test print.">Different materials can reduce grip. Check bonding, stability and removal with a test print.</p>
+    </div>
   </details>
 
   <div class="sec placement">

@@ -176,6 +176,7 @@ function syncTineGrip() {
   el('tinegrip-fld').hidden = !on;
   el('tinedir-fld').hidden = !on;
   const pins = on && el('tine-dir').value === 'vertical';
+  syncMaterialParts();
   const grip = el('tinegrip-fld');
   gripTip ??= (grip.dataset.origTitle ??= grip.title);
   grip.querySelector('.grip-tines').hidden = pins;
@@ -322,12 +323,26 @@ el('curved-walls').addEventListener('change', () => { syncCoverageUI(); refreshF
 // as a part of the supports in the 3MF -- under flat contacts, or everywhere (tines
 // too). PROP.iface is read fresh by every wall sweep -- the drawn walls here, the
 // auto walls in the Worker via tunables.
-const ifaceMode = () => ({ flat: 'flat', all: 'all' })[el('iface').value] ?? false;
+const ifaceMode = () => ({ flat: 'flat', all: 'all', tines: 'tines' })[el('iface').value] ?? false;
+function syncMaterialParts() {
+  const resin = el('tine-dir').value === 'vertical';
+  const matching = !resin && el('match-contact-materials').checked;
+  el('match-contact-materials').disabled = resin;
+  el('material-controls').hidden = !matching;
+  el('separate-tines-fld').hidden = matching || resin || !['flat', 'all'].includes(el('iface').value);
+  el('iface').querySelector('[value="tines"]').disabled = resin;
+  PROP.separateTines = !resin && (matching || el('separate-tines').checked) && ['flat', 'all'].includes(el('iface').value);
+  PROP.iface = matching ? ifaceMode() || 'flat' : resin && el('iface').value === 'tines' ? false : ifaceMode();
+  if (matching && PROP.iface !== 'tines') PROP.separateTines = true;
+  el('material-format-fld').hidden = resin || !(PROP.iface === 'tines' || PROP.separateTines);
+}
 el('iface').addEventListener('change', () => {
   PROP.iface = ifaceMode();
   syncTineGrip();
   refreshFins();
 });
+el('match-contact-materials').addEventListener('change', () => { syncMaterialParts(); refreshFins(); });
+el('separate-tines').addEventListener('change', () => { syncMaterialParts(); refreshFins(); });
 
 // The grams receipt's filament density: PLA's (../materials.js). The PLA/PETG
 // dropdown is gone -- PETG's wider gap is the Support gap field's to set.
@@ -502,8 +517,8 @@ export function initSettings() {
   syncSway();
   syncTallRibs();
   CUT.pattern = el('cutout').value;   // a reload can keep the browser's last pick
-  PROP.iface = ifaceMode();
   applyTunables(tineDirTunables());   // ...and its last tine direction and pin depth (#309)
+  syncMaterialParts();
   const gap = el('gap').valueAsNumber;   // ...and its last Support gap (wireGap's range)
   if (Number.isFinite(gap)) PROP.gap = Math.min(0.4, Math.max(0.1, gap));
   applyNozzle(Number(el('nozzle').value));   // ...and the widths to the remembered nozzle

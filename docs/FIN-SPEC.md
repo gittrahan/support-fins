@@ -218,6 +218,35 @@ checked inside the part. **Not tested on a resin printer.**
   of the rib), the foot of a wall standing on the part, and a wedge whose contact line
   steps straight up.
 
+  **Independent tine material (optional, FDM only; #428).** `iface: 'tines'`
+  keeps the ordinary wall top and separates only the sideways tines.
+  `separateTines: true` with `flat` or `all` separates body, tines and top
+  interfaces. These settings retain all generated coordinates and piece ranges;
+  the old off/flat/all exports stay unchanged when separation is off. The browser
+  remembers the selection across undo, plate changes and 3MF session reloads.
+  Vertical resin pins retain the old modes.
+
+  Opt-in builds attach shared closed-solid records at vertex index 4, leaving the
+  legacy interface preview flag at index 3. Tine records cover the nub, not its
+  supporting step. Crest and tine records retain print-space contact footprints
+  and directions, without claiming source-face or filament identity. At 3MF export,
+  `support-materials.js` partitions those solids using the vendored Manifold:
+  tines take precedence over top interfaces, then the body. It validates the
+  combined shape and disjoint material volumes against kernel precision, refuses
+  invalid solids without mesh repair, and leaves generation results untouched.
+  A disposable worker handles each model serially; hosts without module workers
+  use the same implementation inline. A failure produces no downloaded file.
+
+  The result is one supports object containing named **support bodies**, **tines**
+  and **top interfaces** parts. **3MF compatibility** chooses component assemblies
+  for Bambu/Orca or named triangle ranges for PrusaSlicer 2, which flattens core
+  assemblies into separate objects. The latter refuses source painting or part
+  settings from another slicer rather than dropping them. Assign their filaments
+  in the slicer and check the per-filament preview: very thin sloping interfaces
+  can produce no extrusion, as with the existing interface geometry. This does not
+  match the model's colours, change grip or prove that dissimilar materials adhere;
+  stability and removal still need a print test. STL remains geometry-only.
+
 ## Bed pad styles — `PAD.style` in `web/fins/pad.js`
 
 The pad goes under a part whose bed contact is under `padMinArea` (60 mm²), which is

@@ -159,9 +159,16 @@ export { SCHEMA as OPTIONS_SCHEMA };
  *              small-hole ceilings left for bridging, painted amber on the site
  *              after generation: a host should show them too, not hide them
  */
-export function computeFins(positions, options = {}) {
+export function computeFins(positions, options = {}, { supportMaterials = false, interfaceMode = false } = {}) {
   const opts = { ...ENGINE_DEFAULTS, ...options };
   const { tunables } = clearances(opts);
+  if (![false, 'flat', 'all'].includes(interfaceMode)) throw new Error('interfaceMode must be false, flat or all');
+  if (supportMaterials && opts.tineDir === 'vertical') throw new Error('separate support materials require horizontal FDM tines');
+  // Internal project-export opt-in; ordinary plugin calls retain their schema.
+  // Reset both fields on every call so a material export cannot affect the next
+  // ordinary build in a shared long-lived context.
+  tunables.iface = supportMaterials ? interfaceMode : false;
+  tunables.separateTines = supportMaterials;
   const { pos, shift } = seatSoup(positions);
   const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   const result = analyze(topo, opts.threshold, IDENTITY3);
@@ -209,6 +216,7 @@ export function computeFins(positions, options = {}) {
     .reduce((n, p) => n + p.ranges.reduce((m, [a, b]) => m + b - a, 0), 0);
   return {
     triangles,
+    ...(supportMaterials ? { supportSolids: [...built.triangles, ...(built.padTriangles ?? [])] } : {}),
     // seated = input + offset  (so the caller maps fins back with input = seated - offset)
     offset,
     pieces,

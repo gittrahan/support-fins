@@ -11,6 +11,7 @@ import { kissEnds } from '../kiss.js';
 import { boxExtrude, loftExtrude } from '../solids.js';
 import { PROP } from './config.js';
 import { crestOn, markInterface } from './crest.js';
+import { markSupportRole, separateSupportRoles } from '../support-roles.js';
 import { nearestFaces } from './nearface.js';
 import { emitPins } from './pins.js';
 
@@ -136,7 +137,7 @@ export function emitTines(line, tris, topo, rot, offset, out, ...rest) {
   const from = out.length;
   // 'vertical' (resin, #309): pins up into the part instead of the horizontal comb
   const n = (PROP.tineDir === 'vertical' ? emitPins : comb)(line, tris, topo, rot, offset, out, ...rest);
-  if (crestOn() && PROP.iface === 'all') markInterface(out, from);
+  if (crestOn() && PROP.iface === 'all' && !separateSupportRoles()) markInterface(out, from);
   return n;
 }
 
@@ -253,7 +254,12 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
                        { half, back: PROP.tineOverlap, reach, contactOffset: PROP.tineContactOffset });
     const ov = -PROP.tineOverlap;
     const outline = (h) => [[ov, -half], [e[h][0], -half], [e[h][1], half], [ov, half]];
+    const from = out.length;
     loftExtrude(outline('bot'), outline('top'), tineBot, tineTop, P, out);
+    if (separateSupportRoles()) markSupportRole(out, from, 'tine', { direction: [dirx, diry, 0], surfaceOffset: PROP.tineContactOffset, footprint: [
+      P(e.bot[0], -half, tineBot), P(e.bot[1], half, tineBot),
+      P(e.top[1], half, tineTop), P(e.top[0], -half, tineTop),
+    ] });
     if (grip && tineBot < grip.z) grip.z = tineBot;
     // WALL STEP. The tine is snapped to the part's layer, the wall top isn't, so
     // the tine can start above the wall: up to half a layer when the gap is one

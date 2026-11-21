@@ -39,6 +39,7 @@ import { clip, lowestHit } from './swayhit.js';
 import { cropForRib } from './swaycrop.js';
 import { columnPatch, partSlab } from './swaycolumn.js';
 import { loftExtrude, ribbon, roundedPolygon } from './solids.js';
+import { markSupportRole, recordSupportSolid, separateSupportRoles } from './support-roles.js';
 
 export const SWAY = {
   // which faces take a brace
@@ -167,6 +168,7 @@ function printTriangles(topo, rot, offset) {
 
 /** Push a closed solid, flipping the winding outward if its signed volume is negative. */
 function pushSolid(local, out) {
+  recordSupportSolid(local);
   let V = 0;
   for (let i = 0; i < local.length; i += 3) {
     const a = local[i], b = local[i + 1], c = local[i + 2];
@@ -513,6 +515,10 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
       const outline = (h) => [[ov, -half], [e[h][0], -half], [e[h][1], half], [ov, half]];
       const local = [];
       loftExtrude(outline('bot'), outline('top'), bot, top, PT, local);
+      if (separateSupportRoles()) markSupportRole(local, 0, 'tine', { direction: [ax, ay, 0], surfaceOffset: S.tineContactOffset, footprint: [
+        PT(e.bot[0], -half, bot), PT(e.bot[1], half, bot),
+        PT(e.top[1], half, top), PT(e.top[0], -half, top),
+      ] });
       // with Interface material on everywhere, a tine prints in the interface
       // filament, tagged the way prop/crest.js tags the walls' (a 4th vertex
       // component, v[3] = 1); not under 'flat', which leaves sideways grip alone

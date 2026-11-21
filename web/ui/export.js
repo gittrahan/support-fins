@@ -1,3 +1,4 @@
+import { browserMaterialOptions, assignedBrowserParts, transformMaterialField } from '../browser-materials.js';
 /**
  * Export: the oriented part plus the fins/pad, as STL or 3MF. A 3MF holds every
  * model of the plate (ui/models.js), each where it stands; an STL, the model being
@@ -7,6 +8,9 @@ import * as THREE from 'three';
 import { writeBinarySTL, download } from '../stl.js';
 import { writePlate3MF } from '../threemf.js';
 import { splitInterface } from '../prop.js';
+import { hasSupportRoles } from '../support-materials.js';
+import { partitionSupportExport } from '../material-worker-client.js';
+import { moveSupportTriangles } from '../support-roles.js';
 import { el } from './dom.js';
 import { t } from './i18n.js';
 import { finMode, finsVisible } from './settings.js';
@@ -81,9 +85,20 @@ function modelGeometry({ mesh, topology, rot, offset, name: partName, added, lay
     extras: slicer.extras.map((e) => ({ kind: e.kind, name: e.name, settings: e.settings, tris: toPrint(e.positions, centre) })),
   } : null;
   // the two settings the slicer must match, carried in the file name (#279)
-  const name = (stem, ext) => exportName(`${base}-${stem}`, ext, { nozzle, layerHeight });
-  return { partTris, finTris, base, name, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
-           session: () => sessionOf(partTris, model) };
+  const savedNozzle = model ? Number(model.form.nozzle ?? nozzle) : nozzle;
+  const name = (stem, ext) => exportName(`${base}-${stem}`, ext, { nozzle: savedNozzle, layerHeight });
+  const capturedSession = sessionOf(partTris, model);
+  const form = model?.form ?? sessionForm();
+  const materialField = transformMaterialField(mesh.geometry.userData.materialField, (p) => toPrint(p, centre)[0]);
+  const materialOptions = form['match-contact-materials'] ? { form: { ...form }, field: materialField } : null;
+  if (capturedSession && materialOptions && materialField) {
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const p of partTris) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); }
+    capturedSession.materialField = transformMaterialField(materialField, (p) => p.map((v, k) => v - (lo[k] + hi[k]) / 2));
+  }
+  return { partTris, finTris, base, name, materialField, materialOptions, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
+           materialFormat: model ? model.form['material-format'] ?? 'components' : el('material-format').value,
+           session: () => capturedSession };
 }
 
 /**
@@ -110,7 +125,9 @@ function placed(g, [x, y]) {
   const at = (tris) => tris.map((p) => { const q = p.slice(); q[0] += x; q[1] += y; return q; });
   const slicer = g.slicer && { ...g.slicer, partTris: at(g.slicer.partTris),
     extras: g.slicer.extras.map((e) => ({ ...e, tris: at(e.tris) })) };
-  return { ...g, partTris: at(g.partTris), finTris: at(g.finTris), slicer };
+  const materialField = transformMaterialField(g.materialField, (p) => [p[0] + x, p[1] + y, p[2]]);
+  const materialOptions = g.materialOptions && { ...g.materialOptions, field: materialField };
+  return { ...g, materialField, materialOptions, partTris: at(g.partTris), finTris: moveSupportTriangles(g.finTris, x, y), slicer };
 }
 
 /** Is every parked model of `plate` (not the one edited) built under its settings? */
@@ -172,15 +189,28 @@ const FORMATS = {
   // (threemf.js writePlate3MF); the session is one model's, so only a plate of one
   // carries it.
   'export-3mf': async (gs) => {
-    const models = gs.map((g) => {
+    // Capture the session before the optional asynchronous partition. The user
+    // can edit the page while WASM loads; this file stays with its snapshot.
+    const session = gs.length === 1 ? gs[0].session() : null, bed = { ...currentVolume() };
+    // Let the progress text paint before WASM initialization or inline fallback.
+    // Geometry, session, placement and bed above already belong to this export.
+    if (gs.some(g => hasSupportRoles(g.finTris))) {
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    }
+    const models = [];
+    for (const g of gs) {
       const { body, iface } = splitInterface(g.finTris);
       const own = g.slicer ?? g;
-      return { partTris: own.partTris, finTris: body, name: g.base, iface, colors: own.colors,
-               extras: g.slicer?.extras ?? [] };
-    });
+      const matching = g.materialOptions && browserMaterialOptions(g.materialOptions.form, g.materialOptions.field);
+      const result = matching ? assignedBrowserParts(await partitionSupportExport(g.finTris, matching), matching.palette)
+        : hasSupportRoles(g.finTris) ? await partitionSupportExport(g.finTris) : null;
+      const materialParts = result?.parts ?? null;
+      if (result?.diagnostics?.length) document.dispatchEvent(new CustomEvent('materialwarning', { detail: { fallback: matching.fallbackMaterial.slice(9) } }));
+      models.push({ partTris: own.partTris, finTris: materialParts ? [] : body, name: g.base,
+        iface: materialParts ? [] : iface, materialParts, materialFormat: g.materialFormat, colors: own.colors, extras: g.slicer?.extras ?? [] });
+    }
     // each where it stands on the plate, the plate's centre the bed's (ui/move.js)
-    return [await writePlate3MF(models, { title: gs[0].base, separate: true, bed: currentVolume(),
-                                    session: gs.length === 1 ? gs[0].session() : null }),
+    return [await writePlate3MF(models, { title: gs[0].base, separate: true, bed, session }),
             plateName(gs, 'fins', '.3mf')];
   },
   // Just the fins + pad (issue #5). One body, so 3MF would add nothing over STL.
@@ -188,6 +218,7 @@ const FORMATS = {
                           plateName(gs, 'fins-only', '.stl')],
 };
 
+let exporting = false;
 const btn = el('export');
 const menu = el('export-menu');
 
@@ -197,7 +228,7 @@ function setOpen(open) {
   if (open) {
     // nothing to write until a part is loaded; no fins-only file without fins; and
     // nothing while a rebuild is out -- the old fins under the new settings' name
-    const ready = !!(part && topology && lastResult) && !buildPending();
+    const ready = !!(part && topology && lastResult) && !buildPending() && !exporting;
     el('export-stl').disabled = el('export-3mf').disabled = !ready;
     // STL and Fins only write the model being edited; 3MF the whole plate, whose
     // parked models' fins count too
@@ -219,28 +250,42 @@ function setOpen(open) {
 }
 
 btn.addEventListener('click', () => setOpen(menu.hidden));
+/** Own the entire user action, including parked builds, partition and serialization.
+ * Export-all stages its files before downloading, so a failure writes nothing. */
+async function runExport(fn, material = true) {
+  if (exporting) return;
+  exporting = true;
+  el('export-error').hidden = true;
+  el('export-progress').hidden = !material;
+  btn.disabled = true;
+  setOpen(false);
+  try { await fn(); }
+  catch (error) {
+    el('export-error').textContent = `${t('Could not export support material parts. No file was written.')} ${t('Turn off Separate tine material and retry. If Interface material is Tines only, choose Off as well.')} ${error.message}`;
+    el('export-error').hidden = false;
+    setOpen(true);
+  } finally {
+    exporting = false;
+    btn.disabled = false;
+    el('export-progress').hidden = true;
+    if (!menu.hidden) setOpen(true);
+  }
+}
 for (const [id, write] of Object.entries(FORMATS)) {
-  el(id).addEventListener('click', async () => {
-    setOpen(false);
-    // an STL is the model being edited, alone and centred (a slicer centres it
-    // anyway); a 3MF of one, that one where it stands on the plate
+  el(id).addEventListener('click', () => runExport(async () => {
     if (id !== 'export-3mf' || currentPlate().models.length === 1) {
       const g = buildExportGeometry();
       if (g) download(...await write([id === 'export-3mf' ? placed(g, liveXY()) : g]));
       return;
     }
-    // the plate's other models are parked, their fins kept to its settings: wait for
-    // any still building, then write them as they stand
-    if (waiting) return;
     const plate = currentPlate();
     const gs = await whileWaiting(async () => {
       const settled = await parkedSettled();
-      // switched away meanwhile: that plate, if its models are current
       if (currentPlate() !== plate) return plateReady(plate) ? plateGeometry(plate) : null;
       return settled ? plateGeometry() : locked(plateGeometryLive);
     });
     if (gs?.length) download(...await write(gs));
-  });
+  }, id === 'export-3mf'));
 }
 
 let waiting = false;     // an export is waiting on parked builds: a second click waits too
@@ -262,10 +307,7 @@ el('export-arrange').addEventListener('click', () => {
   arrange();
 });
 // Every plate, one 3MF each (ui/plates.js); shown only with more than one plate.
-el('export-all').addEventListener('click', () => {
-  setOpen(false);
-  exportAll();
-});
+el('export-all').addEventListener('click', () => runExport(exportAll));
 
 /** `gs` (plateGeometry) as a 3MF, [blob, name], for Export all plates; null when
  *  there is nothing to write. A promise: the file is deflated. */

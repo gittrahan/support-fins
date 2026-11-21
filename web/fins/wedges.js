@@ -12,6 +12,7 @@ import { findWallPatches, patchPoint, patchProbe, zAt } from '../planes.js';
 import { crestKinds, emitCrest, emitTines, flatCrestRing, flatCut, PROP, surfaceHitsAt, surfaceZAt, tineStepFor } from '../prop.js';
 import { seatedPartTris } from './seating.js';
 import { boxExtrude, roundedPolygon } from '../solids.js';
+import { recordSupportSolid } from '../support-roles.js';
 
 /**
  * DRAW mode support: every grippable face in this pose, and a map from any face
@@ -70,6 +71,7 @@ const TH0 = PERP.th;
 
 /** Push a closed solid, flipping winding to outward if its signed volume is negative. */
 function pushSolid(local, out) {
+  recordSupportSolid(local);
   let V = 0;
   for (let i = 0; i < local.length; i += 3) {
     const a = local[i], b = local[i + 1], c = local[i + 2];
