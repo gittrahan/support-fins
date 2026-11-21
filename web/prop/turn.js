@@ -4,7 +4,8 @@
 import { sweep, sweepBetween } from "./sweep.js";
 import { flatRunAxis } from "./bridge.js";
 import { PROP } from "./config.js";
-import { turnFrame } from "./turn-frame.js";
+import { turnFrame, frameSweep } from "./turn-frame.js";
+import { footSeatFrame } from "./foot-seat.js";
 import { insidePart, solidClearance } from "../inside.js";
 import { buildTopology } from "../overhangs.js";
 import { seatedPartTris } from "../fins/seating.js";
@@ -211,6 +212,12 @@ function volume(vs) {
 }
 function build(recipe, frame) {
   const out = [];
+  if (recipe.seating) {
+    if (!sweepBetween(recipe.top, recipe.floor, out, PROP.minHeight, null, recipe.seating.end)) {
+      throw Error("ordinary sweep could not reconstruct seated wall");
+    }
+    return frameSweep(frameSweep(out, footSeatFrame(recipe.seating)), frame);
+  }
   const ok = recipe.floor
     ? sweepBetween(recipe.top, recipe.floor, out, PROP.minHeight, frame)
     : sweep(recipe.top, recipe.bed, out, PROP.minHeightSquat, frame);
@@ -313,6 +320,7 @@ export function turnBuilt(topo, result, rot, built, request) {
         const tips = original.slice(recipe.count),
           base = Math.max(
             PROP.baseH,
+            recipe.seating?.end ?? 0,
             ...(recipe.floor ?? []).map((p) =>
               Math.max(...p.slice(2)) + PROP.footGap
             ),

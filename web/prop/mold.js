@@ -89,6 +89,9 @@ export function floorLine(topLine, tris, margin = 1.0, mold = false) {
  * Returns [zNeg, zPos] for the -w and +w sides (the across-wall `sx` sign).
  */
 const MAX_DROP = 2.75, MAX_HANG = 1.0;
+// The ordinary foot's accepted tilt/drop envelope. A ledge correction must not
+// reclassify those existing sloped feet as a wholly unsupported ledge start.
+export const PART_FOOT_REACH = MAX_DROP + MAX_HANG;
 function sideFloors(f, offs, z, w) {
   let zN = -Infinity, zP = -Infinity;
   offs.forEach((o, k) => {
