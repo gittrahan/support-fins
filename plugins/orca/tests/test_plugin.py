@@ -682,3 +682,123 @@ def test_a_hit_is_much_faster_than_a_miss():
     _, _, hit = _run("staircase")
     assert (miss["fin_cache"], hit["fin_cache"]) == ("miss", "hit")
     assert hit["fin_build_seconds"] * 20 < miss["fin_build_seconds"], (miss["fin_build_seconds"], hit["fin_build_seconds"])
+
+
+# ------------------------------------------------------------------ Orca's own layers (levels)
+def _po(model="cube", trafo=None, lh=0.2, **layers):
+    return fake_orca.FakePrintObject(trimesh.load(MODELS / f"{model}.stl"),
+                                     rot_x(45) if trafo is None else trafo, layer_height=lh, **layers)
+
+
+def _seated_soup(po):
+    soup = SF.posed_part_soup(po)
+    return soup - np.array([po.center_mm[0], po.center_mm[1], soup[:, :, 2].min()])
+
+
+VARIABLE = [0.2, 0.12, 0.08, 0.16, 0.24, 0.28, 0.2]   # a variable layer height profile, repeated
+
+
+def test_orcas_layers_become_the_engines_levels():
+    # uniform layers are the engine's own grid: nothing is sent, as before
+    assert SF.layer_levels(_po(), 0.2) is None
+    assert SF.layer_levels(_po(lh=0.12), 0.12) is None
+    # a 0.3 mm first layer under 0.2 mm layers
+    po = _po(first_layer_height=0.3)
+    lv = SF.layer_levels(po, 0.2)
+    assert lv[:4] == [0.0, 0.3, 0.5, 0.7] and len(lv) == len(po.layers()) + 1
+    assert lv[-1] == round(po.layers()[-1].print_z, 6)
+    # a variable layer height profile, every boundary where Orca slices
+    po = _po(layer_heights=VARIABLE)
+    lv = SF.layer_levels(po, 0.2)
+    assert lv == [0.0] + [round(L.print_z, 6) for L in po.layers()]
+    assert {round(b - a, 6) for a, b in zip(lv, lv[1:])} == set(VARIABLE)
+    # a raft lifts print_z, not the object's layers: the same boundaries from 0
+    assert SF.layer_levels(_po(first_layer_height=0.3, print_z_min=0.62), 0.2) == SF.layer_levels(_po(first_layer_height=0.3), 0.2)
+    assert SF.layer_levels(_po(print_z_min=0.62), 0.2) is None
+
+
+def test_layers_that_do_not_read_as_a_stack_leave_the_grid():
+    from types import SimpleNamespace as L
+    class PO:
+        def __init__(self, layers):
+            self._l = layers
+        def layers(self):
+            return self._l
+    assert SF.layer_levels(PO([]), 0.2) is None
+    assert SF.layer_levels(PO([L(print_z=0.3, height=0.3), L(print_z=0.3, height=0.2)]), 0.2) is None   # no rise
+    assert SF.layer_levels(PO([L(print_z=0.3, height=0.3), L(slice_z=0.4)]), 0.2) is None              # no print_z
+    assert SF.layer_levels(PO([L(print_z="x", height=0.3)]), 0.2) is None
+    log = {}
+    SF.inject_fins(_po(), dict(SF._DEFAULTS), 0.2, 1e-6, log)
+    assert log["levels"] == "grid"
+    class NoPrintZ:   # a binding with no print_z: the grid, and the log says so
+        def __init__(self, layer):
+            self._layer = layer
+        def __getattr__(self, name):
+            if name == "print_z":
+                raise AttributeError(name)
+            return getattr(self._layer, name)
+    po = _po()
+    real = [NoPrintZ(layer) for layer in po.layers()]
+    po.layers = lambda: real
+    log = {}
+    SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6, log)
+    assert log["levels"] == "unread"
+
+
+def test_orcas_layers_reach_the_engine(monkeypatch):
+    seen = []
+    real = SF.host_compute
+    monkeypatch.setattr(SF, "host_compute", lambda ctx, soup, options: (seen.append(options), real(ctx, soup, options))[1])
+    for po in (_po(), _po(first_layer_height=0.3), _po(layer_heights=VARIABLE)):
+        log = {}
+        SF.inject_fins(po, dict(SF._DEFAULTS), 0.2, 1e-6, log)
+        want = SF.layer_levels(po, 0.2)
+        if want is None:   # uniform: the options are what they always were
+            assert "levels" not in seen[-1] and log["levels"] == "grid"
+        else:
+            assert seen[-1]["levels"] == want, log["levels"]
+            assert log["levels"] == SF._levels_note(want)
+    assert log["levels"]["thinnest"] == 0.08 and log["levels"]["thickest"] == 0.28
+
+
+def test_the_config_cannot_set_the_layers():
+    with pytest.raises(ValueError, match="levels"):
+        SF.engine_options(SF._engine_ctx(), {**SF._DEFAULTS, "levels": [0, 0.3]}, 0.2)
+
+
+@pytest.mark.parametrize("model,deg,layers", [
+    ("cube", 45, {"first_layer_height": 0.3}),
+    ("lbracket", 40, {"first_layer_height": 0.28}),
+    ("ramp", 45, {"layer_heights": VARIABLE}),
+])
+def test_fins_on_orcas_layers_land_where_a_finned_stl_would(model, deg, layers):
+    # the oracle: the engine run on the posed part with the same boundaries, sliced by
+    # trimesh at Orca's own layers
+    po = _po(model, rot_x(deg, (31.0, -12.0, 0.0)), **layers)
+    soup = _seated_soup(po)
+    lv = SF.layer_levels(po, 0.2)
+    assert lv is not None
+    fins, stats = SF.compute_fins(soup, 0.2, dict(SF._DEFAULTS), None, lv)
+    grid, _ = SF.compute_fins(soup, 0.2, dict(SF._DEFAULTS))
+    assert stats["tines"] > 0
+    assert fins.shape != grid.shape or not np.allclose(fins, grid), "Orca's layers moved no tine"
+    want = expected_islands(po, fins)
+    res = SF.SupportFinsSlicing().execute(fake_orca.Ctx(po))
+    assert res.status is fake_orca.PluginResult.Success, res
+    worst = max(L.islands().symmetric_difference(w).area / fake_orca.SCALE ** 2 for L, w in zip(po.layers(), want))
+    assert worst < 0.05, f"{res.message}: worst per-layer mismatch {worst:.4f} mm^2"
+
+
+def test_a_first_layer_or_layer_profile_change_misses_the_cache():
+    def run(**layers):
+        log = {}
+        SF.inject_fins(_po(**layers), dict(SF._DEFAULTS), 0.2, 1e-6, log)
+        return log["fin_cache"]
+    assert run() == "miss"
+    assert run(first_layer_height=0.3) == "miss"
+    assert run(first_layer_height=0.3) == "hit"
+    assert run(first_layer_height=0.3, print_z_min=0.62) == "hit"   # a raft under it: the same layers
+    assert run(first_layer_height=0.25) == "miss"
+    assert run(layer_heights=VARIABLE) == "miss"
+    assert run() == "hit"

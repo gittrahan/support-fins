@@ -36,9 +36,11 @@ setting from the tables below by its **JSON key**:
   support off; `"all"` fins every part.
 
 Layer height and nozzle always come from Orca's own settings, so `layerHeight` and
-`nozzle` are refused there. A key the engine doesn't know, or a value out of range,
-fails the slice with a message that names it (`unknown dialog option sway`), rather
-than printing default fins. Older configs' `tine_density` (another name for
+`nozzle` are refused there. The plugin also reads Orca's layers themselves, so a first
+layer of another height, variable layer height and adaptive layer height need no
+setting: each tine fills one of Orca's layers. A key the engine doesn't know, or a
+value out of range, fails the slice with a message that names it (`unknown dialog
+option sway`), rather than printing default fins. Older configs' `tine_density` (another name for
 `tineDensity`, still 0 to 1) and `bed_pad: false` (= `"padStyle": "off"`) still work.
 
 Full coverage, every part:

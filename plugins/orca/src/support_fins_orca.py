@@ -117,15 +117,17 @@ if not ENGINE_JS.startswith("__FINS_ENGINE"):
         pass
 
 
-def compute_fins(soup, layer_height, cfg, nozzle=None):
+def compute_fins(soup, layer_height, cfg, nozzle=None, levels=None):
     """Run the printfins.com engine on a posed part.
 
     soup: (M,3,3) float64 triangles, mm, in whatever frame the caller likes.
     nozzle: the part's nozzle diameter (mm), which sizes the walls and tines; None = 0.4.
+    levels: Orca's layer boundaries for this part (layer_levels), or None for the
+    engine's uniform grid of layer_height.
     Returns (fins (K,3,3) float64 in the SAME frame as `soup`, stats dict).
     """
     ctx = _engine_ctx()
-    return host_compute(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle))
+    return host_compute(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle, levels))
 
 
 # __FINCACHE__ (build.py inlines plugins/orca/src/fincache.py here)
@@ -133,23 +135,23 @@ def compute_fins(soup, layer_height, cfg, nozzle=None):
 _FIN_CACHE = FinCache()
 
 
-def build_fins(soup, layer_height, cfg, nozzle, log):
+def build_fins(soup, layer_height, cfg, nozzle, log, levels=None):
     """compute_fins + the report line, from the cache when this part (anywhere on the
-    plate, same way up) was built with these exact options before.
+    plate, same way up) was built with these exact options (layers included) before.
 
     soup: the part, bottom at z = 0. Returns (fins in soup's frame, stats, report).
     The engine always runs on the part moved to its footprint corner, hit or miss, so a
     hit is byte-identical to a miss for a part left in place. log gets fin_cache = hit / miss."""
     ctx = _engine_ctx()
-    options = engine_options(ctx, cfg, layer_height, nozzle)   # raises on a bad config, as ever
+    options = engine_options(ctx, cfg, layer_height, nozzle, levels)   # raises on a bad config, as ever
     norm, origin = normalize_soup(soup)
     key = fin_cache_key(norm, options, VERSION)
     t0 = time.time()
     hit = _FIN_CACHE.get(key)
     if hit is None:
-        fins, stats = compute_fins(norm, layer_height, cfg, nozzle)
+        fins, stats = compute_fins(norm, layer_height, cfg, nozzle, levels)
         extra = {}
-        report = host_report(stats) + tilt_hint(norm, layer_height, cfg, nozzle, stats, extra)
+        report = host_report(stats) + tilt_hint(norm, layer_height, cfg, nozzle, stats, extra, levels)
         # a tilt hint that failed is not kept: the next slice tries it again
         kept = "tilt_error" not in extra and _FIN_CACHE.put(
             key, {"fins": np.array(fins), "stats": copy.deepcopy(stats), "report": report, "extra": copy.deepcopy(extra)})
@@ -165,19 +167,21 @@ def build_fins(soup, layer_height, cfg, nozzle, log):
     return np.asarray(fins) + origin, stats, report
 
 
-def tilt_hint(soup, layer_height, cfg, nozzle, stats, log):
+def tilt_hint(soup, layer_height, cfg, nozzle, stats, log, levels=None):
     """'; tilting it 40° toward the back (+Y) leaves none of them (Lay on face)' for the
     report when this pose left overhangs too shallow for a fin (#477), else ''.
     Orca can't rotate a part from a plugin, so the hint names the pose for Orca's
     rotate or Lay on face tool. Checking a pose costs a fin build, so it runs only when
-    something was left bare, and a failure here never costs the fins."""
+    something was left bare, and a failure here never costs the fins. Each pose is
+    built with the same options as the fins, Orca's layers included (past the part's
+    top the engine repeats the top layer's height)."""
     unserved = stats.get("unserved") or 0
     if not unserved:
         return ""
     t0 = time.time()
     try:
         ctx = _engine_ctx()
-        hint = host_tilt(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle), unserved,
+        hint = host_tilt(ctx, soup, engine_options(ctx, cfg, layer_height, nozzle, levels), unserved,
                          stats.get("floating") or 0)
     except Exception as e:
         log["tilt_error"] = f"{type(e).__name__}: {e}"
@@ -187,10 +191,12 @@ def tilt_hint(soup, layer_height, cfg, nozzle, stats, log):
     return f"; {tilt_words(hint)} (Lay on face, F)" if hint else ""
 
 
-def engine_options(ctx, cfg, layer_height, nozzle=None):
+def engine_options(ctx, cfg, layer_height, nozzle=None, levels=None):
     """The plugin config -> checked engine options (raises ValueError on a bad key or
     value). Layer height and nozzle are always the slice's own (options.json
-    hostSupplied); a nozzle of None leaves the engine's 0.4."""
+    hostSupplied); a nozzle of None leaves the engine's 0.4. levels, Orca's layer
+    boundaries (layer_levels), go to the engine as they are: they are no dialog
+    setting, so the config can't set them (host_options refuses the key)."""
     values = {k: v for k, v in cfg.items() if k not in _DEFAULTS}
     # hand-written JSON says 1 / 0 (or "1" / "0") for on / off
     for o in host_schema(ctx)["options"]:
@@ -211,7 +217,10 @@ def engine_options(ctx, cfg, layer_height, nozzle=None):
         raise ValueError("nozzle is Orca's own nozzle diameter: remove it from the plugin config")
     if nozzle:
         values["nozzle"] = float(nozzle)
-    return host_options(ctx, values)
+    options = host_options(ctx, values)
+    if levels is not None:
+        options["levels"] = [float(z) for z in levels]
+    return options
 
 
 def _nozzle(print_object, ctx=None):
@@ -240,6 +249,53 @@ def _nozzle(print_object, ctx=None):
         return None
     size = sizes[min(idx, len(sizes) - 1)]
     return size if size > 0 else None
+
+
+def layer_levels(print_object, layer_height):
+    """The z of every layer boundary Orca slices this object on, from 0 at the object's
+    bottom (the frame inject_fins hands the engine), for the engine's `levels`: each
+    tine then fills one of Orca's real layers, whatever the first layer height or a
+    variable or adaptive layer height profile.
+
+    A layer's top is its print_z less the z under the object's first layer (a raft,
+    if any): slice_z is no use here, since Z anti-aliasing moves it off the layer's
+    middle. Rounded to 1e-6 mm, so the float noise of print_z - height doesn't make
+    two boundaries of one. None when the layers are the uniform grid of layer_height
+    from 0 (the engine's own grid gives the same tines, and the fins and the cache key
+    stay what they always were), or when the layers don't read as a rising stack."""
+    bounds = _orca_bounds(print_object)
+    return None if bounds is None or _uniform(bounds, layer_height) else bounds
+
+
+def _orca_bounds(print_object):
+    """Every layer boundary of print_object, from 0 (layer_levels); None when the
+    layers don't read as a rising stack."""
+    try:
+        layers = list(print_object.layers())
+        if not layers:
+            return None
+        base = float(layers[0].print_z) - float(layers[0].height)
+        levels = [0.0] + [round(float(L.print_z) - base, 6) for L in layers]
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if any(not (b > a) for a, b in zip(levels, levels[1:])):
+        return None
+    return levels
+
+
+def _uniform(levels, layer_height):
+    """Whether levels are the uniform grid of layer_height from 0."""
+    h = float(layer_height)
+    return all(abs(z - i * h) < 1e-6 for i, z in enumerate(levels))
+
+
+def _levels_note(levels):
+    """What the log says about the layers the fins were built on."""
+    if levels is None:
+        return "grid"
+    hs = [b - a for a, b in zip(levels, levels[1:])]
+    return {"layers": len(hs), "first": round(hs[0], 6), "thinnest": round(min(hs), 6),
+            "thickest": round(max(hs), 6)}
 
 
 # ---------------------------------------------------------------------------------
@@ -422,7 +478,14 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
         return "no model-part volumes"
     zmin = soup[:, :, 2].min()
     soup = soup - np.array([0.0, 0.0, zmin])       # object bottom at z = 0, like slice_z
-    fins, stats, report = build_fins(soup, layer_height, cfg, nozzle, log)
+    # Orca's own layer boundaries, in that frame: a first layer of another height or a
+    # variable layer height puts them off the uniform grid, and a tine on the grid would
+    # straddle one and print as two thin beads
+    bounds = _orca_bounds(print_object)
+    levels = None if bounds is None or _uniform(bounds, layer_height) else bounds
+    # "unread": the layers didn't read as a stack, so the fins fell back to the grid
+    log["levels"] = "unread" if bounds is None else _levels_note(levels)
+    fins, stats, report = build_fins(soup, layer_height, cfg, nozzle, log, levels)
     if len(fins) == 0:
         # Quality first: no fins can still mean overhangs left bare, so say so.
         bare = stats.get("unserved") or stats.get("floating") or stats.get("smallHoleRegions")
