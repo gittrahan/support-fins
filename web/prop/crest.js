@@ -37,6 +37,7 @@ import { ribbon } from '../solids.js';
 import { PROP } from './config.js';
 import { surfaceHitsAt } from './surface.js';
 import { markSupportRole, separateSupportRoles } from '../support-roles.js';
+import { levelCut, levelsOn } from './levels.js';
 
 // how far the crest reaches down into the body, so the two overlap: a slicer
 // samples each layer at mid-height, so 0.01 mm of double material never prints
@@ -53,6 +54,10 @@ export function crestPart(tris, layerHeight) { part = tris; layerH = layerHeight
 
 /** The crest's height: `PROP.ifaceLayers` whole layers of the print. */
 export const crestH = () => PROP.ifaceLayers * layerH;
+
+// Where the body stops under a wall top: `crestH()` down, or, with the print's own
+// boundaries (prop/levels.js), on the boundary under the crest's layers.
+const cutUnder = (top) => (levelsOn() ? levelCut(top, PROP.ifaceLayers) : top - crestH());
 
 /** Is the part's underside at contact point p (x, y, surface z) flat enough? */
 function flatAt(p) {
@@ -149,7 +154,7 @@ export function splitInterface(tris) {
  */
 export function crestCut(top, ztip, floor, kind, th = PROP.th, tip = PROP.tip) {
   if (!kind) return null;
-  const cut = Math.max(top - crestH(), (floor + top) / 2);
+  const cut = Math.max(cutUnder(top), (floor + top) / 2);
   const cb = cut - CREST_OVERLAP;
   if (kind === 'flat') {
     return { cut, zt: cut, wc: th / 2,
@@ -169,7 +174,7 @@ export function crestCut(top, ztip, floor, kind, th = PROP.th, tip = PROP.tip) {
  * (the same rule as crestCut, the bed as floor), `flatCrestRing` the band from
  * CREST_OVERLAP under that cut to `top`, `half` either side.
  */
-export const flatCut = (top) => Math.max(top - crestH(), top / 2);
+export const flatCut = (top) => Math.max(cutUnder(top), top / 2);
 export function flatCrestRing(P, top, half) {
   const cb = flatCut(top) - CREST_OVERLAP;
   return [P(+half, cb), P(+half, top), P(-half, top), P(-half, cb)];

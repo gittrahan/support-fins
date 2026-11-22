@@ -12,6 +12,7 @@ import { boxExtrude, loftExtrude } from '../solids.js';
 import { PROP } from './config.js';
 import { crestOn, markInterface } from './crest.js';
 import { markSupportRole, separateSupportRoles } from '../support-roles.js';
+import { levelsOn, tineBand } from './levels.js';
 import { nearestFaces } from './nearface.js';
 import { emitPins } from './pins.js';
 
@@ -181,7 +182,8 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
   // tuned 0.2 layer's reach-to-layer ratio; 0.2 and thinner are unchanged. Capped at
   // 0.6's: a host's own layer height (a slicer plugin) can be thicker than the site's
   // field allows, and kissEnds looks out to twice the reach.
-  const reach = PROP.tineReach * Math.min(3, Math.max(1, tineH / PROP.tineH)) + PROP.tineReachTip;
+  const reachFor = (h) => PROP.tineReach * Math.min(3, Math.max(1, h / PROP.tineH)) + PROP.tineReachTip;
+  const reach = reachFor(tineH);
 
   // half the tine's WIDTH across the run -- one nozzle bead (PROP.tineW), NOT the
   // wall thickness. Building it th-wide made a 1mm divot, ~2x Slant3D's spec.
@@ -228,9 +230,17 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
     // layer just offsets every tine by the same sub-layer amount. The probe below
     // still uses the underside level (zMid), so PLACEMENT is unchanged -- only the
     // built box moves onto the grid.
-    const tineTop = Math.round(z / tineH) * tineH;
-    const tineBot = tineTop - tineH;
-    const zMid = z - tineH / 2;
+    //
+    // With the print's own boundaries (prop/levels.js) the same rule runs on them: the
+    // top on the boundary nearest the underside, the bottom on the one before, so the
+    // tine fills one layer of the print whatever its first layer or adaptive profile.
+    const band = levelsOn() ? tineBand(z) : null;
+    const tineTop = band ? band.top : Math.round(z / tineH) * tineH;
+    const tineBot = band ? band.bot : tineTop - tineH;
+    const layerH = band ? tineTop - tineBot : tineH;     // this tine's layer
+    const belowH = band ? band.below : tineH;            // the layer under it
+    const zMid = z - layerH / 2;
+    const reachHere = band ? reachFor(layerH) : reach;
 
     // BITE DIRECTION comes from the PART (which way the nearest face points),
     // never from the wall's run alone: a run-aligned nub lies flat on a leaning
@@ -239,7 +249,7 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
     // nub's full reach to actually land inside the part, or skip it (honest -- no
     // tine gripping air, no tine on a ceiling too shallow to grab sideways).
     const bd = squareToRun(biteDirsAt(topo, rot, offset, x, y, zMid), line, k).find((c) =>
-      insidePart(topo, rot, offset, x + c.x * reach, y + c.y * reach, zMid));
+      insidePart(topo, rot, offset, x + c.x * reachHere, y + c.y * reachHere, zMid));
     if (!bd) return false;
     const dirx = bd.x, diry = bd.y;
 
@@ -251,7 +261,7 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
     // quad in (along, across): from -overlap (into the wall) to where the tine meets
     // the part, its end leaning with the surface between bottom and top (kissEnds).
     const e = kissEnds(topo, rot, offset, x, y, dirx, diry, tineBot, tineTop,
-                       { half, back: PROP.tineOverlap, reach, contactOffset: PROP.tineContactOffset });
+                       { half, back: PROP.tineOverlap, reach: reachHere, contactOffset: PROP.tineContactOffset });
     const ov = -PROP.tineOverlap;
     const outline = (h) => [[ov, -half], [e[h][0], -half], [e[h][1], half], [ov, half]];
     const from = out.length;
@@ -276,11 +286,11 @@ function comb(line, tris, topo, rot, offset, out, stepArg = PROP.tineStep,
     // (tineBot - tineH/2). Under a half-layer lift the print is already joined and
     // the output stays as it was (PLA's whole range); at half a layer or more -- the
     // tie included, a wall top ON the sampled plane -- the step goes in.
-    if (tineBot - wallTop >= tineH / 2 - 1e-6) {
+    if (tineBot - wallTop >= belowH / 2 - 1e-6) {
       const e = STEP_INSET;
       const step = [[-PROP.tineOverlap + e, -half + e], [-e, -half + e],
                     [-e, half - e], [-PROP.tineOverlap + e, half - e]];
-      boxExtrude(step, wallTop - tineH / 2, tineBot + tineH / 2, P, out);
+      boxExtrude(step, wallTop - belowH / 2, tineBot + layerH / 2, P, out);
     }
     // Capture seam: tests set globalThis.__TINECAP to an array, and so does Auto's
     // downhill judge (fins/downhill.js) to read each build's lowest tine.
