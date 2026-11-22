@@ -5,12 +5,13 @@ do not touch the fins: a slicing setting such as xy compensation or slice closin
 radius, a re-slice after a cancel, a modifier added to the object, and the same part
 added again as another object. The fins depend only on the part's shape and
 orientation (not where it stands on the plate), the engine options, the layer height
-and the nozzle, so the same inputs give the same fins.
+(or Orca's layer boundaries, when they are off the uniform grid) and the nozzle, so the
+same inputs give the same fins.
 
 KEY    hash of the part triangles with the footprint's min corner subtracted (a part
        moved in X, Y or Z hits; one turned about Z misses, since fins depend on the
-       X/Y orientation) + the exact engine options (which carry layerHeight and
-       nozzle) + the plugin version.
+       X/Y orientation) + the exact engine options (which carry layerHeight, nozzle
+       and any levels) + the plugin version.
 VALUE  the fins in that corner-origin frame, the engine's stats, the report line and
        the tilt-hint pieces. The caller adds the corner back, on a miss as on a hit.
        The engine runs on the corner-origin part either way, so a part left where it

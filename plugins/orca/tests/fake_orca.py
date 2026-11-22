@@ -190,9 +190,16 @@ class FakeModelObject:
 
 
 class FakePrintObject:
-    """Slices `trimesh_part` (already in OBJECT coords) through `trafo` like Orca."""
+    """Slices `trimesh_part` (already in OBJECT coords) through `trafo` like Orca.
 
-    def __init__(self, trimesh_part, trafo, layer_height=0.2, config=None, name="part"):
+    Layers are `layer_height` thick, or the first `first_layer_height` (Orca's
+    initial_layer_print_height), or, given `layer_heights`, those heights in turn from
+    the bottom (a variable / adaptive layer height profile). `print_z_min` is the z
+    under the object's first layer (Orca's object_print_z_min: a raft), which moves
+    print_z but not slice_z, as in Orca's new_layers()."""
+
+    def __init__(self, trimesh_part, trafo, layer_height=0.2, config=None, name="part",
+                 first_layer_height=None, layer_heights=None, print_z_min=0.0):
         import trimesh
         self._trafo = np.array(trafo, dtype=np.float64)
         self._mo = FakeModelObject([FakeVolume(np.asarray(trimesh_part.vertices),
@@ -209,9 +216,17 @@ class FakePrintObject:
         posed.apply_translation([-self.center_mm[0], -self.center_mm[1], -self.zmin])
         self.posed = posed
         self._layers = []
-        z, h = 0.0, float(layer_height)
+
+        def height(k):
+            if layer_heights:
+                return float(layer_heights[k % len(layer_heights)])
+            if k == 0 and first_layer_height:
+                return float(first_layer_height)
+            return float(layer_height)
+
+        z, h = 0.0, height(0)
         while z + h <= posed.bounds[1][2] + 1e-9:
-            L = Layer(slice_z=z + h / 2, print_z=z + h, height=h)
+            L = Layer(slice_z=z + h / 2, print_z=print_z_min + z + h, height=h)
             sec = posed.section(plane_origin=[0, 0, z + h / 2], plane_normal=[0, 0, 1])
             if sec is not None:
                 planar, to3d = sec.to_2D()
@@ -225,6 +240,7 @@ class FakePrintObject:
             L.make_slices()
             self._layers.append(L)
             z += h
+            h = height(len(self._layers))
 
     @staticmethod
     def _to_xy(pts2d, to3d):

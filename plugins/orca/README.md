@@ -30,6 +30,13 @@ No export, no re-import, no "fins land on the plate" API needed. Rotate the part
 re-slice, and the fins follow. Parts with Orca's **Enable support** on are skipped,
 so the per-object support toggle picks fins vs Orca supports.
 
+Tines sit on Orca's own layers. Each tine is one layer tall so it prints as one bead
+and snaps off clean. When Orca's layers are off the uniform grid of the layer height
+(a first layer of another height, variable layer height, adaptive layer height), the
+plugin passes every layer boundary to the engine as `levels` (from each layer's
+`print_z` and `height`), and each tine fills one of those layers. A uniform stack
+passes none, and its fins are the ones it always got.
+
 ```
 python3 plugins/orca/build.py                   # -> build/support_fins_orca.py (one file, ~110 KB)
 deno test --allow-read tests/ plugins/shared/tests/
@@ -77,7 +84,7 @@ Install and turn on (OrcaSlicer 2.5):
    listed. The full diagnostics still go to `support_fins_log.jsonl` next to the plugin.
 
 Fins are cached in memory for the Orca session: a re-slice of the same part (any spot on
-the plate, same way up) with the same fin settings, layer height and nozzle reuses them
+the plate, same way up) with the same fin settings, layers and nozzle reuses them
 instead of rebuilding. The log line says `fin_cache: hit` or `miss`.
 
 ### Settings (the plugin config)
