@@ -65,6 +65,10 @@ export function createMaterialReader(parts, rootPath) {
   const bambu = xmlSettings(text(parts, 'Metadata/model_settings.config'), 'bambu');
   const prusa = xmlSettings(text(parts, 'Metadata/Slic3r_PE_model.config'), 'prusa');
   const prusa3 = new Map();
+  let orca = false;
+  scanXML(text(parts, rootPath) ?? '', (tag, a) => {
+    if (local(tag) === 'metadata' && a.name === 'OrcaSlicer') orca = true;
+  }, () => {});
   let settings = {}, flavor = bambu.size ? 'bambu' : prusa.size ? 'prusa' : 'core';
   try {
     const json = text(parts, 'Metadata/project_settings.config');
@@ -122,15 +126,53 @@ export function createMaterialReader(parts, rootPath) {
 
   const objects = (table, id) => table.get(String(id)) ?? [];
   const level = (records) => records.flatMap((r) => r.settings);
-  const slotSetting = (levels, keys, inherited = null) => {
+  const slotSetting = (levels, keys, inherited = null, explicitDefault = false) => {
     for (const pairs of levels) {
       const values = pairs.filter(([key]) => keys.includes(key)).map(([, v]) => integer(v));
       if (values.some((n) => n === null)) throw new Error(`invalid ${keys[0]} assignment`);
       const nonzero = [...new Set(values.filter((n) => n > 0))];
       if (nonzero.length > 1) throw new Error(`conflicting ${keys[0]} assignments`);
       if (nonzero.length) return slotId(nonzero[0]);
+      // Bambu's explicit feature Default (0) selects the part filament and
+      // blocks an object/global feature override. Base extruder 0 still inherits.
+      if (explicitDefault && values.length) return inherited;
     }
     return inherited ?? (count === 1 ? slotId(1) : null);
+  };
+  const featureSlot = (levels, keys, base) => {
+    if (orca) {
+      let value = base, overridden = false;
+      for (const pairs of levels.toReversed()) {
+        const selections = pairs.filter(([key]) => keys.includes(key)).map(([key, raw]) => {
+          const n = integer(raw);
+          if (n === null) throw new Error(`invalid ${key} assignment`);
+          return !key.endsWith('_id') && n === 1 ? 0 : n;
+        });
+        if (new Set(selections).size > 1) throw new Error(`conflicting ${keys[0]} assignments`);
+        if (selections.length) {
+          overridden = selections[0] > 0;
+          if (overridden) value = slotId(selections[0]);
+        }
+        const own = pairs.filter(([key]) => key === 'extruder').map(([, raw]) => integer(raw));
+        if (own.some((n) => n === null)) throw new Error('invalid extruder assignment');
+        const positive = [...new Set(own.filter((n) => n > 0))];
+        if (positive.length > 1) throw new Error('conflicting extruder assignments');
+        if (positive.length && !overridden) value = slotId(positive[0]);
+      }
+      return value;
+    }
+    if (flavor !== 'prusa') return slotSetting(levels, keys, base, flavor === 'bambu');
+    // Prusa applies an explicit part/object extruder to all feature roles at
+    // that level, then applies positive feature overrides at the same level.
+    // Thus a part extruder takes precedence over a parent's feature filament.
+    for (const pairs of levels) for (const names of [keys, ['extruder']]) {
+      const values = pairs.filter(([key]) => names.includes(key)).map(([, v]) => integer(v));
+      if (values.some((v) => v === null)) throw new Error(`invalid ${names[0]} assignment`);
+      const positive = [...new Set(values.filter((v) => v > 0))];
+      if (positive.length > 1) throw new Error(`conflicting ${names[0]} assignments`);
+      if (positive.length) return slotId(positive[0]);
+    }
+    return base;
   };
 
   function coreMaterial(component, attrs) {
@@ -171,13 +213,16 @@ export function createMaterialReader(parts, rootPath) {
       const ranges = meshObjects.flatMap((o) => o.parts);
       const invalidRanges = ranges.some((p) => p.first === null || p.last === null
         || p.first > p.last || p.last >= component.source.indices.length / 3);
-      const baseLevels = [level(nativeParts), level(roots), level(meshObjects), Object.entries(settings)];
+      // Bambu/Orca discard a sole volume's extruder on import; its object owns
+      // that assignment. Other part settings, including feature Default, remain.
+      const partLevel = level(nativeParts).filter(([key]) => !(flavor === 'bambu' && components.length === 1 && key === 'extruder'));
+      const baseLevels = [partLevel, level(roots), level(meshObjects), Object.entries(settings)];
       const cache = new Map();
       const faces = Array.from(component.sourceFaces, (sourceFace) => {
         const attrs = component.source.triangleAttributes[sourceFace] ?? {};
         const ownRanges = ranges.filter((p) => p.first !== null && p.last !== null && sourceFace >= p.first && sourceFace <= p.last);
         const levels = [level(ownRanges), ...baseLevels];
-        const key = JSON.stringify([attrs, levels.map((p) => p.filter(([k]) => /extruder|filament$/.test(k)))]);
+        const key = JSON.stringify([attrs, levels.map((p) => p.filter(([k]) => /extruder|filament(?:_id)?$/.test(k)))]);
         let value = cache.get(key);
         if (!value) {
           const problems = [];
@@ -186,9 +231,10 @@ export function createMaterialReader(parts, rootPath) {
           const core = attempt(() => coreMaterial(component, attrs));
           try {
             const roles = {
-              wall: attempt(() => slotSetting(levels, ['wall_filament', 'perimeter_extruder'], base)),
-              infill: attempt(() => slotSetting(levels, ['sparse_infill_filament', 'infill_extruder'], base)),
-              solidInfill: attempt(() => slotSetting(levels, ['solid_infill_filament', 'solid_infill_extruder'], base)),
+              wall: attempt(() => featureSlot(levels, ['wall_filament', 'perimeter_extruder', ...(orca ? ['outer_wall_filament_id', 'outer_wall_filament', 'wall_filament_id'] : [])], base)),
+              infill: attempt(() => featureSlot(levels, ['sparse_infill_filament', 'infill_extruder', ...(orca ? ['sparse_infill_filament_id'] : [])], base)),
+              solidInfill: attempt(() => featureSlot(levels, ['solid_infill_filament', 'solid_infill_extruder', ...(orca ? ['internal_solid_filament_id'] : [])], base)),
+              ...(orca ? { bottomSurface: attempt(() => featureSlot(levels, ['bottom_surface_filament_id', 'bottom_solid_infill_filament'], base)) } : {}),
             };
             const paint = Object.entries(attrs).filter(([name]) => name === 'paint_color' || local(name) === 'mmu_segmentation');
             if (paint.length > 1) throw new Error('conflicting colour-paint channels');

@@ -31,10 +31,18 @@ Face records are shared for repeated identical annotations; treat them as
 read-only. The field's lifetime is the decoded input, with no global mesh cache.
 
 Saved part or Prusa volume assignments override object assignments, then project
-assignments. Zero inherits. A single declared filament slot can supply an
+assignments. Bambu/Orca discard a sole volume's base extruder on import, using the
+object's assignment. Base extruder zero inherits. A single declared filament slot can supply an
 otherwise missing default; multiple slots cannot. Material-role overrides remain
 separate from exterior colour painting: this field describes saved surface
 assignments, not reconstructed interior sliced material volumes.
+
+Feature-role inheritance follows the saved slicer dialect. Bambu's explicit
+feature Default blocks a higher-level feature assignment. Prusa applies a local
+base extruder to feature roles before local positive overrides. Orca's dedicated
+`*_filament_id` selectors distinguish explicit slot 1 from the older selectors'
+default-one spelling; bottom-surface material is retained separately. The native
+controls use Bambu Studio 02.08.04.61, OrcaSlicer 2.5.0 and PrusaSlicer 2.9.7.
 
 Bambu/Orca `paint_color` and Prusa `mmu_segmentation` are decoded as subdivision
 trees, retaining inherited regions and extended slot identities. Their extended
