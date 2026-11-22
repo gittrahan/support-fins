@@ -54,6 +54,7 @@ import { automaticTargets } from './fins/coverage.js';
 import { bends, CURVED } from './prop/curved.js';
 import { applyNozzle, applyWallLines } from './nozzle.js';
 import { supportPrintability } from './fins/printability.js';
+import { firstLayerHeight, levelsOn, withLevels } from './prop/levels.js';
 
 // Moved into web/fins/ (one module per concern); re-exported here so every
 // importer of fins.js is unchanged.
@@ -146,8 +147,17 @@ export function applyTunables(t = {}) {
  *                      seating + bed pad (the site's Draw mode places its own
  *                      walls and braces); any other mode builds 'prop'.
  * @param opts.bedPad   add the pad when bed contact is too small to hold
+ * @param opts.levels   the print's layer boundaries (prop/levels.js): sorted z from
+ *                      0 in the seated frame, for a host that knows how it slices
+ *                      (a slicer plugin). Tines, the crest and the bed pad then sit
+ *                      on those layers instead of the uniform layerHeight grid.
+ *                      Left out (the site): the grid, as before.
  */
 export function buildFins(topo, result, rot, opts = {}) {
+  return withLevels(opts.levels, () => buildFinsLevelled(topo, result, rot, opts));
+}
+
+function buildFinsLevelled(topo, result, rot, opts) {
   // Keep the original analysis for rendering/export callers. Every automatic
   // pass below shares this view; Draw remains an explicit placement decision.
   if (opts.mode !== 'draw') result = automaticTargets(topo, result, rot);
@@ -474,7 +484,8 @@ function buildFinsCore(topo, result, rot, opts = {}) {
   const contact = bedContact(topo, result, rot);
   const seating = seatingOf(result, contact.pts);
   const pad = (opts.bedPad ?? true) && result.bedArea < FIN.padMinArea
-    ? buildPad(contact.pts, seatedPartTris(topo, rot, result.offset), padOut, opts.layerHeight) : null;
+    ? buildPad(contact.pts, seatedPartTris(topo, rot, result.offset), padOut,
+               levelsOn() ? firstLayerHeight() : opts.layerHeight) : null;
   // A part seated on a POINT gets no props -- nothing standing on the plate
   // can hold a part that never touches it -- UNLESS the bed pad is on, in
   // which case the pad is what seats it and the walls have something to work

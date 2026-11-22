@@ -35,6 +35,7 @@ import { insidePart } from './inside.js';
 import { kissEnds } from './kiss.js';
 import { braceCrossRib, BRACE } from './prop/brace.js';
 import { PROP } from './prop/config.js';
+import { levelCell, levelsOn } from './prop/levels.js';
 import { clip, lowestHit } from './swayhit.js';
 import { cropForRib } from './swaycrop.js';
 import { columnPatch, partSlab } from './swaycolumn.js';
@@ -488,10 +489,13 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
       ? Math.max(2 * S.layerH, Math.min(S.spacing, (zEnd - zStart) / (SWAY.minTines - 1)))
       : S.spacing;
     for (let z = zStart; z <= zEnd + 1e-6; z += spacing) {
-      const bot = Math.round(z / S.layerH) * S.layerH;
-      const top = bot + S.layerH;
+      // with the print's own boundaries (prop/levels.js), the layer whose bottom is
+      // nearest z, as the grid's round does
+      const cell = levelsOn() ? levelCell(z) : null;
+      const bot = cell ? cell.bot : Math.round(z / S.layerH) * S.layerH;
+      const top = cell ? cell.top : bot + S.layerH;
       if (top > H) break;
-      const zMid = bot + S.layerH / 2;
+      const zMid = cell ? (bot + top) / 2 : bot + S.layerH / 2;
       const dev = probeAt(zMid);
       if (dev === null) continue;
       const sPart = fr.sOf(patchPoint(p, dev, uc, tAtZ(p, dev, zMid)));
