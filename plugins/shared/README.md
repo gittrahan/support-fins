@@ -127,6 +127,17 @@ two-line walls on every call, resetting any previous nozzle/wall-line state.
 Layer height and support gap remain separate settings. This exposes the existing
 website scaling; it does not add material presets or nozzle-specific calibration.
 
+**Layer boundaries.** A slicer host can pass `levels`: the z of every layer boundary
+its slice uses, sorted, from 0, in the seated frame (the part's lowest point at 0).
+A 0.3 mm first layer under 0.2 mm layers is `[0, 0.3, 0.5, 0.7, ...]`. Each tine then
+fills exactly one of those layers, so a first layer of another height, or adaptive or
+variable layer heights, no longer leave a tine across a layer boundary (two thin
+beads). Sway brace tines, the bed pad's first layer and the interface crest's cut use
+them too. Past the last boundary the top layer's height repeats. Without `levels` the
+engine uses the uniform `layerHeight` grid from the plate, exactly as before.
+`computeFins` takes it; it is not a dialog setting (not in options.json). Orca passes
+its own layers; the other hosts pass none.
+
 **Separate walls.** In Full coverage, `separateWalls` keeps fill walls from crossing
 other walls or sharing their bases, so a resin print doesn't cure them into one block.
 It is `'auto'` (the default), `'on'` or `'off'`. Auto follows the tine direction the

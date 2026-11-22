@@ -51,6 +51,11 @@ export const ENGINE_DEFAULTS = Object.freeze({
   // could not reach the feature at all: the options below are an explicit list,
   // so anything absent from it never arrives at buildFins.
   sway: null,
+  // The print's layer boundaries (web/prop/levels.js): sorted z of every layer
+  // boundary, from 0, in the seated frame (the part's lowest point at 0). A slicer
+  // host passes its own, so tines land on the layers it really prints, whatever its
+  // first layer or adaptive profile. null: the uniform layerHeight grid, as the site.
+  levels: null,
 });
 
 /**
@@ -168,7 +173,7 @@ export function computeFins(positions, options = {}) {
   const offset = { x: result.offset.x - shift.x, y: result.offset.y - shift.y, z: result.offset.z - shift.z };
   const built = buildFins(topo, result, IDENTITY3, {
     mode: opts.mode, bedPad: opts.bedPad && opts.padStyle !== 'off', tines: opts.tines,
-    tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
+    tineDensity: opts.tineDensity, layerHeight: opts.layerHeight, levels: opts.levels,
     // Full coverage aims at every reachable overhang: the slider is Auto's, so Full
     // builds at its default as the site does (ui/finbuild.js finOpts)
     coverage: opts.mode === 'full' ? OPTION.coverage.default : opts.coverage,
