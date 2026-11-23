@@ -87,7 +87,7 @@ function modelGeometry({ mesh, topology, rot, offset, name: partName, added, lay
   const savedNozzle = model ? Number(model.form.nozzle ?? nozzle) : nozzle;
   const name = (stem, ext) => exportName(`${base}-${stem}`, ext, { nozzle: savedNozzle, layerHeight });
   const capturedSession = sessionOf(partTris, model);
-  return { partTris, finTris, base, name, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
+  return { partTris, finTris, base, name, nozzle: savedNozzle, layerHeight, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
            materialFormat: model ? model.form['material-format'] ?? 'components' : el('material-format').value,
            session: () => capturedSession };
 }
@@ -183,14 +183,20 @@ const FORMATS = {
     const session = gs.length === 1 ? gs[0].session() : null, bed = { ...currentVolume() };
     // Let the progress text paint before WASM initialization or inline fallback.
     // Geometry, session, placement and bed above already belong to this export.
-    if (gs.some(g => hasSupportRoles(g.finTris))) {
+    materialExport = gs.some(g => hasSupportRoles(g.finTris));
+    el('export-progress').hidden = !materialExport;
+    if (materialExport) {
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     }
     const models = [];
     for (const g of gs) {
       const { body, iface } = splitInterface(g.finTris);
       const own = g.slicer ?? g;
-      const materialParts = hasSupportRoles(g.finTris) ? (await partitionSupportExport(g.finTris)).parts : null;
+      const partition = hasSupportRoles(g.finTris)
+        ? await partitionSupportExport(g.finTris, { nozzle: g.nozzle, layerHeight: g.layerHeight }) : null;
+      const materialParts = partition?.parts;
+      if (partition?.warnings?.narrowTines) exportWarnings.push(`${g.base}: ${t('Some tine sections are narrower than the selected nozzle or fall between layers. The slicer may omit grip contacts. Check every tine material in preview before printing.')}`);
+      else if (partition?.warnings?.status === 'incomplete') exportWarnings.push(`${g.base}: ${t('Tine printability could not be checked. Inspect every tine material in slicer preview before printing.')}`);
       models.push({ partTris: own.partTris, finTris: materialParts ? [] : body, name: g.base,
         iface: materialParts ? [] : iface, materialParts, materialFormat: g.materialFormat, colors: own.colors, extras: g.slicer?.extras ?? [] });
     }
@@ -237,16 +243,27 @@ function setOpen(open) {
 btn.addEventListener('click', () => setOpen(menu.hidden));
 /** Own the entire user action, including parked builds, partition and serialization.
  * Export-all stages its files before downloading, so a failure writes nothing. */
-async function runExport(fn, material = true) {
+let materialExport = false, exportWarnings = [];
+async function runExport(fn) {
   if (exporting) return;
   exporting = true;
   el('export-error').hidden = true;
-  el('export-progress').hidden = !material;
+  el('export-warning').hidden = true;
+  exportWarnings = [];
+  materialExport = false;
+  el('export-progress').hidden = true;
   btn.disabled = true;
   setOpen(false);
-  try { await fn(); }
+  try {
+    await fn();
+    el('export-warning').textContent = exportWarnings.join(' ');
+    el('export-warning').hidden = !exportWarnings.length;
+  }
   catch (error) {
-    el('export-error').textContent = `${t('Could not export support material parts. No file was written.')} ${t('Turn off Separate tine material and retry. If Interface material is Tines only, choose Off as well.')} ${error.message}`;
+    const message = materialExport
+      ? `${t('Could not export support material parts. No file was written.')} ${t('Turn off Separate tine material and retry. If Interface material is Tines only, choose Off as well.')}`
+      : t('Could not export. No file was written.');
+    el('export-error').textContent = `${message} ${error.message}`;
     el('export-error').hidden = false;
     setOpen(true);
   } finally {
@@ -270,7 +287,7 @@ for (const [id, write] of Object.entries(FORMATS)) {
       return settled ? plateGeometry() : locked(plateGeometryLive);
     });
     if (gs?.length) download(...await write(gs));
-  }, id === 'export-3mf'));
+  }));
 }
 
 let waiting = false;     // an export is waiting on parked builds: a second click waits too

@@ -217,6 +217,25 @@ Deno.test('material parts: resin and ordinary calls do not retain FDM role recor
   assert(!off.triangles.some((p) => p[4]), 'ordinary build retained role records');
 });
 
+Deno.test('material parts: partial clearances preserve separation while ordinary builds reset capture', () => {
+  for (const iface of ['tines', 'flat', 'all']) {
+    fins.applyTunables({ iface, separateTines: true });
+    fins.applyTunables({ sideClearance: .5, bottomGap: .3, tineDir: 'horizontal' });
+    assert(prop.PROP.iface === iface && prop.PROP.separateTines, 'partial update cleared material choices');
+    const topo = loadModel('cube'), rot = rotX(35);
+    const built = fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode: 'auto', bedPad: false,
+      tunables: { iface: prop.PROP.iface, separateTines: prop.PROP.separateTines } });
+    assert(hasSupportRoles(built.triangles), 'next build lost material records');
+    const ordinary = fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode: 'auto', tunables: { iface: false } });
+    assert(!hasSupportRoles(ordinary.triangles), 'independent build inherited capture');
+  }
+  fins.applyTunables({ iface: 'tines', separateTines: true });
+  const topo = loadModel('cube'), rot = rotX(35);
+  const built = fins.buildFins(topo, analyze(topo, 45, rot), rot, { mode: 'auto' });
+  assert(!hasSupportRoles(built.triangles) && prop.PROP.iface === false, 'omitted build options inherited opt-in');
+  fins.applyTunables({ sideClearance: .35, bottomGap: .2 });
+});
+
 Deno.test('material parts: disposable worker agrees with inline and rejects invalid geometry', async () => {
   const triangles = overlappingRoles();
   equal(await partitionSupportExport(triangles), await partitionSupportMaterials(triangles), 'worker output differs');
@@ -247,7 +266,7 @@ Deno.test('material parts: five translations cover controls, warnings and export
   const html = await Deno.readTextFile(new URL('../web/index.html', import.meta.url));
   const tip = html.match(/<label data-tip-pic="iface"[^>]*title="([^"]+)"/)[1];
   const separate = html.match(/<label id="separate-tines-fld"[^>]*title="([^"]+)"/)[1];
-  const keys = ['Preparing support parts…', 'Turn off Separate tine material and retry. If Interface material is Tines only, choose Off as well.', '3MF compatibility', 'Tines only', 'Separate tine material', tip, separate,
+  const keys = ["Some tine sections are narrower than the selected nozzle or fall between layers. The slicer may omit grip contacts. Check every tine material in preview before printing.", "Tine printability could not be checked. Inspect every tine material in slicer preview before printing.", 'Could not export. No file was written.', 'Preparing support parts…', 'Turn off Separate tine material and retry. If Interface material is Tines only, choose Off as well.', '3MF compatibility', 'Tines only', 'Separate tine material', tip, separate,
     'Could not export support material parts. No file was written.', 'No tines to separate in this build.',
     '3MF exports tines as their own material part. Assign filaments in the slicer; different-material tines may lose grip.'];
   for (const lang of ['de', 'nl', 'pt', 'zh', 'ar']) {

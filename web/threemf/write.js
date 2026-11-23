@@ -200,6 +200,34 @@ function splitAt(tris, cut) {
   return [kept, off];
 }
 
+const ROLE_NAMES = { body: 'support bodies', tine: 'tines', interface: 'top interfaces' };
+
+/** Partition whole triangles and their validated topology in lockstep. */
+function splitMaterialAt(part, cut) {
+  const sides = [0, 1].map(() => ({ ...part, triangles: [], ...(part.vertexIds ? { vertexIds: [] } : {}) }));
+  for (let i = 0; i < part.triangles.length; i += 3) {
+    const tris = part.triangles.slice(i, i + 3);
+    const side = sides[Math.min(...tris.map(p => p[2])) >= cut ? 1 : 0];
+    side.triangles.push(...tris);
+    if (part.vertexIds) side.vertexIds.push(...part.vertexIds.slice(i, i + 3));
+  }
+  return sides;
+}
+
+function negativesReach(extras, triangles) {
+  const box = (tris) => {
+    const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+    for (const p of tris) for (let k = 0; k < 3; k++) { b[k] = Math.min(b[k], p[k]); b[k + 3] = Math.max(b[k + 3], p[k]); }
+    return b;
+  };
+  const moved = box(triangles);
+  return extras.some(e => {
+    if (e.kind !== 'negative' || !e.tris?.length) return false;
+    const b = box(e.tris);
+    return [0, 1, 2].every(k => b[k] <= moved[k + 3] && moved[k] <= b[k + 3]);
+  });
+}
+
 // Where a SEPARATE export opens: two objects keep their 3MF positions (a single one
 // gets centred by the slicer), and print space is centred on the origin, so the pair
 // would sit half off the bed. Shift both by one transform: the footprint's centre to
@@ -242,6 +270,38 @@ function modelXML(models, title, separate, bed) {
       throw new Error('support material parts cannot replace additional support triangles');
     }
     let extras = m.extras ?? [];
+    let materialParts = m.materialParts ?? [];
+    if (materialParts.length) {
+      // Validate before regrouping, including the all-on-part case.
+      if (!separate) throw new Error('support material parts require separate-object 3MF export');
+      if (m.materialFormat !== undefined && !['components', 'prusa2'].includes(m.materialFormat)) throw new Error('unknown support material format');
+      const roles = new Set();
+      for (const part of materialParts) {
+        if (!Object.hasOwn(ROLE_NAMES, part.role) || roles.has(part.role) || !part.triangles?.length) throw new Error('invalid support material parts');
+        validateVertexIds(part.triangles, part.vertexIds);
+        roles.add(part.role);
+      }
+      if (m.materialFormat === 'prusa2') {
+        if (m.extras?.some((e) => !e.settings?.prusa2)) throw new Error('PrusaSlicer 2 export cannot preserve another slicer’s part settings');
+        if (m.colors?.paint.some((p) => !p.name.startsWith('slic3rpe:'))) throw new Error('PrusaSlicer 2 export cannot preserve another slicer’s painting');
+      }
+      let cut = strandedFrom(...materialParts.map(p => p.triangles));
+      if (cut !== Infinity) {
+        let split = materialParts.map(p => splitMaterialAt(p, cut));
+        if (!split.some(([p]) => p.role === 'body' && p.triangles.length)) {
+          cut = -Infinity; split = materialParts.map(p => splitMaterialAt(p, cut));
+        }
+        const moved = split.flatMap(([, p]) => p.triangles);
+        if (!negativesReach(extras, moved)) {
+          materialParts = split.map(([p]) => p).filter(p => p.triangles.length);
+          extras = [...extras, ...split.map(([, p]) => p).filter(p => p.triangles.length).map(p => ({
+            kind: 'part', name: `${m.name} ${ROLE_NAMES[p.role]} supports on part`, tris: p.triangles,
+            precise: true, vertexIds: p.vertexIds,
+            ...(m.materialFormat === 'prusa2' ? { settings: { prusa2: [] } } : {}),
+          }))];
+        }
+      }
+    }
     if (separate) {
       // supports the slicer would refuse as an object of their own join the part
       // (strandedFrom); a supports object left with only crest goes whole
@@ -252,14 +312,7 @@ function modelXML(models, title, separate, bed) {
       // ...unless a negative part of the object reaches them: it cuts every part of the
       // object, so walls built in its hole would be cut away. They stay apart (the slicer
       // may refuse the supports object, as before, but no wall is lost)
-      const box = (tris) => {
-        const b = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
-        for (const p of tris) for (let k = 0; k < 3; k++) { b[k] = Math.min(b[k], p[k]); b[k + 3] = Math.max(b[k + 3], p[k]); }
-        return b;
-      };
-      const cuts = (a, b) => [0, 1, 2].every((k) => a[k] <= b[k + 3] && b[k] <= a[k + 3]);
-      const moved = box([...onPart, ...crestOn]);
-      const negative = extras.some((e) => e.kind === 'negative' && e.tris?.length && cuts(box(e.tris), moved));
+      const negative = negativesReach(extras, [...onPart, ...crestOn]);
       if ((onPart.length || crestOn.length) && !negative) {
         finTris = body; iface = crest;
         extras = [...extras,
@@ -284,18 +337,11 @@ function modelXML(models, title, separate, bed) {
     // is just more of the supports
     if (iface.length && !separate) finTris = [...finTris, ...iface];
 
-    if (m.materialParts?.length) {
-      if (!separate) throw new Error('support material parts require separate-object 3MF export');
-      if (m.materialFormat !== undefined && !['components', 'prusa2'].includes(m.materialFormat)) throw new Error('unknown support material format');
-      const roles = new Set(), components = [], volumes = [], triangles = [], vertexIds = [];
+    if (materialParts.length) {
+      const components = [], volumes = [], triangles = [], vertexIds = [];
       let vertexOffset = 0;
-      for (const part of m.materialParts) {
-        if (!['body', 'tine', 'interface'].includes(part.role) || roles.has(part.role) || !part.triangles?.length) {
-          throw new Error('invalid support material parts');
-        }
-        validateVertexIds(part.triangles, part.vertexIds);
-        roles.add(part.role);
-        const label = `${m.name} ${{ body: 'support bodies', tine: 'tines', interface: 'top interfaces' }[part.role]}`;
+      for (const part of materialParts) {
+        const label = `${m.name} ${ROLE_NAMES[part.role]}`;
         if (m.materialFormat === 'prusa2') {
           const first = triangles.length / 3;
           for (const p of part.triangles) triangles.push(p);
@@ -318,8 +364,6 @@ function modelXML(models, title, separate, bed) {
       if (m.materialFormat === 'prusa2') {
         // PrusaSlicer 2 flattens core component assemblies into separate objects.
         // Its named triangle ranges keep every upper material with its support.
-        if (m.extras?.some((e) => !e.settings?.prusa2)) throw new Error('PrusaSlicer 2 export cannot preserve another slicer’s part settings');
-        if (m.colors?.paint.some((p) => !p.name.startsWith('slic3rpe:'))) throw new Error('PrusaSlicer 2 export cannot preserve another slicer’s painting');
         const kept = [], mesh = meshXML(triangles, null, kept, { precise: true, vertexIds });
         const ranges = volumes.map((v) => {
           const first = kept.findIndex((i) => i >= v.first), end = kept.findIndex((i) => i >= v.end);
@@ -494,10 +538,27 @@ function extrasXML(partTris, extras, title, col, base = 0) {
   const settingsOf = (e, from) => e.settings?.[from] ?? null;
   if (extras.some((e) => e.settings?.prusa2)) {
     const kept = [];
-    const all = [...partTris];
+    let all = [...partTris];
     const ends = [partTris.length / 3];
-    for (const e of extras) { all.push(...e.tris); ends.push(all.length / 3); }
-    const mesh = meshXML(all, (i) => (i < ends[0] && col.triAttrs ? col.triAttrs(i) : ''), kept);
+    for (const e of extras) { for (const p of e.tris) all.push(p); ends.push(all.length / 3); }
+    let meshOptions;
+    if (extras.some(e => e.precise)) {
+      const vertexIds = [], precise = [];
+      let next = 0;
+      for (const e of [{ tris: partTris }, ...extras]) {
+        validateVertexIds(e.tris, e.vertexIds);
+        const local = new Map();
+        for (let i = 0; i < e.tris.length; i++) {
+          const p = e.tris[i], key = e.vertexIds ? e.vertexIds[i] : p.slice(0, 3).join(',');
+          if (!local.has(key)) local.set(key, next++);
+          vertexIds.push(local.get(key));
+          precise.push(e.precise ? p : p.slice(0, 3).map(v => Number(fmt(v))));
+        }
+      }
+      all = precise;
+      meshOptions = { precise: true, vertexIds };
+    }
+    const mesh = meshXML(all, (i) => (i < ends[0] && col.triAttrs ? col.triAttrs(i) : ''), kept, meshOptions);
     // the ranges are of the triangles WRITTEN (meshXML drops degenerate ones)
     const firsts = ends.map((end) => kept.findIndex((t) => t >= end)).map((i) => (i < 0 ? kept.length : i));
     const vols = [{ kind: null, name: title, settings: [] }, ...extras].map((e, k) => {
@@ -518,7 +579,7 @@ function extrasXML(partTris, extras, title, col, base = 0) {
   const ids = extras.map((_, k) => base + MATERIALS_ID + 1 + k);
   const root = base + MATERIALS_ID + 1 + extras.length;
   const objects = extras.map((e, k) =>
-    `<object id="${ids[k]}" type="model" name="${esc(e.name || e.kind)}">${meshXML(e.tris)}</object>`);
+    `<object id="${ids[k]}" type="model" name="${esc(e.name || e.kind)}">${meshXML(e.tris, null, null, { precise: e.precise, vertexIds: e.vertexIds })}</object>`);
   objects.push(`<object id="${root}" type="model" name="${name}"><components><component objectid="${base + 1}"/>` +
     ids.map((id) => `<component objectid="${id}"/>`).join('') + '</components></object>');
   const bambu = `<object id="${root}">${metaXML([['name', title]])}` +

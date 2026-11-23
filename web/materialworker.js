@@ -1,6 +1,11 @@
 // Disposable export worker: no project, mesh or WASM resources survive a file.
 import { partitionSupportMaterials } from './support-materials.js';
+import { supportMaterialWarnings } from './support-material-warnings.js';
 self.onmessage = async ({ data }) => {
-  try { self.postMessage({ result: await partitionSupportMaterials(data.triangles) }); }
+  try {
+    const result = await partitionSupportMaterials(data.triangles);
+    if (data.settings) result.warnings = supportMaterialWarnings(result.parts, data.settings);
+    self.postMessage({ result });
+  }
   catch (error) { self.postMessage({ error: error.message }); }
 };

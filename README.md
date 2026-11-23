@@ -35,9 +35,11 @@ For independently assignable support materials, choose **Interface material →
 Tines only**, or enable **Separate tine material** with **Flat contacts** or
 **Everywhere**. Choose **3MF compatibility** for Bambu/Orca or PrusaSlicer 2, then
 export as 3MF and assign filaments to the named support bodies, tines and top
-interfaces in your slicer. They remain parts of one support object,
-so the upper parts stay registered with their base. This FDM option is off by
-default; STL cannot retain material parts. A different-material tine may lose
+interfaces in your slicer. They remain parts of one support object. Elevated
+groups or groups above an empty layer join the model as named **supports on
+part**, retaining their material roles and placement. As with ordinary export,
+this regrouping is avoided if a negative part would cut those supports away.
+This FDM option is off by default; STL cannot retain material parts. A different-material tine may lose
 grip: check stability and removal on a test print. Source-colour matching is not
 automatic.
 
@@ -47,6 +49,12 @@ parts. Geometric adjacency does not prove that different polymers will bond or
 retain useful grip. During 3MF export, **Preparing support parts…** remains visible
 while the parts are computed. If partitioning fails, no file is downloaded; turn
 off **Separate tine material** and also leave **Tines only** mode before retrying.
+Export warns when tine sections are narrower than the selected nozzle or fall
+between the selected layer planes. This is an advisory check, using the nozzle
+as a width proxy and equal first/subsequent layers, not a slicer simulation.
+Inspect actual tine-material extrusion in preview: Classic walls can omit
+contacts that Arachne or finer layers retain. Export never thickens or drops
+tines to hide this limitation. An incomplete check is reported explicitly.
 
 **Why you pick the rotation, not the software:** "stronger" means nothing without a load
 direction, and the geometry doesn't contain one. Turn a solver fully loose and it'll hand

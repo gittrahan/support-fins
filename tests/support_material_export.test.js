@@ -1,6 +1,6 @@
 import { assert, analyze, buildTopology, fins, rotX, block } from './_util.js';
 import { partitionSupportMaterials } from '../web/support-materials.js';
-import { writePlate3MF, scanXML } from '../web/threemf.js';
+import { writePlate3MF, readThreeMF, scanXML } from '../web/threemf.js';
 import { unzip } from '../web/zip.js';
 import { MATERIAL } from '../web/materials.js';
 
@@ -58,6 +58,72 @@ Deno.test('material export: mixed plate retains stranded grouping and distinct m
   }
 });
 
+for (const materialFormat of ['components', 'prusa2']) for (const elevated of [true, false]) {
+  Deno.test(`material export: ${materialFormat} regroups ${elevated ? 'elevated' : 'upper'} roles without changing meshes`, async () => {
+    const source = triples(block(0, 10, 0, 10, 0, 20));
+    const make = (role, bounds) => {
+      const triangles = triples(block(...bounds)), ids = new Map();
+      const vertexIds = triangles.map(p => {
+        const key = p.join(','); if (!ids.has(key)) ids.set(key, ids.size);
+        return ids.get(key);
+      });
+      return { role, triangles, vertexIds };
+    };
+    const parts = [make('body', [12, 13, 0, 4, 12, 15]),
+      make('tine', [11, 12, 0, 4, 14, 15]), make('interface', [12, 13, 0, 4, 15, 15.2])];
+    if (!elevated) {
+      const low = make('body', [12, 13, 0, 4, 0, 5]);
+      parts[0].triangles.push(...low.triangles);
+      parts[0].vertexIds.push(...low.vertexIds.map(v => v + 8));
+    }
+    const before = JSON.stringify(parts);
+    const blob = await writePlate3MF([{ name: 'grouped', partTris: source, finTris: [], materialParts: parts, materialFormat }], { separate: true });
+    const bytes = new Uint8Array(await blob.arrayBuffer()), files = await unzip(bytes);
+    const xml = new TextDecoder().decode(files.get('3D/3dmodel.model'));
+    const objects = new Map(), items = []; let current;
+    scanXML(xml, (tag, a) => {
+      if (tag === 'object') { assert(!objects.has(a.id)); current = { name: a.name, components: [] }; objects.set(a.id, current); }
+      if (tag === 'component') current.components.push(a.objectid);
+      if (tag === 'item') items.push(a.objectid);
+    }, () => {});
+    assert(items.length === (elevated ? 1 : 2), 'stranded supports remained a build object');
+    const config = new TextDecoder().decode(files.get(materialFormat === 'prusa2' ? 'Metadata/Slic3r_PE_model.config' : 'Metadata/model_settings.config'));
+    for (const name of ['support bodies', 'tines', 'top interfaces']) assert(config.includes(`grouped ${name} supports on part`), 'regrouping lost role names');
+    for (const object of objects.values()) for (const id of object.components) assert(objects.has(id), 'dangling component');
+    const meshes = writtenMeshes(xml);
+    for (const mesh of meshes) assertClosed(mesh.faces.map(f => f.map(i => mesh.vertices[i])), mesh.faces);
+    const faces = meshes.flatMap(mesh => mesh.faces.map(f => f.map(i => mesh.vertices[i]).flat().join(','))).sort();
+    const expected = expectedFaces([...source, ...parts.flatMap(p => p.triangles)]).map(f => f.flat().join(',')).sort();
+    assert(JSON.stringify(faces) === JSON.stringify(expected), 'regrouping changed coordinates or triangles');
+    const read = await readThreeMF(bytes);
+    assert(read.objects[0].positions.length === source.length * 3, 'reimport treated support roles as model geometry');
+    assert(JSON.stringify(parts) === before, 'regrouping mutated validated inputs');
+  });
+}
+
+Deno.test('material export: a plate-level tine alone does not strand the upper support body', async () => {
+  for (const materialFormat of ['components', 'prusa2']) {
+    const blob = await writePlate3MF([{ name: 'tine-base', partTris: triples(block(0, 10, 0, 10, 0, 20)), finTris: [], materialFormat,
+      materialParts: [{ role: 'body', triangles: triples(block(12, 13, 0, 4, 12, 15)) },
+        { role: 'tine', triangles: triples(block(12, 13, 0, 1, 0, 1)) }] }], { separate: true });
+    const xml = new TextDecoder().decode((await unzip(new Uint8Array(await blob.arrayBuffer()))).get('3D/3dmodel.model'));
+    assert((xml.match(/<item /g) ?? []).length === 1, 'left a tine-only supports object');
+  }
+});
+
+Deno.test('material export: intersecting cutters keep material supports separate', async () => {
+  for (const materialFormat of ['components', 'prusa2']) {
+    const source = triples(block(0, 10, 0, 10, 0, 20)), elevated = triples(block(12, 13, 0, 4, 12, 15));
+    const blob = await writePlate3MF([{ name: 'cut', partTris: source, finTris: [], materialFormat,
+      extras: [{ kind: 'negative', name: 'cut', tris: elevated, settings: materialFormat === 'prusa2' ? { prusa2: [] } : {} }],
+      materialParts: [{ role: 'body', triangles: elevated }] }], { separate: true });
+    const files = await unzip(new Uint8Array(await blob.arrayBuffer()));
+    const xml = new TextDecoder().decode(files.get('3D/3dmodel.model'));
+    assert((xml.match(/<item /g) ?? []).length === 2, 'regrouped supports would be cut away');
+    assert(!xml.includes('supports on part'), 'intersecting cutter was ignored');
+  }
+});
+
 // A closed ledge adapted from prototype/calibration/grip/gen.py. Small changes
 // to its dimensions expose partition vertices less than 0.000001 mm apart.
 async function ledge(reach, seat) {
@@ -94,19 +160,20 @@ Deno.test('material export: touching shells retain distinct topology and tiny fi
       triangles.push(p); vertexIds.push(ids.get(key));
     }
   }
-  for (const materialFormat of ['components', 'prusa2']) {
+  for (const shift of [0, 10]) for (const materialFormat of ['components', 'prusa2']) {
+    const moved = triangles.map(([x, y, z]) => [x, y, z + shift]);
     const model = { name: 'thin', partTris: [], finTris: [], materialFormat,
-      materialParts: [{ role: 'body', triangles, vertexIds }] };
+      materialParts: [{ role: 'body', triangles: moved, vertexIds }] };
     const blob = await writePlate3MF([model], { separate: true });
     const files = await unzip(new Uint8Array(await blob.arrayBuffer()));
     const [m] = writtenMeshes(new TextDecoder().decode(files.get('3D/3dmodel.model')));
     const faces = m.faces.map((f) => f.map((v) => m.vertices[v]));
     assertClosed(faces, m.faces);
     assert(m.vertices.length === 16, 'touching shells were welded together');
-    assert(JSON.stringify(faces) === JSON.stringify(expectedFaces(triangles)), 'thin surface lost its exact coordinates');
+    assert(JSON.stringify(faces) === JSON.stringify(expectedFaces(moved)), 'thin surface lost its exact coordinates');
     for (const invalid of [vertexIds.slice(1), vertexIds.map((v, i) => i ? v : -1), vertexIds.map(() => 0)]) {
       let rejected = false;
-      try { await writePlate3MF([{ ...model, materialParts: [{ role: 'body', triangles, vertexIds: invalid }] }], { separate: true }); }
+      try { await writePlate3MF([{ ...model, materialParts: [{ role: 'body', triangles: moved, vertexIds: invalid }] }], { separate: true }); }
       catch { rejected = true; }
       assert(rejected, `${materialFormat} accepted invalid vertex identities`);
     }
