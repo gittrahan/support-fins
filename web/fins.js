@@ -118,9 +118,8 @@ export function applyTunables(t = {}) {
   if (CUTOUT_PATTERNS.includes(t.cutout)) CUT.pattern = t.cutout;
   // So is the interface crest's mode (GitHub #21, prop/crest.js).
   if ([false, 'flat', 'all', 'tines'].includes(t.iface)) PROP.iface = t.iface;
-  else if (PROP.iface === 'tines') PROP.iface = false;
-  // Opt-in capture must not leak from a browser build into an ordinary caller.
-  PROP.separateTines = t.separateTines === true;
+  // Page controls also send partial patches (for example, just clearances).
+  if (Object.hasOwn(t, 'separateTines')) PROP.separateTines = t.separateTines === true;
   // And the tine direction (#309): 'vertical' lays resin pins (prop/pins.js).
   // A wall standing on the part welds its foot there too: resin builds the wall from
   // the part outward, so a foot `footGap` off the part would start as a floating island.
@@ -219,7 +218,9 @@ export function inspectFins(topo, result, rot, built, opts) {
 }
 
 function buildFinsAndBraces(topo, result, rot, opts = {}) {
-  applyTunables(opts.tunables);
+  // A complete build must explicitly opt into role capture. Partial page patches
+  // preserve it, but an independent ordinary caller must not inherit it.
+  applyTunables({ separateTines: false, ...(PROP.iface === 'tines' ? { iface: false } : {}), ...opts.tunables });
   // the interface crest's 'flat' test reads the underside off the seated part
   crestPart(crestOn() ? seatedPartTris(topo, rot, result.offset) : null, opts.layerHeight);
   const built = buildFinsCore(topo, result, rot, opts);

@@ -26,12 +26,12 @@ const settle = async () => {
   await new Promise((r) => setTimeout(r, 250));
   await page.waitForFunction(() => !h.build.buildPending(), { timeout: 30000 });
 };
-const change = async (id, value) => {
-  await page.evaluate((id, value) => {
+const change = async (id, value, event = 'change') => {
+  await page.evaluate((id, value, event) => {
     const e = document.getElementById(id);
     if (e.type === 'checkbox') e.checked = value; else e.value = value;
-    e.dispatchEvent(new Event('change', { bubbles: true }));
-  }, id, value);
+    e.dispatchEvent(new Event(event, { bubbles: true }));
+  }, id, value, event);
   await settle();
 };
 async function open(fallback = false) {
@@ -111,12 +111,55 @@ async function download(cdp, tag, during = null) {
   const config = new TextDecoder().decode(archive.get('Metadata/Slic3r_PE_model.config')) + xml;
   return { path, filename, archive, xml, config, read: await readThreeMF(bytes) };
 }
+async function reviewControls(cdp, tag) {
+  for (const iface of ['tines', 'all']) {
+    await change('iface', iface); await change('separate-tines', true);
+    for (const id of ['side-clearance', 'bottom-gap']) {
+      const saved = await page.$eval('#' + id, e => e.value);
+      await change(id, id === 'side-clearance' ? '.5' : '.3', 'input');
+      assertEquals(await page.evaluate(() => [h.prop.PROP.iface, h.prop.PROP.separateTines,
+        h.build.activeAdded().some(p => p[4]?.role === 'tine')]), [iface, iface !== 'tines', true], `${id} cleared material selection`);
+      await change(id, saved, 'input');
+    }
+  }
+  await change('iface', 'tines'); await change('separate-tines', false);
+  await page.evaluate(() => {
+    const saved = [...new Set(h.build.activeAdded())].map(p => [p, p[0], p[1]]);
+    // A deliberately narrow but still closed export; do not alter source meshes.
+    for (const [p] of saved) { p[0] *= .01; p[1] *= .01; }
+    window.restoreTines = () => { for (const [p, x, y] of saved) { p[0] = x; p[1] = y; } };
+  });
+  await download(cdp, `narrow-${tag}`);
+  assert(!await page.$eval('#export-warning', e => e.hidden), 'narrow tines exported silently');
+  assert((await page.$eval('#export-warning', e => e.textContent)).includes('slicer may omit grip contacts'));
+  await page.evaluate(() => window.restoreTines());
+  await change('iface', 'off');
+  for (const id of ['export-stl', 'export-3mf']) {
+    await page.evaluate(id => {
+      window.progressSeen = false;
+      const e = document.getElementById('export-progress');
+      window.observer = new MutationObserver(() => { if (!e.hidden) window.progressSeen = true; });
+      window.observer.observe(e, { attributes: true, attributeFilter: ['hidden'] });
+      window.originalClick = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = () => { throw Error('test download failure'); };
+      document.getElementById('export').click(); document.getElementById(id).click();
+    }, id);
+    await page.waitForFunction(() => !document.getElementById('export-error').hidden && !document.getElementById('export').disabled);
+    assert(!await page.evaluate(() => window.progressSeen), 'ordinary export showed material preparation');
+    const error = await page.$eval('#export-error', e => e.textContent);
+    assert(error.includes('Could not export.') && !error.includes('material'), 'ordinary failure showed material advice');
+    await page.evaluate(() => { HTMLAnchorElement.prototype.click = window.originalClick; window.observer.disconnect(); });
+  }
+  await change('iface', 'tines');
+}
+
 try {
   let cdp = await open();
   await change('iface', 'tines');
   const first = await download(cdp, 'tines-worker');
   assert(first.config.includes(' tines"') && !first.config.includes('top interfaces'), 'tines-only parts');
   assertEquals(first.read.objects.length, 2, 'materials must remain parts of the support object');
+  await reviewControls(cdp, 'worker');
   await change('iface', 'all'); await change('separate-tines', true);
   const all = await download(cdp, 'all-worker');
   assert(all.config.includes('support bodies') && all.config.includes('top interfaces') && all.config.includes(' tines"'));
@@ -240,6 +283,7 @@ try {
   cdp = await open(true); await change('iface', 'tines');
   const inline = await download(cdp, 'tines-inline');
   assertEquals(inline.xml, first.xml, 'inline geometry differs from worker');
+  await reviewControls(cdp, 'inline');
   console.log('PASS inline fallback and identical exported model XML');
   assertEquals(errors, []);
 } finally { await browser.close(); await server.shutdown(); }
