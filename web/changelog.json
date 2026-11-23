@@ -337,6 +337,11 @@
       "date": "2026-11-23",
       "check": "held",
       "text": "Plugins: Full coverage now says how much overhang its walls left bare, and when it stopped at its wall limit, as the site does; Orca flags it."
+    },
+    {
+      "date": "2026-11-23",
+      "check": "easy",
+      "text": "Full coverage no longer says overhangs are too shallow for a fin when its own walls hold them. The plugins and the site's coverage report said so, and Orca named a tilt for it."
     }
   ]
 }
