@@ -682,6 +682,24 @@ export function bareArea(topo, result, rot, opts, built, withPoints = false) {
       .map((w) => ({ piece: String(w.id), points: w.line.map((p) => [...p]) })) } : {}) };
 }
 
+/**
+ * Which of `regions` (indices into result.regions) the walls `added` hold, on top of
+ * `built`'s: a region is held when they take FILL.minGain of its red off it -- the
+ * gain the fill asks of a wall -- or all of it. Red as bareArea measures it. Full
+ * coverage's `unserved` (fins.js) is Auto's bare regions less these.
+ */
+export function heldRegions(topo, result, rot, opts, built, added, regions) {
+  const tops = (fins) => fins.filter((w) => w.kind !== 'sway').flatMap((w) => w.line ?? []);
+  const R = fillReach(Math.max(0, Math.min(1, opts.coverage ?? 0.5)));
+  const before = reachOf(tops(built.fins ?? []), R), after = reachOf([...tops(built.fins ?? []), ...tops(added)], R);
+  const cls = classify(topo, result, rot);
+  const red = (near, ri) => leftoverPoints(topo, result, rot, near, cls, [ri]).reduce((s, p) => s + p[3], 0);
+  return regions.filter((ri) => {
+    const left = red(before, ri);
+    return left > 0 && left - red(after, ri) >= Math.min(FILL.minGain, left);
+  });
+}
+
 function fillOnce(topo, result, rot, opts, built) {
   const coverage = Math.max(0, Math.min(1, opts.coverage ?? 0.5));
   const R = fillReach(coverage);
