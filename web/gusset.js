@@ -38,6 +38,7 @@ import { welds } from './prop/clearance.js';
 import { surfaceHitsAt } from './prop/surface.js';
 import { sweepBetween } from './prop/sweep.js';
 import { loftExtrude } from './solids.js';
+import { markSupportRole, separateSupportRoles } from './support-roles.js';
 import { SWAY } from './sway.js';
 
 export const GUSSET = {
@@ -203,6 +204,10 @@ export function gussetAt(w, o, side, tris, opts) {
     const outline = (h) => [[-SWAY.tineOverlap, -tw], [e[h][0], -tw], [e[h][1], tw], [-SWAY.tineOverlap, tw]];
     const local = [];
     loftExtrude(outline('bot'), outline('top'), bot, tp, P, local);
+    // a side tine is a tine: it prints in the tine material, as sway.js's do
+    if (separateSupportRoles()) markSupportRole(local, 0, 'tine', { direction: [ax, ay, 0], footprint: [
+      P(e.bot[0], -tw, bot), P(e.bot[1], tw, bot), P(e.top[1], tw, tp), P(e.top[0], -tw, tp),
+    ] });
     pushOutward(local, out);
     sideTines++;
   }
