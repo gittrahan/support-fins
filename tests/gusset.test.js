@@ -120,6 +120,19 @@ Deno.test('gusset: side tines always, Tines box or not; none on top of a flat ar
   }
 });
 
+Deno.test('gusset: with separate tine material, the side tines are tines and the fin is body', () => {
+  const saved = { iface: PROP.iface, separateTines: PROP.separateTines };
+  try {
+    PROP.iface = 'tines';
+    const { r } = build({ tines: false, layerHeight: 0.2 });
+    assert(r.ok, r.reason);
+    const roles = (pred) => new Set(r.tris.filter(pred).map((v) => v[4]?.role));
+    const side = roles((v) => v[0] < 5);   // past the side: side tines only
+    assert(side.size === 1 && side.has('tine'), `side tines exported as ${[...side]}`);
+    assert(roles((v) => v[0] > 6).has('body'), 'the fin itself lost its body role');
+  } finally { Object.assign(PROP, saved); }
+});
+
 /** The side tines' layer cells, as [bottom, top] z, read off the geometry: every
  *  vertex past the side (x < 5) belongs to one. */
 function sideCells(r) {
