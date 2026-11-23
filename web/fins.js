@@ -46,9 +46,9 @@ import { buildPad, PAD } from './fins/pad.js';
 import { bedContact, forgetSeated, seatedPartTris, seatingOf } from './fins/seating.js';
 import { braceTallWalls } from './fins/tall.js';
 import { lastResortWalls } from './fins/shortwalls.js';
-import { bareArea, fillCoverage } from './fins/fill.js';
+import { bareArea, fillCoverage, heldRegions } from './fins/fill.js';
 import { findIslands } from './islands.js';
-import { buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
+import { bareAfterWedges, buildPerpFins, PERP, propServesPatch, unservedAfterWedges, wedgeVeto } from './fins/wedges.js';
 import { judgeDownhill } from './fins/downhill.js';
 import { automaticTargets } from './fins/coverage.js';
 import { bends, CURVED } from './prop/curved.js';
@@ -463,7 +463,15 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     const noWalls = base.seating?.kind === 'point' && !base.pad;
     if (mode === 'full' && !noWalls) {
       opts.progress?.auto(auto.triangles);      // a live build (fins/progress.js): Auto's walls are in
-      return withFill(topo, result, rot, { ...opts, tines: withTines, coverage }, auto);
+      const full = withFill(topo, result, rot, { ...opts, tines: withTines, coverage }, auto);
+      // `unserved` came over from Auto: a region it left bare that the fill's walls
+      // hold is served now, or every host says "too shallow for a fin" under them
+      if (full.unserved && full.fins.length > auto.fins.length) {
+        const bare = bareAfterWedges(topo, rot, result, servedRegions, wedgeTris);
+        full.unserved = bare.length - heldRegions(topo, result, rot, { coverage }, auto,
+                                                  full.fins.slice(auto.fins.length), bare).length;
+      }
+      return full;
     }
     // Curved walls in Auto (prop/curved.js): a forced curve can leave overhang the
     // straight walls held, so the fill pass runs under the regions a curve won --
