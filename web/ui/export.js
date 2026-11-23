@@ -194,7 +194,7 @@ const FORMATS = {
     const session = gs.length === 1 ? gs[0].session() : null, bed = { ...currentVolume() };
     // Let the progress text paint before WASM initialization or inline fallback.
     // Geometry, session, placement and bed above already belong to this export.
-    materialExport = gs.some(g => hasSupportRoles(g.finTris));
+    materialExport = gs.some(g => hasSupportRoles(g.finTris) || g.materialOptions && g.finTris.length);
     el('export-progress').hidden = !materialExport;
     if (materialExport) {
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));

@@ -224,3 +224,26 @@ Deno.test('browser materials: source geometry/paint/settings changes invalidate 
     assert(read.session.materialFieldStale);
   }
 });
+
+Deno.test('3MF browser materials: regrouped elevated roles retain every filament assignment', async () => {
+  const soup = p => Array.from({ length: p.length / 3 }, (_, i) => Array.from(p.slice(i * 3, i * 3 + 3)));
+  const source = soup(block(0, 5, 0, 5, 0, 15));
+  const parts = [{ role: 'body', filament: 1, triangles: soup(block(7, 9, 0, 2, 10, 12)) },
+    { role: 'tine', filament: 1, triangles: soup(block(7, 8, 0, 1, 12, 13)) },
+    { role: 'tine', filament: 2, triangles: soup(block(8, 9, 0, 1, 12, 13)) }];
+  for (const materialFormat of ['components', 'prusa2']) {
+    const bytes = new Uint8Array(await (await writeThreeMF(source, [], 'elevated', { separate: true, materialParts: parts, materialFormat })).arrayBuffer());
+    const z = new ProjectZip(bytes), config = await z.text(materialFormat === 'components'
+      ? 'Metadata/model_settings.config' : 'Metadata/Slic3r_PE_model.config');
+    assert(config.includes('tines (filament 1) supports on part') && config.includes('tines (filament 2) supports on part'));
+    const volumes = config.match(materialFormat === 'components' ? /<part [\s\S]*?<\/part>/g : /<volume [\s\S]*?<\/volume>/g);
+    for (const slot of [1, 2]) {
+      const v = volumes.find(v => v.includes(`tines (filament ${slot}) supports on part`));
+      for (const key of materialFormat === 'components' ? ['extruder', 'wall_filament', 'sparse_infill_filament', 'solid_infill_filament']
+        : ['extruder', 'perimeter_extruder', 'infill_extruder', 'solid_infill_extruder']) assert(v.includes(`key="${key}" value="${slot}"`), `${key} lost`);
+    }
+    const read = await readThreeMF(bytes, { withMaterials: true });
+    assertEquals(read.objects.length, 1, 'stranded mapped supports remained a separate object');
+    assertEquals(read.objects[0].positions.length, source.length * 3, 'support faces entered the source material field');
+  }
+});
