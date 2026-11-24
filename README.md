@@ -299,13 +299,17 @@ See [the stress runner documentation](prototype/material-stress/README.md).
 
 `main` is staging: once Cloudflare deploys the `live` branch, every merge shows up at the
 `main` preview, not on printfins.com.
-A PR that changes what a user sees adds one line to `unreleased` in `web/changelog.json`.
+A PR that changes what a user sees says so in its description, one line per change:
+`Changelog (held): Tines now reach the part on curved undersides.` The check in brackets is
+held, stays, clean or easy; `Changelog: none` marks a PR nobody would notice. PRs don't
+edit `web/changelog.json`, so they never conflict on it.
 To ship, run Actions > release > Run workflow (version empty for the next patch, or say
-`1.1.0`). It stamps everything unreleased under that version, writes the landing card's
+`1.1.0`). It collects the Changelog lines of the PRs merged since the last release (the
+run's summary warns about any PR without one), stamps them under that version, writes the landing card's
 What's new list into `web/index.html`, runs the tests and pushes that as one release
 commit to `main`; then it tags it, moves the `live` branch printfins.com deploys from,
-attaches the plugin builds and publishes the Docker image. Fix an entry's wording on `main`
-before you run it. Releases are on the
+attaches the plugin builds and publishes the Docker image. Fix an entry's wording in its PR
+description before you run it. Releases are on the
 [Releases page](https://github.com/gittrahan/support-fins/releases) and the site's landing card.
 
 ## The PrusaSlicer plugin (hand-placed)

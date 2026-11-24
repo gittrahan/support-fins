@@ -1,5 +1,6 @@
 // The changelog's rules, shared by the landing card, the test and the release workflow:
-// a PR appends its entry to `unreleased`; only the release step (`stamp`) writes `releases`,
+// the release step collects each merged PR's changelog line into `unreleased` (direct commits
+// may append there too); only the release step (`stamp`) writes `releases`,
 // moving every unreleased entry under the new version, so a version always names a real
 // release. `releases` runs oldest first. Pure, no imports, so Node and Deno can load it too.
 //
