@@ -327,6 +327,11 @@
       "date": "2026-11-22",
       "check": "clean",
       "text": "Orca plugin: tines sit on Orca's own layers, so a first layer of another height, variable layer height or adaptive layers no longer split a tine into two thin beads."
+    },
+    {
+      "date": "2026-11-23",
+      "check": "held",
+      "text": "New First layer field (0.2 mm, as most slicer profiles): with layers thinner or thicker than the first, about a quarter of the tines sat a layer off the part. Now every tine sits right under it."
     }
   ]
 }
