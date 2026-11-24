@@ -4,10 +4,12 @@ name: release
 # printfins.com deploys from the `live` branch, which only a release moves.
 #
 #   Run workflow (version empty for the next patch, or e.g. 1.1.0):
-#       stamp web/changelog.json's `unreleased` entries under the version and rewrite the
-#       What's new card + top-bar version in web/index.html, run the test suite on that
-#       tree, then push it to main as one "release vX.Y.Z" commit. Fix an entry's wording
-#       on main before pressing the button.
+#       collect the `Changelog (check): text` lines of the PRs merged since the last
+#       release into web/changelog.json's `unreleased` (the run's summary warns about PRs
+#       with none), stamp those entries under the version and rewrite the What's new card +
+#       top-bar version in web/index.html, run the test suite on that tree, then push it to
+#       main as one "release vX.Y.Z" commit. Fix an entry's wording in its PR description
+#       before pressing the button.
 #       Then tag it, create the GitHub Release, fast-forward `live` to it (printfins.com
 #       deploys), and build it through plugins.yml (plugin builds attached, versioned
 #       Docker image, `latest` moved).
@@ -50,6 +52,7 @@ jobs:
     timeout-minutes: 10
     permissions:
       contents: write
+      pull-requests: read   # the merged PRs' Changelog lines
     env:
       GH_TOKEN: ${{ github.token }}
     outputs:
@@ -70,6 +73,14 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "$ASKED" ] && ! [[ "$ASKED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "version must be X.Y.Z, got $ASKED"; exit 1; fi
+          # Each merged PR's description carries its changelog lines; gather the ones merged
+          # since the last release. The search narrows by day; --collect compares the time.
+          since=$(deno run -A .github/scripts/release.js --since)
+          if [ -n "$since" ]; then
+            gh pr list --state merged --base main --limit 500 --search "merged:>=${since%%T*}" \
+              --json number,title,body,mergedAt > "$RUNNER_TEMP/prs.json"
+            deno run -A .github/scripts/release.js --collect "$RUNNER_TEMP/prs.json"
+          fi
           version=$(deno run -A .github/scripts/release.js --prepare ${ASKED:+"$ASKED"})
           if [ -z "$version" ]; then
             # nothing to stamp: carry on only to finish an earlier release

@@ -1,5 +1,5 @@
 import { assert, assertEquals, assertStringIncludes, assertThrows } from 'jsr:@std/assert';
-import { notesFor, pendingTags, prepare } from '../.github/scripts/release.js';
+import { changelogLines, collect, notesFor, pendingTags, prepare } from '../.github/scripts/release.js';
 import { releases, withChangelog } from '../web/changelog.js';
 
 const entry = (text, extra = {}) => ({ date: '2026-10-28', check: 'held', text, ...extra });
@@ -49,4 +49,52 @@ Deno.test('release: the stamped changelog writes the landing card, and the shipp
   assert(launch, 'launch release missing');
   const notes = notesFor(launch);
   assertEquals(notes.split('\n').filter((l) => l.startsWith('- ')).length >= 10, true);
+});
+
+Deno.test('release: a PR description holds its Changelog lines, with their check; none, comments and bad lines', () => {
+  const body = [
+    '## Changelog',
+    '<!-- Example:  Changelog (held): not this one -->',
+    'Changelog (held): Tines reach the part.',
+    '- changelog (Easy):  Docker starts without IPv6.  ',
+    'Changelog (all): roll-ups are not a PR check',
+    'Changelog: no check given',
+    'Changelog (held): ',
+    'The changelog: prose that merely mentions it',
+  ].join('\r\n');
+  const l = changelogLines(body);
+  assertEquals(l.entries, [{ check: 'held', text: 'Tines reach the part.' }, { check: 'easy', text: 'Docker starts without IPv6.' }]);
+  assertEquals(l.bad, ['Changelog (all): roll-ups are not a PR check', 'Changelog: no check given', 'Changelog (held):']);
+  assert(!l.none);
+  assert(changelogLines('text\nChangelog: none -- tests only').none);
+  assertEquals(changelogLines(null), { entries: [], none: false, bad: [] });
+});
+
+Deno.test('release: collect takes PRs merged after the last release, oldest first, once each', () => {
+  const data = { releases: [{ version: '1.0.0', date: '2026-11-01', entries: [entry('old', { pr: 5 })] }], unreleased: [entry('hand', { pr: 9 })] };
+  const pr = (number, mergedAt, body, title = `pr ${number}`) => ({ number, mergedAt, body, title });
+  const prs = [
+    pr(12, '2026-11-03T09:00:00Z', 'Changelog (stays): later'),
+    pr(11, '2026-11-02T09:00:00Z', 'Changelog (held): first\nChangelog (clean): second'),
+    pr(4, '2026-11-01T08:00:00Z', 'Changelog (held): merged before the release'),
+    pr(5, '2026-11-02T10:00:00Z', 'Changelog (held): already released'),
+    pr(9, '2026-11-02T10:00:00Z', 'Changelog (held): already unreleased'),
+    pr(13, '2026-11-02T11:00:00Z', 'no line', 'forgot'),
+    pr(14, '2026-11-02T12:00:00Z', 'Changelog: none'),
+    pr(15, '2026-11-02T13:00:00Z', 'Changelog: unchecked'),
+    pr(16, null, 'Changelog (held): closed, never merged'),
+  ];
+  const out = collect(data, prs, '2026-11-01T12:00:00Z');
+  assertEquals(out.entries, [
+    { pr: 11, date: '2026-11-02', check: 'held', text: 'first' },
+    { pr: 11, date: '2026-11-02', check: 'clean', text: 'second' },
+    { pr: 12, date: '2026-11-03', check: 'stays', text: 'later' },
+  ]);
+  assertEquals(out.missing, [{ pr: 13, title: 'forgot' }]);
+  assertEquals(out.bad, [{ pr: 15, line: 'Changelog: unchecked' }]);
+  const again = collect({ ...data, unreleased: [...data.unreleased, ...out.entries] }, prs, '2026-11-01T12:00:00Z');
+  assertEquals(again.entries, [], 'collecting twice adds nothing');
+  // collected entries pass the changelog's own entry rules once stamped
+  const p = prepare({ ...data, unreleased: out.entries }, '', '2026-11-04');
+  assertEquals(releases(p.data)[0].entries.map((e) => e.pr), [11, 11, 12]);
 });
