@@ -58,7 +58,8 @@ root, context = map(pathlib.Path, sys.argv[1:])
 context.mkdir()
 shutil.copyfile(root / '.dockerignore', context / '.dockerignore')
 for name in ['web/index.html', 'web/app.js', 'web/vendor/test.wasm', 'nginx.conf', 'LICENSE',
-             '.git', 'AGENTS.md', '.codex/config.toml', 'tokens/sentinel', '.env', '.env.test',
+             'docker/30-support-fins-ipv6.sh', '.git', 'AGENTS.md', '.codex/config.toml',
+             'tokens/sentinel', '.env', '.env.test',
              'tmp/sentinel', 'evidence/sentinel', '.playwright-mcp/sentinel',
              'docs/decisions.md', 'private.stl', 'web/_redirects']:
     path = context / name
@@ -74,7 +75,8 @@ DOCKERFILE
 python3 - "$scratch/context-export" <<'PY'
 import pathlib, sys
 context = pathlib.Path(sys.argv[1])
-for name in ['web/index.html', 'web/app.js', 'web/vendor/test.wasm', 'nginx.conf', 'LICENSE']:
+for name in ['web/index.html', 'web/app.js', 'web/vendor/test.wasm', 'nginx.conf', 'LICENSE',
+             'docker/30-support-fins-ipv6.sh']:
     assert (context / name).is_file(), f'required asset excluded: {name}'
 for name in ['.git', 'AGENTS.md', '.codex', 'tokens', '.env', '.env.test', 'tmp', 'evidence',
              '.playwright-mcp', 'docs', 'private.stl', 'web/_redirects']:
@@ -110,11 +112,20 @@ fetch_asset() {
 }
 
 check_running() {
-  local mode=$1
+  local mode=$1 ipv6=${2:-on}
   [ "$(docker exec "$container" id -u)" = 101 ]
   # PID 1 is the nginx master after the inherited entrypoint execs it.
   [ "$(docker exec "$container" awk '/^Uid:/{print $2, $3, $4, $5}' /proc/1/status)" = '101 101 101 101' ]
   docker exec "$container" nginx -t > "$evidence/$mode-nginx.log" 2>&1
+  # IPv6 listen comes from the entrypoint's /tmp include, only where the host
+  # has IPv6 (issue #494); the CI runners do.
+  docker exec "$container" nginx -T > "$evidence/$mode-nginx-T.txt" 2>&1
+  if [ "$ipv6" = on ]; then
+    grep -Fq 'listen [::]:8080;' "$evidence/$mode-nginx-T.txt"
+  elif grep -Fq 'listen [::]' "$evidence/$mode-nginx-T.txt"; then
+    echo "$mode: nginx listens on IPv6 with it turned off" >&2
+    return 1
+  fi
   docker inspect "$container" > "$evidence/$mode-inspect.json"
   [ "$(docker inspect --format '{{.State.Health.Status}}' "$container")" = healthy ]
   fetch_asset "$mode-html" '' text/html 'no-store, must-revalidate'
@@ -160,4 +171,13 @@ assert any(v in ['no-new-privileges', 'no-new-privileges:true'] for v in config[
 assert '/tmp' in config['Tmpfs']
 PY
 docker exec "$container" sh -c 'test ! -w /usr/share/nginx/html; test -w /tmp'
+"${compose[@]}" -f "$scratch/hardened.json" down --timeout 10
+
+# IPv4 only (issue #494): with IPv6 off, nginx must still start and serve.
+cat > "$scratch/ipv4.json" <<'JSON'
+{"services":{"web":{"environment":{"SUPPORT_FINS_IPV6":"off"}}}}
+JSON
+"${compose[@]}" -f "$scratch/hardened.json" -f "$scratch/ipv4.json" up --no-build --pull never -d --wait --wait-timeout 120
+check_running ipv4-only off
+grep -Fq 'IPv4 only' "$evidence/ipv4-only.log"
 printf 'Docker smoke checks passed\n'
