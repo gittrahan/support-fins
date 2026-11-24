@@ -95,7 +95,7 @@
 </div>
 
 <header id="topbar">
-  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.11</small><!-- END version --></span></span>
+  <span class="brand"><img src="favicon.svg" alt="" class="brand-mark"><span class="brand-text">Support&nbsp;Fins <!-- BEGIN version (web/changelog.js writes this block) --><small class="brand-ver" title="Version" data-i18n-title="Version">v1.0.12</small><!-- END version --></span></span>
   <!-- accept: the MIME types too, and octet-stream. Android's picker matches by MIME
        and knows none of these extensions, so it greyed every model out (#237); the
        format is read from the bytes (ui/io.js), not the name. -->
@@ -820,8 +820,18 @@
          with the card); released entries only, the list scrolls past a few lines. -->
     <!-- BEGIN whatsnew (web/changelog.js writes this block) -->
     <section id="whatsnew" class="whatsnew">
-      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.11</span></h2>
+      <h2><span data-i18n="What's new">What's new</span> <span class="ver">v1.0.12</span></h2>
       <div class="list" tabindex="0">
+        <ul>
+          <li>Docker: the container starts on hosts with IPv6 turned off. It listens on IPv6 only where the host has it; SUPPORT_FINS_IPV6=off forces IPv4 only.</li>
+          <li>Full coverage no longer says overhangs are too shallow for a fin when its own walls hold them. The plugins and the site's coverage report said so, and Orca named a tilt for it.</li>
+          <li>Plugins: Full coverage now says how much overhang its walls left bare, and when it stopped at its wall limit, as the site does; Orca flags it.</li>
+          <li>New First layer field (0.2 mm, as most slicer profiles): with layers thinner or thicker than the first, about a quarter of the tines sat a layer off the part. Now every tine sits right under it.</li>
+          <li>Orca plugin: tines sit on Orca's own layers, so a first layer of another height, variable layer height or adaptive layers no longer split a tine into two thin beads.</li>
+          <li>Optional 3MF material parts for support bodies, tines and top interfaces; assign their filaments independently in the slicer.</li>
+          <li>Orca plugin: re-slicing a part whose fins have not changed reuses them instead of rebuilding (a 59,000-face figure: 3.2 s to 5 ms).</li>
+        </ul>
+        <p class="rel">v1.0.11 <span>2026-11-20</span></p>
         <ul>
           <li>Orca plugin: new versions now reach the Orca Cloud listing automatically, so Orca offers the update in its plugin manager.</li>
         </ul>
