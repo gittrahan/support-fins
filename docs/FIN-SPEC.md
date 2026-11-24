@@ -256,7 +256,7 @@ one wedge and the Light pad held for the whole print, and the pad came off clean
 | style | thickness | meets the part | why |
 |---|---|---|---|
 | **Auto** (default) | Light's, or Sure hold's on a small foot | as whichever it picked | the dropdown shows the pick -- "Auto (Light)" / "Auto (Sure hold)" -- so it never reads Light over a Sure hold pad |
-| **Light** | **one layer** (the Layer height field) | **0.12 mm** sideways gap off the part's first-layer outline (its section at the first layer's mid-height) | a slicer brim: only the first layer grips the plate, so more layers add stiffness and weld height, never adhesion; the gap keeps pad and part as two regions, so perimeters run beside the part instead of solid infill through it |
+| **Light** | **one layer** (the First layer field, 0.2 mm) | **0.12 mm** sideways gap off the part's first-layer outline (its section at the first layer's mid-height) | a slicer brim: only the first layer grips the plate, so more layers add stiffness and weld height, never adhesion; the gap keeps pad and part as two regions, so perimeters run beside the part instead of solid infill through it |
 | **Sure hold** | `padH` 0.5 mm (PETG 0.3) | tacked `grab` 0.05 mm into the underside (PETG −0.1) | the original pad; slices as one merged region with the part on its first layers -- holds hardest, hard to remove |
 | **Custom** | Pad thickness | Pad gap (sideways) + Pad grip (vertical) | the Light mesh on the user's numbers; the only style that shows them |
 

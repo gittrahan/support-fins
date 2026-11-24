@@ -328,6 +328,8 @@ export default {
   "firm grip": "pega firme",
   "medium grip": "pega média",
   "Layer height": "Altura de camada",
+  "First layer": "Primeira camada",
+  "Set this to your slicer's first layer height. Tines sit on the layers your slicer prints, so a first layer that differs from the layer height moves every layer above it. Default 0.2mm, as most slicer profiles.": "Use a altura da primeira camada do seu fatiador. Os dentes ficam nas camadas que o fatiador imprime; uma primeira camada diferente da altura de camada desloca todas as camadas acima dela. Padrão 0,2 mm, como na maioria dos perfis.",
   "Nozzle": "Bico",
   "Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one.": "O diâmetro do bico da sua impressora. Paredes, pontas de contato e dentes são dimensionados em linhas do bico: ficam mais largos com um bico maior, e os dentes mais finos com um bico menor.",
   "Support gap": "Folga do suporte",

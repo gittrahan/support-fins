@@ -438,6 +438,8 @@ export default {
   "firm grip": "fester Halt",
   "medium grip": "mittlerer Halt",
   "Layer height": "Schichthöhe",
+  "First layer": "Erste Schicht",
+  "Set this to your slicer's first layer height. Tines sit on the layers your slicer prints, so a first layer that differs from the layer height moves every layer above it. Default 0.2mm, as most slicer profiles.": "Auf die Höhe der ersten Schicht in Ihrem Slicer einstellen. Die Haltezacken sitzen auf den Schichten, die Ihr Slicer druckt; weicht die erste Schicht von der Schichthöhe ab, verschiebt sie jede Schicht darüber. Standard 0,2 mm, wie in den meisten Slicer-Profilen.",
   "Nozzle": "Düse",
   "Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one.": "Der Düsendurchmesser Ihres Druckers. Wände, Kontaktspitzen und Haltezacken sind in Düsenbahnen bemessen: Bei einer größeren Düse werden sie breiter, bei einer kleineren werden die Zacken schmaler.",
   "Support gap": "Stützenabstand",
