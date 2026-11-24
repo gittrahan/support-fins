@@ -1,7 +1,7 @@
 // The one-line result every host shows, from computeFins' stats: what was placed
 // and -- quality first -- what wasn't: overhangs too shallow for a fin this way up,
-// Full coverage's red its walls left bare, and pieces that start in mid-air. Same facts as the website's readout
-// (web/ui/readout.js), shorter.
+// Full coverage's red its walls left bare, and pieces that start in mid-air. Same
+// facts as the website's readout (web/ui/readout.js), shorter.
 //
 // Python hosts have the same line in py/supportfins_host.py host_report; keep the
 // two word for word (plugins/cli/tests/cli.test.js checks them against each other
