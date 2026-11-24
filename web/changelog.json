@@ -332,6 +332,11 @@
       "date": "2026-11-23",
       "check": "held",
       "text": "New First layer field (0.2 mm, as most slicer profiles): with layers thinner or thicker than the first, about a quarter of the tines sat a layer off the part. Now every tine sits right under it."
+    },
+    {
+      "date": "2026-11-24",
+      "check": "held",
+      "text": "Plugins: Full coverage now says how much overhang its walls left bare, and when it stopped at its wall limit, as the site does; Orca flags it."
     }
   ]
 }
