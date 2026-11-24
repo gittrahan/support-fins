@@ -1,8 +1,12 @@
 // The release step, run by release.yml with Deno (the repo's CI already has it); tested in
-// tests/release.test.js. web/changelog.json is the source: PRs append to `unreleased`, the
-// release run moves them under a version (`stamp`), commits that to main and makes the
-// GitHub Release from it.
+// tests/release.test.js. web/changelog.json is the source: the release run first collects
+// each merged PR's `Changelog (check): text` lines from its description into `unreleased`
+// (so PRs never edit the file and never conflict on it), moves them under a version
+// (`stamp`), commits that to main and makes the GitHub Release from it. Hand-written
+// entries in `unreleased` (a direct commit to main) ship with them.
 //
+//   deno run -A .github/scripts/release.js --since              # when the newest release commit was made (ISO), or nothing
+//   deno run -A .github/scripts/release.js --collect prs.json   # add the Changelog lines of PRs merged since then to unreleased
 //   deno run -A .github/scripts/release.js --pending            # JSON array of released versions with no tag yet, oldest first
 //   deno run -A .github/scripts/release.js --notes v1.0.1       # that release's body
 //   deno run -A .github/scripts/release.js --prepare [1.1.0]    # stamp unreleased in place and rewrite the card in web/index.html; prints the version, or nothing
@@ -10,7 +14,7 @@
 //   deno run -A .github/scripts/release.js --newest             # the newest released tag, or nothing
 //
 // Existing tags come from `git tag --list 'v*'` (the workflow fetches tags first).
-import { nextVersion, releases, stamp, unreleased, withChangelog } from '../../web/changelog.js';
+import { CHECKS, nextVersion, releases, stamp, unreleased, withChangelog } from '../../web/changelog.js';
 
 const FILE = new URL('../../web/changelog.json', import.meta.url);
 const INDEX = new URL('../../web/index.html', import.meta.url);
@@ -46,6 +50,42 @@ export function notesFor(release, repo = 'gittrahan/support-fins') {
   return out.join('\n');
 }
 
+// One line in a PR description: `Changelog (held): Tines grip ...`, optionally as a list
+// item. `Changelog: none` says the PR changes nothing a user sees. HTML comments (the PR
+// template's example) are ignored. `all` is the launch roll-up's check, not a PR's.
+const LINE_RE = /^[ \t]*(?:[-*][ \t]+)?changelog[ \t]*(?:\(([^)]*)\))?[ \t]*:[ \t]*(.*?)[ \t]*$/gim;
+const PR_CHECKS = CHECKS.filter((c) => c !== 'all');
+
+/** A PR description's changelog lines: {entries: [{check, text}], none, bad: [line]}. */
+export function changelogLines(body) {
+  const text = String(body ?? '').replace(/<!--[\s\S]*?-->/g, '');
+  const out = { entries: [], none: false, bad: [] };
+  for (const [line, check, t] of text.matchAll(LINE_RE)) {
+    const c = (check ?? '').trim().toLowerCase();
+    if (!check && /^none\b/i.test(t)) out.none = true;
+    else if (PR_CHECKS.includes(c) && t) out.entries.push({ check: c, text: t });
+    else out.bad.push(line.trim());
+  }
+  return out;
+}
+
+/** PRs merged after `since` (ISO time), oldest merge first, as unreleased entries
+ *  {pr, date, check, text}; PRs any entry already names are skipped, so collecting twice
+ *  adds nothing. `missing`: PRs with no line and no `none`; `bad`: lines that don't parse. */
+export function collect(data, prs, since) {
+  const seen = new Set([...releases(data).flatMap((r) => r.entries), ...unreleased(data)].map((e) => e.pr).filter(Boolean));
+  const out = { entries: [], missing: [], bad: [] };
+  const merged = prs.filter((p) => p.mergedAt && (!since || Date.parse(p.mergedAt) > Date.parse(since)) && !seen.has(p.number))
+    .sort((a, b) => Date.parse(a.mergedAt) - Date.parse(b.mergedAt));
+  for (const p of merged) {
+    const l = changelogLines(p.body);
+    for (const e of l.entries) out.entries.push({ pr: p.number, date: p.mergedAt.slice(0, 10), ...e });
+    for (const b of l.bad) out.bad.push({ pr: p.number, line: b });
+    if (!l.entries.length && !l.none && !l.bad.length) out.missing.push({ pr: p.number, title: p.title ?? '' });
+  }
+  return out;
+}
+
 /** The release commit's change: unreleased stamped under `version` (default: one patch up). Null when nothing waits. */
 export function prepare(data, version, date) {
   if (!unreleased(data).length) return null;
@@ -56,6 +96,13 @@ export function prepare(data, version, date) {
 async function git(...args) {
   const { code, stdout } = await new Deno.Command('git', { args, stdout: 'piped', stderr: 'null' }).output();
   return code ? null : new TextDecoder().decode(stdout);
+}
+
+/** When the newest release commit was made (committer time, ISO), or null before the first release. */
+async function since(data) {
+  const tag = releases(data)[0]?.tag;
+  const sha = tag && await releaseCommit(tag);
+  return sha ? (await git('show', '-s', '--format=%cI', sha)).trim() : null;
 }
 
 async function gitTags() {
@@ -94,6 +141,19 @@ if (import.meta.main) {
       await Deno.writeTextFile(INDEX, withChangelog(await Deno.readTextFile(INDEX), out.data));
       console.log(out.version);
     }
+  } else if (cmd === '--since') {
+    console.log((await since(data)) ?? '');
+  } else if (cmd === '--collect') {
+    // prs.json: `gh pr list --state merged --json number,title,body,mergedAt`
+    const prs = JSON.parse(await Deno.readTextFile(arg));
+    const out = collect(data, prs, await since(data));
+    // GitHub Actions annotations: they show on the run's summary page
+    for (const b of out.bad) console.log(`::warning::#${b.pr}: changelog line not read (check is ${PR_CHECKS.join(', ')}): ${b.line}`);
+    for (const m of out.missing) console.log(`::warning::#${m.pr} has no Changelog line, so the release notes leave it out: ${m.title}`);
+    if (out.entries.length) {
+      await Deno.writeTextFile(FILE, JSON.stringify({ ...data, unreleased: [...unreleased(data), ...out.entries] }, null, 2) + '\n');
+    }
+    console.log(`collected ${out.entries.length} changelog entries from merged PRs`);
   } else if (cmd === '--commit') {
     const sha = await releaseCommit(arg);
     if (!sha) { console.error(`no commit on this branch releases ${arg}`); Deno.exit(1); }
@@ -101,7 +161,7 @@ if (import.meta.main) {
   } else if (cmd === '--newest') {
     console.log(releases(data)[0]?.tag ?? '');
   } else {
-    console.error('usage: release.js --pending | --notes vX.Y.Z | --prepare [X.Y.Z] | --commit vX.Y.Z | --newest');
+    console.error('usage: release.js --pending | --notes vX.Y.Z | --since | --collect prs.json | --prepare [X.Y.Z] | --commit vX.Y.Z | --newest');
     Deno.exit(2);
   }
 }
