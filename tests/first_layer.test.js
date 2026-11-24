@@ -80,3 +80,21 @@ Deno.test('first layer: a drawn wall takes the levels for its own build and puts
   assert(JSON.stringify(grid.tris) !== JSON.stringify(lev.tris), 'the levels moved nothing on a drawn wall');
   assert(JSON.stringify(wall(null).tris) === JSON.stringify(grid.tris), 'levels null is not the grid');
 });
+
+Deno.test('first layer: a clicked brace takes the levels for its own build and puts them back', async () => {
+  // anchor_short.test.js's column: a 10 x 10 x 40 block, an anchor up its -x side
+  const { block, buildTopology } = await import('./_util.js');
+  const sway = await import(`${WEB}sway.js`);
+  const pos = block(0, 10, 0, 10, 0, 40);
+  const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
+  const res = analyze(topo, 45, I);
+  let side = -1;
+  for (let f = 0; f < topo.nFaces && side < 0; f++) if (topo.nrm[f * 3] < -0.9) side = f;
+  const at = (levels) => sway.swayAtFace(topo, res, I, side, [res.offset.x, 5 + res.offset.y, 20],
+    { tines: true, layerHeight: 0.12, gap: 0.2, reach: 1, anchor: true, ...(levels === undefined ? {} : { levels }) });
+  const grid = at(undefined), lev = at(firstLayerLevels(0.12, 0.2));
+  assert(grid.ok && lev.ok, `brace failed: ${grid.reason ?? lev.reason}`);
+  assert(!levelsOn(), 'levels stayed set after a brace');
+  assert(JSON.stringify(grid.tris) !== JSON.stringify(lev.tris), 'the levels moved nothing on a brace');
+  assert(JSON.stringify(at(null).tris) === JSON.stringify(grid.tris), 'levels null is not the grid');
+});
