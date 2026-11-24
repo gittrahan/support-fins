@@ -23,8 +23,8 @@ export function checkedContext(raw) {
  * is explicitly a width proxy; this must not be reported as resolved extrusion
  * settings. Preserved projects pass their saved ordinary-mesh widths instead.
  */
-export function nominalContext(layerHeight, nozzle, bottomGap) {
-  return { layerHeight, firstLayerHeight: layerHeight, nozzle,
+export function nominalContext(layerHeight, nozzle, bottomGap, firstLayerHeight = layerHeight) {
+  return { layerHeight, firstLayerHeight, nozzle,
     lineWidth: nozzle, firstLayerWidth: nozzle, bottomGap, basis: 'nozzle-proxy' };
 }
 

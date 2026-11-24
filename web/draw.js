@@ -19,6 +19,7 @@
 import { bodyCut } from './prop/bodycut.js';
 import { arcStations, arcThrough, DRAW_MIN_RADIUS } from './drawarc.js';
 import { PROP, PART_BAND, footFor, surfaceZsAt as gridZsAt, surfaceHitsAt as gridHitsAt, sweep, sweepBetween, sweepSquat, braceWall, floorLine, moldLine, contourTop, lowerSag, settleTop, emitTines, tineStepFor, crestOn, crestPart, trimmedEnds } from './prop.js';
+import { withLevels } from './prop/levels.js';
 
 /**
  * A hand-drawn wall may be much shorter than an auto wall (PROP.minSpan, 7 mm): the user
@@ -195,6 +196,13 @@ export function drawnLine(a, b, tris, step = PROP.stationStep, band = Infinity, 
  * silently doing nothing, the failure mode M5's scoreboard was built on.
  */
 export function drawnWall(a, b, tris, zBed = 0, opts = {}) {
+  // `opts.levels`: the print's layer boundaries (prop/levels.js), as buildFins takes
+  // them -- the site's First layer field. Left out, whatever is set now (the grid).
+  return opts.levels === undefined ? drawnWallOn(a, b, tris, zBed, opts)
+    : withLevels(opts.levels, () => drawnWallOn(a, b, tris, zBed, opts));
+}
+
+function drawnWallOn(a, b, tris, zBed, opts) {
   const dx = b[0] - a[0], dy = b[1] - a[1];
   const chord = Math.hypot(dx, dy);
   if (chord < DRAW_MIN_LEN) {

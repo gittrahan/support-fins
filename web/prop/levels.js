@@ -117,3 +117,15 @@ export function levelCut(top, layers) {
 
 /** The first layer's height. */
 export const firstLayerHeight = () => LEVELS[1] - LEVELS[0];
+
+/**
+ * The boundaries of a print with a first layer of `first` under `layer` mm layers
+ * (the site's First layer and Layer height fields): [0, first, first + layer], the
+ * layers past it repeating. null when the first layer is the layer height (or either
+ * isn't a height), so that build is the uniform grid and unchanged.
+ */
+export function firstLayerLevels(layer, first) {
+  if (!(Number.isFinite(layer) && layer > 0 && Number.isFinite(first) && first > 0)) return null;
+  if (Math.abs(first - layer) < 1e-6) return null;
+  return [0, first, first + layer];
+}

@@ -35,7 +35,7 @@ import { insidePart } from './inside.js';
 import { kissEnds } from './kiss.js';
 import { braceCrossRib, BRACE } from './prop/brace.js';
 import { PROP } from './prop/config.js';
-import { levelCell, levelsOn } from './prop/levels.js';
+import { levelCell, levelsOn, withLevels } from './prop/levels.js';
 import { clip, lowestHit } from './swayhit.js';
 import { cropForRib } from './swaycrop.js';
 import { columnPatch, partSlab } from './swaycolumn.js';
@@ -931,6 +931,14 @@ export function faceTakesAnchor(topo, rot, faceIndex) {
  * it can't. Returns buildSwayRib's result.
  */
 export function swayAtFace(topo, result, rot, faceIndex, point, opts = {}, avoid = []) {
+  // `opts.levels`: the print's layer boundaries (prop/levels.js), for a brace placed
+  // by hand outside buildFins (the site's First layer field). Left out, whatever is
+  // set now: inside buildFins, the build's own.
+  return opts.levels === undefined ? swayAtFaceOn(topo, result, rot, faceIndex, point, opts, avoid)
+    : withLevels(opts.levels, () => swayAtFaceOn(topo, result, rot, faceIndex, point, opts, avoid));
+}
+
+function swayAtFaceOn(topo, result, rot, faceIndex, point, opts, avoid) {
   // A brace you clicked is a brace you meant, so the stilt limit Auto obeys is
   // advisory here: it builds and reports `stilt` for the readout to mention.
   const cap = Number.isFinite(opts.maxHeight) ? opts.maxHeight : Infinity;
