@@ -13,6 +13,8 @@ name: release
 #       Then tag it, create the GitHub Release, fast-forward `live` to it (printfins.com
 #       deploys), and build it through plugins.yml (plugin builds attached, versioned
 #       Docker image, `latest` moved).
+#   A release made but not yet tagged: the run finishes it first and collects nothing, so
+#       PRs merged since wait for the next run.
 #   Nothing unreleased: running it again finishes a release that failed after its commit
 #       (tag, live, builds); when there is nothing to finish either, the run fails. Use Run
 #       workflow, not "Re-run jobs": a re-run checks out the commit before the release.
@@ -75,8 +77,10 @@ jobs:
           if [ -n "$ASKED" ] && ! [[ "$ASKED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then echo "version must be X.Y.Z, got $ASKED"; exit 1; fi
           # Each merged PR's description carries its changelog lines; gather the ones merged
           # since the last release. The search narrows by day; --collect compares the time.
+          # A release still untagged (it failed after its commit) is finished first: collect
+          # nothing, so this run doesn't stamp a new one on top.
           since=$(deno run -A .github/scripts/release.js --since)
-          if [ -n "$since" ]; then
+          if [ -n "$since" ] && [ "$(deno run -A .github/scripts/release.js --pending)" = "[]" ]; then
             gh pr list --state merged --base main --limit 500 --search "merged:>=${since%%T*}" \
               --json number,title,body,mergedAt > "$RUNNER_TEMP/prs.json"
             deno run -A .github/scripts/release.js --collect "$RUNNER_TEMP/prs.json"
