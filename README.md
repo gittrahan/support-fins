@@ -237,6 +237,9 @@ The image runs nginx as the non-root user `nginx` (UID 101), listening on
 container port **8080**. Compose maps it to host port **8731**. For a direct
 container run, use `docker run --rm -p 8731:8080 ghcr.io/gittrahan/support-fins:latest`;
 reverse proxies connecting directly to the container should also use port 8080.
+It listens on IPv6 too where the host has IPv6, and on IPv4 only where the host
+has it turned off; set `SUPPORT_FINS_IPV6=off` in the container's environment to
+force IPv4 only.
 
 **Port migration:** older images listen on port 80. Update custom port mappings,
 proxy targets and health checks when upgrading to the non-root image. Keep an

@@ -23,6 +23,10 @@ LABEL org.opencontainers.image.title="Support Fins" \
 # JS/CSS/HTML while long-caching the vendored three.js tree.
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
+# The base entrypoint runs /docker-entrypoint.d/*.sh before nginx starts. This one
+# adds the IPv6 listen line only where the host has IPv6 (issue #494).
+COPY --chmod=755 docker/30-support-fins-ipv6.sh /docker-entrypoint.d/30-support-fins-ipv6.sh
+
 # The entire shipped app is static files under web/.
 COPY web/ /usr/share/nginx/html/
 
