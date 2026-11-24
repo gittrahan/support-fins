@@ -1,6 +1,6 @@
 // The one-line result every host shows, from computeFins' stats: what was placed
 // and -- quality first -- what wasn't: overhangs too shallow for a fin this way up,
-// and pieces that start in mid-air. Same facts as the website's readout
+// Full coverage's red its walls left bare, and pieces that start in mid-air. Same facts as the website's readout
 // (web/ui/readout.js), shorter.
 //
 // Python hosts have the same line in py/supportfins_host.py host_report; keep the
@@ -40,6 +40,13 @@ export function reportLine(stats) {
   if (unserved) {
     parts.push(`${unserved} overhang${unserved === 1 ? ' is' : 's are'} too shallow `
       + 'for a fin this way up (tilt the part steeper)');
+  }
+  // Full coverage's red its walls didn't reach (the site's readout says the same)
+  const fullBare = stats.fullBare || 0;
+  if (stats.fullCapped) {
+    parts.push(`Full coverage stopped at its wall limit with ${fullBare} mm² of overhang still bare (rotate the part)`);
+  } else if (fullBare) {
+    parts.push(`${fullBare} mm² of overhang no wall can reach this way up (tilt the part)`);
   }
   const floating = stats.floating || 0;
   if (floating) {

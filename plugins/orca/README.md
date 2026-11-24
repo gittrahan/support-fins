@@ -72,7 +72,8 @@ Install and turn on (OrcaSlicer 2.5):
    the 3D view. All-good results stay 20 seconds; warnings stay until you close them. Only parts Orca actually
    re-sliced are listed: edit one part and only that part's line shows (the others
    keep their fins), and a part that needs no fins isn't listed. It is a warning when something
-   needs a look (overhangs too shallow for a fin this way up, pieces held only by
+   needs a look (overhangs too shallow for a fin this way up, Full coverage's overhang no
+   wall reached or its wall limit, pieces held only by
    supports, support-section findings), and a serious warning when a part got no fins
    at all, e.g. a config key the engine refused.
    When overhangs are too shallow for a fin this way up, the line also names a pose

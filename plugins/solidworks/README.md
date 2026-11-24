@@ -44,7 +44,7 @@ Windows 11 and current Windows 10; the add-in says so if it's missing).
    [`options.json`](../shared/engine/options.json) every plugin uses. **Layer height must
    match your slicer**: the tines are one layer tall. Settings are remembered.
 4. The readout gives the walls and tines, and what to check: overhangs too shallow for a fin
-   this way up, pieces that start in mid-air. Click **Insert**.
+   this way up, Full coverage's overhang still bare, pieces that start in mid-air. Click **Insert**.
 
 Each piece goes in as its own imported solid body: *Support Fins wall 1*, *Support Fins sway
 brace 1*, *Support Fins bed pad*. Delete any you don't want. The next run skips (and counts)

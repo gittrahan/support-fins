@@ -54,7 +54,8 @@ ln -s "$PWD/plugins/cura/build/SupportFins" ~/Library/Application\ Support/cura/
 2. **Extensions › Support Fins › Add Support Fins** (the selected parts, or every part on the
    plate when nothing is selected). *Computing fins…* shows for a
    second or three (the engine runs in the background), then the result: walls and tines
-   placed, plus any overhang too shallow for a fin this way up and any piece of the part that
+   placed, plus any overhang too shallow for a fin this way up, any Full coverage left bare,
+   and any piece of the part that
    starts in mid-air. Those aren't hidden: tilt the part and run it again.
 3. Turn Cura's own supports off for the part, and slice.
 

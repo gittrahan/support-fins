@@ -488,7 +488,8 @@ def inject_fins(print_object, cfg, layer_height, unit, log=None, nozzle=None):
     fins, stats, report = build_fins(soup, layer_height, cfg, nozzle, log, levels)
     if len(fins) == 0:
         # Quality first: no fins can still mean overhangs left bare, so say so.
-        bare = stats.get("unserved") or stats.get("floating") or stats.get("smallHoleRegions")
+        bare = (stats.get("unserved") or stats.get("floating") or stats.get("smallHoleRegions")
+                or stats.get("fullBare") or stats.get("fullCapped"))
         log["attention"] = _attention(stats)
         return report if bare else "no fins needed"
     pts = soup.reshape(-1, 3)
@@ -668,10 +669,12 @@ def _show_notes(notes):
 
 
 def _attention(stats, touched=None):
-    """Whether a result needs the user to look: overhangs left bare, findings for the
+    """Whether a result needs the user to look: overhangs left bare (Full coverage's
+    leftover red included), findings for the
     slicer, or fins that reached no layer. Small-hole ceilings are left for bridging by
     design, so host_report names them but they don't make a warning on their own."""
     return bool(stats.get("unserved") or stats.get("floating")
+                or stats.get("fullBare") or stats.get("fullCapped")
                 or stats.get("supportFindings") or stats.get("supportCheck") in ("incomplete", "unavailable")
                 or touched == 0)
 
