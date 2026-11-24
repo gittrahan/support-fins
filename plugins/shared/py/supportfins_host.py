@@ -197,7 +197,8 @@ def host_report(stats):
     """The one-line result every plugin shows, from the engine's stats.
 
     Says what was placed, and -- quality first -- what wasn't: overhangs too shallow
-    for a fin this way up, and pieces that start in mid-air. Same facts as the
+    for a fin this way up, Full coverage's red its walls left bare, and pieces that
+    start in mid-air. Same facts as the
     website's readout (web/ui/readout.js), shorter.
     """
     walls = stats.get("braces", 0) + stats.get("props", 0)   # tined + plain, as the site counts
@@ -222,6 +223,12 @@ def host_report(stats):
     if unserved:
         parts.append(f"{unserved} overhang{' is' if unserved == 1 else 's are'} too shallow "
                      "for a fin this way up (tilt the part steeper)")
+    # Full coverage's red its walls didn't reach (the site's readout says the same)
+    full_bare = stats.get("fullBare") or 0
+    if stats.get("fullCapped"):
+        parts.append(f"Full coverage stopped at its wall limit with {full_bare} mm² of overhang still bare (rotate the part)")
+    elif full_bare:
+        parts.append(f"{full_bare} mm² of overhang no wall can reach this way up (tilt the part)")
     floating = stats.get("floating") or 0
     if floating:
         drop = float(stats.get("floatingDrop") or 0)

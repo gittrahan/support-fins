@@ -394,12 +394,18 @@ Deno.test('cli: the summary line says what was left unsupported, word for word w
     { braces: 1, tines: 2, supportCheck: 'complete', supportFindings: 2, supportFirstZ: 12.26 },
     { braces: 1, tines: 2, supportCheck: 'incomplete', supportFindings: 0 },
     { braces: 1, tines: 2, supportCheck: 'unavailable', supportFindings: 0 },
+    { braces: 40, tines: 121, fullBare: 573, fullCapped: true },   // Full at its wall cap (#497)
+    { braces: 12, tines: 30, fullBare: 29, fullCapped: false },    // Full's red no wall reaches
+    { braces: 12, tines: 30, fullBare: 0, fullCapped: false },
   ];
   assert(/1 overhang is too shallow/.test(reportLine(samples[1])), reportLine(samples[1]));
   assert(/one piece isn't joined to the rest: it starts 4\.3 mm up/.test(reportLine(samples[2])), reportLine(samples[2]));
   assert(/it starts 4\.2 mm up/.test(reportLine(samples[4])), reportLine(samples[4]));
   assert(reportLine(samples[5]) === '0 walls, 0 tines; 1 small-hole ceiling left unsupported for bridging');
   assert(reportLine(samples[6]).includes('2 small-hole ceilings left unsupported for bridging'));
+  assert(reportLine(samples[11]) === '40 walls, 121 tines; Full coverage stopped at its wall limit with 573 mm² of overhang still bare (rotate the part)', reportLine(samples[11]));
+  assert(reportLine(samples[12]) === '12 walls, 30 tines; 29 mm² of overhang no wall can reach this way up (tilt the part)', reportLine(samples[12]));
+  assert(reportLine(samples[13]) === '12 walls, 30 tines', reportLine(samples[13]));
   let py;
   try {
     py = new Deno.Command('python3', {

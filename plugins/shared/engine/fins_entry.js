@@ -245,6 +245,12 @@ export function computeFins(positions, options = {}) {
       swaySkipped: built.sway?.skipped ?? 0,
       swayReason: built.sway?.reason ?? null,
       unserved: built.unserved ?? null,
+      // Full coverage's red its fill walls left bare (mm², rounded here so every host
+      // prints the same number), and whether the fill stopped at its wall cap: the
+      // site's readout says both (web/ui/readout.js); `unserved` counts regions with no
+      // wall at all, so a region the fill reached but didn't finish never shows in it
+      fullBare: built.fill ? Math.round(built.fill.unservedArea ?? 0) : 0,
+      fullCapped: !!built.fill?.capped,
       smallHoleRegions: built.smallHoleRegions ?? 0,
       // pieces that start in mid-air (see overhangs.js floatingPieces), with the
       // drop of the first: the plugins' readouts say so, as the site's does

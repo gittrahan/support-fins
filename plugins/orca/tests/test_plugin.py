@@ -432,6 +432,9 @@ def test_a_part_that_needs_no_fins_is_not_announced(monkeypatch):
     ({"supportCheck": "incomplete"}, 5, True),
     ({"supportCheck": "unavailable"}, 5, True),
     ({"supportCheck": "ok"}, 5, False),
+    ({"fullBare": 29}, 5, True),                # Full coverage's red no wall reached (#497)
+    ({"fullBare": 573, "fullCapped": True}, 5, True),
+    ({"fullBare": 0, "fullCapped": False}, 5, False),
     ({}, 0, True),                              # placed, but no layer took them
 ])
 def test_what_needs_a_look(stats, touched, want):

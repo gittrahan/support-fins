@@ -65,7 +65,8 @@ contact-tip/tine sizing. It does not select a material profile or change layer
 height or the support gap.
 
 **What it tells you.** One line per file: walls, tines, and anything left unsupported
-(overhangs too shallow for a fin this way up, pieces that start in mid-air). That is a
+(overhangs too shallow for a fin this way up, Full coverage's overhang no wall reached,
+pieces that start in mid-air). That is a
 report, not a failure: exit 0. Exit 1 = a file couldn't be read or finned (the other
 files still are); exit 2 = bad arguments, nothing ran.
 
