@@ -31,7 +31,7 @@ const rows = () => [...pane.querySelectorAll(ROWS)].filter((r) => !r.closest('.o
 // Sway braces or Anchor fins: either shows the brace settings (settings.js syncSway)
 const braceOn = () => el('sway').checked || el('anchor').checked;
 const GATES = [
-  ['#tinegrip-fld, #layerh-fld', () => el('tines').closest('label')],
+  ['#tinegrip-fld, #layerh-fld, #firstlayer-fld', () => el('tines').closest('label')],
   ['[data-pad-custom]', () => el('bed-pad').closest('label')],
   // the brace tine fields also hide with Tines off (settings.js syncSway)
   ['#sway-from-fld, #sway-spacing-fld', () => el(braceOn() ? 'tines' : 'sway').closest('label')],

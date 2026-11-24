@@ -119,7 +119,7 @@ function padPreset(style) {
   if (style === 'auto') style = lastBuilt?.pad?.style === 'sure' ? 'sure' : 'light';
   return style === 'sure'
     ? { h: FIN.padH, gap: 0, grip: PAD.grab, margin: FIN.padMargin }
-    : { h: el('layer-height').valueAsNumber || 0.2, gap: PAD.brimGap, grip: 0, margin: FIN.padMargin };
+    : { h: el('first-layer').valueAsNumber || 0.2, gap: PAD.brimGap, grip: 0, margin: FIN.padMargin };
 }
 let padShown = el('bed-pad').value;
 function syncPadStyle() {
@@ -190,6 +190,7 @@ function syncTineGrip() {
   // Resin pins are no layer tall, so vertical tines don't need it either.
   el('layerh-fld').hidden = (!on || pins) && !['light', 'auto'].includes(el('bed-pad').value)
     && el('iface').value === 'off';
+  el('firstlayer-fld').hidden = el('layerh-fld').hidden;   // read with it (prop/levels.js)
 }
 el('tines').addEventListener('change', () => { syncTineGrip(); refreshFins(); });
 window.addEventListener('languagechange', syncTineGrip);   // the swapped tooltip, retranslated
@@ -208,6 +209,7 @@ el('tine-dir').addEventListener('change', (e) => {
 el('pin-depth').addEventListener('input', () => { applyTunables(tineDirTunables()); debouncedRefresh(); });
 el('tine-density').addEventListener('input', () => debouncedRefresh());
 el('layer-height').addEventListener('input', () => debouncedRefresh());
+el('first-layer').addEventListener('input', () => debouncedRefresh());
 el('coverage').addEventListener('input', () => debouncedRefresh());
 
 // Sway braces: the switch sits in its section header (like Tines), and its three
@@ -364,7 +366,7 @@ el('nozzle').addEventListener('change', () => {
 // slice at one layer height and tune one gap for your machine, so a new part starts
 // from your last ones. Unlike the nozzle, a saved session still restores its own
 // (history.js). Read back before initSettings, which hands the gap to PROP.
-const PRINTER_KEYS = { 'layer-height': 'sf.layerHeight', gap: 'sf.gap' };
+const PRINTER_KEYS = { 'layer-height': 'sf.layerHeight', 'first-layer': 'sf.firstLayer', gap: 'sf.gap' };
 for (const [id, key] of Object.entries(PRINTER_KEYS)) {
   const f = el(id);
   try {
@@ -453,6 +455,7 @@ export function syncSectionSums() {
   el('sum-printer').textContent = [
     `${el('nozzle').value} ${t('nozzle')}`,
     el('layerh-fld').hidden ? null : `${el('layer-height').value} ${t('layers')}`,
+    el('firstlayer-fld').hidden || el('first-layer').valueAsNumber === 0.2 ? null : `${el('first-layer').value} ${t('First layer')}`,
     `${el('gap').value} ${t('gap')}`,
     el('side-clearance').valueAsNumber === 0.35 ? null : `${el('side-clearance').value} ${t('Side clearance')}`,
     el('bottom-gap-fld').hidden || el('bottom-gap').valueAsNumber === 0.2 ? null : `${el('bottom-gap').value} ${t('Bottom gap')}`,

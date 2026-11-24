@@ -24,7 +24,7 @@ import { updateReadout } from './readout.js';
 import { pickFace } from './pose.js';
 import { part, topology, rotM3, lastResult, updateFit } from './part.js';
 import { finsVisible, finMode, autoLike, drawAugment } from './settings.js';
-import { lastBuilt, swayOpts } from './finbuild.js';
+import { lastBuilt, pageLevels, swayOpts } from './finbuild.js';
 
 // ---- draw mode: the user places breakaway walls by hand --------------------
 // A drawn wall IS the same kind of support the auto-placer emits, so it shares
@@ -281,6 +281,7 @@ export function sweepDrawn({ topology, res, rot, tris, walls, toWorld, auto: bui
   const drawOpts = { tines: el('tines').checked,
                      tineDensity: el('tine-density').valueAsNumber / 100,
                      layerHeight: el('layer-height').valueAsNumber,
+                     levels: pageLevels(),
                      plateOnly: el('plate-only').checked,
                      braceTall: el('tall-ribs').checked,
                      topo: topology, rot, offset: res.offset };

@@ -361,6 +361,8 @@ export default {
   "firm grip": "تثبيت محكم",
   "medium grip": "تثبيت متوسط",
   "Layer height": "ارتفاع الطبقة",
+  "First layer": "الطبقة الأولى",
+  "Set this to your slicer's first layer height. Tines sit on the layers your slicer prints, so a first layer that differs from the layer height moves every layer above it. Default 0.2mm, as most slicer profiles.": "اضبطه على ارتفاع الطبقة الأولى في برنامج التقطيع. تقع أسنان التثبيت على الطبقات التي يطبعها البرنامج، لذا فإن طبقة أولى مختلفة عن ارتفاع الطبقة تُزيح كل طبقة فوقها. الافتراضي 0.2 مم، كما في معظم إعدادات التقطيع.",
   "Nozzle": "الفوهة",
   "Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one.": "قطر فوهة طابعتك. تُحدَّد أبعاد الجدران وأطراف التلامس وأسنان التثبيت وفق عدد خطوط البثق المرتبطة بالفوهة؛ لذلك تتسع هذه العناصر مع الفوهة الأكبر وتضيق الأسنان مع الفوهة الأصغر.",
   "Support gap": "فجوة بين الدعامة والقطعة",

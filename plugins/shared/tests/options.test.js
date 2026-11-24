@@ -42,6 +42,7 @@ const SITE_AUTO_CHECKBOX = { separateWalls: 'ticked by the site when Vertical (r
 // Every site control that is NOT in options.json, and why. A new control on the site
 // fails the test below until it is added to the schema or listed here.
 const SITE_EXCLUDED = {
+  'first-layer': "the site's guess at the slicer's first layer; a slicer host passes its own layers as levels (Orca does)",
   'material-format': 'browser 3MF compatibility; host adapters own their export format',
   'separate-tines': 'browser-only material-part export; plugin adapters keep their existing single support mesh',
   'full-brace-depth': 'browser opt-in; plugin dialogs retain the established 60 mm Sway depth limit',

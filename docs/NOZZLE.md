@@ -20,7 +20,8 @@ Every support width was tuned on a 0.4 mm nozzle: a 1.0 mm wall (two 0.5 mm line
   Walls, wedges and braces never get thinner than the 0.4 numbers.
 - **Wall lines** multiplies the walls, wedges and braces: 4 lines is twice the wall, 8 is
   four times. The tip and tines stay one line, so the supports break off the same way.
-- Heights don't follow the nozzle. Tines are one layer tall, set by **Layer height**.
+- Heights don't follow the nozzle. Tines are one layer tall, set by **Layer height**, and sit on
+  the layers above **First layer** (0.2 mm, as most slicer profiles), not a grid from the plate.
 
 ## Limits
 

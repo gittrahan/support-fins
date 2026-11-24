@@ -353,6 +353,8 @@ export default {
 	"firm grip": "stevige grip",
 	"medium grip": "gemiddelde grip",
 	"Layer height": "Laaghoogte",
+	"First layer": "Eerste laag",
+	"Set this to your slicer's first layer height. Tines sit on the layers your slicer prints, so a first layer that differs from the layer height moves every layer above it. Default 0.2mm, as most slicer profiles.": "Stel dit in op de eerste laaghoogte van je slicer. De grijptanden liggen op de lagen die je slicer print; wijkt de eerste laag af van de laaghoogte, dan verschuift elke laag erboven. Standaard 0,2 mm, zoals in de meeste slicerprofielen.",
 	"Nozzle": "Nozzle",
 	"Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one.": "De diameter van de nozzle van je printer. De wanden, contactpunten en steuntanden worden afgestemd op nozzlebanen: bij een grotere nozzle worden ze breder en bij een kleinere nozzle worden de steuntanden smaller.",
 	"Support gap": "Afstand tot steun",

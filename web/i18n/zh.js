@@ -387,6 +387,8 @@ export default {
   "firm grip": "牢咬合",
   "medium grip": "中等咬合",
   "Layer height": "层高",
+  "First layer": "首层高度",
+  "Set this to your slicer's first layer height. Tines sit on the layers your slicer prints, so a first layer that differs from the layer height moves every layer above it. Default 0.2mm, as most slicer profiles.": "请设为切片软件中的首层高度。咬合齿位于切片软件实际打印的层上；首层与层高不同时，其上的每一层都会随之移动。默认 0.2 mm，与大多数切片配置相同。",
   "Nozzle": "喷嘴",
   "Your printer's nozzle diameter. The walls, contact tips and tines are sized in nozzle lines, so they widen for a bigger nozzle and the tines narrow for a smaller one.": "你打印机的喷嘴直径。墙、接触头和齿都按喷嘴线宽取值：喷嘴越大，它们越宽；喷嘴越小，齿越窄。",
   "Support gap": "支撑间隙",

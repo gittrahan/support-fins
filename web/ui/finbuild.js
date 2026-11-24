@@ -9,6 +9,7 @@ import { BRACE, PROP } from '../prop.js';
 import { CUT } from '../cutout.js';
 import { nozzle, wallLines } from '../nozzle.js';
 import { nominalContext } from '../fins/printability.js';
+import { firstLayerLevels } from '../prop/levels.js';
 import { el } from './dom.js';
 import { t } from './i18n.js';
 import { scene, meshFrom, ifaceMaterial, clip, requestRender } from './scene.js';
@@ -131,7 +132,9 @@ export function finOpts(isl = islands) {
            tines: el('tines').checked,
            tineDensity: el('tine-density').valueAsNumber / 100,
            layerHeight: el('layer-height').valueAsNumber,
-           diagnostics: nominalContext(el('layer-height').valueAsNumber, nozzle, PROP.footGap),
+           levels: pageLevels(),                  // the First layer field (prop/levels.js)
+           diagnostics: nominalContext(el('layer-height').valueAsNumber, nozzle, PROP.footGap,
+                                       el('first-layer').valueAsNumber || el('layer-height').valueAsNumber),
            // Full coverage walls the island starts too (fins/fill.js): found here, on
            // the page, since the Worker's topology has no vertex ids (deleted below)
            islands: finMode === 'full' ? isl : undefined,
@@ -157,6 +160,13 @@ export function finOpts(isl = islands) {
                        nozzle, wallLines } };
 }
 
+/** The print's layer boundaries for the Layer height and First layer fields, or null
+ *  when they match (prop/levels.js firstLayerLevels): every build on the page, Auto's
+ *  and the hand-placed walls and braces, takes the same. */
+export function pageLevels() {
+  return firstLayerLevels(el('layer-height').valueAsNumber, el('first-layer').valueAsNumber);
+}
+
 /** The engine settings a Worker needs to build what this page would: the same
  *  ones an Auto build sends (Suggest's Worker scores poses with them). */
 export function supportTunables() { return finOpts().tunables; }
@@ -174,6 +184,7 @@ export function swayOpts() {
            tines: el('tines').checked,
            iface: PROP.iface,
            layerHeight: el('layer-height').valueAsNumber,
+           levels: pageLevels(),
            // "Brace tall walls" cross-ribs a brace over its start height, the same
            // threshold the drawn walls use; unticked leaves the brace plain.
            crossAbove: el('tall-ribs').checked ? BRACE.tallH : Infinity };
