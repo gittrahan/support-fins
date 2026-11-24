@@ -50,10 +50,12 @@ export function notesFor(release, repo = 'gittrahan/support-fins') {
   return out.join('\n');
 }
 
-// One line in a PR description: `Changelog (held): Tines grip ...`, optionally as a list
-// item. `Changelog: none` says the PR changes nothing a user sees. HTML comments (the PR
-// template's example) are ignored. `all` is the launch roll-up's check, not a PR's.
-const LINE_RE = /^[ \t]*(?:[-*][ \t]+)?changelog[ \t]*(?:\(([^)]*)\))?[ \t]*:[ \t]*(.*?)[ \t]*$/gim;
+// One line in a PR description: `Changelog (held): Tines grip ...`, optionally quoted, as a
+// list item or in bold. `Changelog: none` says the PR changes nothing a user sees. HTML
+// comments (the PR template's example) are ignored. `all` is the launch roll-up's check, not a PR's.
+const LINE_RE = /^[ \t]*(?:>[ \t]*)?(?:(?:[-*+]|\d+\.)[ \t]+)?(?:\*\*|__)?changelog[ \t]*(?:\(([^)]*)\))?[ \t]*(?:\*\*|__)?:(?:\*\*|__)?[ \t]*(.*?)[ \t]*$/gim;
+// `none`, alone or followed by a reason: "none -- tests only", "none (docs)"; not "none of the ..."
+const NONE_RE = /^none[ \t]*(?:$|[-—–(:.,;])/i;
 const PR_CHECKS = CHECKS.filter((c) => c !== 'all');
 
 /** A PR description's changelog lines: {entries: [{check, text}], none, bad: [line]}. */
@@ -62,7 +64,7 @@ export function changelogLines(body) {
   const out = { entries: [], none: false, bad: [] };
   for (const [line, check, t] of text.matchAll(LINE_RE)) {
     const c = (check ?? '').trim().toLowerCase();
-    if (!check && /^none\b/i.test(t)) out.none = true;
+    if (NONE_RE.test(t)) out.none = true;
     else if (PR_CHECKS.includes(c) && t) out.entries.push({ check: c, text: t });
     else out.bad.push(line.trim());
   }
@@ -70,16 +72,18 @@ export function changelogLines(body) {
 }
 
 /** PRs merged after `since` (ISO time), oldest merge first, as unreleased entries
- *  {pr, date, check, text}; PRs any entry already names are skipped, so collecting twice
- *  adds nothing. `missing`: PRs with no line and no `none`; `bad`: lines that don't parse. */
+ *  {pr, date, check, text}; PRs any entry already names, and lines whose text an entry
+ *  already has (a hand-written one with no pr), are skipped, so collecting twice adds nothing. `missing`: PRs with no line and no `none`; `bad`: lines that don't parse. */
 export function collect(data, prs, since) {
-  const seen = new Set([...releases(data).flatMap((r) => r.entries), ...unreleased(data)].map((e) => e.pr).filter(Boolean));
+  const known = [...releases(data).flatMap((r) => r.entries), ...unreleased(data)];
+  const seen = new Set(known.map((e) => e.pr).filter(Boolean));
+  const texts = new Set(known.map((e) => e.text));
   const out = { entries: [], missing: [], bad: [] };
   const merged = prs.filter((p) => p.mergedAt && (!since || Date.parse(p.mergedAt) > Date.parse(since)) && !seen.has(p.number))
     .sort((a, b) => Date.parse(a.mergedAt) - Date.parse(b.mergedAt));
   for (const p of merged) {
     const l = changelogLines(p.body);
-    for (const e of l.entries) out.entries.push({ pr: p.number, date: p.mergedAt.slice(0, 10), ...e });
+    for (const e of l.entries) if (!texts.has(e.text)) out.entries.push({ pr: p.number, date: p.mergedAt.slice(0, 10), ...e });
     for (const b of l.bad) out.bad.push({ pr: p.number, line: b });
     if (!l.entries.length && !l.none && !l.bad.length) out.missing.push({ pr: p.number, title: p.title ?? '' });
   }
@@ -98,11 +102,12 @@ async function git(...args) {
   return code ? null : new TextDecoder().decode(stdout);
 }
 
-/** When the newest release commit was made (committer time, ISO), or null before the first release. */
+/** When the newest release commit was made (committer time, ISO in UTC, as GitHub's search
+ *  dates are), or null before the first release. */
 async function since(data) {
   const tag = releases(data)[0]?.tag;
   const sha = tag && await releaseCommit(tag);
-  return sha ? (await git('show', '-s', '--format=%cI', sha)).trim() : null;
+  return sha ? new Date((await git('show', '-s', '--format=%cI', sha)).trim()).toISOString() : null;
 }
 
 async function gitTags() {

@@ -67,6 +67,12 @@ Deno.test('release: a PR description holds its Changelog lines, with their check
   assertEquals(l.bad, ['Changelog (all): roll-ups are not a PR check', 'Changelog: no check given', 'Changelog (held):']);
   assert(!l.none);
   assert(changelogLines('text\nChangelog: none -- tests only').none);
+  assert(changelogLines('Changelog (held): none').none, 'a check with none is still none');
+  assert(changelogLines('Changelog: none (docs)').none && changelogLines('Changelog: None.').none);
+  assertEquals(changelogLines('Changelog: none of the old walls moved').bad.length, 1, '"none of" is prose, not none');
+  for (const line of ['**Changelog (held):** bold', '> Changelog (held): quoted', '1. Changelog (held): numbered', '**Changelog (held)**: bold check', '+ Changelog (held): plus item']) {
+    assertEquals(changelogLines(line).entries.length, 1, line);
+  }
   assertEquals(changelogLines(null), { entries: [], none: false, bad: [] });
 });
 
@@ -94,6 +100,8 @@ Deno.test('release: collect takes PRs merged after the last release, oldest firs
   assertEquals(out.bad, [{ pr: 15, line: 'Changelog: unchecked' }]);
   const again = collect({ ...data, unreleased: [...data.unreleased, ...out.entries] }, prs, '2026-11-01T12:00:00Z');
   assertEquals(again.entries, [], 'collecting twice adds nothing');
+  const hand = collect({ ...data, unreleased: [...data.unreleased, entry('first')] }, prs, '2026-11-01T12:00:00Z');
+  assertEquals(hand.entries.map((e) => e.text), ['second', 'later'], 'a hand-written entry with the same text, no pr, is not doubled');
   // collected entries pass the changelog's own entry rules once stamped
   const p = prepare({ ...data, unreleased: out.entries }, '', '2026-11-04');
   assertEquals(releases(p.data)[0].entries.map((e) => e.pr), [11, 11, 12]);
