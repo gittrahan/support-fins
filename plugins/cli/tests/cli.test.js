@@ -398,6 +398,9 @@ Deno.test('cli: the summary line says what was left unsupported, word for word w
     { braces: 12, tines: 30, fullBare: 29, fullCapped: false },    // Full's red no wall reaches
     { braces: 12, tines: 30, fullBare: 0, fullCapped: false },
   ];
+  samples.push({braces:2,seatingSkipped:1}, {braces:3,seatingSkipped:2});
+  assert(reportLine(samples.at(-2)).includes('Landing unchanged on 1 wall; no verified correction'));
+  assert(reportLine(samples.at(-1)).includes('Landing unchanged on 2 walls; no verified correction'));
   assert(/1 overhang is too shallow/.test(reportLine(samples[1])), reportLine(samples[1]));
   assert(/one piece isn't joined to the rest: it starts 4\.3 mm up/.test(reportLine(samples[2])), reportLine(samples[2]));
   assert(/it starts 4\.2 mm up/.test(reportLine(samples[4])), reportLine(samples[4]));

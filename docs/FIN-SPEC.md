@@ -187,12 +187,15 @@ checked inside the part. **Not tested on a resin printer.**
   Already seated, curved and welded walls retain their existing construction.
   A drop must exceed the existing molded-foot tilt/drop envelope before this
   correction is considered; continuous steep seats keep that earlier policy.
-  A clearly unsupported straight wall with no validated route is refused using
-  the existing blocked-wall reporting; Draw explains that no clear landing fits.
+  A clearly unsupported straight wall with no validated route, including a search
+  that reaches the station limit, retains its ordinary geometry. A counted notice
+  says the landing remains uncorrected and needs slicer inspection. Existing
+  collision checks still apply; this fallback is not a certified landing.
   Candidate checks include the complete changed lower solid, side clearance,
   closed source sections and a nominal first-layer footprint. Browser/shared
-  geometry uses the entered layer height and a nominal 1.05-nozzle line width;
-  it does not know a slicer's custom first-layer height or extrusion settings.
+  geometry uses supplied layer boundaries (or the entered uniform layer height)
+  and a nominal 1.05-nozzle line width;
+  the supplied grid must match the slicer, and custom extrusion settings are not inferred.
   Final slicing remains required. Intentional bottom gaps may still produce
   floating-region warnings. Adhesion, removal and roof bridge direction are not
   established by these geometric checks.

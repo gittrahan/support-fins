@@ -111,8 +111,10 @@ Full fill pass) trims its ends the same way (`trimmedEnds`) when given the topol
 
 **`part_ledge.test.js`** -- straight walls whose clearance probes reach a ledge but
 whose actual first layer stands over air (#482). Procedural closed ledges cover
-moving onto the ledge, extending to a lower surface, blocked routes, keep-clear
-volumes, open source sections, nozzle/layer scaling, transforms and no-op parity.
+moving onto the ledge, extending to a lower surface, reported ordinary-wall
+fallbacks (including the station cap), keep-clear volumes, open source sections,
+nozzle/layer scaling, supplied layer boundaries, transforms and no-op parity.
+Draw braces use the rerouted floor; pre-existing collision refusals still apply.
 Cutout bends stay solid; upper contacts, interface tags and turning recipe replay
 are preserved. Native slicing and physical adhesion/removal remain separate gates.
 
