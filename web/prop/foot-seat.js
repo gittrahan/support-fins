@@ -8,6 +8,7 @@ import { surfaceHitsAt } from './surface.js';
 import { floorLine, PART_FOOT_REACH } from './mold.js';
 import { sweepBetween } from './sweep.js';
 import { frameSweep } from './turn-frame.js';
+import { levelsOn, levelCell, levelCut } from './levels.js';
 import { insidePart, solidClearance } from '../inside.js';
 import { buildTopology } from '../overhangs.js';
 import { sectionMesh, sectionAt, area, difference, intersection, offset } from '../fins/sections.js';
@@ -71,30 +72,48 @@ export function footSeatFrame(route) {
 }
 
 // At the ordinary nominal line width, require the first printable footprint to
-// stand above the model across the intended bottom gap. Browser builds have no
-// slicer profile: their first layer is the entered layer height. Exact project
-// widths/first-layer offsets still require final slicing, as for other supports.
+// stand above the model across the intended bottom gap. Use supplied layer
+// boundaries (including the browser First layer setting), or the uniform grid.
+// Exact slicer widths and generated paths still require final slicing.
 function firstLayerSeated(triangles, c, layer, end) {
   const mesh = sectionMesh(triangles.map(p => p.slice(0, 3))), width = PROP.nominalLineWidth;
   // CAD triangle soups can contain harmless seams without paired mesh edges.
   // Require closed, consistently wound source sections across the changed run
   // instead of repairing those seams or assuming a globally closed solid.
-  for (let i = Math.max(0, Math.floor((mesh.minZ - layer - PROP.footGap) / layer));
-       (i + .5) * layer <= end + layer; i++) sectionAt(c.sections, (i + .5) * layer);
-  const first = Math.ceil((mesh.minZ + layer / 2) / layer - 1e-9);
-  for (let i = 0; i < 10; i++) {
-    const z = (first + i) * layer, section = sectionAt(mesh, z - layer / 2);
+  const cellAt = z => levelsOn() ? levelCell(z) : {
+    bot: Math.max(0, Math.round(z / layer)) * layer,
+    top: (Math.max(0, Math.round(z / layer)) + 1) * layer,
+  };
+  // Include a complete preceding cell when checking source sections.
+  let cell = cellAt(Math.max(0, mesh.minZ - 2 * layer - PROP.footGap));
+  while ((cell.bot + cell.top) / 2 <= end + layer) {
+    const mid = (cell.bot + cell.top) / 2;
+    if (mid >= mesh.minZ - 2 * layer - PROP.footGap) sectionAt(c.sections, mid);
+    cell = cellAt(cell.top);
+  }
+  cell = cellAt(mesh.minZ - 1e-9);
+  for (let i = 0; i < 10; i++, cell = cellAt(cell.top)) {
+    const section = sectionAt(mesh, (cell.bot + cell.top) / 2);
     const core = offset(section, -width / 2 + 1e-6);
     if (!area(core)) continue;
-    if (z <= layer + EPS && mesh.minZ <= EPS) return true;
+    if (cell.bot <= EPS && mesh.minZ <= EPS) return true;
     const footprint = intersection(offset(core, width / 2), section);
-    const below = sectionAt(c.sections, z - layer - PROP.footGap - layer / 2);
+    let belowZ = cell.bot - PROP.footGap - layer / 2;
+    if (levelsOn()) {
+      const boundary = levelCut(cell.bot - PROP.footGap, 1);
+      if (boundary < 0) return false;
+      const below = levelCell(boundary);
+      belowZ = (below.bot + below.top) / 2;
+    }
+    const below = sectionAt(c.sections, belowZ);
     return area(difference(footprint, below)) <= 1e-6;
   }
   return false;
 }
 
-/** Return the ordinary wall unchanged, a corrected wall, or a blocked verdict.
+/** Return an ordinary wall, a corrected wall, or a degenerate verdict.
+ * A failed landing search retains the ordinary wall and reports seatingSkipped;
+ * this does not certify its landing or bypass the callers' existing clearance checks.
  * Curved/welded walls retain their existing path. Straight walls are rerouted
  * only when at least 90% of the bottom probes exceed the ordinary foot's reach;
  * this does not retune the existing permissible tilt of a partially seated foot.
@@ -103,6 +122,7 @@ export function seatPartWall(mold, tris, layer = PROP.tineH, minH = PROP.minHeig
   const ordinary = [];
   if (!sweepBetween(mold.top, mold.floor, ordinary, minH)) return { ok: false };
   const unchanged = { ok: true, triangles: ordinary, ...mold };
+  const fallback = reason => ({ ...unchanged, seatingSkipped: 1, seatingReason: reason });
   if (!(PROP.footGap > 0) || PROP.tineDir === 'vertical' || !(layer > 0)) return unchanged;
   const top = mold.top, first = top[0], last = top.at(-1);
   const length = Math.hypot(last[0] - first[0], last[1] - first[1]);
@@ -118,7 +138,7 @@ export function seatPartWall(mold, tris, layer = PROP.tineH, minH = PROP.minHeig
   const dense = [], step = Math.min(layer, PROP.th / 5);
   for (let i = 0; i + 1 < top.length; i++) {
     const a = top[i], b = top[i + 1], n = Math.ceil(Math.hypot(b[0] - a[0], b[1] - a[1]) / step);
-    if (dense.length + n > MAX_STATIONS) return { ok: false, blocked: true };
+    if (dense.length + n > MAX_STATIONS) return fallback('station-limit');
     for (let k = 0; k < n; k++) dense.push(a.map((v, j) => v + (b[j] - v) * k / n));
   }
   dense.push(last);
@@ -181,5 +201,5 @@ export function seatPartWall(mold, tris, layer = PROP.tineH, minH = PROP.minHeig
     } catch (_) { continue; } // open/inconsistent sections cannot certify a route
     return { ok: true, triangles, top: dense, floor, route };
   }
-  return { ok: false, blocked: true };
+  return fallback('no-landing');
 }

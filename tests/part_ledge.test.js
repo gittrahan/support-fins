@@ -8,9 +8,11 @@ import { sweepBetween } from '../web/prop/sweep.js';
 import { seatPartWall, footSeatFrame } from '../web/prop/foot-seat.js';
 import { frameSweep } from '../web/prop/turn-frame.js';
 import { drawnWall } from '../web/draw.js';
+import { drawWall } from '../plugins/shared/engine/draw_entry.js';
 import { buildPartAttached } from '../web/prop/attached.js';
 import { sectionMesh, sectionAt, bounds, area, difference } from '../web/fins/sections.js';
 import { closedTurningMesh as closedMesh } from '../web/prop/turn.js';
+import { withLevels } from '../web/prop/levels.js';
 import { crestPart } from '../web/prop/crest.js';
 import { buildFins } from '../web/fins.js';
 
@@ -77,11 +79,21 @@ test('compound slopes retain the existing foot-tilt policy and their walls and t
   }
 });
 
-test('bounded search refuses a narrow landing; drawn walls cannot fall through the body',()=>{
+test('bounded search retains the ordinary wall when no landing fits, with an explicit note',()=>{
   const body=ledgeFixture({narrow:true}),r=build(body);
-  assert(!r.ok&&r.blocked,'unusable landing was accepted');
+  assert(r.ok && !r.route && r.seatingSkipped === 1 && r.seatingReason === 'no-landing');
+  const mold=moldLine(ledgeLine(),body),ordinary=[];sweepBetween(mold.top,mold.floor,ordinary);
+  assert(JSON.stringify(r.triangles) === JSON.stringify(ordinary), 'fallback changed the old wall');
   const draw=drawnWall(ledgeLine()[0],ledgeLine().at(-1),body,0);
-  assert(!draw.ok&&/landing/.test(draw.reason),'Draw silently used an unsafe fallback');
+  assert(draw.ok && draw.seatingSkipped === 1, 'Draw did not retain and report the old wall');
+  const drawMold=moldLine(draw.top,body),drawOrdinary=[];
+  sweepBetween(drawMold.top,drawMold.floor,drawOrdinary);
+  assert(JSON.stringify(draw.tris) === JSON.stringify(drawOrdinary), 'Draw fallback changed geometry');
+  // Widen the recess enough to pass the adapter's existing side-wall check,
+  // while keeping its 0.4 mm landing too narrow for this 1 mm wall.
+  const wider=Float64Array.from(body,(v,i)=>i%3===0&&v===-.2?-.4:v);
+  const shared=drawWall(wider,ledgeLine()[0],ledgeLine().at(-1),{nozzle:.4,tines:false,bottomGap:.2});
+  assert(shared.ok && shared.stats.seatingSkipped===1,'shared Draw hid the uncorrected landing: '+JSON.stringify(shared.stats??shared));
 });
 
 test('open source sections cannot certify a new lower route',()=>{
@@ -91,16 +103,17 @@ test('open source sections cannot certify a new lower route',()=>{
     broken.push(...source.slice(i,i+9));
   }
   const r=build(Float64Array.from(broken));
-  assert(!r.ok&&r.blocked,'open source certified a new route');
+  assert(r.ok && !r.route && r.seatingSkipped === 1,'open source certified a new route');
 });
 
 test('automatic keep-clear volumes cannot be used as a lower route',()=>{
   const body=ledgeFixture(),p=block(-5,8,-25,25,0,7);
   const keepClear=Array.from({length:p.length/3},(_,i)=>Array.from(p.slice(i*3,i*3+3)));
   const r=seatPartWall(moldLine(ledgeLine(),body),body,.2,PROP.minHeight,keepClear);
-  assert(!r.ok&&r.blocked,'route entered a protected cavity');
+  assert(r.ok && !r.route && r.seatingSkipped === 1,'route entered a protected cavity');
   const out=[],auto=buildPartAttached(ledgeLine(),body,topo(body),ID,ZERO,out,false,.2,keepClear);
-  assert(!auto.ok&&auto.floored==='blocked'&&out.length===0,'Auto published an excluded route');
+  assert(auto.ok && auto.prop.seatingSkipped === 1 && !auto.prop.turnWall?.seating, 'Auto published an excluded route');
+  assert(JSON.stringify(out)===JSON.stringify(r.triangles),'Auto changed the ordinary fallback');
 });
 
 test('translation, rotation, mirroring and repeat calls preserve local routing',()=>{
@@ -156,4 +169,50 @@ test('Auto recipe replay retains the corrected lower wall for turning',()=>{
   const recipe=r.prop.turnWall,plain=[];sweepBetween(recipe.top,recipe.floor,plain,PROP.minHeight,null,recipe.seating.end);
   const replay=frameSweep(plain,footSeatFrame(recipe.seating));
   assert(JSON.stringify(replay)===JSON.stringify(out),'turning rebuild changed the base');
+});
+
+
+test('station limit keeps long walls without falsely certifying a landing',()=>{
+  const body=Float64Array.from(ledgeFixture(),(v,i)=>i%3===1?v*40:v);
+  const line=ledgeLine().map(([x,y,z])=>[x,y*40,z]);
+  const mold=moldLine(line,body),ordinary=[];sweepBetween(mold.top,mold.floor,ordinary);
+  const r=seatPartWall(mold,body,.2);
+  assert(r.ok && !r.route && r.seatingSkipped===1 && r.seatingReason==='station-limit');
+  assert(JSON.stringify(r.triangles)===JSON.stringify(ordinary),'station cap removed or changed the wall');
+});
+
+Deno.test('part ledge: fallback notices have translations and all plural placeholders',async()=>{
+  const keys=['Landing unchanged on {n} wall; no verified correction. Inspect support starts in the slicer.',
+    'Landing unchanged on {n} walls; no verified correction. Inspect support starts in the slicer.'];
+  for(const lang of ['nl','de','pt','zh','ar']){
+    const {default:dict}=await import(`../web/i18n/${lang}.js`);
+    for(const key of keys){
+      const v=dict[key];assert(v && v!==key,lang);
+      for(const form of typeof v==='string'?[v]:Object.values(v))assert(form.includes('{n}'),lang);
+      if(lang==='ar')assert(['zero','one','two','few','many','other'].every(k=>v[k]),'Arabic plurals');
+    }
+  }
+});
+
+
+test('a different first layer and supplied boundaries retain a checked landing',()=>{
+  const body=ledgeFixture();
+  for(const levels of [[0,.3,.5],[0,.1,.3],[0,.2,.4,.7,.9]]){
+    const r=withLevels(levels,()=>checked(build(body)));
+    assert(Math.max(...r.floor.map(f=>f[2]))<=5+1e-8,'incorrect floor');
+  }
+  const a=checked(build(body)),b=checked(build(body));
+  assert(JSON.stringify(a)===JSON.stringify(b),'layer context leaked');
+});
+
+
+test('Draw braces use the new plate landing instead of the old part floor',()=>{
+  const body=Float64Array.from(ledgeFixture(),(v,i)=>i%3===2&&v>=20?v+20:v);
+  const line=Array.from({length:5},(_,i)=>[.6,i-2,40]);
+  const p=block(-8,0,-40,40,0,7);
+  const keepClear=Array.from({length:p.length/3},(_,i)=>Array.from(p.slice(3*i,3*i+3)));
+  const r=drawnWall(line[0],line.at(-1),body,0,{brace:true,keepClear});
+  assert(r.ok && r.braces>0,'new plate landing did not receive its brace');
+  assert(r.floors.every(z=>z===0) && r.floors.length===r.top.length,'floors lost their station mapping');
+  assert(isClosed(r.tris),'open braced wall');
 });

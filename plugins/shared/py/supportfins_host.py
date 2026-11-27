@@ -219,6 +219,9 @@ def host_report(stats):
     holes = stats.get("smallHoleRegions") or 0
     if holes:
         parts.append(f"{holes} small-hole ceiling{'s' if holes != 1 else ''} left unsupported for bridging")
+    seating_skipped = stats.get("seatingSkipped", 0)
+    if seating_skipped:
+        parts.append(f"Landing unchanged on {seating_skipped} wall{'' if seating_skipped == 1 else 's'}; no verified correction, inspect support starts in the slicer")
     unserved = stats.get("unserved") or 0
     if unserved:
         parts.append(f"{unserved} overhang{' is' if unserved == 1 else 's are'} too shallow "

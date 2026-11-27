@@ -179,7 +179,7 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out, captur
   const before = out.length;
   const mold = moldLine(subTop, partTris);
   const seated = seatPartWall(mold, partTris, layerHeight, PROP.minHeight, keepClear);
-  if (!seated.ok) return { floored: seated.blocked ? 'blocked' : 'degenerate' };
+  if (!seated.ok) return { floored: 'degenerate' };
   for (const p of seated.triangles) out.push(p);
 
   // In a bore when most of the kept run is walled all round.
@@ -203,7 +203,7 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out, captur
     ok: true,
     prop: {
       span, height, stations: subTop.length, volume: Math.abs(vol),
-      partAttached: true, inBore,
+      partAttached: true, inBore, seatingSkipped: seated.seatingSkipped ?? 0,
       ...(captureWall ? { turnWall: { top: seated.top, floor: seated.floor, count: out.length - before,
         ...(seated.route ? { seating: seated.route } : {}) } } : {}),
       line: subTop.map((p) => [p[0], p[1], p[2] - PROP.gap]),

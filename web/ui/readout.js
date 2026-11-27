@@ -246,6 +246,9 @@ function updateDrawReadout(built, ms) {
 
   const lead = [];
   const help = [];
+  const seatingSkipped = ok.reduce((n, w) => n + (w.info?.seatingSkipped ?? 0), 0);
+  if (seatingSkipped) lead.push(tn("Landing unchanged on {n} wall; no verified correction. Inspect support starts in the slicer.",
+    "Landing unchanged on {n} walls; no verified correction. Inspect support starts in the slicer.", seatingSkipped).replace(/[.。]$/, ''));
   if (!drawnWalls.length && !drawMsg) {
     lead.push(drawShapeNow() === 'gusset'
       ? t('Click a side of the part under an overhang, then the overhang itself, '
@@ -406,6 +409,10 @@ function updateFinReadout(built, ms) {
     help.push(t('The count includes narrow sections and unresolved starts. Rapid growth remains in the detailed report only. Model material below a start does not prove a printable seat. Check extrusion paths and gaps in the slicer.'));
     if (built.printability.context?.basis === 'nozzle-proxy') help.push(t('Section widths use the selected nozzle as a proxy; actual slicer line widths and first-layer settings may differ.'));
   }
+  const seatingSkipped = built.fins.reduce((n, f) => n + (removedIds.has(f.id) ? 0 : f.seatingSkipped ?? 0), 0)
+    + (drawShown() ? drawnWalls.reduce((n, w) => n + (w.ok ? w.info?.seatingSkipped ?? 0 : 0), 0) : 0);
+  if (seatingSkipped) lead.push(tn("Landing unchanged on {n} wall; no verified correction. Inspect support starts in the slicer.",
+    "Landing unchanged on {n} walls; no verified correction. Inspect support starts in the slicer.", seatingSkipped).replace(/[.。]$/, ''));
   if (!n && !drawnOk) {
     // Nothing placed -- the box names the outcome; the why goes in the
     // (i), since it's a paragraph and the user can hover for it.
