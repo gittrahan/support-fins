@@ -43,3 +43,9 @@ Deno.test('material warning: worker and inline report agree without altering par
   delete result.warnings;
   assert(JSON.stringify(result) === JSON.stringify(plain), 'warning changed material export');
 });
+
+Deno.test('material warning: adjacent different-slot tines are inspected independently', () => {
+  const parts = [{ ...part([0, 1, 0, 3, 0, 1]), filament: 1 },
+    { ...part([1, 1.2, 0, 3, 0, 1]), filament: 2 }];
+  assert(supportMaterialWarnings(parts, settings).narrowTines, 'wide neighbour hid the narrow material region');
+});

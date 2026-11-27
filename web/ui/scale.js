@@ -1,3 +1,4 @@
+import { transformMaterialField } from '../browser-materials.js';
 /**
  * Scale, in the view toolbar beside Rotate: a size in mm or a percent per axis, as
  * a slicer has it (#440), with Uniform to move all three together.
@@ -99,11 +100,12 @@ function setScale(m) {
   const g = part.geometry;
   if (!base) {
     const { centre, slicer } = g.userData;
-    base = { pos: g.getAttribute('position').array.slice(), centre, slicer, colors: g.userData.colors };
+    base = { pos: g.getAttribute('position').array.slice(), centre, slicer, colors: g.userData.colors, materialField: g.userData.materialField };
   }
   const c = base.centre;
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(scaleAbout(base.pos, m, [0, 0, 0], c), 3));
+  geometry.userData.materialField = transformMaterialField(base.materialField, (p) => Array.from(scaleAbout(p, m, c)));
   if (base.colors) geometry.userData.colors = base.colors;
   if (base.slicer) {
     const sl = base.slicer;

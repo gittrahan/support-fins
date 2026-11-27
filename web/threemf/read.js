@@ -1,7 +1,9 @@
+import { materialSessionFingerprint } from './material-session.js';
 import { unzip } from '../zip.js';
 import { filamentPainter } from '../paintcode.js';
 import { ON_PART, PAINT_ATTRS, REL_3DMODEL, SESSION_PART, attrLocal, compose, local, parseMatrix, partName, scanXML } from './common.js';
 import { addPrusa3Parts, bambuComponentSettings, parseBambuConfig, parsePrusaConfig, stripExt } from './slicers.js';
+import { createMaterialReader } from './materials.js';
 
 // ---------------------------------------------------------------- 3MF reader
 
@@ -354,9 +356,14 @@ function findRootPart(parts) {
  *   settings, positions }], in the same space as `positions` but NOT in it
  *   (`settings`: PLACEMENT_KEY's note).
  */
-export async function readThreeMF(bytes) {
+export async function readThreeMF(bytes, options = {}) {
   const parts = await unzip(bytes);
-  return readThreeMFParts(parts);
+  const result = readThreeMFParts(parts, options);
+  if (result.session?.materialField && result.session.materialFieldFingerprint !== await materialSessionFingerprint(parts)) {
+    delete result.session.materialField;
+    result.session.materialFieldStale = true;
+  }
+  return result;
 }
 
 /**
@@ -374,12 +381,17 @@ export async function readThreeMF(bytes) {
  * Settings and source attributes retain XML-escaped values, including unknown
  * attributes, for a later exporter to interpret or explicitly reject. This is
  * opt-in: ordinary callers neither retain this data nor pay for its parsing.
+ * withMaterials also retains components and adds an optional categorical material
+ * field. It leaves legacy colours/raw paint untouched, reporting unresolved
+ * source assignments instead of replacing them with a guessed colour.
  */
 export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = false, outwardWinding = false,
-  withComponents = false } = {}) {
+  withComponents = false, withMaterials = false } = {}) {
 
   const rootName = findRootPart(parts);
   if (!rootName || !parts.has(rootName)) throw new Error('no 3D model part found in this 3MF');
+  const captureComponents = withComponents || withMaterials;
+  const materialReader = withMaterials ? createMaterialReader(parts, rootName) : null;
 
   // Parse each part on demand and cache it -- a plate can reference the same
   // object_N.model many times, and most parts in a big package go untouched.
@@ -387,7 +399,7 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
   const getPart = (name) => {
     if (parsed.has(name)) return parsed.get(name);
     const data = parts.get(name);
-    const p = data ? parseModelXML(new TextDecoder().decode(data), buildIndex !== null, withComponents) : null;
+    const p = data ? parseModelXML(new TextDecoder().decode(data), buildIndex !== null, captureComponents) : null;
     parsed.set(name, p);
     return p;
   };
@@ -399,7 +411,7 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
   const filaments = new Map();
   const bambu = text('Metadata/model_settings.config');
   const { names, parts: slicerParts } = parseBambuConfig(bambu, filaments);
-  const componentSettings = withComponents ? bambuComponentSettings(bambu) : null;
+  const componentSettings = captureComponents ? bambuComponentSettings(bambu) : null;
   addPrusa3Parts(text('Metadata/PrusaSlicer3_project.json'), slicerParts, filaments);
   const prusaVols = parsePrusaConfig(text('Metadata/Slic3r_PE_model.config'), filaments);
   // a part's filament goes out as paint (paintcode.js), in the file's slicer's words
@@ -425,7 +437,7 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
   for (const [index, item] of roots.entries()) {
     if (buildIndex !== null && index !== buildIndex) continue;
     const main = { out: [], col: { paint: [], rgb: [] } };
-    const components = withComponents ? [] : null;
+    const components = captureComponents ? [] : null;
     const extra = new Map();        // role -> { out }: one soup per non-printing part
     const sink = (role) => {
       if (!role) return main;
@@ -474,6 +486,7 @@ export function readThreeMFParts(parts, { buildIndex = null, doublePrecision = f
       extras: [...extra].filter(([, s]) => s.out.length)
         .map(([role, s]) => ({ kind: role.kind, name: role.name, settings: role.settings, positions: extraPositions.get(s) })),
       ...(components ? { components: componentInfo } : {}),
+      ...(materialReader ? { materials: materialReader(componentInfo, item.objectid) } : {}),
     });
   }
 

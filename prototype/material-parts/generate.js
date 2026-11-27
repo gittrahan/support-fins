@@ -4,33 +4,17 @@
  */
 import {
   analyze,
-  block,
   buildTopology,
   fins,
   rotX,
 } from "../../tests/_util.js";
+import { rootedMaterialFixture } from "./fixture.js";
 import { partitionSupportMaterials } from "../../web/support-materials.js";
 import { writePlate3MF } from "../../web/threemf.js";
 const arg = Deno.args.indexOf("--out");
 if (arg < 0 || !Deno.args[arg + 1]) throw new Error("--out directory required");
 const out = await Deno.realPath(Deno.args[arg + 1]);
-const soup = (p) =>
-  Array.from(
-    { length: p.length / 3 },
-    (_, i) => Array.from(p.slice(3 * i, 3 * i + 3)),
-  );
-const rot = rotX(35),
-  cube = soup(block(-12, 12, -12, 12, 0, 24)).map((
-    [x, y, z],
-  ) => [x, rot[4] * y + rot[7] * z, rot[5] * y + rot[8] * z]);
-const zmin = Math.min(...cube.map((p) => p[2]));
-for (const p of cube) p[2] -= zmin;
-const body = [];
-for (const tris of [cube, soup(block(-14, 14, -14, 14, 0, 2)), soup(block(8, 30, -8, 8, 20, 24))]) {
-  const rec = { role: "body" };
-  body.push(...tris.map((p) => [...p, 0, rec]));
-}
-const shape = (await partitionSupportMaterials(body)).parts[0].triangles;
+const shape = await rootedMaterialFixture();
 const positions = Float32Array.from(shape.flat());
 const topo = buildTopology({ getAttribute: () => ({ array: positions }) }),
   identity = rotX(0),

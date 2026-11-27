@@ -24,12 +24,25 @@ coordinates, and zero-turn parity. The CLI turning suites also compare direct
 engine and worker results, conservative fallbacks, plate-neighbor reuse, project
 preservation and resume. Turning is opt-in and has no public browser control.
 
+**`source_materials.test.js`**, **`paint_tree.test.js`** -- optional categorical
+3MF materials, inherited filament slots, equal-colour identities, recursive
+Bambu/Orca/Prusa painting, resource scopes, volume ranges and mirrored original
+corners. Invalid or ambiguous data remains explicit. The existing byte gate
+also pins the unchanged ordinary reader/exporter. See
+[`docs/SOURCE-MATERIALS.md`](../docs/SOURCE-MATERIALS.md) for the internal API.
+
 **`support_materials.test.js`** -- opt-in browser material parts preserve generated
 coordinates, piece ownership and the combined support shape. Covers closed solid
 partitioning, tine/interface overlap priority, contact records, worker parity,
 negative parts, painting and both 3MF layouts (Bambu/Orca components and
 PrusaSlicer 2 volume ranges). Invalid solids and incompatible target metadata
 fail without a partial export. Run this worker-enabled file with `deno test -A`.
+
+**`browser_materials.test.js`**, **`browser_materials_i18n.test.js`** -- explicit
+destination mappings and fallback, equal-colour identities, session-field
+invalidation, assigned parts in both 3MF layouts, cancellation and translations.
+**`support_material_precision.test.js`** covers original-coordinate recovery and
+rotated contact partitioning without changing generated triangles or tolerances.
 
 **`inside_ray.test.js`** -- `insidePart`'s ray through a shared vertex or edge still
 answers correctly, both ways, and a ray clear of them answers as before. On

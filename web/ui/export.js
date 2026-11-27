@@ -1,3 +1,4 @@
+import { browserMaterialOptions, assignedBrowserParts, transformMaterialField } from '../browser-materials.js';
 /**
  * Export: the oriented part plus the fins/pad, as STL or 3MF. A 3MF holds every
  * model of the plate (ui/models.js), each where it stands; an STL, the model being
@@ -87,7 +88,15 @@ function modelGeometry({ mesh, topology, rot, offset, name: partName, added, lay
   const savedNozzle = model ? Number(model.form.nozzle ?? nozzle) : nozzle;
   const name = (stem, ext) => exportName(`${base}-${stem}`, ext, { nozzle: savedNozzle, layerHeight });
   const capturedSession = sessionOf(partTris, model);
-  return { partTris, finTris, base, name, nozzle: savedNozzle, layerHeight, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
+  const form = model?.form ?? sessionForm();
+  const materialField = transformMaterialField(mesh.geometry.userData.materialField, (p) => toPrint(p, centre)[0]);
+  const materialOptions = form['match-contact-materials'] ? { form: { ...form }, field: materialField } : null;
+  if (capturedSession && materialOptions && materialField) {
+    const lo = [Infinity, Infinity, Infinity], hi = [-Infinity, -Infinity, -Infinity];
+    for (const p of partTris) for (let k = 0; k < 3; k++) { lo[k] = Math.min(lo[k], p[k]); hi[k] = Math.max(hi[k], p[k]); }
+    capturedSession.materialField = transformMaterialField(materialField, (p) => p.map((v, k) => v - (lo[k] + hi[k]) / 2));
+  }
+  return { partTris, finTris, base, name, nozzle: savedNozzle, layerHeight, materialField, materialOptions, colors: mesh.geometry.userData.colors ?? null, slicer: kept,
            materialFormat: model ? model.form['material-format'] ?? 'components' : el('material-format').value,
            session: () => capturedSession };
 }
@@ -116,7 +125,9 @@ function placed(g, [x, y]) {
   const at = (tris) => tris.map((p) => { const q = p.slice(); q[0] += x; q[1] += y; return q; });
   const slicer = g.slicer && { ...g.slicer, partTris: at(g.slicer.partTris),
     extras: g.slicer.extras.map((e) => ({ ...e, tris: at(e.tris) })) };
-  return { ...g, partTris: at(g.partTris), finTris: moveSupportTriangles(g.finTris, x, y), slicer };
+  const materialField = transformMaterialField(g.materialField, (p) => [p[0] + x, p[1] + y, p[2]]);
+  const materialOptions = g.materialOptions && { ...g.materialOptions, field: materialField };
+  return { ...g, materialField, materialOptions, partTris: at(g.partTris), finTris: moveSupportTriangles(g.finTris, x, y), slicer };
 }
 
 /** Is every parked model of `plate` (not the one edited) built under its settings? */
@@ -183,7 +194,7 @@ const FORMATS = {
     const session = gs.length === 1 ? gs[0].session() : null, bed = { ...currentVolume() };
     // Let the progress text paint before WASM initialization or inline fallback.
     // Geometry, session, placement and bed above already belong to this export.
-    materialExport = gs.some(g => hasSupportRoles(g.finTris));
+    materialExport = gs.some(g => hasSupportRoles(g.finTris) || g.materialOptions && g.finTris.length);
     el('export-progress').hidden = !materialExport;
     if (materialExport) {
       await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
@@ -192,11 +203,14 @@ const FORMATS = {
     for (const g of gs) {
       const { body, iface } = splitInterface(g.finTris);
       const own = g.slicer ?? g;
-      const partition = hasSupportRoles(g.finTris)
-        ? await partitionSupportExport(g.finTris, { nozzle: g.nozzle, layerHeight: g.layerHeight }) : null;
-      const materialParts = partition?.parts;
-      if (partition?.warnings?.narrowTines) exportWarnings.push(`${g.base}: ${t('Some tine sections are narrower than the selected nozzle or fall between layers. The slicer may omit grip contacts. Check every tine material in preview before printing.')}`);
-      else if (partition?.warnings?.status === 'incomplete') exportWarnings.push(`${g.base}: ${t('Tine printability could not be checked. Inspect every tine material in slicer preview before printing.')}`);
+      const matching = g.materialOptions && browserMaterialOptions(g.materialOptions.form, g.materialOptions.field);
+      const settings = { nozzle: g.nozzle, layerHeight: g.layerHeight };
+      const result = matching ? assignedBrowserParts(await partitionSupportExport(g.finTris, settings, { matching }), matching.palette)
+        : hasSupportRoles(g.finTris) ? await partitionSupportExport(g.finTris, settings) : null;
+      const materialParts = result?.parts ?? null;
+      if (result?.diagnostics?.length) document.dispatchEvent(new CustomEvent('materialwarning', { detail: { fallback: matching.fallbackMaterial.slice(9) } }));
+      if (result?.warnings?.narrowTines) exportWarnings.push(`${g.base}: ${t('Some tine sections are narrower than the selected nozzle or fall between layers. The slicer may omit grip contacts. Check every tine material in preview before printing.')}`);
+      else if (result?.warnings?.status === 'incomplete') exportWarnings.push(`${g.base}: ${t('Tine printability could not be checked. Inspect every tine material in slicer preview before printing.')}`);
       models.push({ partTris: own.partTris, finTris: materialParts ? [] : body, name: g.base,
         iface: materialParts ? [] : iface, materialParts, materialFormat: g.materialFormat, colors: own.colors, extras: g.slicer?.extras ?? [] });
     }

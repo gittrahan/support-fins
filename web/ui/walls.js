@@ -249,6 +249,7 @@ function dropGhost() {
 
 /** Rebuild the committed drawn walls for the current orientation. */
 export function rebuildDrawn() {
+  document.dispatchEvent(new Event('materialpreviewinvalidate'));
   if (drawnMesh) { scene.remove(drawnMesh); drawnMesh.geometry.dispose(); drawnMesh = null; }
   drawnTris = [];
   if (!drawShown() || !topology || !lastResult) { syncSelection(); return; }
@@ -259,6 +260,7 @@ export function rebuildDrawn() {
     auto: finsVisible && autoLike() ? lastBuilt : null, gone: removedIds,
   });
   drawnMesh = meshFrom(drawnTris, drawMaterial, ifaceMaterial);
+  document.dispatchEvent(new Event('supportchange'));
   braceMemo.stamp = null;   // the braces a preview stands clear of have moved
   if (braceShown) dropGhost();
   syncSelection();
