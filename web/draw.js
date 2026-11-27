@@ -283,7 +283,7 @@ function drawnWallOn(a, b, tris, zBed, opts) {
     const seated = mold && seatPartWall(mold, tris, opts.layerHeight ?? PROP.tineH, PROP.minHeight, opts.keepClear);
     if (seated?.ok) {
       for (const p of seated.triangles) out.push(p);
-      const cut = cutRefusal(out.slice(before), topPA);
+      const cut = cutRefusal(out.slice(before, before + seated.bodyEnd), topPA);
       if (cut) return cut;
       let height = 0;
       for (let i = 0; i < topPA.length; i++) {
@@ -298,7 +298,7 @@ function drawnWallOn(a, b, tris, zBed, opts) {
       const braceFloor = seated.route ? seated.floor : floor;
       const braces = withBraces(braceTop, (i) => braceFloor[i][2]);
       const tines = withTines(topPA);
-      return { ok: true, tris: out, length: len, height, partAttached: true, seatingSkipped: seated.seatingSkipped ?? 0, tines, braces, top: braceTop,
+      return { ok: true, tris: out, length: len, height, partAttached: true, seatingSkipped: seated.seatingSkipped ?? 0, anchorsSkipped: seated.anchorsSkipped ?? 0, tines, braces, top: braceTop,
                floors: braceFloor.map((f) => f[2]) };
     }
   }
@@ -338,12 +338,12 @@ function drawnWallOn(a, b, tris, zBed, opts) {
     //   - on the part, with as little as minHeightSquat headroom (a hand just over a thigh);
     //   - on the plate, its low stations a brimmed squat stem, the tall ones the full wall.
     const squat = squatWall(topPA, line, tris, zBed, !!opts.plateOnly, opts.layerHeight ?? PROP.tineH, opts.keepClear);
-    const squatCut = squat && cutRefusal(squat.tris, squat.top);
+    const squatCut = squat && cutRefusal(squat.tris.slice(0, squat.bodyEnd), squat.top);
     if (squatCut) return squatCut;
     if (squat) {
       out.push(...squat.tris);
       const tines = withTines(squat.top, squat.partAttached ? undefined : PROP.squatBrimH);
-      return { ok: true, tris: out, length: len, height: squat.height, partAttached: squat.partAttached, seatingSkipped: squat.seatingSkipped ?? 0, squat: true, tines, top: squat.top };
+      return { ok: true, tris: out, length: len, height: squat.height, partAttached: squat.partAttached, seatingSkipped: squat.seatingSkipped ?? 0, anchorsSkipped: squat.anchorsSkipped ?? 0, squat: true, tines, top: squat.top };
     }
     const clickTop = Math.min(a[2], b[2]) - zBed;
     if (clickTop >= PROP.minHeight + PROP.gap) {
@@ -383,7 +383,8 @@ function squatWall(topPA, line, tris, zBed, plateOnly = false, layerHeight = PRO
       if (seated?.ok) {
         let height = 0;
         for (let i = 0; i < topPA.length; i++) height = Math.max(height, topPA[i][2] - PROP.gap - floor[i][2]);
-        return { tris: seated.triangles, top: topPA, height, partAttached: true, seatingSkipped: seated.seatingSkipped ?? 0 };
+        return { tris: seated.triangles, top: topPA, height, partAttached: true, seatingSkipped: seated.seatingSkipped ?? 0,
+                 bodyEnd: seated.bodyEnd, anchorsSkipped: seated.anchorsSkipped ?? 0 };
       }
     }
   }

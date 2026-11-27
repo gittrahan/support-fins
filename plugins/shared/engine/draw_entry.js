@@ -56,6 +56,6 @@ export function drawWall(positions, a, b, options = {}) {
     triangles: flatten(r.tris),
     offset: { x: off.x - shift.x, y: off.y - shift.y, z: off.z - shift.z },
     // partAttached: it stands on the part below, not the plate (the site says so)
-    stats: { length: r.length, height: r.height, tines: r.tines ?? 0, partAttached: !!r.partAttached, seatingSkipped: r.seatingSkipped ?? 0 },
+    stats: { length: r.length, height: r.height, tines: r.tines ?? 0, partAttached: !!r.partAttached, seatingSkipped: r.seatingSkipped ?? 0, anchorsSkipped: r.anchorsSkipped ?? 0 },
   };
 }

@@ -206,3 +206,34 @@ Deno.test("sweep framing commutes with XY rotation/translation and preserves win
     }
   }
 });
+
+Deno.test("turn sweep retains verified floor anchors below the turning frame", () => {
+  const saved = { ...PROP }, cut = CUT.pattern;
+  try {
+    Object.assign(PROP, { bottomAnchors: true, footGap: .2, tineDir: "horizontal", iface: false });
+    CUT.pattern = "none";
+    // One upward source face contains the entire contact footprint.
+    const floor = Float64Array.from([-30, -20, 2, 30, -20, 2, 0, 30, 2]);
+    const bottom = line.map(p => [p[0], p[1], 2]);
+    const plain = [], turned = [], unanchored = [];
+    sweepBetween(line, bottom, plain, PROP.minHeight, null, null, floor);
+    sweepBetween(line, bottom, turned, PROP.minHeight, makeFrame(), null, floor);
+    closed(turned);
+    PROP.bottomAnchors = false;
+    sweepBetween(line, bottom, unanchored);
+    const contacts = plain.slice(unanchored.length);
+    assert(contacts.length > 0);
+    assert(contacts.every(p => p[2] >= 2 && p[2] <= 2.3 + 1e-9));
+    assert.deepEqual(turned.slice(-contacts.length), contacts, "turn changed lower anchors");
+    PROP.bottomAnchors = true;
+    const fallback = [], details = {}, gapOnly = [];
+    assert(sweepBetween(line, bottom, fallback, PROP.minHeight, makeFrame(), null, undefined, details));
+    assert.equal(details.anchorsSkipped, 1, "turn hid the unverified contacts");
+    assert.equal(details.bodyEnd, fallback.length, "fallback contains anchor geometry");
+    PROP.bottomAnchors = false;
+    sweepBetween(line, bottom, gapOnly, PROP.minHeight, makeFrame());
+    assert.deepEqual(fallback, gapOnly, "fallback changed the ordinary turned wall");
+  } finally {
+    Object.assign(PROP, saved); CUT.pattern = cut;
+  }
+});

@@ -171,7 +171,10 @@ const PIN_SPACING_TIP = 'How many pins each wall gets. More pins = a firmer hold
 let gripTip = null;
 function syncTineGrip() {
   const on = el('tines').checked;
-  el('bottom-gap-fld').hidden = el('tine-dir').value === 'vertical';
+  for (const id of ['bottom-gap-fld', 'bottom-anchors-fld']) {
+    el(id).hidden = el('tine-dir').value === 'vertical';
+  }
+  syncBottomAnchors();
   el('rounded-feet-fld').hidden = el('tine-dir').value === 'vertical';
   el('tinegrip-fld').hidden = !on;
   el('tinedir-fld').hidden = !on;
@@ -198,7 +201,8 @@ window.addEventListener('languagechange', syncTineGrip);   // the swapped toolti
 // copy is set here for Draw; the Worker gets it in the build's tunables.
 export function tineDirTunables() {
   return { roundFeet: el('rounded-feet').checked, tineDir: el('tine-dir').value, pinDepth: el('pin-depth').valueAsNumber,
-    sideClearance: el('side-clearance').valueAsNumber, bottomGap: el('bottom-gap').valueAsNumber };
+    sideClearance: el('side-clearance').valueAsNumber, bottomGap: el('bottom-gap').valueAsNumber,
+    bottomAnchors: el('bottom-anchors').checked };
 }
 // Resin cures joined walls into one block (#309), so picking a direction sets
 // Separate walls to match; the box is the user's to change after.
@@ -275,6 +279,17 @@ function wireGap(id, obj, key, lo, hi) {
   });
 }
 wireGap('gap', PROP, 'gap', 0.1, 0.4);
+function syncBottomAnchors() {
+  const zero = el('bottom-gap').valueAsNumber === 0;
+  el('bottom-anchors').disabled = zero;
+  el('bottom-anchors-note').hidden = !zero || el('tine-dir').value === 'vertical';
+}
+syncBottomAnchors();
+el('bottom-anchors').addEventListener('input', () => {
+  applyTunables(tineDirTunables());
+  syncBottomAnchors();
+  debouncedRefresh();
+});
 // Typing applies each finite value (applyTunables clamps it); the field itself is
 // clamped only on change, so a half-typed "1.5" isn't rewritten to "1" mid-entry.
 for (const id of ['side-clearance', 'bottom-gap']) {
@@ -282,6 +297,7 @@ for (const id of ['side-clearance', 'bottom-gap']) {
   input.addEventListener('input', () => {
     if (!Number.isFinite(input.valueAsNumber)) return;
     applyTunables(tineDirTunables());
+    syncBottomAnchors();
     debouncedRefresh();
   });
   input.addEventListener('change', () => {
@@ -459,6 +475,7 @@ export function syncSectionSums() {
     `${el('gap').value} ${t('gap')}`,
     el('side-clearance').valueAsNumber === 0.35 ? null : `${el('side-clearance').value} ${t('Side clearance')}`,
     el('bottom-gap-fld').hidden || el('bottom-gap').valueAsNumber === 0.2 ? null : `${el('bottom-gap').value} ${t('Bottom gap')}`,
+    el('bottom-anchors-fld').hidden || !el('bottom-anchors').checked ? null : t('Line anchors'),
     el('iface').value === 'off' ? null : t('interface'),
   ].filter(Boolean).join(' · ');
   const grip = el('tine-density').valueAsNumber;

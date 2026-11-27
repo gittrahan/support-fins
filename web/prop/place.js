@@ -48,7 +48,7 @@ export function placeLine(lines, li, patch, pass) {
     // A small tube's line is new to this path, so hold its wall to the same
     // measured clearance the plate path demands (see the sweep below): on
     // 3DBenchy at Y35 an unchecked one fused 0.09 mm into the cabin roof.
-    const hit = solidClearance(topo, rot, off, out.slice(tri0), 0.25);
+    const hit = solidClearance(topo, rot, off, out.slice(tri0, pa.bodyEnd), 0.25);
     if (hit && welds(hit)) {
       out.length = tri0;
       skipped.weld++;

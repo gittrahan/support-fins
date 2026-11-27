@@ -200,10 +200,10 @@ export function buildPartAttached(line, partTris, topo, rot, offset, out, captur
           + a[2] * (b[0] * c[1] - b[1] * c[0])) / 6;
   }
   return {
-    ok: true,
+    ok: true, bodyEnd: before + seated.bodyEnd,
     prop: {
       span, height, stations: subTop.length, volume: Math.abs(vol),
-      partAttached: true, inBore, seatingSkipped: seated.seatingSkipped ?? 0,
+      partAttached: true, inBore, seatingSkipped: seated.seatingSkipped ?? 0, anchorsSkipped: seated.anchorsSkipped ?? 0,
       ...(captureWall ? { turnWall: { top: seated.top, floor: seated.floor, count: out.length - before,
         ...(seated.route ? { seating: seated.route } : {}) } } : {}),
       line: subTop.map((p) => [p[0], p[1], p[2] - PROP.gap]),

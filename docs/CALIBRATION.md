@@ -11,6 +11,43 @@ supports are already in the file (and the angle test needs none). Download them 
 the site's **Calibrate** menu, which also shows each one's print time and filament;
 they're also in `prototype/calibration/<name>/print/`.
 
+**Part-supported wall contacts (#119).** More settings offers Side clearance
+(default 0.35 mm), Bottom gap (default 0.2 mm) and optional Line anchors (off).
+Support gap still controls the top. Resin keeps a welded bottom; plate feet stay
+on the plate. Decreasing bottom gap or adding contacts can leave marks. Anchors
+require a nozzle-scaled straight interval on a verified upward floor facet; if
+none fits, the ordinary gap-only wall is retained and counted in the notice.
+Curved or finely tessellated floors may not admit contacts. Check the retained
+walls in the slicer before printing. A sloping underside may use a shorter contact
+(at least two nozzle widths) when the preferred four-width contact cannot fit;
+both must pass the same source-facet and collision checks.
+
+Generate the controlled lower-contact specimens with
+`deno run -A prototype/calibration/line-anchors.js tmp/line-anchors`.
+At each nozzle (0.4 and 0.8 mm), the gap-only, welded and line-anchor variants
+share one fixed Draw placement and the same closed tunnel body. Nothing is
+removed from an automatic result to match wall counts. The transverse roof has
+short spans on either side of the central wall; this avoids the old shelf's
+uncontrolled roof-coverage comparison.
+
+These are generic geometry files, not printer profiles. Before printing, apply
+and verify the same printer, filament, speeds, temperatures, cooling, extrusion
+widths and 0.20 mm first/subsequent layers across each three-file group. Use
+0.35 mm side clearance, 0.20 mm top gap and native supports off. Bottom gap is
+0.20 mm except for the welded control (zero). Verify that the slicer preserves
+the assembly and bottom gaps, prints the short anchor contacts, and runs roof
+strands across the fin. Keep normal slicer checks enabled.
+
+Print the gap-only, line-anchor and welded specimens at one nozzle before
+changing nozzle. Photograph the intact lower contacts, then the exposed floor
+and underside of the removed fin in consistent views. Record stability, roof
+completion, removal effort and damage/residue separately. A welded control that
+will not release is a result; do not force it until the model breaks. Repeat the
+same comparison at the other nozzle. Both anchor specimens must stay stable and
+release without unacceptable damage before claiming the tested settings work.
+Earlier subjective removal reports are not substitutes for this controlled
+comparison or its photos. No measured removal-force claim is made.
+
 | Test | Sets | Where on printfins.com |
 |---|---|---|
 | Angle | which faces need support | Overhang slider (top bar) |

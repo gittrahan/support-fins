@@ -5,7 +5,7 @@ import { sweep, sweepBetween } from "./sweep.js";
 import { flatRunAxis } from "./bridge.js";
 import { PROP } from "./config.js";
 import { turnFrame, frameSweep } from "./turn-frame.js";
-import { footSeatFrame } from "./foot-seat.js";
+import { seatedSweep } from "./foot-seat.js";
 import { insidePart, solidClearance } from "../inside.js";
 import { buildTopology } from "../overhangs.js";
 import { seatedPartTris } from "../fins/seating.js";
@@ -210,16 +210,15 @@ function volume(vs) {
   }
   return Math.abs(sum);
 }
-function build(recipe, frame) {
+function build(recipe, frame, partTris) {
   const out = [];
   if (recipe.seating) {
-    if (!sweepBetween(recipe.top, recipe.floor, out, PROP.minHeight, null, recipe.seating.end)) {
-      throw Error("ordinary sweep could not reconstruct seated wall");
-    }
-    return frameSweep(frameSweep(out, footSeatFrame(recipe.seating)), frame);
+    const seated = seatedSweep(recipe.top, recipe.floor, recipe.seating, PROP.minHeight, partTris);
+    if (!seated) throw Error("ordinary sweep could not reconstruct seated wall");
+    return frameSweep(seated, frame);
   }
   const ok = recipe.floor
-    ? sweepBetween(recipe.top, recipe.floor, out, PROP.minHeight, frame)
+    ? sweepBetween(recipe.top, recipe.floor, out, PROP.minHeight, frame, null, partTris)
     : sweep(recipe.top, recipe.bed, out, PROP.minHeightSquat, frame);
   if (!ok) throw Error("ordinary sweep could not reconstruct wall");
   return out;
@@ -278,7 +277,7 @@ export function turnBuilt(topo, result, rot, built, request) {
         }
         const [from, to] = fin.triRanges[0],
           original = built.triangles.slice(from, to),
-          ordinary = build(recipe, null);
+          ordinary = build(recipe, null, source);
         if (
           ordinary.length !== recipe.count ||
           ordinary.some((p, i) => p.some((v, j) => v !== original[i]?.[j]))
@@ -392,7 +391,7 @@ export function turnBuilt(topo, result, rot, built, request) {
           axis,
           endScale: endLength / length,
         });
-        const wall = build(recipe, frame), upper = [];
+        const wall = build(recipe, frame, source), upper = [];
         for (let i = 0; i < wall.length; i += 3) {
           if (wall.slice(i, i + 3).some((p) => p[2] > start + EPS)) {
             upper.push(...wall.slice(i, i + 3));
