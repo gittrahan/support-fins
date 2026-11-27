@@ -351,6 +351,30 @@
           "text": "Docker: the container starts on hosts with IPv6 turned off. It listens on IPv6 only where the host has it; SUPPORT_FINS_IPV6=off forces IPv4 only."
         }
       ]
+    },
+    {
+      "version": "1.0.13",
+      "date": "2026-11-27",
+      "entries": [
+        {
+          "pr": 503,
+          "date": "2026-11-24",
+          "check": "held",
+          "text": "Tines now reach the part on curved undersides."
+        },
+        {
+          "pr": 493,
+          "date": "2026-11-27",
+          "check": "stays",
+          "text": "Part-attached fins can reach nearby ledges; walls without a verified landing correction remain in place with an inspection notice."
+        },
+        {
+          "pr": 473,
+          "date": "2026-11-27",
+          "check": "held",
+          "text": "Optional Line anchors add short lower contacts to FDM supports on the model, retaining ordinary gap-only walls with a counted notice when contacts cannot fit."
+        }
+      ]
     }
   ],
   "unreleased": []
