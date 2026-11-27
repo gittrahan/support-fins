@@ -14,6 +14,7 @@ import { turnProjectFins, plateFinCache, turningBounds, turningBoundsOverlap, va
 import { bakeProjectObject } from './project-bake-input.js';
 import { sequentialEdits } from './project-sequential.js';
 import { runtimeIdentity } from './project-cache.js';
+import { projectMaterialSlots, projectMaterialParts, validateProjectMaterialParts, projectMaterialWarnings } from './project-materials.js';
 import { xmlTree, child, children, metadata, meta, escapeXML as esc, insert, editXML } from './project-xml.js';
 
 const ROOT = '3D/3dmodel.model', CONFIG = 'Metadata/model_settings.config';
@@ -240,6 +241,9 @@ async function processProject(input, args, io, report) {
       const variable = variableIDs.has(order.get(o.id));
       const height = regularHeight(settings, o.config, args.dialog.layerHeight, variable);
       const slot = filament(settings, o.config, args.finExtruder);
+      const materialSlots = projectMaterialSlots(settings, args, slot);
+      const materialOptions = { supportMaterials: !!materialSlots,
+        interfaceMode: args.interfaceExtruder != null ? args.interfaceMode ?? 'flat' : false };
       const { warning: nozzleWarning, ...nozzle } = projectNozzle(settings, args.dialog.nozzle);
       const options = optionsFromDialog({ ...args.dialog, layerHeight: height, nozzle: nozzle.nozzle });
       const own = metadata(o.config);
@@ -252,7 +256,9 @@ async function processProject(input, args, io, report) {
       const byObject = /object/i.test(String(sequence ?? ''));
       let turning = null, turningWarning = null;
       if (args.turnFins) {
-        try { turning = { ...turningSettings(settings, { options, byObject, variable, height, nozzle: nozzle.nozzle }), bridgeAngle: projectBridgeAngle(settings, o.config) }; }
+        try {
+          if (materialSlots) throw new Error('turning fins do not yet support separate support materials');
+          turning = { ...turningSettings(settings, { options, byObject, variable, height, nozzle: nozzle.nozzle }), bridgeAngle: projectBridgeAngle(settings, o.config) }; }
         catch (e) { turningWarning = `${e.message}; normal straight fins will be generated.`; }
       }
       options.diagnostics = projectPrintability(settings, { byObject, variable, resin: options.tineDir === 'vertical' });
@@ -266,7 +272,7 @@ async function processProject(input, args, io, report) {
       if (args.disableNativeSupports && children(o.config, 'metadata').filter((m) => m.attrs.key === 'enable_support').length > 1) {
         throw new Error('duplicate enable_support setting');
       }
-      return { ...o, transform, height, slot, ...nozzle, options, native, byObject, negativeCount, turning, turningWarning,
+      return { ...o, transform, height, slot, materialSlots, materialOptions, ...nozzle, options, native, byObject, negativeCount, turning, turningWarning,
         bake: byObject && negativeCount > 0 };
     } catch (e) { return skipOrThrow(o, e); }
   }).filter(Boolean);
@@ -278,7 +284,9 @@ async function processProject(input, args, io, report) {
   const cache = args.resume ? await io.openProjectCache({ input, bytes: zip.bytes,
     selection: { objects: selected.map((o) => o.number), explicit: args.objects.length > 0 },
     settings: { dialog: args.dialog, finExtruder: args.finExtruder, disableNativeSupports: args.disableNativeSupports,
-      ...(args.turnFins ? { turnFins: true, turnAngle: args.turnAngle } : {}) },
+      ...(args.turnFins ? { turnFins: true, turnAngle: args.turnAngle } : {}),
+      ...(plans.some((p) => p.materialSlots) ? { tineExtruder: args.tineExtruder, interfaceExtruder: args.interfaceExtruder,
+        interfaceMode: args.interfaceMode } : {}) },
     cacheDir: args.cacheDir, warn }) : null;
   const rootEdits = [], configEdits = [], supportObjects = [], results = [];
   // Bambu's cut-editing records use first-occurrence object ordinals, not
@@ -329,6 +337,15 @@ async function processProject(input, args, io, report) {
       warn(`object ${p.number}: incomplete turning checkpoint; recomputing`);
       generated = null;
     }
+    if (generated && (p.materialSlots || generated.materialParts)) {
+      try {
+        if (!p.materialSlots) throw new Error('unexpected support materials');
+        validateProjectMaterialParts(generated.materialParts, p.materialSlots, generated.triangles.length > 0);
+      } catch (e) {
+        warn(`object ${p.number}: ${e.message}; recomputing`);
+        generated = null;
+      }
+    }
     const reused = !!generated;
     try {
       if (!generated) {
@@ -349,9 +366,10 @@ async function processProject(input, args, io, report) {
               'Compatibility only: cuts are baked only if fins are generated; printer clearance and sequential order still need slicer validation.');
           }
           Object.assign(report.object(p), { status: 'compatible', layerHeight: p.height, filament: p.slot });
+          if (p.materialSlots) report.object(p).warnings.push('Support material slots are compatible; material partitioning and slicing require generation.');
           continue;
         }
-        if (!p.turning) generated = computeFins(positions, p.options);
+        if (!p.turning) generated = computeFins(positions, p.options, p.materialOptions);
         if (p.turning) generated = await turnProjectFins({
           positions, options: p.options, dimensions: p.turning, angle: args.turnAngle, gap: p.options.gap,
           validate: async (candidate) => {
@@ -377,6 +395,7 @@ async function processProject(input, args, io, report) {
             }
           },
         });
+        if (p.materialSlots) generated = await projectMaterialParts(generated, p.materialSlots);
         if (baked && generated.triangles.length) generated.baked = baked;
       }
       const { triangles, offset, stats } = generated;
@@ -387,12 +406,20 @@ async function processProject(input, args, io, report) {
       let conversionMapping = null;
       let supportID = null;
       if (triangles.length) {
-        const id = allocate(), name = `${p.name} supports`;
-        const mesh = supportMesh(triangles, offset, p.transform);
-        own.supports.push(`<object id="${id}" type="model" name="${esc(name)}" p:UUID="${crypto.randomUUID()}">${mesh}</object>`);
-        const component = `<component objectid="${id}" ${prefix}:path="/${SUPPORTS}" ${prefix}:UUID="${crypto.randomUUID()}" transform="${identity.join(' ')}"/>`;
-        const part = `<part id="${id}" subtype="normal_part">${meta('name', name)}${meta('extruder', p.slot)}`
-          + `${meta('matrix', '1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1')}</part>`;
+        const name = `${p.name} supports`, components = [], parts = [];
+        for (const material of generated.materialParts ?? [{ triangles, filament: p.slot }]) {
+          const id = allocate(), label = material.role ? `${name} ${{ body: 'bodies', tine: 'tines', interface: 'top interfaces' }[material.role]}` : name;
+          const mesh = supportMesh(material.triangles, offset, p.transform);
+          own.supports.push(`<object id="${id}" type="model" name="${esc(label)}" p:UUID="${crypto.randomUUID()}">${mesh}</object>`);
+          components.push(`<component objectid="${id}" ${prefix}:path="/${SUPPORTS}" ${prefix}:UUID="${crypto.randomUUID()}" transform="${identity.join(' ')}"/>`);
+          parts.push(`<part id="${id}" subtype="normal_part">${meta('name', label)}${meta('extruder', material.filament)}`
+            // Saved object/global feature filaments can override a part's
+            // extruder. The opt-in assignment applies to this whole support part.
+            + (material.role ? ['wall_filament', 'sparse_infill_filament', 'solid_infill_filament']
+              .map((key) => meta(key, material.filament)).join('') : '')
+            + `${meta('matrix', '1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1')}</part>`);
+        }
+        const component = components.join(''), part = parts.join('');
         if (p.byObject) {
           warn(`object ${p.number} (${p.name}) prints by object: its fins are a part of it, so their tines weld to it`);
           if (generated.baked) {
@@ -463,6 +490,13 @@ async function processProject(input, args, io, report) {
       report.object(p).diagnostics = generated.diagnostics;
       const diagnosticWarning = supportDiagnosticLine(stats);
       if (diagnosticWarning) report.object(p).warnings.push(diagnosticWarning);
+      if (generated.materialParts) {
+        const materials = generated.materialParts.map(({ role, filament, triangles }) => ({ role, filament, triangles: triangles.length / 9 }));
+        results.at(-1).materials = report.object(p).materials = materials;
+        const warnings = projectMaterialWarnings(generated.materialParts, args);
+        report.object(p).warnings.push(...warnings);
+        for (const message of warnings) warn(`object ${p.number} (${p.name}): ${message}`);
+      }
       if (generated.baked) {
         const warnings = [...generated.baked.warnings,
           'The output contains baked cuts; its cutters are no longer independently editable. Keep the original project for future changes.'];
@@ -544,5 +578,5 @@ async function processProject(input, args, io, report) {
   if (cache) await cache.finish();
   warn('project preserved; slice it again in Bambu Studio before printing.');
   return { input, output, objects: results, report: `${results.length} objects processed, `
-    + `${results.filter((r) => r.triangles).length} support parts added; re-slice in Bambu Studio` };
+    + `${results.reduce((n, r) => n + (r.materials?.length ?? (r.triangles ? 1 : 0)), 0)} support parts added; re-slice in Bambu Studio` };
 }

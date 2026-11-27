@@ -6,9 +6,11 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { printabilityStats, validDiagnostics } from '../../web/fins/diagnostics.js';
+import { validateProjectMaterialParts } from './project-material-records.js';
 
 const MAGIC = Buffer.from('SFINSC01');
 const BAKED_MAGIC = Buffer.from('SFINSC02');
+const MATERIAL_MAGIC = Buffer.from('SFINSC03');
 const digest = (data) => createHash('sha256').update(data).digest();
 const stable = (v) => Array.isArray(v) ? v.map(stable) : v && typeof v === 'object'
   ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, stable(v[k])])) : v;
@@ -34,7 +36,7 @@ export async function runtimeIdentity() {
   return hash.digest('hex');
 }
 
-function encode(key, number, { triangles, offset, stats, baked, diagnostics }) {
+function encode(key, number, { triangles, offset, stats, baked, diagnostics, materialParts }) {
   // Fins keep their existing float32 representation. Converted bodies require
   // float64 and explicit vertex identity: JSON/float32 coordinate round trips
   // can collapse paint boundaries or join otherwise distinct shells.
@@ -49,8 +51,17 @@ function encode(key, number, { triangles, offset, stats, baked, diagnostics }) {
       return { ...part, coordinates: positions.length, vertices: vertexIDs?.length ?? null, faces: sourceFaces?.length ?? null };
     }) };
   }
+  let materials;
+  if (materialParts) {
+    validateProjectMaterialParts(materialParts, null, triangles.length > 0);
+    materials = { version: 1, parts: materialParts.map(({ triangles, ...part }) => {
+      arrays.push({ values: triangles, width: 4, kind: 'float' });
+      return { ...part, coordinates: triangles.length };
+    }) };
+  }
   const metadata = Buffer.from(JSON.stringify({ key, number, offset, stats, diagnostics,
-    ...(baked ? { triangleCoordinates: triangles.length, baked: conversion } : {}) }));
+    ...(baked || materials ? { triangleCoordinates: triangles.length } : {}),
+    ...(baked ? { baked: conversion } : {}), ...(materials ? { materials } : {}) }));
   const body = Buffer.alloc(4 + metadata.length + arrays.reduce((n, a) => n + a.values.length * a.width, 0));
   body.writeUInt32LE(metadata.length); metadata.copy(body, 4);
   let cursor = 4 + metadata.length;
@@ -65,16 +76,17 @@ function encode(key, number, { triangles, offset, stats, baked, diagnostics }) {
     else body.writeFloatLE(value, cursor);
     cursor += width;
   }
-  return Buffer.concat([baked ? BAKED_MAGIC : MAGIC, digest(body), body]);
+  return Buffer.concat([materials ? MATERIAL_MAGIC : baked ? BAKED_MAGIC : MAGIC, digest(body), body]);
 }
 
 function decode(bytes, key, number) {
   const converted = bytes.subarray(0, 8).equals(BAKED_MAGIC);
-  if (bytes.length < 44 || !converted && !bytes.subarray(0, 8).equals(MAGIC)) throw new Error('invalid checkpoint header');
+  const materials = bytes.subarray(0, 8).equals(MATERIAL_MAGIC), rich = converted || materials;
+  if (bytes.length < 44 || !rich && !bytes.subarray(0, 8).equals(MAGIC)) throw new Error('invalid checkpoint header');
   const body = bytes.subarray(40);
   if (!digest(body).equals(bytes.subarray(8, 40))) throw new Error('checkpoint checksum mismatch');
   const end = 4 + body.readUInt32LE();
-  if (end > body.length || !converted && (body.length - end) % 36) throw new Error('incomplete triangle data');
+  if (end > body.length || !rich && (body.length - end) % 36) throw new Error('incomplete triangle data');
   const meta = JSON.parse(body.subarray(4, end).toString('utf8'));
   if (meta.key !== key || meta.number !== number || !meta.offset
       || !['x', 'y', 'z'].every((k) => Number.isFinite(meta.offset[k]))
@@ -94,7 +106,7 @@ function decode(bytes, key, number) {
     }
     return values;
   };
-  const triangles = array(converted ? meta.triangleCoordinates : (body.length - end) / 4, 4);
+  const triangles = array(rich ? meta.triangleCoordinates : (body.length - end) / 4, 4);
   if (triangles.length % 9) throw new Error('incomplete triangle data');
   const result = { triangles, offset: meta.offset, stats: meta.stats };
   if (meta.stats.supportCheck && !meta.diagnostics) throw new Error('missing checkpoint diagnostics');
@@ -106,7 +118,7 @@ function decode(bytes, key, number) {
     }
     result.diagnostics = meta.diagnostics;
   }
-  if (converted) {
+  if (converted || materials && meta.baked) {
     const baked = meta.baked;
     if (!triangles.length || baked?.version !== 1 || !Array.isArray(baked.parts) || !baked.parts.length ||
         !Array.isArray(baked.removed) || !Array.isArray(baked.warnings) || !baked.warnings.length ||
@@ -128,6 +140,11 @@ function decode(bytes, key, number) {
         ...(faces === null ? {} : { sourceFaces: array(faces, 4, 'int') }) };
     });
     result.baked = conversion;
+  }
+  if (materials) {
+    if (meta.materials?.version !== 1 || !Array.isArray(meta.materials.parts)) throw new Error('invalid support material checkpoint metadata');
+    result.materialParts = meta.materials.parts.map(({ coordinates, ...part }) => ({ ...part, triangles: array(coordinates, 4) }));
+    validateProjectMaterialParts(result.materialParts, null, triangles.length > 0);
   }
   if (cursor !== body.length) throw new Error('unexpected checkpoint geometry');
   return result;
