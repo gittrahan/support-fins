@@ -16,8 +16,11 @@
 //   in that frame unchanged and report the offset we saw, so Python can map
 //   them back onto the part: fin_world = fin_seated - offset.
 import { buildTopology, analyze, DEFAULT_THRESHOLD, IDENTITY3 } from '../../../web/overhangs.js';
-import { buildFins } from '../../../web/fins.js';
-import { seatSoup, clearances, flatten } from './seat.js';
+import { applyTunables, buildFins } from '../../../web/fins.js';
+import { bareArea, FILL } from '../../../web/fins/fill.js';
+import { automaticTargets } from '../../../web/fins/coverage.js';
+import { forgetSeated } from '../../../web/fins/seating.js';
+import { seatSoup, clearances, flatten, interfaceMask } from './seat.js';
 import SCHEMA from './options.json' with { type: 'json' };
 import { nozzleSize } from './nozzle.js';
 import { nominalContext, printabilityStats } from '../../../web/fins/printability.js';
@@ -56,6 +59,10 @@ export const ENGINE_DEFAULTS = Object.freeze({
   // host passes its own, so tines land on the layers it really prints, whatever its
   // first layer or adaptive profile. null: the uniform layerHeight grid, as the site.
   levels: null,
+  // The interface crest (web/prop/crest.js): false, 'flat' or 'all'. On, the top
+  // layer of each wall is its own solid, tagged in the result's `iface`, so a host
+  // can print it in a second material.
+  iface: false,
 });
 
 /**
@@ -150,14 +157,20 @@ export { SCHEMA as OPTIONS_SCHEMA };
  *        posed, anywhere on the plate. Pass float64 when you have it: Orca poses in double
  *        precision, and rounding back to float32 can flip a borderline tine.
  * @param {object} [options]                 overrides for ENGINE_DEFAULTS
- * @returns {{ triangles: Float32Array, offset: {x:number,y:number,z:number},
- *            pieces: {id:string, kind:string, ranges:number[][]}[], overFaces: Int32Array,
- *            smallFaces: Int32Array, stats: object }}
+ * @returns {{ triangles: Float32Array, iface: Uint8Array, offset: {x:number,y:number,z:number},
+ *            pieces: {id:string, kind:string, tines:number, line:number[][]|null, ranges:number[][]}[],
+ *            overFaces: Int32Array, smallFaces: Int32Array, stats: object }}
+ *   iface      one byte per triangle of `triangles`: 1 for the interface crest (and,
+ *              under iface 'all', the tines), so a host can print it in a second
+ *              material. All 0 while the `iface` option is off.
  *   pieces     what each run of `triangles` is, so a host can make one object per fin:
  *              kind 'prop' (a wall) | 'wedge' | 'sway' | ... as web/fins.js tags it, and
  *              'pad'; ranges are [first, end) TRIANGLE indices into `triangles`. Every
  *              triangle belongs to exactly one piece. ids are stable for the same part
- *              and options, not across edits.
+ *              and options, not across edits. `tines` is the piece's tine count;
+ *              `line` is the engine's line for the piece, seated ([x, y, z] points;
+ *              null for the pad): a wall's or a wedge's contact line, but a sway
+ *              brace's foot on the plate. bareOverhangs takes the pieces' kind and line.
  *   overFaces  indices of the INPUT faces in the overhang regions the engine supports:
  *              the site paints these red (web/ui/part.js paintOverhangs, res.kept)
  *   smallFaces faces past the threshold in area-based slivers or recognised
@@ -208,6 +221,10 @@ export function computeFins(positions, options = {}) {
   triangles.set(fin, 0);
   triangles.set(pad, fin.length);
   const pieces = piecesOf(built, fin.length / 9, pad.length / 9);
+  // which triangles are interface (the crest), so a host can give them their own
+  // material; the pad is never interface
+  const iface = new Uint8Array(triangles.length / 9);
+  iface.set(interfaceMask(built.triangles).subarray(0, fin.length / 9), 0);
   // Sway braces are appended to the fin soup as one block (web/fins.js): count them
   // so a host can tell a brace from a fin.
   const swayTris = pieces.filter((p) => p.kind === 'sway')
@@ -217,6 +234,7 @@ export function computeFins(positions, options = {}) {
     // seated = input + offset  (so the caller maps fins back with input = seated - offset)
     offset,
     pieces,
+    iface,
     overFaces: Int32Array.from(overFaces),
     smallFaces: Int32Array.from(smallFaces),
     diagnostics: built.printability ? { support: built.printability, coverage: built.coverage, offset } : null,
@@ -267,9 +285,80 @@ export function computeFins(positions, options = {}) {
 function piecesOf(built, finTris, padTris) {
   const per = typeof built.triangles?.[0] === 'number' ? 9 : 3;
   const pieces = (built.fins ?? []).map((f) => ({
-    id: String(f.id), kind: f.kind,
+    id: String(f.id), kind: f.kind, tines: f.tines ?? 0,
+    // the wall's contact line, seated, as bareArea reads it (bareOverhangs)
+    line: Array.isArray(f.line) ? f.line.map((q) => [q[0], q[1], q[2]]) : null,
     ranges: f.triRanges.map(([a, b]) => [a / per, b / per]),
   }));
-  if (padTris) pieces.push({ id: 'pad', kind: 'pad', ranges: [[finTris, finTris + padTris]] });
+  if (padTris) pieces.push({ id: 'pad', kind: 'pad', tines: 0, line: null, ranges: [[finTris, finTris + padTris]] });
   return pieces;
+}
+
+/**
+ * How many overhangs a set of walls leaves bare: the overhang regions (the ones
+ * computeFins targets: small-hole ceilings left for bridging are not counted) that
+ * need support and that no wall serves -- the engine's `unserved`, recounted from
+ * the walls a host keeps. A host that drops some of computeFins' walls, or draws its
+ * own (drawWall), has no other count. A region needs support when it holds at least
+ * FILL.minGain (mm2) of red (web/fins/fill.js bareArea, the measure the site's
+ * readout uses for the red left bare); a wall serves it when it holds at least that
+ * much of it, the gain the fill asks of a wall. A sway brace and the pad hold no red.
+ * For computeFins' own walls this matches `unserved`, with one difference: `unserved`
+ * also counts a region as served when a wedge's body comes near it
+ * (web/fins/wedges.js bareAfterWedges), and a wall's line here reaches only as far
+ * as the fill's reach. In the stress models, 2 of 176 builds differ: lowledge at
+ * X120, a ledge under 1 mm high at the plate that only the wedge's foot is near.
+ *
+ * @param positions  the part, as for computeFins
+ * @param walls      the kept walls, as `{ kind, line }`: computeFins' pieces, or a
+ *                   drawn wall as `{ kind: 'drawn', line }`. `line` is the wall's
+ *                   contact line ([x, y, z] points) in the frame of `positions`
+ *                   (a piece's line less the result's offset); null holds nothing.
+ * @param options    as for computeFins (mode, threshold, nozzle, gap, coverage)
+ * @returns {number} the count of overhang regions no wall serves
+ */
+export function bareOverhangs(positions, walls, options = {}) {
+  if (!Array.isArray(walls)) throw new Error('walls must be a list of { kind, line }');
+  for (const w of walls) {
+    const ok = w && typeof w.kind === 'string' && (w.line == null || (Array.isArray(w.line)
+      && w.line.every((q) => Array.isArray(q) && q.length === 3 && q.every(Number.isFinite))));
+    if (!ok) throw new Error(`walls must be { kind, line } with line [x, y, z] points or null, got ${JSON.stringify(w)?.slice(0, 80)}`);
+  }
+  const opts = { ...ENGINE_DEFAULTS, ...options };
+  const { tunables } = clearances(opts);
+  applyTunables(tunables);
+  // Full builds at the default coverage whatever the host sends (computeFins)
+  const coverage = opts.mode === 'full' ? OPTION.coverage.default : opts.coverage;
+  const { pos, shift } = seatSoup(positions);
+  const topo = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
+  const analysed = analyze(topo, opts.threshold, IDENTITY3);
+  const off = { x: analysed.offset.x - shift.x, y: analysed.offset.y - shift.y, z: analysed.offset.z - shift.z };
+  const seated = (line) => line.map((q) => [q[0] + off.x, q[1] + off.y, q[2] + off.z]);
+  const holding = walls.filter((w) => w.kind !== 'sway' && w.kind !== 'pad' && w.line?.length);
+  try {
+    const result = automaticTargets(topo, analysed, IDENTITY3);
+    const regionOf = new Int32Array(topo.nFaces).fill(-1);
+    result.regions.forEach((r, i) => { for (const f of r.faces) regionOf[f] = i; });
+    // the red of each region that the walls leave (each cell's area goes to every
+    // region its faces belong to)
+    const red = (lines) => {
+      const fins = lines.map((line) => ({ kind: 'prop', line }));
+      const { points, sourceFaces } = bareArea(topo, result, IDENTITY3, { coverage }, { fins }, true);
+      const per = new Float64Array(result.regions.length);
+      points.forEach((p, k) => {
+        for (const r of new Set(sourceFaces[k].map((f) => regionOf[f]))) if (r >= 0) per[r] += p[3];
+      });
+      return per;
+    };
+    const lines = holding.map((w) => seated(w.line));
+    const all = red([]);
+    const left = lines.length ? red(lines) : all;
+    let bare = 0;
+    for (let r = 0; r < all.length; r++) {
+      if (all[r] >= FILL.minGain && all[r] - left[r] < FILL.minGain) bare++;
+    }
+    return bare;
+  } finally {
+    forgetSeated(topo);
+  }
 }

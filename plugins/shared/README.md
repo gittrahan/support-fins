@@ -135,8 +135,27 @@ variable layer heights, no longer leave a tine across a layer boundary (two thin
 beads). Sway brace tines, the bed pad's first layer and the interface crest's cut use
 them too. Past the last boundary the top layer's height repeats. Without `levels` the
 engine uses the uniform `layerHeight` grid from the plate, exactly as before.
-`computeFins` takes it; it is not a dialog setting (not in options.json). Orca passes
-its own layers; the other hosts pass none.
+`computeFins` and `drawWall` take it; it is not a dialog setting (not in options.json).
+Orca passes its own layers; the other hosts pass none.
+
+**Interface crest.** A host can pass `iface`: `false` (the default), `'flat'` or `'all'`,
+the site's interface crest (`web/prop/crest.js`). `computeFins` and `drawWall` then
+return `iface`, one byte per triangle of `triangles`: 1 for the crest (the top layer of
+a wall under a near-level underside, or under every underside with `'all'`, plus the
+tines with `'all'`), 0 for the rest. The engine tags these triangles on their vertices,
+and flattening drops the tag, so a host that prints the crest in a second material
+needs these bytes. The site's `'tines'` mode (tines only, as support roles) is not
+offered: one byte per triangle cannot carry roles. Not a dialog setting; no plugin
+sends it yet.
+
+**Per-piece data and the bare-overhang recount.** Each of `computeFins`' pieces carries
+`tines` (its tine count) and `line`, the engine's line for it, seated: a wall's or a
+wedge's contact line, a sway brace's foot, null for the pad. `drawWall` returns its
+`line` too. `bareOverhangs(positions, walls, options)` counts the overhangs that need
+support and that no wall in `walls` serves (`{ kind, line }`, the line in the frame of
+`positions`): the engine's `unserved`, recounted for a host that keeps only some of
+the walls or adds drawn ones. For computeFins' own walls it matches `unserved` except
+where only a wedge's foot comes near an overhang (the function's comment has the case).
 
 **Separate walls.** In Full coverage, `separateWalls` keeps fill walls from crossing
 other walls or sharing their bases, so a resin print doesn't cure them into one block.
