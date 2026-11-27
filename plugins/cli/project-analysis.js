@@ -81,8 +81,9 @@ function partPath(path) {
 
 /** Load only the selected dependency tree. Callers must release the returned
  * model before processing another object; there is no project-wide mesh cache. */
-export async function projectModel(zip, rootBytes, configBytes, plan) {
+export async function projectModel(zip, rootBytes, configBytes, plan, { withMaterials = false } = {}) {
   const members = new Map([[ROOT, rootBytes], [CONFIG, configBytes]]);
+  if (withMaterials) members.set('Metadata/project_settings.config', await zip.read('Metadata/project_settings.config'));
   const visiting = new Set(), visited = new Set();
   const load = async (name) => {
     if (visiting.has(name)) throw new Error('cyclic model-part references');
@@ -108,7 +109,7 @@ export async function projectModel(zip, rootBytes, configBytes, plan) {
     await load(partPath(path));
   }
   const model = readThreeMFParts(members, { buildIndex: plan.number - 1, doublePrecision: true,
-    outwardWinding: true, withComponents: plan.negativeCount > 0 }).objects[0];
+    outwardWinding: true, withComponents: plan.negativeCount > 0, withMaterials }).objects[0];
   members.clear();
   return model;
 }

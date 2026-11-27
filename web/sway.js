@@ -519,7 +519,7 @@ export function buildSwayRib(p, uc, partTris, topo, rot, offset, opts = {}) {
       const outline = (h) => [[ov, -half], [e[h][0], -half], [e[h][1], half], [ov, half]];
       const local = [];
       loftExtrude(outline('bot'), outline('top'), bot, top, PT, local);
-      if (separateSupportRoles()) markSupportRole(local, 0, 'tine', { direction: [ax, ay, 0], footprint: [
+      if (separateSupportRoles()) markSupportRole(local, 0, 'tine', { direction: [ax, ay, 0], surfaceOffset: S.tineContactOffset, footprint: [
         PT(e.bot[0], -half, bot), PT(e.bot[1], half, bot),
         PT(e.top[1], half, top), PT(e.top[0], -half, top),
       ] });

@@ -24,6 +24,13 @@ coordinates, and zero-turn parity. The CLI turning suites also compare direct
 engine and worker results, conservative fallbacks, plate-neighbor reuse, project
 preservation and resume. Turning is opt-in and has no public browser control.
 
+**`source_materials.test.js`**, **`paint_tree.test.js`** -- optional categorical
+3MF materials, inherited filament slots, equal-colour identities, recursive
+Bambu/Orca/Prusa painting, resource scopes, volume ranges and mirrored original
+corners. Invalid or ambiguous data remains explicit. The existing byte gate
+also pins the unchanged ordinary reader/exporter. See
+[`docs/SOURCE-MATERIALS.md`](../docs/SOURCE-MATERIALS.md) for the internal API.
+
 **`support_materials.test.js`** -- opt-in browser material parts preserve generated
 coordinates, piece ownership and the combined support shape. Covers closed solid
 partitioning, tine/interface overlap priority, contact records, worker parity,
