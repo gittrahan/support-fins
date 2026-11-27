@@ -58,6 +58,9 @@ export function clearances(opts) {
     // engine's PROP is module state (#309: 'vertical' lays resin pins).
     tineDir: pick('tineDir', opts.tineDir ?? 'horizontal', ['horizontal', 'vertical']),
     pinDepth: opts.pinDepth ?? 0.1,
+    // The interface crest (web/prop/crest.js): false, 'flat' or 'all'. Always sent,
+    // like the tine direction: PROP.iface is module state.
+    iface: pick('iface', opts.iface ?? false, [false, 'flat', 'all']),
   };
   return { tunables };
 }
@@ -114,4 +117,14 @@ export function flatten(tris) {
     else { out[i++] = p.x; out[i++] = p.y; out[i++] = p.z; }
   }
   return out.subarray(0, i);
+}
+
+// Which triangles of buildFins' soup are interface (crest and, under 'all', tine):
+// web/prop/crest.js tags their vertices with v[3] === 1, which flatten() drops. One
+// byte per triangle, in the order flatten() writes them; a flat path has no tags.
+export function interfaceMask(tris) {
+  if (!tris || tris.length === 0 || typeof tris[0] === 'number') return new Uint8Array(0);
+  const mask = new Uint8Array(Math.floor(tris.length / 3));
+  for (let t = 0; t < mask.length; t++) if (tris[3 * t][3] === 1) mask[t] = 1;
+  return mask;
 }

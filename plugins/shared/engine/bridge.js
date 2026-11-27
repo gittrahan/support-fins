@@ -7,8 +7,9 @@
 // 100k-triangle part.
 //
 //   in : base64 float64 triangle soup (posed, mm) + JSON options
-//   out: JSON { triangles: base64 float32 soup (seated frame), offset, pieces,
-//               overFaces, smallFaces, stats, diagnostics }
+//   out: JSON { triangles: base64 float32 soup (seated frame), iface: base64 bytes
+//               (one per triangle), offset, pieces, overFaces, smallFaces, stats,
+//               diagnostics }
 // drawWallB64 does the same for Draw mode (draw_entry.js): one wall between two points.
 import { computeFins, ENGINE_DEFAULTS, optionsFromDialog, optionVisible, OPTIONS_SCHEMA } from './fins_entry.js';
 import { drawWall } from './draw_entry.js';
@@ -60,7 +61,7 @@ const trianglesB64 = (t) => bytesToB64(new Uint8Array(t.buffer, t.byteOffset, t.
 export function computeFinsB64(soupB64, optionsJson) {
   const options = optionsJson ? JSON.parse(optionsJson) : {};
   const res = computeFins(soupOf(soupB64), options);
-  return JSON.stringify({ triangles: trianglesB64(res.triangles), offset: res.offset,
+  return JSON.stringify({ triangles: trianglesB64(res.triangles), iface: bytesToB64(res.iface), offset: res.offset,
                           pieces: res.pieces, overFaces: Array.from(res.overFaces),
                           smallFaces: Array.from(res.smallFaces), stats: res.stats, diagnostics: res.diagnostics });
 }
@@ -70,7 +71,8 @@ export function drawWallB64(soupB64, aJson, bJson, optionsJson) {
   const options = optionsJson ? JSON.parse(optionsJson) : {};
   const res = drawWall(soupOf(soupB64), JSON.parse(aJson), JSON.parse(bJson), options);
   if (!res.ok) return JSON.stringify(res);
-  return JSON.stringify({ ok: true, triangles: trianglesB64(res.triangles), offset: res.offset, stats: res.stats });
+  return JSON.stringify({ ok: true, triangles: trianglesB64(res.triangles), iface: bytesToB64(res.iface),
+                          line: res.line, offset: res.offset, stats: res.stats });
 }
 
 // A tilt to try when overhangs were left too shallow for a fin (tilt.js), or null.

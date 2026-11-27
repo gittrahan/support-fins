@@ -88,9 +88,10 @@ def host_compute_pieces(ctx, soup, options):
     """host_compute, plus what each fin is, for hosts that show one object per fin.
 
     Returns (fins, stats, pieces, over_faces, small_faces):
-      pieces      [{"id", "kind", "ranges": [[first, end), ...]}]: triangle ranges of
-                  `fins`; kind "prop" (a wall), "wedge", "sway", "pad", ... Every
-                  triangle is in exactly one piece (fins_entry.js computeFins).
+      pieces      [{"id", "kind", "tines", "line", "ranges": [[first, end), ...]}]:
+                  triangle ranges of `fins`; kind "prop" (a wall), "wedge", "sway",
+                  "pad", ... Every triangle is in exactly one piece; "line" is seated,
+                  None for the pad (fins_entry.js computeFins).
       over_faces  indices of faces of `soup` in the overhangs the engine supports
                   (the site paints them red)
       small_faces past the threshold in area-based slivers or small-hole ceilings

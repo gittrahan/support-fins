@@ -12,17 +12,19 @@ import { buildTopology, analyze, IDENTITY3 } from '../../../web/overhangs.js';
 import { applyTunables } from '../../../web/fins.js';
 import { drawnWall } from '../../../web/draw.js';
 import { ENGINE_DEFAULTS } from './fins_entry.js';
-import { seatSoup, clearances, flatten, snap } from './seat.js';
+import { seatSoup, clearances, flatten, interfaceMask, snap } from './seat.js';
 
 /**
  * @param positions  the part, as for computeFins
  * @param a, b       [x, y, z] the wall's ends, in the same frame as `positions`
  * @param options    as for computeFins (nozzle, gap, tines, tineDensity, layerHeight,
- *                   threshold); the rest is ignored
- * @returns {{ ok: true, triangles: Float32Array, offset, stats: {length, height, tines, partAttached} }
+ *                   levels, iface, threshold); the rest is ignored
+ * @returns {{ ok: true, triangles: Float32Array, iface: Uint8Array, line: number[][], offset,
+ *             stats: {length, height, tines, partAttached} }
  *          | { ok: false, reason: string }}
  *   triangles are in the seated frame, mapped back exactly as computeFins':
- *   input = seated - offset. `reason` is the site's words (too short, at the plate...).
+ *   input = seated - offset. `iface` and `line` are as computeFins' `iface` and a
+ *   piece's `line`. `reason` is the site's words (too short, at the plate...).
  */
 export function drawWall(positions, a, b, options = {}) {
   const opts = { ...ENGINE_DEFAULTS, ...options };
@@ -47,6 +49,8 @@ export function drawWall(positions, a, b, options = {}) {
   applyTunables(tunables);
   const r = drawnWall(seat(a), seat(b), tris, 0, {
     tines: opts.tines, tineDensity: opts.tineDensity, layerHeight: opts.layerHeight,
+    // the print's layer boundaries, for this wall only; null: the layerHeight grid
+    levels: opts.levels ?? null,
     plateOnly: opts.plateOnly, topo, rot: IDENTITY3, offset: off,
     braceTall: opts.tallRibs !== false,   // tall walls get face ribs, as on the site (prop/brace.js)
   });
@@ -54,6 +58,8 @@ export function drawWall(positions, a, b, options = {}) {
   return {
     ok: true,
     triangles: flatten(r.tris),
+    iface: interfaceMask(r.tris),   // the interface (crest) triangles, as computeFins'
+    line: (r.top ?? []).map((q) => [q[0], q[1], q[2]]),   // the contact line, seated, as computeFins' pieces
     offset: { x: off.x - shift.x, y: off.y - shift.y, z: off.z - shift.z },
     // partAttached: it stands on the part below, not the plate (the site says so)
     stats: { length: r.length, height: r.height, tines: r.tines ?? 0, partAttached: !!r.partAttached },
