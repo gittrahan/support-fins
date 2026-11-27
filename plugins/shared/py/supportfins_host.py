@@ -223,6 +223,9 @@ def host_report(stats):
     seating_skipped = stats.get("seatingSkipped", 0)
     if seating_skipped:
         parts.append(f"Landing unchanged on {seating_skipped} wall{'' if seating_skipped == 1 else 's'}; no verified correction, inspect support starts in the slicer")
+    skipped_anchors = stats.get("anchorsSkipped", 0)
+    if skipped_anchors:
+        parts.append(f"Line anchors skipped on {skipped_anchors} wall{'' if skipped_anchors == 1 else 's'}; ordinary gap-only walls retained")
     unserved = stats.get("unserved") or 0
     if unserved:
         parts.append(f"{unserved} overhang{' is' if unserved == 1 else 's are'} too shallow "

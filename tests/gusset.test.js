@@ -317,3 +317,50 @@ Deno.test('gusset: a turned pose turns the kept normal with it', () => {
   assertClose(d[1], 1, 1e-9, 'y');
   assert(gussetDir(null, IDENTITY, [0, 0, -1]) === null, 'a downward normal is no side');
 });
+
+Deno.test('gusset: Line anchors retain gap-only geometry when no contacts fit, without leaked settings', () => {
+  const saved = {...PROP};
+  try {
+    PROP.bottomAnchors = false;
+    const before = build().r;
+    assert(before.ok);
+    PROP.bottomAnchors = true;
+    const fallback = build().r;
+    assert(fallback.ok && fallback.anchorsSkipped === 1, fallback.reason);
+    assert(JSON.stringify(fallback.tris) === JSON.stringify(before.tris), 'fallback changed the wall');
+    PROP.bottomAnchors = false;
+    assert(JSON.stringify(build().r.tris) === JSON.stringify(before.tris), 'off geometry changed');
+    PROP.footGap = 0;
+    const zero = build().r;
+    PROP.bottomAnchors = true;
+    assert(JSON.stringify(build().r.tris) === JSON.stringify(zero.tris), 'zero-gap gusset changed');
+  } finally { Object.assign(PROP, saved); }
+});
+
+Deno.test('gusset: validated floor contacts survive body clearance while real collisions still fail', () => {
+  const saved = {...PROP};
+  try {
+    // A 45-degree seat below the gusset. Its virtual underside is not a
+    // measured floor contour; this supported gap leaves 0.35 mm to the actual seat.
+    PROP.footGap = 0.4;
+    PROP.tip = 0.3; // 0.2 mm nozzle: a contact fits within one sloping station
+    PROP.bottomAnchors = false;
+    const base = lTopo();
+    const zEnd = 30 - PROP.gap - Math.max(GUSSET.endDepth, PROP.minHeight + PROP.footGap + 0.1);
+    const seat = block(5, 16, 0, 20, 0, 1).map((v,i,a) => i%3 === 2 && v === 1 ? zEnd - (15-a[i-2]) + 0.05 : v);
+    const pos = new Float32Array([...base.pos, ...seat]);
+    const topo = buildTopology({getAttribute:k => k === 'position' ? {array:pos} : null});
+    const options = {topo,rot:IDENTITY,offset:OFF,angle:45};
+    const run = () => gussetAt([5,10,20],[15,10,30],faceAt(topo,5,1),pos,options);
+    const plain = run();
+    PROP.bottomAnchors = true;
+    const anchored = run();
+    assert(plain.ok && anchored.ok, plain.reason ?? anchored.reason);
+    assert(anchored.anchorsSkipped === 0 && anchored.tris.length > plain.tris.length, 'no validated anchors were added');
+    assert(isClosed(anchored.tris), 'open anchored gusset');
+    const clash = lWith(14,15,0,20,27,30);
+    const rejected = gussetAt([5,10,20],[15,10,30],faceAt(clash,5,1),clash.pos,
+      {topo:clash,rot:IDENTITY,offset:OFF});
+    assert(!rejected.ok && /runs into the part/.test(rejected.reason), 'anchor mode bypassed a real collision');
+  } finally {Object.assign(PROP,saved);}
+});

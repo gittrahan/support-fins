@@ -129,6 +129,9 @@ export function applyTunables(t = {}) {
     PROP.footGap = t.tineDir === 'vertical' ? 0 : FOOT_GAP;
   }
   if (Number.isFinite(t.bottomGap) && PROP.tineDir !== 'vertical') PROP.footGap = Math.max(0, Math.min(0.4, t.bottomGap));
+  if (t.bottomAnchors !== undefined || t.tineDir !== undefined) {
+    PROP.bottomAnchors = t.bottomAnchors === true && PROP.tineDir !== 'vertical';
+  }
   if (Number.isFinite(t.pinDepth)) PROP.pinDepth = Math.max(0.05, Math.min(PROP.pinDepthMax, t.pinDepth));
   // And the nozzle and wall lines, which scale the support widths (nozzle.js).
   if (t.nozzle !== undefined) applyNozzle(t.nozzle);
@@ -187,6 +190,7 @@ function buildFinsLevelled(topo, result, rot, opts) {
                    total: bareArea(topo, result, rot, opts, { fins: [] }).total, coverage };
   }
   built.seatingSkipped = built.fins.reduce((n, f) => n + (f.seatingSkipped ?? 0), 0);
+  built.anchorsSkipped = built.fins.reduce((n, f) => n + (f.anchorsSkipped ?? 0), 0);
   // Synchronous hosts explicitly opt in. The browser instead calls inspectFins
   // in a second worker message after displaying this build.
   if (opts.diagnostics) Object.assign(built, inspectFins(topo, result, rot, built, opts));
@@ -290,7 +294,7 @@ function withFill(topo, result, rot, opts, auto) {
   const props = f.props.map((q) => ({ ...q, triRanges: q.triRanges.map(([a, b]) => [a + at, b + at]) }));
   let wid = auto.fins.length;
   const fins = props.map((q) => ({
-    seatingSkipped: q.seatingSkipped ?? 0, height: q.height, length: q.span, tines: q.tines, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
+    seatingSkipped: q.seatingSkipped ?? 0, anchorsSkipped: q.anchorsSkipped ?? 0, height: q.height, length: q.span, tines: q.tines, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
     id: wid++, kind: 'prop', fill: true, triRanges: q.triRanges, line: q.line, span: q.span,
     ...(q.joined ? { joined: true } : {}), ...(q.braces ? { braces: q.braces } : {}),
   }));
@@ -437,7 +441,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     const shortProps = short.props.map((q) => ({ ...q, triRanges: q.triRanges.map(([a, b]) => [a + shortAt, b + shortAt]) }));
     for (const q of shortProps) {
       fins.push({
-        seatingSkipped: q.seatingSkipped ?? 0, height: q.height, length: q.span, tines: q.tines ?? 0, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
+        seatingSkipped: q.seatingSkipped ?? 0, anchorsSkipped: q.anchorsSkipped ?? 0, height: q.height, length: q.span, tines: q.tines ?? 0, rows: 0, stilt: 0, lean: 0, bearing: 0, site: null,
         id: wid++, kind: 'prop', short: true,
         triRanges: q.triRanges,
         line: q.line, span: q.span,
@@ -517,7 +521,7 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // fields (height/length/tines/...) are preserved; triRanges/id/kind/line are
     // additive on top of built.props (which already carry them).
     fins: built.props.map((q) => ({
-      seatingSkipped: q.seatingSkipped ?? 0, height: q.height, length: q.span, tines: 0, rows: 0,
+      seatingSkipped: q.seatingSkipped ?? 0, anchorsSkipped: q.anchorsSkipped ?? 0, height: q.height, length: q.span, tines: 0, rows: 0,
       stilt: 0, lean: 0, bearing: 0, site: null,
       id: q.id, kind: q.kind ?? 'prop',
       triRanges: q.triRanges ?? [], line: q.line, span: q.span,

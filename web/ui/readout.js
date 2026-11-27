@@ -249,6 +249,9 @@ function updateDrawReadout(built, ms) {
   const seatingSkipped = ok.reduce((n, w) => n + (w.info?.seatingSkipped ?? 0), 0);
   if (seatingSkipped) lead.push(tn("Landing unchanged on {n} wall; no verified correction. Inspect support starts in the slicer.",
     "Landing unchanged on {n} walls; no verified correction. Inspect support starts in the slicer.", seatingSkipped).replace(/[.。]$/, ''));
+  const skippedAnchors = ok.reduce((n, w) => n + (w.info?.anchorsSkipped ?? 0), 0);
+  if (skippedAnchors) lead.push(tn('Line anchors skipped on {n} wall; ordinary gap-only wall retained.',
+    'Line anchors skipped on {n} walls; ordinary gap-only walls retained.', skippedAnchors).replace(/[.。]$/, ''));
   if (!drawnWalls.length && !drawMsg) {
     lead.push(drawShapeNow() === 'gusset'
       ? t('Click a side of the part under an overhang, then the overhang itself, '
@@ -413,6 +416,10 @@ function updateFinReadout(built, ms) {
     + (drawShown() ? drawnWalls.reduce((n, w) => n + (w.ok ? w.info?.seatingSkipped ?? 0 : 0), 0) : 0);
   if (seatingSkipped) lead.push(tn("Landing unchanged on {n} wall; no verified correction. Inspect support starts in the slicer.",
     "Landing unchanged on {n} walls; no verified correction. Inspect support starts in the slicer.", seatingSkipped).replace(/[.。]$/, ''));
+  const skippedAnchors = built.fins.reduce((n, f) => n + (removedIds.has(f.id) ? 0 : f.anchorsSkipped ?? 0), 0)
+    + (drawShown() ? drawnWalls.reduce((n, w) => n + (w.ok ? w.info?.anchorsSkipped ?? 0 : 0), 0) : 0);
+  if (skippedAnchors) lead.push(tn('Line anchors skipped on {n} wall; ordinary gap-only wall retained.',
+    'Line anchors skipped on {n} walls; ordinary gap-only walls retained.', skippedAnchors).replace(/[.。]$/, ''));
   if (!n && !drawnOk) {
     // Nothing placed -- the box names the outcome; the why goes in the
     // (i), since it's a paragraph and the user can hover for it.

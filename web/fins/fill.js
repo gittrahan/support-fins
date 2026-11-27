@@ -759,7 +759,7 @@ function fillOnce(topo, result, rot, opts, built) {
     others.add(r.tris, { fill: true, k: props.length });
     for (const p of r.top) { near.add(p); nearIsland.add(p); }
     props.push({ line: r.top, triRanges: [[at, triangles.length]], height: r.height, span: r.length,
-                 tines: r.tines ?? 0, seatingSkipped: r.seatingSkipped ?? 0, partAttached: !!r.partAttached, squat: !!r.squat, fill: true,
+                 tines: r.tines ?? 0, seatingSkipped: r.seatingSkipped ?? 0, anchorsSkipped: r.anchorsSkipped ?? 0, partAttached: !!r.partAttached, squat: !!r.squat, fill: true,
                  joined: joined || undefined });
     if (joined) stats.joined = (stats.joined ?? 0) + 1;
     floors.push(r.floors ?? null);

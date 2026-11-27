@@ -12,6 +12,7 @@ import { ribbon, roundedFlange } from '../solids.js';
 import { PROP } from './config.js';
 import { crestCut, crestKinds, dropCollapsed, emitCrest } from './crest.js';
 import { windowedFlange } from './resinfoot.js';
+import { bottomAnchors, AnchorContactError } from './anchors.js';
 
 /**
  * Foot half-width for a wall of height `h`.
@@ -160,12 +161,19 @@ export function sweep(line, zBed, out, minH = PROP.minHeight, frame = null) {
  *
  * `minH` is the least headroom a station needs (Draw mode passes minHeightSquat
  * for a squat wall the user asked for by hand; Auto keeps minHeight).
+ * `details` receives bodyEnd (an index into out before optional contacts) and
+ * anchorsSkipped (one when the retained wall has no verified line contact).
  */
-export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, frame = null, solidUntil = null) {
+export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, frame = null, solidUntil = null, partTris, details = {}) {
   if (frame) {
-    const local = [];
-    if (!sweepBetween(topLine, botLine, local, minH, null, solidUntil)) return false;
-    for (const p of frameSweep(local, frame)) out.push(p);
+    const local = [], localDetails = {};
+    if (!sweepBetween(topLine, botLine, local, minH, null, solidUntil, partTris, localDetails)) return false;
+    // Turning refines triangles: the body boundary must index the framed
+    // output, not the unrefined local input. Each solid maps independently.
+    const body = frameSweep(local.slice(0, localDetails.bodyEnd), frame);
+    Object.assign(details, localDetails, { bodyEnd: out.length + body.length });
+    for (const p of body) out.push(p);
+    for (const p of frameSweep(local.slice(localDetails.bodyEnd), frame)) out.push(p);
     return true;
   }
   const welded = PROP.footGap <= 0;
@@ -234,9 +242,21 @@ export function sweepBetween(topLine, botLine, out, minH = PROP.minHeight, frame
     st.push({ p, sx, sy, top: zTop, ztip: zTopTip, holeTop: top - taper, tipHalf: wTop, sh, bot: bHi, botTip: holeBottom, taperBot: welded, botN: bN, botP: bP });
   }
 
+  // Anchors are optional contacts. A floor that cannot prove a safe contact
+  // retains its ordinary gap-only wall; unexpected geometry errors still escape.
+  let anchors = [], anchorsSkipped = 0;
+  try { anchors = bottomAnchors(st, partTris); }
+  catch (e) {
+    if (!(e instanceof AnchorContactError)) throw e;
+    anchorsSkipped = 1;
+  }
   const from = out.length;
   if (!cutWall(st, wall, out, PROP)) ribbon(wall, out);
   if (kinds) { dropCollapsed(out, from); emitCrest(crest, out); }
+  // Clearance checks inspect the body, excluding the independently validated
+  // contacts which intentionally reach the floor. Count only walls kept by callers.
+  Object.assign(details, { bodyEnd: out.length, anchorsSkipped });
+  out.push(...anchors);
   return true;
 }
 

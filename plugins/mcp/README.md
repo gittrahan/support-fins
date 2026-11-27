@@ -29,10 +29,12 @@ or `"off"`. It keeps fill walls from crossing or sharing their bases, but can le
 more overhang unsupported; thin ties between tall walls stay. In Auto placement (`"mode": "auto"`) it has no
 effect and returns a warning.
 
-For independent clearances, use
-`"settings": {"side-clearance": 0.35, "bottom-gap": 0.2}`.
-The clearances are in millimetres. Top clearance remains `gap`. Resin ignores
-bottom gap. Plate feet are unchanged.
+For independent clearances and optional FDM line contacts, use
+`"settings": {"side-clearance": 0.35, "bottom-gap": 0.2, "bottom-anchors": true}`.
+The clearances are in millimetres; anchors default to `false`. Top clearance
+remains `gap`. Resin ignores bottom gap and anchors. Plate feet are unchanged.
+An anchored wall needs a verified floor contact; otherwise it is omitted. Check
+the resulting coverage in the slicer and print-test contact strength and marking.
 
 Side clearance is 0.2 to 1 mm: a wall closer than 0.2 mm would fuse to the part.
 
@@ -88,3 +90,9 @@ end to end. For anything else, open the 3MF from `fin_part` in your slicer.
 - `tests/server.test.js`: `deno test -A plugins/mcp/tests/`. A tool call writes the same
   bytes as the CLI; the schema is the CLI's flags; errors write nothing; and a full
   exchange over real stdio on Deno and on Node.
+
+Line anchors are inactive at zero Bottom gap and with resin pins. When no safe
+contact fits a wall, its ordinary gap-only geometry is retained. The report counts
+these kept walls as “Line anchors skipped on N walls”; it does not count rejected
+placement attempts or lost coverage. Curved and finely tessellated floors may not
+admit safe contacts. Inspect retained gap-only walls in the slicer before printing.

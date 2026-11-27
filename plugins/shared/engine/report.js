@@ -37,6 +37,7 @@ export function reportLine(stats) {
     parts.push(`${plural(stats.smallHoleRegions, 'small-hole ceiling', 'small-hole ceilings')} left unsupported for bridging`);
   }
   if (stats.seatingSkipped) parts.push(`Landing unchanged on ${plural(stats.seatingSkipped, 'wall', 'walls')}; no verified correction, inspect support starts in the slicer`);
+  if (stats.anchorsSkipped) parts.push(`Line anchors skipped on ${plural(stats.anchorsSkipped, 'wall', 'walls')}; ordinary gap-only walls retained`);
   const unserved = stats.unserved || 0;
   if (unserved) {
     parts.push(`${unserved} overhang${unserved === 1 ? ' is' : 's are'} too shallow `

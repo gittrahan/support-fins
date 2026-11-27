@@ -111,6 +111,29 @@ function firstLayerSeated(triangles, c, layer, end) {
   return false;
 }
 
+/** Sweep a seated wall: the ordinary sweep, then its lower run moved by
+ * footSeatFrame(route). With `tris`, Line anchors (prop/anchors.js) are checked
+ * against the part shifted back by the route's delta, i.e. against the floor
+ * the moved foot actually lands on, and move with the foot. A contact reaching
+ * the bend (which would not move rigidly) is dropped and counted as skipped.
+ * `details` receives bodyEnd (index before the contacts) and anchorsSkipped.
+ * Shared by seatPartWall and turning's rebuild, so both produce one mesh. */
+export function seatedSweep(top, floor, route, minH, tris, details = {}) {
+  const local = [], d = {};
+  let source;
+  if (tris && PROP.bottomAnchors) {
+    const dx = -route.sx * route.delta, dy = -route.sy * route.delta;
+    source = Float64Array.from(tris, (v, i) => v + (i % 3 === 0 ? dx : i % 3 === 1 ? dy : 0));
+  }
+  if (!sweepBetween(top, floor, local, minH, null, route.end, source, d)) return null;
+  const frame = footSeatFrame(route);
+  const body = frameSweep(local.slice(0, d.bodyEnd), frame);
+  let anchors = local.slice(d.bodyEnd), skipped = d.anchorsSkipped ?? 0;
+  if (anchors.some(p => p[2] >= route.start - EPS)) { anchors = []; skipped = 1; }
+  Object.assign(details, { bodyEnd: body.length, anchorsSkipped: skipped });
+  return body.concat(frameSweep(anchors, frame));
+}
+
 /** Return an ordinary wall, a corrected wall, or a degenerate verdict.
  * A failed landing search retains the ordinary wall and reports seatingSkipped;
  * this does not certify its landing or bypass the callers' existing clearance checks.
@@ -119,9 +142,9 @@ function firstLayerSeated(triangles, c, layer, end) {
  * this does not retune the existing permissible tilt of a partially seated foot.
  */
 export function seatPartWall(mold, tris, layer = PROP.tineH, minH = PROP.minHeight, keepClear = null) {
-  const ordinary = [];
-  if (!sweepBetween(mold.top, mold.floor, ordinary, minH)) return { ok: false };
-  const unchanged = { ok: true, triangles: ordinary, ...mold };
+  const ordinary = [], details = {};
+  if (!sweepBetween(mold.top, mold.floor, ordinary, minH, null, null, tris, details)) return { ok: false };
+  const unchanged = { ok: true, triangles: ordinary, ...mold, bodyEnd: details.bodyEnd, anchorsSkipped: details.anchorsSkipped ?? 0 };
   const fallback = reason => ({ ...unchanged, seatingSkipped: 1, seatingReason: reason });
   if (!(PROP.footGap > 0) || PROP.tineDir === 'vertical' || !(layer > 0)) return unchanged;
   const top = mold.top, first = top[0], last = top.at(-1);
@@ -174,9 +197,9 @@ export function seatPartWall(mold, tris, layer = PROP.tineH, minH = PROP.minHeig
       PROP.iface ? PROP.ifaceLayers * layer : 0) - layer;
     if (end >= neck) continue;
     const route = { delta, sx, sy, start, end };
-    const local = [];
-    if (!sweepBetween(dense, floor, local, minH, null, end)) continue;
-    const triangles = frameSweep(local, footSeatFrame(route));
+    // Candidates are judged on the wall body alone; contacts follow the winner.
+    const triangles = seatedSweep(dense, floor, route, minH, null);
+    if (!triangles) continue;
     // Test the complete changed lower solid, including the old landing height.
     const cut = Math.max(end, ...mold.floor.flatMap(f => f.slice(2).map(z => z + PROP.footGap))) + layer / 2;
     const split = frameSweep(triangles, { degrees: 1, levels: [cut], at: p => p });
@@ -199,7 +222,10 @@ export function seatPartWall(mold, tris, layer = PROP.tineH, minH = PROP.minHeig
     try {
       if (!firstLayerSeated(triangles, c, layer, cut)) continue;
     } catch (_) { continue; } // open/inconsistent sections cannot certify a route
-    return { ok: true, triangles, top: dense, floor, route };
+    const seated = {};
+    const withAnchors = PROP.bottomAnchors ? seatedSweep(dense, floor, route, minH, tris, seated) : null;
+    return { ok: true, triangles: withAnchors ?? triangles, bodyEnd: seated.bodyEnd ?? triangles.length,
+      anchorsSkipped: withAnchors ? seated.anchorsSkipped : 0, top: dense, floor, route };
   }
   return fallback('no-landing');
 }

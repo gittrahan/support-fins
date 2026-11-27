@@ -5,7 +5,7 @@ import { CUT } from '../web/cutout.js';
 import { applyNozzle, nozzle } from '../web/nozzle.js';
 import { moldLine } from '../web/prop/mold.js';
 import { sweepBetween } from '../web/prop/sweep.js';
-import { seatPartWall, footSeatFrame } from '../web/prop/foot-seat.js';
+import { seatPartWall, footSeatFrame, seatedSweep } from '../web/prop/foot-seat.js';
 import { frameSweep } from '../web/prop/turn-frame.js';
 import { drawnWall } from '../web/draw.js';
 import { drawWall } from '../plugins/shared/engine/draw_entry.js';
@@ -171,6 +171,23 @@ test('Auto recipe replay retains the corrected lower wall for turning',()=>{
   assert(JSON.stringify(replay)===JSON.stringify(out),'turning rebuild changed the base');
 });
 
+
+test('Line anchors on a corrected landing sit on the ledge it moved to, and turning replays them',()=>{
+  PROP.bottomAnchors=true;
+  const body=ledgeFixture(),r=checked(build(body));
+  const contacts=r.triangles.slice(r.bodyEnd);
+  assert(contacts.length>0,'no anchors on the corrected landing');
+  assert(r.anchorsSkipped===0,'anchors counted as skipped');
+  // the ledge top is x in [-3, 0] at z 5; the foot was moved there from x 0.6, over air
+  assert(contacts.every(p=>p[0]>=-3-1e-9&&p[0]<=1e-9),'anchor left the ledge');
+  assertClose(Math.min(...contacts.map(p=>p[2])),5,1e-8);
+  assert(contacts.every(p=>p[2]<r.route.start),'anchor reaches the bend');
+  const out=[],a=buildPartAttached(ledgeLine(),body,topo(body),ID,ZERO,out,true,.2);
+  assert(a.ok&&a.prop.turnWall.seating&&a.prop.anchorsSkipped===0);
+  const w=a.prop.turnWall,replay=seatedSweep(w.top,w.floor,w.seating,PROP.minHeight,body);
+  assert(JSON.stringify(replay)===JSON.stringify(out),'turning rebuild changed the anchored base');
+  assert(a.bodyEnd<out.length,'clearance checks would include the anchors');
+});
 
 test('station limit keeps long walls without falsely certifying a landing',()=>{
   const body=Float64Array.from(ledgeFixture(),(v,i)=>i%3===1?v*40:v);

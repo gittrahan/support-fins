@@ -176,13 +176,14 @@ export function gussetAt(w, o, side, tris, opts) {
 
   const out = [];
   if (crestOn()) crestPart(tris, layerH);
-  if (!sweepBetween(top, floors, out, PROP.minHeightSquat)) {
+  const details = {};
+  if (!sweepBetween(top, floors, out, PROP.minHeightSquat, null, null, tris, details)) {
     return { ok: false, reason: 'too little room under the overhang there for a gusset' };
   }
   // ...and then the swept body is MEASURED against the whole part, as Auto's walls are
   // (prop.js): the stations above are a mm apart, and a rib thinner than that between
   // two of them is seen only by the solid's own triangles (solidClearance).
-  const hit = solidClearance(topo, rot, offset, out, 0.25);
+  const hit = solidClearance(topo, rot, offset, out.slice(0, details.bodyEnd), 0.25);
   if (hit && welds(hit)) return intoPart();
   let height = 0;
   for (let k = 0; k < top.length; k++) height = Math.max(height, top[k][2] - PROP.gap - floors[k][2]);
@@ -225,7 +226,7 @@ export function gussetAt(w, o, side, tris, opts) {
     return { ok: false, reason: 'the gusset would fuse with a support already standing there — place it clear of that support' };
   }
 
-  return { ok: true, tris: out, reach: u1, height, angle, tines, sideTines, top, floors: floors.map((f) => f[2]) };
+  return { ok: true, tris: out, anchorsSkipped: details.anchorsSkipped, reach: u1, height, angle, tines, sideTines, top, floors: floors.map((f) => f[2]) };
 }
 
 /** The body would cut into the part (or weld to it), wherever it was found. */

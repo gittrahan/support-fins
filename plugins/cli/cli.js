@@ -360,6 +360,9 @@ export async function run(argv, io) {
         + 'pose the part in your file, or write part + fins (.3mf)');
     }
     engineOptions = optionsFromDialog(args.dialog);
+    if (engineOptions.bottomAnchors && engineOptions.bottomGap === 0) {
+      io.err('support-fins: warning: --bottom-anchors does nothing with --bottom-gap 0; use a positive bottom gap');
+    }
     // No setting the math ignores goes by silently (the site hides these controls).
     for (const key of Object.keys(args.dialog)) {
       if (!optionVisible(key, args.dialog)) io.err(`support-fins: warning: --${flagOf(key)} does nothing with these settings`);
