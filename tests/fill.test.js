@@ -179,13 +179,15 @@ Deno.test('fill: drawnLine under=true follows the underside where the plain pick
 
 Deno.test('fill: pass 2 walls a low ledge with a squat wall (stations under minHeight + gap used to be cut)', async () => {
   // a 4 x 3 mm tab 1.5 mm over the plate off a block's side (a figure's cleat sole):
-  // under minHeight + gap (1.7), over the squat floor; Auto drops it as a sliver
+  // under minHeight + gap (1.7), over the squat floor; Auto's own passes drop it as a
+  // sliver (lastResort: false -- with it, the block's side blocks its lines and Auto
+  // gets the one fill wall a blocked region gets, #504)
   const { block, buildTopology } = await import('./_util.js');
   const pos = new Float32Array([...block(-10, 10, -10, 10, 0, 20), ...block(-2, 2, 9.99, 13, 1.5, 6)]);
   const tab = buildTopology({ getAttribute: (k) => (k === 'position' ? { array: pos } : null) });
   const id = [1, 0, 0, 0, 1, 0, 0, 0, 1];
   const r = analyze(tab, 45, id);
-  const a = fins.buildFins(tab, r, id, { ...OPTS, mode: 'auto' });
+  const a = fins.buildFins(tab, r, id, { ...OPTS, mode: 'auto', lastResort: false });
   const f = fins.buildFins(tab, r, id, { ...OPTS, mode: 'full' });
   assert(a.props.length === 0, `precondition: Auto walls the tab (${a.props.length} walls)`);
   const fw = f.props.filter((q) => q.fill);
