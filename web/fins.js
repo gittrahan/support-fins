@@ -283,6 +283,10 @@ function buildFinsAndBraces(topo, result, rot, opts = {}) {
   };
 }
 
+// Auto's one fill wall per blocked region (#504) runs a fill per region: at most this
+// many, so a plate of counterbores can't pay for dozens of fill runs
+const BLOCKED_FILLS = 8;
+
 /** Auto's result plus the fill pass's walls (fins/fill.js), merged the way the
  *  short walls are: triangles appended, props and fins carrying ranges into them.
  *  Its targets include the island starts (islands.js): `opts.islands` when the page
@@ -484,28 +488,31 @@ function buildFinsCore(topo, result, rot, opts = {}) {
     // coverage lines are Full's, but the red it couldn't reach is said all the same.
     // (a curve traced across a group's slivers counts for every region in it: prop/trace.js)
     const curved = new Set(auto.props.filter((q) => q.downhill && bends([q])).flatMap((q) => q.members ?? [q.region]));
+    let sofar = auto;
     if (mode === 'auto' && opts.curvedWalls === true && curved.size && !noWalls) {
       const f = withFill(topo, result, rot, { ...opts, tines: withTines, coverage, longWalls: false, fillRegions: curved }, auto);
-      return { ...f, fill: undefined,
+      sofar = { ...f, fill: undefined,
                curvedFill: { walls: f.fill.walls, unservedArea: f.fill.unservedArea, capped: f.fill.capped } };
     }
     // Regions Auto left bare because the part's side walls cut every last-resort
     // line to a stub (#504): a ring under a downward counterbore, split by the screw
     // hole. The fill's Draw-built walls cross the hole: one fill wall per region,
-    // there only. Every other bare region stays Full's (a broad Auto fill doubled
-    // build time and put 25 walls on a flat torus). `lastResort: false` skips it.
-    if (mode === 'auto' && short.blocked?.length && !noWalls) {
-      let out = auto;
-      for (const ri of short.blocked) {
+    // there only, the first BLOCKED_FILLS of them (each is a fill run). Every other
+    // bare region stays Full's (a broad Auto fill doubled build time and put 25
+    // walls on a flat torus). `lastResort: false` skips it.
+    const blocked = (short.blocked ?? []).slice(0, BLOCKED_FILLS);
+    if (mode === 'auto' && blocked.length && !noWalls) {
+      let out = sofar;
+      for (const ri of blocked) {
         const f = withFill(topo, result, rot, { ...opts, tines: withTines, coverage, fillRegions: new Set([ri]), fillStopAt: 1 }, out);
         if (f.fins.length > out.fins.length) out = { ...f, fill: undefined };
       }
-      if (out !== auto) {
-        const held = heldRegions(topo, result, rot, { coverage }, auto, out.fins.slice(auto.fins.length), short.blocked, true);
-        return { ...out, unserved: Math.max(0, auto.unserved - held.length) };
+      if (out !== sofar) {
+        const held = heldRegions(topo, result, rot, { coverage }, sofar, out.fins.slice(sofar.fins.length), blocked, true);
+        return { ...out, unserved: Math.max(0, (sofar.unserved ?? 0) - held.length) };
       }
     }
-    return auto;
+    return sofar;
   }
 
   // Prop (and any other mode) is its own support, built by its own module -- a
