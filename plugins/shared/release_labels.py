@@ -26,6 +26,7 @@ RULES = [
     (r"support_fins-(.+)\.zip", "Blender extension", "blender"),
     (r"support-fins-freecad-(.+)\.zip", "FreeCAD add-on", "freecad"),
     (r"support-fins-solidworks\.zip", "SolidWorks add-in", "solidworks"),
+    (r"support-fins-solidcraft\.zip", "SolidCraft plugin", "solidcraft"),
     (r"support-fins\.mjs", "Command line", "cli"),
     (r"support-fins-mcp\.mjs", "MCP server", "mcp"),
 ]

@@ -11,6 +11,7 @@ tables at the bottom of this page are generated from it.
 |---|---|
 | Cura, Fusion, FreeCAD, Blender, Rhino, SolidWorks | the plugin's dialog, built from the same list (no file to edit) |
 | OrcaSlicer | the plugin config: a JSON object, see [Orca](#orcaslicer) |
+| SolidCraft | the export's form (File ▸ Export ▸ Support Fins 3MF or STL), built from the same list, each setting named as the CLI's flag; percent settings 0–100 |
 | Command line | flags, e.g. `--mode full --gap 0.3`; `support-fins --help` lists them all |
 | MCP server | the `settings` object, named as the CLI's flags without `--` (`"tine-density": 40`); on/off settings take `true`/`false` under their plain name (`"tines": false`, not `no-tines`) |
 | Onshape | its own dialog: a port, not the shared engine, so not every setting below exists there |
