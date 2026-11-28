@@ -1,0 +1,6 @@
+{
+  "entry": "export-3mf",
+  "design": "lbracket.json",
+  "params": {"rot-y": 40, "tine-density": 50},
+  "expect": {"reply": {"format": "support-fins.export-3mf"}}
+}

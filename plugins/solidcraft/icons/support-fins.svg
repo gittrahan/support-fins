@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Support Fins</title>
+  <path d="M5.33 53.33 L58.67 53.33 L58.67 57.33 L5.33 57.33 Z" fill="currentColor"/>
+  <path d="M37.87 53.33 L37.87 48.93 L42.67 44.93 L42.67 53.33 Z M45.33 53.33 L45.33 42.67 L50.13 38.67 L50.13 53.33 Z" fill="currentColor"/>
+  <path d="M28.53 51.20 L48.96 34.05 L31.81 13.63 L11.39 30.77 Z" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round" stroke-linecap="round"/>
+</svg>

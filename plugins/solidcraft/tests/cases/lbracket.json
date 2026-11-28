@@ -1,0 +1,48 @@
+{
+  "format": "solidcraft/69",
+  "name": "lbracket",
+  "units": "mm",
+  "params": [],
+  "features": [
+    {
+      "id": 1,
+      "name": "Base",
+      "suppressed": false,
+      "body_names": [
+        "Body1"
+      ],
+      "param_names": [
+        "d1",
+        "d2",
+        "d3"
+      ],
+      "type": "box",
+      "corner": [0.0, 0.0, 0.0],
+      "length": "30",
+      "width": "12",
+      "height": "5",
+      "operation": "new_body"
+    },
+    {
+      "id": 2,
+      "name": "Upright",
+      "suppressed": false,
+      "param_names": [
+        "d4",
+        "d5",
+        "d6"
+      ],
+      "type": "box",
+      "corner": [0.0, 0.0, 0.0],
+      "length": "5",
+      "width": "12",
+      "height": "25",
+      "operation": "join"
+    }
+  ],
+  "next_id": 3,
+  "reserved_body_names": [
+    "Body1"
+  ],
+  "next_component_color_index": 0
+}
