@@ -901,7 +901,7 @@ function fillOnce(topo, result, rot, opts, built) {
       // (the red only: a row is along the model's length, an island start is a point)
       const r = rowWalls({ pts: red, heading: field(x / w, y / w) ?? 0, R, tris, drawOpts, minGain: FILL.minGain,
         fits: (t) => !touchesSmallHole(result, t.top) && !others.hits(t.tris, PROP.sideClear, shared), keep: (t) => keep(t),
-        room: () => stats.walls < FILL.maxWalls, nFaces: topo.nFaces });
+        room: () => stats.walls < Math.min(FILL.maxWalls, stopAt), nFaces: topo.nFaces });
       stats.rows = r.walls;
       stats.rowBuilds = r.builds;
     }
