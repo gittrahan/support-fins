@@ -43,7 +43,7 @@ const overlaps = (a, b, pad) =>
  */
 export function lastResortWalls(topo, result, rot, opts, servedRegions, wedgeTris, existing) {
   const bare = bareAfterWedges(topo, rot, result, servedRegions, wedgeTris);
-  const none = { triangles: [], props: [], served: [], tines: 0 };
+  const none = { triangles: [], props: [], served: [], tines: 0, blocked: [] };
   if (!bare.length) return none;
   // (the tests' tine capture keeps only the walls that stay: fins/heldtines.js)
   const first = heldCapture(() => buildShortWalls(topo, result, rot, opts, new Set(bare)));
@@ -81,5 +81,8 @@ export function lastResortWalls(topo, result, rot, opts, servedRegions, wedgeTri
       append(struts.value, struts);
     }
   }
-  return { triangles, props, served: [...served], tines };
+  // the bare regions whose last-resort lines the part's side walls cut to stubs
+  // ('blocked'): a ring under a downward counterbore (#504), for Auto's one fill wall
+  const blocked = (built.blockedRegions ?? []).filter((ri) => !served.has(ri));
+  return { triangles, props, served: [...served], tines, blocked };
 }

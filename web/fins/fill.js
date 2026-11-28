@@ -686,17 +686,21 @@ export function bareArea(topo, result, rot, opts, built, withPoints = false) {
  * Which of `regions` (indices into result.regions) the walls `added` hold, on top of
  * `built`'s: a region is held when they take FILL.minGain of its red off it -- the
  * gain the fill asks of a wall -- or all of it. Red as bareArea measures it. Full
- * coverage's `unserved` (fins.js) is Auto's bare regions less these.
+ * coverage's `unserved` (fins.js) is Auto's bare regions less these. `whole`: held
+ * only when under FILL.minGain of its red is left bare.
  */
-export function heldRegions(topo, result, rot, opts, built, added, regions) {
+export function heldRegions(topo, result, rot, opts, built, added, regions, whole = false) {
   const tops = (fins) => fins.filter((w) => w.kind !== 'sway').flatMap((w) => w.line ?? []);
   const R = fillReach(Math.max(0, Math.min(1, opts.coverage ?? 0.5)));
   const before = reachOf(tops(built.fins ?? []), R), after = reachOf([...tops(built.fins ?? []), ...tops(added)], R);
   const cls = classify(topo, result, rot);
   const red = (near, ri) => leftoverPoints(topo, result, rot, near, cls, [ri]).reduce((s, p) => s + p[3], 0);
   return regions.filter((ri) => {
-    const left = red(before, ri);
-    return left > 0 && left - red(after, ri) >= Math.min(FILL.minGain, left);
+    const left = red(before, ri), after_ = red(after, ri);
+    // whole: the walls must leave less than FILL.minGain of it (Auto's one blocked-ring
+    // wall, #504: a partial hold still says the overhang is too shallow this way up)
+    if (whole) return left > 0 && after_ < FILL.minGain;
+    return left > 0 && left - after_ >= Math.min(FILL.minGain, left);
   });
 }
 

@@ -298,6 +298,8 @@ function buildPass(topo, result, rot, opts, raster) {
                  keepClear: result.excludedSupportVolumes,
                  partTris, plateOnly, short, withTines, tineStepEff, tineHeight, capAt,
                  out, props, skipped, served: new Set(), tally,
+                 // regions with a line refused as 'blocked' (side walls in the way), for #504
+                 blocked: new Set(),
                  // Per-fin identity, assigned in build order. The id is only used to map a
                  // raycast hit back to its fin WITHIN one build (the UI tracks removals across
                  // rebuilds by a spatial signature, not this id). Sequential keeps it stable
@@ -379,7 +381,7 @@ function buildPass(topo, result, rot, opts, raster) {
   // yield several -- subtracting a prop count from a region count would say a
   // part with one region and three walls had "-2 unserved".
   return { triangles: out, props, skipped, served: servedRegions.size,
-           servedRegions: [...servedRegions],
+           servedRegions: [...servedRegions], blockedRegions: [...pass.blocked],
            tines: tally.tines, sagRisk: tally.sagRisk, flushable: [...tally.flushable],
            ...(raster ? { sagRegions: tally.sagRegions } : {}),
            ...(traced ? { leaderOf: traced.leaderOf } : {}),

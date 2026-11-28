@@ -489,6 +489,22 @@ function buildFinsCore(topo, result, rot, opts = {}) {
       return { ...f, fill: undefined,
                curvedFill: { walls: f.fill.walls, unservedArea: f.fill.unservedArea, capped: f.fill.capped } };
     }
+    // Regions Auto left bare because the part's side walls cut every last-resort
+    // line to a stub (#504): a ring under a downward counterbore, split by the screw
+    // hole. The fill's Draw-built walls cross the hole: one fill wall per region,
+    // there only. Every other bare region stays Full's (a broad Auto fill doubled
+    // build time and put 25 walls on a flat torus). `lastResort: false` skips it.
+    if (mode === 'auto' && short.blocked?.length && !noWalls) {
+      let out = auto;
+      for (const ri of short.blocked) {
+        const f = withFill(topo, result, rot, { ...opts, tines: withTines, coverage, fillRegions: new Set([ri]), fillStopAt: 1 }, out);
+        if (f.fins.length > out.fins.length) out = { ...f, fill: undefined };
+      }
+      if (out !== auto) {
+        const held = heldRegions(topo, result, rot, { coverage }, auto, out.fins.slice(auto.fins.length), short.blocked, true);
+        return { ...out, unserved: Math.max(0, auto.unserved - held.length) };
+      }
+    }
     return auto;
   }
 

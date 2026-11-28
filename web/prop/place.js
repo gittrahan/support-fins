@@ -130,7 +130,10 @@ export function placeLine(lines, li, patch, pass) {
   const usable = withLowTails(
     line.map((p, k) => clear[k] && p[2] - PROP.gap >= PROP.minHeight), clear);
   const run = longestRun(usable);
-  if (!run || run[1] - run[0] < PROP.minStations) { skipped.blocked++; runSquat(); return; }
+  if (!run || run[1] - run[0] < PROP.minStations) { skipped.blocked++;
+    // side walls in the way (a station refused for clearance, not height): #504's ring
+    if (clear.some((c) => !c)) pass.blocked?.add(patch.region);
+    runSquat(); return; }
   if (raster && !patch.strut) {       // a strut takes one wall, as it would standing alone
     for (const rest of rasterRest(line, run)) {
       lines.push(rest);
