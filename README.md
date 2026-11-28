@@ -322,6 +322,15 @@ Spacing). You place it by hand; size it with Fin Height rather than the slicer's
 which would stretch the one-layer tines. Confirmed working in PrusaSlicer 3.0 alpha11
 (2026-10-02). For fins shaped to the part automatically, use the browser app. See `plugins/prusa/README.md`.
 
+## The SolidCraft plugin (export)
+
+`plugins/solidcraft/` is an export for [SolidCraft](https://solidcraft.io): **File ▸ Export ▸
+Support Fins 3MF** (or **STL**) writes the open design's part with its fins baked in, posed and
+seated as the site exports it, byte for byte what the command line writes for the same mesh.
+SolidCraft runs plugins as WebAssembly with no JIT, so the engine runs in QuickJS there:
+seconds for a simple part, a couple of minutes for one with a hundred walls. See
+`plugins/solidcraft/README.md`.
+
 ## Honest limitations
 
 - Overhangs sitting over the _part_ rather than the plate aren't handled automatically.
@@ -333,8 +342,8 @@ which would stretch the one-layer tines. Confirmed working in PrusaSlicer 3.0 al
 
 ```
 web/         the browser app (live at printfins.com)
-plugins/     slicer/CAD integrations (PrusaSlicer, OrcaSlicer, Onshape, Autodesk Fusion), the
-             command line, and an MCP server for AI clients
+plugins/     slicer/CAD integrations (PrusaSlicer, OrcaSlicer, Onshape, Autodesk Fusion,
+             SolidCraft), the command line, and an MCP server for AI clients
 prototype/   Python/trimesh proof of concept the engine was ported from
 docs/        FIN-SPEC.md — the verified fin geometry, with sources; PLUGIN-CONFIG.md —
              every plugin setting (Orca config keys, CLI flags)

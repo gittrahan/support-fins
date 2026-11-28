@@ -355,9 +355,56 @@ jobs:
           path: plugins/solidworks/build/support-fins-solidworks.zip
           if-no-files-found: error
 
+  solidcraft:
+    # The SolidCraft export slot: the engine bundled for QuickJS, a Rust crate built for
+    # wasm32-unknown-unknown (rquickjs compiles QuickJS with the runner's clang) and made a
+    # component with wasm-tools, then SolidCraft's own `plugin check` and `plugin test` on
+    # the package, with solidcraft-cli from SolidCraft's release (it needs only libc). Its
+    # Deno tests (the export path against the command line) run with the rest in test.yml.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SOLIDCRAFT_VERSION: '0.50.0'   # the release the plugin's WIT (craft:plugin@0.2.0) and cases were run on
+      WASM_TOOLS_VERSION: '1.263.0'
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # plugins/shared/version.py numbers the build from main's history
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v5     # npx fetches the pinned esbuild (plugins/shared/bundle.py)
+        with:
+          node-version: '22'
+      - name: Rust for wasm32, clang and llvm-ar for QuickJS, and wasm-tools
+        run: |
+          sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends clang llvm
+          rustup target add wasm32-unknown-unknown
+          cargo install wasm-tools --locked --version "$WASM_TOOLS_VERSION"
+      - name: SolidCraft's command line
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "v$SOLIDCRAFT_VERSION" --repo tangency-labs/solidcraft \
+            --pattern "solidcraft-$SOLIDCRAFT_VERSION-linux-x86_64.tar.gz" --dir "$RUNNER_TEMP"
+          mkdir -p "$RUNNER_TEMP/solidcraft"
+          tar -xzf "$RUNNER_TEMP/solidcraft-$SOLIDCRAFT_VERSION-linux-x86_64.tar.gz" -C "$RUNNER_TEMP/solidcraft"
+          echo "SOLIDCRAFT_CLI=$(find "$RUNNER_TEMP/solidcraft" -name solidcraft-cli -type f | head -1)" >> "$GITHUB_ENV"
+      - name: Build, then plugin check and plugin test
+        run: python plugins/solidcraft/build.py --test
+      - name: The component's own tests (V8's Math.hypot; they need the bundle the build wrote)
+        run: >
+          cargo test --release --locked --manifest-path plugins/solidcraft/component/Cargo.toml
+          --target-dir plugins/solidcraft/build/target --test hypot
+      - uses: actions/upload-artifact@v6
+        with:
+          name: solidcraft
+          path: plugins/solidcraft/build/support-fins-solidcraft.zip
+          if-no-files-found: error
+
   publish:
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'release' || inputs.tag != ''
-    needs: [orca, fusion, cura, prusa, blender, blender-smoke, freecad, cli, mcp, solidworks]
+    needs: [orca, fusion, cura, prusa, blender, blender-smoke, freecad, cli, mcp, solidworks, solidcraft]
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -443,6 +490,7 @@ jobs:
           - support_fins-<platform>.zip: Blender 4.2+ extension, experimental; pick your computer's (macos-arm64, macos-x64, windows-x64, linux-x64) and use Install from Disk
           - support-fins-freecad-<platform>.zip: FreeCAD 1.0 add-on, experimental; pick your computer's (mac-arm64, mac-x64, windows-x64, linux-x64, linux-arm64) and unzip into FreeCAD's Mod folder
           - support-fins-solidworks.zip: SolidWorks add-in (Windows), experimental, not yet run in SolidWorks; unzip, run install.bat as administrator
+          - support-fins-solidcraft.zip: SolidCraft 0.50+ export plugin (File > Export > Support Fins 3MF/STL), experimental; Preferences > Plugins > Install plugin...
           - support-fins.mjs: command line (Deno or Node 20.10+): node support-fins.mjs part.stl
           - support-fins-mcp.mjs: MCP server for AI clients (Claude Code, Claude Desktop; Deno or Node 20.10+): claude mcp add support-fins -- node /full/path/to/support-fins-mcp.mjs
 

@@ -43,6 +43,8 @@ plugins/solidworks/build/
 plugins/blender/build/
 plugins/rhino/build/
 plugins/prusa/build/
+# SolidCraft plugin: the bundle, cargo's target folder and the package
+plugins/solidcraft/build/
 # user-reported parts (other people's files): measured locally, never committed
 prototype/examples/reports/
 

@@ -1,0 +1,6 @@
+{
+  "entry": "export-stl",
+  "design": "tbar.json",
+  "params": {"bodies": ["Bracket"]},
+  "expect": {"error": "invalid_input", "message": "no visible body \"Bracket\""}
+}

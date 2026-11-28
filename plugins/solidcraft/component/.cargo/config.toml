@@ -1,0 +1,4 @@
+# The component's shadow stack (in its linear memory): QuickJS recurses on the C stack
+# for deep JavaScript, and src/lib.rs lets it go to 7 MiB before it throws.
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "link-arg=-zstack-size=8388608"]

@@ -1,0 +1,5 @@
+{
+  "entry": "export-3mf",
+  "design": "tbar.json",
+  "expect": {"reply": {"format": "support-fins.export-3mf", "plugin": "Support Fins"}}
+}

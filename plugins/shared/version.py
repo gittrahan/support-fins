@@ -92,12 +92,21 @@ def _cli_build():
     return mod
 
 
+def _solidcraft_build():
+    import importlib.util   # plugins/solidcraft/build.py, by path, as _cli_build
+    spec = importlib.util.spec_from_file_location("solidcraft_build", PLUGINS / "solidcraft" / "build.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def all_versions():
     """{plugin folder name: version}, the numbers each build stamps."""
     engine = [*bundle_inputs(), *ENGINE_EXTRAS]
     out = {name: version([PLUGINS / name, *engine])
            for name in ("orca", "fusion", "cura", "freecad", "blender", "rhino", "solidworks")}
     out["prusa"] = version([PLUGINS / "prusa"])   # its own Lua port: no engine
+    out["solidcraft"] = _solidcraft_build().plugin_version()   # its own bundle entry
     cli = _cli_build()
     out["cli"] = version([PLUGINS / "cli", *cli.inputs()])
     out["mcp"] = version([PLUGINS / "mcp", PLUGINS / "cli", *cli.inputs(PLUGINS / "mcp" / "support-fins-mcp.js")])

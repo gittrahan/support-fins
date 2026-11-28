@@ -1,0 +1,5 @@
+{
+  "entry": "export-3mf",
+  "design": "empty.json",
+  "expect": {"error": "unsupported", "message": "no visible body"}
+}

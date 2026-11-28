@@ -1,0 +1,6 @@
+{
+  "entry": "export-stl",
+  "design": "tbar.json",
+  "params": {"fins-only": true},
+  "expect": {"reply": {"format": "support-fins.export-stl"}}
+}
